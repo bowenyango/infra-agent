@@ -71,6 +71,11 @@ Current behavior is intentionally preflight-oriented:
 - `agent` runs a single-step agent decision loop on top of the preflight state through a pluggable planning model
 The current planning model is rule-based rather than LLM-backed, but the runtime now has a dedicated agent decision boundary that can later be replaced by a real model client.
 
+For a local smoke test, the repository includes a sample workspace:
+
+- `fixtures/sample-workspace/charts/payments-api`
+- `fixtures/sample-workspace/infra/payments-api`
+
 ## Safety Contract
 
 The agent must respect clear execution boundaries.

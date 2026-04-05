@@ -124,6 +124,19 @@ export function printAgentRunState(state: AgentRunState): void {
     printList(state.decision.action.payload.commands, 'No commands selected.');
   }
 
+  if (state.execution) {
+    process.stdout.write('\n');
+    printHeader('Execution');
+    process.stdout.write(`status: ${state.execution.status}\n`);
+    if (state.execution.reason) {
+      process.stdout.write(`reason: ${state.execution.reason}\n`);
+    }
+    printList(
+      state.execution.executedTools.map(result => `${result.toolName} (${result.safety})`),
+      'No tools executed.'
+    );
+  }
+
   process.stdout.write('\n\n');
   printRunPreflight(state.preflight);
 }

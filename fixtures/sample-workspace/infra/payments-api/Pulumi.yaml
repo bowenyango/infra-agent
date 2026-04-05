@@ -1,0 +1,3 @@
+name: payments-api
+runtime: nodejs
+description: Sample Pulumi project for infra-agent development

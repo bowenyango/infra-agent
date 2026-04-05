@@ -1,0 +1,6 @@
+apiVersion: v2
+name: payments-api
+description: Sample Helm chart for infra-agent development
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

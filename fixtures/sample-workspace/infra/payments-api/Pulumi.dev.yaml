@@ -1,0 +1,3 @@
+config:
+  payments-api:environment: dev
+  payments-api:imageTag: latest

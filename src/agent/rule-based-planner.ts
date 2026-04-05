@@ -17,6 +17,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
   async decideNextAction(input: AgentPlanningInput): Promise<AgentDecision> {
     const { preflight } = input;
     const topScore = preflight.targetCandidates[0]?.score ?? 0;
+    const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
 
     if (preflight.blockers.length > 0 && preflight.targetCandidates.length === 0) {
       return {
@@ -66,7 +67,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (preflight.validation.plan.length > 0) {
+    if (preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
       return {
         confidence: 'medium',
         action: {
@@ -90,4 +91,3 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     };
   }
 }
-
