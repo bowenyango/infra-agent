@@ -37,6 +37,7 @@ export async function executeDecision(
       const candidateFiles = [
         join(dirName, 'Chart.yaml'),
         join(dirName, 'values.yaml'),
+        join(dirName, 'templates/deployment.yaml'),
         join(dirName, 'templates/ingress.yaml')
       ];
       for (const listedFile of listedFiles) {

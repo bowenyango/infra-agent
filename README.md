@@ -75,6 +75,7 @@ The current agent runtime now supports one real vertical slice:
 
 - inspect the highest-confidence Helm and Pulumi targets
 - generate a scoped ingress edit plan for a Helm chart when the task clearly requests ingress work
+- generate a bounded readiness/liveness probe edit plan for a Helm chart when the task clearly requests chart health checks
 - generate a bounded Pulumi stack config edit plan when the task clearly requests stack-level config changes
 - write the planned files into the workspace
 - run Helm or Pulumi validation commands after the write step

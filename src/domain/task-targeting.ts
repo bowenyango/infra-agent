@@ -5,7 +5,22 @@ import type {
 } from '../types/repository.ts';
 
 const ENVIRONMENT_KEYWORDS = ['dev', 'development', 'stage', 'staging', 'prod', 'production', 'qa', 'test'] as const;
-const DOMAIN_KEYWORDS = ['helm', 'chart', 'pulumi', 'stack', 'service', 'deployment', 'ingress', 'redis'] as const;
+const DOMAIN_KEYWORDS = [
+  'helm',
+  'chart',
+  'pulumi',
+  'stack',
+  'service',
+  'deployment',
+  'ingress',
+  'redis',
+  'probe',
+  'probes',
+  'readiness',
+  'liveness',
+  'health',
+  'healthcheck'
+] as const;
 
 function normalizeToken(token: string): string {
   return token.trim().toLowerCase();
@@ -33,7 +48,17 @@ export function detectRequestedEnvironment(task: string): string | null {
 
 export function detectRequestedService(task: string): string | null {
   const tokens = tokenizeTask(task);
-  const ignoredTokens = new Set<string>([...ENVIRONMENT_KEYWORDS, ...DOMAIN_KEYWORDS, 'to', 'for', 'add', 'update', 'create']);
+  const ignoredTokens = new Set<string>([
+    ...ENVIRONMENT_KEYWORDS,
+    ...DOMAIN_KEYWORDS,
+    'to',
+    'for',
+    'add',
+    'update',
+    'create',
+    'and',
+    'with'
+  ]);
 
   for (const token of tokens) {
     if (!ignoredTokens.has(token) && /[a-z]/.test(token)) {
