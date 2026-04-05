@@ -61,15 +61,21 @@ The current repository includes a minimal TypeScript CLI skeleton with three com
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent run "<task>" [--workspace <path>]`
-- `infra-agent agent "<task>" [--workspace <path>]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based]`
 
 Current behavior is intentionally preflight-oriented:
 
 - `inspect` detects Helm charts and Pulumi projects
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
-- `agent` runs a single-step agent decision loop on top of the preflight state through a pluggable planning model
-The current planning model is rule-based rather than LLM-backed, but the runtime now has a dedicated `model client` boundary and a bounded `query loop` that can later be replaced by a real LLM-backed client.
+- `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
+- `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
+
+LLM planner environment variables:
+
+- `INFRA_AGENT_OPENAI_API_KEY` or `OPENAI_API_KEY`
+- `INFRA_AGENT_MODEL` default `gpt-5-mini`
+- `INFRA_AGENT_OPENAI_BASE_URL` or `OPENAI_BASE_URL` default `https://api.openai.com/v1`
 
 The current agent runtime now supports one real vertical slice:
 

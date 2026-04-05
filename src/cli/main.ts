@@ -3,6 +3,7 @@ import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
 import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
+import type { PlannerMode } from '../model/config.ts';
 import { printAgentRunState, printInspection, printRunPreflight, printValidationPreflight } from './output.ts';
 
 interface ParsedArgs {
@@ -10,6 +11,7 @@ interface ParsedArgs {
   task: string | null;
   workspace: string;
   json: boolean;
+  planner: PlannerMode;
 }
 
 function printUsage(): void {
@@ -20,7 +22,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--json]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--json]',
       '  infra-agent run "<task>" [--workspace <path>] [--json]',
       ''
     ].join('\n')
@@ -38,7 +40,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       command: 'help',
       task: null,
       workspace: cwd(),
-      json: false
+      json: false,
+      planner: 'auto'
     };
   }
 
@@ -53,14 +56,17 @@ function parseArgs(argv: string[]): ParsedArgs {
       command: commandName,
       task: null,
       workspace,
-      json
+      json,
+      planner: 'auto'
     };
   }
 
   if (commandName === 'run' || commandName === 'agent') {
     const workspaceFlagIndex = cleanArgs.indexOf('--workspace');
+    const plannerFlagIndex = cleanArgs.indexOf('--planner');
     let workspace = cwd();
     let taskArgs = cleanArgs;
+    let planner: PlannerMode = 'auto';
 
     if (workspaceFlagIndex >= 0) {
       const workspaceValue = cleanArgs[workspaceFlagIndex + 1];
@@ -72,6 +78,16 @@ function parseArgs(argv: string[]): ParsedArgs {
       taskArgs = cleanArgs.filter((_, index) => index !== workspaceFlagIndex && index !== workspaceFlagIndex + 1);
     }
 
+    if (plannerFlagIndex >= 0) {
+      const plannerValue = cleanArgs[plannerFlagIndex + 1];
+      if (plannerValue !== 'auto' && plannerValue !== 'llm' && plannerValue !== 'rule-based') {
+        fail('Missing or invalid value for --planner. Expected auto, llm, or rule-based.');
+      }
+
+      planner = plannerValue;
+      taskArgs = taskArgs.filter((_, index) => index !== plannerFlagIndex && index !== plannerFlagIndex + 1);
+    }
+
     const task = taskArgs.join(' ').trim();
     if (task.length === 0) {
       fail(`${commandName} requires a non-empty task string.`);
@@ -81,7 +97,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       command: commandName,
       task,
       workspace,
-      json
+      json,
+      planner
     };
   }
 
@@ -121,7 +138,7 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === 'agent') {
-    const agentRunState = await runSingleStep(parsed.task, parsed.workspace);
+    const agentRunState = await runSingleStep(parsed.task, parsed.workspace, undefined, parsed.planner);
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(agentRunState, null, 2)}\n`);
       return;

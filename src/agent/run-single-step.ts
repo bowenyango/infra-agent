@@ -2,7 +2,9 @@ import type { PlanningModel } from '../types/agent.ts';
 import type { AgentRuntimeState } from '../types/agent.ts';
 import { runQueryLoop } from '../query.ts';
 import type { RunPreflightState } from '../types/repository.ts';
-import { RuleBasedModelClient } from '../model/RuleBasedModelClient.ts';
+import type { PlannerMode } from '../model/config.ts';
+import { createModelClient } from '../model/create-model-client.ts';
+import type { ModelClient } from '../model/ModelClient.ts';
 
 export interface AgentRunState {
   modelName: string;
@@ -11,15 +13,22 @@ export interface AgentRunState {
   turns: Awaited<ReturnType<typeof runQueryLoop>>['turns'];
 }
 
-export async function runSingleStep(task: string, workspacePath: string, model?: PlanningModel): Promise<AgentRunState> {
-  const modelClient = model
-    ? {
-        name: model.name,
-        decideNextAction(runtime: AgentRuntimeState) {
-          return model.decideNextAction({ runtime });
-        }
-      }
-    : new RuleBasedModelClient();
+function toModelClient(model: PlanningModel): ModelClient {
+  return {
+    name: model.name,
+    decideNextAction(runtime: AgentRuntimeState) {
+      return model.decideNextAction({ runtime });
+    }
+  };
+}
+
+export async function runSingleStep(
+  task: string,
+  workspacePath: string,
+  model?: PlanningModel,
+  plannerMode: PlannerMode = 'auto'
+): Promise<AgentRunState> {
+  const modelClient = model ? toModelClient(model) : createModelClient(plannerMode);
   const result = await runQueryLoop(task, workspacePath, modelClient);
   const preflight = result.runtime.preflight;
 
