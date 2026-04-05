@@ -1,23 +1,42 @@
 import { BasePlanningModel } from './planning-model.ts';
 import type { AgentDecision, AgentPlanningInput } from '../types/agent.ts';
+import { buildIngressEditPlan } from './ingress-edit-plan.ts';
 
 function toTopTargetPaths(input: AgentPlanningInput): string[] {
-  return input.preflight.targetCandidates
+  return input.runtime.preflight.targetCandidates
     .slice(0, 3)
     .map(candidate => candidate.path);
 }
 
 function toValidationCommands(input: AgentPlanningInput): string[] {
-  return input.preflight.validation.plan.flatMap(entry => entry.commands).slice(0, 6);
+  const topHelmTarget = input.runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'helm-chart');
+  const topPulumiTarget = input.runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'pulumi-project');
+  const filtered = input.runtime.preflight.validation.plan.filter(entry => {
+    if (entry.kind === 'helm') {
+      return entry.target === topHelmTarget?.path;
+    }
+
+    if (entry.kind === 'pulumi') {
+      return /\b(pulumi|stack)\b/i.test(input.runtime.task) && entry.target === topPulumiTarget?.path;
+    }
+
+    return false;
+  });
+
+  return filtered.flatMap(entry => entry.commands).slice(0, 6);
 }
 
 export class RuleBasedPlanningModel extends BasePlanningModel {
   readonly name = 'rule-based-planner';
 
   async decideNextAction(input: AgentPlanningInput): Promise<AgentDecision> {
-    const { preflight } = input;
+    const { runtime } = input;
+    const { preflight } = runtime;
     const topScore = preflight.targetCandidates[0]?.score ?? 0;
     const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
+    const hasObservations = runtime.observations.length > 0;
+    const hasAppliedWrites = runtime.appliedWrites.length > 0;
+    const editPlan = buildIngressEditPlan(runtime);
 
     if (preflight.blockers.length > 0 && preflight.targetCandidates.length === 0) {
       return {
@@ -53,7 +72,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (preflight.targetCandidates.length > 0) {
+    if (!hasObservations && preflight.targetCandidates.length > 0) {
       return {
         confidence: 'high',
         action: {
@@ -67,7 +86,21 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
+    if (!hasAppliedWrites && editPlan.length > 0) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: 'Apply a scoped Helm ingress edit plan for the selected chart.',
+          rationale: 'The task requests ingress changes and the chart files have been inspected.',
+          payload: {
+            writes: editPlan
+          }
+        }
+      };
+    }
+
+    if (hasAppliedWrites && preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
       return {
         confidence: 'medium',
         action: {
@@ -82,11 +115,11 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     }
 
     return {
-      confidence: 'low',
+      confidence: hasObservations ? 'medium' : 'low',
       action: {
         kind: 'stop',
-        summary: 'No safe next action was identified.',
-        rationale: 'The current state does not support a meaningful edit or validation step.'
+        summary: 'No additional safe action was identified for the current task.',
+        rationale: 'The current runtime state does not support another bounded edit or validation step.'
       }
     };
   }

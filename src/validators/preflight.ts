@@ -45,13 +45,17 @@ function buildValidationPlan(inspection: WorkspaceInspection): ValidationPlanEnt
   }
 
   for (const project of inspection.pulumiProjects) {
-    plan.push({
-      kind: 'pulumi',
-      target: project.projectRoot,
-      commands: [
-        `pulumi preview --cwd ${project.projectRoot}`
-      ]
-    });
+    const stackNames = project.stackNames.length > 0 ? project.stackNames : [null];
+    for (const stackName of stackNames) {
+      const stackArg = stackName ? ` --stack ${stackName}` : '';
+      plan.push({
+        kind: 'pulumi',
+        target: project.projectRoot,
+        commands: [
+          `pulumi preview --cwd ${project.projectRoot}${stackArg}`
+        ]
+      });
+    }
   }
 
   return plan;

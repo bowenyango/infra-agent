@@ -3,6 +3,7 @@ import { executeTool } from '../services/tools/execute-tool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
 import { ValidateTargetsTool } from '../tools/ValidateTargetsTool/ValidateTargetsTool.ts';
+import { WriteFileTool } from '../tools/WriteFileTool/WriteFileTool.ts';
 import type { AgentDecision, AgentDecisionExecution } from '../types/agent.ts';
 import type { ToolUseContext } from '../Tool.ts';
 
@@ -31,7 +32,9 @@ export async function executeDecision(
       const candidateFiles = [
         join(dirName, 'Chart.yaml'),
         join(dirName, 'values.yaml'),
-        join(dirName, 'Pulumi.yaml')
+        join(dirName, 'Pulumi.yaml'),
+        join(dirName, 'Pulumi.dev.yaml'),
+        join(dirName, 'templates/ingress.yaml')
       ];
 
       for (const candidateFile of candidateFiles) {
@@ -75,6 +78,29 @@ export async function executeDecision(
     };
   }
 
+  if (decision.action.kind === 'apply-edit-plan') {
+    const writes = decision.action.payload?.writes ?? [];
+    if (writes.length === 0) {
+      return {
+        status: 'skipped',
+        executedTools: [],
+        reason: 'No file writes were present in the edit plan.'
+      };
+    }
+
+    const toolResults = [];
+    for (const write of writes) {
+      toolResults.push(await executeTool(WriteFileTool, {
+        path: write.path,
+        content: write.content
+      }, context));
+    }
+
+    return {
+      status: 'completed',
+      executedTools: toolResults
+    };
+  }
+
   return null;
 }
-

@@ -4,6 +4,7 @@ import type {
   ValidationPreflight,
   WorkspaceInspection
 } from '../types/repository.ts';
+import type { ValidationRunOutput } from '../types/tools.ts';
 
 function printHeader(title: string): void {
   process.stdout.write(`${title}\n`);
@@ -101,40 +102,60 @@ export function printRunPreflight(state: RunPreflightState): void {
 export function printAgentRunState(state: AgentRunState): void {
   printHeader('Agent Runtime');
   process.stdout.write(`planning model: ${state.modelName}\n`);
-  process.stdout.write(`decision confidence: ${state.decision.confidence}\n`);
-  process.stdout.write(`decision: ${state.decision.action.kind}\n`);
-  process.stdout.write(`summary: ${state.decision.action.summary}\n`);
-  process.stdout.write(`rationale: ${state.decision.action.rationale}\n`);
+  process.stdout.write(`decision count: ${state.decisions.length}\n`);
+  process.stdout.write(`execution count: ${state.executions.length}\n`);
 
-  if (state.decision.action.payload?.questions && state.decision.action.payload.questions.length > 0) {
+  for (let index = 0; index < state.decisions.length; index += 1) {
+    const decision = state.decisions[index];
     process.stdout.write('\n');
-    printHeader('Clarifying Questions');
-    printList(state.decision.action.payload.questions, 'No clarifying questions.');
-  }
+    printHeader(`Decision ${index + 1}`);
+    process.stdout.write(`confidence: ${decision.confidence}\n`);
+    process.stdout.write(`action: ${decision.action.kind}\n`);
+    process.stdout.write(`summary: ${decision.action.summary}\n`);
+    process.stdout.write(`rationale: ${decision.action.rationale}\n`);
 
-  if (state.decision.action.payload?.targetPaths && state.decision.action.payload.targetPaths.length > 0) {
-    process.stdout.write('\n');
-    printHeader('Target Paths');
-    printList(state.decision.action.payload.targetPaths, 'No target paths selected.');
-  }
-
-  if (state.decision.action.payload?.commands && state.decision.action.payload.commands.length > 0) {
-    process.stdout.write('\n');
-    printHeader('Planned Commands');
-    printList(state.decision.action.payload.commands, 'No commands selected.');
-  }
-
-  if (state.execution) {
-    process.stdout.write('\n');
-    printHeader('Execution');
-    process.stdout.write(`status: ${state.execution.status}\n`);
-    if (state.execution.reason) {
-      process.stdout.write(`reason: ${state.execution.reason}\n`);
+    if (decision.action.payload?.questions && decision.action.payload.questions.length > 0) {
+      printList(decision.action.payload.questions, 'No clarifying questions.');
     }
-    printList(
-      state.execution.executedTools.map(result => `${result.toolName} (${result.safety})`),
-      'No tools executed.'
-    );
+
+    if (decision.action.payload?.targetPaths && decision.action.payload.targetPaths.length > 0) {
+      printList(decision.action.payload.targetPaths, 'No target paths selected.');
+    }
+
+    if (decision.action.payload?.commands && decision.action.payload.commands.length > 0) {
+      printList(decision.action.payload.commands, 'No commands selected.');
+    }
+
+    if (decision.action.payload?.writes && decision.action.payload.writes.length > 0) {
+      printList(
+        decision.action.payload.writes.map(write => `${write.path}: ${write.reason}`),
+        'No writes selected.'
+      );
+    }
+
+    const execution = state.executions[index];
+    if (execution) {
+      process.stdout.write('\n');
+      printHeader(`Execution ${index + 1}`);
+      process.stdout.write(`status: ${execution.status}\n`);
+      if (execution.reason) {
+        process.stdout.write(`reason: ${execution.reason}\n`);
+      }
+      printList(
+        execution.executedTools.map(result => `${result.toolName} (${result.safety})`),
+        'No tools executed.'
+      );
+
+      for (const toolResult of execution.executedTools) {
+        if (toolResult.toolName === 'validate_targets') {
+          const output = toolResult.output as ValidationRunOutput;
+          printList(
+            output.results.map(result => `${result.command} -> exit ${result.exitCode}`),
+            'No validator commands executed.'
+          );
+        }
+      }
+    }
   }
 
   process.stdout.write('\n\n');

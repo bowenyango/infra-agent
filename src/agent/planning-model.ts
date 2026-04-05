@@ -9,4 +9,3 @@ export abstract class BasePlanningModel implements PlanningModel {
 
   abstract decideNextAction(input: AgentPlanningInput): Promise<AgentDecision>;
 }
-

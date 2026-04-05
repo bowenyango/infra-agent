@@ -71,6 +71,13 @@ Current behavior is intentionally preflight-oriented:
 - `agent` runs a single-step agent decision loop on top of the preflight state through a pluggable planning model
 The current planning model is rule-based rather than LLM-backed, but the runtime now has a dedicated agent decision boundary that can later be replaced by a real model client.
 
+The current agent runtime now supports one real vertical slice:
+
+- inspect the highest-confidence Helm and Pulumi targets
+- generate a scoped ingress edit plan for a Helm chart when the task clearly requests ingress work
+- write the planned files into the workspace
+- run Helm validation commands after the write step
+
 For a local smoke test, the repository includes a sample workspace:
 
 - `fixtures/sample-workspace/charts/payments-api`
