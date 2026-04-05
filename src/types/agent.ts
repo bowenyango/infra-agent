@@ -1,19 +1,13 @@
 import type { RunPreflightState } from './repository.ts';
 import type { ToolResult } from '../Tool.ts';
 import type { ValidationCommandOutput } from './tools.ts';
-
 export type AgentActionKind =
   | 'ask-for-clarification'
   | 'inspect-target-files'
   | 'apply-edit-plan'
   | 'validate-targets'
   | 'stop';
-
-export interface FileWritePlan {
-  path: string;
-  content: string;
-  reason: string;
-}
+import type { EditPlan, FileWritePlan } from './edit-plan.ts';
 
 export interface AgentAction {
   kind: AgentActionKind;
@@ -24,6 +18,7 @@ export interface AgentAction {
     questions?: string[];
     commands?: string[];
     writes?: FileWritePlan[];
+    editPlan?: EditPlan;
   };
 }
 
@@ -53,4 +48,5 @@ export interface AgentRuntimeState {
   observations: ToolResult<unknown>[];
   appliedWrites: FileWritePlan[];
   validationResults: ValidationCommandOutput[];
+  lastEditPlan: EditPlan | null;
 }

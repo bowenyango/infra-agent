@@ -1,4 +1,5 @@
 import { buildRunPreflight } from './agent/build-run-preflight.ts';
+import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
 import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from './types/agent.ts';
 import type { RunPreflightState } from './types/repository.ts';
@@ -46,7 +47,8 @@ function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentR
     preflight,
     observations: [],
     appliedWrites: [],
-    validationResults: []
+    validationResults: [],
+    lastEditPlan: null
   };
 }
 
@@ -84,6 +86,11 @@ export async function runQueryLoop(
       runtime = applyExecutionToRuntime(runtime, execution);
     }
 
+    runtime = {
+      ...runtime,
+      lastEditPlan: buildEditPlan(runtime)
+    };
+
     const turn: QueryTurn = {
       index: turnIndex,
       decision,
@@ -103,4 +110,3 @@ export async function runQueryLoop(
     turns
   };
 }
-

@@ -1,0 +1,15 @@
+export type EditPlanKind = 'helm-ingress';
+
+export interface FileWritePlan {
+  path: string;
+  content: string;
+  reason: string;
+}
+
+export interface EditPlan {
+  kind: EditPlanKind;
+  summary: string;
+  rationale: string;
+  writes: FileWritePlan[];
+}
+

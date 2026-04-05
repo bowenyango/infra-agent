@@ -83,6 +83,7 @@ Internally, the runtime now follows a Claude Code-inspired shape:
 - preflight state assembly
 - query loop
 - decision generation through a model client
+- edit-plan generation
 - tool execution
 - tool result writeback into runtime state
 

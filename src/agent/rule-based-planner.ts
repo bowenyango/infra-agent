@@ -1,29 +1,11 @@
 import { BasePlanningModel } from './planning-model.ts';
 import type { AgentDecision, AgentPlanningInput } from '../types/agent.ts';
-import { buildIngressEditPlan } from './ingress-edit-plan.ts';
+import { selectValidationCommands } from './select-validation-commands.ts';
 
 function toTopTargetPaths(input: AgentPlanningInput): string[] {
   return input.runtime.preflight.targetCandidates
     .slice(0, 3)
     .map(candidate => candidate.path);
-}
-
-function toValidationCommands(input: AgentPlanningInput): string[] {
-  const topHelmTarget = input.runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'helm-chart');
-  const topPulumiTarget = input.runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'pulumi-project');
-  const filtered = input.runtime.preflight.validation.plan.filter(entry => {
-    if (entry.kind === 'helm') {
-      return entry.target === topHelmTarget?.path;
-    }
-
-    if (entry.kind === 'pulumi') {
-      return /\b(pulumi|stack)\b/i.test(input.runtime.task) && entry.target === topPulumiTarget?.path;
-    }
-
-    return false;
-  });
-
-  return filtered.flatMap(entry => entry.commands).slice(0, 6);
 }
 
 export class RuleBasedPlanningModel extends BasePlanningModel {
@@ -36,7 +18,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
     const hasObservations = runtime.observations.length > 0;
     const hasAppliedWrites = runtime.appliedWrites.length > 0;
-    const editPlan = buildIngressEditPlan(runtime);
+    const editPlan = runtime.lastEditPlan;
 
     if (preflight.blockers.length > 0 && preflight.targetCandidates.length === 0) {
       return {
@@ -86,21 +68,23 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (!hasAppliedWrites && editPlan.length > 0) {
+    if (!hasAppliedWrites && editPlan && editPlan.writes.length > 0) {
       return {
         confidence: 'high',
         action: {
           kind: 'apply-edit-plan',
-          summary: 'Apply a scoped Helm ingress edit plan for the selected chart.',
-          rationale: 'The task requests ingress changes and the chart files have been inspected.',
+          summary: editPlan.summary,
+          rationale: editPlan.rationale,
           payload: {
-            writes: editPlan
+            writes: editPlan.writes,
+            editPlan
           }
         }
       };
     }
 
     if (hasAppliedWrites && preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
+      const commands = selectValidationCommands(runtime);
       return {
         confidence: 'medium',
         action: {
@@ -108,7 +92,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           summary: 'Run validators for the detected infrastructure targets.',
           rationale: 'The workspace has detectable validation targets and validators are available.',
           payload: {
-            commands: toValidationCommands(input)
+            commands
           }
         }
       };
