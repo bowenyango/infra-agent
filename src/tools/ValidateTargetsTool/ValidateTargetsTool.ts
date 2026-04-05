@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import type { Tool } from '../../Tool.ts';
 import type { ValidationRunOutput } from '../../types/tools.ts';
+import { getPreferredShell } from '../../utils/shell.ts';
 
 export interface ValidateTargetsInput {
   commands: string[];
@@ -11,8 +12,9 @@ export const ValidateTargetsTool: Tool<ValidateTargetsInput, ValidationRunOutput
   description: 'Run validation commands inside the active workspace.',
   safety: 'validate',
   async execute(input, context) {
+    const shell = getPreferredShell();
     const results = input.commands.map(command => {
-      const result = spawnSync('sh', ['-lc', command], {
+      const result = spawnSync(shell, ['-lc', command], {
         cwd: context.workspaceRoot,
         encoding: 'utf8'
       });
@@ -35,4 +37,3 @@ export const ValidateTargetsTool: Tool<ValidateTargetsInput, ValidationRunOutput
     };
   }
 };
-

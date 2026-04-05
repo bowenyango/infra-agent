@@ -5,9 +5,10 @@ import type {
   ValidatorAvailability,
   WorkspaceInspection
 } from '../types/repository.ts';
+import { getPreferredShell } from '../utils/shell.ts';
 
 function resolveExecutablePath(commandName: 'helm' | 'pulumi'): string | null {
-  const result = spawnSync('sh', ['-lc', `command -v ${commandName}`], {
+  const result = spawnSync(getPreferredShell(), ['-lc', `command -v ${commandName}`], {
     encoding: 'utf8'
   });
 
@@ -48,11 +49,19 @@ function buildValidationPlan(inspection: WorkspaceInspection): ValidationPlanEnt
     const stackNames = project.stackNames.length > 0 ? project.stackNames : [null];
     for (const stackName of stackNames) {
       const stackArg = stackName ? ` --stack ${stackName}` : '';
+      const localPulumiEnv = [
+        'PULUMI_HOME=$PWD/.pulumi-home',
+        'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state',
+        'PULUMI_CONFIG_PASSPHRASE=infra-agent'
+      ].join(' ');
+      const ensureLocalState = stackName
+        ? `mkdir -p .pulumi-home .pulumi-state && (${localPulumiEnv} pulumi stack init ${stackName} --cwd ${project.projectRoot} --non-interactive >/dev/null 2>&1 || true) && `
+        : '';
       plan.push({
         kind: 'pulumi',
         target: project.projectRoot,
         commands: [
-          `pulumi preview --cwd ${project.projectRoot}${stackArg}`
+          `${ensureLocalState}${localPulumiEnv} pulumi preview --cwd ${project.projectRoot}${stackArg} --non-interactive`
         ]
       });
     }

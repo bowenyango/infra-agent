@@ -6,6 +6,7 @@ import { ValidateTargetsTool } from '../tools/ValidateTargetsTool/ValidateTarget
 import { WriteFileTool } from '../tools/WriteFileTool/WriteFileTool.ts';
 import type { AgentDecision, AgentDecisionExecution } from '../types/agent.ts';
 import type { ToolUseContext } from '../Tool.ts';
+import type { DirectoryListingOutput } from '../types/tools.ts';
 
 function deduplicatePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
@@ -26,18 +27,25 @@ export async function executeDecision(
     const toolResults = [];
 
     for (const targetPath of targetPaths) {
-      toolResults.push(await executeTool(ListDirectoryTool, { path: targetPath }, context));
+      const directoryListing = await executeTool(ListDirectoryTool, { path: targetPath }, context);
+      toolResults.push(directoryListing);
 
       const dirName = targetPath === '.' ? '.' : targetPath;
+      const listedFiles = (directoryListing.output as DirectoryListingOutput).entries
+        .filter(entry => entry.kind === 'file')
+        .map(entry => entry.name);
       const candidateFiles = [
         join(dirName, 'Chart.yaml'),
         join(dirName, 'values.yaml'),
-        join(dirName, 'Pulumi.yaml'),
-        join(dirName, 'Pulumi.dev.yaml'),
         join(dirName, 'templates/ingress.yaml')
       ];
+      for (const listedFile of listedFiles) {
+        if (/^Pulumi(\..+)?\.(yaml|yml)$/i.test(listedFile)) {
+          candidateFiles.push(join(dirName, listedFile));
+        }
+      }
 
-      for (const candidateFile of candidateFiles) {
+      for (const candidateFile of deduplicatePaths(candidateFiles)) {
         try {
           toolResults.push(await executeTool(ReadFileTool, { path: candidateFile }, context));
         } catch {

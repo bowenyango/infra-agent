@@ -1,4 +1,4 @@
-export type EditPlanKind = 'helm-ingress';
+export type EditPlanKind = 'helm-ingress' | 'pulumi-stack-config';
 
 export interface FileWritePlan {
   path: string;
@@ -12,4 +12,3 @@ export interface EditPlan {
   rationale: string;
   writes: FileWritePlan[];
 }
-

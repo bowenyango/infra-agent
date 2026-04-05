@@ -1,3 +1,9 @@
 name: payments-api
-runtime: nodejs
+runtime: yaml
 description: Sample Pulumi project for infra-agent development
+config:
+  payments-api:environment:
+    type: string
+  payments-api:imageTag:
+    type: string
+resources: {}
