@@ -102,13 +102,13 @@ export function printRunPreflight(state: RunPreflightState): void {
 export function printAgentRunState(state: AgentRunState): void {
   printHeader('Agent Runtime');
   process.stdout.write(`planning model: ${state.modelName}\n`);
-  process.stdout.write(`decision count: ${state.decisions.length}\n`);
-  process.stdout.write(`execution count: ${state.executions.length}\n`);
+  process.stdout.write(`turn count: ${state.turns.length}\n`);
 
-  for (let index = 0; index < state.decisions.length; index += 1) {
-    const decision = state.decisions[index];
+  for (let index = 0; index < state.turns.length; index += 1) {
+    const turn = state.turns[index];
+    const decision = turn.decision;
     process.stdout.write('\n');
-    printHeader(`Decision ${index + 1}`);
+    printHeader(`Turn ${index + 1}`);
     process.stdout.write(`confidence: ${decision.confidence}\n`);
     process.stdout.write(`action: ${decision.action.kind}\n`);
     process.stdout.write(`summary: ${decision.action.summary}\n`);
@@ -133,10 +133,10 @@ export function printAgentRunState(state: AgentRunState): void {
       );
     }
 
-    const execution = state.executions[index];
+    const execution = turn.execution;
     if (execution) {
       process.stdout.write('\n');
-      printHeader(`Execution ${index + 1}`);
+      printHeader(`Tool Result ${index + 1}`);
       process.stdout.write(`status: ${execution.status}\n`);
       if (execution.reason) {
         process.stdout.write(`reason: ${execution.reason}\n`);

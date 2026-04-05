@@ -69,7 +69,7 @@ Current behavior is intentionally preflight-oriented:
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `agent` runs a single-step agent decision loop on top of the preflight state through a pluggable planning model
-The current planning model is rule-based rather than LLM-backed, but the runtime now has a dedicated agent decision boundary that can later be replaced by a real model client.
+The current planning model is rule-based rather than LLM-backed, but the runtime now has a dedicated `model client` boundary and a bounded `query loop` that can later be replaced by a real LLM-backed client.
 
 The current agent runtime now supports one real vertical slice:
 
@@ -77,6 +77,14 @@ The current agent runtime now supports one real vertical slice:
 - generate a scoped ingress edit plan for a Helm chart when the task clearly requests ingress work
 - write the planned files into the workspace
 - run Helm validation commands after the write step
+
+Internally, the runtime now follows a Claude Code-inspired shape:
+
+- preflight state assembly
+- query loop
+- decision generation through a model client
+- tool execution
+- tool result writeback into runtime state
 
 For a local smoke test, the repository includes a sample workspace:
 
