@@ -1,0 +1,19 @@
+{
+  "name": "infra-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript CLI agent for inspecting and preparing Pulumi and Helm configuration workspaces.",
+  "type": "module",
+  "bin": {
+    "infra-agent": "./bin/infra-agent.js"
+  },
+  "scripts": {
+    "dev": "node --experimental-strip-types ./src/cli/main.ts",
+    "inspect": "node --experimental-strip-types ./src/cli/main.ts inspect",
+    "validate": "node --experimental-strip-types ./src/cli/main.ts validate",
+    "run": "node --experimental-strip-types ./src/cli/main.ts run"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
