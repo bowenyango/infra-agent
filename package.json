@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "node --experimental-strip-types ./src/cli/main.ts",
+    "agent": "node --experimental-strip-types ./src/cli/main.ts agent",
     "inspect": "node --experimental-strip-types ./src/cli/main.ts inspect",
     "validate": "node --experimental-strip-types ./src/cli/main.ts validate",
     "run": "node --experimental-strip-types ./src/cli/main.ts run"

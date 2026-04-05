@@ -1,3 +1,4 @@
+import type { AgentRunState } from '../agent/run-single-step.ts';
 import type {
   RunPreflightState,
   ValidationPreflight,
@@ -95,4 +96,34 @@ export function printRunPreflight(state: RunPreflightState): void {
 
   printHeader('Next Actions');
   printList(state.nextActions, 'No next actions generated.');
+}
+
+export function printAgentRunState(state: AgentRunState): void {
+  printHeader('Agent Runtime');
+  process.stdout.write(`planning model: ${state.modelName}\n`);
+  process.stdout.write(`decision confidence: ${state.decision.confidence}\n`);
+  process.stdout.write(`decision: ${state.decision.action.kind}\n`);
+  process.stdout.write(`summary: ${state.decision.action.summary}\n`);
+  process.stdout.write(`rationale: ${state.decision.action.rationale}\n`);
+
+  if (state.decision.action.payload?.questions && state.decision.action.payload.questions.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Clarifying Questions');
+    printList(state.decision.action.payload.questions, 'No clarifying questions.');
+  }
+
+  if (state.decision.action.payload?.targetPaths && state.decision.action.payload.targetPaths.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Target Paths');
+    printList(state.decision.action.payload.targetPaths, 'No target paths selected.');
+  }
+
+  if (state.decision.action.payload?.commands && state.decision.action.payload.commands.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Planned Commands');
+    printList(state.decision.action.payload.commands, 'No commands selected.');
+  }
+
+  process.stdout.write('\n\n');
+  printRunPreflight(state.preflight);
 }

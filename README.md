@@ -61,14 +61,15 @@ The current repository includes a minimal TypeScript CLI skeleton with three com
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent run "<task>" [--workspace <path>]`
+- `infra-agent agent "<task>" [--workspace <path>]`
 
 Current behavior is intentionally preflight-oriented:
 
 - `inspect` detects Helm charts and Pulumi projects
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
-
-This is the first implementation slice before model-driven planning and controlled editing are added.
+- `agent` runs a single-step agent decision loop on top of the preflight state through a pluggable planning model
+The current planning model is rule-based rather than LLM-backed, but the runtime now has a dedicated agent decision boundary that can later be replaced by a real model client.
 
 ## Safety Contract
 

@@ -1,11 +1,12 @@
 import { cwd, exit } from 'node:process';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
+import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
-import { printInspection, printRunPreflight, printValidationPreflight } from './output.ts';
+import { printAgentRunState, printInspection, printRunPreflight, printValidationPreflight } from './output.ts';
 
 interface ParsedArgs {
-  command: 'inspect' | 'run' | 'validate' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'help';
   task: string | null;
   workspace: string;
   json: boolean;
@@ -19,6 +20,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--json]',
       '  infra-agent run "<task>" [--workspace <path>] [--json]',
       ''
     ].join('\n')
@@ -55,7 +57,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
-  if (commandName === 'run') {
+  if (commandName === 'run' || commandName === 'agent') {
     const workspaceFlagIndex = cleanArgs.indexOf('--workspace');
     let workspace = cwd();
     let taskArgs = cleanArgs;
@@ -72,11 +74,11 @@ function parseArgs(argv: string[]): ParsedArgs {
 
     const task = taskArgs.join(' ').trim();
     if (task.length === 0) {
-      fail('run requires a non-empty task string.');
+      fail(`${commandName} requires a non-empty task string.`);
     }
 
     return {
-      command: 'run',
+      command: commandName,
       task,
       workspace,
       json
@@ -115,6 +117,17 @@ async function main(): Promise<void> {
     }
 
     printValidationPreflight(validationPreflight);
+    return;
+  }
+
+  if (parsed.command === 'agent') {
+    const agentRunState = await runSingleStep(parsed.task, parsed.workspace);
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(agentRunState, null, 2)}\n`);
+      return;
+    }
+
+    printAgentRunState(agentRunState);
     return;
   }
 
