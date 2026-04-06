@@ -109,7 +109,9 @@ export function printRunPreflight(state: RunPreflightState): void {
 export function printAgentRunState(state: AgentRunState): void {
   printHeader('Agent Runtime');
   process.stdout.write(`planning model: ${state.modelName}\n`);
+  process.stdout.write(`outcome: ${state.outcome}\n`);
   process.stdout.write(`turn count: ${state.turns.length}\n`);
+  process.stdout.write(`repair attempts: ${state.runtime.repairAttempts}\n`);
 
   for (let index = 0; index < state.turns.length; index += 1) {
     const turn = state.turns[index];

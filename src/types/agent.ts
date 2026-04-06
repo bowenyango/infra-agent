@@ -7,6 +7,17 @@ export type AgentActionKind =
   | 'apply-edit-plan'
   | 'validate-targets'
   | 'stop';
+export type AgentStopReason =
+  | 'validation-succeeded'
+  | 'validation-blocked'
+  | 'repair-budget-exhausted'
+  | 'no-safe-action';
+export type AgentRunOutcome =
+  | 'completed'
+  | 'clarification-required'
+  | 'validation-blocked'
+  | 'repair-budget-exhausted'
+  | 'no-safe-action';
 import type { EditPlan, FileWritePlan } from './edit-plan.ts';
 
 export interface AgentAction {
@@ -19,6 +30,7 @@ export interface AgentAction {
     commands?: string[];
     writes?: FileWritePlan[];
     editPlan?: EditPlan;
+    stopReason?: AgentStopReason;
   };
 }
 

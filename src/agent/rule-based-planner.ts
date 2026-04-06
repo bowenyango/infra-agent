@@ -134,16 +134,38 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
+    if (hasValidationResults && !hasValidationFailures) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'stop',
+          summary: 'Validation completed successfully.',
+          rationale: 'The applied bounded edits passed the configured validation commands for the selected targets.',
+          payload: {
+            stopReason: 'validation-succeeded'
+          }
+        }
+      };
+    }
+
     if (hasValidationFailures) {
       const unrepairableIssue = runtime.validationIssues.find(issue => !issue.repairable);
+      const repairBudgetExhausted = hasRepairableValidationIssues && runtime.repairAttempts >= 2;
       return {
         confidence: 'medium',
         action: {
           kind: 'stop',
-          summary: 'Validation failed and no bounded repair action was available.',
-          rationale: unrepairableIssue
-            ? `Validation failed with an unclassified blocker: ${unrepairableIssue.message}`
-            : 'The current runtime captured validation failures, but the bounded repair planner could not derive a safe follow-up edit.'
+          summary: repairBudgetExhausted
+            ? 'Validation failed after the bounded repair budget was exhausted.'
+            : 'Validation failed and no bounded repair action was available.',
+          rationale: repairBudgetExhausted
+            ? 'The runtime found repairable validation issues, but the bounded repair loop already consumed its configured retry budget.'
+            : unrepairableIssue
+              ? `Validation failed with an unclassified blocker: ${unrepairableIssue.message}`
+              : 'The current runtime captured validation failures, but the bounded repair planner could not derive a safe follow-up edit.',
+          payload: {
+            stopReason: repairBudgetExhausted ? 'repair-budget-exhausted' : 'validation-blocked'
+          }
         }
       };
     }
@@ -153,7 +175,10 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       action: {
         kind: 'stop',
         summary: 'No additional safe action was identified for the current task.',
-        rationale: 'The current runtime state does not support another bounded edit or validation step.'
+        rationale: 'The current runtime state does not support another bounded edit or validation step.',
+        payload: {
+          stopReason: 'no-safe-action'
+        }
       }
     };
   }

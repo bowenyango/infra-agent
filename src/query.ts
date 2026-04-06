@@ -8,6 +8,7 @@ import type { QueryLoopResult, QueryTurn } from './types/query.ts';
 import type { FileReadOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
+import type { AgentRunOutcome } from './types/agent.ts';
 
 function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
   return {
@@ -78,6 +79,33 @@ function shouldStopLoop(turn: QueryTurn): boolean {
   return false;
 }
 
+function determineOutcome(turns: QueryTurn[]): AgentRunOutcome {
+  const lastTurn = turns[turns.length - 1];
+  if (!lastTurn) {
+    return 'no-safe-action';
+  }
+
+  if (lastTurn.decision.action.kind === 'ask-for-clarification') {
+    return 'clarification-required';
+  }
+
+  if (lastTurn.decision.action.kind !== 'stop') {
+    return 'no-safe-action';
+  }
+
+  switch (lastTurn.decision.action.payload?.stopReason) {
+    case 'validation-succeeded':
+      return 'completed';
+    case 'validation-blocked':
+      return 'validation-blocked';
+    case 'repair-budget-exhausted':
+      return 'repair-budget-exhausted';
+    case 'no-safe-action':
+    default:
+      return 'no-safe-action';
+  }
+}
+
 export async function runQueryLoop(
   task: string,
   workspacePath: string,
@@ -125,6 +153,7 @@ export async function runQueryLoop(
   }
 
   return {
+    outcome: determineOutcome(turns),
     runtime,
     turns
   };

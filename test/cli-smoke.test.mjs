@@ -10,6 +10,7 @@ import { buildRunPreflight } from '../src/agent/build-run-preflight.ts';
 import { selectValidationCommands } from '../src/agent/select-validation-commands.ts';
 import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { classifyValidationIssues } from '../src/agent/classify-validation-issues.ts';
+import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -127,6 +128,7 @@ test('rule-based agent repairs missing service.port after validation failure', a
     assert.ok(result.runtime.repairAttempts >= 1);
     assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
     assert.equal(result.runtime.validationIssues.length, 0);
+    assert.equal(result.outcome, 'completed');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -164,9 +166,61 @@ test('rule-based agent repairs missing ingress values after validation failure',
     assert.ok(result.runtime.repairAttempts >= 1);
     assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
     assert.equal(result.runtime.validationIssues.length, 0);
+    assert.equal(result.outcome, 'completed');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('rule-based planner stops with repair-budget-exhausted after bounded retries are consumed', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: 'charts/payments-api/values.yaml',
+            content: 'service:\n  port: 8080\n',
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [
+        {
+          path: 'charts/payments-api/values.yaml',
+          content: 'service:\n  port: 8080\n',
+          reason: 'test write'
+        }
+      ],
+      validationResults: [
+        {
+          command: 'helm template charts/payments-api',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'template: charts/payments-api/templates/ingress.yaml: executing at <.Values.ingress.enabled>: nil pointer evaluating interface {}.enabled'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'helm-missing-ingress-values',
+          repairable: true,
+          sourceCommand: 'helm template charts/payments-api',
+          message: 'Validation failed because a Helm template references .Values.ingress.enabled but the values file does not define ingress settings.'
+        }
+      ],
+      repairAttempts: 2,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'repair-budget-exhausted');
+  assert.match(decision.action.summary, /repair budget/i);
 });
 
 test('rule-based agent emits ingress edit plan against fixture workspace copy', async () => {
@@ -183,6 +237,7 @@ test('rule-based agent emits ingress edit plan against fixture workspace copy', 
     );
 
     assert.match(result.modelName, /rule-based/);
+    assert.equal(result.outcome, 'completed');
     assert.ok(result.runtime.appliedWrites.length > 0);
     assert.ok(
       result.turns.some(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-ingress')

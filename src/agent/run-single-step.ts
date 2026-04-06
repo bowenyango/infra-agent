@@ -1,5 +1,5 @@
 import type { PlanningModel } from '../types/agent.ts';
-import type { AgentRuntimeState } from '../types/agent.ts';
+import type { AgentRunOutcome, AgentRuntimeState } from '../types/agent.ts';
 import { runQueryLoop } from '../query.ts';
 import type { RunPreflightState } from '../types/repository.ts';
 import type { PlannerMode } from '../model/config.ts';
@@ -8,6 +8,7 @@ import type { ModelClient } from '../model/ModelClient.ts';
 
 export interface AgentRunState {
   modelName: string;
+  outcome: AgentRunOutcome;
   preflight: RunPreflightState;
   runtime: AgentRuntimeState;
   turns: Awaited<ReturnType<typeof runQueryLoop>>['turns'];
@@ -34,6 +35,7 @@ export async function runSingleStep(
 
   return {
     modelName: modelClient.name,
+    outcome: result.outcome,
     preflight,
     runtime: result.runtime,
     turns: result.turns
