@@ -70,9 +70,11 @@ export function detectRequestedService(task: string): string | null {
 }
 
 function scoreCandidate(params: {
+  candidateKind: 'helm-chart' | 'pulumi-project';
   candidateName: string;
   candidatePath: string;
   candidateEnvironmentHints: string[];
+  profileId: WorkspaceInspection['profile']['id'];
   requestedService: string | null;
   requestedEnvironment: string | null;
 }): { score: number; reasons: string[]; matchedEnvironmentHints: string[] } {
@@ -107,6 +109,29 @@ function scoreCandidate(params: {
     }
   }
 
+  const taskMentionsHelm = params.requestedService !== null && /\b(chart|helm|ingress|probe|probes|readiness|liveness)\b/i.test(params.requestedService);
+  const taskMentionsPulumi = params.requestedService !== null && /\b(stack|pulumi)\b/i.test(params.requestedService);
+
+  if (params.profileId === 'scrawlr-infra-apps' && params.candidateKind === 'helm-chart') {
+    score += 3;
+    reasons.push('workspace profile prefers Helm chart targets');
+  }
+
+  if (params.profileId === 'scrawlr-infra-cloud' && params.candidateKind === 'pulumi-project') {
+    score += 3;
+    reasons.push('workspace profile prefers Pulumi project targets');
+  }
+
+  if (taskMentionsHelm && params.candidateKind === 'helm-chart') {
+    score += 3;
+    reasons.push('task vocabulary prefers Helm chart targets');
+  }
+
+  if (taskMentionsPulumi && params.candidateKind === 'pulumi-project') {
+    score += 3;
+    reasons.push('task vocabulary prefers Pulumi project targets');
+  }
+
   return {
     score,
     reasons,
@@ -125,9 +150,11 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
 
   for (const chart of inspection.helmCharts) {
     const scored = scoreCandidate({
+      candidateKind: 'helm-chart',
       candidateName: chart.chartName,
       candidatePath: chart.chartRoot,
       candidateEnvironmentHints: chart.environmentHints,
+      profileId: inspection.profile.id,
       requestedService,
       requestedEnvironment
     });
@@ -144,9 +171,11 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
 
   for (const project of inspection.pulumiProjects) {
     const scored = scoreCandidate({
+      candidateKind: 'pulumi-project',
       candidateName: project.projectRoot,
       candidatePath: project.projectRoot,
       candidateEnvironmentHints: project.environmentHints,
+      profileId: inspection.profile.id,
       requestedService,
       requestedEnvironment
     });
