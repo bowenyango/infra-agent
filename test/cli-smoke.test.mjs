@@ -87,6 +87,26 @@ test('workspace config overrides validation plan entries', async () => {
   assert.equal(validation.plan[0]?.commands[0], 'echo custom networking validation');
 });
 
+test('workspace write policy blocks non-allowed chart edits during preflight', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/restricted-workspace');
+
+  assert.ok(
+    preflight.blockers.some(blocker => blocker.includes('Workspace write policy does not allow edits under charts/payments-api'))
+  );
+});
+
+test('rule-based agent asks for clarification when write policy blocks the top target', async () => {
+  const result = await runSingleStep(
+    'add ingress to payments-api dev chart',
+    'fixtures/restricted-workspace',
+    undefined,
+    'rule-based'
+  );
+
+  assert.equal(result.turns[0]?.decision.action.kind, 'ask-for-clarification');
+  assert.match(result.turns[0]?.decision.action.summary ?? '', /writable target boundaries/i);
+});
+
 test('rule-based agent emits ingress edit plan against fixture workspace copy', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-test-'));
   const workspaceRoot = join(tempRoot, 'workspace');

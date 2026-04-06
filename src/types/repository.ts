@@ -14,6 +14,9 @@ export interface WorkspaceValidationConfigEntry {
 
 export interface WorkspaceAgentConfig {
   profileId?: RepoProfileId;
+  writePolicy?: {
+    allowedPaths?: string[];
+  };
   validation?: {
     includeDefaults?: boolean;
     entries?: WorkspaceValidationConfigEntry[];

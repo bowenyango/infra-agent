@@ -80,7 +80,7 @@ export async function runQueryLoop(
 
   for (let turnIndex = 0; turnIndex < 6; turnIndex += 1) {
     const decision = await effectiveModelClient.decideNextAction(runtime);
-    const execution = await executeDecision(decision, preflight.workspaceRoot);
+    const execution = await executeDecision(decision, preflight.workspaceRoot, preflight.inspection.config);
 
     if (execution) {
       runtime = applyExecutionToRuntime(runtime, execution);

@@ -3,6 +3,7 @@ import {
   inspectWorkspace,
   looksLikeInfraWorkspace
 } from '../domain/inspect-workspace.ts';
+import { getAllowedWritePaths, isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import {
   buildTargetCandidates,
   buildTargetingWarnings
@@ -73,6 +74,12 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
 
   if (!looksLikeInfraWorkspace(inspection)) {
     blockers.unshift('Workspace does not look like a Pulumi or Helm repository.');
+  }
+
+  const allowedWritePaths = getAllowedWritePaths(inspection.config);
+  const topTargetPath = targeting.targetCandidates[0]?.path;
+  if (allowedWritePaths && topTargetPath && !isPathAllowedByWorkspacePolicy(topTargetPath, inspection.config)) {
+    blockers.unshift(`Workspace write policy does not allow edits under ${topTargetPath}. Allowed roots: ${allowedWritePaths.join(', ')}.`);
   }
 
   const hasMissingValidators = validation.validators.some(validator => !validator.available);

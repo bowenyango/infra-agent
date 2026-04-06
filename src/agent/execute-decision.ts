@@ -1,4 +1,5 @@
 import { dirname, join } from 'node:path';
+import { isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import { executeTool } from '../services/tools/execute-tool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
@@ -12,15 +13,16 @@ function deduplicatePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
 }
 
-function buildContext(workspaceRoot: string): ToolUseContext {
-  return { workspaceRoot };
+function buildContext(workspaceRoot: string, workspaceConfig: ToolUseContext['workspaceConfig']): ToolUseContext {
+  return { workspaceRoot, workspaceConfig };
 }
 
 export async function executeDecision(
   decision: AgentDecision,
-  workspaceRoot: string
+  workspaceRoot: string,
+  workspaceConfig: ToolUseContext['workspaceConfig'] = null
 ): Promise<AgentDecisionExecution | null> {
-  const context = buildContext(workspaceRoot);
+  const context = buildContext(workspaceRoot, workspaceConfig);
 
   if (decision.action.kind === 'inspect-target-files') {
     const targetPaths = deduplicatePaths(decision.action.payload?.targetPaths ?? []);
@@ -97,8 +99,17 @@ export async function executeDecision(
       };
     }
 
+    const allowedWrites = writes.filter(write => isPathAllowedByWorkspacePolicy(write.path, workspaceConfig));
+    if (allowedWrites.length === 0) {
+      return {
+        status: 'skipped',
+        executedTools: [],
+        reason: 'Workspace write policy blocked all planned file writes.'
+      };
+    }
+
     const toolResults = [];
-    for (const write of writes) {
+    for (const write of allowedWrites) {
       toolResults.push(await executeTool(WriteFileTool, {
         path: write.path,
         content: write.content

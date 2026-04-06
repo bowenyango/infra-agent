@@ -1,0 +1,7 @@
+{
+  "writePolicy": {
+    "allowedPaths": [
+      "infra"
+    ]
+  }
+}

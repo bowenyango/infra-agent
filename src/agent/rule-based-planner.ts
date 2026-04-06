@@ -19,6 +19,24 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasObservations = runtime.observations.length > 0;
     const hasAppliedWrites = runtime.appliedWrites.length > 0;
     const editPlan = runtime.lastEditPlan;
+    const hasWritePolicyBlocker = preflight.blockers.some(blocker => blocker.startsWith('Workspace write policy'));
+
+    if (hasWritePolicyBlocker) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'ask-for-clarification',
+          summary: 'Clarify writable target boundaries before applying changes.',
+          rationale: 'The workspace config currently forbids writes to the highest-confidence target for this task.',
+          payload: {
+            questions: [
+              'Should the workspace write policy be expanded for this task?',
+              'Is there a different writable target path the agent should modify instead?'
+            ]
+          }
+        }
+      };
+    }
 
     if (preflight.blockers.length > 0 && preflight.targetCandidates.length === 0) {
       return {
