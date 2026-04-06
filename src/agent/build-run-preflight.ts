@@ -11,6 +11,8 @@ import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { RunPreflightState } from '../types/repository.ts';
 
 function buildNextActions(state: {
+  profileLabel: string;
+  profileId: string;
   repoLooksValid: boolean;
   hasHelmCharts: boolean;
   hasPulumiProjects: boolean;
@@ -23,6 +25,10 @@ function buildNextActions(state: {
   if (!state.repoLooksValid) {
     nextActions.push('Inspect repository layout and confirm the intended workspace before any edit step.');
     return nextActions;
+  }
+
+  if (state.profileId !== 'generic') {
+    nextActions.push(`Apply ${state.profileLabel} repository conventions before generating edits.`);
   }
 
   if (state.hasAssumptions) {
@@ -67,6 +73,8 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
 
   const hasMissingValidators = validation.validators.some(validator => !validator.available);
   const nextActions = buildNextActions({
+    profileLabel: inspection.profile.label,
+    profileId: inspection.profile.id,
     repoLooksValid: looksLikeInfraWorkspace(inspection),
     hasHelmCharts: inspection.helmCharts.length > 0,
     hasPulumiProjects: inspection.pulumiProjects.length > 0,
@@ -78,6 +86,7 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
   return {
     task,
     workspaceRoot: inspection.workspaceRoot,
+    profile: inspection.profile,
     inspection,
     validation,
     requestedEnvironment: targeting.requestedEnvironment,

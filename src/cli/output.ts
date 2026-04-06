@@ -24,6 +24,7 @@ function printList(items: string[], fallback: string): void {
 export function printInspection(inspection: WorkspaceInspection): void {
   printHeader('Workspace Inspection');
   process.stdout.write(`workspace: ${inspection.workspaceRoot}\n`);
+  process.stdout.write(`profile: ${inspection.profile.label} (${inspection.profile.id})\n`);
   process.stdout.write(`helm charts: ${inspection.helmCharts.length}\n`);
   process.stdout.write(`pulumi projects: ${inspection.pulumiProjects.length}\n`);
   process.stdout.write(`pulumi stack files: ${inspection.fileCounts.pulumiStackFiles}\n\n`);
@@ -69,6 +70,10 @@ export function printRunPreflight(state: RunPreflightState): void {
   printHeader('Run Preflight');
   process.stdout.write(`task: ${state.task}\n`);
   process.stdout.write(`workspace: ${state.workspaceRoot}\n\n`);
+  printHeader('Profile');
+  process.stdout.write(`${state.profile.label} (${state.profile.id})\n`);
+  printList(state.profile.reasons, 'No profile reasons recorded.');
+  process.stdout.write('\n');
 
   printHeader('Targeting');
   process.stdout.write(`requested environment: ${state.requestedEnvironment ?? 'undetected'}\n`);

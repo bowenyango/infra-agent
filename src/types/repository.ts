@@ -1,3 +1,11 @@
+export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
+
+export interface RepoProfile {
+  id: RepoProfileId;
+  label: string;
+  reasons: string[];
+}
+
 export interface HelmChartSummary {
   chartRoot: string;
   chartName: string;
@@ -16,6 +24,7 @@ export interface PulumiProjectSummary {
 
 export interface WorkspaceInspection {
   workspaceRoot: string;
+  profile: RepoProfile;
   helmCharts: HelmChartSummary[];
   pulumiProjects: PulumiProjectSummary[];
   fileCounts: {
@@ -55,6 +64,7 @@ export interface TargetCandidate {
 export interface RunPreflightState {
   task: string;
   workspaceRoot: string;
+  profile: RepoProfile;
   inspection: WorkspaceInspection;
   validation: ValidationPreflight;
   requestedEnvironment: string | null;

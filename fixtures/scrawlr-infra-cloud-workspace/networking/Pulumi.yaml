@@ -1,0 +1,4 @@
+name: networking
+runtime: yaml
+description: Sample Scrawlr cloud project
+resources: {}

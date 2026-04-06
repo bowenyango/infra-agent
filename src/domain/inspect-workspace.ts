@@ -3,6 +3,7 @@ import {
   listDirectory,
   shouldIgnoreDirectory
 } from '../tools/repository/repository-tools.ts';
+import { detectRepoProfile } from './repo-profile.ts';
 import type {
   HelmChartSummary,
   PulumiProjectSummary,
@@ -133,6 +134,10 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
 
   return {
     workspaceRoot,
+    profile: detectRepoProfile({
+      helmCharts: state.helmCharts,
+      pulumiProjects: state.pulumiProjects
+    }),
     helmCharts: state.helmCharts,
     pulumiProjects: state.pulumiProjects,
     fileCounts: {

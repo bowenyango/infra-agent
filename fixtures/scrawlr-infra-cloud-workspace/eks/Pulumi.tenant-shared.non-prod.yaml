@@ -1,0 +1,2 @@
+config:
+  eks:environment: tenant-shared.non-prod

@@ -10,9 +10,24 @@ test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
 
   return inspection.then(result => {
+    assert.equal(result.profile.id, 'generic');
     assert.equal(result.helmCharts.length, 1);
     assert.equal(result.pulumiProjects.length, 1);
   });
+});
+
+test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
+  const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');
+
+  assert.equal(inspection.profile.id, 'scrawlr-infra-apps');
+  assert.match(inspection.profile.label, /Scrawlr/);
+});
+
+test('inspectWorkspace detects scrawlr infra-cloud profile', async () => {
+  const inspection = await inspectWorkspace('fixtures/scrawlr-infra-cloud-workspace');
+
+  assert.equal(inspection.profile.id, 'scrawlr-infra-cloud');
+  assert.match(inspection.profile.label, /Scrawlr/);
 });
 
 test('rule-based agent emits ingress edit plan against fixture workspace copy', async () => {

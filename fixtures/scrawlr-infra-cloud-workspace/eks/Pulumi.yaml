@@ -1,0 +1,4 @@
+name: eks
+runtime: yaml
+description: Sample EKS project
+resources: {}

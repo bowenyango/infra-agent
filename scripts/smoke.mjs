@@ -36,6 +36,8 @@ async function main() {
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', '--help']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/sample-workspace']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'validate', 'fixtures/sample-workspace']);
+    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/scrawlr-infra-apps-workspace']);
+    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/scrawlr-infra-cloud-workspace']);
 
     runCommand([
       '--experimental-strip-types',
