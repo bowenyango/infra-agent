@@ -53,6 +53,10 @@ function buildNextActions(state: {
     nextActions.push('Use helm and pulumi validators as the mandatory refinement loop after file changes.');
   }
 
+  if (state.profileId === 'generic') {
+    nextActions.push('Prefer repository config over generic heuristics when infra-agent.config.json is available.');
+  }
+
   return nextActions;
 }
 

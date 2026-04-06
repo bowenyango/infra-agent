@@ -1,0 +1,4 @@
+name: networking
+runtime: yaml
+description: Configured workspace networking project
+resources: {}

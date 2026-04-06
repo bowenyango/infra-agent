@@ -8,6 +8,7 @@ import { runSingleStep } from '../src/agent/run-single-step.ts';
 import { buildTargetCandidates } from '../src/domain/task-targeting.ts';
 import { buildRunPreflight } from '../src/agent/build-run-preflight.ts';
 import { selectValidationCommands } from '../src/agent/select-validation-commands.ts';
+import { buildValidationPreflight } from '../src/validators/preflight.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -31,6 +32,13 @@ test('inspectWorkspace detects scrawlr infra-cloud profile', async () => {
 
   assert.equal(inspection.profile.id, 'scrawlr-infra-cloud');
   assert.match(inspection.profile.label, /Scrawlr/);
+});
+
+test('workspace config can pin the repo profile', async () => {
+  const inspection = await inspectWorkspace('fixtures/configured-workspace');
+
+  assert.equal(inspection.profile.id, 'scrawlr-infra-cloud');
+  assert.equal(inspection.config?.profileId, 'scrawlr-infra-cloud');
 });
 
 test('profile-aware targeting prefers Helm charts inside scrawlr infra-apps fixtures', async () => {
@@ -68,6 +76,15 @@ test('profile-aware validation selection filters to Pulumi commands for infra-cl
 
   assert.ok(commands.length > 0);
   assert.ok(commands.every(command => command.includes('pulumi preview')));
+});
+
+test('workspace config overrides validation plan entries', async () => {
+  const inspection = await inspectWorkspace('fixtures/configured-workspace');
+  const validation = buildValidationPreflight(inspection);
+
+  assert.equal(validation.usedWorkspaceConfig, true);
+  assert.equal(validation.plan.length, 1);
+  assert.equal(validation.plan[0]?.commands[0], 'echo custom networking validation');
 });
 
 test('rule-based agent emits ingress edit plan against fixture workspace copy', async () => {

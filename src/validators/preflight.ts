@@ -3,7 +3,8 @@ import type {
   ValidationPlanEntry,
   ValidationPreflight,
   ValidatorAvailability,
-  WorkspaceInspection
+  WorkspaceInspection,
+  WorkspaceValidationConfigEntry
 } from '../types/repository.ts';
 import { getPreferredShell } from '../utils/shell.ts';
 
@@ -29,6 +30,14 @@ function buildValidatorAvailability(): ValidatorAvailability[] {
       resolvedPath
     };
   });
+}
+
+function toValidationPlanEntries(entries: WorkspaceValidationConfigEntry[]): ValidationPlanEntry[] {
+  return entries.map(entry => ({
+    kind: entry.kind,
+    target: entry.target,
+    commands: [...entry.commands]
+  }));
 }
 
 function buildValidationPlan(inspection: WorkspaceInspection): ValidationPlanEntry[] {
@@ -71,9 +80,16 @@ function buildValidationPlan(inspection: WorkspaceInspection): ValidationPlanEnt
 }
 
 export function buildValidationPreflight(inspection: WorkspaceInspection): ValidationPreflight {
+  const configValidation = inspection.config?.validation;
+  const defaultPlan = buildValidationPlan(inspection);
+  const customPlan = toValidationPlanEntries(configValidation?.entries ?? []);
+  const includeDefaults = configValidation?.includeDefaults ?? true;
+  const plan = includeDefaults ? [...defaultPlan, ...customPlan] : customPlan;
+
   return {
     workspaceRoot: inspection.workspaceRoot,
     validators: buildValidatorAvailability(),
-    plan: buildValidationPlan(inspection)
+    plan,
+    usedWorkspaceConfig: customPlan.length > 0
   };
 }

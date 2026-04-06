@@ -4,6 +4,7 @@ import {
   shouldIgnoreDirectory
 } from '../tools/repository/repository-tools.ts';
 import { detectRepoProfile } from './repo-profile.ts';
+import { readWorkspaceConfig } from './workspace-config.ts';
 import type {
   HelmChartSummary,
   PulumiProjectSummary,
@@ -119,6 +120,7 @@ async function scanDirectory(currentDir: string, workspaceRoot: string, state: S
 
 export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInspection> {
   const workspaceRoot = resolve(inputPath);
+  const workspaceConfig = await readWorkspaceConfig(workspaceRoot);
   const state: ScanState = {
     helmCharts: [],
     pulumiProjects: [],
@@ -134,7 +136,9 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
 
   return {
     workspaceRoot,
+    config: workspaceConfig,
     profile: detectRepoProfile({
+      workspaceConfig,
       helmCharts: state.helmCharts,
       pulumiProjects: state.pulumiProjects
     }),

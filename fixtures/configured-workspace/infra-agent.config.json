@@ -1,0 +1,15 @@
+{
+  "profileId": "scrawlr-infra-cloud",
+  "validation": {
+    "includeDefaults": false,
+    "entries": [
+      {
+        "kind": "pulumi",
+        "target": "networking",
+        "commands": [
+          "echo custom networking validation"
+        ]
+      }
+    ]
+  }
+}

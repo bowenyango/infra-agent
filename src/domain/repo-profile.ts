@@ -1,4 +1,4 @@
-import type { HelmChartSummary, PulumiProjectSummary, RepoProfile } from '../types/repository.ts';
+import type { HelmChartSummary, PulumiProjectSummary, RepoProfile, WorkspaceAgentConfig } from '../types/repository.ts';
 
 function isScrawlrInfraAppsChart(chart: HelmChartSummary): boolean {
   return chart.chartRoot.startsWith('charts/apps/') || chart.chartRoot.startsWith('charts/infra/');
@@ -16,10 +16,25 @@ function isScrawlrInfraCloudProject(project: PulumiProjectSummary): boolean {
 }
 
 export function detectRepoProfile(params: {
+  workspaceConfig: WorkspaceAgentConfig | null;
   helmCharts: HelmChartSummary[];
   pulumiProjects: PulumiProjectSummary[];
 }): RepoProfile {
   const reasons: string[] = [];
+
+  if (params.workspaceConfig?.profileId) {
+    reasons.push(`Workspace config pinned profile to ${params.workspaceConfig.profileId}.`);
+    return {
+      id: params.workspaceConfig.profileId,
+      label:
+        params.workspaceConfig.profileId === 'scrawlr-infra-apps'
+          ? 'Scrawlr Infra Apps'
+          : params.workspaceConfig.profileId === 'scrawlr-infra-cloud'
+            ? 'Scrawlr Infra Cloud'
+            : 'Generic Infrastructure Repo',
+      reasons
+    };
+  }
 
   const hasScrawlrInfraAppsLayout =
     params.helmCharts.length > 0 && params.helmCharts.every(isScrawlrInfraAppsChart);

@@ -6,6 +6,20 @@ export interface RepoProfile {
   reasons: string[];
 }
 
+export interface WorkspaceValidationConfigEntry {
+  kind: 'helm' | 'pulumi';
+  target: string;
+  commands: string[];
+}
+
+export interface WorkspaceAgentConfig {
+  profileId?: RepoProfileId;
+  validation?: {
+    includeDefaults?: boolean;
+    entries?: WorkspaceValidationConfigEntry[];
+  };
+}
+
 export interface HelmChartSummary {
   chartRoot: string;
   chartName: string;
@@ -25,6 +39,7 @@ export interface PulumiProjectSummary {
 export interface WorkspaceInspection {
   workspaceRoot: string;
   profile: RepoProfile;
+  config: WorkspaceAgentConfig | null;
   helmCharts: HelmChartSummary[];
   pulumiProjects: PulumiProjectSummary[];
   fileCounts: {
@@ -50,6 +65,7 @@ export interface ValidationPreflight {
   workspaceRoot: string;
   validators: ValidatorAvailability[];
   plan: ValidationPlanEntry[];
+  usedWorkspaceConfig: boolean;
 }
 
 export interface TargetCandidate {
