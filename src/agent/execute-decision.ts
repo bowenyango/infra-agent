@@ -1,13 +1,15 @@
 import { dirname, join } from 'node:path';
 import { isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import { executeTool } from '../services/tools/execute-tool.ts';
+import { DiffPreviewTool } from '../tools/DiffPreviewTool/DiffPreviewTool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
+import { SearchWorkspaceTool } from '../tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { ValidateTargetsTool } from '../tools/ValidateTargetsTool/ValidateTargetsTool.ts';
 import { WriteFileTool } from '../tools/WriteFileTool/WriteFileTool.ts';
 import type { AgentDecision, AgentDecisionExecution } from '../types/agent.ts';
 import type { ToolUseContext } from '../Tool.ts';
-import type { DirectoryListingOutput } from '../types/tools.ts';
+import type { DirectoryListingOutput, SearchWorkspaceOutput } from '../types/tools.ts';
 
 function deduplicatePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
@@ -53,6 +55,21 @@ export async function executeDecision(
           toolResults.push(await executeTool(ReadFileTool, { path: candidateFile }, context));
         } catch {
           // Missing files are expected across mixed Helm/Pulumi targets.
+        }
+      }
+
+      const workspaceSearch = await executeTool(SearchWorkspaceTool, {
+        rootPath: targetPath,
+        fileNamePattern: '^(Chart\\.ya?ml|values\\.ya?ml|Pulumi(\\..+)?\\.(yaml|yml)|deployment\\.ya?ml|ingress\\.ya?ml)$',
+        maxResults: 12
+      }, context);
+      toolResults.push(workspaceSearch);
+
+      for (const match of (workspaceSearch.output as SearchWorkspaceOutput).matches) {
+        try {
+          toolResults.push(await executeTool(ReadFileTool, { path: match.path }, context));
+        } catch {
+          // Search matches may refer to files already removed or unreadable in test fixtures.
         }
       }
 
@@ -110,6 +127,10 @@ export async function executeDecision(
 
     const toolResults = [];
     for (const write of allowedWrites) {
+      toolResults.push(await executeTool(DiffPreviewTool, {
+        path: write.path,
+        nextContent: write.content
+      }, context));
       toolResults.push(await executeTool(WriteFileTool, {
         path: write.path,
         content: write.content

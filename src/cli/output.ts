@@ -4,7 +4,7 @@ import type {
   ValidationPreflight,
   WorkspaceInspection
 } from '../types/repository.ts';
-import type { ValidationRunOutput } from '../types/tools.ts';
+import type { DiffPreviewOutput, SearchWorkspaceOutput, ValidationRunOutput } from '../types/tools.ts';
 
 function printHeader(title: string): void {
   process.stdout.write(`${title}\n`);
@@ -156,6 +156,25 @@ export function printAgentRunState(state: AgentRunState): void {
       );
 
       for (const toolResult of execution.executedTools) {
+        if (toolResult.toolName === 'search_workspace') {
+          const output = toolResult.output as SearchWorkspaceOutput;
+          printList(
+            output.matches.map(match => `${match.kind} ${match.path}${match.line ? `:${match.line}` : ''}`),
+            'No search matches found.'
+          );
+        }
+
+        if (toolResult.toolName === 'diff_preview') {
+          const output = toolResult.output as DiffPreviewOutput;
+          printList(
+            [
+              `${output.path} exists=${output.exists ? 'yes' : 'no'} +${output.addedLines} -${output.removedLines}`,
+              ...output.preview
+            ],
+            'No diff preview available.'
+          );
+        }
+
         if (toolResult.toolName === 'validate_targets') {
           const output = toolResult.output as ValidationRunOutput;
           printList(

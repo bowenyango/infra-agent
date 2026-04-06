@@ -6,6 +6,18 @@ export interface DirectoryListingOutput {
   }>;
 }
 
+export interface SearchWorkspaceMatch {
+  path: string;
+  kind: 'file_name' | 'file_content';
+  line?: number;
+  preview?: string;
+}
+
+export interface SearchWorkspaceOutput {
+  rootPath: string;
+  matches: SearchWorkspaceMatch[];
+}
+
 export interface FileReadOutput {
   path: string;
   content: string;
@@ -16,6 +28,14 @@ export interface WriteFileOutput {
   path: string;
   bytesWritten: number;
   content: string;
+}
+
+export interface DiffPreviewOutput {
+  path: string;
+  exists: boolean;
+  addedLines: number;
+  removedLines: number;
+  preview: string[];
 }
 
 export interface ValidationCommandOutput {

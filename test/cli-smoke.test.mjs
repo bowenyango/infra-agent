@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
 import { runSingleStep } from '../src/agent/run-single-step.ts';
+import { executeDecision } from '../src/agent/execute-decision.ts';
 import { buildTargetCandidates } from '../src/domain/task-targeting.ts';
 import { buildRunPreflight } from '../src/agent/build-run-preflight.ts';
 import { selectValidationCommands } from '../src/agent/select-validation-commands.ts';
@@ -13,6 +14,8 @@ import { classifyValidationIssues } from '../src/agent/classify-validation-issue
 import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
+import { executeTool } from '../src/services/tools/execute-tool.ts';
+import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -43,6 +46,25 @@ test('workspace config can pin the repo profile', async () => {
 
   assert.equal(inspection.profile.id, 'scrawlr-infra-cloud');
   assert.equal(inspection.config?.profileId, 'scrawlr-infra-cloud');
+});
+
+test('search workspace tool finds chart and Pulumi files under the selected root', async () => {
+  const result = await executeTool(
+    SearchWorkspaceTool,
+    {
+      rootPath: 'fixtures/sample-workspace',
+      fileNamePattern: '^(Chart\\.ya?ml|Pulumi(\\..+)?\\.(yaml|yml))$',
+      maxResults: 10
+    },
+    {
+      workspaceRoot: resolve('.'),
+      workspaceConfig: null
+    }
+  );
+
+  const matchedPaths = result.output.matches.map(match => match.path);
+  assert.ok(matchedPaths.some(path => path.endsWith('fixtures/sample-workspace/charts/payments-api/Chart.yaml')));
+  assert.ok(matchedPaths.some(path => path.endsWith('fixtures/sample-workspace/infra/payments-api/Pulumi.yaml')));
 });
 
 test('profile-aware targeting prefers Helm charts inside scrawlr infra-apps fixtures', async () => {
@@ -131,6 +153,42 @@ test('rule-based agent repairs missing service.port after validation failure', a
     assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
     assert.equal(result.runtime.validationIssues.length, 0);
     assert.equal(result.outcome, 'completed');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('apply-edit-plan execution emits diff preview before write', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-diff-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const execution = await executeDecision(
+      {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: 'Apply bounded values update.',
+          rationale: 'Test diff preview output.',
+          payload: {
+            writes: [
+              {
+                path: 'charts/payments-api/values.yaml',
+                content: 'replicaCount: 2\n',
+                reason: 'Test write'
+              }
+            ]
+          }
+        }
+      },
+      workspaceRoot,
+      null
+    );
+
+    assert.ok(execution);
+    assert.equal(execution?.executedTools[0]?.toolName, 'diff_preview');
+    assert.equal(execution?.executedTools[1]?.toolName, 'write_file');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -308,6 +366,7 @@ test('rule-based agent emits ingress edit plan against fixture workspace copy', 
     assert.match(result.modelName, /rule-based/);
     assert.equal(result.outcome, 'completed');
     assert.ok(result.runtime.appliedWrites.length > 0);
+    assert.ok(result.turns.some(turn => turn.execution?.executedTools.some(tool => tool.toolName === 'diff_preview')));
     assert.ok(
       result.turns.some(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-ingress')
     );
