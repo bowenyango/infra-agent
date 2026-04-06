@@ -11,6 +11,8 @@ import { selectValidationCommands } from '../src/agent/select-validation-command
 import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { classifyValidationIssues } from '../src/agent/classify-validation-issues.ts';
 import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
+import { parsePlannerDecision } from '../src/model/decision-parser.ts';
+import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -147,6 +149,73 @@ test('classifyValidationIssues marks ingress.enabled failures as repairable', ()
   assert.equal(issues.length, 1);
   assert.equal(issues[0]?.kind, 'helm-missing-ingress-values');
   assert.equal(issues[0]?.repairable, true);
+});
+
+test('planner system prompt documents explicit stop reasons', () => {
+  const prompt = buildPlannerSystemPrompt();
+
+  assert.match(prompt, /Allowed stop payload\.stopReason values:/);
+  assert.match(prompt, /repair-budget-exhausted/);
+  assert.match(prompt, /validation-succeeded/);
+});
+
+test('parsePlannerDecision requires stopReason for stop actions', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+
+  assert.throws(
+    () =>
+      parsePlannerDecision(
+        JSON.stringify({
+          confidence: 'medium',
+          action: {
+            kind: 'stop',
+            summary: 'Stop here',
+            rationale: 'No further work'
+          }
+        }),
+        {
+          task: preflight.task,
+          preflight,
+          observations: [],
+          appliedWrites: [],
+          validationResults: [],
+          validationIssues: [],
+          repairAttempts: 0,
+          lastEditPlan: null
+        }
+      ),
+    /action\.payload\.stopReason/
+  );
+});
+
+test('parsePlannerDecision accepts supported stopReason values', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'high',
+      action: {
+        kind: 'stop',
+        summary: 'Validation passed',
+        rationale: 'All configured validators succeeded.',
+        payload: {
+          stopReason: 'validation-succeeded'
+        }
+      }
+    }),
+    {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  );
+
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'validation-succeeded');
 });
 
 test('rule-based agent repairs missing ingress values after validation failure', async () => {

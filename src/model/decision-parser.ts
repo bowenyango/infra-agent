@@ -1,4 +1,4 @@
-import type { AgentAction, AgentActionKind, AgentDecision, AgentRuntimeState } from '../types/agent.ts';
+import type { AgentAction, AgentActionKind, AgentDecision, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
 
 function extractJsonObject(content: string): string {
   const start = content.indexOf('{');
@@ -12,6 +12,10 @@ function extractJsonObject(content: string): string {
 
 function isActionKind(value: string): value is AgentActionKind {
   return ['ask-for-clarification', 'inspect-target-files', 'apply-edit-plan', 'validate-targets', 'stop'].includes(value);
+}
+
+function isStopReason(value: string): value is AgentStopReason {
+  return ['validation-succeeded', 'validation-blocked', 'repair-budget-exhausted', 'no-safe-action'].includes(value);
 }
 
 function ensureString(value: unknown, fieldName: string): string {
@@ -64,6 +68,17 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
     return {
       editPlan: runtime.lastEditPlan,
       writes: runtime.lastEditPlan.writes
+    };
+  }
+
+  if (actionKind === 'stop') {
+    const stopReason = ensureString(rawPayload.stopReason, 'action.payload.stopReason');
+    if (!isStopReason(stopReason)) {
+      throw new Error(`LLM planner response included unsupported stop reason "${stopReason}".`);
+    }
+
+    return {
+      stopReason
     };
   }
 

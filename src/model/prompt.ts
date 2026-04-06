@@ -1,4 +1,4 @@
-import type { AgentActionKind, AgentRuntimeState } from '../types/agent.ts';
+import type { AgentActionKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
 
 function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
   return runtime.validationResults.slice(-6).map(result => {
@@ -44,12 +44,19 @@ export function buildPlannerSystemPrompt(): string {
     'validate-targets',
     'stop'
   ];
+  const allowedStopReasons: AgentStopReason[] = [
+    'validation-succeeded',
+    'validation-blocked',
+    'repair-budget-exhausted',
+    'no-safe-action'
+  ];
 
   return [
     'You are the planning runtime for infra-agent.',
     'Return exactly one JSON object with this shape:',
     '{"confidence":"low|medium|high","action":{"kind":"...","summary":"...","rationale":"...","payload":{}}}',
     `Allowed action.kind values: ${allowedActionKinds.join(', ')}`,
+    `Allowed stop payload.stopReason values: ${allowedStopReasons.join(', ')}`,
     'Rules:',
     '- Prefer inspect-target-files before apply-edit-plan when file context is missing.',
     '- Prefer apply-edit-plan only when runtime.lastEditPlan is present and writes are available.',
@@ -58,7 +65,11 @@ export function buildPlannerSystemPrompt(): string {
     '- Never invent file paths, writes, or commands that are not already present in the runtime state.',
     '- For apply-edit-plan, copy writes from runtime.lastEditPlan.writes exactly.',
     '- For validate-targets, copy commands from the relevant entry in runtime.preflight.validation.plan.',
-    '- If no safe action exists, return stop.',
+    '- For stop, always include payload.stopReason.',
+    '- Use stopReason=validation-succeeded only when validationResults are present and all exit codes are 0.',
+    '- Use stopReason=repair-budget-exhausted only when validationIssues are repairable but the bounded repair budget is already exhausted.',
+    '- Use stopReason=validation-blocked when validation failed and no bounded repair is available.',
+    '- If no safe action exists, return stop with stopReason=no-safe-action.',
     'Do not include markdown. Do not include commentary outside the JSON object.'
   ].join('\n');
 }
