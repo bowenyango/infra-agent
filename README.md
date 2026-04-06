@@ -77,6 +77,13 @@ LLM planner environment variables:
 - `INFRA_AGENT_MODEL` default `gpt-5-mini`
 - `INFRA_AGENT_OPENAI_BASE_URL` or `OPENAI_BASE_URL` default `https://api.openai.com/v1`
 
+Development verification commands:
+
+- `npm run lint`
+- `npm run test`
+- `npm run smoke`
+- `npm run verify`
+
 The current agent runtime now supports one real vertical slice:
 
 - inspect the highest-confidence Helm and Pulumi targets

@@ -14,8 +14,10 @@ interface ChatCompletionsResponse {
 
 export class LLMModelClient implements ModelClient {
   readonly name: string;
+  private readonly config: LLMClientConfig;
 
-  constructor(private readonly config: LLMClientConfig) {
+  constructor(config: LLMClientConfig) {
+    this.config = config;
     this.name = `llm-model-client:${config.model}`;
   }
 

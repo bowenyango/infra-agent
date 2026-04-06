@@ -12,7 +12,11 @@
     "agent": "node --experimental-strip-types ./src/cli/main.ts agent",
     "inspect": "node --experimental-strip-types ./src/cli/main.ts inspect",
     "validate": "node --experimental-strip-types ./src/cli/main.ts validate",
-    "run": "node --experimental-strip-types ./src/cli/main.ts run"
+    "run": "node --experimental-strip-types ./src/cli/main.ts run",
+    "lint": "node ./scripts/lint.mjs",
+    "smoke": "node ./scripts/smoke.mjs",
+    "test": "node --experimental-strip-types ./test/cli-smoke.test.mjs",
+    "verify": "npm run lint && npm run test && npm run smoke"
   },
   "engines": {
     "node": ">=24.0.0"
