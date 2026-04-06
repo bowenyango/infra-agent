@@ -8,6 +8,15 @@ function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
   });
 }
 
+function summarizeValidationIssues(runtime: AgentRuntimeState): object[] {
+  return runtime.validationIssues.slice(-6).map(issue => ({
+    kind: issue.kind,
+    repairable: issue.repairable,
+    sourceCommand: issue.sourceCommand,
+    message: issue.message
+  }));
+}
+
 function summarizeObservations(runtime: AgentRuntimeState): string[] {
   return runtime.observations.slice(-12).map(result => `${result.toolName} (${result.safety})`);
 }
@@ -70,6 +79,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
         reason: write.reason
       })),
       validationResults: summarizeValidationResults(runtime),
+      validationIssues: summarizeValidationIssues(runtime),
       lastEditPlan: summarizeEditPlan(runtime),
       validationPlan: runtime.preflight.validation.plan
     },

@@ -165,6 +165,13 @@ export function printAgentRunState(state: AgentRunState): void {
     }
   }
 
+  process.stdout.write('\n');
+  printHeader('Validation Issues');
+  printList(
+    state.runtime.validationIssues.map(issue => `${issue.kind} (${issue.repairable ? 'repairable' : 'blocker'}): ${issue.message}`),
+    'No validation issues recorded.'
+  );
+
   process.stdout.write('\n\n');
   printRunPreflight(state.preflight);
 }

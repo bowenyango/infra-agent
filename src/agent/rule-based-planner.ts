@@ -20,6 +20,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasAppliedWrites = runtime.appliedWrites.length > 0;
     const hasValidationResults = runtime.validationResults.length > 0;
     const hasValidationFailures = runtime.validationResults.some(result => result.exitCode !== 0);
+    const hasRepairableValidationIssues = runtime.validationIssues.some(issue => issue.repairable);
     const editPlan = runtime.lastEditPlan;
     const hasWritePolicyBlocker = preflight.blockers.some(blocker => blocker.startsWith('Workspace write policy'));
 
@@ -103,7 +104,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (hasValidationFailures && editPlan && editPlan.writes.length > 0 && runtime.repairAttempts < 2) {
+    if (hasValidationFailures && hasRepairableValidationIssues && editPlan && editPlan.writes.length > 0 && runtime.repairAttempts < 2) {
       return {
         confidence: 'high',
         action: {
@@ -134,12 +135,15 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     }
 
     if (hasValidationFailures) {
+      const unrepairableIssue = runtime.validationIssues.find(issue => !issue.repairable);
       return {
         confidence: 'medium',
         action: {
           kind: 'stop',
           summary: 'Validation failed and no bounded repair action was available.',
-          rationale: 'The current runtime captured validation failures, but the bounded repair planner could not derive a safe follow-up edit.'
+          rationale: unrepairableIssue
+            ? `Validation failed with an unclassified blocker: ${unrepairableIssue.message}`
+            : 'The current runtime captured validation failures, but the bounded repair planner could not derive a safe follow-up edit.'
         }
       };
     }

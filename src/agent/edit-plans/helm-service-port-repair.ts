@@ -3,10 +3,7 @@ import type { EditPlan } from '../../types/edit-plan.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
 function needsServicePortRepair(runtime: AgentRuntimeState): boolean {
-  return runtime.validationResults.some(result => {
-    const combined = `${result.stdout}\n${result.stderr}`;
-    return /service\.port/i.test(combined);
-  });
+  return runtime.validationIssues.some(issue => issue.kind === 'helm-missing-service-port');
 }
 
 function appendServiceBlock(valuesContent: string): string {

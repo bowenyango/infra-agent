@@ -1,4 +1,5 @@
 import { buildHelmIngressEditPlan } from './edit-plans/helm-ingress.ts';
+import { buildHelmIngressValuesRepairEditPlan } from './edit-plans/helm-ingress-values-repair.ts';
 import { buildHelmProbesEditPlan } from './edit-plans/helm-probes.ts';
 import { buildHelmServicePortRepairEditPlan } from './edit-plans/helm-service-port-repair.ts';
 import { buildPulumiStackConfigEditPlan } from './edit-plans/pulumi-stack-config.ts';
@@ -9,6 +10,7 @@ import type { EditPlan } from '../types/edit-plan.ts';
 export function buildEditPlan(runtime: AgentRuntimeState): EditPlan | null {
   const candidates: Array<EditPlan | null> = [
     buildHelmServicePortRepairEditPlan(runtime),
+    buildHelmIngressValuesRepairEditPlan(runtime),
     buildHelmIngressEditPlan(runtime),
     buildHelmProbesEditPlan(runtime),
     buildPulumiStackConfigEditPlan(runtime)

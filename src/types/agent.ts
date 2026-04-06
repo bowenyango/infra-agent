@@ -33,6 +33,18 @@ export interface AgentDecisionExecution {
   reason?: string;
 }
 
+export type ValidationIssueKind =
+  | 'helm-missing-service-port'
+  | 'helm-missing-ingress-values'
+  | 'unknown-validation-failure';
+
+export interface ValidationIssue {
+  kind: ValidationIssueKind;
+  repairable: boolean;
+  sourceCommand: string;
+  message: string;
+}
+
 export interface AgentPlanningInput {
   runtime: AgentRuntimeState;
 }
@@ -48,6 +60,7 @@ export interface AgentRuntimeState {
   observations: ToolResult<unknown>[];
   appliedWrites: FileWritePlan[];
   validationResults: ValidationCommandOutput[];
+  validationIssues: ValidationIssue[];
   repairAttempts: number;
   lastEditPlan: EditPlan | null;
 }

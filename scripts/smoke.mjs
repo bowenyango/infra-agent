@@ -29,11 +29,13 @@ async function main() {
     const probeWorkspaceRoot = join(tempRoot, 'probe-workspace');
     const pulumiWorkspaceRoot = join(tempRoot, 'pulumi-workspace');
     const repairWorkspaceRoot = join(tempRoot, 'repair-workspace');
+    const repairIngressWorkspaceRoot = join(tempRoot, 'repair-ingress-values-workspace');
 
     await cp(fixtureRoot, ingressWorkspaceRoot, { recursive: true });
     await cp(fixtureRoot, probeWorkspaceRoot, { recursive: true });
     await cp(fixtureRoot, pulumiWorkspaceRoot, { recursive: true });
     await cp(resolve('fixtures/repair-workspace'), repairWorkspaceRoot, { recursive: true });
+    await cp(resolve('fixtures/repair-ingress-values-workspace'), repairIngressWorkspaceRoot, { recursive: true });
 
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', '--help']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/sample-workspace']);
@@ -103,6 +105,21 @@ async function main() {
     const repairedValues = await readFile(join(repairWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
     if (!repairedValues.includes('service:\n  port: 8080')) {
       throw new Error('repair smoke check did not add the expected service.port repair.');
+    }
+
+    runCommand([
+      '--experimental-strip-types',
+      'src/cli/main.ts',
+      'agent',
+      'add readiness and liveness probes to payments-api dev chart',
+      '--workspace',
+      repairIngressWorkspaceRoot,
+      '--planner',
+      'rule-based'
+    ]);
+    const repairedIngressValues = await readFile(join(repairIngressWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
+    if (!repairedIngressValues.includes('ingress:') || !repairedIngressValues.includes('enabled: true')) {
+      throw new Error('ingress repair smoke check did not add the expected ingress values repair.');
     }
 
     process.stdout.write(`smoke passed (${tempRoot})\n`);

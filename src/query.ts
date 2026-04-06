@@ -1,4 +1,5 @@
 import { buildRunPreflight } from './agent/build-run-preflight.ts';
+import { classifyValidationIssues } from './agent/classify-validation-issues.ts';
 import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
 import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from './types/agent.ts';
@@ -13,7 +14,8 @@ function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
     ...runtime,
     observations: [...runtime.observations],
     appliedWrites: [...runtime.appliedWrites],
-    validationResults: [...runtime.validationResults]
+    validationResults: [...runtime.validationResults],
+    validationIssues: [...runtime.validationIssues]
   };
 }
 
@@ -44,6 +46,7 @@ function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDec
     if (toolResult.toolName === 'validate_targets') {
       const output = toolResult.output as ValidationRunOutput;
       nextRuntime.validationResults.push(...output.results);
+      nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
     }
   }
 
@@ -57,6 +60,7 @@ function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentR
     observations: [],
     appliedWrites: [],
     validationResults: [],
+    validationIssues: [],
     repairAttempts: 0,
     lastEditPlan: null
   };
@@ -92,11 +96,12 @@ export async function runQueryLoop(
       runtime = applyExecutionToRuntime(runtime, execution);
     }
 
-    if (decision.action.kind === 'apply-edit-plan' && runtime.validationResults.some(result => result.exitCode !== 0)) {
+    if (decision.action.kind === 'apply-edit-plan' && runtime.validationIssues.length > 0) {
       runtime = {
         ...runtime,
         repairAttempts: runtime.repairAttempts + 1,
-        validationResults: []
+        validationResults: [],
+        validationIssues: []
       };
     }
 

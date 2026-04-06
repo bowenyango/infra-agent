@@ -9,6 +9,7 @@ import { buildTargetCandidates } from '../src/domain/task-targeting.ts';
 import { buildRunPreflight } from '../src/agent/build-run-preflight.ts';
 import { selectValidationCommands } from '../src/agent/select-validation-commands.ts';
 import { buildValidationPreflight } from '../src/validators/preflight.ts';
+import { classifyValidationIssues } from '../src/agent/classify-validation-issues.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -71,6 +72,8 @@ test('profile-aware validation selection filters to Pulumi commands for infra-cl
       }
     ],
     validationResults: [],
+    validationIssues: [],
+    repairAttempts: 0,
     lastEditPlan: null
   });
 
@@ -123,6 +126,44 @@ test('rule-based agent repairs missing service.port after validation failure', a
     assert.ok(result.turns.some(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-service-port-repair'));
     assert.ok(result.runtime.repairAttempts >= 1);
     assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
+    assert.equal(result.runtime.validationIssues.length, 0);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('classifyValidationIssues marks ingress.enabled failures as repairable', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'helm template charts/payments-api',
+      exitCode: 1,
+      stdout: '',
+      stderr: 'template: charts/payments-api/templates/ingress.yaml: executing at <.Values.ingress.enabled>: nil pointer evaluating interface {}.enabled'
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'helm-missing-ingress-values');
+  assert.equal(issues[0]?.repairable, true);
+});
+
+test('rule-based agent repairs missing ingress values after validation failure', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-repair-ingress-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/repair-ingress-values-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'add readiness and liveness probes to payments-api dev chart',
+      workspaceRoot,
+      undefined,
+      'rule-based'
+    );
+
+    assert.ok(result.turns.some(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-ingress-values-repair'));
+    assert.ok(result.runtime.repairAttempts >= 1);
+    assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
+    assert.equal(result.runtime.validationIssues.length, 0);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
