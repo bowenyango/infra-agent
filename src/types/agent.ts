@@ -48,5 +48,6 @@ export interface AgentRuntimeState {
   observations: ToolResult<unknown>[];
   appliedWrites: FileWritePlan[];
   validationResults: ValidationCommandOutput[];
+  repairAttempts: number;
   lastEditPlan: EditPlan | null;
 }

@@ -107,6 +107,27 @@ test('rule-based agent asks for clarification when write policy blocks the top t
   assert.match(result.turns[0]?.decision.action.summary ?? '', /writable target boundaries/i);
 });
 
+test('rule-based agent repairs missing service.port after validation failure', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-repair-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/repair-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'add ingress to payments-api dev chart',
+      workspaceRoot,
+      undefined,
+      'rule-based'
+    );
+
+    assert.ok(result.turns.some(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-service-port-repair'));
+    assert.ok(result.runtime.repairAttempts >= 1);
+    assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('rule-based agent emits ingress edit plan against fixture workspace copy', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-test-'));
   const workspaceRoot = join(tempRoot, 'workspace');

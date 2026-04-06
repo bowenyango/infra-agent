@@ -1,21 +1,6 @@
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
-import type { FileReadOutput } from '../../types/tools.ts';
-
-function getFileContent(runtime: AgentRuntimeState, relativePathSuffix: string): string | null {
-  for (const observation of runtime.observations) {
-    if (observation.toolName !== 'read_file') {
-      continue;
-    }
-
-    const output = observation.output as FileReadOutput;
-    if (output.path.endsWith(relativePathSuffix)) {
-      return output.content;
-    }
-  }
-
-  return null;
-}
+import { getLatestFileContent } from './runtime-file-content.ts';
 
 function hasProbeIntent(task: string): boolean {
   return /\b(probe|probes|readiness|liveness|health(?:check)?)\b/i.test(task);
@@ -80,8 +65,8 @@ export function buildHelmProbesEditPlan(runtime: AgentRuntimeState): EditPlan | 
 
   const valuesPath = `${topHelmTarget.path}/values.yaml`;
   const deploymentPath = `${topHelmTarget.path}/templates/deployment.yaml`;
-  const valuesContent = getFileContent(runtime, valuesPath);
-  const deploymentContent = getFileContent(runtime, deploymentPath);
+  const valuesContent = getLatestFileContent(runtime, valuesPath);
+  const deploymentContent = getLatestFileContent(runtime, deploymentPath);
   if (!valuesContent || !deploymentContent) {
     return null;
   }

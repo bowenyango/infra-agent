@@ -1,4 +1,4 @@
-export type EditPlanKind = 'helm-ingress' | 'pulumi-stack-config' | 'helm-probes';
+export type EditPlanKind = 'helm-ingress' | 'pulumi-stack-config' | 'helm-probes' | 'helm-service-port-repair';
 
 export interface FileWritePlan {
   path: string;

@@ -18,6 +18,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
     const hasObservations = runtime.observations.length > 0;
     const hasAppliedWrites = runtime.appliedWrites.length > 0;
+    const hasValidationResults = runtime.validationResults.length > 0;
+    const hasValidationFailures = runtime.validationResults.some(result => result.exitCode !== 0);
     const editPlan = runtime.lastEditPlan;
     const hasWritePolicyBlocker = preflight.blockers.some(blocker => blocker.startsWith('Workspace write policy'));
 
@@ -101,7 +103,22 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (hasAppliedWrites && preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
+    if (hasValidationFailures && editPlan && editPlan.writes.length > 0 && runtime.repairAttempts < 2) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: editPlan.summary,
+          rationale: `Repair loop: ${editPlan.rationale}`,
+          payload: {
+            writes: editPlan.writes,
+            editPlan
+          }
+        }
+      };
+    }
+
+    if (hasAppliedWrites && !hasValidationResults && preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
       const commands = selectValidationCommands(runtime);
       return {
         confidence: 'medium',
@@ -112,6 +129,17 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           payload: {
             commands
           }
+        }
+      };
+    }
+
+    if (hasValidationFailures) {
+      return {
+        confidence: 'medium',
+        action: {
+          kind: 'stop',
+          summary: 'Validation failed and no bounded repair action was available.',
+          rationale: 'The current runtime captured validation failures, but the bounded repair planner could not derive a safe follow-up edit.'
         }
       };
     }

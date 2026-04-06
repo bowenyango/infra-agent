@@ -4,7 +4,7 @@ import { executeDecision } from './agent/execute-decision.ts';
 import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from './types/agent.ts';
 import type { RunPreflightState } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
-import type { ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
+import type { FileReadOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
 
@@ -27,9 +27,18 @@ function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDec
       const output = toolResult.output as WriteFileOutput;
       nextRuntime.appliedWrites.push({
         path: output.path,
-        content: '',
+        content: output.content,
         reason: 'Applied via write_file tool.'
       } satisfies FileWritePlan);
+      nextRuntime.observations.push({
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: output.path,
+          content: output.content,
+          truncated: false
+        } satisfies FileReadOutput
+      });
     }
 
     if (toolResult.toolName === 'validate_targets') {
@@ -48,6 +57,7 @@ function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentR
     observations: [],
     appliedWrites: [],
     validationResults: [],
+    repairAttempts: 0,
     lastEditPlan: null
   };
 }
@@ -58,10 +68,6 @@ function shouldStopLoop(turn: QueryTurn): boolean {
   }
 
   if (turn.decision.action.kind === 'ask-for-clarification') {
-    return true;
-  }
-
-  if (turn.decision.action.kind === 'validate-targets') {
     return true;
   }
 
@@ -84,6 +90,14 @@ export async function runQueryLoop(
 
     if (execution) {
       runtime = applyExecutionToRuntime(runtime, execution);
+    }
+
+    if (decision.action.kind === 'apply-edit-plan' && runtime.validationResults.some(result => result.exitCode !== 0)) {
+      runtime = {
+        ...runtime,
+        repairAttempts: runtime.repairAttempts + 1,
+        validationResults: []
+      };
     }
 
     runtime = {

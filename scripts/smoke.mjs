@@ -28,10 +28,12 @@ async function main() {
     const ingressWorkspaceRoot = join(tempRoot, 'ingress-workspace');
     const probeWorkspaceRoot = join(tempRoot, 'probe-workspace');
     const pulumiWorkspaceRoot = join(tempRoot, 'pulumi-workspace');
+    const repairWorkspaceRoot = join(tempRoot, 'repair-workspace');
 
     await cp(fixtureRoot, ingressWorkspaceRoot, { recursive: true });
     await cp(fixtureRoot, probeWorkspaceRoot, { recursive: true });
     await cp(fixtureRoot, pulumiWorkspaceRoot, { recursive: true });
+    await cp(resolve('fixtures/repair-workspace'), repairWorkspaceRoot, { recursive: true });
 
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', '--help']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/sample-workspace']);
@@ -86,6 +88,21 @@ async function main() {
     const pulumiStack = await readFile(join(pulumiWorkspaceRoot, 'infra/payments-api/Pulumi.dev.yaml'), 'utf8');
     if (!pulumiStack.includes('payments-api:imageTag: 1.2.3')) {
       throw new Error('Pulumi smoke check did not materialize expected stack config changes.');
+    }
+
+    runCommand([
+      '--experimental-strip-types',
+      'src/cli/main.ts',
+      'agent',
+      'add ingress to payments-api dev chart',
+      '--workspace',
+      repairWorkspaceRoot,
+      '--planner',
+      'rule-based'
+    ]);
+    const repairedValues = await readFile(join(repairWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
+    if (!repairedValues.includes('service:\n  port: 8080')) {
+      throw new Error('repair smoke check did not add the expected service.port repair.');
     }
 
     process.stdout.write(`smoke passed (${tempRoot})\n`);

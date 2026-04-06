@@ -1,22 +1,7 @@
 import { basename, join } from 'node:path';
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
-import type { FileReadOutput } from '../../types/tools.ts';
-
-function getFileContent(runtime: AgentRuntimeState, relativePathSuffix: string): string | null {
-  for (const observation of runtime.observations) {
-    if (observation.toolName !== 'read_file') {
-      continue;
-    }
-
-    const output = observation.output as FileReadOutput;
-    if (output.path.endsWith(relativePathSuffix)) {
-      return output.content;
-    }
-  }
-
-  return null;
-}
+import { getLatestFileContent } from './runtime-file-content.ts';
 
 function hasPulumiConfigIntent(task: string): boolean {
   return /\b(pulumi|stack|image(?:[- ]?tag)?)\b/i.test(task);
@@ -136,10 +121,10 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
     return null;
   }
 
-  const projectFileContent = getFileContent(runtime, join(topPulumiTarget.path, 'Pulumi.yaml'));
+  const projectFileContent = getLatestFileContent(runtime, join(topPulumiTarget.path, 'Pulumi.yaml'));
   const stackFileRelativePath = project.stackFiles.find(filePath => filePath.endsWith(`Pulumi.${stackName}.yaml`))
     ?? join(topPulumiTarget.path, `Pulumi.${stackName}.yaml`);
-  const stackFileContent = getFileContent(runtime, stackFileRelativePath) ?? '';
+  const stackFileContent = getLatestFileContent(runtime, stackFileRelativePath) ?? '';
   const projectName = extractProjectName(projectFileContent, topPulumiTarget.path);
 
   const nextContent = upsertConfigValue(

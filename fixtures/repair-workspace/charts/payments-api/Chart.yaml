@@ -1,0 +1,5 @@
+apiVersion: v2
+name: payments-api
+description: Repair loop sample chart
+type: application
+version: 0.1.0

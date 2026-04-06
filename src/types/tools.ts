@@ -12,6 +12,12 @@ export interface FileReadOutput {
   truncated: boolean;
 }
 
+export interface WriteFileOutput {
+  path: string;
+  bytesWritten: number;
+  content: string;
+}
+
 export interface ValidationCommandOutput {
   command: string;
   exitCode: number;
@@ -23,4 +29,3 @@ export interface ValidationRunOutput {
   workspaceRoot: string;
   results: ValidationCommandOutput[];
 }
-

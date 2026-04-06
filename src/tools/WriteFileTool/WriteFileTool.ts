@@ -1,15 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { Tool } from '../../Tool.ts';
+import type { WriteFileOutput } from '../../types/tools.ts';
 
 export interface WriteFileInput {
   path: string;
   content: string;
-}
-
-export interface WriteFileOutput {
-  path: string;
-  bytesWritten: number;
 }
 
 export const WriteFileTool: Tool<WriteFileInput, WriteFileOutput> = {
@@ -26,9 +22,9 @@ export const WriteFileTool: Tool<WriteFileInput, WriteFileOutput> = {
       safety: 'write_scoped',
       output: {
         path: absolutePath,
-        bytesWritten: Buffer.byteLength(input.content, 'utf8')
+        bytesWritten: Buffer.byteLength(input.content, 'utf8'),
+        content: input.content
       }
     };
   }
 };
-

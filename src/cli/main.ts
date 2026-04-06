@@ -62,30 +62,36 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 
   if (commandName === 'run' || commandName === 'agent') {
-    const workspaceFlagIndex = cleanArgs.indexOf('--workspace');
-    const plannerFlagIndex = cleanArgs.indexOf('--planner');
     let workspace = cwd();
-    let taskArgs = cleanArgs;
     let planner: PlannerMode = 'auto';
+    const taskArgs: string[] = [];
 
-    if (workspaceFlagIndex >= 0) {
-      const workspaceValue = cleanArgs[workspaceFlagIndex + 1];
-      if (!workspaceValue) {
-        fail('Missing value for --workspace.');
+    for (let index = 0; index < cleanArgs.length; index += 1) {
+      const arg = cleanArgs[index];
+
+      if (arg === '--workspace') {
+        const workspaceValue = cleanArgs[index + 1];
+        if (!workspaceValue) {
+          fail('Missing value for --workspace.');
+        }
+
+        workspace = workspaceValue;
+        index += 1;
+        continue;
       }
 
-      workspace = workspaceValue;
-      taskArgs = cleanArgs.filter((_, index) => index !== workspaceFlagIndex && index !== workspaceFlagIndex + 1);
-    }
+      if (arg === '--planner') {
+        const plannerValue = cleanArgs[index + 1];
+        if (plannerValue !== 'auto' && plannerValue !== 'llm' && plannerValue !== 'rule-based') {
+          fail('Missing or invalid value for --planner. Expected auto, llm, or rule-based.');
+        }
 
-    if (plannerFlagIndex >= 0) {
-      const plannerValue = cleanArgs[plannerFlagIndex + 1];
-      if (plannerValue !== 'auto' && plannerValue !== 'llm' && plannerValue !== 'rule-based') {
-        fail('Missing or invalid value for --planner. Expected auto, llm, or rule-based.');
+        planner = plannerValue;
+        index += 1;
+        continue;
       }
 
-      planner = plannerValue;
-      taskArgs = taskArgs.filter((_, index) => index !== plannerFlagIndex && index !== plannerFlagIndex + 1);
+      taskArgs.push(arg);
     }
 
     const task = taskArgs.join(' ').trim();

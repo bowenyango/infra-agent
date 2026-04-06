@@ -1,21 +1,6 @@
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
-import type { FileReadOutput } from '../../types/tools.ts';
-
-function getFileContent(runtime: AgentRuntimeState, relativePathSuffix: string): string | null {
-  for (const observation of runtime.observations) {
-    if (observation.toolName !== 'read_file') {
-      continue;
-    }
-
-    const output = observation.output as FileReadOutput;
-    if (output.path.endsWith(relativePathSuffix)) {
-      return output.content;
-    }
-  }
-
-  return null;
-}
+import { getLatestFileContent } from './runtime-file-content.ts';
 
 function hasIngressIntent(task: string): boolean {
   return /\bingress\b/i.test(task);
@@ -93,7 +78,7 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
 
   const valuesPath = `${topHelmTarget.path}/values.yaml`;
   const ingressPath = `${topHelmTarget.path}/templates/ingress.yaml`;
-  const valuesContent = getFileContent(runtime, valuesPath);
+  const valuesContent = getLatestFileContent(runtime, valuesPath);
   if (!valuesContent) {
     return null;
   }
@@ -111,7 +96,7 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
     });
   }
 
-  const existingIngress = getFileContent(runtime, ingressPath);
+  const existingIngress = getLatestFileContent(runtime, ingressPath);
   if (!existingIngress) {
     writes.push({
       path: ingressPath,
@@ -131,4 +116,3 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
     writes
   };
 }
-
