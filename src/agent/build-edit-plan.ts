@@ -3,6 +3,7 @@ import { buildHelmIngressValuesRepairEditPlan } from './edit-plans/helm-ingress-
 import { buildHelmProbesEditPlan } from './edit-plans/helm-probes.ts';
 import { buildHelmServicePortRepairEditPlan } from './edit-plans/helm-service-port-repair.ts';
 import { buildPulumiStackConfigEditPlan } from './edit-plans/pulumi-stack-config.ts';
+import { classifyWritePlan } from './classify-write-plan.ts';
 import { isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import type { AgentRuntimeState } from '../types/agent.ts';
 import type { EditPlan } from '../types/edit-plan.ts';
@@ -28,13 +29,18 @@ export function buildEditPlan(runtime: AgentRuntimeState): EditPlan | null {
     return null;
   }
 
+  const normalizedWrites = filteredWrites.map(write => classifyWritePlan(runtime, write));
+
   if (filteredWrites.length === candidate.writes.length) {
-    return candidate;
+    return {
+      ...candidate,
+      writes: normalizedWrites
+    };
   }
 
   return {
     ...candidate,
     rationale: `${candidate.rationale} Workspace write policy filtered one or more planned file changes.`,
-    writes: filteredWrites
+    writes: normalizedWrites
   };
 }

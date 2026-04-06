@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, cp, rm } from 'node:fs/promises';
+import { mkdtemp, cp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
@@ -14,6 +14,7 @@ import { classifyValidationIssues } from '../src/agent/classify-validation-issue
 import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
+import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 
@@ -113,6 +114,36 @@ test('workspace config overrides validation plan entries', async () => {
   assert.equal(validation.usedWorkspaceConfig, true);
   assert.equal(validation.plan.length, 1);
   assert.equal(validation.plan[0]?.commands[0], 'echo custom networking validation');
+});
+
+test('buildEditPlan classifies ingress writes as append and create', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: resolve('fixtures/sample-workspace/charts/payments-api/values.yaml'),
+          content: await readFile(resolve('fixtures/sample-workspace/charts/payments-api/values.yaml'), 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  const valuesWrite = editPlan?.writes.find(write => write.path.endsWith('values.yaml'));
+  const ingressWrite = editPlan?.writes.find(write => write.path.endsWith('templates/ingress.yaml'));
+  assert.equal(valuesWrite?.mode, 'append');
+  assert.equal(ingressWrite?.mode, 'create');
 });
 
 test('workspace write policy blocks non-allowed chart edits during preflight', async () => {
@@ -367,6 +398,9 @@ test('rule-based agent emits ingress edit plan against fixture workspace copy', 
     assert.equal(result.outcome, 'completed');
     assert.ok(result.runtime.appliedWrites.length > 0);
     assert.ok(result.turns.some(turn => turn.execution?.executedTools.some(tool => tool.toolName === 'diff_preview')));
+    const ingressTurn = result.turns.find(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-ingress');
+    assert.ok(ingressTurn?.decision.action.payload?.writes?.some(write => write.mode === 'append'));
+    assert.ok(ingressTurn?.decision.action.payload?.writes?.some(write => write.mode === 'create'));
     assert.ok(
       result.turns.some(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-ingress')
     );

@@ -4,11 +4,14 @@ export type EditPlanKind =
   | 'helm-probes'
   | 'helm-service-port-repair'
   | 'helm-ingress-values-repair';
+export type FileWriteMode = 'create' | 'append' | 'rewrite';
 
 export interface FileWritePlan {
   path: string;
   content: string;
   reason: string;
+  mode?: FileWriteMode;
+  patchHint?: string;
 }
 
 export interface EditPlan {

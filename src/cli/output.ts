@@ -137,7 +137,9 @@ export function printAgentRunState(state: AgentRunState): void {
 
     if (decision.action.payload?.writes && decision.action.payload.writes.length > 0) {
       printList(
-        decision.action.payload.writes.map(write => `${write.path}: ${write.reason}`),
+        decision.action.payload.writes.map(write =>
+          `${write.path} [${write.mode ?? 'rewrite'}]: ${write.reason}${write.patchHint ? ` (${write.patchHint})` : ''}`
+        ),
         'No writes selected.'
       );
     }
