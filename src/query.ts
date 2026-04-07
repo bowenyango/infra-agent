@@ -26,7 +26,7 @@ function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDec
   for (const toolResult of execution.executedTools) {
     nextRuntime.observations.push(toolResult);
 
-    if (toolResult.toolName === 'write_file' || toolResult.toolName === 'append_file') {
+    if (toolResult.toolName === 'write_file' || toolResult.toolName === 'append_file' || toolResult.toolName === 'replace_file') {
       const output = toolResult.output as WriteFileOutput;
       nextRuntime.appliedWrites.push({
         path: output.path,

@@ -5,6 +5,7 @@ import { AppendFileTool } from '../tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from '../tools/DiffPreviewTool/DiffPreviewTool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
+import { ReplaceFileTool } from '../tools/ReplaceFileTool/ReplaceFileTool.ts';
 import { SearchWorkspaceTool } from '../tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { ValidateTargetsTool } from '../tools/ValidateTargetsTool/ValidateTargetsTool.ts';
 import { WriteFileTool } from '../tools/WriteFileTool/WriteFileTool.ts';
@@ -154,6 +155,15 @@ export async function executeDecision(
           content: writeTool.name === 'append_file'
             ? getAppendDelta(write.content, diffOutput.exists, diffOutput.previousContent)
             : write.content
+        }, context));
+        continue;
+      }
+
+      if (write.mode === 'replace' && write.replacePatch) {
+        toolResults.push(await executeTool(ReplaceFileTool, {
+          path: write.path,
+          before: write.replacePatch.before,
+          after: write.replacePatch.after
         }, context));
         continue;
       }

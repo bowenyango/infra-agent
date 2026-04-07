@@ -146,6 +146,47 @@ test('buildEditPlan classifies ingress writes as append and create', async () =>
   assert.equal(ingressWrite?.mode, 'create');
 });
 
+test('buildEditPlan classifies probe deployment update as replace', async () => {
+  const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
+  const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');
+  const deploymentPath = resolve('fixtures/sample-workspace/charts/payments-api/templates/deployment.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: valuesPath,
+          content: await readFile(valuesPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: deploymentPath,
+          content: await readFile(deploymentPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  const deploymentWrite = editPlan?.writes.find(write => write.path.endsWith('templates/deployment.yaml'));
+  assert.equal(deploymentWrite?.mode, 'replace');
+  assert.ok(deploymentWrite?.replacePatch?.before);
+  assert.ok(deploymentWrite?.replacePatch?.after);
+});
+
 test('workspace write policy blocks non-allowed chart edits during preflight', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/restricted-workspace');
 
@@ -260,6 +301,59 @@ test('apply-edit-plan execution uses append_file for append-mode writes', async 
     assert.equal(execution?.executedTools[1]?.toolName, 'append_file');
     const updatedValues = await readFile(join(workspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
     assert.match(updatedValues, /featureFlag:\n  enabled: true/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('apply-edit-plan execution uses replace_file for replace-mode writes', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-replace-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const deploymentPath = join(workspaceRoot, 'charts/payments-api/templates/deployment.yaml');
+    const existingDeployment = await readFile(deploymentPath, 'utf8');
+    const before = '          resources:\n';
+    const after = [
+      '          readinessProbe:',
+      '            httpGet:',
+      '              path: /healthz',
+      '              port: http',
+      '          resources:\n'
+    ].join('\n');
+    const execution = await executeDecision(
+      {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: 'Replace bounded deployment segment.',
+          rationale: 'Test replace tool path.',
+          payload: {
+            writes: [
+              {
+                path: 'charts/payments-api/templates/deployment.yaml',
+                content: existingDeployment.replace(before, after),
+                reason: 'Insert readiness probe block',
+                mode: 'replace',
+                replacePatch: {
+                  before,
+                  after
+                }
+              }
+            ]
+          }
+        }
+      },
+      workspaceRoot,
+      null
+    );
+
+    assert.ok(execution);
+    assert.equal(execution?.executedTools[0]?.toolName, 'diff_preview');
+    assert.equal(execution?.executedTools[1]?.toolName, 'replace_file');
+    const updatedDeployment = await readFile(deploymentPath, 'utf8');
+    assert.match(updatedDeployment, /readinessProbe:/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -445,6 +539,28 @@ test('rule-based agent emits ingress edit plan against fixture workspace copy', 
     assert.ok(
       result.turns.some(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-ingress')
     );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rule-based probes path uses replace mode for deployment template edits', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-probes-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'add readiness and liveness probes to payments-api dev chart',
+      workspaceRoot,
+      undefined,
+      'rule-based'
+    );
+
+    const probesTurn = result.turns.find(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-probes');
+    assert.ok(probesTurn?.decision.action.payload?.writes?.some(write => write.mode === 'replace'));
+    assert.ok(result.turns.some(turn => turn.execution?.executedTools.some(tool => tool.toolName === 'replace_file')));
+    assert.equal(result.outcome, 'completed');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

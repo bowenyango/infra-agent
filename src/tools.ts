@@ -3,6 +3,7 @@ import { AppendFileTool } from './tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from './tools/DiffPreviewTool/DiffPreviewTool.ts';
 import { ListDirectoryTool } from './tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { ReadFileTool } from './tools/ReadFileTool/ReadFileTool.ts';
+import { ReplaceFileTool } from './tools/ReplaceFileTool/ReplaceFileTool.ts';
 import { SearchWorkspaceTool } from './tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { ValidateTargetsTool } from './tools/ValidateTargetsTool/ValidateTargetsTool.ts';
 import { WriteFileTool } from './tools/WriteFileTool/WriteFileTool.ts';
@@ -12,6 +13,7 @@ export const toolRegistry = {
   [DiffPreviewTool.name]: DiffPreviewTool,
   [ListDirectoryTool.name]: ListDirectoryTool,
   [ReadFileTool.name]: ReadFileTool,
+  [ReplaceFileTool.name]: ReplaceFileTool,
   [SearchWorkspaceTool.name]: SearchWorkspaceTool,
   [ValidateTargetsTool.name]: ValidateTargetsTool,
   [WriteFileTool.name]: WriteFileTool

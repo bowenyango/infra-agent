@@ -185,6 +185,14 @@ export function printAgentRunState(state: AgentRunState): void {
           );
         }
 
+        if (toolResult.toolName === 'replace_file') {
+          const output = toolResult.output as { path: string; bytesWritten: number };
+          printList(
+            [`${output.path}: replaced bounded segment and wrote ${output.bytesWritten} bytes`],
+            'No replace output available.'
+          );
+        }
+
         if (toolResult.toolName === 'validate_targets') {
           const output = toolResult.output as ValidationRunOutput;
           printList(
