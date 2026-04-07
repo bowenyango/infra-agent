@@ -5,6 +5,7 @@ export type EditPlanKind =
   | 'helm-service-port-repair'
   | 'helm-ingress-values-repair';
 export type FileWriteMode = 'create' | 'append' | 'replace' | 'rewrite';
+export type FileWriteRisk = 'low' | 'medium' | 'high';
 
 export interface ReplacePatch {
   before: string;
@@ -16,6 +17,7 @@ export interface FileWritePlan {
   content: string;
   reason: string;
   mode?: FileWriteMode;
+  risk?: FileWriteRisk;
   patchHint?: string;
   replacePatch?: ReplacePatch;
 }

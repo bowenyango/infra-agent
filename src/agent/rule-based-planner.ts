@@ -21,6 +21,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasValidationResults = runtime.validationResults.length > 0;
     const hasValidationFailures = runtime.validationResults.some(result => result.exitCode !== 0);
     const hasRepairableValidationIssues = runtime.validationIssues.some(issue => issue.repairable);
+    const hasApprovalSignals = runtime.approvalSignals.length > 0;
     const editPlan = runtime.lastEditPlan;
     const hasWritePolicyBlocker = preflight.blockers.some(blocker => blocker.startsWith('Workspace write policy'));
 
@@ -90,6 +91,20 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     }
 
     if (!hasAppliedWrites && editPlan && editPlan.writes.length > 0) {
+      if (hasApprovalSignals) {
+        return {
+          confidence: 'high',
+          action: {
+            kind: 'ask-for-clarification',
+            summary: 'Approve high-risk rewrite operations before applying changes.',
+            rationale: 'The current edit plan includes one or more high-risk full-file rewrites that should be explicitly approved before execution.',
+            payload: {
+              questions: runtime.approvalSignals.map(signal => `${signal.message} Proceed with this rewrite?`)
+            }
+          }
+        };
+      }
+
       return {
         confidence: 'high',
         action: {

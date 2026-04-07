@@ -138,7 +138,7 @@ export function printAgentRunState(state: AgentRunState): void {
     if (decision.action.payload?.writes && decision.action.payload.writes.length > 0) {
       printList(
         decision.action.payload.writes.map(write =>
-          `${write.path} [${write.mode ?? 'rewrite'}]: ${write.reason}${write.patchHint ? ` (${write.patchHint})` : ''}`
+          `${write.path} [${write.mode ?? 'rewrite'}, risk=${write.risk ?? 'high'}]: ${write.reason}${write.patchHint ? ` (${write.patchHint})` : ''}`
         ),
         'No writes selected.'
       );
@@ -209,6 +209,13 @@ export function printAgentRunState(state: AgentRunState): void {
   printList(
     state.runtime.validationIssues.map(issue => `${issue.kind} (${issue.repairable ? 'repairable' : 'blocker'}): ${issue.message}`),
     'No validation issues recorded.'
+  );
+
+  process.stdout.write('\n');
+  printHeader('Approval Signals');
+  printList(
+    state.runtime.approvalSignals.map(signal => `${signal.kind} ${signal.path} [risk=${signal.risk}]: ${signal.message}`),
+    'No approval signals recorded.'
   );
 
   process.stdout.write('\n\n');

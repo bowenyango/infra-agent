@@ -19,6 +19,7 @@ export type AgentRunOutcome =
   | 'repair-budget-exhausted'
   | 'no-safe-action';
 import type { EditPlan, FileWritePlan } from './edit-plan.ts';
+import type { FileWriteRisk } from './edit-plan.ts';
 
 export interface AgentAction {
   kind: AgentActionKind;
@@ -57,6 +58,13 @@ export interface ValidationIssue {
   message: string;
 }
 
+export interface ApprovalSignal {
+  kind: 'high-risk-rewrite';
+  path: string;
+  risk: FileWriteRisk;
+  message: string;
+}
+
 export interface AgentPlanningInput {
   runtime: AgentRuntimeState;
 }
@@ -73,6 +81,7 @@ export interface AgentRuntimeState {
   appliedWrites: FileWritePlan[];
   validationResults: ValidationCommandOutput[];
   validationIssues: ValidationIssue[];
+  approvalSignals: ApprovalSignal[];
   repairAttempts: number;
   lastEditPlan: EditPlan | null;
 }

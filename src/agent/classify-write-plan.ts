@@ -1,5 +1,5 @@
 import type { AgentRuntimeState } from '../types/agent.ts';
-import type { FileWriteMode, FileWritePlan } from '../types/edit-plan.ts';
+import type { FileWriteMode, FileWritePlan, FileWriteRisk } from '../types/edit-plan.ts';
 import { getLatestFileContent } from './edit-plans/runtime-file-content.ts';
 
 function detectWriteMode(previousContent: string | null, nextContent: string): FileWriteMode {
@@ -30,6 +30,19 @@ function buildPatchHint(mode: FileWriteMode): string {
     case 'rewrite':
     default:
       return 'Rewrite the full file because the bounded change cannot be represented as a pure append.';
+  }
+}
+
+function classifyWriteRisk(mode: FileWriteMode): FileWriteRisk {
+  switch (mode) {
+    case 'replace':
+      return 'medium';
+    case 'rewrite':
+      return 'high';
+    case 'append':
+    case 'create':
+    default:
+      return 'low';
   }
 }
 
@@ -95,6 +108,7 @@ export function classifyWritePlan(runtime: AgentRuntimeState, write: FileWritePl
   return {
     ...write,
     mode,
+    risk: classifyWriteRisk(mode),
     patchHint: write.patchHint ?? buildPatchHint(mode),
     replacePatch
   };

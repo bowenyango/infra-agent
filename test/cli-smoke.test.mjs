@@ -99,6 +99,7 @@ test('profile-aware validation selection filters to Pulumi commands for infra-cl
     ],
     validationResults: [],
     validationIssues: [],
+    approvalSignals: [],
     repairAttempts: 0,
     lastEditPlan: null
   });
@@ -156,6 +157,7 @@ test('buildEditPlan filters write modes disallowed by workspace policy', async (
     appliedWrites: [],
     validationResults: [],
     validationIssues: [],
+    approvalSignals: [],
     repairAttempts: 0,
     lastEditPlan: null
   });
@@ -184,6 +186,7 @@ test('buildEditPlan classifies ingress writes as append and create', async () =>
     appliedWrites: [],
     validationResults: [],
     validationIssues: [],
+    approvalSignals: [],
     repairAttempts: 0,
     lastEditPlan: null
   });
@@ -225,6 +228,7 @@ test('buildEditPlan classifies probe deployment update as replace', async () => 
     appliedWrites: [],
     validationResults: [],
     validationIssues: [],
+    approvalSignals: [],
     repairAttempts: 0,
     lastEditPlan: null
   });
@@ -254,6 +258,70 @@ test('rule-based agent asks for clarification when write policy blocks the top t
 
   assert.equal(result.turns[0]?.decision.action.kind, 'ask-for-clarification');
   assert.match(result.turns[0]?.decision.action.summary ?? '', /writable target boundaries/i);
+});
+
+test('rule-based planner asks for clarification before high-risk rewrite edits', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight: {
+        ...preflight,
+        assumptions: [],
+        targetCandidates: [
+          {
+            kind: 'helm-chart',
+            name: 'payments-api',
+            path: 'charts/payments-api',
+            score: 10,
+            reasons: ['synthetic approval test'],
+            matchedEnvironmentHints: ['dev']
+          }
+        ]
+      },
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: resolve('fixtures/sample-workspace/charts/payments-api/values.yaml'),
+            content: await readFile(resolve('fixtures/sample-workspace/charts/payments-api/values.yaml'), 'utf8'),
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [
+        {
+          kind: 'high-risk-rewrite',
+          path: 'charts/payments-api/values.yaml',
+          risk: 'high',
+          message: 'The planned change rewrites the full file at charts/payments-api/values.yaml. Approval is recommended before applying this edit.'
+        }
+      ],
+      repairAttempts: 0,
+      lastEditPlan: {
+        kind: 'helm-ingress',
+        summary: 'Rewrite values file.',
+        rationale: 'Synthetic rewrite test.',
+        writes: [
+          {
+            path: 'charts/payments-api/values.yaml',
+            content: 'replicaCount: 99\n',
+            reason: 'Rewrite test',
+            mode: 'rewrite',
+            risk: 'high'
+          }
+        ]
+      }
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.match(decision.action.summary, /high-risk rewrite/i);
 });
 
 test('rule-based agent repairs missing service.port after validation failure', async () => {
@@ -493,6 +561,7 @@ test('parsePlannerDecision requires stopReason for stop actions', async () => {
           appliedWrites: [],
           validationResults: [],
           validationIssues: [],
+          approvalSignals: [],
           repairAttempts: 0,
           lastEditPlan: null
         }
@@ -522,6 +591,7 @@ test('parsePlannerDecision accepts supported stopReason values', async () => {
       appliedWrites: [],
       validationResults: [],
       validationIssues: [],
+      approvalSignals: [],
       repairAttempts: 0,
       lastEditPlan: null
     }
@@ -595,6 +665,7 @@ test('rule-based planner stops with repair-budget-exhausted after bounded retrie
           message: 'Validation failed because a Helm template references .Values.ingress.enabled but the values file does not define ingress settings.'
         }
       ],
+      approvalSignals: [],
       repairAttempts: 2,
       lastEditPlan: null
     }

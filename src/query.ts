@@ -1,5 +1,6 @@
 import { buildRunPreflight } from './agent/build-run-preflight.ts';
 import { classifyValidationIssues } from './agent/classify-validation-issues.ts';
+import { collectApprovalSignals } from './agent/collect-approval-signals.ts';
 import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
 import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from './types/agent.ts';
@@ -16,7 +17,8 @@ function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
     observations: [...runtime.observations],
     appliedWrites: [...runtime.appliedWrites],
     validationResults: [...runtime.validationResults],
-    validationIssues: [...runtime.validationIssues]
+    validationIssues: [...runtime.validationIssues],
+    approvalSignals: [...runtime.approvalSignals]
   };
 }
 
@@ -62,6 +64,7 @@ function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentR
     appliedWrites: [],
     validationResults: [],
     validationIssues: [],
+    approvalSignals: [],
     repairAttempts: 0,
     lastEditPlan: null
   };
@@ -136,6 +139,10 @@ export async function runQueryLoop(
     runtime = {
       ...runtime,
       lastEditPlan: buildEditPlan(runtime)
+    };
+    runtime = {
+      ...runtime,
+      approvalSignals: collectApprovalSignals(runtime)
     };
 
     const turn: QueryTurn = {
