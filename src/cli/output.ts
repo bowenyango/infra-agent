@@ -177,6 +177,14 @@ export function printAgentRunState(state: AgentRunState): void {
           );
         }
 
+        if (toolResult.toolName === 'append_file') {
+          const output = toolResult.output as { path: string; bytesWritten: number };
+          printList(
+            [`${output.path}: appended ${output.bytesWritten} bytes`],
+            'No append output available.'
+          );
+        }
+
         if (toolResult.toolName === 'validate_targets') {
           const output = toolResult.output as ValidationRunOutput;
           printList(

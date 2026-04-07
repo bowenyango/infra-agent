@@ -35,6 +35,7 @@ export interface DiffPreviewOutput {
   exists: boolean;
   addedLines: number;
   removedLines: number;
+  previousContent?: string;
   preview: string[];
 }
 

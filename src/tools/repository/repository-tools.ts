@@ -35,6 +35,14 @@ export async function readTextFile(filePath: string): Promise<string> {
   return readFile(resolve(filePath), 'utf8');
 }
 
+export async function tryReadTextFile(filePath: string): Promise<string | null> {
+  try {
+    return await readTextFile(filePath);
+  } catch {
+    return null;
+  }
+}
+
 export function isYamlPath(filePath: string): boolean {
   const extension = extname(filePath).toLowerCase();
   return extension === '.yaml' || extension === '.yml';

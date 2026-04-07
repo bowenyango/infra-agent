@@ -84,6 +84,7 @@ export const DiffPreviewTool: Tool<DiffPreviewInput, DiffPreviewOutput> = {
         exists,
         addedLines,
         removedLines,
+        previousContent: exists ? previousContent : undefined,
         preview: buildPreview(previousContent, input.nextContent)
       }
     };

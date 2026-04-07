@@ -1,4 +1,5 @@
 import type { Tool } from './Tool.ts';
+import { AppendFileTool } from './tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from './tools/DiffPreviewTool/DiffPreviewTool.ts';
 import { ListDirectoryTool } from './tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { ReadFileTool } from './tools/ReadFileTool/ReadFileTool.ts';
@@ -7,6 +8,7 @@ import { ValidateTargetsTool } from './tools/ValidateTargetsTool/ValidateTargets
 import { WriteFileTool } from './tools/WriteFileTool/WriteFileTool.ts';
 
 export const toolRegistry = {
+  [AppendFileTool.name]: AppendFileTool,
   [DiffPreviewTool.name]: DiffPreviewTool,
   [ListDirectoryTool.name]: ListDirectoryTool,
   [ReadFileTool.name]: ReadFileTool,

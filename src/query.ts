@@ -26,12 +26,12 @@ function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDec
   for (const toolResult of execution.executedTools) {
     nextRuntime.observations.push(toolResult);
 
-    if (toolResult.toolName === 'write_file') {
+    if (toolResult.toolName === 'write_file' || toolResult.toolName === 'append_file') {
       const output = toolResult.output as WriteFileOutput;
       nextRuntime.appliedWrites.push({
         path: output.path,
         content: output.content,
-        reason: 'Applied via write_file tool.'
+        reason: `Applied via ${toolResult.toolName} tool.`
       } satisfies FileWritePlan);
       nextRuntime.observations.push({
         toolName: 'read_file',

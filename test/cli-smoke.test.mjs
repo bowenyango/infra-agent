@@ -225,6 +225,46 @@ test('apply-edit-plan execution emits diff preview before write', async () => {
   }
 });
 
+test('apply-edit-plan execution uses append_file for append-mode writes', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-append-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const existingValues = await readFile(join(workspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
+    const execution = await executeDecision(
+      {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: 'Append bounded values update.',
+          rationale: 'Test append tool path.',
+          payload: {
+            writes: [
+              {
+                path: 'charts/payments-api/values.yaml',
+                content: `${existingValues.trimEnd()}\n\nfeatureFlag:\n  enabled: true\n`,
+                reason: 'Append test block',
+                mode: 'append'
+              }
+            ]
+          }
+        }
+      },
+      workspaceRoot,
+      null
+    );
+
+    assert.ok(execution);
+    assert.equal(execution?.executedTools[0]?.toolName, 'diff_preview');
+    assert.equal(execution?.executedTools[1]?.toolName, 'append_file');
+    const updatedValues = await readFile(join(workspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
+    assert.match(updatedValues, /featureFlag:\n  enabled: true/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('classifyValidationIssues marks ingress.enabled failures as repairable', () => {
   const issues = classifyValidationIssues([
     {
@@ -398,6 +438,7 @@ test('rule-based agent emits ingress edit plan against fixture workspace copy', 
     assert.equal(result.outcome, 'completed');
     assert.ok(result.runtime.appliedWrites.length > 0);
     assert.ok(result.turns.some(turn => turn.execution?.executedTools.some(tool => tool.toolName === 'diff_preview')));
+    assert.ok(result.turns.some(turn => turn.execution?.executedTools.some(tool => tool.toolName === 'append_file')));
     const ingressTurn = result.turns.find(turn => turn.decision.action.payload?.editPlan?.kind === 'helm-ingress');
     assert.ok(ingressTurn?.decision.action.payload?.writes?.some(write => write.mode === 'append'));
     assert.ok(ingressTurn?.decision.action.payload?.writes?.some(write => write.mode === 'create'));

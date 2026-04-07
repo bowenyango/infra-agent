@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path';
 import { isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import { executeTool } from '../services/tools/execute-tool.ts';
+import { AppendFileTool } from '../tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from '../tools/DiffPreviewTool/DiffPreviewTool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
@@ -9,7 +10,7 @@ import { ValidateTargetsTool } from '../tools/ValidateTargetsTool/ValidateTarget
 import { WriteFileTool } from '../tools/WriteFileTool/WriteFileTool.ts';
 import type { AgentDecision, AgentDecisionExecution } from '../types/agent.ts';
 import type { ToolUseContext } from '../Tool.ts';
-import type { DirectoryListingOutput, SearchWorkspaceOutput } from '../types/tools.ts';
+import type { DiffPreviewOutput, DirectoryListingOutput, SearchWorkspaceOutput } from '../types/tools.ts';
 
 function deduplicatePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
@@ -17,6 +18,18 @@ function deduplicatePaths(paths: string[]): string[] {
 
 function buildContext(workspaceRoot: string, workspaceConfig: ToolUseContext['workspaceConfig']): ToolUseContext {
   return { workspaceRoot, workspaceConfig };
+}
+
+function getAppendDelta(nextContent: string, previousExists: boolean, previousContent: string | undefined): string {
+  if (!previousExists || !previousContent) {
+    return nextContent;
+  }
+
+  if (nextContent.startsWith(previousContent)) {
+    return nextContent.slice(previousContent.length);
+  }
+
+  return nextContent;
 }
 
 export async function executeDecision(
@@ -127,10 +140,24 @@ export async function executeDecision(
 
     const toolResults = [];
     for (const write of allowedWrites) {
-      toolResults.push(await executeTool(DiffPreviewTool, {
+      const diffResult = await executeTool(DiffPreviewTool, {
         path: write.path,
         nextContent: write.content
-      }, context));
+      }, context);
+      toolResults.push(diffResult);
+
+      if (write.mode === 'append') {
+        const diffOutput = diffResult.output as DiffPreviewOutput;
+        const writeTool = diffOutput?.exists === false ? WriteFileTool : AppendFileTool;
+        toolResults.push(await executeTool(writeTool, {
+          path: write.path,
+          content: writeTool.name === 'append_file'
+            ? getAppendDelta(write.content, diffOutput.exists, diffOutput.previousContent)
+            : write.content
+        }, context));
+        continue;
+      }
+
       toolResults.push(await executeTool(WriteFileTool, {
         path: write.path,
         content: write.content
