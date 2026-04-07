@@ -89,7 +89,9 @@ function determineOutcome(turns: QueryTurn[]): AgentRunOutcome {
   }
 
   if (lastTurn.decision.action.kind === 'ask-for-clarification') {
-    return 'clarification-required';
+    return lastTurn.decision.action.payload?.clarificationKind === 'approval-required'
+      ? 'approval-required'
+      : 'clarification-required';
   }
 
   if (lastTurn.decision.action.kind !== 'stop') {

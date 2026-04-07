@@ -127,6 +127,10 @@ export function printAgentRunState(state: AgentRunState): void {
       printList(decision.action.payload.questions, 'No clarifying questions.');
     }
 
+    if (decision.action.payload?.clarificationKind) {
+      process.stdout.write(`clarification kind: ${decision.action.payload.clarificationKind}\n`);
+    }
+
     if (decision.action.payload?.targetPaths && decision.action.payload.targetPaths.length > 0) {
       printList(decision.action.payload.targetPaths, 'No target paths selected.');
     }

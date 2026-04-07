@@ -7,6 +7,11 @@ export type AgentActionKind =
   | 'apply-edit-plan'
   | 'validate-targets'
   | 'stop';
+export type AgentClarificationKind =
+  | 'approval-required'
+  | 'target-ambiguity'
+  | 'workspace-policy'
+  | 'general';
 export type AgentStopReason =
   | 'validation-succeeded'
   | 'validation-blocked'
@@ -14,6 +19,7 @@ export type AgentStopReason =
   | 'no-safe-action';
 export type AgentRunOutcome =
   | 'completed'
+  | 'approval-required'
   | 'clarification-required'
   | 'validation-blocked'
   | 'repair-budget-exhausted'
@@ -31,6 +37,7 @@ export interface AgentAction {
     commands?: string[];
     writes?: FileWritePlan[];
     editPlan?: EditPlan;
+    clarificationKind?: AgentClarificationKind;
     stopReason?: AgentStopReason;
   };
 }

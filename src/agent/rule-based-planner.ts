@@ -36,7 +36,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             questions: [
               'Should the workspace write policy be expanded for this task?',
               'Is there a different writable target path the agent should modify instead?'
-            ]
+            ],
+            clarificationKind: 'workspace-policy'
           }
         }
       };
@@ -53,7 +54,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             questions: [
               'Which repository or subdirectory contains the target Helm chart or Pulumi project?',
               'Should the agent create a new chart or stack, or modify an existing one?'
-            ]
+            ],
+            clarificationKind: 'target-ambiguity'
           }
         }
       };
@@ -70,7 +72,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             questions: [
               'What is the exact target service or chart name?',
               'Which environment should be modified?'
-            ]
+            ],
+            clarificationKind: 'target-ambiguity'
           }
         }
       };
@@ -99,7 +102,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             summary: 'Approve high-risk rewrite operations before applying changes.',
             rationale: 'The current edit plan includes one or more high-risk full-file rewrites that should be explicitly approved before execution.',
             payload: {
-              questions: runtime.approvalSignals.map(signal => `${signal.message} Proceed with this rewrite?`)
+              questions: runtime.approvalSignals.map(signal => `${signal.message} Proceed with this rewrite?`),
+              clarificationKind: 'approval-required'
             }
           }
         };

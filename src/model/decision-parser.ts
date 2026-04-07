@@ -1,4 +1,11 @@
-import type { AgentAction, AgentActionKind, AgentDecision, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
+import type {
+  AgentAction,
+  AgentActionKind,
+  AgentClarificationKind,
+  AgentDecision,
+  AgentRuntimeState,
+  AgentStopReason
+} from '../types/agent.ts';
 
 function extractJsonObject(content: string): string {
   const start = content.indexOf('{');
@@ -16,6 +23,10 @@ function isActionKind(value: string): value is AgentActionKind {
 
 function isStopReason(value: string): value is AgentStopReason {
   return ['validation-succeeded', 'validation-blocked', 'repair-budget-exhausted', 'no-safe-action'].includes(value);
+}
+
+function isClarificationKind(value: string): value is AgentClarificationKind {
+  return ['approval-required', 'target-ambiguity', 'workspace-policy', 'general'].includes(value);
 }
 
 function ensureString(value: unknown, fieldName: string): string {
@@ -49,8 +60,20 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
   }
 
   if (actionKind === 'ask-for-clarification') {
+    const clarificationKind = rawPayload.clarificationKind;
+    let normalizedClarificationKind: AgentClarificationKind = 'general';
+    if (clarificationKind !== undefined) {
+      const kindValue = ensureString(clarificationKind, 'action.payload.clarificationKind');
+      if (!isClarificationKind(kindValue)) {
+        throw new Error(`LLM planner response included unsupported clarification kind "${kindValue}".`);
+      }
+
+      normalizedClarificationKind = kindValue;
+    }
+
     return {
-      questions: toStringArray(rawPayload.questions) ?? ['Which service and environment should the agent modify?']
+      questions: toStringArray(rawPayload.questions) ?? ['Which service and environment should the agent modify?'],
+      clarificationKind: normalizedClarificationKind
     };
   }
 

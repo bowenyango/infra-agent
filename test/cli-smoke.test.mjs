@@ -322,6 +322,7 @@ test('rule-based planner asks for clarification before high-risk rewrite edits',
 
   assert.equal(decision.action.kind, 'ask-for-clarification');
   assert.match(decision.action.summary, /high-risk rewrite/i);
+  assert.equal(decision.action.payload?.clarificationKind, 'approval-required');
 });
 
 test('rule-based agent repairs missing service.port after validation failure', async () => {
@@ -536,6 +537,7 @@ test('planner system prompt documents explicit stop reasons', () => {
   const prompt = buildPlannerSystemPrompt();
 
   assert.match(prompt, /Allowed stop payload\.stopReason values:/);
+  assert.match(prompt, /Allowed ask-for-clarification payload\.clarificationKind values:/);
   assert.match(prompt, /repair-budget-exhausted/);
   assert.match(prompt, /validation-succeeded/);
 });
@@ -599,6 +601,66 @@ test('parsePlannerDecision accepts supported stopReason values', async () => {
 
   assert.equal(decision.action.kind, 'stop');
   assert.equal(decision.action.payload?.stopReason, 'validation-succeeded');
+});
+
+test('parsePlannerDecision accepts supported clarificationKind values', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'high',
+      action: {
+        kind: 'ask-for-clarification',
+        summary: 'Approval required',
+        rationale: 'High-risk rewrite detected.',
+        payload: {
+          clarificationKind: 'approval-required',
+          questions: ['Proceed with this rewrite?']
+        }
+      }
+    }),
+    {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  );
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.clarificationKind, 'approval-required');
+});
+
+test('runSingleStep returns approval-required outcome for approval clarification turns', async () => {
+  const approvalModel = {
+    name: 'approval-test-model',
+    async decideNextAction() {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'ask-for-clarification',
+          summary: 'Approval required',
+          rationale: 'Synthetic approval gate.',
+          payload: {
+            clarificationKind: 'approval-required',
+            questions: ['Proceed with this rewrite?']
+          }
+        }
+      };
+    }
+  };
+
+  const result = await runSingleStep(
+    'add ingress to payments-api dev chart',
+    'fixtures/sample-workspace',
+    approvalModel
+  );
+
+  assert.equal(result.outcome, 'approval-required');
 });
 
 test('rule-based agent repairs missing ingress values after validation failure', async () => {

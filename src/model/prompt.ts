@@ -1,4 +1,4 @@
-import type { AgentActionKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
+import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
 
 function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
   return runtime.validationResults.slice(-6).map(result => {
@@ -59,18 +59,27 @@ export function buildPlannerSystemPrompt(): string {
     'repair-budget-exhausted',
     'no-safe-action'
   ];
+  const allowedClarificationKinds: AgentClarificationKind[] = [
+    'approval-required',
+    'target-ambiguity',
+    'workspace-policy',
+    'general'
+  ];
 
   return [
     'You are the planning runtime for infra-agent.',
     'Return exactly one JSON object with this shape:',
     '{"confidence":"low|medium|high","action":{"kind":"...","summary":"...","rationale":"...","payload":{}}}',
     `Allowed action.kind values: ${allowedActionKinds.join(', ')}`,
+    `Allowed ask-for-clarification payload.clarificationKind values: ${allowedClarificationKinds.join(', ')}`,
     `Allowed stop payload.stopReason values: ${allowedStopReasons.join(', ')}`,
     'Rules:',
     '- Prefer inspect-target-files before apply-edit-plan when file context is missing.',
     '- Prefer apply-edit-plan only when runtime.lastEditPlan is present and writes are available.',
     '- Prefer validate-targets after successful writes when validation commands are available.',
     '- Use ask-for-clarification when target, environment, or ownership is ambiguous.',
+    '- When ask-for-clarification is used, include payload.clarificationKind.',
+    '- Use clarificationKind=approval-required when approvalSignals are present and the next step should pause for approval.',
     '- Never invent file paths, writes, or commands that are not already present in the runtime state.',
     '- For apply-edit-plan, copy writes from runtime.lastEditPlan.writes exactly.',
     '- For validate-targets, copy commands from the relevant entry in runtime.preflight.validation.plan.',
