@@ -1,5 +1,6 @@
 import type { WorkspaceAgentConfig } from '../types/repository.ts';
 import type { FileWritePlan } from '../types/edit-plan.ts';
+import type { FileWriteRisk } from '../types/edit-plan.ts';
 
 function normalizePolicyPath(path: string): string {
   return path.replace(/^\.\/+/, '').replace(/\/+$/, '');
@@ -44,4 +45,21 @@ export function isModeAllowedByWorkspacePolicy(mode: FileWritePlan['mode'], conf
 
 export function isWriteAllowedByWorkspacePolicy(write: FileWritePlan, config: WorkspaceAgentConfig | null): boolean {
   return isPathAllowedByWorkspacePolicy(write.path, config) && isModeAllowedByWorkspacePolicy(write.mode, config);
+}
+
+export function getApprovalRequiredWriteRisks(config: WorkspaceAgentConfig | null): FileWriteRisk[] {
+  const configuredRisks = config?.approvalPolicy?.requiredWriteRisks;
+  if (configuredRisks === undefined) {
+    return ['high'];
+  }
+
+  return [...configuredRisks];
+}
+
+export function isApprovalRequiredForWrite(write: FileWritePlan, config: WorkspaceAgentConfig | null): boolean {
+  if (!write.risk) {
+    return false;
+  }
+
+  return getApprovalRequiredWriteRisks(config).includes(write.risk);
 }

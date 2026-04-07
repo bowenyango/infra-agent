@@ -1,4 +1,4 @@
-import type { FileWriteMode } from './edit-plan.ts';
+import type { FileWriteMode, FileWriteRisk } from './edit-plan.ts';
 
 export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
 
@@ -19,6 +19,9 @@ export interface WorkspaceAgentConfig {
   writePolicy?: {
     allowedPaths?: string[];
     allowedModes?: FileWriteMode[];
+  };
+  approvalPolicy?: {
+    requiredWriteRisks?: FileWriteRisk[];
   };
   validation?: {
     includeDefaults?: boolean;

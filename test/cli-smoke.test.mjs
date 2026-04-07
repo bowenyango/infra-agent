@@ -15,6 +15,7 @@ import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
+import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 
@@ -296,10 +297,10 @@ test('rule-based planner asks for clarification before high-risk rewrite edits',
       validationIssues: [],
       approvalSignals: [
         {
-          kind: 'high-risk-rewrite',
+          kind: 'write-approval-required',
           path: 'charts/payments-api/values.yaml',
           risk: 'high',
-          message: 'The planned change rewrites the full file at charts/payments-api/values.yaml. Approval is recommended before applying this edit.'
+          message: 'The planned rewrite change at charts/payments-api/values.yaml has risk=high. Approval is required before applying this edit.'
         }
       ],
       repairAttempts: 0,
@@ -323,6 +324,46 @@ test('rule-based planner asks for clarification before high-risk rewrite edits',
   assert.equal(decision.action.kind, 'ask-for-clarification');
   assert.match(decision.action.summary, /high-risk rewrite/i);
   assert.equal(decision.action.payload?.clarificationKind, 'approval-required');
+});
+
+test('collectApprovalSignals respects workspace approval policy overrides', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace');
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      inspection: {
+        ...preflight.inspection,
+        config: {
+          approvalPolicy: {
+            requiredWriteRisks: []
+          }
+        }
+      }
+    },
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'helm-ingress',
+      summary: 'Rewrite values file.',
+      rationale: 'Synthetic rewrite test.',
+      writes: [
+        {
+          path: 'charts/payments-api/values.yaml',
+          content: 'replicaCount: 99\n',
+          reason: 'Rewrite test',
+          mode: 'rewrite',
+          risk: 'high'
+        }
+      ]
+    }
+  });
+
+  assert.equal(signals.length, 0);
 });
 
 test('rule-based agent repairs missing service.port after validation failure', async () => {

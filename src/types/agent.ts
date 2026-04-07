@@ -66,7 +66,7 @@ export interface ValidationIssue {
 }
 
 export interface ApprovalSignal {
-  kind: 'high-risk-rewrite';
+  kind: 'write-approval-required';
   path: string;
   risk: FileWriteRisk;
   message: string;

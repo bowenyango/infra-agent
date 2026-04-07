@@ -120,6 +120,7 @@ The agent must respect clear execution boundaries.
 ## Repository Documents
 
 - [Development Plan](./docs/PLAN.md)
+- [Execution Target](./docs/EXECUTION_TARGET.md)
 - [Agent Rules](./docs/AGENT_RULES.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Repository Conventions](./docs/REPOSITORY_CONVENTIONS.md)

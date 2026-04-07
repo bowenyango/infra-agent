@@ -3,7 +3,12 @@ import {
   inspectWorkspace,
   looksLikeInfraWorkspace
 } from '../domain/inspect-workspace.ts';
-import { getAllowedWriteModes, getAllowedWritePaths, isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
+import {
+  getAllowedWriteModes,
+  getAllowedWritePaths,
+  getApprovalRequiredWriteRisks,
+  isPathAllowedByWorkspacePolicy
+} from '../domain/workspace-policy.ts';
 import {
   buildTargetCandidates,
   buildTargetingWarnings
@@ -78,6 +83,7 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
 
   const allowedWritePaths = getAllowedWritePaths(inspection.config);
   const allowedWriteModes = getAllowedWriteModes(inspection.config);
+  const approvalRequiredWriteRisks = getApprovalRequiredWriteRisks(inspection.config);
   const topTargetPath = targeting.targetCandidates[0]?.path;
   if (allowedWritePaths && topTargetPath && !isPathAllowedByWorkspacePolicy(topTargetPath, inspection.config)) {
     blockers.unshift(`Workspace write policy does not allow edits under ${topTargetPath}. Allowed roots: ${allowedWritePaths.join(', ')}.`);
@@ -98,6 +104,10 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
     hasAssumptions: assumptions.length > 0,
     hasStrongTargetMatch: (targeting.targetCandidates[0]?.score ?? 0) > 0
   });
+
+  if (approvalRequiredWriteRisks.length > 0) {
+    nextActions.push(`Respect workspace approval policy for write risks: ${approvalRequiredWriteRisks.join(', ')}.`);
+  }
 
   return {
     task,
