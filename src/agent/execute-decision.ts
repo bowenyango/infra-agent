@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path';
-import { isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
+import { isWriteAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import { executeTool } from '../services/tools/execute-tool.ts';
 import { AppendFileTool } from '../tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from '../tools/DiffPreviewTool/DiffPreviewTool.ts';
@@ -130,12 +130,12 @@ export async function executeDecision(
       };
     }
 
-    const allowedWrites = writes.filter(write => isPathAllowedByWorkspacePolicy(write.path, workspaceConfig));
+    const allowedWrites = writes.filter(write => isWriteAllowedByWorkspacePolicy(write, workspaceConfig));
     if (allowedWrites.length === 0) {
       return {
         status: 'skipped',
         executedTools: [],
-        reason: 'Workspace write policy blocked all planned file writes.'
+        reason: 'Workspace write policy blocked all planned file writes by path or write mode.'
       };
     }
 

@@ -1,3 +1,5 @@
+import type { FileWriteMode } from './edit-plan.ts';
+
 export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
 
 export interface RepoProfile {
@@ -16,6 +18,7 @@ export interface WorkspaceAgentConfig {
   profileId?: RepoProfileId;
   writePolicy?: {
     allowedPaths?: string[];
+    allowedModes?: FileWriteMode[];
   };
   validation?: {
     includeDefaults?: boolean;

@@ -3,7 +3,7 @@ import {
   inspectWorkspace,
   looksLikeInfraWorkspace
 } from '../domain/inspect-workspace.ts';
-import { getAllowedWritePaths, isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
+import { getAllowedWriteModes, getAllowedWritePaths, isPathAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import {
   buildTargetCandidates,
   buildTargetingWarnings
@@ -77,9 +77,14 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
   }
 
   const allowedWritePaths = getAllowedWritePaths(inspection.config);
+  const allowedWriteModes = getAllowedWriteModes(inspection.config);
   const topTargetPath = targeting.targetCandidates[0]?.path;
   if (allowedWritePaths && topTargetPath && !isPathAllowedByWorkspacePolicy(topTargetPath, inspection.config)) {
     blockers.unshift(`Workspace write policy does not allow edits under ${topTargetPath}. Allowed roots: ${allowedWritePaths.join(', ')}.`);
+  }
+
+  if (allowedWriteModes && allowedWriteModes.length > 0) {
+    assumptions.push(`Workspace write policy restricts write modes to: ${allowedWriteModes.join(', ')}.`);
   }
 
   const hasMissingValidators = validation.validators.some(validator => !validator.available);

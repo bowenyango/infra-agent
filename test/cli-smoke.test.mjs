@@ -116,6 +116,55 @@ test('workspace config overrides validation plan entries', async () => {
   assert.equal(validation.plan[0]?.commands[0], 'echo custom networking validation');
 });
 
+test('buildEditPlan filters write modes disallowed by workspace policy', async () => {
+  const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
+  const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');
+  const deploymentPath = resolve('fixtures/sample-workspace/charts/payments-api/templates/deployment.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      inspection: {
+        ...preflight.inspection,
+        config: {
+          writePolicy: {
+            allowedModes: ['append', 'create']
+          }
+        }
+      }
+    },
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: valuesPath,
+          content: await readFile(valuesPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: deploymentPath,
+          content: await readFile(deploymentPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  assert.ok(editPlan?.writes.every(write => write.mode !== 'replace' && write.mode !== 'rewrite'));
+  assert.ok(editPlan?.writes.some(write => write.path.endsWith('values.yaml')));
+});
+
 test('buildEditPlan classifies ingress writes as append and create', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const editPlan = buildEditPlan({
@@ -354,6 +403,47 @@ test('apply-edit-plan execution uses replace_file for replace-mode writes', asyn
     assert.equal(execution?.executedTools[1]?.toolName, 'replace_file');
     const updatedDeployment = await readFile(deploymentPath, 'utf8');
     assert.match(updatedDeployment, /readinessProbe:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('apply-edit-plan execution blocks writes disallowed by workspace mode policy', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-mode-policy-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const execution = await executeDecision(
+      {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: 'Blocked rewrite write.',
+          rationale: 'Test workspace mode policy.',
+          payload: {
+            writes: [
+              {
+                path: 'charts/payments-api/values.yaml',
+                content: 'replicaCount: 3\n',
+                reason: 'Rewrite test',
+                mode: 'rewrite'
+              }
+            ]
+          }
+        }
+      },
+      workspaceRoot,
+      {
+        writePolicy: {
+          allowedModes: ['append', 'create', 'replace']
+        }
+      }
+    );
+
+    assert.ok(execution);
+    assert.equal(execution?.status, 'skipped');
+    assert.match(execution?.reason ?? '', /write mode/i);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
