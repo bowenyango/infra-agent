@@ -1,7 +1,7 @@
 import type { PlanningModel } from '../types/agent.ts';
 import type { AgentRunOutcome, AgentRuntimeState } from '../types/agent.ts';
 import { runQueryLoop } from '../query.ts';
-import type { RunPreflightState } from '../types/repository.ts';
+import type { RunApprovalScope, RunPreflightState } from '../types/repository.ts';
 import type { PlannerMode } from '../model/config.ts';
 import { createModelClient } from '../model/create-model-client.ts';
 import type { ModelClient } from '../model/ModelClient.ts';
@@ -27,10 +27,11 @@ export async function runSingleStep(
   task: string,
   workspacePath: string,
   model?: PlanningModel,
-  plannerMode: PlannerMode = 'auto'
+  plannerMode: PlannerMode = 'auto',
+  approvalScope?: Partial<RunApprovalScope>
 ): Promise<AgentRunState> {
   const modelClient = model ? toModelClient(model) : createModelClient(plannerMode);
-  const result = await runQueryLoop(task, workspacePath, modelClient);
+  const result = await runQueryLoop(task, workspacePath, modelClient, approvalScope);
   const preflight = result.runtime.preflight;
 
   return {

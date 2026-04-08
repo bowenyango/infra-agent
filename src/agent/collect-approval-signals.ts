@@ -1,9 +1,13 @@
 import type { ApprovalSignal, AgentRuntimeState } from '../types/agent.ts';
 import type { FileWritePlan } from '../types/edit-plan.ts';
-import { isApprovalRequiredForWrite } from '../domain/workspace-policy.ts';
+import { isApprovalRequiredForWrite, isWriteCoveredByApproval } from '../domain/workspace-policy.ts';
 
 function toApprovalSignal(write: FileWritePlan, runtime: AgentRuntimeState): ApprovalSignal | null {
   if (!isApprovalRequiredForWrite(write, runtime.preflight.inspection.config)) {
+    return null;
+  }
+
+  if (isWriteCoveredByApproval(write, runtime.preflight.approval)) {
     return null;
   }
 

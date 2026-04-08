@@ -5,6 +5,7 @@ import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
 import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from './types/agent.ts';
 import type { RunPreflightState } from './types/repository.ts';
+import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
 import type { FileReadOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
 import type { ModelClient } from './model/ModelClient.ts';
@@ -114,10 +115,11 @@ function determineOutcome(turns: QueryTurn[]): AgentRunOutcome {
 export async function runQueryLoop(
   task: string,
   workspacePath: string,
-  modelClient?: ModelClient
+  modelClient?: ModelClient,
+  approvalScope?: Partial<RunApprovalScope>
 ): Promise<QueryLoopResult> {
   const effectiveModelClient = modelClient ?? new RuleBasedModelClient();
-  const preflight = await buildRunPreflight(task, workspacePath);
+  const preflight = await buildRunPreflight(task, workspacePath, approvalScope);
   let runtime = buildInitialRuntime(task, preflight);
   const turns: QueryTurn[] = [];
 

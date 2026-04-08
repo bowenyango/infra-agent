@@ -29,6 +29,11 @@ export interface WorkspaceAgentConfig {
   };
 }
 
+export interface RunApprovalScope {
+  approvedWritePaths: string[];
+  approvedWriteRisks: FileWriteRisk[];
+}
+
 export interface HelmChartSummary {
   chartRoot: string;
   chartName: string;
@@ -90,6 +95,7 @@ export interface RunPreflightState {
   task: string;
   workspaceRoot: string;
   profile: RepoProfile;
+  approval: RunApprovalScope;
   inspection: WorkspaceInspection;
   validation: ValidationPreflight;
   requestedEnvironment: string | null;

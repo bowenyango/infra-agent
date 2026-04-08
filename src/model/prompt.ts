@@ -98,6 +98,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       task: runtime.task,
       requestedEnvironment: runtime.preflight.requestedEnvironment,
       requestedService: runtime.preflight.requestedService,
+      explicitApproval: runtime.preflight.approval,
       targetCandidates: runtime.preflight.targetCandidates.slice(0, 5),
       assumptions: runtime.preflight.assumptions,
       blockers: runtime.preflight.blockers,

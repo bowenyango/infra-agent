@@ -118,6 +118,18 @@ test('workspace config overrides validation plan entries', async () => {
   assert.equal(validation.plan[0]?.commands[0], 'echo custom networking validation');
 });
 
+test('buildRunPreflight records explicit approval scope', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
+    approvedWriteRisks: ['high'],
+    approvedWritePaths: ['charts/payments-api']
+  });
+
+  assert.deepEqual(preflight.approval.approvedWriteRisks, ['high']);
+  assert.deepEqual(preflight.approval.approvedWritePaths, ['charts/payments-api']);
+  assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write risks')));
+  assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write paths')));
+});
+
 test('buildEditPlan filters write modes disallowed by workspace policy', async () => {
   const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
   const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');
@@ -364,6 +376,106 @@ test('collectApprovalSignals respects workspace approval policy overrides', asyn
   });
 
   assert.equal(signals.length, 0);
+});
+
+test('collectApprovalSignals suppresses matching explicit approval grants only for the approved path scope', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
+    approvedWriteRisks: ['high'],
+    approvedWritePaths: ['charts/payments-api']
+  });
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'helm-ingress',
+      summary: 'Rewrite values file.',
+      rationale: 'Synthetic rewrite test.',
+      writes: [
+        {
+          path: 'charts/payments-api/values.yaml',
+          content: 'replicaCount: 99\n',
+          reason: 'Approved rewrite',
+          mode: 'rewrite',
+          risk: 'high'
+        },
+        {
+          path: 'charts/other-service/values.yaml',
+          content: 'replicaCount: 99\n',
+          reason: 'Unapproved rewrite',
+          mode: 'rewrite',
+          risk: 'high'
+        }
+      ]
+    }
+  });
+
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.path, 'charts/other-service/values.yaml');
+});
+
+test('rule-based planner proceeds with apply-edit-plan after explicit approval covers a high-risk rewrite', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
+    approvedWriteRisks: ['high'],
+    approvedWritePaths: ['charts/payments-api']
+  });
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight: {
+        ...preflight,
+        assumptions: [],
+        targetCandidates: [
+          {
+            kind: 'helm-chart',
+            name: 'payments-api',
+            path: 'charts/payments-api',
+            score: 10,
+            reasons: ['synthetic approval continuation test'],
+            matchedEnvironmentHints: ['dev']
+          }
+        ]
+      },
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: resolve('fixtures/sample-workspace/charts/payments-api/values.yaml'),
+            content: await readFile(resolve('fixtures/sample-workspace/charts/payments-api/values.yaml'), 'utf8'),
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: {
+        kind: 'helm-ingress',
+        summary: 'Rewrite values file.',
+        rationale: 'Synthetic rewrite continuation test.',
+        writes: [
+          {
+            path: 'charts/payments-api/values.yaml',
+            content: 'replicaCount: 99\n',
+            reason: 'Rewrite test',
+            mode: 'rewrite',
+            risk: 'high'
+          }
+        ]
+      }
+    }
+  });
+
+  assert.equal(decision.action.kind, 'apply-edit-plan');
 });
 
 test('rule-based agent repairs missing service.port after validation failure', async () => {

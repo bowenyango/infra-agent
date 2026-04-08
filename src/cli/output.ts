@@ -77,6 +77,15 @@ export function printRunPreflight(state: RunPreflightState): void {
   printList(state.profile.reasons, 'No profile reasons recorded.');
   process.stdout.write('\n');
 
+  printHeader('Explicit Approval');
+  process.stdout.write(
+    `approved write risks: ${state.approval.approvedWriteRisks.length > 0 ? state.approval.approvedWriteRisks.join(', ') : 'none'}\n`
+  );
+  process.stdout.write(
+    `approved write paths: ${state.approval.approvedWritePaths.length > 0 ? state.approval.approvedWritePaths.join(', ') : 'none'}\n`
+  );
+  process.stdout.write('\n');
+
   printHeader('Targeting');
   process.stdout.write(`requested environment: ${state.requestedEnvironment ?? 'undetected'}\n`);
   process.stdout.write(`requested service: ${state.requestedService ?? 'undetected'}\n`);

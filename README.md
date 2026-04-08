@@ -61,7 +61,7 @@ The current repository includes a minimal TypeScript CLI skeleton with three com
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent run "<task>" [--workspace <path>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>]`
 
 Current behavior is intentionally preflight-oriented:
 
@@ -70,6 +70,7 @@ Current behavior is intentionally preflight-oriented:
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
+- `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 
 LLM planner environment variables:
 

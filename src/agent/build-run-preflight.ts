@@ -7,13 +7,15 @@ import {
   getAllowedWriteModes,
   getAllowedWritePaths,
   getApprovalRequiredWriteRisks,
-  isPathAllowedByWorkspacePolicy
+  isPathAllowedByWorkspacePolicy,
+  normalizeApprovalScope
 } from '../domain/workspace-policy.ts';
 import {
   buildTargetCandidates,
   buildTargetingWarnings
 } from '../domain/task-targeting.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
+import type { RunApprovalScope } from '../types/repository.ts';
 import type { RunPreflightState } from '../types/repository.ts';
 
 function buildNextActions(state: {
@@ -66,10 +68,15 @@ function buildNextActions(state: {
   return nextActions;
 }
 
-export async function buildRunPreflight(task: string, workspacePath: string): Promise<RunPreflightState> {
+export async function buildRunPreflight(
+  task: string,
+  workspacePath: string,
+  approvalScope?: Partial<RunApprovalScope>
+): Promise<RunPreflightState> {
   const inspection = await inspectWorkspace(workspacePath);
   const validation = buildValidationPreflight(inspection);
   const targeting = buildTargetCandidates(task, inspection);
+  const normalizedApprovalScope = normalizeApprovalScope(approvalScope);
   const assumptions = buildTargetingWarnings({
     requestedEnvironment: targeting.requestedEnvironment,
     requestedService: targeting.requestedService,
@@ -93,6 +100,14 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
     assumptions.push(`Workspace write policy restricts write modes to: ${allowedWriteModes.join(', ')}.`);
   }
 
+  if (normalizedApprovalScope.approvedWriteRisks.length > 0) {
+    assumptions.push(`Explicit approval granted for write risks: ${normalizedApprovalScope.approvedWriteRisks.join(', ')}.`);
+  }
+
+  if (normalizedApprovalScope.approvedWritePaths.length > 0) {
+    assumptions.push(`Explicit approval granted for write paths: ${normalizedApprovalScope.approvedWritePaths.join(', ')}.`);
+  }
+
   const hasMissingValidators = validation.validators.some(validator => !validator.available);
   const nextActions = buildNextActions({
     profileLabel: inspection.profile.label,
@@ -113,6 +128,7 @@ export async function buildRunPreflight(task: string, workspacePath: string): Pr
     task,
     workspaceRoot: inspection.workspaceRoot,
     profile: inspection.profile,
+    approval: normalizedApprovalScope,
     inspection,
     validation,
     requestedEnvironment: targeting.requestedEnvironment,

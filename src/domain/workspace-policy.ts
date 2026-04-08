@@ -1,4 +1,4 @@
-import type { WorkspaceAgentConfig } from '../types/repository.ts';
+import type { RunApprovalScope, WorkspaceAgentConfig } from '../types/repository.ts';
 import type { FileWritePlan } from '../types/edit-plan.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 
@@ -62,4 +62,34 @@ export function isApprovalRequiredForWrite(write: FileWritePlan, config: Workspa
   }
 
   return getApprovalRequiredWriteRisks(config).includes(write.risk);
+}
+
+export function normalizeApprovalScope(scope: Partial<RunApprovalScope> | null | undefined): RunApprovalScope {
+  return {
+    approvedWritePaths: (scope?.approvedWritePaths ?? []).map(normalizePolicyPath),
+    approvedWriteRisks: [...(scope?.approvedWriteRisks ?? [])]
+  };
+}
+
+function isPathCoveredByApproval(path: string, approval: RunApprovalScope): boolean {
+  if (approval.approvedWritePaths.length === 0) {
+    return true;
+  }
+
+  const normalizedPath = normalizePolicyPath(path);
+  return approval.approvedWritePaths.some(
+    approvedPath => normalizedPath === approvedPath || normalizedPath.startsWith(`${approvedPath}/`)
+  );
+}
+
+export function isWriteCoveredByApproval(write: FileWritePlan, approval: RunApprovalScope): boolean {
+  if (!write.risk || approval.approvedWriteRisks.length === 0) {
+    return false;
+  }
+
+  if (!approval.approvedWriteRisks.includes(write.risk)) {
+    return false;
+  }
+
+  return isPathCoveredByApproval(write.path, approval);
 }

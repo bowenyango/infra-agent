@@ -4,6 +4,7 @@ import { buildRunPreflight } from '../agent/build-run-preflight.ts';
 import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { PlannerMode } from '../model/config.ts';
+import type { FileWriteRisk } from '../types/edit-plan.ts';
 import { printAgentRunState, printInspection, printRunPreflight, printValidationPreflight } from './output.ts';
 
 interface ParsedArgs {
@@ -12,6 +13,8 @@ interface ParsedArgs {
   workspace: string;
   json: boolean;
   planner: PlannerMode;
+  approvedWritePaths: string[];
+  approvedWriteRisks: FileWriteRisk[];
 }
 
 function printUsage(): void {
@@ -22,8 +25,8 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--json]',
-      '  infra-agent run "<task>" [--workspace <path>] [--json]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
+      '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
       ''
     ].join('\n')
   );
@@ -41,7 +44,9 @@ function parseArgs(argv: string[]): ParsedArgs {
       task: null,
       workspace: cwd(),
       json: false,
-      planner: 'auto'
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: []
     };
   }
 
@@ -57,13 +62,17 @@ function parseArgs(argv: string[]): ParsedArgs {
       task: null,
       workspace,
       json,
-      planner: 'auto'
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: []
     };
   }
 
   if (commandName === 'run' || commandName === 'agent') {
     let workspace = cwd();
     let planner: PlannerMode = 'auto';
+    const approvedWritePaths: string[] = [];
+    const approvedWriteRisks: FileWriteRisk[] = [];
     const taskArgs: string[] = [];
 
     for (let index = 0; index < cleanArgs.length; index += 1) {
@@ -91,6 +100,28 @@ function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--approve-write-path') {
+        const pathValue = cleanArgs[index + 1];
+        if (!pathValue) {
+          fail('Missing value for --approve-write-path.');
+        }
+
+        approvedWritePaths.push(pathValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--approve-write-risk') {
+        const riskValue = cleanArgs[index + 1];
+        if (riskValue !== 'low' && riskValue !== 'medium' && riskValue !== 'high') {
+          fail('Missing or invalid value for --approve-write-risk. Expected low, medium, or high.');
+        }
+
+        approvedWriteRisks.push(riskValue);
+        index += 1;
+        continue;
+      }
+
       taskArgs.push(arg);
     }
 
@@ -104,7 +135,9 @@ function parseArgs(argv: string[]): ParsedArgs {
       task,
       workspace,
       json,
-      planner
+      planner,
+      approvedWritePaths,
+      approvedWriteRisks
     };
   }
 
@@ -144,7 +177,10 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === 'agent') {
-    const agentRunState = await runSingleStep(parsed.task, parsed.workspace, undefined, parsed.planner);
+    const agentRunState = await runSingleStep(parsed.task, parsed.workspace, undefined, parsed.planner, {
+      approvedWritePaths: parsed.approvedWritePaths,
+      approvedWriteRisks: parsed.approvedWriteRisks
+    });
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(agentRunState, null, 2)}\n`);
       return;
@@ -154,7 +190,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  const preflight = await buildRunPreflight(parsed.task, parsed.workspace);
+  const preflight = await buildRunPreflight(parsed.task, parsed.workspace, {
+    approvedWritePaths: parsed.approvedWritePaths,
+    approvedWriteRisks: parsed.approvedWriteRisks
+  });
   if (parsed.json) {
     process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
     return;
