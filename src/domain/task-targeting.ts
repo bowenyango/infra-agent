@@ -99,8 +99,20 @@ function scoreCandidate(params: {
 
   if (params.requestedEnvironment) {
     const normalizedEnvironment = normalizeToken(params.requestedEnvironment);
+    const acceptedEnvironmentHints = new Set<string>([normalizedEnvironment]);
+
+    if (params.profileId === 'scrawlr-infra-cloud') {
+      if (['dev', 'development', 'stage', 'staging', 'qa', 'test'].includes(normalizedEnvironment)) {
+        acceptedEnvironmentHints.add('non-prod');
+      }
+
+      if (['prod', 'production'].includes(normalizedEnvironment)) {
+        acceptedEnvironmentHints.add('prod');
+      }
+    }
+
     for (const hint of params.candidateEnvironmentHints) {
-      if (normalizeToken(hint) === normalizedEnvironment) {
+      if (acceptedEnvironmentHints.has(normalizeToken(hint))) {
         score += 5;
         matchedEnvironmentHints.push(hint);
       }

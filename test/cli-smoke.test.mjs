@@ -43,6 +43,8 @@ test('inspectWorkspace detects scrawlr infra-cloud profile', async () => {
 
   assert.equal(inspection.profile.id, 'scrawlr-infra-cloud');
   assert.match(inspection.profile.label, /Scrawlr/);
+  const networkingProject = inspection.pulumiProjects.find(project => project.projectRoot === 'networking');
+  assert.ok(networkingProject?.environmentHints.includes('non-prod'));
 });
 
 test('workspace config can pin the repo profile', async () => {
@@ -93,6 +95,15 @@ test('profile-aware targeting prefers Pulumi projects inside scrawlr infra-cloud
 
   assert.equal(targeting.targetCandidates[0]?.kind, 'pulumi-project');
   assert.equal(targeting.targetCandidates[0]?.path, 'networking');
+});
+
+test('profile-aware targeting maps dev requests onto non-prod Pulumi environment hints in infra-cloud fixtures', async () => {
+  const inspection = await inspectWorkspace('fixtures/scrawlr-infra-cloud-workspace');
+  const targeting = buildTargetCandidates('update networking dev stack', inspection);
+
+  assert.equal(targeting.targetCandidates[0]?.kind, 'pulumi-project');
+  assert.equal(targeting.targetCandidates[0]?.path, 'networking');
+  assert.ok(targeting.targetCandidates[0]?.matchedEnvironmentHints.includes('non-prod'));
 });
 
 test('profile-aware validation selection filters to Pulumi commands for infra-cloud fixtures', async () => {

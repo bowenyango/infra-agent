@@ -19,7 +19,7 @@ interface ScanState {
   pulumiStackFiles: number;
 }
 
-const ENVIRONMENT_PATTERN = /(dev|development|stage|staging|prod|production|qa|test)/gi;
+const ENVIRONMENT_PATTERN = /(non-prod|dev|development|stage|staging|prod|production|qa|test)/gi;
 
 function isPulumiProjectFile(fileName: string): boolean {
   return fileName === 'Pulumi.yaml' || fileName === 'Pulumi.yml';
