@@ -69,7 +69,7 @@ The current repository includes a minimal TypeScript CLI skeleton with four comm
 
 Current behavior is intentionally runtime-foundation oriented:
 
-- `inspect` detects Helm charts and Pulumi projects
+- `inspect` detects Helm charts, Pulumi projects, and Terraform roots
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
@@ -92,12 +92,13 @@ Development verification commands:
 
 The current agent runtime now supports several bounded real slices:
 
-- inspect the highest-confidence Helm and Pulumi targets
+- inspect the highest-confidence Helm, Pulumi, and Terraform targets
 - generate a scoped ingress edit plan for a Helm chart when the task clearly requests ingress work
 - generate a bounded readiness/liveness probe edit plan for a Helm chart when the task clearly requests chart health checks
 - generate a bounded Pulumi stack config edit plan when the task clearly requests stack-level config changes
+- generate a bounded Terraform tfvars config edit plan when the task clearly requests Terraform variable updates
 - write the planned files into the workspace
-- run Helm or Pulumi validation commands after the write step
+- run Helm, Pulumi, or Terraform validation commands after the write step
 
 The current implementation focus remains:
 

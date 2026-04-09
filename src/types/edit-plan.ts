@@ -1,6 +1,7 @@
 export type EditPlanKind =
   | 'helm-ingress'
   | 'pulumi-stack-config'
+  | 'terraform-tfvars-config'
   | 'helm-probes'
   | 'helm-service-port-repair'
   | 'helm-ingress-values-repair';

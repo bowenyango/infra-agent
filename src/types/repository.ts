@@ -9,7 +9,7 @@ export interface RepoProfile {
 }
 
 export interface WorkspaceValidationConfigEntry {
-  kind: 'helm' | 'pulumi';
+  kind: 'helm' | 'pulumi' | 'terraform';
   target: string;
   commands: string[];
 }
@@ -74,27 +74,38 @@ export interface PulumiProjectSummary {
   environmentHints: string[];
 }
 
+export interface TerraformRootSummary {
+  rootPath: string;
+  tfFiles: string[];
+  tfvarsFiles: string[];
+  moduleHints: string[];
+  environmentHints: string[];
+}
+
 export interface WorkspaceInspection {
   workspaceRoot: string;
   profile: RepoProfile;
   config: WorkspaceAgentConfig | null;
   helmCharts: HelmChartSummary[];
   pulumiProjects: PulumiProjectSummary[];
+  terraformRoots: TerraformRootSummary[];
   fileCounts: {
     chartFiles: number;
     pulumiProjectFiles: number;
     pulumiStackFiles: number;
+    terraformRootFiles: number;
+    terraformVariableFiles: number;
   };
 }
 
 export interface ValidatorAvailability {
-  name: 'helm' | 'pulumi';
+  name: 'helm' | 'pulumi' | 'terraform';
   available: boolean;
   resolvedPath: string | null;
 }
 
 export interface ValidationPlanEntry {
-  kind: 'helm' | 'pulumi';
+  kind: 'helm' | 'pulumi' | 'terraform';
   target: string;
   commands: string[];
 }
@@ -107,7 +118,7 @@ export interface ValidationPreflight {
 }
 
 export interface TargetCandidate {
-  kind: 'helm-chart' | 'pulumi-project';
+  kind: 'helm-chart' | 'pulumi-project' | 'terraform-root';
   name: string;
   path: string;
   score: number;

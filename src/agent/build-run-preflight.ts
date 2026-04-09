@@ -25,6 +25,7 @@ function buildNextActions(state: {
   repoLooksValid: boolean;
   hasHelmCharts: boolean;
   hasPulumiProjects: boolean;
+  hasTerraformRoots: boolean;
   hasMissingValidators: boolean;
   hasAssumptions: boolean;
   hasStrongTargetMatch: boolean;
@@ -45,7 +46,7 @@ function buildNextActions(state: {
   }
 
   if (!state.hasStrongTargetMatch) {
-    nextActions.push('Inspect candidate charts and Pulumi projects to identify the correct edit target before changing files.');
+    nextActions.push('Inspect candidate charts, Pulumi projects, and Terraform roots to identify the correct edit target before changing files.');
   }
 
   if (state.hasHelmCharts) {
@@ -56,10 +57,14 @@ function buildNextActions(state: {
     nextActions.push('Read the relevant Pulumi project and stack files before proposing infrastructure edits.');
   }
 
+  if (state.hasTerraformRoots) {
+    nextActions.push('Read the relevant Terraform root, tfvars files, and variable definitions before proposing infrastructure edits.');
+  }
+
   if (state.hasMissingValidators) {
     nextActions.push('Install or expose missing validators before relying on validation-driven refinement.');
   } else {
-    nextActions.push('Use helm and pulumi validators as the mandatory refinement loop after file changes.');
+    nextActions.push('Use Helm, Pulumi, and Terraform validators as the mandatory refinement loop after file changes.');
   }
 
   if (state.profileId === 'generic') {
@@ -88,7 +93,7 @@ export async function buildRunPreflight(
   const blockers = collectWorkspaceWarnings(inspection);
 
   if (!looksLikeInfraWorkspace(inspection)) {
-    blockers.unshift('Workspace does not look like a Pulumi or Helm repository.');
+    blockers.unshift('Workspace does not look like a Pulumi, Terraform, or Helm repository.');
   }
 
   const allowedWritePaths = getAllowedWritePaths(inspection.config);
@@ -134,6 +139,7 @@ export async function buildRunPreflight(
     repoLooksValid: looksLikeInfraWorkspace(inspection),
     hasHelmCharts: inspection.helmCharts.length > 0,
     hasPulumiProjects: inspection.pulumiProjects.length > 0,
+    hasTerraformRoots: inspection.terraformRoots.length > 0,
     hasMissingValidators,
     hasAssumptions: assumptions.length > 0,
     hasStrongTargetMatch: (targeting.targetCandidates[0]?.score ?? 0) > 0

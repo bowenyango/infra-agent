@@ -49,11 +49,11 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
         action: {
           kind: 'ask-for-clarification',
           summary: 'Clarify workspace and target before any modification step.',
-          rationale: 'The workspace does not currently expose any detectable Helm or Pulumi targets.',
+          rationale: 'The workspace does not currently expose any detectable Helm, Pulumi, or Terraform targets.',
           payload: {
             questions: [
-              'Which repository or subdirectory contains the target Helm chart or Pulumi project?',
-              'Should the agent create a new chart or stack, or modify an existing one?'
+              'Which repository or subdirectory contains the target Helm chart, Pulumi project, or Terraform root?',
+              'Should the agent modify an existing infrastructure target, or is a new target expected?'
             ],
             clarificationKind: 'target-ambiguity'
           }
@@ -84,7 +84,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
         confidence: 'high',
         action: {
           kind: 'inspect-target-files',
-          summary: 'Inspect the highest-confidence Helm and Pulumi targets before generating edits.',
+          summary: 'Inspect the highest-confidence Helm, Pulumi, and Terraform targets before generating edits.',
           rationale: 'The workspace has candidate targets that match the requested service and environment.',
           payload: {
             targetPaths: toTopTargetPaths(input)

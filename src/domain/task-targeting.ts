@@ -10,6 +10,12 @@ const DOMAIN_KEYWORDS = [
   'chart',
   'pulumi',
   'stack',
+  'terraform',
+  'tf',
+  'tfvars',
+  'module',
+  'variable',
+  'variables',
   'service',
   'deployment',
   'ingress',
@@ -71,7 +77,7 @@ export function detectRequestedService(task: string): string | null {
 
 function scoreCandidate(params: {
   task: string;
-  candidateKind: 'helm-chart' | 'pulumi-project';
+  candidateKind: 'helm-chart' | 'pulumi-project' | 'terraform-root';
   candidateName: string;
   candidatePath: string;
   candidateEnvironmentHints: string[];
@@ -123,8 +129,9 @@ function scoreCandidate(params: {
     }
   }
 
-  const taskMentionsHelm = params.requestedService !== null && /\b(chart|helm|ingress|probe|probes|readiness|liveness)\b/i.test(params.requestedService);
-  const taskMentionsPulumi = params.requestedService !== null && /\b(stack|pulumi)\b/i.test(params.requestedService);
+  const taskMentionsHelm = /\b(chart|helm|ingress|probe|probes|readiness|liveness)\b/i.test(params.task);
+  const taskMentionsPulumi = /\b(stack|pulumi)\b/i.test(params.task);
+  const taskMentionsTerraform = /\b(terraform|tfvars|module|variable|variables)\b/i.test(params.task);
 
   if (params.profileId === 'scrawlr-infra-apps' && params.candidateKind === 'helm-chart') {
     score += 3;
@@ -156,6 +163,11 @@ function scoreCandidate(params: {
   if (taskMentionsPulumi && params.candidateKind === 'pulumi-project') {
     score += 3;
     reasons.push('task vocabulary prefers Pulumi project targets');
+  }
+
+  if (taskMentionsTerraform && params.candidateKind === 'terraform-root') {
+    score += 3;
+    reasons.push('task vocabulary prefers Terraform root targets');
   }
 
   return {
@@ -218,6 +230,28 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
     });
   }
 
+  for (const root of inspection.terraformRoots) {
+    const scored = scoreCandidate({
+      task,
+      candidateKind: 'terraform-root',
+      candidateName: root.rootPath,
+      candidatePath: root.rootPath,
+      candidateEnvironmentHints: root.environmentHints,
+      profileId: inspection.profile.id,
+      requestedService,
+      requestedEnvironment
+    });
+
+    targetCandidates.push({
+      kind: 'terraform-root',
+      name: root.rootPath,
+      path: root.rootPath,
+      score: scored.score,
+      reasons: scored.reasons,
+      matchedEnvironmentHints: scored.matchedEnvironmentHints
+    });
+  }
+
   targetCandidates.sort((left, right) => right.score - left.score || left.path.localeCompare(right.path));
 
   return {
@@ -241,7 +275,7 @@ export function buildTargetingWarnings(state: Pick<RunPreflightState, 'requested
   if (state.targetCandidates.length === 0) {
     warnings.push('No workspace targets were detected for the task.');
   } else if (state.targetCandidates[0]?.score === 0) {
-    warnings.push('Task did not strongly match any detected Helm chart or Pulumi project.');
+    warnings.push('Task did not strongly match any detected Helm chart, Pulumi project, or Terraform root.');
   }
 
   return warnings;

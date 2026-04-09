@@ -8,7 +8,7 @@ import type {
 } from '../types/repository.ts';
 import { getPreferredShell } from '../utils/shell.ts';
 
-function resolveExecutablePath(commandName: 'helm' | 'pulumi'): string | null {
+function resolveExecutablePath(commandName: 'helm' | 'pulumi' | 'terraform'): string | null {
   const result = spawnSync(getPreferredShell(), ['-lc', `command -v ${commandName}`], {
     encoding: 'utf8'
   });
@@ -22,7 +22,7 @@ function resolveExecutablePath(commandName: 'helm' | 'pulumi'): string | null {
 }
 
 function buildValidatorAvailability(): ValidatorAvailability[] {
-  return ['helm', 'pulumi'].map(name => {
+  return ['helm', 'pulumi', 'terraform'].map(name => {
     const resolvedPath = resolveExecutablePath(name);
     return {
       name,
@@ -74,6 +74,17 @@ function buildValidationPlan(inspection: WorkspaceInspection): ValidationPlanEnt
         ]
       });
     }
+  }
+
+  for (const root of inspection.terraformRoots) {
+    plan.push({
+      kind: 'terraform',
+      target: root.rootPath,
+      commands: [
+        `terraform -chdir=${root.rootPath} fmt -check -recursive`,
+        `terraform -chdir=${root.rootPath} validate`
+      ]
+    });
   }
 
   return plan;

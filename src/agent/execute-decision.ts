@@ -55,11 +55,19 @@ export async function executeDecision(
       const candidateFiles = [
         join(dirName, 'Chart.yaml'),
         join(dirName, 'values.yaml'),
+        join(dirName, 'main.tf'),
+        join(dirName, 'variables.tf'),
+        join(dirName, 'terraform.tfvars'),
+        join(dirName, 'terraform.auto.tfvars'),
         join(dirName, 'templates/deployment.yaml'),
         join(dirName, 'templates/ingress.yaml')
       ];
       for (const listedFile of listedFiles) {
         if (/^Pulumi(\..+)?\.(yaml|yml)$/i.test(listedFile)) {
+          candidateFiles.push(join(dirName, listedFile));
+        }
+
+        if (/\.tf$/i.test(listedFile) || /\.tfvars(\.json)?$/i.test(listedFile)) {
           candidateFiles.push(join(dirName, listedFile));
         }
       }
@@ -74,7 +82,7 @@ export async function executeDecision(
 
       const workspaceSearch = await executeTool(SearchWorkspaceTool, {
         rootPath: targetPath,
-        fileNamePattern: '^(Chart\\.ya?ml|values\\.ya?ml|Pulumi(\\..+)?\\.(yaml|yml)|deployment\\.ya?ml|ingress\\.ya?ml)$',
+        fileNamePattern: '^(Chart\\.ya?ml|values\\.ya?ml|Pulumi(\\..+)?\\.(yaml|yml)|deployment\\.ya?ml|ingress\\.ya?ml|.*\\.tf|.*\\.tfvars(?:\\.json)?)$',
         maxResults: 12
       }, context);
       toolResults.push(workspaceSearch);

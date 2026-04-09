@@ -29,6 +29,8 @@ export function printInspection(inspection: WorkspaceInspection): void {
   process.stdout.write(`helm charts: ${inspection.helmCharts.length}\n`);
   process.stdout.write(`pulumi projects: ${inspection.pulumiProjects.length}\n`);
   process.stdout.write(`pulumi stack files: ${inspection.fileCounts.pulumiStackFiles}\n\n`);
+  process.stdout.write(`terraform roots: ${inspection.terraformRoots.length}\n`);
+  process.stdout.write(`terraform tfvars files: ${inspection.fileCounts.terraformVariableFiles}\n\n`);
 
   printHeader('Helm Charts');
   printList(
@@ -48,6 +50,14 @@ export function printInspection(inspection: WorkspaceInspection): void {
   printList(
     inspection.pulumiProjects.map(project => `${project.projectRoot} (${project.stackFiles.length} stack file(s))`),
     'No Pulumi projects detected.'
+  );
+
+  process.stdout.write('\n');
+
+  printHeader('Terraform Roots');
+  printList(
+    inspection.terraformRoots.map(root => `${root.rootPath} (${root.tfFiles.length} .tf file(s), ${root.tfvarsFiles.length} tfvars file(s))`),
+    'No Terraform roots detected.'
   );
 }
 

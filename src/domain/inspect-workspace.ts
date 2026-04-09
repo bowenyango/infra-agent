@@ -8,15 +8,19 @@ import { readWorkspaceConfig } from './workspace-config.ts';
 import type {
   HelmChartSummary,
   PulumiProjectSummary,
+  TerraformRootSummary,
   WorkspaceInspection
 } from '../types/repository.ts';
 
 interface ScanState {
   helmCharts: HelmChartSummary[];
   pulumiProjects: PulumiProjectSummary[];
+  terraformRoots: TerraformRootSummary[];
   chartFiles: number;
   pulumiProjectFiles: number;
   pulumiStackFiles: number;
+  terraformRootFiles: number;
+  terraformVariableFiles: number;
 }
 
 const ENVIRONMENT_PATTERN = /(non-prod|dev|development|stage|staging|prod|production|qa|test)/gi;
@@ -27,6 +31,14 @@ function isPulumiProjectFile(fileName: string): boolean {
 
 function isPulumiStackFile(fileName: string): boolean {
   return /^Pulumi\..+\.(yaml|yml)$/i.test(fileName);
+}
+
+function isTerraformFile(fileName: string): boolean {
+  return /\.tf$/i.test(fileName);
+}
+
+function isTerraformVariableFile(fileName: string): boolean {
+  return /\.tfvars(\.json)?$/i.test(fileName) || fileName === 'terraform.tfvars' || fileName === 'terraform.tfvars.json';
 }
 
 function extractEnvironmentHints(values: string[]): string[] {
@@ -87,6 +99,40 @@ function buildPulumiProjectSummary(
   };
 }
 
+function buildTerraformRootSummary(
+  dirPath: string,
+  entryNames: string[],
+  workspaceRoot: string
+): TerraformRootSummary | null {
+  const tfFiles = entryNames.filter(isTerraformFile);
+  if (tfFiles.length === 0) {
+    return null;
+  }
+
+  const tfvarsFiles = entryNames.filter(isTerraformVariableFile);
+  const moduleHints = new Set<string>();
+
+  for (const fileName of tfFiles) {
+    if (fileName === 'main.tf' || fileName === 'variables.tf' || fileName === 'outputs.tf' || fileName === 'providers.tf') {
+      continue;
+    }
+
+    if (fileName.endsWith('.auto.tf')) {
+      continue;
+    }
+
+    moduleHints.add(fileName.replace(/\.tf$/i, ''));
+  }
+
+  return {
+    rootPath: relative(workspaceRoot, dirPath) || '.',
+    tfFiles: tfFiles.map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
+    tfvarsFiles: tfvarsFiles.map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
+    moduleHints: Array.from(moduleHints).sort(),
+    environmentHints: extractEnvironmentHints([relative(workspaceRoot, dirPath) || '.', ...tfvarsFiles])
+  };
+}
+
 async function scanDirectory(currentDir: string, workspaceRoot: string, state: ScanState): Promise<void> {
   const entries = await listDirectory(currentDir);
   const entryNames = entries.map(entry => entry.name);
@@ -103,6 +149,13 @@ async function scanDirectory(currentDir: string, workspaceRoot: string, state: S
     state.pulumiProjects.push(pulumiProject);
     state.pulumiProjectFiles += 1;
     state.pulumiStackFiles += pulumiProject.stackFiles.length;
+  }
+
+  const terraformRoot = buildTerraformRootSummary(currentDir, entryNames, workspaceRoot);
+  if (terraformRoot) {
+    state.terraformRoots.push(terraformRoot);
+    state.terraformRootFiles += 1;
+    state.terraformVariableFiles += terraformRoot.tfvarsFiles.length;
   }
 
   for (const entry of entries) {
@@ -124,15 +177,19 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
   const state: ScanState = {
     helmCharts: [],
     pulumiProjects: [],
+    terraformRoots: [],
     chartFiles: 0,
     pulumiProjectFiles: 0,
-    pulumiStackFiles: 0
+    pulumiStackFiles: 0,
+    terraformRootFiles: 0,
+    terraformVariableFiles: 0
   };
 
   await scanDirectory(workspaceRoot, workspaceRoot, state);
 
   state.helmCharts.sort((left, right) => left.chartRoot.localeCompare(right.chartRoot));
   state.pulumiProjects.sort((left, right) => left.projectRoot.localeCompare(right.projectRoot));
+  state.terraformRoots.sort((left, right) => left.rootPath.localeCompare(right.rootPath));
 
   return {
     workspaceRoot,
@@ -144,16 +201,19 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
     }),
     helmCharts: state.helmCharts,
     pulumiProjects: state.pulumiProjects,
+    terraformRoots: state.terraformRoots,
     fileCounts: {
       chartFiles: state.chartFiles,
       pulumiProjectFiles: state.pulumiProjectFiles,
-      pulumiStackFiles: state.pulumiStackFiles
+      pulumiStackFiles: state.pulumiStackFiles,
+      terraformRootFiles: state.terraformRootFiles,
+      terraformVariableFiles: state.terraformVariableFiles
     }
   };
 }
 
 export function looksLikeInfraWorkspace(inspection: WorkspaceInspection): boolean {
-  return inspection.helmCharts.length > 0 || inspection.pulumiProjects.length > 0;
+  return inspection.helmCharts.length > 0 || inspection.pulumiProjects.length > 0 || inspection.terraformRoots.length > 0;
 }
 
 export function collectWorkspaceWarnings(inspection: WorkspaceInspection): string[] {
@@ -165,6 +225,10 @@ export function collectWorkspaceWarnings(inspection: WorkspaceInspection): strin
 
   if (inspection.pulumiProjects.length === 0) {
     warnings.push('No Pulumi projects were detected in the workspace.');
+  }
+
+  if (inspection.terraformRoots.length === 0) {
+    warnings.push('No Terraform roots were detected in the workspace.');
   }
 
   for (const chart of inspection.helmCharts) {
@@ -180,6 +244,12 @@ export function collectWorkspaceWarnings(inspection: WorkspaceInspection): strin
   for (const project of inspection.pulumiProjects) {
     if (project.stackFiles.length === 0) {
       warnings.push(`Pulumi project ${project.projectRoot} has no stack files.`);
+    }
+  }
+
+  for (const root of inspection.terraformRoots) {
+    if (root.tfvarsFiles.length === 0) {
+      warnings.push(`Terraform root ${root.rootPath} has no tfvars file; bounded config updates may need to create terraform.auto.tfvars.`);
     }
   }
 
