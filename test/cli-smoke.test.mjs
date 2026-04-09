@@ -636,6 +636,50 @@ test('buildEditPlan reuses existing scrawlr infra-cloud config namespace from st
   assert.doesNotMatch(writeContent, /shared-networking:imageTag:/);
 });
 
+test('buildEditPlan normalizes scrawlr infra-cloud environment config values away from full stack names', async () => {
+  const preflight = await buildRunPreflight(
+    'update eks non-prod stack image tag to 2.4.0',
+    'fixtures/scrawlr-infra-cloud-workspace'
+  );
+  const projectPath = resolve('fixtures/scrawlr-infra-cloud-workspace/eks/Pulumi.yaml');
+  const stackPath = resolve('fixtures/scrawlr-infra-cloud-workspace/eks/Pulumi.tenant-shared.non-prod.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: projectPath,
+          content: await readFile(projectPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: stackPath,
+          content: await readFile(stackPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  const writeContent = editPlan?.writes[0]?.content ?? '';
+  assert.match(writeContent, /eks:environment:\s+non-prod/);
+  assert.doesNotMatch(writeContent, /eks:environment:\s+tenant-shared\.non-prod/);
+});
+
 test('buildEditPlan classifies probe deployment update as replace', async () => {
   const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
   const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');

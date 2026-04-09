@@ -123,6 +123,7 @@ The agent must respect clear execution boundaries.
 - Workspace config can now override those edit constraints with kind-scoped target prefixes when a repository needs tighter local rules than the profile defaults.
 - `scrawlr-infra-cloud` stack edits now prefer existing `non-prod` / `prod` naming conventions over creating speculative new stack files.
 - `scrawlr-infra-cloud` stack edits also prefer existing config key namespaces already present in stack files, instead of inventing a new key prefix from project metadata.
+- `scrawlr-infra-cloud` environment config values now normalize to deployment labels such as `non-prod` / `prod` instead of copying full stack names like `tenant-shared.non-prod`.
 - `scrawlr-infra-apps` app-level Helm edits now distinguish `charts/apps` from `charts/infra`, so ingress/probe style mutations stay scoped to app charts by default.
 - Secrets and credentials must never be written into source-controlled files.
 

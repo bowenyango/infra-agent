@@ -95,6 +95,26 @@ function extractExistingConfigNamespace(
   return namespaces[0] ?? projectName;
 }
 
+function normalizeEnvironmentValueForProfile(
+  profileId: AgentRuntimeState['preflight']['profile']['id'],
+  stackName: string
+): string {
+  if (profileId !== 'scrawlr-infra-cloud') {
+    return stackName;
+  }
+
+  const normalizedStackName = stackName.trim();
+  if (normalizedStackName === 'non-prod' || normalizedStackName.endsWith('.non-prod')) {
+    return 'non-prod';
+  }
+
+  if (normalizedStackName === 'prod' || normalizedStackName.endsWith('.prod')) {
+    return 'prod';
+  }
+
+  return normalizedStackName;
+}
+
 function formatYamlScalar(value: string): string {
   if (/^[a-z0-9._:/-]+$/i.test(value)) {
     return value;
@@ -181,12 +201,13 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
   const stackFileContent = getLatestFileContent(runtime, stackFileRelativePath) ?? '';
   const projectName = extractProjectName(projectFileContent, topPulumiTarget.path);
   const configNamespace = extractExistingConfigNamespace(runtime.preflight.profile.id, stackFileContent, projectName);
+  const environmentValue = normalizeEnvironmentValueForProfile(runtime.preflight.profile.id, stackName);
 
   const nextContent = upsertConfigValue(
     upsertConfigValue(
       stackFileContent,
       `${configNamespace}:environment`,
-      stackName
+      environmentValue
     ),
     `${configNamespace}:imageTag`,
     imageTag
