@@ -7,7 +7,32 @@ function hasPulumiConfigIntent(task: string): boolean {
   return /\b(pulumi|stack|image(?:[- ]?tag)?)\b/i.test(task);
 }
 
-function normalizeStackName(environment: string | null, availableStacks: string[]): string | null {
+function normalizeStackNameForProfile(
+  profileId: AgentRuntimeState['preflight']['profile']['id'],
+  environment: string | null,
+  availableStacks: string[]
+): string | null {
+  if (profileId === 'scrawlr-infra-cloud') {
+    const normalizedEnvironment =
+      environment === 'development' ? 'dev'
+      : environment === 'production' ? 'prod'
+      : environment;
+
+    const targetLabel =
+      normalizedEnvironment === 'dev' || normalizedEnvironment === 'stage' || normalizedEnvironment === 'staging' || normalizedEnvironment === 'qa' || normalizedEnvironment === 'test'
+        ? 'non-prod'
+        : normalizedEnvironment;
+
+    if (!targetLabel) {
+      return availableStacks.find(stackName => stackName === 'non-prod' || stackName.endsWith('.non-prod'))
+        ?? availableStacks.find(stackName => stackName === 'prod' || stackName.endsWith('.prod'))
+        ?? availableStacks[0]
+        ?? null;
+    }
+
+    return availableStacks.find(stackName => stackName === targetLabel || stackName.endsWith(`.${targetLabel}`)) ?? null;
+  }
+
   if (environment === 'development') {
     return 'dev';
   }
@@ -111,7 +136,11 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
     return null;
   }
 
-  const stackName = normalizeStackName(runtime.preflight.requestedEnvironment, project.stackNames);
+  const stackName = normalizeStackNameForProfile(
+    runtime.preflight.profile.id,
+    runtime.preflight.requestedEnvironment,
+    project.stackNames
+  );
   if (!stackName) {
     return null;
   }
@@ -122,8 +151,12 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
   }
 
   const projectFileContent = getLatestFileContent(runtime, join(topPulumiTarget.path, 'Pulumi.yaml'));
-  const stackFileRelativePath = project.stackFiles.find(filePath => filePath.endsWith(`Pulumi.${stackName}.yaml`))
-    ?? join(topPulumiTarget.path, `Pulumi.${stackName}.yaml`);
+  const existingStackFileRelativePath = project.stackFiles.find(filePath => filePath.endsWith(`Pulumi.${stackName}.yaml`)) ?? null;
+  if (runtime.preflight.profile.id === 'scrawlr-infra-cloud' && !existingStackFileRelativePath) {
+    return null;
+  }
+
+  const stackFileRelativePath = existingStackFileRelativePath ?? join(topPulumiTarget.path, `Pulumi.${stackName}.yaml`);
   const stackFileContent = getLatestFileContent(runtime, stackFileRelativePath) ?? '';
   const projectName = extractProjectName(projectFileContent, topPulumiTarget.path);
 
