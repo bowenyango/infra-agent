@@ -4,6 +4,7 @@ import { buildHelmProbesEditPlan } from './edit-plans/helm-probes.ts';
 import { buildHelmServicePortRepairEditPlan } from './edit-plans/helm-service-port-repair.ts';
 import { buildPulumiStackConfigEditPlan } from './edit-plans/pulumi-stack-config.ts';
 import { classifyWritePlan } from './classify-write-plan.ts';
+import { isEditPlanAllowedByPolicy } from '../domain/edit-policy.ts';
 import { isWriteAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import type { AgentRuntimeState } from '../types/agent.ts';
 import type { EditPlan } from '../types/edit-plan.ts';
@@ -17,7 +18,7 @@ export function buildEditPlan(runtime: AgentRuntimeState): EditPlan | null {
     buildPulumiStackConfigEditPlan(runtime)
   ];
 
-  const candidate = candidates.find((plan): plan is EditPlan => plan !== null) ?? null;
+  const candidate = candidates.find((plan): plan is EditPlan => plan !== null && isEditPlanAllowedByPolicy(plan, runtime)) ?? null;
   if (!candidate) {
     return null;
   }

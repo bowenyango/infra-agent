@@ -19,6 +19,7 @@ import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
+import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -166,6 +167,36 @@ test('resolveEffectiveApprovalPolicy exposes workspace config overrides', () => 
   assert.deepEqual(effectivePolicy.sources, ['workspace-config: approvalPolicy']);
 });
 
+test('buildRunPreflight exposes effective edit policy from profile defaults', async () => {
+  const preflight = await buildRunPreflight('update app-template chart for dev', 'fixtures/scrawlr-infra-apps-workspace');
+
+  assert.equal(preflight.profile.id, 'scrawlr-infra-apps');
+  assert.deepEqual(preflight.effectiveEditPolicy.allowedEditPlanKinds, [
+    'helm-ingress',
+    'helm-probes',
+    'helm-service-port-repair',
+    'helm-ingress-values-repair'
+  ]);
+  assert.deepEqual(preflight.effectiveEditPolicy.allowedTargetPrefixes, ['charts/apps', 'charts/infra']);
+  assert.ok(preflight.effectiveEditPolicy.sources.some(source => source.includes('profile-default')));
+});
+
+test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
+  const effectivePolicy = resolveEffectiveEditPolicy(
+    {
+      editPolicy: {
+        allowedEditPlanKinds: ['pulumi-stack-config'],
+        allowedTargetPrefixes: ['./networking/']
+      }
+    },
+    'scrawlr-infra-apps'
+  );
+
+  assert.deepEqual(effectivePolicy.allowedEditPlanKinds, ['pulumi-stack-config']);
+  assert.deepEqual(effectivePolicy.allowedTargetPrefixes, ['networking']);
+  assert.deepEqual(effectivePolicy.sources, ['workspace-config: editPolicy']);
+});
+
 test('buildEditPlan filters write modes disallowed by workspace policy', async () => {
   const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
   const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');
@@ -245,6 +276,91 @@ test('buildEditPlan classifies ingress writes as append and create', async () =>
   const ingressWrite = editPlan?.writes.find(write => write.path.endsWith('templates/ingress.yaml'));
   assert.equal(valuesWrite?.mode, 'append');
   assert.equal(ingressWrite?.mode, 'create');
+});
+
+test('buildEditPlan blocks Helm plans outside profile-scoped target prefixes', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      profile: {
+        id: 'scrawlr-infra-apps',
+        label: 'Scrawlr Infra Apps',
+        reasons: ['synthetic edit-policy test']
+      },
+      effectiveEditPolicy: resolveEffectiveEditPolicy(null, 'scrawlr-infra-apps')
+    },
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: valuesPath,
+          content: await readFile(valuesPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan, null);
+});
+
+test('buildEditPlan blocks Pulumi plans under scrawlr infra-apps profile defaults', async () => {
+  const preflight = await buildRunPreflight(
+    'update pulumi dev stack for payments-api image tag to 1.2.3',
+    'fixtures/sample-workspace'
+  );
+  const stackPath = resolve('fixtures/sample-workspace/infra/payments-api/Pulumi.dev.yaml');
+  const projectPath = resolve('fixtures/sample-workspace/infra/payments-api/Pulumi.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      profile: {
+        id: 'scrawlr-infra-apps',
+        label: 'Scrawlr Infra Apps',
+        reasons: ['synthetic kind restriction test']
+      },
+      effectiveEditPolicy: resolveEffectiveEditPolicy(null, 'scrawlr-infra-apps')
+    },
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: projectPath,
+          content: await readFile(projectPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: stackPath,
+          content: await readFile(stackPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan, null);
 });
 
 test('buildEditPlan classifies probe deployment update as replace', async () => {

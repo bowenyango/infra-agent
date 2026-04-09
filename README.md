@@ -119,6 +119,7 @@ The agent must respect clear execution boundaries.
 - Destructive actions require explicit approval.
 - Approval policy can be scoped by write risk globally and tightened further for specific repository paths.
 - Repository profiles can also provide safer default approval rules when no explicit workspace config is present.
+- Repository profiles can now also constrain which edit-plan kinds and target prefixes are allowed by default.
 - Secrets and credentials must never be written into source-controlled files.
 
 ## Repository Documents

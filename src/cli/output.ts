@@ -99,6 +99,16 @@ export function printRunPreflight(state: RunPreflightState): void {
   printList(state.effectiveApprovalPolicy.sources, 'No approval policy sources recorded.');
   process.stdout.write('\n');
 
+  printHeader('Effective Edit Policy');
+  process.stdout.write(
+    `allowed edit plan kinds: ${state.effectiveEditPolicy.allowedEditPlanKinds ? state.effectiveEditPolicy.allowedEditPlanKinds.join(', ') : 'unrestricted'}\n`
+  );
+  process.stdout.write(
+    `allowed target prefixes: ${state.effectiveEditPolicy.allowedTargetPrefixes ? state.effectiveEditPolicy.allowedTargetPrefixes.join(', ') : 'unrestricted'}\n`
+  );
+  printList(state.effectiveEditPolicy.sources, 'No edit policy sources recorded.');
+  process.stdout.write('\n');
+
   printHeader('Targeting');
   process.stdout.write(`requested environment: ${state.requestedEnvironment ?? 'undetected'}\n`);
   process.stdout.write(`requested service: ${state.requestedService ?? 'undetected'}\n`);

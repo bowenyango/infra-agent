@@ -1,4 +1,4 @@
-import type { FileWriteMode, FileWriteRisk } from './edit-plan.ts';
+import type { EditPlanKind, FileWriteMode, FileWriteRisk } from './edit-plan.ts';
 
 export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
 
@@ -25,6 +25,10 @@ export interface WorkspaceAgentConfig {
     allowedPaths?: string[];
     allowedModes?: FileWriteMode[];
   };
+  editPolicy?: {
+    allowedEditPlanKinds?: EditPlanKind[];
+    allowedTargetPrefixes?: string[];
+  };
   approvalPolicy?: {
     requiredWriteRisks?: FileWriteRisk[];
     pathRules?: WorkspaceApprovalPathRule[];
@@ -43,6 +47,12 @@ export interface RunApprovalScope {
 export interface ResolvedApprovalPolicy {
   requiredWriteRisks: FileWriteRisk[];
   pathRules: WorkspaceApprovalPathRule[];
+  sources: string[];
+}
+
+export interface ResolvedEditConstraintPolicy {
+  allowedEditPlanKinds: EditPlanKind[] | null;
+  allowedTargetPrefixes: string[] | null;
   sources: string[];
 }
 
@@ -109,6 +119,7 @@ export interface RunPreflightState {
   profile: RepoProfile;
   approval: RunApprovalScope;
   effectiveApprovalPolicy: ResolvedApprovalPolicy;
+  effectiveEditPolicy: ResolvedEditConstraintPolicy;
   inspection: WorkspaceInspection;
   validation: ValidationPreflight;
   requestedEnvironment: string | null;

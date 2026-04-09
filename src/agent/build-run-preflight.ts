@@ -14,6 +14,7 @@ import {
   buildTargetCandidates,
   buildTargetingWarnings
 } from '../domain/task-targeting.ts';
+import { resolveEffectiveEditPolicy } from '../domain/edit-policy.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { RunApprovalScope } from '../types/repository.ts';
 import type { RunPreflightState } from '../types/repository.ts';
@@ -78,6 +79,7 @@ export async function buildRunPreflight(
   const targeting = buildTargetCandidates(task, inspection);
   const normalizedApprovalScope = normalizeApprovalScope(approvalScope);
   const effectiveApprovalPolicy = resolveEffectiveApprovalPolicy(inspection.config, inspection.profile.id);
+  const effectiveEditPolicy = resolveEffectiveEditPolicy(inspection.config, inspection.profile.id);
   const assumptions = buildTargetingWarnings({
     requestedEnvironment: targeting.requestedEnvironment,
     requestedService: targeting.requestedService,
@@ -108,6 +110,14 @@ export async function buildRunPreflight(
     assumptions.push(`Explicit approval granted for write paths: ${normalizedApprovalScope.approvedWritePaths.join(', ')}.`);
   }
 
+  if (effectiveEditPolicy.allowedEditPlanKinds) {
+    assumptions.push(`Workspace edit policy allows edit plans: ${effectiveEditPolicy.allowedEditPlanKinds.join(', ')}.`);
+  }
+
+  if (effectiveEditPolicy.allowedTargetPrefixes && effectiveEditPolicy.allowedTargetPrefixes.length > 0) {
+    assumptions.push(`Workspace edit policy constrains edit targets to: ${effectiveEditPolicy.allowedTargetPrefixes.join(', ')}.`);
+  }
+
   const hasMissingValidators = validation.validators.some(validator => !validator.available);
   const nextActions = buildNextActions({
     profileLabel: inspection.profile.label,
@@ -130,6 +140,7 @@ export async function buildRunPreflight(
     profile: inspection.profile,
     approval: normalizedApprovalScope,
     effectiveApprovalPolicy,
+    effectiveEditPolicy,
     inspection,
     validation,
     requestedEnvironment: targeting.requestedEnvironment,
