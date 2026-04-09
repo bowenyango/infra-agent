@@ -521,6 +521,50 @@ test('buildEditPlan does not create new scrawlr infra-cloud prod stack files whe
   assert.equal(editPlan, null);
 });
 
+test('buildEditPlan reuses existing scrawlr infra-cloud config namespace from stack file', async () => {
+  const preflight = await buildRunPreflight(
+    'update networking dev stack image tag to 1.2.3',
+    'fixtures/scrawlr-infra-cloud-workspace'
+  );
+  const projectPath = resolve('fixtures/scrawlr-infra-cloud-workspace/networking/Pulumi.yaml');
+  const stackPath = resolve('fixtures/scrawlr-infra-cloud-workspace/networking/Pulumi.non-prod.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: projectPath,
+          content: 'name: shared-networking\nruntime: yaml\ndescription: Synthetic project name drift\nresources: {}\n',
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: stackPath,
+          content: await readFile(stackPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  const writeContent = editPlan?.writes[0]?.content ?? '';
+  assert.match(writeContent, /networking:imageTag:\s+1\.2\.3/);
+  assert.doesNotMatch(writeContent, /shared-networking:imageTag:/);
+});
+
 test('buildEditPlan classifies probe deployment update as replace', async () => {
   const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
   const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');

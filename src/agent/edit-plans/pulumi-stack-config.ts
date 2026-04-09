@@ -74,6 +74,27 @@ function extractProjectName(projectFileContent: string | null, projectRoot: stri
   return basename(projectRoot);
 }
 
+function extractExistingConfigNamespace(
+  profileId: AgentRuntimeState['preflight']['profile']['id'],
+  stackFileContent: string,
+  projectName: string
+): string {
+  if (profileId !== 'scrawlr-infra-cloud') {
+    return projectName;
+  }
+
+  const matches = Array.from(stackFileContent.matchAll(/^\s{2}([a-z0-9._-]+):[a-zA-Z0-9._-]+:\s+/gm));
+  if (matches.length === 0) {
+    return projectName;
+  }
+
+  const namespaces = matches
+    .map(match => match[1]?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  return namespaces[0] ?? projectName;
+}
+
 function formatYamlScalar(value: string): string {
   if (/^[a-z0-9._:/-]+$/i.test(value)) {
     return value;
@@ -159,14 +180,15 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
   const stackFileRelativePath = existingStackFileRelativePath ?? join(topPulumiTarget.path, `Pulumi.${stackName}.yaml`);
   const stackFileContent = getLatestFileContent(runtime, stackFileRelativePath) ?? '';
   const projectName = extractProjectName(projectFileContent, topPulumiTarget.path);
+  const configNamespace = extractExistingConfigNamespace(runtime.preflight.profile.id, stackFileContent, projectName);
 
   const nextContent = upsertConfigValue(
     upsertConfigValue(
       stackFileContent,
-      `${projectName}:environment`,
+      `${configNamespace}:environment`,
       stackName
     ),
-    `${projectName}:imageTag`,
+    `${configNamespace}:imageTag`,
     imageTag
   );
 

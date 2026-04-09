@@ -121,6 +121,7 @@ The agent must respect clear execution boundaries.
 - Repository profiles can also provide safer default approval rules when no explicit workspace config is present.
 - Repository profiles can now also constrain which edit-plan kinds and target prefixes are allowed by default.
 - `scrawlr-infra-cloud` stack edits now prefer existing `non-prod` / `prod` naming conventions over creating speculative new stack files.
+- `scrawlr-infra-cloud` stack edits also prefer existing config key namespaces already present in stack files, instead of inventing a new key prefix from project metadata.
 - `scrawlr-infra-apps` app-level Helm edits now distinguish `charts/apps` from `charts/infra`, so ingress/probe style mutations stay scoped to app charts by default.
 - Secrets and credentials must never be written into source-controlled files.
 
