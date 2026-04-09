@@ -433,6 +433,79 @@ test('collectApprovalSignals applies path-scoped approval rules for medium-risk 
   assert.equal(signals[0]?.risk, 'medium');
 });
 
+test('scrawlr infra-apps profile applies default medium-risk approval on app-template and charts/infra paths', async () => {
+  const preflight = await buildRunPreflight('update app-template chart for dev', 'fixtures/scrawlr-infra-apps-workspace');
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'helm-probes',
+      summary: 'Synthetic medium-risk edits in infra-apps profile.',
+      rationale: 'Default profile approval policy test.',
+      writes: [
+        {
+          path: 'charts/apps/app-template/templates/deployment.yaml',
+          content: 'deployment content',
+          reason: 'Profile-scoped replace in app-template',
+          mode: 'replace',
+          risk: 'medium'
+        },
+        {
+          path: 'charts/infra/reloader/templates/deployment.yaml',
+          content: 'deployment content',
+          reason: 'Profile-scoped replace in charts/infra',
+          mode: 'replace',
+          risk: 'medium'
+        }
+      ]
+    }
+  });
+
+  assert.equal(preflight.profile.id, 'scrawlr-infra-apps');
+  assert.equal(signals.length, 2);
+  assert.ok(signals.some(signal => signal.path === 'charts/apps/app-template/templates/deployment.yaml'));
+  assert.ok(signals.some(signal => signal.path === 'charts/infra/reloader/templates/deployment.yaml'));
+});
+
+test('scrawlr infra-cloud profile applies default medium-risk approval globally', async () => {
+  const preflight = await buildRunPreflight('update networking non-prod stack', 'fixtures/scrawlr-infra-cloud-workspace');
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'pulumi-stack-config',
+      summary: 'Synthetic medium-risk edit in infra-cloud profile.',
+      rationale: 'Default profile approval policy test.',
+      writes: [
+        {
+          path: 'networking/Pulumi.non-prod.yaml',
+          content: 'config:\n  networking:test: value\n',
+          reason: 'Profile-scoped replace in infra-cloud',
+          mode: 'replace',
+          risk: 'medium'
+        }
+      ]
+    }
+  });
+
+  assert.equal(preflight.profile.id, 'scrawlr-infra-cloud');
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.path, 'networking/Pulumi.non-prod.yaml');
+  assert.equal(signals[0]?.risk, 'medium');
+});
+
 test('collectApprovalSignals suppresses matching explicit approval grants only for the approved path scope', async () => {
   const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
     approvedWriteRisks: ['high'],

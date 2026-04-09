@@ -90,7 +90,7 @@ export async function buildRunPreflight(
 
   const allowedWritePaths = getAllowedWritePaths(inspection.config);
   const allowedWriteModes = getAllowedWriteModes(inspection.config);
-  const approvalRequiredWriteRisks = getApprovalRequiredWriteRisks(inspection.config);
+  const approvalRequiredWriteRisks = getApprovalRequiredWriteRisks(inspection.config, inspection.profile.id);
   const topTargetPath = targeting.targetCandidates[0]?.path;
   if (allowedWritePaths && topTargetPath && !isPathAllowedByWorkspacePolicy(topTargetPath, inspection.config)) {
     blockers.unshift(`Workspace write policy does not allow edits under ${topTargetPath}. Allowed roots: ${allowedWritePaths.join(', ')}.`);

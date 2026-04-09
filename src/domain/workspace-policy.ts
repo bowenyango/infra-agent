@@ -1,5 +1,6 @@
 import type {
   RunApprovalScope,
+  RepoProfileId,
   WorkspaceAgentConfig,
   WorkspaceApprovalPathRule
 } from '../types/repository.ts';
@@ -8,6 +9,35 @@ import type { FileWriteRisk } from '../types/edit-plan.ts';
 
 function normalizePolicyPath(path: string): string {
   return path.replace(/^\.\/+/, '').replace(/\/+$/, '');
+}
+
+function getDefaultApprovalPathRules(profileId: RepoProfileId): WorkspaceApprovalPathRule[] {
+  switch (profileId) {
+    case 'scrawlr-infra-apps':
+      return [
+        {
+          path: 'charts/apps/app-template',
+          requiredWriteRisks: ['medium', 'high']
+        },
+        {
+          path: 'charts/infra',
+          requiredWriteRisks: ['medium', 'high']
+        }
+      ];
+    default:
+      return [];
+  }
+}
+
+function getDefaultApprovalRequiredWriteRisks(profileId: RepoProfileId): FileWriteRisk[] {
+  switch (profileId) {
+    case 'scrawlr-infra-cloud':
+      return ['medium', 'high'];
+    case 'generic':
+    case 'scrawlr-infra-apps':
+    default:
+      return ['high'];
+  }
 }
 
 export function getAllowedWritePaths(config: WorkspaceAgentConfig | null): string[] | null {
@@ -51,19 +81,25 @@ export function isWriteAllowedByWorkspacePolicy(write: FileWritePlan, config: Wo
   return isPathAllowedByWorkspacePolicy(write.path, config) && isModeAllowedByWorkspacePolicy(write.mode, config);
 }
 
-export function getApprovalRequiredWriteRisks(config: WorkspaceAgentConfig | null): FileWriteRisk[] {
+export function getApprovalRequiredWriteRisks(
+  config: WorkspaceAgentConfig | null,
+  profileId: RepoProfileId = 'generic'
+): FileWriteRisk[] {
   const configuredRisks = config?.approvalPolicy?.requiredWriteRisks;
   if (configuredRisks === undefined) {
-    return ['high'];
+    return getDefaultApprovalRequiredWriteRisks(profileId);
   }
 
   return [...configuredRisks];
 }
 
-function getApprovalPathRules(config: WorkspaceAgentConfig | null): WorkspaceApprovalPathRule[] {
+function getApprovalPathRules(
+  config: WorkspaceAgentConfig | null,
+  profileId: RepoProfileId = 'generic'
+): WorkspaceApprovalPathRule[] {
   const pathRules = config?.approvalPolicy?.pathRules;
   if (!pathRules || pathRules.length === 0) {
-    return [];
+    return getDefaultApprovalPathRules(profileId);
   }
 
   return pathRules
@@ -74,11 +110,15 @@ function getApprovalPathRules(config: WorkspaceAgentConfig | null): WorkspaceApp
     }));
 }
 
-function getApprovalRequiredWriteRisksForPath(path: string, config: WorkspaceAgentConfig | null): FileWriteRisk[] {
-  const requiredRisks = new Set<FileWriteRisk>(getApprovalRequiredWriteRisks(config));
+function getApprovalRequiredWriteRisksForPath(
+  path: string,
+  config: WorkspaceAgentConfig | null,
+  profileId: RepoProfileId = 'generic'
+): FileWriteRisk[] {
+  const requiredRisks = new Set<FileWriteRisk>(getApprovalRequiredWriteRisks(config, profileId));
   const normalizedPath = normalizePolicyPath(path);
 
-  for (const rule of getApprovalPathRules(config)) {
+  for (const rule of getApprovalPathRules(config, profileId)) {
     const ruleMatches = normalizedPath === rule.path || normalizedPath.startsWith(`${rule.path}/`);
     if (!ruleMatches) {
       continue;
@@ -92,12 +132,16 @@ function getApprovalRequiredWriteRisksForPath(path: string, config: WorkspaceAge
   return [...requiredRisks];
 }
 
-export function isApprovalRequiredForWrite(write: FileWritePlan, config: WorkspaceAgentConfig | null): boolean {
+export function isApprovalRequiredForWrite(
+  write: FileWritePlan,
+  config: WorkspaceAgentConfig | null,
+  profileId: RepoProfileId = 'generic'
+): boolean {
   if (!write.risk) {
     return false;
   }
 
-  return getApprovalRequiredWriteRisksForPath(write.path, config).includes(write.risk);
+  return getApprovalRequiredWriteRisksForPath(write.path, config, profileId).includes(write.risk);
 }
 
 export function normalizeApprovalScope(scope: Partial<RunApprovalScope> | null | undefined): RunApprovalScope {

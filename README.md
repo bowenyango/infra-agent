@@ -117,6 +117,7 @@ The agent must respect clear execution boundaries.
 - Validation commands are expected and should be treated as normal execution.
 - Destructive actions require explicit approval.
 - Approval policy can be scoped by write risk globally and tightened further for specific repository paths.
+- Repository profiles can also provide safer default approval rules when no explicit workspace config is present.
 - Secrets and credentials must never be written into source-controlled files.
 
 ## Repository Documents

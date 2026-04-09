@@ -3,7 +3,7 @@ import type { FileWritePlan } from '../types/edit-plan.ts';
 import { isApprovalRequiredForWrite, isWriteCoveredByApproval } from '../domain/workspace-policy.ts';
 
 function toApprovalSignal(write: FileWritePlan, runtime: AgentRuntimeState): ApprovalSignal | null {
-  if (!isApprovalRequiredForWrite(write, runtime.preflight.inspection.config)) {
+  if (!isApprovalRequiredForWrite(write, runtime.preflight.inspection.config, runtime.preflight.profile.id)) {
     return null;
   }
 
