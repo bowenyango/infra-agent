@@ -10,6 +10,7 @@ The runtime should be optimized for:
 - controlled configuration editing
 - validation-driven iteration
 - safety and approvals
+- non-Infra contributor usability
 
 ## Runtime Shape
 
@@ -64,6 +65,7 @@ Planned tool groups:
 - file tools
 - Helm tools
 - Pulumi tools
+- Terraform tools
 - validation tools
 
 Initial tool candidates:
@@ -77,12 +79,15 @@ Initial tool candidates:
 - `helmLint`
 - `helmTemplate`
 - `pulumiPreview`
+- `terraformFmtCheck`
+- `terraformValidate`
 
 ## 4. Domain Layer
 
 Responsibilities:
 
 - understand Pulumi project structure
+- understand Terraform root and module structure
 - understand Helm chart structure
 - detect repository conventions
 - classify environment-specific config
@@ -114,6 +119,7 @@ Minimum state fields:
 - user task
 - workspace root
 - detected Pulumi roots
+- detected Terraform roots
 - detected Helm roots
 - target service
 - target environment
@@ -143,7 +149,7 @@ This keeps the system closer to a tool-driven agent runtime than a prompt-only g
 
 The first code implementation should cover one simple but real path:
 
-- detect one chart and one Pulumi stack
+- detect one chart, one Pulumi stack, or one Terraform root
 - edit a small set of files
 - validate the result
 - output a clear summary

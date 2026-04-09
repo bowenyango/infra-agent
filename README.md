@@ -1,14 +1,15 @@
 # infra-agent
 
-`infra-agent` is a TypeScript CLI agent for generating, modifying, and validating `Pulumi` and `Helm` configuration in a controlled repository workspace.
+`infra-agent` is a TypeScript CLI agent for generating, modifying, and validating infrastructure configuration in a controlled repository workspace.
 
 The product goal is narrow on purpose:
 
 - read an infrastructure repository with tools
-- understand existing `Pulumi` and `Helm` patterns
+- understand existing `Pulumi`, `Terraform`, and `Helm` patterns
 - generate or modify configuration safely
-- validate every change with `helm lint`, `helm template`, and `pulumi preview`
+- validate every change with infrastructure-aware validators
 - stop before destructive actions unless explicitly approved
+- help non-Infra contributors succeed without guessing repository conventions
 
 ## Scope
 
@@ -17,10 +18,11 @@ Version `v0` is intentionally constrained.
 - Single CLI entrypoint: `infra-agent`
 - Single repository workspace per run
 - Single task at a time
-- Focus on `Pulumi` and `Helm` only
+- Focus on `Pulumi`, `Terraform`, and `Helm` only
 - File generation and modification only
 - Validation-first workflow
 - No automatic `pulumi up`
+- No automatic `terraform apply`
 - No secret material generation
 
 ## Non-Goals
@@ -51,19 +53,21 @@ Every artifact produced by the agent must be validated where applicable.
 - Helm: `helm lint`
 - Helm: `helm template`
 - Pulumi: `pulumi preview`
+- Terraform: `terraform fmt -check`
+- Terraform: `terraform validate`
 
 If validation fails, the agent should continue iterating until the failure is resolved or a real blocker is reached.
 
 ## Current CLI Surface
 
-The current repository includes a minimal TypeScript CLI skeleton with three commands:
+The current repository includes a minimal TypeScript CLI skeleton with four commands:
 
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent run "<task>" [--workspace <path>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>]`
 
-Current behavior is intentionally preflight-oriented:
+Current behavior is intentionally runtime-foundation oriented:
 
 - `inspect` detects Helm charts and Pulumi projects
 - `validate` reports validator availability and the validation plan implied by the workspace
@@ -86,7 +90,7 @@ Development verification commands:
 - `npm run smoke`
 - `npm run verify`
 
-The current agent runtime now supports one real vertical slice:
+The current agent runtime now supports several bounded real slices:
 
 - inspect the highest-confidence Helm and Pulumi targets
 - generate a scoped ingress edit plan for a Helm chart when the task clearly requests ingress work
@@ -94,6 +98,12 @@ The current agent runtime now supports one real vertical slice:
 - generate a bounded Pulumi stack config edit plan when the task clearly requests stack-level config changes
 - write the planned files into the workspace
 - run Helm or Pulumi validation commands after the write step
+
+The current implementation focus remains:
+
+- stabilize the general runtime across `Helm`, `Pulumi`, and `Terraform`
+- preserve strict editing and approval boundaries
+- prepare for repository-specific adaptation after the general runtime is stable
 
 Internally, the runtime now follows a Claude Code-inspired shape:
 
@@ -121,6 +131,7 @@ The agent must respect clear execution boundaries.
 - Repository profiles can also provide safer default approval rules when no explicit workspace config is present.
 - Repository profiles can now also constrain which edit-plan kinds and target prefixes are allowed by default.
 - Workspace config can now override those edit constraints with kind-scoped target prefixes when a repository needs tighter local rules than the profile defaults.
+- Terraform changes will ultimately be expected to follow the same bounded edit, validation, and approval model as Helm and Pulumi.
 - `scrawlr-infra-cloud` stack edits now prefer existing `non-prod` / `prod` naming conventions over creating speculative new stack files.
 - `scrawlr-infra-cloud` stack edits also prefer existing config key namespaces already present in stack files, instead of inventing a new key prefix from project metadata.
 - `scrawlr-infra-cloud` environment config values now normalize to deployment labels such as `non-prod` / `prod` instead of copying full stack names like `tenant-shared.non-prod`.

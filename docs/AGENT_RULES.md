@@ -17,7 +17,7 @@
 
 ## 3. Scope Discipline
 
-- Stay within the Pulumi and Helm domain unless the task explicitly requires adjacent systems.
+- Stay within the Pulumi, Terraform, and Helm domain unless the task explicitly requires adjacent systems.
 - Solve the smallest complete unit of work that satisfies the request.
 - Prefer one service and one environment at a time unless the task explicitly requires broader edits.
 
@@ -77,6 +77,14 @@
 - Prefer composable configuration patterns over copy-paste expansion.
 - Do not duplicate stack logic across environments unless the repository already uses that approach.
 
+## 10A. Terraform Configuration Rules
+
+- Prefer variable-driven configuration over hardcoded literals.
+- Reuse existing module and root layout instead of creating parallel Terraform structure.
+- Respect existing provider, backend, and environment split conventions.
+- Run formatting and validation after Terraform changes.
+- Avoid speculative resource creation when the repository indicates module composition should be reused.
+
 ## 11. Comments
 
 - Keep comments minimal and professional.
@@ -90,6 +98,8 @@
 - Run `helm lint` when a chart is touched.
 - Run `helm template` when rendered output matters.
 - Run `pulumi preview` when Pulumi code or config changes.
+- Run `terraform fmt -check` when Terraform files change.
+- Run `terraform validate` when Terraform configuration changes.
 - Use validation failures to refine results instead of stopping after first generation.
 
 ## 13. Safety
@@ -113,7 +123,7 @@
 
 ## 15. Additional Rules For infra-agent
 
-- Prefer editing existing Helm and Pulumi assets over creating new parallel assets.
+- Prefer editing existing Helm, Pulumi, and Terraform assets over creating new parallel assets.
 - Infer repository conventions from concrete files, not from generic best practices alone.
 - Validation output is part of the task state and must inform the next step.
 - The agent must not call deploy or apply commands in version `v0`.
@@ -121,5 +131,6 @@
 - target environment
 - target service or chart
 - stack ownership
+- Terraform root or module ownership
 - secret source
 - ingress hostnames or external endpoints

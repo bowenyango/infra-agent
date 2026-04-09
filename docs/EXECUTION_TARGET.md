@@ -8,7 +8,13 @@ It exists to prevent drift into adjacent agent-platform work before the core inf
 
 ## Current Target
 
-`infra-agent` is being developed as a `TypeScript` CLI agent for understanding, modifying, and validating `Helm` and `Pulumi` configuration in a repository workspace.
+`infra-agent` is being developed as a `TypeScript` CLI agent for understanding, generating, modifying, and validating infrastructure configuration in a repository workspace.
+
+The active infrastructure domains are:
+
+- `Helm`
+- `Pulumi`
+- `Terraform`
 
 The active focus is the **general foundation runtime**, not the final repository-specific production version.
 
@@ -22,6 +28,7 @@ Current development should prioritize:
 - validation-first iteration
 - bounded repair loops
 - approval and safety boundaries
+- clear summaries and clarification flows for non-Infra contributors
 
 Current development should not drift into:
 
@@ -54,8 +61,9 @@ Development should continue in this order unless explicitly changed:
 2. Improve controlled editing behavior.
 3. Improve validation and repair behavior.
 4. Improve approval and safety behavior.
-5. Add repository-specific behavior for `scrawlr/infra-apps` and `scrawlr/infra-cloud`.
-6. Only then consider higher-level agent-platform concerns.
+5. Add `Terraform` as a first-class supported domain beside `Pulumi` and `Helm`.
+6. Add repository-specific behavior for real infrastructure repositories.
+7. Only then consider higher-level agent-platform concerns.
 
 ## Current Runtime Boundary
 
@@ -64,9 +72,10 @@ The expected runtime boundary is:
 - single CLI process
 - single task per run
 - single workspace per run
-- Helm and Pulumi only
+- Helm, Pulumi, and Terraform only
 - no automatic apply or deploy
 - no secrets generation
+- no requirement that the caller already understands internal Infra conventions
 
 ## Current Editing Boundary
 
@@ -89,6 +98,8 @@ The default validation contract remains:
 - `helm lint`
 - `helm template`
 - `pulumi preview`
+- `terraform fmt -check`
+- `terraform validate`
 
 Validation should be part of the normal execution loop, not an optional afterthought.
 
@@ -104,14 +115,13 @@ Approval behavior should become more explicit over time, but the immediate requi
 
 ## Future Expansion Rule
 
-Repository-specific behavior is expected and desirable, but only **after** the general foundation runtime is stable.
+Repository-specific behavior is expected and desirable, but only **after** the general foundation runtime is stable enough across Helm, Pulumi, and Terraform.
 
 The next major adaptation layer should be:
 
-- `scrawlr/infra-apps`
-- `scrawlr/infra-cloud`
+- the user's local infrastructure repositories, starting with `scrawlr/infra-apps` and `scrawlr/infra-cloud` when appropriate
 
-These repositories should shape future domain rules, validation conventions, and safety constraints.
+These repositories should shape future domain rules, validation conventions, Terraform conventions, and safety constraints.
 
 ## Change Control
 
