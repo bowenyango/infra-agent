@@ -14,6 +14,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
   async decideNextAction(input: AgentPlanningInput): Promise<AgentDecision> {
     const { runtime } = input;
     const { preflight } = runtime;
+    const taskMentionsTerraform = /\b(terraform|tfvars|module|variable|variables)\b/i.test(runtime.task);
     const topScore = preflight.targetCandidates[0]?.score ?? 0;
     const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
     const hasObservations = runtime.observations.length > 0;
@@ -48,13 +49,22 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
         confidence: 'high',
         action: {
           kind: 'ask-for-clarification',
-          summary: 'Clarify workspace and target before any modification step.',
-          rationale: 'The workspace does not currently expose any detectable Helm, Pulumi, or Terraform targets.',
+          summary: taskMentionsTerraform
+            ? 'Clarify the Terraform workspace and target before any modification step.'
+            : 'Clarify workspace and target before any modification step.',
+          rationale: taskMentionsTerraform
+            ? 'The workspace does not currently expose any detectable Terraform root for the requested task.'
+            : 'The workspace does not currently expose any detectable Helm, Pulumi, or Terraform targets.',
           payload: {
-            questions: [
-              'Which repository or subdirectory contains the target Helm chart, Pulumi project, or Terraform root?',
-              'Should the agent modify an existing infrastructure target, or is a new target expected?'
-            ],
+            questions: taskMentionsTerraform
+              ? [
+                  'Which Terraform root or subdirectory should be updated?',
+                  'Should the agent modify an existing tfvars file, or create a bounded terraform.auto.tfvars file in that root?'
+                ]
+              : [
+                  'Which repository or subdirectory contains the target Helm chart, Pulumi project, or Terraform root?',
+                  'Should the agent modify an existing infrastructure target, or is a new target expected?'
+                ],
             clarificationKind: 'target-ambiguity'
           }
         }
@@ -66,13 +76,22 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
         confidence: 'medium',
         action: {
           kind: 'ask-for-clarification',
-          summary: 'Clarify the intended service, chart, or environment before editing files.',
-          rationale: 'The task does not map strongly enough onto a detected workspace target.',
+          summary: taskMentionsTerraform
+            ? 'Clarify the intended Terraform root, variables, or environment before editing files.'
+            : 'Clarify the intended service, chart, or environment before editing files.',
+          rationale: taskMentionsTerraform
+            ? 'The task references Terraform, but the requested root, variable scope, or environment is still ambiguous.'
+            : 'The task does not map strongly enough onto a detected workspace target.',
           payload: {
-            questions: [
-              'What is the exact target service or chart name?',
-              'Which environment should be modified?'
-            ],
+            questions: taskMentionsTerraform
+              ? [
+                  'What is the exact Terraform root or module path that should be modified?',
+                  'Which environment or tfvars file should be updated?'
+                ]
+              : [
+                  'What is the exact target service or chart name?',
+                  'Which environment should be modified?'
+                ],
             clarificationKind: 'target-ambiguity'
           }
         }

@@ -1578,6 +1578,58 @@ test('runSingleStep returns approval-required outcome for approval clarification
   assert.equal(result.outcome, 'approval-required');
 });
 
+test('rule-based planner asks Terraform-specific clarification questions when Terraform task lacks root and environment detail', async () => {
+  const preflight = await buildRunPreflight('update terraform variables', 'fixtures/terraform-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.clarificationKind, 'target-ambiguity');
+  assert.match(decision.action.summary, /Terraform root, variables, or environment/i);
+  assert.ok(decision.action.payload?.questions?.some(question => /Terraform root or module path/i.test(question)));
+  assert.ok(decision.action.payload?.questions?.some(question => /tfvars file/i.test(question)));
+});
+
+test('rule-based planner asks Terraform-specific clarification when no Terraform root is detected', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-empty-terraform-'));
+
+  try {
+    const preflight = await buildRunPreflight('update terraform variables', tempRoot);
+    const planner = new RuleBasedPlanningModel();
+    const decision = await planner.decideNextAction({
+      runtime: {
+        task: preflight.task,
+        preflight,
+        observations: [],
+        appliedWrites: [],
+        validationResults: [],
+        validationIssues: [],
+        approvalSignals: [],
+        repairAttempts: 0,
+        lastEditPlan: null
+      }
+    });
+
+    assert.equal(decision.action.kind, 'ask-for-clarification');
+    assert.match(decision.action.summary, /Terraform workspace and target/i);
+    assert.ok(decision.action.payload?.questions?.some(question => /existing tfvars file/i.test(question)));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('rule-based agent repairs missing ingress values after validation failure', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-repair-ingress-'));
   const workspaceRoot = join(tempRoot, 'workspace');
