@@ -25,6 +25,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasApprovalSignals = runtime.approvalSignals.length > 0;
     const editPlan = runtime.lastEditPlan;
     const hasWritePolicyBlocker = preflight.blockers.some(blocker => blocker.startsWith('Workspace write policy'));
+    const terraformFormattingIssue = runtime.validationIssues.find(issue => issue.kind === 'terraform-formatting-required');
+    const topTerraformTarget = preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
 
     if (hasWritePolicyBlocker) {
       return {
@@ -137,6 +139,20 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           payload: {
             writes: editPlan.writes,
             editPlan
+          }
+        }
+      };
+    }
+
+    if (hasValidationFailures && terraformFormattingIssue && runtime.repairAttempts < 2 && topTerraformTarget) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'repair-terraform-formatting',
+          summary: `Run terraform fmt for ${topTerraformTarget.path} before retrying validation.`,
+          rationale: terraformFormattingIssue.message,
+          payload: {
+            rootPath: topTerraformTarget.path
           }
         }
       };

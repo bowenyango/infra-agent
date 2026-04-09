@@ -50,6 +50,7 @@ export function buildPlannerSystemPrompt(): string {
     'ask-for-clarification',
     'inspect-target-files',
     'apply-edit-plan',
+    'repair-terraform-formatting',
     'validate-targets',
     'stop'
   ];
@@ -77,12 +78,14 @@ export function buildPlannerSystemPrompt(): string {
     '- Prefer inspect-target-files before apply-edit-plan when file context is missing.',
     '- Prefer apply-edit-plan only when runtime.lastEditPlan is present and writes are available.',
     '- Prefer validate-targets after successful writes when validation commands are available.',
+    '- Use repair-terraform-formatting only when validationIssues include terraform-formatting-required and a Terraform root is already selected.',
     '- Use ask-for-clarification when target, environment, or ownership is ambiguous.',
     '- When ask-for-clarification is used, include payload.clarificationKind.',
     '- Use clarificationKind=approval-required when approvalSignals are present and the next step should pause for approval.',
     '- Never invent file paths, writes, or commands that are not already present in the runtime state.',
     '- For apply-edit-plan, copy writes from runtime.lastEditPlan.writes exactly.',
     '- For validate-targets, copy commands from the relevant entry in runtime.preflight.validation.plan.',
+    '- For repair-terraform-formatting, set payload.rootPath to the selected Terraform root path from runtime.preflight.targetCandidates.',
     '- For stop, always include payload.stopReason.',
     '- Use stopReason=validation-succeeded only when validationResults are present and all exit codes are 0.',
     '- Use stopReason=repair-budget-exhausted only when validationIssues are repairable but the bounded repair budget is already exhausted.',

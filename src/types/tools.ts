@@ -50,3 +50,18 @@ export interface ValidationRunOutput {
   workspaceRoot: string;
   results: ValidationCommandOutput[];
 }
+
+export interface TerraformFormattedFile {
+  path: string;
+  content: string;
+}
+
+export interface TerraformFormatRepairOutput {
+  workspaceRoot: string;
+  rootPath: string;
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  formattedFiles: TerraformFormattedFile[];
+}

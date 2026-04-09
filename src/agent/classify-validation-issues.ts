@@ -39,8 +39,8 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
     if (/terraform\b.*fmt\b.*-check/i.test(result.command) || /terraform fmt/i.test(combinedOutput)) {
       issues.push(buildIssue(result, {
         kind: 'terraform-formatting-required',
-        repairable: false,
-        message: 'Terraform formatting validation failed. The selected Terraform root does not currently satisfy terraform fmt formatting rules.'
+        repairable: true,
+        message: 'Terraform formatting validation failed. The selected Terraform root can be repaired with a bounded terraform fmt pass.'
       }));
       continue;
     }

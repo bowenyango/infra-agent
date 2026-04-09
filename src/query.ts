@@ -7,7 +7,7 @@ import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from '.
 import type { RunPreflightState } from './types/repository.ts';
 import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
-import type { FileReadOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
+import type { FileReadOutput, TerraformFormatRepairOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
 import type { AgentRunOutcome } from './types/agent.ts';
@@ -51,6 +51,28 @@ function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDec
       const output = toolResult.output as ValidationRunOutput;
       nextRuntime.validationResults.push(...output.results);
       nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
+    }
+
+    if (toolResult.toolName === 'terraform_fmt') {
+      const output = toolResult.output as TerraformFormatRepairOutput;
+      for (const formattedFile of output.formattedFiles) {
+        nextRuntime.appliedWrites.push({
+          path: formattedFile.path,
+          content: formattedFile.content,
+          reason: 'Applied via terraform_fmt tool.',
+          mode: 'replace',
+          risk: 'low'
+        } satisfies FileWritePlan);
+        nextRuntime.observations.push({
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: formattedFile.path,
+            content: formattedFile.content,
+            truncated: false
+          } satisfies FileReadOutput
+        });
+      }
     }
   }
 
@@ -131,7 +153,10 @@ export async function runQueryLoop(
       runtime = applyExecutionToRuntime(runtime, execution);
     }
 
-    if (decision.action.kind === 'apply-edit-plan' && runtime.validationIssues.length > 0) {
+    if (
+      (decision.action.kind === 'apply-edit-plan' || decision.action.kind === 'repair-terraform-formatting')
+      && runtime.validationIssues.length > 0
+    ) {
       runtime = {
         ...runtime,
         repairAttempts: runtime.repairAttempts + 1,

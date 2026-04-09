@@ -7,6 +7,7 @@ import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
 import { ReplaceFileTool } from '../tools/ReplaceFileTool/ReplaceFileTool.ts';
 import { SearchWorkspaceTool } from '../tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
+import { TerraformFormatTool } from '../tools/TerraformFormatTool/TerraformFormatTool.ts';
 import { ValidateTargetsTool } from '../tools/ValidateTargetsTool/ValidateTargetsTool.ts';
 import { WriteFileTool } from '../tools/WriteFileTool/WriteFileTool.ts';
 import type { AgentDecision, AgentDecisionExecution } from '../types/agent.ts';
@@ -125,6 +126,47 @@ export async function executeDecision(
     return {
       status: 'completed',
       executedTools: [result]
+    };
+  }
+
+  if (decision.action.kind === 'repair-terraform-formatting') {
+    const rootPath = decision.action.payload?.rootPath;
+    if (!rootPath) {
+      return {
+        status: 'skipped',
+        executedTools: [],
+        reason: 'No Terraform root path was present for formatting repair.'
+      };
+    }
+
+    const workspaceSearch = await executeTool(SearchWorkspaceTool, {
+      rootPath,
+      fileNamePattern: '^(.*\\.tf|.*\\.tfvars(?:\\.json)?)$',
+      maxResults: 200
+    }, context);
+
+    const candidateMatches = (workspaceSearch.output as SearchWorkspaceOutput).matches;
+    const blockedPaths = candidateMatches
+      .map(match => match.path)
+      .filter(path => !isWriteAllowedByWorkspacePolicy({
+        path,
+        content: '',
+        reason: 'Terraform formatting repair.',
+        mode: 'replace'
+      }, workspaceConfig));
+
+    if (blockedPaths.length > 0) {
+      return {
+        status: 'skipped',
+        executedTools: [workspaceSearch],
+        reason: `Workspace write policy blocked terraform formatting repair for: ${blockedPaths.join(', ')}`
+      };
+    }
+
+    const formatResult = await executeTool(TerraformFormatTool, { rootPath }, context);
+    return {
+      status: 'completed',
+      executedTools: [workspaceSearch, formatResult]
     };
   }
 

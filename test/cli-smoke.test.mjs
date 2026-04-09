@@ -1929,7 +1929,7 @@ test('classifyValidationIssues marks terraform fmt failures as terraform-formatt
 
   assert.equal(issues.length, 1);
   assert.equal(issues[0]?.kind, 'terraform-formatting-required');
-  assert.equal(issues[0]?.repairable, false);
+  assert.equal(issues[0]?.repairable, true);
 });
 
 test('classifyValidationIssues marks terraform validate failures as terraform-validate-failure', () => {
@@ -1946,4 +1946,66 @@ test('classifyValidationIssues marks terraform validate failures as terraform-va
   assert.equal(issues[0]?.kind, 'terraform-validate-failure');
   assert.equal(issues[0]?.repairable, false);
   assert.match(issues[0]?.message ?? '', /undeclared input variable/i);
+});
+
+test('executeDecision runs terraform formatting repair inside the selected Terraform root', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-fmt-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/terraform-format-repair-workspace'), workspaceRoot, { recursive: true });
+    const execution = await executeDecision(
+      {
+        confidence: 'high',
+        action: {
+          kind: 'repair-terraform-formatting',
+          summary: 'Repair Terraform formatting.',
+          rationale: 'terraform fmt -check failed.',
+          payload: {
+            rootPath: 'terraform/payments-api'
+          }
+        }
+      },
+      workspaceRoot,
+      null
+    );
+
+    assert.ok(execution);
+    assert.equal(execution?.executedTools[0]?.toolName, 'search_workspace');
+    assert.equal(execution?.executedTools[1]?.toolName, 'terraform_fmt');
+    const repairedMainTf = await readFile(join(workspaceRoot, 'terraform/payments-api/main.tf'), 'utf8');
+    assert.match(repairedMainTf, /  type = string/);
+    assert.match(repairedMainTf, /  image_tag   = var\.image_tag/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rule-based agent repairs Terraform formatting failures and revalidates', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-repair-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/terraform-format-repair-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'update terraform payments-api dev image tag to 2.3.4',
+      workspaceRoot,
+      undefined,
+      'rule-based'
+    );
+
+    assert.ok(result.turns.some(turn => turn.decision.action.kind === 'repair-terraform-formatting'));
+    assert.ok(result.turns.some(turn => turn.execution?.executedTools.some(tool => tool.toolName === 'terraform_fmt')));
+    assert.ok(result.runtime.repairAttempts >= 1);
+    assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
+    assert.equal(result.runtime.validationIssues.length, 0);
+    assert.equal(result.outcome, 'completed');
+
+    const repairedMainTf = await readFile(join(workspaceRoot, 'terraform/payments-api/main.tf'), 'utf8');
+    const updatedTfvars = await readFile(join(workspaceRoot, 'terraform/payments-api/dev.auto.tfvars'), 'utf8');
+    assert.match(repairedMainTf, /  image_tag   = var\.image_tag/);
+    assert.match(updatedTfvars, /image_tag\s*=\s*"2.3.4"/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });

@@ -5,6 +5,7 @@ export type AgentActionKind =
   | 'ask-for-clarification'
   | 'inspect-target-files'
   | 'apply-edit-plan'
+  | 'repair-terraform-formatting'
   | 'validate-targets'
   | 'stop';
 export type AgentClarificationKind =
@@ -33,6 +34,7 @@ export interface AgentAction {
   rationale: string;
   payload?: {
     targetPaths?: string[];
+    rootPath?: string;
     questions?: string[];
     commands?: string[];
     writes?: FileWritePlan[];

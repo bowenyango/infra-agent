@@ -30,12 +30,14 @@ async function main() {
     const pulumiWorkspaceRoot = join(tempRoot, 'pulumi-workspace');
     const repairWorkspaceRoot = join(tempRoot, 'repair-workspace');
     const repairIngressWorkspaceRoot = join(tempRoot, 'repair-ingress-values-workspace');
+    const terraformRepairWorkspaceRoot = join(tempRoot, 'terraform-repair-workspace');
 
     await cp(fixtureRoot, ingressWorkspaceRoot, { recursive: true });
     await cp(fixtureRoot, probeWorkspaceRoot, { recursive: true });
     await cp(fixtureRoot, pulumiWorkspaceRoot, { recursive: true });
     await cp(resolve('fixtures/repair-workspace'), repairWorkspaceRoot, { recursive: true });
     await cp(resolve('fixtures/repair-ingress-values-workspace'), repairIngressWorkspaceRoot, { recursive: true });
+    await cp(resolve('fixtures/terraform-format-repair-workspace'), terraformRepairWorkspaceRoot, { recursive: true });
 
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', '--help']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/sample-workspace']);
@@ -44,6 +46,7 @@ async function main() {
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/scrawlr-infra-cloud-workspace']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/terraform-workspace']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'validate', 'fixtures/terraform-workspace']);
+    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/terraform-format-repair-workspace']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'validate', 'fixtures/configured-workspace']);
     runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'run', 'add ingress to payments-api dev chart', '--workspace', 'fixtures/restricted-workspace']);
 
@@ -122,6 +125,22 @@ async function main() {
     const repairedIngressValues = await readFile(join(repairIngressWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
     if (!repairedIngressValues.includes('ingress:') || !repairedIngressValues.includes('enabled: true')) {
       throw new Error('ingress repair smoke check did not add the expected ingress values repair.');
+    }
+
+    runCommand([
+      '--experimental-strip-types',
+      'src/cli/main.ts',
+      'agent',
+      'update terraform payments-api dev image tag to 2.3.4',
+      '--workspace',
+      terraformRepairWorkspaceRoot,
+      '--planner',
+      'rule-based'
+    ]);
+    const repairedTerraformMain = await readFile(join(terraformRepairWorkspaceRoot, 'terraform/payments-api/main.tf'), 'utf8');
+    const repairedTerraformTfvars = await readFile(join(terraformRepairWorkspaceRoot, 'terraform/payments-api/dev.auto.tfvars'), 'utf8');
+    if (!repairedTerraformMain.includes('  image_tag   = var.image_tag') || !/image_tag\s*=\s*"2.3.4"/.test(repairedTerraformTfvars)) {
+      throw new Error('terraform repair smoke check did not format Terraform files and update tfvars as expected.');
     }
 
     process.stdout.write(`smoke passed (${tempRoot})\n`);

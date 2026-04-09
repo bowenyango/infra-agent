@@ -18,7 +18,7 @@ function extractJsonObject(content: string): string {
 }
 
 function isActionKind(value: string): value is AgentActionKind {
-  return ['ask-for-clarification', 'inspect-target-files', 'apply-edit-plan', 'validate-targets', 'stop'].includes(value);
+  return ['ask-for-clarification', 'inspect-target-files', 'apply-edit-plan', 'repair-terraform-formatting', 'validate-targets', 'stop'].includes(value);
 }
 
 function isStopReason(value: string): value is AgentStopReason {
@@ -80,6 +80,15 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
   if (actionKind === 'validate-targets') {
     return {
       commands: toStringArray(rawPayload.commands) ?? buildDefaultValidationCommands(runtime)
+    };
+  }
+
+  if (actionKind === 'repair-terraform-formatting') {
+    const topTerraformTarget = runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
+    return {
+      rootPath: typeof rawPayload.rootPath === 'string' && rawPayload.rootPath.trim().length > 0
+        ? rawPayload.rootPath.trim()
+        : topTerraformTarget?.path
     };
   }
 
