@@ -178,6 +178,12 @@ test('buildRunPreflight exposes effective edit policy from profile defaults', as
     'helm-ingress-values-repair'
   ]);
   assert.deepEqual(preflight.effectiveEditPolicy.allowedTargetPrefixes, ['charts/apps', 'charts/infra']);
+  assert.deepEqual(preflight.effectiveEditPolicy.allowedTargetPrefixesByKind, {
+    'helm-ingress': ['charts/apps'],
+    'helm-probes': ['charts/apps'],
+    'helm-service-port-repair': ['charts/apps'],
+    'helm-ingress-values-repair': ['charts/apps']
+  });
   assert.ok(preflight.effectiveEditPolicy.sources.some(source => source.includes('profile-default')));
 });
 
@@ -312,6 +318,66 @@ test('buildEditPlan blocks Helm plans outside profile-scoped target prefixes', a
   });
 
   assert.equal(editPlan, null);
+});
+
+test('buildEditPlan blocks scrawlr infra-apps ingress plans for charts/infra targets', async () => {
+  const preflight = await buildRunPreflight('add ingress to reloader dev chart', 'fixtures/scrawlr-infra-apps-workspace');
+  const valuesPath = resolve('fixtures/scrawlr-infra-apps-workspace/charts/infra/reloader/values.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: valuesPath,
+          content: await readFile(valuesPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(preflight.profile.id, 'scrawlr-infra-apps');
+  assert.equal(preflight.targetCandidates[0]?.path, 'charts/infra/reloader');
+  assert.equal(editPlan, null);
+});
+
+test('buildEditPlan allows scrawlr infra-apps ingress plans for charts/apps targets', async () => {
+  const preflight = await buildRunPreflight('add ingress to app-template dev chart', 'fixtures/scrawlr-infra-apps-workspace');
+  const valuesPath = resolve('fixtures/scrawlr-infra-apps-workspace/charts/apps/app-template/values.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: valuesPath,
+          content: await readFile(valuesPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  assert.equal(editPlan?.kind, 'helm-ingress');
+  assert.ok(editPlan?.writes.every(write => write.path.startsWith('charts/apps/app-template/')));
 });
 
 test('buildEditPlan blocks Pulumi plans under scrawlr infra-apps profile defaults', async () => {

@@ -118,6 +118,15 @@ export async function buildRunPreflight(
     assumptions.push(`Workspace edit policy constrains edit targets to: ${effectiveEditPolicy.allowedTargetPrefixes.join(', ')}.`);
   }
 
+  const kindScopedEditTargets = Object.entries(effectiveEditPolicy.allowedTargetPrefixesByKind);
+  if (kindScopedEditTargets.length > 0) {
+    assumptions.push(
+      `Workspace edit policy applies kind-scoped target constraints: ${kindScopedEditTargets
+        .map(([kind, prefixes]) => `${kind} -> ${prefixes.join(', ')}`)
+        .join('; ')}.`
+    );
+  }
+
   const hasMissingValidators = validation.validators.some(validator => !validator.available);
   const nextActions = buildNextActions({
     profileLabel: inspection.profile.label,

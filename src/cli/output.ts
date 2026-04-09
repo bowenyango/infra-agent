@@ -106,6 +106,12 @@ export function printRunPreflight(state: RunPreflightState): void {
   process.stdout.write(
     `allowed target prefixes: ${state.effectiveEditPolicy.allowedTargetPrefixes ? state.effectiveEditPolicy.allowedTargetPrefixes.join(', ') : 'unrestricted'}\n`
   );
+  printList(
+    Object.entries(state.effectiveEditPolicy.allowedTargetPrefixesByKind).map(
+      ([kind, prefixes]) => `${kind}: ${prefixes.join(', ')}`
+    ),
+    'No kind-scoped target constraints.'
+  );
   printList(state.effectiveEditPolicy.sources, 'No edit policy sources recorded.');
   process.stdout.write('\n');
 

@@ -53,6 +53,7 @@ export interface ResolvedApprovalPolicy {
 export interface ResolvedEditConstraintPolicy {
   allowedEditPlanKinds: EditPlanKind[] | null;
   allowedTargetPrefixes: string[] | null;
+  allowedTargetPrefixesByKind: Partial<Record<EditPlanKind, string[]>>;
   sources: string[];
 }
 

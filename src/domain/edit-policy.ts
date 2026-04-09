@@ -40,6 +40,22 @@ function getDefaultAllowedTargetPrefixes(profileId: RepoProfileId): string[] | n
   }
 }
 
+function getDefaultAllowedTargetPrefixesByKind(
+  profileId: RepoProfileId
+): Partial<Record<EditPlanKind, string[]>> {
+  switch (profileId) {
+    case 'scrawlr-infra-apps':
+      return {
+        'helm-ingress': ['charts/apps'],
+        'helm-probes': ['charts/apps'],
+        'helm-service-port-repair': ['charts/apps'],
+        'helm-ingress-values-repair': ['charts/apps']
+      };
+    default:
+      return {};
+  }
+}
+
 function getDefaultEditPolicySources(profileId: RepoProfileId): string[] {
   switch (profileId) {
     case 'scrawlr-infra-apps':
@@ -62,6 +78,7 @@ export function resolveEffectiveEditPolicy(
       allowedTargetPrefixes: config.editPolicy.allowedTargetPrefixes
         ? config.editPolicy.allowedTargetPrefixes.map(normalizePolicyPath)
         : null,
+      allowedTargetPrefixesByKind: {},
       sources: ['workspace-config: editPolicy']
     };
   }
@@ -69,6 +86,7 @@ export function resolveEffectiveEditPolicy(
   return {
     allowedEditPlanKinds: getDefaultAllowedEditPlanKinds(profileId),
     allowedTargetPrefixes: getDefaultAllowedTargetPrefixes(profileId),
+    allowedTargetPrefixesByKind: getDefaultAllowedTargetPrefixesByKind(profileId),
     sources: getDefaultEditPolicySources(profileId)
   };
 }
@@ -84,13 +102,35 @@ export function isEditPlanAllowedByPolicy(plan: EditPlan, runtime: AgentRuntimeS
   }
 
   if (!effectiveEditPolicy.allowedTargetPrefixes || effectiveEditPolicy.allowedTargetPrefixes.length === 0) {
+    const kindPrefixes = effectiveEditPolicy.allowedTargetPrefixesByKind[plan.kind];
+    if (!kindPrefixes || kindPrefixes.length === 0) {
+      return true;
+    }
+
+    return plan.writes.every(write => {
+      const normalizedPath = normalizePolicyPath(write.path);
+      return kindPrefixes.some(prefix => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`));
+    });
+  }
+
+  const allowedByGlobalPrefixes = plan.writes.every(write => {
+    const normalizedPath = normalizePolicyPath(write.path);
+    return effectiveEditPolicy.allowedTargetPrefixes?.some(
+      prefix => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
+    );
+  });
+
+  if (!allowedByGlobalPrefixes) {
+    return false;
+  }
+
+  const kindPrefixes = effectiveEditPolicy.allowedTargetPrefixesByKind[plan.kind];
+  if (!kindPrefixes || kindPrefixes.length === 0) {
     return true;
   }
 
   return plan.writes.every(write => {
     const normalizedPath = normalizePolicyPath(write.path);
-    return effectiveEditPolicy.allowedTargetPrefixes?.some(
-      prefix => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
-    );
+    return kindPrefixes.some(prefix => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`));
   });
 }
