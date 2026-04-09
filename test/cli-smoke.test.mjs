@@ -79,6 +79,14 @@ test('profile-aware targeting prefers Helm charts inside scrawlr infra-apps fixt
   assert.equal(targeting.targetCandidates[0]?.path, 'charts/infra/reloader');
 });
 
+test('profile-aware targeting prefers charts/apps for app-level Helm tasks without explicit service in scrawlr infra-apps fixtures', async () => {
+  const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');
+  const targeting = buildTargetCandidates('add ingress for dev chart', inspection);
+
+  assert.equal(targeting.targetCandidates[0]?.kind, 'helm-chart');
+  assert.equal(targeting.targetCandidates[0]?.path, 'charts/apps/app-template');
+});
+
 test('profile-aware targeting prefers Pulumi projects inside scrawlr infra-cloud fixtures', async () => {
   const inspection = await inspectWorkspace('fixtures/scrawlr-infra-cloud-workspace');
   const targeting = buildTargetCandidates('update networking non-prod stack', inspection);

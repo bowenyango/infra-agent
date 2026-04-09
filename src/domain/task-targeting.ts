@@ -70,6 +70,7 @@ export function detectRequestedService(task: string): string | null {
 }
 
 function scoreCandidate(params: {
+  task: string;
   candidateKind: 'helm-chart' | 'pulumi-project';
   candidateName: string;
   candidatePath: string;
@@ -83,6 +84,7 @@ function scoreCandidate(params: {
   const matchedEnvironmentHints: string[] = [];
   const normalizedName = normalizeToken(params.candidateName);
   const normalizedPath = normalizeToken(params.candidatePath);
+  const taskMentionsAppLevelHelm = /\b(ingress|probe|probes|readiness|liveness|health|healthcheck)\b/i.test(params.task);
 
   if (params.requestedService) {
     const normalizedService = normalizeToken(params.requestedService);
@@ -115,6 +117,18 @@ function scoreCandidate(params: {
   if (params.profileId === 'scrawlr-infra-apps' && params.candidateKind === 'helm-chart') {
     score += 3;
     reasons.push('workspace profile prefers Helm chart targets');
+
+    if (!params.requestedService && taskMentionsAppLevelHelm) {
+      if (normalizedPath.startsWith('charts/apps/')) {
+        score += 4;
+        reasons.push('app-level Helm task without explicit service prefers charts/apps');
+      }
+
+      if (normalizedPath.startsWith('charts/infra/')) {
+        score -= 2;
+        reasons.push('app-level Helm task without explicit service deprioritizes charts/infra');
+      }
+    }
   }
 
   if (params.profileId === 'scrawlr-infra-cloud' && params.candidateKind === 'pulumi-project') {
@@ -150,6 +164,7 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
 
   for (const chart of inspection.helmCharts) {
     const scored = scoreCandidate({
+      task,
       candidateKind: 'helm-chart',
       candidateName: chart.chartName,
       candidatePath: chart.chartRoot,
@@ -171,6 +186,7 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
 
   for (const project of inspection.pulumiProjects) {
     const scored = scoreCandidate({
+      task,
       candidateKind: 'pulumi-project',
       candidateName: project.projectRoot,
       candidatePath: project.projectRoot,
