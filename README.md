@@ -68,6 +68,7 @@ Current behavior is intentionally preflight-oriented:
 - `inspect` detects Helm charts and Pulumi projects
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
+- `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`

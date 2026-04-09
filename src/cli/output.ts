@@ -86,6 +86,19 @@ export function printRunPreflight(state: RunPreflightState): void {
   );
   process.stdout.write('\n');
 
+  printHeader('Effective Approval Policy');
+  process.stdout.write(
+    `required write risks: ${state.effectiveApprovalPolicy.requiredWriteRisks.length > 0 ? state.effectiveApprovalPolicy.requiredWriteRisks.join(', ') : 'none'}\n`
+  );
+  printList(
+    state.effectiveApprovalPolicy.pathRules.map(
+      rule => `${rule.path}: ${rule.requiredWriteRisks.join(', ')}`
+    ),
+    'No path-scoped approval rules.'
+  );
+  printList(state.effectiveApprovalPolicy.sources, 'No approval policy sources recorded.');
+  process.stdout.write('\n');
+
   printHeader('Targeting');
   process.stdout.write(`requested environment: ${state.requestedEnvironment ?? 'undetected'}\n`);
   process.stdout.write(`requested service: ${state.requestedService ?? 'undetected'}\n`);

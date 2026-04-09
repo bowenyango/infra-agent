@@ -6,9 +6,9 @@ import {
 import {
   getAllowedWriteModes,
   getAllowedWritePaths,
-  getApprovalRequiredWriteRisks,
   isPathAllowedByWorkspacePolicy,
-  normalizeApprovalScope
+  normalizeApprovalScope,
+  resolveEffectiveApprovalPolicy
 } from '../domain/workspace-policy.ts';
 import {
   buildTargetCandidates,
@@ -77,6 +77,7 @@ export async function buildRunPreflight(
   const validation = buildValidationPreflight(inspection);
   const targeting = buildTargetCandidates(task, inspection);
   const normalizedApprovalScope = normalizeApprovalScope(approvalScope);
+  const effectiveApprovalPolicy = resolveEffectiveApprovalPolicy(inspection.config, inspection.profile.id);
   const assumptions = buildTargetingWarnings({
     requestedEnvironment: targeting.requestedEnvironment,
     requestedService: targeting.requestedService,
@@ -90,7 +91,6 @@ export async function buildRunPreflight(
 
   const allowedWritePaths = getAllowedWritePaths(inspection.config);
   const allowedWriteModes = getAllowedWriteModes(inspection.config);
-  const approvalRequiredWriteRisks = getApprovalRequiredWriteRisks(inspection.config, inspection.profile.id);
   const topTargetPath = targeting.targetCandidates[0]?.path;
   if (allowedWritePaths && topTargetPath && !isPathAllowedByWorkspacePolicy(topTargetPath, inspection.config)) {
     blockers.unshift(`Workspace write policy does not allow edits under ${topTargetPath}. Allowed roots: ${allowedWritePaths.join(', ')}.`);
@@ -120,8 +120,8 @@ export async function buildRunPreflight(
     hasStrongTargetMatch: (targeting.targetCandidates[0]?.score ?? 0) > 0
   });
 
-  if (approvalRequiredWriteRisks.length > 0) {
-    nextActions.push(`Respect workspace approval policy for write risks: ${approvalRequiredWriteRisks.join(', ')}.`);
+  if (effectiveApprovalPolicy.requiredWriteRisks.length > 0) {
+    nextActions.push(`Respect workspace approval policy for write risks: ${effectiveApprovalPolicy.requiredWriteRisks.join(', ')}.`);
   }
 
   return {
@@ -129,6 +129,7 @@ export async function buildRunPreflight(
     workspaceRoot: inspection.workspaceRoot,
     profile: inspection.profile,
     approval: normalizedApprovalScope,
+    effectiveApprovalPolicy,
     inspection,
     validation,
     requestedEnvironment: targeting.requestedEnvironment,

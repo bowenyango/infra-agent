@@ -1,4 +1,5 @@
 import type {
+  ResolvedApprovalPolicy,
   RunApprovalScope,
   RepoProfileId,
   WorkspaceAgentConfig,
@@ -37,6 +38,18 @@ function getDefaultApprovalRequiredWriteRisks(profileId: RepoProfileId): FileWri
     case 'scrawlr-infra-apps':
     default:
       return ['high'];
+  }
+}
+
+function getDefaultApprovalPolicySources(profileId: RepoProfileId): string[] {
+  switch (profileId) {
+    case 'scrawlr-infra-apps':
+      return ['profile-default: scrawlr-infra-apps write approvals'];
+    case 'scrawlr-infra-cloud':
+      return ['profile-default: scrawlr-infra-cloud write approvals'];
+    case 'generic':
+    default:
+      return ['default: high-risk writes require approval'];
   }
 }
 
@@ -93,7 +106,7 @@ export function getApprovalRequiredWriteRisks(
   return [...configuredRisks];
 }
 
-function getApprovalPathRules(
+export function getApprovalPathRules(
   config: WorkspaceAgentConfig | null,
   profileId: RepoProfileId = 'generic'
 ): WorkspaceApprovalPathRule[] {
@@ -108,6 +121,24 @@ function getApprovalPathRules(
       path: normalizePolicyPath(rule.path),
       requiredWriteRisks: [...rule.requiredWriteRisks]
     }));
+}
+
+export function resolveEffectiveApprovalPolicy(
+  config: WorkspaceAgentConfig | null,
+  profileId: RepoProfileId = 'generic'
+): ResolvedApprovalPolicy {
+  const requiredWriteRisks = getApprovalRequiredWriteRisks(config, profileId);
+  const pathRules = getApprovalPathRules(config, profileId);
+  const sources =
+    config?.approvalPolicy === undefined
+      ? getDefaultApprovalPolicySources(profileId)
+      : ['workspace-config: approvalPolicy'];
+
+  return {
+    requiredWriteRisks,
+    pathRules,
+    sources
+  };
 }
 
 function getApprovalRequiredWriteRisksForPath(

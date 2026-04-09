@@ -40,6 +40,12 @@ export interface RunApprovalScope {
   approvedWriteRisks: FileWriteRisk[];
 }
 
+export interface ResolvedApprovalPolicy {
+  requiredWriteRisks: FileWriteRisk[];
+  pathRules: WorkspaceApprovalPathRule[];
+  sources: string[];
+}
+
 export interface HelmChartSummary {
   chartRoot: string;
   chartName: string;
@@ -102,6 +108,7 @@ export interface RunPreflightState {
   workspaceRoot: string;
   profile: RepoProfile;
   approval: RunApprovalScope;
+  effectiveApprovalPolicy: ResolvedApprovalPolicy;
   inspection: WorkspaceInspection;
   validation: ValidationPreflight;
   requestedEnvironment: string | null;

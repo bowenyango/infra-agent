@@ -18,6 +18,7 @@ import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
+import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -128,6 +129,41 @@ test('buildRunPreflight records explicit approval scope', async () => {
   assert.deepEqual(preflight.approval.approvedWritePaths, ['charts/payments-api']);
   assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write risks')));
   assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write paths')));
+});
+
+test('buildRunPreflight exposes effective approval policy from profile defaults', async () => {
+  const preflight = await buildRunPreflight('update networking non-prod stack', 'fixtures/scrawlr-infra-cloud-workspace');
+
+  assert.equal(preflight.profile.id, 'scrawlr-infra-cloud');
+  assert.deepEqual(preflight.effectiveApprovalPolicy.requiredWriteRisks, ['medium', 'high']);
+  assert.equal(preflight.effectiveApprovalPolicy.pathRules.length, 0);
+  assert.ok(preflight.effectiveApprovalPolicy.sources.some(source => source.includes('profile-default')));
+});
+
+test('resolveEffectiveApprovalPolicy exposes workspace config overrides', () => {
+  const effectivePolicy = resolveEffectiveApprovalPolicy(
+    {
+      approvalPolicy: {
+        requiredWriteRisks: ['medium'],
+        pathRules: [
+          {
+            path: './charts/payments-api/',
+            requiredWriteRisks: ['high']
+          }
+        ]
+      }
+    },
+    'generic'
+  );
+
+  assert.deepEqual(effectivePolicy.requiredWriteRisks, ['medium']);
+  assert.deepEqual(effectivePolicy.pathRules, [
+    {
+      path: 'charts/payments-api',
+      requiredWriteRisks: ['high']
+    }
+  ]);
+  assert.deepEqual(effectivePolicy.sources, ['workspace-config: approvalPolicy']);
 });
 
 test('buildEditPlan filters write modes disallowed by workspace policy', async () => {
