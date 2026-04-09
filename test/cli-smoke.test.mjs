@@ -680,6 +680,89 @@ test('buildEditPlan normalizes scrawlr infra-cloud environment config values awa
   assert.doesNotMatch(writeContent, /eks:environment:\s+tenant-shared\.non-prod/);
 });
 
+test('buildEditPlan prefers qualifier-specific scrawlr infra-cloud stacks when task requests tenant-shared', async () => {
+  const preflight = await buildRunPreflight(
+    'update eks tenant-shared non-prod stack image tag to 2.4.0',
+    'fixtures/scrawlr-infra-cloud-workspace'
+  );
+  const projectPath = resolve('fixtures/scrawlr-infra-cloud-workspace/eks/Pulumi.yaml');
+  const stackPath = resolve('fixtures/scrawlr-infra-cloud-workspace/eks/Pulumi.tenant-shared.non-prod.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: projectPath,
+          content: await readFile(projectPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: stackPath,
+          content: await readFile(stackPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  assert.equal(editPlan?.writes[0]?.path, 'eks/Pulumi.tenant-shared.non-prod.yaml');
+});
+
+test('buildEditPlan does not fall back to unrelated scrawlr infra-cloud qualifier stacks', async () => {
+  const preflight = await buildRunPreflight(
+    'update eks global non-prod stack image tag to 2.4.0',
+    'fixtures/scrawlr-infra-cloud-workspace'
+  );
+  const projectPath = resolve('fixtures/scrawlr-infra-cloud-workspace/eks/Pulumi.yaml');
+  const stackPath = resolve('fixtures/scrawlr-infra-cloud-workspace/eks/Pulumi.tenant-shared.non-prod.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: projectPath,
+          content: await readFile(projectPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: stackPath,
+          content: await readFile(stackPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan, null);
+});
+
 test('buildEditPlan classifies probe deployment update as replace', async () => {
   const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
   const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');

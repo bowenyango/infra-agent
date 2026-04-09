@@ -7,12 +7,26 @@ function hasPulumiConfigIntent(task: string): boolean {
   return /\b(pulumi|stack|image(?:[- ]?tag)?)\b/i.test(task);
 }
 
+function detectRequestedStackQualifier(task: string): string | null {
+  if (/\btenant-shared\b/i.test(task)) {
+    return 'tenant-shared';
+  }
+
+  if (/\bglobal\b/i.test(task)) {
+    return 'global';
+  }
+
+  return null;
+}
+
 function normalizeStackNameForProfile(
   profileId: AgentRuntimeState['preflight']['profile']['id'],
+  task: string,
   environment: string | null,
   availableStacks: string[]
 ): string | null {
   if (profileId === 'scrawlr-infra-cloud') {
+    const requestedQualifier = detectRequestedStackQualifier(task);
     const normalizedEnvironment =
       environment === 'development' ? 'dev'
       : environment === 'production' ? 'prod'
@@ -24,10 +38,20 @@ function normalizeStackNameForProfile(
         : normalizedEnvironment;
 
     if (!targetLabel) {
+      if (requestedQualifier) {
+        const qualifiedFallback = availableStacks.find(stackName => stackName.startsWith(`${requestedQualifier}.`));
+        return qualifiedFallback ?? null;
+      }
+
       return availableStacks.find(stackName => stackName === 'non-prod' || stackName.endsWith('.non-prod'))
         ?? availableStacks.find(stackName => stackName === 'prod' || stackName.endsWith('.prod'))
         ?? availableStacks[0]
         ?? null;
+    }
+
+    if (requestedQualifier) {
+      const qualifiedMatch = availableStacks.find(stackName => stackName === `${requestedQualifier}.${targetLabel}`);
+      return qualifiedMatch ?? null;
     }
 
     return availableStacks.find(stackName => stackName === targetLabel || stackName.endsWith(`.${targetLabel}`)) ?? null;
@@ -179,6 +203,7 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
 
   const stackName = normalizeStackNameForProfile(
     runtime.preflight.profile.id,
+    runtime.task,
     runtime.preflight.requestedEnvironment,
     project.stackNames
   );
