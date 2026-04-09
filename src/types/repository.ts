@@ -14,6 +14,11 @@ export interface WorkspaceValidationConfigEntry {
   commands: string[];
 }
 
+export interface WorkspaceApprovalPathRule {
+  path: string;
+  requiredWriteRisks: FileWriteRisk[];
+}
+
 export interface WorkspaceAgentConfig {
   profileId?: RepoProfileId;
   writePolicy?: {
@@ -22,6 +27,7 @@ export interface WorkspaceAgentConfig {
   };
   approvalPolicy?: {
     requiredWriteRisks?: FileWriteRisk[];
+    pathRules?: WorkspaceApprovalPathRule[];
   };
   validation?: {
     includeDefaults?: boolean;

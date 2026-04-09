@@ -378,6 +378,61 @@ test('collectApprovalSignals respects workspace approval policy overrides', asyn
   assert.equal(signals.length, 0);
 });
 
+test('collectApprovalSignals applies path-scoped approval rules for medium-risk writes', async () => {
+  const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      inspection: {
+        ...preflight.inspection,
+        config: {
+          approvalPolicy: {
+            requiredWriteRisks: [],
+            pathRules: [
+              {
+                path: 'charts/payments-api',
+                requiredWriteRisks: ['medium']
+              }
+            ]
+          }
+        }
+      }
+    },
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'helm-probes',
+      summary: 'Update deployment template and values.',
+      rationale: 'Synthetic path-scoped approval test.',
+      writes: [
+        {
+          path: 'charts/payments-api/templates/deployment.yaml',
+          content: 'deployment content',
+          reason: 'Scoped replace',
+          mode: 'replace',
+          risk: 'medium'
+        },
+        {
+          path: 'charts/other-service/templates/deployment.yaml',
+          content: 'deployment content',
+          reason: 'Unscoped replace',
+          mode: 'replace',
+          risk: 'medium'
+        }
+      ]
+    }
+  });
+
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.path, 'charts/payments-api/templates/deployment.yaml');
+  assert.equal(signals[0]?.risk, 'medium');
+});
+
 test('collectApprovalSignals suppresses matching explicit approval grants only for the approved path scope', async () => {
   const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
     approvedWriteRisks: ['high'],
@@ -417,6 +472,55 @@ test('collectApprovalSignals suppresses matching explicit approval grants only f
 
   assert.equal(signals.length, 1);
   assert.equal(signals[0]?.path, 'charts/other-service/values.yaml');
+});
+
+test('explicit approval scope can suppress path-scoped medium-risk approval signals', async () => {
+  const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace', {
+    approvedWriteRisks: ['medium'],
+    approvedWritePaths: ['charts/payments-api']
+  });
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      inspection: {
+        ...preflight.inspection,
+        config: {
+          approvalPolicy: {
+            requiredWriteRisks: [],
+            pathRules: [
+              {
+                path: 'charts/payments-api',
+                requiredWriteRisks: ['medium']
+              }
+            ]
+          }
+        }
+      }
+    },
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'helm-probes',
+      summary: 'Update deployment template and values.',
+      rationale: 'Synthetic explicit approval test for path-scoped rules.',
+      writes: [
+        {
+          path: 'charts/payments-api/templates/deployment.yaml',
+          content: 'deployment content',
+          reason: 'Scoped replace',
+          mode: 'replace',
+          risk: 'medium'
+        }
+      ]
+    }
+  });
+
+  assert.equal(signals.length, 0);
 });
 
 test('rule-based planner proceeds with apply-edit-plan after explicit approval covers a high-risk rewrite', async () => {

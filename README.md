@@ -116,6 +116,7 @@ The agent must respect clear execution boundaries.
 - File writes are controlled and scoped to the active workspace.
 - Validation commands are expected and should be treated as normal execution.
 - Destructive actions require explicit approval.
+- Approval policy can be scoped by write risk globally and tightened further for specific repository paths.
 - Secrets and credentials must never be written into source-controlled files.
 
 ## Repository Documents

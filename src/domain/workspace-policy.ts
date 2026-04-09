@@ -1,4 +1,8 @@
-import type { RunApprovalScope, WorkspaceAgentConfig } from '../types/repository.ts';
+import type {
+  RunApprovalScope,
+  WorkspaceAgentConfig,
+  WorkspaceApprovalPathRule
+} from '../types/repository.ts';
 import type { FileWritePlan } from '../types/edit-plan.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 
@@ -56,12 +60,44 @@ export function getApprovalRequiredWriteRisks(config: WorkspaceAgentConfig | nul
   return [...configuredRisks];
 }
 
+function getApprovalPathRules(config: WorkspaceAgentConfig | null): WorkspaceApprovalPathRule[] {
+  const pathRules = config?.approvalPolicy?.pathRules;
+  if (!pathRules || pathRules.length === 0) {
+    return [];
+  }
+
+  return pathRules
+    .filter(rule => typeof rule.path === 'string' && rule.path.trim().length > 0)
+    .map(rule => ({
+      path: normalizePolicyPath(rule.path),
+      requiredWriteRisks: [...rule.requiredWriteRisks]
+    }));
+}
+
+function getApprovalRequiredWriteRisksForPath(path: string, config: WorkspaceAgentConfig | null): FileWriteRisk[] {
+  const requiredRisks = new Set<FileWriteRisk>(getApprovalRequiredWriteRisks(config));
+  const normalizedPath = normalizePolicyPath(path);
+
+  for (const rule of getApprovalPathRules(config)) {
+    const ruleMatches = normalizedPath === rule.path || normalizedPath.startsWith(`${rule.path}/`);
+    if (!ruleMatches) {
+      continue;
+    }
+
+    for (const risk of rule.requiredWriteRisks) {
+      requiredRisks.add(risk);
+    }
+  }
+
+  return [...requiredRisks];
+}
+
 export function isApprovalRequiredForWrite(write: FileWritePlan, config: WorkspaceAgentConfig | null): boolean {
   if (!write.risk) {
     return false;
   }
 
-  return getApprovalRequiredWriteRisks(config).includes(write.risk);
+  return getApprovalRequiredWriteRisksForPath(write.path, config).includes(write.risk);
 }
 
 export function normalizeApprovalScope(scope: Partial<RunApprovalScope> | null | undefined): RunApprovalScope {
