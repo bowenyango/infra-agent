@@ -126,6 +126,7 @@ The agent must respect clear execution boundaries.
 - `scrawlr-infra-cloud` environment config values now normalize to deployment labels such as `non-prod` / `prod` instead of copying full stack names like `tenant-shared.non-prod`.
 - `scrawlr-infra-cloud` stack selection is now qualifier-aware, so tasks that mention labels like `tenant-shared` prefer matching existing qualified stacks instead of falling back to unrelated ones.
 - `scrawlr-infra-apps` app-level Helm edits now distinguish `charts/apps` from `charts/infra`, so ingress/probe style mutations stay scoped to app charts by default.
+- `scrawlr-infra-apps` ingress bootstrap for app charts now also injects a minimal `service.port` value when the chart has no existing service block, reducing one common validation repair round.
 - Secrets and credentials must never be written into source-controlled files.
 
 ## Repository Documents

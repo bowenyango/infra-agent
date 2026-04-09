@@ -19,6 +19,14 @@ function buildIngressValuesBlock(hostname: string): string {
   ].join('\n');
 }
 
+function buildServiceValuesBlock(): string {
+  return [
+    '',
+    'service:',
+    '  port: 8080'
+  ].join('\n');
+}
+
 function buildIngressTemplate(): string {
   return [
     '{{- if .Values.ingress.enabled }}',
@@ -87,12 +95,19 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
   const serviceName = topHelmTarget.name;
   const environment = normalizeEnvironmentForHostname(runtime.preflight.requestedEnvironment);
   const hostname = `${serviceName}.${environment}.internal`;
+  const needsDefaultServicePort =
+    runtime.preflight.profile.id === 'scrawlr-infra-apps'
+    && topHelmTarget.path.startsWith('charts/apps/')
+    && !/\nservice:\n[\s\S]*\n  port:\s*/m.test(valuesContent);
 
   if (!/\ningress:\n/.test(valuesContent)) {
+    const serviceBlock = needsDefaultServicePort ? buildServiceValuesBlock() : '';
     writes.push({
       path: valuesPath,
-      content: `${valuesContent.trimEnd()}${buildIngressValuesBlock(hostname)}\n`,
-      reason: 'Add ingress values to the chart values file.'
+      content: `${valuesContent.trimEnd()}${serviceBlock}${buildIngressValuesBlock(hostname)}\n`,
+      reason: needsDefaultServicePort
+        ? 'Add ingress values and a bounded default service.port to the chart values file.'
+        : 'Add ingress values to the chart values file.'
     });
   }
 
@@ -112,7 +127,9 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
   return {
     kind: 'helm-ingress',
     summary: `Apply ingress configuration updates to ${topHelmTarget.path}.`,
-    rationale: 'The task requests ingress changes and the selected chart is missing one or more required ingress assets.',
+    rationale: needsDefaultServicePort
+      ? 'The task requests ingress changes and the selected app chart needs both ingress values and a minimal service.port default to satisfy common template references.'
+      : 'The task requests ingress changes and the selected chart is missing one or more required ingress assets.',
     writes
   };
 }

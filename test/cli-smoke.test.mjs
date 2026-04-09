@@ -403,6 +403,39 @@ test('buildEditPlan allows scrawlr infra-apps ingress plans for charts/apps targ
   assert.ok(editPlan);
   assert.equal(editPlan?.kind, 'helm-ingress');
   assert.ok(editPlan?.writes.every(write => write.path.startsWith('charts/apps/app-template/')));
+  const valuesWrite = editPlan?.writes.find(write => write.path.endsWith('values.yaml'));
+  assert.match(valuesWrite?.content ?? '', /\nservice:\n  port: 8080\ningress:\n/);
+  assert.match(valuesWrite?.reason ?? '', /service\.port/);
+});
+
+test('buildEditPlan does not inject a default service.port into generic ingress plans when one already exists or the profile is not infra-apps', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const valuesPath = resolve('fixtures/sample-workspace/charts/payments-api/values.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: valuesPath,
+          content: await readFile(valuesPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  const valuesWrite = editPlan?.writes.find(write => write.path.endsWith('values.yaml'));
+  assert.ok(valuesWrite);
+  assert.doesNotMatch(valuesWrite?.content ?? '', /\nservice:\n  port: 8080\n\ningress:\n/);
 });
 
 test('buildEditPlan respects workspace-config kind-scoped target prefix overrides', async () => {
