@@ -56,6 +56,20 @@ function getDefaultAllowedTargetPrefixesByKind(
   }
 }
 
+function normalizeTargetPrefixesByKind(
+  mapping: Partial<Record<EditPlanKind, string[]>> | undefined
+): Partial<Record<EditPlanKind, string[]>> {
+  if (!mapping) {
+    return {};
+  }
+
+  const normalizedEntries = Object.entries(mapping)
+    .filter(([, prefixes]) => Array.isArray(prefixes) && prefixes.length > 0)
+    .map(([kind, prefixes]) => [kind, prefixes.map(normalizePolicyPath)]);
+
+  return Object.fromEntries(normalizedEntries);
+}
+
 function getDefaultEditPolicySources(profileId: RepoProfileId): string[] {
   switch (profileId) {
     case 'scrawlr-infra-apps':
@@ -78,7 +92,7 @@ export function resolveEffectiveEditPolicy(
       allowedTargetPrefixes: config.editPolicy.allowedTargetPrefixes
         ? config.editPolicy.allowedTargetPrefixes.map(normalizePolicyPath)
         : null,
-      allowedTargetPrefixesByKind: {},
+      allowedTargetPrefixesByKind: normalizeTargetPrefixesByKind(config.editPolicy.allowedTargetPrefixesByKind),
       sources: ['workspace-config: editPolicy']
     };
   }

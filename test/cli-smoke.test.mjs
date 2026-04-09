@@ -200,7 +200,10 @@ test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
     {
       editPolicy: {
         allowedEditPlanKinds: ['pulumi-stack-config'],
-        allowedTargetPrefixes: ['./networking/']
+        allowedTargetPrefixes: ['./networking/'],
+        allowedTargetPrefixesByKind: {
+          'pulumi-stack-config': ['./networking/']
+        }
       }
     },
     'scrawlr-infra-apps'
@@ -208,6 +211,9 @@ test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
 
   assert.deepEqual(effectivePolicy.allowedEditPlanKinds, ['pulumi-stack-config']);
   assert.deepEqual(effectivePolicy.allowedTargetPrefixes, ['networking']);
+  assert.deepEqual(effectivePolicy.allowedTargetPrefixesByKind, {
+    'pulumi-stack-config': ['networking']
+  });
   assert.deepEqual(effectivePolicy.sources, ['workspace-config: editPolicy']);
 });
 
@@ -386,6 +392,60 @@ test('buildEditPlan allows scrawlr infra-apps ingress plans for charts/apps targ
   assert.ok(editPlan);
   assert.equal(editPlan?.kind, 'helm-ingress');
   assert.ok(editPlan?.writes.every(write => write.path.startsWith('charts/apps/app-template/')));
+});
+
+test('buildEditPlan respects workspace-config kind-scoped target prefix overrides', async () => {
+  const preflight = await buildRunPreflight('add ingress to app-template dev chart', 'fixtures/scrawlr-infra-apps-workspace');
+  const valuesPath = resolve('fixtures/scrawlr-infra-apps-workspace/charts/apps/app-template/values.yaml');
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      inspection: {
+        ...preflight.inspection,
+        config: {
+          editPolicy: {
+            allowedEditPlanKinds: ['helm-ingress'],
+            allowedTargetPrefixes: ['charts/apps'],
+            allowedTargetPrefixesByKind: {
+              'helm-ingress': ['charts/apps/other-service']
+            }
+          }
+        }
+      },
+      effectiveEditPolicy: resolveEffectiveEditPolicy(
+        {
+          editPolicy: {
+            allowedEditPlanKinds: ['helm-ingress'],
+            allowedTargetPrefixes: ['charts/apps'],
+            allowedTargetPrefixesByKind: {
+              'helm-ingress': ['charts/apps/other-service']
+            }
+          }
+        },
+        'scrawlr-infra-apps'
+      )
+    },
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: valuesPath,
+          content: await readFile(valuesPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan, null);
 });
 
 test('buildEditPlan blocks Pulumi plans under scrawlr infra-apps profile defaults', async () => {

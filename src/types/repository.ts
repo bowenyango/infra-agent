@@ -28,6 +28,7 @@ export interface WorkspaceAgentConfig {
   editPolicy?: {
     allowedEditPlanKinds?: EditPlanKind[];
     allowedTargetPrefixes?: string[];
+    allowedTargetPrefixesByKind?: Partial<Record<EditPlanKind, string[]>>;
   };
   approvalPolicy?: {
     requiredWriteRisks?: FileWriteRisk[];
