@@ -1805,3 +1805,34 @@ test('inspect-target-files reads Terraform root files into runtime observations'
   assert.ok(readPaths?.some(path => path.endsWith('terraform/payments-api/main.tf')));
   assert.ok(readPaths?.some(path => path.endsWith('terraform/payments-api/dev.auto.tfvars')));
 });
+
+test('classifyValidationIssues marks terraform fmt failures as terraform-formatting-required', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/payments-api fmt -check -recursive',
+      exitCode: 3,
+      stdout: 'main.tf',
+      stderr: ''
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'terraform-formatting-required');
+  assert.equal(issues[0]?.repairable, false);
+});
+
+test('classifyValidationIssues marks terraform validate failures as terraform-validate-failure', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/payments-api validate',
+      exitCode: 1,
+      stdout: '',
+      stderr: 'Error: Reference to undeclared input variable'
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'terraform-validate-failure');
+  assert.equal(issues[0]?.repairable, false);
+  assert.match(issues[0]?.message ?? '', /undeclared input variable/i);
+});

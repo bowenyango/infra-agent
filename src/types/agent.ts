@@ -56,6 +56,8 @@ export interface AgentDecisionExecution {
 export type ValidationIssueKind =
   | 'helm-missing-service-port'
   | 'helm-missing-ingress-values'
+  | 'terraform-formatting-required'
+  | 'terraform-validate-failure'
   | 'unknown-validation-failure';
 
 export interface ValidationIssue {

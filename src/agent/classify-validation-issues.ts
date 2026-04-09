@@ -36,6 +36,24 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
       continue;
     }
 
+    if (/terraform\b.*fmt\b.*-check/i.test(result.command) || /terraform fmt/i.test(combinedOutput)) {
+      issues.push(buildIssue(result, {
+        kind: 'terraform-formatting-required',
+        repairable: false,
+        message: 'Terraform formatting validation failed. The selected Terraform root does not currently satisfy terraform fmt formatting rules.'
+      }));
+      continue;
+    }
+
+    if (/terraform\b.*validate/i.test(result.command)) {
+      issues.push(buildIssue(result, {
+        kind: 'terraform-validate-failure',
+        repairable: false,
+        message: combinedOutput.trim().slice(0, 400) || 'Terraform validate reported a configuration error.'
+      }));
+      continue;
+    }
+
     issues.push(buildIssue(result, {
       kind: 'unknown-validation-failure',
       repairable: false,
