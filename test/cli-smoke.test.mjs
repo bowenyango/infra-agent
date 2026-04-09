@@ -1776,6 +1776,16 @@ test('targeting prefers Terraform roots for Terraform-oriented tasks', async () 
   assert.ok(targeting.targetCandidates[0]?.matchedEnvironmentHints.includes('dev'));
 });
 
+test('targeting uses Terraform module hints to disambiguate multi-root workspaces', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-multi-root-workspace');
+  const targeting = buildTargetCandidates('update terraform alb dev image tag to 2.3.4', inspection);
+
+  assert.equal(inspection.terraformRoots.length, 2);
+  assert.equal(targeting.targetCandidates[0]?.kind, 'terraform-root');
+  assert.equal(targeting.targetCandidates[0]?.path, 'terraform/network-stack');
+  assert.ok(targeting.targetCandidates[0]?.reasons.some(reason => /repository hints matched service token/i.test(reason)));
+});
+
 test('validation preflight adds Terraform commands for detected Terraform roots', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const validation = buildValidationPreflight(inspection);

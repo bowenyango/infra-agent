@@ -81,6 +81,7 @@ function scoreCandidate(params: {
   candidateName: string;
   candidatePath: string;
   candidateEnvironmentHints: string[];
+  candidateHintTokens?: string[];
   profileId: WorkspaceInspection['profile']['id'];
   requestedService: string | null;
   requestedEnvironment: string | null;
@@ -100,6 +101,9 @@ function scoreCandidate(params: {
     } else if (normalizedPath.includes(normalizedService)) {
       score += 4;
       reasons.push(`path matched service token "${params.requestedService}"`);
+    } else if (params.candidateHintTokens?.some(token => normalizeToken(token).includes(normalizedService))) {
+      score += 5;
+      reasons.push(`repository hints matched service token "${params.requestedService}"`);
     }
   }
 
@@ -193,6 +197,7 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       candidateName: chart.chartName,
       candidatePath: chart.chartRoot,
       candidateEnvironmentHints: chart.environmentHints,
+      candidateHintTokens: [],
       profileId: inspection.profile.id,
       requestedService,
       requestedEnvironment
@@ -215,6 +220,7 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       candidateName: project.projectRoot,
       candidatePath: project.projectRoot,
       candidateEnvironmentHints: project.environmentHints,
+      candidateHintTokens: [],
       profileId: inspection.profile.id,
       requestedService,
       requestedEnvironment
@@ -237,6 +243,7 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       candidateName: root.rootPath,
       candidatePath: root.rootPath,
       candidateEnvironmentHints: root.environmentHints,
+      candidateHintTokens: [...root.moduleHints, ...root.tfvarsFiles],
       profileId: inspection.profile.id,
       requestedService,
       requestedEnvironment
