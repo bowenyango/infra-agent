@@ -1780,6 +1780,55 @@ test('buildEditPlan creates a bounded Terraform tfvars config plan', async () =>
   assert.match(editPlan?.writes[0]?.content ?? '', /environment = "dev"/);
 });
 
+test('buildEditPlan reuses existing Terraform variable key names from tfvars and variable declarations', async () => {
+  const preflight = await buildRunPreflight(
+    'update terraform payments-api dev image tag to 4.5.6',
+    'fixtures/terraform-alt-keys-workspace'
+  );
+  const tfvarsPath = resolve('fixtures/terraform-alt-keys-workspace/terraform/payments-api/terraform.auto.tfvars');
+  const mainTfPath = resolve('fixtures/terraform-alt-keys-workspace/terraform/payments-api/main.tf');
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: tfvarsPath,
+          content: await readFile(tfvarsPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  assert.equal(editPlan?.kind, 'terraform-tfvars-config');
+  assert.match(editPlan?.rationale ?? '', /app_image_tag/);
+  assert.match(editPlan?.rationale ?? '', /deploy_env/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /app_image_tag = "4.5.6"/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /deploy_env = "dev"/);
+  assert.doesNotMatch(editPlan?.writes[0]?.content ?? '', /^image_tag =/m);
+  assert.doesNotMatch(editPlan?.writes[0]?.content ?? '', /^environment =/m);
+});
+
 test('inspect-target-files reads Terraform root files into runtime observations', async () => {
   const execution = await executeDecision(
     {

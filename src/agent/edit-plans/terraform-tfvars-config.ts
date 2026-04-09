@@ -79,6 +79,67 @@ function selectTfvarsPath(tfvarsFiles: string[], requestedEnvironment: string | 
     ?? join(rootPath, 'terraform.auto.tfvars');
 }
 
+function collectTerraformFileContents(runtime: AgentRuntimeState, rootPath: string, filePaths: string[]): string[] {
+  return filePaths
+    .filter(filePath => filePath.startsWith(rootPath))
+    .map(filePath => getLatestFileContent(runtime, filePath))
+    .filter((content): content is string => typeof content === 'string');
+}
+
+function collectAssignedKeys(contents: string[]): string[] {
+  const keys: string[] = [];
+
+  for (const content of contents) {
+    for (const match of content.matchAll(/^\s*([A-Za-z0-9_]+)\s*=/gm)) {
+      if (match[1]) {
+        keys.push(match[1]);
+      }
+    }
+  }
+
+  return keys;
+}
+
+function collectDeclaredVariables(contents: string[]): string[] {
+  const keys: string[] = [];
+
+  for (const content of contents) {
+    for (const match of content.matchAll(/variable\s+"([^"]+)"/g)) {
+      if (match[1]) {
+        keys.push(match[1]);
+      }
+    }
+  }
+
+  return keys;
+}
+
+function pickMatchingKey(keys: string[], patterns: RegExp[]): string | null {
+  for (const pattern of patterns) {
+    const match = keys.find(key => pattern.test(key));
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
+function inferTerraformKey(runtime: AgentRuntimeState, rootPath: string, tfFilePaths: string[], tfvarsFilePaths: string[], params: {
+  tfvarsPatterns: RegExp[];
+  variablePatterns: RegExp[];
+  fallback: string;
+}): string {
+  const tfvarsContents = collectTerraformFileContents(runtime, rootPath, tfvarsFilePaths);
+  const tfContents = collectTerraformFileContents(runtime, rootPath, tfFilePaths);
+  const assignedKeys = collectAssignedKeys(tfvarsContents);
+  const declaredVariables = collectDeclaredVariables(tfContents);
+
+  return pickMatchingKey(assignedKeys, params.tfvarsPatterns)
+    ?? pickMatchingKey(declaredVariables, params.variablePatterns)
+    ?? params.fallback;
+}
+
 export function buildTerraformTfvarsConfigEditPlan(runtime: AgentRuntimeState): EditPlan | null {
   if (!hasTerraformConfigIntent(runtime.task)) {
     return null;
@@ -102,10 +163,20 @@ export function buildTerraformTfvarsConfigEditPlan(runtime: AgentRuntimeState): 
   const preferredTfvarsPath = selectTfvarsPath(root.tfvarsFiles, runtime.preflight.requestedEnvironment, topTerraformTarget.path);
   const existingContent = getLatestFileContent(runtime, preferredTfvarsPath) ?? '';
   const nextEnvironment = normalizeEnvironmentValue(runtime.preflight.requestedEnvironment);
+  const imageTagKey = inferTerraformKey(runtime, topTerraformTarget.path, root.tfFiles, root.tfvarsFiles, {
+    tfvarsPatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
+    variablePatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
+    fallback: 'image_tag'
+  });
+  const environmentKey = inferTerraformKey(runtime, topTerraformTarget.path, root.tfFiles, root.tfvarsFiles, {
+    tfvarsPatterns: [/^environment$/i, /^env$/i, /environment/i, /env/i],
+    variablePatterns: [/^environment$/i, /^env$/i, /environment/i, /env/i],
+    fallback: 'environment'
+  });
 
-  let nextContent = upsertTfvarsValue(existingContent, 'image_tag', imageTag);
+  let nextContent = upsertTfvarsValue(existingContent, imageTagKey, imageTag);
   if (nextEnvironment) {
-    nextContent = upsertTfvarsValue(nextContent, 'environment', nextEnvironment);
+    nextContent = upsertTfvarsValue(nextContent, environmentKey, nextEnvironment);
   }
 
   if (nextContent === existingContent) {
@@ -115,7 +186,7 @@ export function buildTerraformTfvarsConfigEditPlan(runtime: AgentRuntimeState): 
   return {
     kind: 'terraform-tfvars-config',
     summary: `Apply Terraform variable updates to ${preferredTfvarsPath}.`,
-    rationale: 'The task requests a bounded Terraform configuration change and the selected Terraform root exposes a safe tfvars-based update path.',
+    rationale: `The task requests a bounded Terraform configuration change and the selected Terraform root exposes a safe tfvars-based update path. The plan reuses Terraform variable keys ${imageTagKey} and ${environmentKey} when available.`,
     writes: [
       {
         path: preferredTfvarsPath,
