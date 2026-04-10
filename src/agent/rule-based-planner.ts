@@ -8,6 +8,37 @@ function toTopTargetPaths(input: AgentPlanningInput): string[] {
     .map(candidate => candidate.path);
 }
 
+function buildTerraformCandidateSummary(input: AgentPlanningInput): string[] {
+  return input.runtime.preflight.targetCandidates
+    .filter(candidate => candidate.kind === 'terraform-root')
+    .slice(0, 3)
+    .map(candidate => {
+      const tfvarsDetail = candidate.details?.find(detail => detail.startsWith('tfvars: '));
+      return tfvarsDetail
+        ? `${candidate.path} (${tfvarsDetail})`
+        : candidate.path;
+    });
+}
+
+function buildTerraformClarificationQuestions(input: AgentPlanningInput, variant: 'missing-workspace' | 'ambiguous-target'): string[] {
+  const candidateSummary = buildTerraformCandidateSummary(input);
+  const candidateQuestion = candidateSummary.length > 0
+    ? `Which Terraform root should be updated? Options: ${candidateSummary.join('; ')}`
+    : 'Which Terraform root or subdirectory should be updated?';
+
+  if (variant === 'missing-workspace') {
+    return [
+      candidateQuestion,
+      'Should the agent modify an existing tfvars file, or create a bounded terraform.auto.tfvars file in that root?'
+    ];
+  }
+
+  return [
+    candidateQuestion,
+    'Which environment or tfvars file should be updated?'
+  ];
+}
+
 export class RuleBasedPlanningModel extends BasePlanningModel {
   readonly name = 'rule-based-planner';
 
@@ -59,10 +90,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             : 'The workspace does not currently expose any detectable Helm, Pulumi, or Terraform targets.',
           payload: {
             questions: taskMentionsTerraform
-              ? [
-                  'Which Terraform root or subdirectory should be updated?',
-                  'Should the agent modify an existing tfvars file, or create a bounded terraform.auto.tfvars file in that root?'
-                ]
+              ? buildTerraformClarificationQuestions(input, 'missing-workspace')
               : [
                   'Which repository or subdirectory contains the target Helm chart, Pulumi project, or Terraform root?',
                   'Should the agent modify an existing infrastructure target, or is a new target expected?'
@@ -86,10 +114,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             : 'The task does not map strongly enough onto a detected workspace target.',
           payload: {
             questions: taskMentionsTerraform
-              ? [
-                  'What is the exact Terraform root or module path that should be modified?',
-                  'Which environment or tfvars file should be updated?'
-                ]
+              ? buildTerraformClarificationQuestions(input, 'ambiguous-target')
               : [
                   'What is the exact target service or chart name?',
                   'Which environment should be modified?'

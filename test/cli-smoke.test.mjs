@@ -1708,7 +1708,8 @@ test('rule-based planner asks Terraform-specific clarification questions when Te
   assert.equal(decision.action.kind, 'ask-for-clarification');
   assert.equal(decision.action.payload?.clarificationKind, 'target-ambiguity');
   assert.match(decision.action.summary, /Terraform root, variables, or environment/i);
-  assert.ok(decision.action.payload?.questions?.some(question => /Terraform root or module path/i.test(question)));
+  assert.ok(decision.action.payload?.questions?.some(question => /Which Terraform root should be updated\?/i.test(question)));
+  assert.ok(decision.action.payload?.questions?.some(question => /terraform\/payments-api/i.test(question)));
   assert.ok(decision.action.payload?.questions?.some(question => /tfvars file/i.test(question)));
 });
 
@@ -1738,6 +1739,29 @@ test('rule-based planner asks Terraform-specific clarification when no Terraform
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('rule-based planner includes Terraform root options in clarification for multi-root ambiguity', async () => {
+  const preflight = await buildRunPreflight('update terraform image tag to 2.3.4', 'fixtures/terraform-multi-root-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.ok(decision.action.payload?.questions?.some(question => /terraform\/network-stack/i.test(question)));
+  assert.ok(decision.action.payload?.questions?.some(question => /terraform\/worker-stack/i.test(question)));
+  assert.ok(decision.action.payload?.questions?.some(question => /dev\.auto\.tfvars/i.test(question)));
 });
 
 test('rule-based agent repairs missing ingress values after validation failure', async () => {
