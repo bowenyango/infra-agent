@@ -54,6 +54,14 @@ function buildPulumiPreviewGuidance(output: string): string {
   return 'Read the failing Pulumi project and stack file, then correct the missing or invalid config value before rerunning preview.';
 }
 
+function buildHelmValidationGuidance(kind: 'service-port' | 'ingress-values'): string {
+  if (kind === 'service-port') {
+    return 'Read the selected Helm chart values and define service.port in values.yaml before rerunning helm lint or helm template.';
+  }
+
+  return 'Read the selected Helm chart values and define the ingress block in values.yaml before rerunning helm lint or helm template.';
+}
+
 export function classifyValidationIssues(results: ValidationCommandOutput[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -68,7 +76,8 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
       issues.push(buildIssue(result, {
         kind: 'helm-missing-service-port',
         repairable: true,
-        message: 'Validation failed because a Helm template references .Values.service.port but the values file does not define it.'
+        message: 'Validation failed because a Helm template references .Values.service.port but the values file does not define it.',
+        guidance: buildHelmValidationGuidance('service-port')
       }));
       continue;
     }
@@ -77,7 +86,8 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
       issues.push(buildIssue(result, {
         kind: 'helm-missing-ingress-values',
         repairable: true,
-        message: 'Validation failed because a Helm template references .Values.ingress.enabled but the values file does not define ingress settings.'
+        message: 'Validation failed because a Helm template references .Values.ingress.enabled but the values file does not define ingress settings.',
+        guidance: buildHelmValidationGuidance('ingress-values')
       }));
       continue;
     }

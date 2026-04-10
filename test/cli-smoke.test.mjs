@@ -1773,6 +1773,23 @@ test('classifyValidationIssues marks ingress.enabled failures as repairable', ()
   assert.equal(issues.length, 1);
   assert.equal(issues[0]?.kind, 'helm-missing-ingress-values');
   assert.equal(issues[0]?.repairable, true);
+  assert.match(issues[0]?.guidance ?? '', /define the ingress block in values\.yaml/i);
+});
+
+test('classifyValidationIssues adds actionable guidance for missing Helm service.port', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'helm template charts/payments-api',
+      exitCode: 1,
+      stdout: '',
+      stderr: 'template: charts/payments-api/templates/service.yaml: executing at <.Values.service.port>: nil pointer evaluating interface {}.port'
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'helm-missing-service-port');
+  assert.equal(issues[0]?.repairable, true);
+  assert.match(issues[0]?.guidance ?? '', /define service\.port in values\.yaml/i);
 });
 
 test('planner system prompt documents explicit stop reasons', () => {
