@@ -39,6 +39,58 @@ function buildTerraformClarificationQuestions(input: AgentPlanningInput, variant
   ];
 }
 
+function buildHelmCandidateSummary(input: AgentPlanningInput): string[] {
+  return input.runtime.preflight.targetCandidates
+    .filter(candidate => candidate.kind === 'helm-chart')
+    .slice(0, 3)
+    .map(candidate => candidate.path);
+}
+
+function buildHelmClarificationQuestions(input: AgentPlanningInput, variant: 'missing-workspace' | 'ambiguous-target'): string[] {
+  const candidateSummary = buildHelmCandidateSummary(input);
+  const candidateQuestion = candidateSummary.length > 0
+    ? `Which Helm chart should be updated? Options: ${candidateSummary.join('; ')}`
+    : 'Which Helm chart or chart directory should be updated?';
+
+  if (variant === 'missing-workspace') {
+    return [
+      candidateQuestion,
+      'Should the agent modify an existing chart, or create a bounded chart scaffold in a specific directory?'
+    ];
+  }
+
+  return [
+    candidateQuestion,
+    'Which environment values or chart variant should be updated?'
+  ];
+}
+
+function buildPulumiCandidateSummary(input: AgentPlanningInput): string[] {
+  return input.runtime.preflight.targetCandidates
+    .filter(candidate => candidate.kind === 'pulumi-project')
+    .slice(0, 3)
+    .map(candidate => candidate.path);
+}
+
+function buildPulumiClarificationQuestions(input: AgentPlanningInput, variant: 'missing-workspace' | 'ambiguous-target'): string[] {
+  const candidateSummary = buildPulumiCandidateSummary(input);
+  const candidateQuestion = candidateSummary.length > 0
+    ? `Which Pulumi project should be updated? Options: ${candidateSummary.join('; ')}`
+    : 'Which Pulumi project or stack directory should be updated?';
+
+  if (variant === 'missing-workspace') {
+    return [
+      candidateQuestion,
+      'Should the agent modify an existing stack file, or create a bounded stack config file in a specific project?'
+    ];
+  }
+
+  return [
+    candidateQuestion,
+    'Which stack or environment should be updated?'
+  ];
+}
+
 function describeRequestedDomains(domains: string[]): string {
   return domains.length > 0 ? domains.join(', ') : 'infrastructure';
 }
@@ -102,6 +154,12 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const { runtime } = input;
     const { preflight } = runtime;
     const taskMentionsTerraform = /\b(terraform|tfvars|module|variable|variables)\b/i.test(runtime.task);
+    const taskMentionsHelm =
+      /\b(helm|chart|values|ingress|probe|probes|readiness|liveness|health|healthcheck)\b/i.test(runtime.task)
+      || (preflight.requestedDomains.length === 1 && preflight.requestedDomains[0] === 'helm');
+    const taskMentionsPulumi =
+      /\b(pulumi|stack|stacks|preview|config)\b/i.test(runtime.task)
+      || (preflight.requestedDomains.length === 1 && preflight.requestedDomains[0] === 'pulumi');
     const topScore = preflight.targetCandidates[0]?.score ?? 0;
     const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
     const hasObservations = runtime.observations.length > 0;
@@ -114,6 +172,13 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasWritePolicyBlocker = preflight.blockers.some(blocker => blocker.startsWith('Workspace write policy'));
     const terraformFormattingIssue = runtime.validationIssues.find(issue => issue.kind === 'terraform-formatting-required');
     const topTerraformTarget = preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
+    const hasHelmTarget = preflight.targetCandidates.some(candidate => candidate.kind === 'helm-chart');
+    const hasPulumiTarget = preflight.targetCandidates.some(candidate => candidate.kind === 'pulumi-project');
+    const hasTerraformTarget = preflight.targetCandidates.some(candidate => candidate.kind === 'terraform-root');
+    const isMissingRequestedDomainTarget =
+      (taskMentionsHelm && !hasHelmTarget)
+      || (taskMentionsPulumi && !hasPulumiTarget)
+      || (taskMentionsTerraform && !hasTerraformTarget);
 
     if (hasWritePolicyBlocker) {
       return {
@@ -133,20 +198,32 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (preflight.blockers.length > 0 && preflight.targetCandidates.length === 0) {
+    if ((preflight.blockers.length > 0 && preflight.targetCandidates.length === 0) || isMissingRequestedDomainTarget) {
       return {
         confidence: 'high',
         action: {
           kind: 'ask-for-clarification',
           summary: taskMentionsTerraform
             ? 'Clarify the Terraform workspace and target before any modification step.'
-            : 'Clarify workspace and target before any modification step.',
+            : taskMentionsPulumi
+              ? 'Clarify the Pulumi workspace and target before any modification step.'
+              : taskMentionsHelm
+                ? 'Clarify the Helm workspace and target before any modification step.'
+                : 'Clarify workspace and target before any modification step.',
           rationale: taskMentionsTerraform
             ? 'The workspace does not currently expose any detectable Terraform root for the requested task.'
-            : 'The workspace does not currently expose any detectable Helm, Pulumi, or Terraform targets.',
+            : taskMentionsPulumi
+              ? 'The workspace does not currently expose any detectable Pulumi project for the requested task.'
+              : taskMentionsHelm
+                ? 'The workspace does not currently expose any detectable Helm chart for the requested task.'
+                : 'The workspace does not currently expose any detectable Helm, Pulumi, or Terraform targets.',
           payload: {
             questions: taskMentionsTerraform
               ? buildTerraformClarificationQuestions(input, 'missing-workspace')
+              : taskMentionsPulumi
+                ? buildPulumiClarificationQuestions(input, 'missing-workspace')
+                : taskMentionsHelm
+                  ? buildHelmClarificationQuestions(input, 'missing-workspace')
               : [
                   'Which repository or subdirectory contains the target Helm chart, Pulumi project, or Terraform root?',
                   'Should the agent modify an existing infrastructure target, or is a new target expected?'
@@ -167,20 +244,34 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           kind: 'ask-for-clarification',
           summary: taskMentionsTerraform
             ? 'Clarify the intended Terraform root, variables, or environment before editing files.'
+            : preflight.requestedDomains.length > 1
+              ? 'Clarify the primary infrastructure domain before editing files.'
+            : taskMentionsPulumi
+              ? 'Clarify the intended Pulumi project, stack, or environment before editing files.'
+              : taskMentionsHelm
+                ? 'Clarify the intended Helm chart, values scope, or environment before editing files.'
             : 'Clarify the intended service, chart, or environment before editing files.',
           rationale: requestedDomainSummary
             ? requestedDomainSummary
             : taskMentionsTerraform
-            ? 'The task references Terraform, but the requested root, variable scope, or environment is still ambiguous.'
+              ? 'The task references Terraform, but the requested root, variable scope, or environment is still ambiguous.'
+              : taskMentionsPulumi
+                ? 'The task references Pulumi, but the requested project, stack, or environment is still ambiguous.'
+                : taskMentionsHelm
+                  ? 'The task references Helm, but the requested chart, values scope, or environment is still ambiguous.'
             : 'The task does not map strongly enough onto a detected workspace target.',
           payload: {
-            questions: taskMentionsTerraform
+            questions: preflight.requestedDomains.length > 1
+              ? [
+                  `Which primary domain should the agent modify first: ${preflight.requestedDomains.join(', ')}?`,
+                  'Should the task be split into separate bounded changes per domain?'
+                ]
+              : taskMentionsTerraform
               ? buildTerraformClarificationQuestions(input, 'ambiguous-target')
-              : preflight.requestedDomains.length > 1
-                ? [
-                    `Which primary domain should the agent modify first: ${preflight.requestedDomains.join(', ')}?`,
-                    'Should the task be split into separate bounded changes per domain?'
-                  ]
+              : taskMentionsPulumi
+                ? buildPulumiClarificationQuestions(input, 'ambiguous-target')
+                : taskMentionsHelm
+                  ? buildHelmClarificationQuestions(input, 'ambiguous-target')
                 : [
                   'What is the exact target service or chart name?',
                   'Which environment should be modified?'

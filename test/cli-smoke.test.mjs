@@ -2119,6 +2119,98 @@ test('rule-based planner asks Terraform-specific clarification when no Terraform
   }
 });
 
+test('rule-based planner asks Helm-specific clarification questions when Helm task lacks chart and environment detail', async () => {
+  const preflight = await buildRunPreflight('update helm values', 'fixtures/sample-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.clarificationKind, 'target-ambiguity');
+  assert.match(decision.action.summary, /Helm chart, values scope, or environment/i);
+  assert.ok(decision.action.payload?.questions?.some(question => /Which Helm chart should be updated\?/i.test(question)));
+  assert.ok(decision.action.payload?.questions?.some(question => /Which environment values or chart variant should be updated\?/i.test(question)));
+});
+
+test('rule-based planner asks Pulumi-specific clarification questions when Pulumi task lacks project and environment detail', async () => {
+  const preflight = await buildRunPreflight('update pulumi config', 'fixtures/sample-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.clarificationKind, 'target-ambiguity');
+  assert.match(decision.action.summary, /Pulumi project, stack, or environment/i);
+  assert.ok(decision.action.payload?.questions?.some(question => /Which Pulumi project should be updated\?/i.test(question)));
+  assert.ok(decision.action.payload?.questions?.some(question => /Which stack or environment should be updated\?/i.test(question)));
+});
+
+test('rule-based planner asks Helm-specific clarification when no Helm chart is detected', async () => {
+  const preflight = await buildRunPreflight('add helm ingress', 'fixtures/terraform-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.match(decision.action.summary, /Helm workspace and target/i);
+  assert.ok(decision.action.payload?.questions?.some(question => /Which Helm chart or chart directory should be updated\?/i.test(question)));
+});
+
+test('rule-based planner asks Pulumi-specific clarification when no Pulumi project is detected', async () => {
+  const preflight = await buildRunPreflight('update pulumi stack', 'fixtures/terraform-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.match(decision.action.summary, /Pulumi workspace and target/i);
+  assert.ok(decision.action.payload?.questions?.some(question => /Which Pulumi project or stack directory should be updated\?/i.test(question)));
+});
+
 test('rule-based planner includes Terraform root options in clarification for multi-root ambiguity', async () => {
   const preflight = await buildRunPreflight('update terraform image tag to 2.3.4', 'fixtures/terraform-multi-root-workspace');
   const planner = new RuleBasedPlanningModel();
