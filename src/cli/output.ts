@@ -131,7 +131,8 @@ export function printRunPreflight(state: RunPreflightState): void {
   printList(
     state.targetCandidates.slice(0, 5).map(candidate => {
       const reasons = candidate.reasons.length > 0 ? ` [${candidate.reasons.join('; ')}]` : '';
-      return `${candidate.kind} ${candidate.path} score=${candidate.score}${reasons}`;
+      const details = candidate.details && candidate.details.length > 0 ? ` {${candidate.details.join(' | ')}}` : '';
+      return `${candidate.kind} ${candidate.path} score=${candidate.score}${reasons}${details}`;
     }),
     'No target candidates detected.'
   );

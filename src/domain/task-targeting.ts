@@ -63,7 +63,15 @@ export function detectRequestedService(task: string): string | null {
     'update',
     'create',
     'and',
-    'with'
+    'with',
+    'image',
+    'tag',
+    'tags',
+    'version',
+    'config',
+    'configs',
+    'value',
+    'values'
   ]);
 
   for (const token of tokens) {
@@ -73,6 +81,27 @@ export function detectRequestedService(task: string): string | null {
   }
 
   return null;
+}
+
+function buildCandidateDetails(params: {
+  candidateKind: 'helm-chart' | 'pulumi-project' | 'terraform-root';
+  tfvarsFiles?: string[];
+  moduleHints?: string[];
+}): string[] {
+  if (params.candidateKind !== 'terraform-root') {
+    return [];
+  }
+
+  const details: string[] = [];
+  if (params.tfvarsFiles && params.tfvarsFiles.length > 0) {
+    details.push(`tfvars: ${params.tfvarsFiles.join(', ')}`);
+  }
+
+  if (params.moduleHints && params.moduleHints.length > 0) {
+    details.push(`module hints: ${params.moduleHints.join(', ')}`);
+  }
+
+  return details;
 }
 
 function scoreCandidate(params: {
@@ -209,7 +238,8 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       path: chart.chartRoot,
       score: scored.score,
       reasons: scored.reasons,
-      matchedEnvironmentHints: scored.matchedEnvironmentHints
+      matchedEnvironmentHints: scored.matchedEnvironmentHints,
+      details: []
     });
   }
 
@@ -232,7 +262,8 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       path: project.projectRoot,
       score: scored.score,
       reasons: scored.reasons,
-      matchedEnvironmentHints: scored.matchedEnvironmentHints
+      matchedEnvironmentHints: scored.matchedEnvironmentHints,
+      details: []
     });
   }
 
@@ -255,7 +286,12 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       path: root.rootPath,
       score: scored.score,
       reasons: scored.reasons,
-      matchedEnvironmentHints: scored.matchedEnvironmentHints
+      matchedEnvironmentHints: scored.matchedEnvironmentHints,
+      details: buildCandidateDetails({
+        candidateKind: 'terraform-root',
+        tfvarsFiles: root.tfvarsFiles,
+        moduleHints: root.moduleHints
+      })
     });
   }
 
@@ -283,6 +319,26 @@ export function buildTargetingWarnings(state: Pick<RunPreflightState, 'requested
     warnings.push('No workspace targets were detected for the task.');
   } else if (state.targetCandidates[0]?.score === 0) {
     warnings.push('Task did not strongly match any detected Helm chart, Pulumi project, or Terraform root.');
+  }
+
+  const topCandidate = state.targetCandidates[0];
+  if (topCandidate?.kind === 'terraform-root') {
+    const topTerraformCandidates = state.targetCandidates.filter(candidate =>
+      candidate.kind === 'terraform-root' && candidate.score === topCandidate.score && candidate.score > 0
+    );
+
+    if (topTerraformCandidates.length > 1) {
+      warnings.push(
+        `Multiple Terraform roots matched with similar confidence: ${topTerraformCandidates.map(candidate => candidate.path).join(', ')}.`
+      );
+    }
+
+    if (!state.requestedEnvironment) {
+      const tfvarsDetail = topCandidate.details.find(detail => detail.startsWith('tfvars: '));
+      if (tfvarsDetail) {
+        warnings.push(`Terraform environment was not explicit; top candidate offers ${tfvarsDetail.slice('tfvars: '.length)}.`);
+      }
+    }
   }
 
   return warnings;

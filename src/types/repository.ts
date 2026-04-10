@@ -124,6 +124,7 @@ export interface TargetCandidate {
   score: number;
   reasons: string[];
   matchedEnvironmentHints: string[];
+  details?: string[];
 }
 
 export interface RunPreflightState {

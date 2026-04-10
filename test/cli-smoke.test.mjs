@@ -6,7 +6,7 @@ import { resolve, join } from 'node:path';
 import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
 import { runSingleStep } from '../src/agent/run-single-step.ts';
 import { executeDecision } from '../src/agent/execute-decision.ts';
-import { buildTargetCandidates } from '../src/domain/task-targeting.ts';
+import { buildTargetCandidates, detectRequestedService } from '../src/domain/task-targeting.ts';
 import { buildRunPreflight } from '../src/agent/build-run-preflight.ts';
 import { selectValidationCommands } from '../src/agent/select-validation-commands.ts';
 import { buildValidationPreflight } from '../src/validators/preflight.ts';
@@ -1784,6 +1784,26 @@ test('targeting uses Terraform module hints to disambiguate multi-root workspace
   assert.equal(targeting.targetCandidates[0]?.kind, 'terraform-root');
   assert.equal(targeting.targetCandidates[0]?.path, 'terraform/network-stack');
   assert.ok(targeting.targetCandidates[0]?.reasons.some(reason => /repository hints matched service token/i.test(reason)));
+});
+
+test('detectRequestedService ignores generic Terraform config nouns like image and tag', () => {
+  assert.equal(detectRequestedService('update terraform dev image tag to 2.3.4'), null);
+});
+
+test('Terraform target candidates expose tfvars and module hint details for non-infra users', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-multi-root-workspace');
+  const targeting = buildTargetCandidates('update terraform alb dev image tag to 2.3.4', inspection);
+
+  assert.ok(targeting.targetCandidates[0]?.details?.some(detail => /tfvars:/i.test(detail)));
+  assert.ok(targeting.targetCandidates[0]?.details?.some(detail => /module hints:/i.test(detail)));
+});
+
+test('buildRunPreflight warns when multiple Terraform roots match with similar confidence', async () => {
+  const preflight = await buildRunPreflight('update terraform image tag to 2.3.4', 'fixtures/terraform-multi-root-workspace');
+
+  assert.ok(preflight.assumptions.some(assumption => /Target service or chart was not explicitly detected/i.test(assumption)));
+  assert.ok(preflight.assumptions.some(assumption => /Multiple Terraform roots matched with similar confidence/i.test(assumption)));
+  assert.ok(preflight.assumptions.some(assumption => /Terraform environment was not explicit; top candidate offers/i.test(assumption)));
 });
 
 test('validation preflight adds Terraform commands for detected Terraform roots', async () => {
