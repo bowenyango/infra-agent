@@ -2142,6 +2142,68 @@ test('rule-based planner includes Terraform root options in clarification for mu
   assert.ok(decision.action.payload?.questions?.some(question => /dev\.auto\.tfvars/i.test(question)));
 });
 
+test('rule-based planner emits Terraform-specific inspection summary for Terraform tasks', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'inspect-target-files');
+  assert.match(decision.action.summary, /Inspect the selected Terraform root files/i);
+  assert.match(decision.action.rationale, /requested terraform task/i);
+});
+
+test('rule-based planner emits Helm-specific validation summary for Helm tasks', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: 'charts/payments-api/values.yaml',
+            content: 'ingress:\n  enabled: true\n',
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [
+        {
+          path: 'charts/payments-api/values.yaml',
+          content: 'ingress:\n  enabled: true\n',
+          reason: 'test write',
+          mode: 'append',
+          risk: 'low'
+        }
+      ],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'validate-targets');
+  assert.match(decision.action.summary, /Run Helm validators for the selected chart/i);
+  assert.match(decision.action.rationale, /requested helm path/i);
+});
+
 test('rule-based agent repairs missing ingress values after validation failure', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-repair-ingress-'));
   const workspaceRoot = join(tempRoot, 'workspace');

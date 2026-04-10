@@ -39,6 +39,62 @@ function buildTerraformClarificationQuestions(input: AgentPlanningInput, variant
   ];
 }
 
+function describeRequestedDomains(domains: string[]): string {
+  return domains.length > 0 ? domains.join(', ') : 'infrastructure';
+}
+
+function summarizeInspectionStep(input: AgentPlanningInput): string {
+  const domains = input.runtime.preflight.requestedDomains;
+  if (domains.length === 1 && domains[0] === 'terraform') {
+    return 'Inspect the selected Terraform root files before generating edits.';
+  }
+
+  if (domains.length === 1 && domains[0] === 'pulumi') {
+    return 'Inspect the selected Pulumi project and stack files before generating edits.';
+  }
+
+  if (domains.length === 1 && domains[0] === 'helm') {
+    return 'Inspect the selected Helm chart files before generating edits.';
+  }
+
+  return 'Inspect the highest-confidence infrastructure targets before generating edits.';
+}
+
+function summarizeInspectionRationale(input: AgentPlanningInput): string {
+  const domains = input.runtime.preflight.requestedDomains;
+  if (domains.length > 0) {
+    return `The workspace has candidate targets that match the requested ${describeRequestedDomains(domains)} task.`;
+  }
+
+  return 'The workspace has candidate targets that match the requested service and environment.';
+}
+
+function summarizeValidationStep(input: AgentPlanningInput): string {
+  const domains = input.runtime.preflight.requestedDomains;
+  if (domains.length === 1 && domains[0] === 'terraform') {
+    return 'Run Terraform validators for the selected root.';
+  }
+
+  if (domains.length === 1 && domains[0] === 'pulumi') {
+    return 'Run Pulumi preview for the selected project.';
+  }
+
+  if (domains.length === 1 && domains[0] === 'helm') {
+    return 'Run Helm validators for the selected chart.';
+  }
+
+  return 'Run validators for the detected infrastructure targets.';
+}
+
+function summarizeValidationRationale(input: AgentPlanningInput): string {
+  const domains = input.runtime.preflight.requestedDomains;
+  if (domains.length > 0) {
+    return `The workspace has validation commands available for the requested ${describeRequestedDomains(domains)} path.`;
+  }
+
+  return 'The workspace has detectable validation targets and validators are available.';
+}
+
 export class RuleBasedPlanningModel extends BasePlanningModel {
   readonly name = 'rule-based-planner';
 
@@ -140,8 +196,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
         confidence: 'high',
         action: {
           kind: 'inspect-target-files',
-          summary: 'Inspect the highest-confidence Helm, Pulumi, and Terraform targets before generating edits.',
-          rationale: 'The workspace has candidate targets that match the requested service and environment.',
+          summary: summarizeInspectionStep(input),
+          rationale: summarizeInspectionRationale(input),
           payload: {
             targetPaths: toTopTargetPaths(input),
             requestedDomains: preflight.requestedDomains
@@ -215,8 +271,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
         confidence: 'medium',
         action: {
           kind: 'validate-targets',
-          summary: 'Run validators for the detected infrastructure targets.',
-          rationale: 'The workspace has detectable validation targets and validators are available.',
+          summary: summarizeValidationStep(input),
+          rationale: summarizeValidationRationale(input),
           payload: {
             commands
           }
