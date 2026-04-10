@@ -67,6 +67,7 @@ export interface ValidationIssue {
   repairable: boolean;
   sourceCommand: string;
   message: string;
+  guidance?: string;
 }
 
 export interface ApprovalSignal {

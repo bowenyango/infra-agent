@@ -8,6 +8,26 @@ function buildIssue(result: ValidationCommandOutput, issue: Omit<ValidationIssue
   };
 }
 
+function buildTerraformValidateGuidance(output: string): string {
+  if (/undeclared (input )?variable/i.test(output)) {
+    return 'Read the referenced Terraform root and confirm the variable name exists in variable declarations and tfvars before retrying.';
+  }
+
+  if (/missing required argument/i.test(output)) {
+    return 'Read the referenced Terraform module inputs and add the missing required argument through an existing tfvars file or declared variable path.';
+  }
+
+  if (/unsupported argument/i.test(output)) {
+    return 'Compare the failing argument name against the Terraform module variable declarations and remove or rename unsupported keys before retrying.';
+  }
+
+  if (/invalid value/i.test(output)) {
+    return 'Inspect the failing Terraform variable type and update the tfvars value to match the declared schema before retrying.';
+  }
+
+  return 'Read the failing Terraform root, review variable declarations and tfvars, then correct the configuration before rerunning validation.';
+}
+
 export function classifyValidationIssues(results: ValidationCommandOutput[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -49,7 +69,8 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
       issues.push(buildIssue(result, {
         kind: 'terraform-validate-failure',
         repairable: false,
-        message: combinedOutput.trim().slice(0, 400) || 'Terraform validate reported a configuration error.'
+        message: combinedOutput.trim().slice(0, 400) || 'Terraform validate reported a configuration error.',
+        guidance: buildTerraformValidateGuidance(combinedOutput)
       }));
       continue;
     }

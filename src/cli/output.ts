@@ -260,7 +260,9 @@ export function printAgentRunState(state: AgentRunState): void {
   process.stdout.write('\n');
   printHeader('Validation Issues');
   printList(
-    state.runtime.validationIssues.map(issue => `${issue.kind} (${issue.repairable ? 'repairable' : 'blocker'}): ${issue.message}`),
+    state.runtime.validationIssues.map(issue =>
+      `${issue.kind} (${issue.repairable ? 'repairable' : 'blocker'}): ${issue.message}${issue.guidance ? ` Guidance: ${issue.guidance}` : ''}`
+    ),
     'No validation issues recorded.'
   );
 

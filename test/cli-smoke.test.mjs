@@ -1966,6 +1966,21 @@ test('classifyValidationIssues marks terraform validate failures as terraform-va
   assert.equal(issues[0]?.kind, 'terraform-validate-failure');
   assert.equal(issues[0]?.repairable, false);
   assert.match(issues[0]?.message ?? '', /undeclared input variable/i);
+  assert.match(issues[0]?.guidance ?? '', /variable name exists in variable declarations and tfvars/i);
+});
+
+test('classifyValidationIssues provides actionable guidance for missing required Terraform arguments', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/payments-api validate',
+      exitCode: 1,
+      stdout: '',
+      stderr: 'Error: Missing required argument\n\nThe argument "image_tag" is required, but no definition was found.'
+    }
+  ]);
+
+  assert.equal(issues[0]?.kind, 'terraform-validate-failure');
+  assert.match(issues[0]?.guidance ?? '', /add the missing required argument through an existing tfvars file or declared variable path/i);
 });
 
 test('executeDecision runs terraform formatting repair inside the selected Terraform root', async () => {
