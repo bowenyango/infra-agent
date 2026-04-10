@@ -23,6 +23,7 @@ import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.t
 import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
 import { inferRequestedDomains } from '../src/domain/domain-focus.ts';
 import { prioritizeEditPlanKinds } from '../src/agent/edit-plan-priority.ts';
+import { buildInspectionCandidateFiles, buildInspectionSearchPattern } from '../src/agent/inspection-priority.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -275,6 +276,28 @@ test('prioritizeEditPlanKinds preserves requested domain order for mixed-domain 
       'terraform-tfvars-config'
     ]
   );
+});
+
+test('buildInspectionCandidateFiles prioritizes only Terraform files for Terraform-focused inspection', () => {
+  const candidateFiles = buildInspectionCandidateFiles({
+    dirName: 'terraform/payments-api',
+    listedFiles: ['main.tf', 'variables.tf', 'dev.auto.tfvars', 'Pulumi.dev.yaml', 'Chart.yaml', 'values.yaml'],
+    requestedDomains: ['terraform']
+  });
+
+  assert.ok(candidateFiles.some(path => path.endsWith('main.tf')));
+  assert.ok(candidateFiles.some(path => path.endsWith('dev.auto.tfvars')));
+  assert.ok(candidateFiles.every(path => !path.endsWith('Chart.yaml')));
+  assert.ok(candidateFiles.every(path => !path.endsWith('values.yaml')));
+  assert.ok(candidateFiles.every(path => !path.endsWith('Pulumi.dev.yaml')));
+});
+
+test('buildInspectionSearchPattern narrows search to requested domains', () => {
+  assert.match(buildInspectionSearchPattern(['terraform']), /\.\*\\\.tf/);
+  assert.doesNotMatch(buildInspectionSearchPattern(['terraform']), /Chart/);
+  assert.match(buildInspectionSearchPattern(['pulumi', 'helm']), /Pulumi/);
+  assert.match(buildInspectionSearchPattern(['pulumi', 'helm']), /Chart/);
+  assert.doesNotMatch(buildInspectionSearchPattern(['pulumi', 'helm']), /\.\*\\\.tf/);
 });
 
 test('inspectWorkspace resolves specialized domain capabilities for mixed infra workspaces', async () => {
@@ -2518,7 +2541,8 @@ test('inspect-target-files reads Terraform root files into runtime observations'
         summary: 'Inspect Terraform files.',
         rationale: 'Test Terraform inspection path.',
         payload: {
-          targetPaths: ['terraform/payments-api']
+          targetPaths: ['terraform/payments-api'],
+          requestedDomains: ['terraform']
         }
       }
     },
@@ -2533,6 +2557,7 @@ test('inspect-target-files reads Terraform root files into runtime observations'
 
   assert.ok(readPaths?.some(path => path.endsWith('terraform/payments-api/main.tf')));
   assert.ok(readPaths?.some(path => path.endsWith('terraform/payments-api/dev.auto.tfvars')));
+  assert.ok(readPaths?.every(path => !path.endsWith('Chart.yaml')));
 });
 
 test('classifyValidationIssues marks terraform fmt failures as terraform-formatting-required', () => {

@@ -1,4 +1,5 @@
 import { dirname, join } from 'node:path';
+import { buildInspectionCandidateFiles, buildInspectionSearchPattern } from './inspection-priority.ts';
 import { isWriteAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import { executeTool } from '../services/tools/execute-tool.ts';
 import { AppendFileTool } from '../tools/AppendFileTool/AppendFileTool.ts';
@@ -53,25 +54,11 @@ export async function executeDecision(
       const listedFiles = (directoryListing.output as DirectoryListingOutput).entries
         .filter(entry => entry.kind === 'file')
         .map(entry => entry.name);
-      const candidateFiles = [
-        join(dirName, 'Chart.yaml'),
-        join(dirName, 'values.yaml'),
-        join(dirName, 'main.tf'),
-        join(dirName, 'variables.tf'),
-        join(dirName, 'terraform.tfvars'),
-        join(dirName, 'terraform.auto.tfvars'),
-        join(dirName, 'templates/deployment.yaml'),
-        join(dirName, 'templates/ingress.yaml')
-      ];
-      for (const listedFile of listedFiles) {
-        if (/^Pulumi(\..+)?\.(yaml|yml)$/i.test(listedFile)) {
-          candidateFiles.push(join(dirName, listedFile));
-        }
-
-        if (/\.tf$/i.test(listedFile) || /\.tfvars(\.json)?$/i.test(listedFile)) {
-          candidateFiles.push(join(dirName, listedFile));
-        }
-      }
+      const candidateFiles = buildInspectionCandidateFiles({
+        dirName,
+        listedFiles,
+        requestedDomains: decision.action.payload?.requestedDomains ?? []
+      });
 
       for (const candidateFile of deduplicatePaths(candidateFiles)) {
         try {
@@ -83,7 +70,7 @@ export async function executeDecision(
 
       const workspaceSearch = await executeTool(SearchWorkspaceTool, {
         rootPath: targetPath,
-        fileNamePattern: '^(Chart\\.ya?ml|values\\.ya?ml|Pulumi(\\..+)?\\.(yaml|yml)|deployment\\.ya?ml|ingress\\.ya?ml|.*\\.tf|.*\\.tfvars(?:\\.json)?)$',
+        fileNamePattern: buildInspectionSearchPattern(decision.action.payload?.requestedDomains ?? []),
         maxResults: 12
       }, context);
       toolResults.push(workspaceSearch);

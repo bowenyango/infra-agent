@@ -143,7 +143,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           summary: 'Inspect the highest-confidence Helm, Pulumi, and Terraform targets before generating edits.',
           rationale: 'The workspace has candidate targets that match the requested service and environment.',
           payload: {
-            targetPaths: toTopTargetPaths(input)
+            targetPaths: toTopTargetPaths(input),
+            requestedDomains: preflight.requestedDomains
           }
         }
       };

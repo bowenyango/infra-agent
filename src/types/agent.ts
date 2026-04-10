@@ -1,4 +1,4 @@
-import type { RunPreflightState } from './repository.ts';
+import type { InfraDomainId, RunPreflightState } from './repository.ts';
 import type { ToolResult } from '../Tool.ts';
 import type { ValidationCommandOutput } from './tools.ts';
 export type AgentActionKind =
@@ -34,6 +34,7 @@ export interface AgentAction {
   rationale: string;
   payload?: {
     targetPaths?: string[];
+    requestedDomains?: InfraDomainId[];
     rootPath?: string;
     questions?: string[];
     commands?: string[];
