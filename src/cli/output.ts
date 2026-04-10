@@ -103,6 +103,58 @@ function summarizeBoundedPath(state: AgentRunState): string {
   return `Requested domains -> ${formatRequestedDomains(state.preflight.requestedDomains)}`;
 }
 
+function summarizeValidatorFamilies(state: AgentRunState): string {
+  const families = new Set<string>();
+
+  for (const result of state.runtime.validationResults) {
+    if (result.command.includes('terraform ')) {
+      families.add('Terraform');
+      continue;
+    }
+
+    if (result.command.includes('pulumi ')) {
+      families.add('Pulumi');
+      continue;
+    }
+
+    if (result.command.includes('helm ')) {
+      families.add('Helm');
+    }
+  }
+
+  return families.size > 0 ? Array.from(families).join(', ') : 'none';
+}
+
+function summarizeNativeCliTools(state: AgentRunState): string {
+  const tools = new Set<string>();
+
+  for (const turn of state.turns) {
+    for (const result of turn.execution?.executedTools ?? []) {
+      if (result.toolName === 'pulumi_config_set') {
+        tools.add('Pulumi CLI');
+      }
+
+      if (result.toolName === 'terraform_fmt') {
+        tools.add('Terraform CLI');
+      }
+    }
+  }
+
+  return tools.size > 0 ? Array.from(tools).join(', ') : 'none';
+}
+
+export function summarizeResultCard(state: AgentRunState): string[] {
+  const lines: string[] = [];
+  const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
+
+  lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
+  lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
+  lines.push(`Validators executed: ${state.runtime.validationResults.length} command(s) across ${summarizeValidatorFamilies(state)}`);
+  lines.push(`Repair activity: ${state.runtime.repairAttempts > 0 ? `${state.runtime.repairAttempts} bounded repair attempt(s)` : 'none'}`);
+
+  return lines;
+}
+
 function shellQuote(value: string): string {
   return `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 }
@@ -458,6 +510,9 @@ export function printAgentRunState(state: AgentRunState): void {
   process.stdout.write(`outcome: ${state.outcome}\n`);
   process.stdout.write(`turn count: ${state.turns.length}\n`);
   process.stdout.write(`repair attempts: ${state.runtime.repairAttempts}\n`);
+  process.stdout.write('\n');
+  printHeader('Result Summary');
+  printList(summarizeResultCard(state), 'No result summary available.');
   process.stdout.write('\n');
   printHeader('Operation Snapshot');
   printList(summarizeAgentSnapshot(state), 'No snapshot available.');

@@ -16,7 +16,7 @@ import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
-import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizePreflightSuggestedCommands, summarizeRecommendedNextSteps, summarizeSuggestedCommands } from '../src/cli/output.ts';
+import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizePreflightSuggestedCommands, summarizeRecommendedNextSteps, summarizeResultCard, summarizeSuggestedCommands } from '../src/cli/output.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
@@ -2114,6 +2114,104 @@ test('summarizeAgentSnapshot surfaces the active bounded edit path when an edit 
   });
 
   assert.ok(snapshot.some(line => /Active bounded path: Helm -> helm-ingress/i.test(line)));
+});
+
+test('summarizeResultCard highlights changed files, native CLI usage, validators, and repairs', async () => {
+  const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [
+        {
+          path: 'infra/payments-api/Pulumi.dev.yaml',
+          content: 'config:\n  payments-api:environment: dev\n  payments-api:imageTag: 1.2.3\n',
+          reason: 'Applied via pulumi_config_set tool.'
+        }
+      ],
+      validationResults: [
+        {
+          command: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+          exitCode: 0,
+          stdout: '',
+          stderr: ''
+        }
+      ],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 1,
+      lastEditPlan: {
+        kind: 'pulumi-missing-config-repair',
+        summary: 'Repair missing Pulumi config.',
+        rationale: 'Test result summary.',
+        writes: [
+          {
+            path: 'infra/payments-api/Pulumi.dev.yaml',
+            content: 'config:\n  payments-api:environment: dev\n  payments-api:imageTag: 1.2.3\n',
+            reason: 'Synthetic write.'
+          }
+        ]
+      }
+    },
+    turns: [
+      {
+        index: 0,
+        decision: {
+          confidence: 'high',
+          action: {
+            kind: 'apply-edit-plan',
+            summary: 'Repair missing Pulumi config.',
+            rationale: 'Use Pulumi CLI.',
+            payload: {
+              actionFamily: 'pulumi-bounded-edit'
+            }
+          }
+        },
+        execution: {
+          status: 'completed',
+          executedTools: [
+            {
+              toolName: 'pulumi_config_set',
+              safety: 'write_scoped',
+              output: {
+                workspaceRoot: preflight.workspaceRoot,
+                projectRoot: 'infra/payments-api',
+                stackName: 'dev',
+                key: 'payments-api:imageTag',
+                value: '1.2.3',
+                stackFilePath: 'infra/payments-api/Pulumi.dev.yaml',
+                command: 'pulumi config set',
+                exitCode: 0,
+                stdout: '',
+                stderr: '',
+                content: 'config:\n  payments-api:environment: dev\n  payments-api:imageTag: 1.2.3\n'
+              }
+            }
+          ]
+        },
+        runtimeSnapshot: {
+          task: preflight.task,
+          preflight,
+          observations: [],
+          appliedWrites: [],
+          validationResults: [],
+          validationIssues: [],
+          approvalSignals: [],
+          repairAttempts: 0,
+          lastEditPlan: null
+        }
+      }
+    ]
+  });
+
+  assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
+  assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
+  assert.ok(summary.some(line => /Validators executed: 1 command\(s\) across Pulumi/i.test(line)));
+  assert.ok(summary.some(line => /Repair activity: 1 bounded repair attempt/i.test(line)));
 });
 
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {
