@@ -133,6 +133,56 @@ test('profile-aware validation selection filters to Pulumi commands for infra-cl
   assert.ok(commands.every(command => command.includes('pulumi preview')));
 });
 
+test('domain-aware validation selection keeps only Pulumi commands in mixed workspaces for Pulumi tasks', async () => {
+  const preflight = await buildRunPreflight('update pulumi stack config for payments-api dev', 'fixtures/sample-workspace');
+  const commands = selectValidationCommands({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [
+      {
+        path: 'infra/payments-api/Pulumi.dev.yaml',
+        content: '',
+        reason: 'test write'
+      }
+    ],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(commands.length > 0);
+  assert.ok(commands.every(command => command.includes('pulumi preview')));
+  assert.ok(commands.every(command => !command.includes('helm ')));
+});
+
+test('domain-aware validation selection keeps only Helm commands in mixed workspaces for Helm tasks', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const commands = selectValidationCommands({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [
+      {
+        path: 'charts/payments-api/values.yaml',
+        content: '',
+        reason: 'test write'
+      }
+    ],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(commands.length > 0);
+  assert.ok(commands.some(command => command.includes('helm lint')));
+  assert.ok(commands.every(command => !command.includes('pulumi preview')));
+});
+
 test('workspace config overrides validation plan entries', async () => {
   const inspection = await inspectWorkspace('fixtures/configured-workspace');
   const validation = buildValidationPreflight(inspection);
