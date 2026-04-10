@@ -6,6 +6,7 @@ import type {
   WorkspaceInspection
 } from '../types/repository.ts';
 import type { DiffPreviewOutput, SearchWorkspaceOutput, ValidationRunOutput } from '../types/tools.ts';
+import type { EditPlanKind } from '../types/edit-plan.ts';
 
 function printHeader(title: string): void {
   process.stdout.write(`${title}\n`);
@@ -24,6 +25,52 @@ function printList(items: string[], fallback: string): void {
 
 function formatDomainCapability(domain: DomainCapabilitySummary): string {
   return `${domain.label}: ${domain.detectedTargets} target(s); tasks=${domain.supportedTaskKinds.join(', ')}; edits=${domain.boundedEditKinds.join(', ')}; validators=${domain.validatorCommands.join(', ')}`;
+}
+
+function formatRequestedDomains(domains: string[]): string {
+  return domains.length > 0 ? domains.join(', ') : 'undetected';
+}
+
+function toTitleCase(value: string): string {
+  return value.length > 0 ? `${value[0]?.toUpperCase() ?? ''}${value.slice(1)}` : value;
+}
+
+function domainFromEditPlanKind(kind: EditPlanKind): string {
+  if (kind.startsWith('helm-')) {
+    return 'Helm';
+  }
+
+  if (kind.startsWith('pulumi-')) {
+    return 'Pulumi';
+  }
+
+  if (kind.startsWith('terraform-')) {
+    return 'Terraform';
+  }
+
+  return 'Unknown';
+}
+
+function summarizeBoundedPath(state: AgentRunState): string {
+  const lastEditPlan = state.runtime.lastEditPlan;
+  if (lastEditPlan) {
+    return `${domainFromEditPlanKind(lastEditPlan.kind)} -> ${lastEditPlan.kind}`;
+  }
+
+  const validationCommands = state.runtime.validationResults.map(result => result.command);
+  if (validationCommands.some(command => command.includes('terraform '))) {
+    return 'Terraform -> validation';
+  }
+
+  if (validationCommands.some(command => command.includes('pulumi '))) {
+    return 'Pulumi -> validation';
+  }
+
+  if (validationCommands.some(command => command.includes('helm '))) {
+    return 'Helm -> validation';
+  }
+
+  return `Requested domains -> ${formatRequestedDomains(state.preflight.requestedDomains)}`;
 }
 
 function shellQuote(value: string): string {
@@ -49,7 +96,8 @@ export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
 
   lines.push(`Profile: ${state.profile.id}`);
   lines.push(`Detected domains: ${state.inspection.domainCapabilities.length > 0 ? state.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
-  lines.push(`Requested domains: ${state.requestedDomains.length > 0 ? state.requestedDomains.join(', ') : 'undetected'}`);
+  lines.push(`Requested domains: ${formatRequestedDomains(state.requestedDomains)}`);
+  lines.push(`Planned domain path: ${state.requestedDomains.length > 0 ? state.requestedDomains.map(toTitleCase).join(' -> ') : 'infer from targets'}`);
   lines.push(`Requested environment: ${state.requestedEnvironment ?? 'undetected'}`);
   lines.push(`Requested service: ${state.requestedService ?? 'undetected'}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path} (score=${topTarget.score})` : 'undetected'}`);
@@ -183,7 +231,8 @@ export function summarizeAgentSnapshot(state: AgentRunState): string[] {
   lines.push(`Outcome: ${state.outcome}`);
   lines.push(`Model: ${state.modelName}`);
   lines.push(`Detected domains: ${state.preflight.inspection.domainCapabilities.length > 0 ? state.preflight.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
-  lines.push(`Requested domains: ${state.preflight.requestedDomains.length > 0 ? state.preflight.requestedDomains.join(', ') : 'undetected'}`);
+  lines.push(`Requested domains: ${formatRequestedDomains(state.preflight.requestedDomains)}`);
+  lines.push(`Active bounded path: ${summarizeBoundedPath(state)}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path}` : 'undetected'}`);
   lines.push(`Repair attempts: ${state.runtime.repairAttempts}`);
   lines.push(`Validation status: ${state.runtime.validationResults.length === 0 ? 'not run yet' : state.runtime.validationResults.every(result => result.exitCode === 0) ? 'passed' : 'failed'}`);

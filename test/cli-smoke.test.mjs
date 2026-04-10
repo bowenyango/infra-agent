@@ -212,6 +212,7 @@ test('summarizePreflightSnapshot highlights primary target and top ambiguity', a
 
   assert.ok(snapshot.some(line => /Detected domains: Terraform/i.test(line)));
   assert.ok(snapshot.some(line => /Requested domains: terraform/i.test(line)));
+  assert.ok(snapshot.some(line => /Planned domain path: Terraform/i.test(line)));
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/network-stack/i.test(line)));
   assert.ok(snapshot.some(line => /Requested service: undetected/i.test(line)));
   assert.ok(snapshot.some(line => /Approval posture: writes with risk high require approval/i.test(line)));
@@ -1977,9 +1978,38 @@ test('summarizeAgentSnapshot highlights validation failure and approval count', 
   });
 
   assert.ok(snapshot.some(line => /Outcome: validation-blocked/i.test(line)));
+  assert.ok(snapshot.some(line => /Active bounded path: Terraform -> validation/i.test(line)));
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/payments-api/i.test(line)));
   assert.ok(snapshot.some(line => /Validation status: failed/i.test(line)));
   assert.ok(snapshot.some(line => /Top validation issue: terraform-validate-failure/i.test(line)));
+});
+
+test('summarizeAgentSnapshot surfaces the active bounded edit path when an edit plan exists', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const snapshot = summarizeAgentSnapshot({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: {
+        kind: 'helm-ingress',
+        summary: 'Apply ingress.',
+        rationale: 'Test bounded path summary.',
+        writes: []
+      }
+    },
+    turns: []
+  });
+
+  assert.ok(snapshot.some(line => /Active bounded path: Helm -> helm-ingress/i.test(line)));
 });
 
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {
