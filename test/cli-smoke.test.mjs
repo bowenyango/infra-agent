@@ -261,6 +261,7 @@ test('prioritizeEditPlanKinds prefers requested Terraform domain before Helm and
       'helm-ingress-values-repair',
       'helm-ingress',
       'helm-probes',
+      'pulumi-missing-config-repair',
       'pulumi-stack-config'
     ]
   );
@@ -270,6 +271,7 @@ test('prioritizeEditPlanKinds preserves requested domain order for mixed-domain 
   assert.deepEqual(
     prioritizeEditPlanKinds(['pulumi', 'helm']),
     [
+      'pulumi-missing-config-repair',
       'pulumi-stack-config',
       'helm-service-port-repair',
       'helm-ingress-values-repair',
@@ -2934,6 +2936,57 @@ test('buildEditPlan reuses existing Terraform variable key names from tfvars and
   assert.doesNotMatch(editPlan?.writes[0]?.content ?? '', /^environment =/m);
 });
 
+test('buildEditPlan creates a bounded Pulumi missing-config repair plan', async () => {
+  const preflight = await buildRunPreflight(
+    'update pulumi dev stack for payments-api image tag to 1.2.3',
+    'fixtures/sample-workspace'
+  );
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: 'fixtures/sample-workspace/infra/payments-api/Pulumi.dev.yaml',
+          content: 'config:\n  payments-api:environment: dev\n',
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [
+      {
+        command: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+        exitCode: 1,
+        stdout: '',
+        stderr: 'error: missing required configuration variable "payments-api:imageTag"; run `pulumi config set payments-api:imageTag <value>`'
+      }
+    ],
+    validationIssues: [
+      {
+        kind: 'pulumi-missing-config',
+        repairable: true,
+        sourceCommand: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+        message: 'error: missing required configuration variable "payments-api:imageTag"; run `pulumi config set payments-api:imageTag <value>`',
+        metadata: {
+          missingConfigKey: 'payments-api:imageTag'
+        }
+      }
+    ],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan?.kind, 'pulumi-missing-config-repair');
+  assert.equal(editPlan?.pulumiConfigOperations?.[0]?.key, 'payments-api:imageTag');
+  assert.equal(editPlan?.pulumiConfigOperations?.[0]?.value, '1.2.3');
+  assert.match(editPlan?.writes[0]?.content ?? '', /payments-api:imageTag: 1\.2\.3/);
+});
+
 test('inspect-target-files reads Terraform root files into runtime observations', async () => {
   const execution = await executeDecision(
     {
@@ -3020,7 +3073,8 @@ test('classifyValidationIssues marks missing Pulumi config as pulumi-missing-con
 
   assert.equal(issues.length, 1);
   assert.equal(issues[0]?.kind, 'pulumi-missing-config');
-  assert.equal(issues[0]?.repairable, false);
+  assert.equal(issues[0]?.repairable, true);
+  assert.equal(issues[0]?.metadata?.missingConfigKey, 'payments-api:imageTag');
   assert.match(issues[0]?.guidance ?? '', /set payments-api:imageTag/i);
 });
 

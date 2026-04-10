@@ -89,6 +89,11 @@ function detectImageTag(task: string): string | null {
   return null;
 }
 
+function extractStackNameFromCommand(command: string): string | null {
+  const match = command.match(/--stack\s+([^\s]+)/);
+  return match?.[1] ?? null;
+}
+
 function extractProjectName(projectFileContent: string | null, projectRoot: string): string {
   const matchedName = projectFileContent?.match(/^name:\s*(.+)$/m)?.[1]?.trim();
   if (matchedName && matchedName.length > 0) {
@@ -182,6 +187,81 @@ function upsertConfigValue(content: string, key: string, value: string): string 
 
   lines.splice(blockEnd, 0, renderedLine);
   return `${lines.join('\n').trimEnd()}\n`;
+}
+
+export function buildPulumiMissingConfigRepairEditPlan(runtime: AgentRuntimeState): EditPlan | null {
+  const missingConfigIssue = runtime.validationIssues.find(issue => issue.kind === 'pulumi-missing-config');
+  const missingConfigKey = missingConfigIssue?.metadata?.missingConfigKey;
+  if (!missingConfigIssue || !missingConfigKey) {
+    return null;
+  }
+
+  const topPulumiTarget = runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'pulumi-project');
+  if (!topPulumiTarget) {
+    return null;
+  }
+
+  const project = runtime.preflight.inspection.pulumiProjects.find(
+    candidate => candidate.projectRoot === topPulumiTarget.path
+  );
+  if (!project) {
+    return null;
+  }
+
+  const stackName =
+    extractStackNameFromCommand(missingConfigIssue.sourceCommand)
+    ?? normalizeStackNameForProfile(
+      runtime.preflight.profile.id,
+      runtime.task,
+      runtime.preflight.requestedEnvironment,
+      project.stackNames
+    );
+  if (!stackName) {
+    return null;
+  }
+
+  const stackFileRelativePath = project.stackFiles.find(filePath => filePath.endsWith(`Pulumi.${stackName}.yaml`));
+  if (!stackFileRelativePath) {
+    return null;
+  }
+
+  let value: string | null = null;
+  if (/:imageTag$/i.test(missingConfigKey)) {
+    value = detectImageTag(runtime.task);
+  } else if (/:environment$/i.test(missingConfigKey)) {
+    value = normalizeEnvironmentValueForProfile(runtime.preflight.profile.id, stackName);
+  }
+
+  if (!value) {
+    return null;
+  }
+
+  const stackFileContent = getLatestFileContent(runtime, stackFileRelativePath) ?? '';
+  const nextContent = upsertConfigValue(stackFileContent, missingConfigKey, value);
+  if (nextContent === stackFileContent) {
+    return null;
+  }
+
+  return {
+    kind: 'pulumi-missing-config-repair',
+    summary: `Repair missing Pulumi config ${missingConfigKey} in ${stackFileRelativePath}.`,
+    rationale: `Pulumi preview reported that ${missingConfigKey} is required, and the selected stack file can be repaired with a bounded config update.`,
+    pulumiConfigOperations: [
+      {
+        projectRoot: topPulumiTarget.path,
+        stackName,
+        key: missingConfigKey,
+        value
+      }
+    ],
+    writes: [
+      {
+        path: stackFileRelativePath,
+        content: nextContent,
+        reason: `Repair missing bounded Pulumi config ${missingConfigKey}.`
+      }
+    ]
+  };
 }
 
 export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): EditPlan | null {

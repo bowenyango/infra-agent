@@ -93,6 +93,9 @@ export interface ValidationIssue {
   sourceCommand: string;
   message: string;
   guidance?: string;
+  metadata?: {
+    missingConfigKey?: string;
+  };
 }
 
 export interface ApprovalSignal {

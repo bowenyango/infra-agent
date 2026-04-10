@@ -39,9 +39,11 @@ const DOMAIN_DEFINITIONS: DomainDefinition[] = [
     supportedTaskKinds: [
       'inspect projects and stacks',
       'update stack config values',
+      'repair missing bounded stack config',
       'reuse existing stack namespaces'
     ],
     boundedEditKinds: [
+      'pulumi-missing-config-repair',
       'pulumi-stack-config'
     ],
     validatorCommands: [

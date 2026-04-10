@@ -9,6 +9,7 @@ const DOMAIN_EDIT_PLAN_ORDER: Record<InfraDomainId, EditPlanKind[]> = {
     'helm-probes'
   ],
   pulumi: [
+    'pulumi-missing-config-repair',
     'pulumi-stack-config'
   ],
   terraform: [

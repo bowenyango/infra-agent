@@ -103,9 +103,14 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
 
       issues.push(buildIssue(result, {
         kind: missingConfigMatch ? 'pulumi-missing-config' : 'pulumi-preview-failure',
-        repairable: false,
+        repairable: Boolean(missingConfigMatch),
         message: combinedOutput.trim().slice(0, 400) || 'Pulumi preview reported a configuration error.',
-        guidance: buildPulumiPreviewGuidance(combinedOutput)
+        guidance: buildPulumiPreviewGuidance(combinedOutput),
+        metadata: missingConfigMatch?.[1]
+          ? {
+              missingConfigKey: missingConfigMatch[1].trim()
+            }
+          : undefined
       }));
       continue;
     }

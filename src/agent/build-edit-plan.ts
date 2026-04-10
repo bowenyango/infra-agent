@@ -2,7 +2,7 @@ import { buildHelmIngressEditPlan } from './edit-plans/helm-ingress.ts';
 import { buildHelmIngressValuesRepairEditPlan } from './edit-plans/helm-ingress-values-repair.ts';
 import { buildHelmProbesEditPlan } from './edit-plans/helm-probes.ts';
 import { buildHelmServicePortRepairEditPlan } from './edit-plans/helm-service-port-repair.ts';
-import { buildPulumiStackConfigEditPlan } from './edit-plans/pulumi-stack-config.ts';
+import { buildPulumiMissingConfigRepairEditPlan, buildPulumiStackConfigEditPlan } from './edit-plans/pulumi-stack-config.ts';
 import { buildTerraformTfvarsConfigEditPlan } from './edit-plans/terraform-tfvars-config.ts';
 import { prioritizeEditPlanKinds } from './edit-plan-priority.ts';
 import { classifyWritePlan } from './classify-write-plan.ts';
@@ -17,6 +17,7 @@ export function buildEditPlan(runtime: AgentRuntimeState): EditPlan | null {
     'helm-ingress-values-repair': buildHelmIngressValuesRepairEditPlan,
     'helm-ingress': buildHelmIngressEditPlan,
     'helm-probes': buildHelmProbesEditPlan,
+    'pulumi-missing-config-repair': buildPulumiMissingConfigRepairEditPlan,
     'pulumi-stack-config': buildPulumiStackConfigEditPlan,
     'terraform-tfvars-config': buildTerraformTfvarsConfigEditPlan
   } as const;
