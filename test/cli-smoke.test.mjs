@@ -16,7 +16,7 @@ import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
-import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizeRecommendedNextSteps } from '../src/cli/output.ts';
+import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizeRecommendedNextSteps, summarizeSuggestedCommands } from '../src/cli/output.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
@@ -1640,6 +1640,38 @@ test('summarizeRecommendedNextSteps suggests approval continuation for approval-
   assert.ok(steps.some(step => /--approve-write-risk/i.test(step)));
 });
 
+test('summarizeSuggestedCommands includes approval continuation flags for approval-required runs', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const commands = summarizeSuggestedCommands({
+    modelName: 'test-model',
+    outcome: 'approval-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [
+        {
+          kind: 'write-approval-required',
+          path: 'charts/payments-api/values.yaml',
+          risk: 'high',
+          message: 'Approval required.'
+        }
+      ],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(commands[0]?.includes('agent'));
+  assert.ok(commands[0]?.includes('--approve-write-risk high'));
+  assert.ok(commands[0]?.includes('--approve-write-path "charts/payments-api/values.yaml"'));
+});
+
 test('summarizeRecommendedNextSteps surfaces Terraform validation guidance for blocked runs', async () => {
   const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
   const steps = summarizeRecommendedNextSteps({
@@ -1736,6 +1768,37 @@ test('summarizeAgentSnapshot highlights validation failure and approval count', 
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/payments-api/i.test(line)));
   assert.ok(snapshot.some(line => /Validation status: failed/i.test(line)));
   assert.ok(snapshot.some(line => /Top validation issue: terraform-validate-failure/i.test(line)));
+});
+
+test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const commands = summarizeSuggestedCommands({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [
+        {
+          kind: 'terraform-validate-failure',
+          repairable: false,
+          sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+          message: 'Error: Missing required argument'
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(commands.some(command => /inspect/.test(command)));
+  assert.ok(commands.some(command => /run/.test(command)));
 });
 
 test('rule-based planner asks Terraform-specific clarification questions when Terraform task lacks root and environment detail', async () => {

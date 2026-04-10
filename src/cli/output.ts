@@ -21,6 +21,22 @@ function printList(items: string[], fallback: string): void {
   }
 }
 
+function shellQuote(value: string): string {
+  return `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+}
+
+function buildCliBaseCommand(): string {
+  return 'node --experimental-strip-types src/cli/main.ts';
+}
+
+function buildWorkspaceFlag(workspaceRoot: string): string {
+  return `--workspace ${shellQuote(workspaceRoot)}`;
+}
+
+function buildTaskFlag(task: string): string {
+  return shellQuote(task);
+}
+
 export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
   const lines: string[] = [];
   const topTarget = state.targetCandidates[0];
@@ -85,6 +101,43 @@ export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
     default:
       steps.push('Review target ambiguity, workspace policy, or missing validators before rerunning the task.');
       return steps;
+  }
+}
+
+export function summarizeSuggestedCommands(state: AgentRunState): string[] {
+  const base = buildCliBaseCommand();
+  const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
+  const taskFlag = buildTaskFlag(state.preflight.task);
+  const topApprovalSignal = state.runtime.approvalSignals[0];
+
+  switch (state.outcome) {
+    case 'approval-required':
+      if (topApprovalSignal) {
+        return [
+          `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${topApprovalSignal.risk} --approve-write-path ${shellQuote(topApprovalSignal.path)}`
+        ];
+      }
+      return [`${base} agent ${taskFlag} ${workspaceFlag}`];
+    case 'clarification-required':
+      return [
+        `${base} run ${taskFlag} ${workspaceFlag}`,
+        `${base} inspect ${shellQuote(state.preflight.workspaceRoot)}`
+      ];
+    case 'validation-blocked':
+    case 'repair-budget-exhausted':
+      return [
+        `${base} inspect ${shellQuote(state.preflight.workspaceRoot)}`,
+        `${base} run ${taskFlag} ${workspaceFlag}`
+      ];
+    case 'completed':
+      return [
+        `${base} agent ${taskFlag} ${workspaceFlag} --json`
+      ];
+    case 'no-safe-action':
+    default:
+      return [
+        `${base} run ${taskFlag} ${workspaceFlag}`
+      ];
   }
 }
 
@@ -258,6 +311,9 @@ export function printAgentRunState(state: AgentRunState): void {
   process.stdout.write('\n');
   printHeader('Recommended Next Step');
   printList(summarizeRecommendedNextSteps(state), 'No next step summary available.');
+  process.stdout.write('\n');
+  printHeader('Suggested Commands');
+  printList(summarizeSuggestedCommands(state), 'No suggested commands available.');
 
   for (let index = 0; index < state.turns.length; index += 1) {
     const turn = state.turns[index];
