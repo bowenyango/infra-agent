@@ -22,6 +22,7 @@ import type { RunPreflightState } from '../types/repository.ts';
 function buildNextActions(state: {
   profileLabel: string;
   profileId: string;
+  detectedDomains: string[];
   repoLooksValid: boolean;
   hasHelmCharts: boolean;
   hasPulumiProjects: boolean;
@@ -39,6 +40,10 @@ function buildNextActions(state: {
 
   if (state.profileId !== 'generic') {
     nextActions.push(`Apply ${state.profileLabel} repository conventions before generating edits.`);
+  }
+
+  if (state.detectedDomains.length > 0) {
+    nextActions.push(`Use the detected domain surfaces (${state.detectedDomains.join(', ')}) instead of generic file edits whenever a bounded domain-specific path exists.`);
   }
 
   if (state.hasAssumptions) {
@@ -160,6 +165,7 @@ export async function buildRunPreflight(
   const nextActions = buildNextActions({
     profileLabel: inspection.profile.label,
     profileId: inspection.profile.id,
+    detectedDomains: inspection.domainCapabilities.map(domain => domain.label),
     repoLooksValid: looksLikeInfraWorkspace(inspection),
     hasHelmCharts: inspection.helmCharts.length > 0,
     hasPulumiProjects: inspection.pulumiProjects.length > 0,

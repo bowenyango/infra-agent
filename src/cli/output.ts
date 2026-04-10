@@ -1,5 +1,6 @@
 import type { AgentRunState } from '../agent/run-single-step.ts';
 import type {
+  DomainCapabilitySummary,
   RunPreflightState,
   ValidationPreflight,
   WorkspaceInspection
@@ -19,6 +20,10 @@ function printList(items: string[], fallback: string): void {
   for (const item of items) {
     process.stdout.write(`- ${item}\n`);
   }
+}
+
+function formatDomainCapability(domain: DomainCapabilitySummary): string {
+  return `${domain.label}: ${domain.detectedTargets} target(s); tasks=${domain.supportedTaskKinds.join(', ')}; edits=${domain.boundedEditKinds.join(', ')}; validators=${domain.validatorCommands.join(', ')}`;
 }
 
 function shellQuote(value: string): string {
@@ -43,6 +48,7 @@ export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
   const unavailableValidators = state.validation.validators.filter(validator => !validator.available).map(validator => validator.name);
 
   lines.push(`Profile: ${state.profile.id}`);
+  lines.push(`Detected domains: ${state.inspection.domainCapabilities.length > 0 ? state.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
   lines.push(`Requested environment: ${state.requestedEnvironment ?? 'undetected'}`);
   lines.push(`Requested service: ${state.requestedService ?? 'undetected'}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path} (score=${topTarget.score})` : 'undetected'}`);
@@ -175,6 +181,7 @@ export function summarizeAgentSnapshot(state: AgentRunState): string[] {
 
   lines.push(`Outcome: ${state.outcome}`);
   lines.push(`Model: ${state.modelName}`);
+  lines.push(`Detected domains: ${state.preflight.inspection.domainCapabilities.length > 0 ? state.preflight.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path}` : 'undetected'}`);
   lines.push(`Repair attempts: ${state.runtime.repairAttempts}`);
   lines.push(`Validation status: ${state.runtime.validationResults.length === 0 ? 'not run yet' : state.runtime.validationResults.every(result => result.exitCode === 0) ? 'passed' : 'failed'}`);
@@ -226,6 +233,14 @@ export function printInspection(inspection: WorkspaceInspection): void {
   printList(
     inspection.terraformRoots.map(root => `${root.rootPath} (${root.tfFiles.length} .tf file(s), ${root.tfvarsFiles.length} tfvars file(s))`),
     'No Terraform roots detected.'
+  );
+
+  process.stdout.write('\n');
+
+  printHeader('Domain Capabilities');
+  printList(
+    inspection.domainCapabilities.map(formatDomainCapability),
+    'No supported infra domains detected.'
   );
 }
 
@@ -297,6 +312,13 @@ export function printRunPreflight(state: RunPreflightState): void {
     'No kind-scoped target constraints.'
   );
   printList(state.effectiveEditPolicy.sources, 'No edit policy sources recorded.');
+  process.stdout.write('\n');
+
+  printHeader('Domain Capabilities');
+  printList(
+    state.inspection.domainCapabilities.map(formatDomainCapability),
+    'No supported infra domains detected.'
+  );
   process.stdout.write('\n');
 
   printHeader('Targeting');

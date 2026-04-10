@@ -29,6 +29,7 @@ test('inspect command detects fixture workspace assets', () => {
     assert.equal(result.profile.id, 'generic');
     assert.equal(result.helmCharts.length, 1);
     assert.equal(result.pulumiProjects.length, 1);
+    assert.deepEqual(result.domainCapabilities.map(domain => domain.id), ['helm', 'pulumi']);
   });
 });
 
@@ -156,10 +157,34 @@ test('summarizePreflightSnapshot highlights primary target and top ambiguity', a
   const preflight = await buildRunPreflight('update terraform image tag to 2.3.4', 'fixtures/terraform-multi-root-workspace');
   const snapshot = summarizePreflightSnapshot(preflight);
 
+  assert.ok(snapshot.some(line => /Detected domains: Terraform/i.test(line)));
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/network-stack/i.test(line)));
   assert.ok(snapshot.some(line => /Requested service: undetected/i.test(line)));
   assert.ok(snapshot.some(line => /Approval posture: writes with risk high require approval/i.test(line)));
   assert.ok(snapshot.some(line => /Validation readiness:/i.test(line)));
+});
+
+test('inspectWorkspace resolves specialized domain capabilities for mixed infra workspaces', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+
+  assert.deepEqual(
+    inspection.domainCapabilities.map(domain => domain.id),
+    ['helm', 'pulumi']
+  );
+  const helmCapability = inspection.domainCapabilities.find(domain => domain.id === 'helm');
+  const pulumiCapability = inspection.domainCapabilities.find(domain => domain.id === 'pulumi');
+  assert.ok(helmCapability?.boundedEditKinds.includes('helm-ingress'));
+  assert.ok(helmCapability?.validatorCommands.includes('helm lint'));
+  assert.ok(pulumiCapability?.boundedEditKinds.includes('pulumi-stack-config'));
+  assert.ok(pulumiCapability?.supportedTaskKinds.some(kind => /stack config/i.test(kind)));
+});
+
+test('inspectWorkspace resolves Terraform domain capability for terraform-only workspaces', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+
+  assert.deepEqual(inspection.domainCapabilities.map(domain => domain.id), ['terraform']);
+  assert.equal(inspection.domainCapabilities[0]?.detectedTargets, 1);
+  assert.ok(inspection.domainCapabilities[0]?.validatorCommands.includes('terraform validate'));
 });
 
 test('summarizePreflightSuggestedCommands recommends inspect and rerun when preflight has ambiguity', async () => {

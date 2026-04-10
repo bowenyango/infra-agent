@@ -1,11 +1,21 @@
 import type { EditPlanKind, FileWriteMode, FileWriteRisk } from './edit-plan.ts';
 
 export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
+export type InfraDomainId = 'helm' | 'pulumi' | 'terraform';
 
 export interface RepoProfile {
   id: RepoProfileId;
   label: string;
   reasons: string[];
+}
+
+export interface DomainCapabilitySummary {
+  id: InfraDomainId;
+  label: string;
+  detectedTargets: number;
+  supportedTaskKinds: string[];
+  boundedEditKinds: string[];
+  validatorCommands: string[];
 }
 
 export interface WorkspaceValidationConfigEntry {
@@ -86,6 +96,7 @@ export interface WorkspaceInspection {
   workspaceRoot: string;
   profile: RepoProfile;
   config: WorkspaceAgentConfig | null;
+  domainCapabilities: DomainCapabilitySummary[];
   helmCharts: HelmChartSummary[];
   pulumiProjects: PulumiProjectSummary[];
   terraformRoots: TerraformRootSummary[];

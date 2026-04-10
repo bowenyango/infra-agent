@@ -4,6 +4,7 @@ import {
   shouldIgnoreDirectory
 } from '../tools/repository/repository-tools.ts';
 import { detectRepoProfile } from './repo-profile.ts';
+import { resolveDomainCapabilities } from './domain-capabilities.ts';
 import { readWorkspaceConfig } from './workspace-config.ts';
 import type {
   HelmChartSummary,
@@ -198,6 +199,11 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
       workspaceConfig,
       helmCharts: state.helmCharts,
       pulumiProjects: state.pulumiProjects
+    }),
+    domainCapabilities: resolveDomainCapabilities({
+      helmCharts: state.helmCharts,
+      pulumiProjects: state.pulumiProjects,
+      terraformRoots: state.terraformRoots
     }),
     helmCharts: state.helmCharts,
     pulumiProjects: state.pulumiProjects,
