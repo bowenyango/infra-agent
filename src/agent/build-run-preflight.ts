@@ -127,6 +127,16 @@ export async function buildRunPreflight(
     assumptions.push(`Terraform root ${topTerraformTarget.rootPath} has no existing tfvars file. In generic mode, clarify whether the agent should create terraform.auto.tfvars before editing.`);
   }
 
+  if (
+    topTerraformTarget
+    && !targeting.requestedEnvironment
+    && topTerraformTarget.tfvarsFiles.length > 1
+  ) {
+    assumptions.push(
+      `Terraform root ${topTerraformTarget.rootPath} exposes multiple tfvars files (${topTerraformTarget.tfvarsFiles.join(', ')}). Clarify which environment or tfvars file should be updated before editing.`
+    );
+  }
+
   const shouldSurfaceEditPolicyAsAssumption = effectiveEditPolicy.sources.some(source => source.startsWith('workspace-config:'));
 
   if (shouldSurfaceEditPolicyAsAssumption && effectiveEditPolicy.allowedEditPlanKinds) {

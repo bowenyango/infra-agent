@@ -250,6 +250,13 @@ test('buildRunPreflight asks for clarification before creating tfvars in generic
   assert.ok(preflight.assumptions.some(assumption => /has no existing tfvars file/i.test(assumption)));
 });
 
+test('buildRunPreflight asks for clarification before selecting among multiple tfvars files without an explicit environment', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api image tag to 2.3.4', 'fixtures/terraform-multi-tfvars-workspace');
+
+  assert.ok(preflight.assumptions.some(assumption => /multiple tfvars files/i.test(assumption)));
+  assert.ok(preflight.assumptions.some(assumption => /which environment or tfvars file should be updated/i.test(assumption)));
+});
+
 test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
   const effectivePolicy = resolveEffectiveEditPolicy(
     {
@@ -2183,6 +2190,113 @@ test('buildEditPlan does not auto-create tfvars in generic terraform-only worksp
   });
 
   assert.equal(editPlan, null);
+});
+
+test('buildEditPlan does not implicitly select one tfvars file when multiple Terraform tfvars options exist without an explicit environment', async () => {
+  const preflight = await buildRunPreflight(
+    'update terraform payments-api image tag to 2.3.4',
+    'fixtures/terraform-multi-tfvars-workspace'
+  );
+  const mainTfPath = resolve('fixtures/terraform-multi-tfvars-workspace/terraform/payments-api/main.tf');
+  const devTfvarsPath = resolve('fixtures/terraform-multi-tfvars-workspace/terraform/payments-api/dev.auto.tfvars');
+  const prodTfvarsPath = resolve('fixtures/terraform-multi-tfvars-workspace/terraform/payments-api/prod.auto.tfvars');
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: devTfvarsPath,
+          content: await readFile(devTfvarsPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: prodTfvarsPath,
+          content: await readFile(prodTfvarsPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan, null);
+});
+
+test('buildEditPlan selects the matching tfvars file when Terraform environment is explicit', async () => {
+  const preflight = await buildRunPreflight(
+    'update terraform payments-api prod image tag to 2.3.4',
+    'fixtures/terraform-multi-tfvars-workspace'
+  );
+  const mainTfPath = resolve('fixtures/terraform-multi-tfvars-workspace/terraform/payments-api/main.tf');
+  const devTfvarsPath = resolve('fixtures/terraform-multi-tfvars-workspace/terraform/payments-api/dev.auto.tfvars');
+  const prodTfvarsPath = resolve('fixtures/terraform-multi-tfvars-workspace/terraform/payments-api/prod.auto.tfvars');
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: devTfvarsPath,
+          content: await readFile(devTfvarsPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: prodTfvarsPath,
+          content: await readFile(prodTfvarsPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan?.kind, 'terraform-tfvars-config');
+  assert.equal(editPlan?.writes[0]?.path, 'terraform/payments-api/prod.auto.tfvars');
+  assert.match(editPlan?.writes[0]?.content ?? '', /image_tag = "2.3.4"/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /environment = "prod"/);
 });
 
 test('buildEditPlan reuses existing Terraform variable key names from tfvars and variable declarations', async () => {

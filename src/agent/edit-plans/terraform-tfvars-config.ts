@@ -79,6 +79,14 @@ function selectTfvarsPath(tfvarsFiles: string[], requestedEnvironment: string | 
     ?? join(rootPath, 'terraform.auto.tfvars');
 }
 
+function requiresTfvarsClarification(tfvarsFiles: string[], requestedEnvironment: string | null): boolean {
+  if (requestedEnvironment) {
+    return false;
+  }
+
+  return tfvarsFiles.length > 1;
+}
+
 function collectTerraformFileContents(runtime: AgentRuntimeState, rootPath: string, filePaths: string[]): string[] {
   return filePaths
     .filter(filePath => filePath.startsWith(rootPath))
@@ -156,6 +164,10 @@ export function buildTerraformTfvarsConfigEditPlan(runtime: AgentRuntimeState): 
   }
 
   if (runtime.preflight.profile.id === 'generic' && root.tfvarsFiles.length === 0) {
+    return null;
+  }
+
+  if (requiresTfvarsClarification(root.tfvarsFiles, runtime.preflight.requestedEnvironment)) {
     return null;
   }
 
