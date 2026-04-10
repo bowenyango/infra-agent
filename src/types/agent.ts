@@ -13,6 +13,27 @@ export type AgentClarificationKind =
   | 'target-ambiguity'
   | 'workspace-policy'
   | 'general';
+export type AgentActionFamily =
+  | 'runtime-clarification'
+  | 'approval-clarification'
+  | 'helm-clarification'
+  | 'pulumi-clarification'
+  | 'terraform-clarification'
+  | 'helm-inspection'
+  | 'pulumi-inspection'
+  | 'terraform-inspection'
+  | 'runtime-inspection'
+  | 'helm-bounded-edit'
+  | 'pulumi-bounded-edit'
+  | 'terraform-bounded-edit'
+  | 'helm-validation'
+  | 'pulumi-validation'
+  | 'terraform-validation'
+  | 'terraform-repair'
+  | 'validation-complete'
+  | 'validation-blocked'
+  | 'repair-budget-exhausted'
+  | 'runtime-stop';
 export type AgentStopReason =
   | 'validation-succeeded'
   | 'validation-blocked'
@@ -41,6 +62,7 @@ export interface AgentAction {
     writes?: FileWritePlan[];
     editPlan?: EditPlan;
     clarificationKind?: AgentClarificationKind;
+    actionFamily?: AgentActionFamily;
     stopReason?: AgentStopReason;
   };
 }

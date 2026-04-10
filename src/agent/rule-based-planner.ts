@@ -1,6 +1,8 @@
 import { BasePlanningModel } from './planning-model.ts';
 import type { AgentDecision, AgentPlanningInput } from '../types/agent.ts';
 import { selectValidationCommands } from './select-validation-commands.ts';
+import type { AgentActionFamily, AgentClarificationKind, AgentStopReason } from '../types/agent.ts';
+import type { EditPlanKind } from '../types/edit-plan.ts';
 
 function toTopTargetPaths(input: AgentPlanningInput): string[] {
   return input.runtime.preflight.targetCandidates
@@ -147,6 +149,91 @@ function summarizeValidationRationale(input: AgentPlanningInput): string {
   return 'The workspace has detectable validation targets and validators are available.';
 }
 
+function getPrimaryRequestedDomain(input: AgentPlanningInput): string | null {
+  return input.runtime.preflight.requestedDomains[0] ?? null;
+}
+
+function actionFamilyForClarification(input: AgentPlanningInput, clarificationKind: AgentClarificationKind): AgentActionFamily {
+  if (clarificationKind === 'approval-required') {
+    return 'approval-clarification';
+  }
+
+  const primaryDomain = getPrimaryRequestedDomain(input);
+  if (primaryDomain === 'terraform') {
+    return 'terraform-clarification';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return 'pulumi-clarification';
+  }
+
+  if (primaryDomain === 'helm') {
+    return 'helm-clarification';
+  }
+
+  return 'runtime-clarification';
+}
+
+function actionFamilyForInspection(input: AgentPlanningInput): AgentActionFamily {
+  const primaryDomain = getPrimaryRequestedDomain(input);
+  if (primaryDomain === 'terraform') {
+    return 'terraform-inspection';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return 'pulumi-inspection';
+  }
+
+  if (primaryDomain === 'helm') {
+    return 'helm-inspection';
+  }
+
+  return 'runtime-inspection';
+}
+
+function actionFamilyForValidation(input: AgentPlanningInput): AgentActionFamily {
+  const primaryDomain = getPrimaryRequestedDomain(input);
+  if (primaryDomain === 'terraform') {
+    return 'terraform-validation';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return 'pulumi-validation';
+  }
+
+  if (primaryDomain === 'helm') {
+    return 'helm-validation';
+  }
+
+  return 'runtime-stop';
+}
+
+function actionFamilyForEditPlan(kind: EditPlanKind): AgentActionFamily {
+  if (kind.startsWith('terraform-')) {
+    return 'terraform-bounded-edit';
+  }
+
+  if (kind.startsWith('pulumi-')) {
+    return 'pulumi-bounded-edit';
+  }
+
+  return 'helm-bounded-edit';
+}
+
+function actionFamilyForStopReason(stopReason: AgentStopReason): AgentActionFamily {
+  switch (stopReason) {
+    case 'validation-succeeded':
+      return 'validation-complete';
+    case 'validation-blocked':
+      return 'validation-blocked';
+    case 'repair-budget-exhausted':
+      return 'repair-budget-exhausted';
+    case 'no-safe-action':
+    default:
+      return 'runtime-stop';
+  }
+}
+
 export class RuleBasedPlanningModel extends BasePlanningModel {
   readonly name = 'rule-based-planner';
 
@@ -192,7 +279,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
               'Should the workspace write policy be expanded for this task?',
               'Is there a different writable target path the agent should modify instead?'
             ],
-            clarificationKind: 'workspace-policy'
+            clarificationKind: 'workspace-policy',
+            actionFamily: actionFamilyForClarification(input, 'workspace-policy')
           }
         }
       };
@@ -224,11 +312,12 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
                 ? buildPulumiClarificationQuestions(input, 'missing-workspace')
                 : taskMentionsHelm
                   ? buildHelmClarificationQuestions(input, 'missing-workspace')
-              : [
+                : [
                   'Which repository or subdirectory contains the target Helm chart, Pulumi project, or Terraform root?',
                   'Should the agent modify an existing infrastructure target, or is a new target expected?'
                 ],
-            clarificationKind: 'target-ambiguity'
+            clarificationKind: 'target-ambiguity',
+            actionFamily: actionFamilyForClarification(input, 'target-ambiguity')
           }
         }
       };
@@ -276,7 +365,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
                   'What is the exact target service or chart name?',
                   'Which environment should be modified?'
                 ],
-            clarificationKind: 'target-ambiguity'
+            clarificationKind: 'target-ambiguity',
+            actionFamily: actionFamilyForClarification(input, 'target-ambiguity')
           }
         }
       };
@@ -291,7 +381,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           rationale: summarizeInspectionRationale(input),
           payload: {
             targetPaths: toTopTargetPaths(input),
-            requestedDomains: preflight.requestedDomains
+            requestedDomains: preflight.requestedDomains,
+            actionFamily: actionFamilyForInspection(input)
           }
         }
       };
@@ -307,7 +398,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             rationale: 'The current edit plan includes one or more high-risk full-file rewrites that should be explicitly approved before execution.',
             payload: {
               questions: runtime.approvalSignals.map(signal => `${signal.message} Proceed with this rewrite?`),
-              clarificationKind: 'approval-required'
+              clarificationKind: 'approval-required',
+              actionFamily: actionFamilyForClarification(input, 'approval-required')
             }
           }
         };
@@ -321,7 +413,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           rationale: editPlan.rationale,
           payload: {
             writes: editPlan.writes,
-            editPlan
+            editPlan,
+            actionFamily: actionFamilyForEditPlan(editPlan.kind)
           }
         }
       };
@@ -335,7 +428,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           summary: `Run terraform fmt for ${topTerraformTarget.path} before retrying validation.`,
           rationale: terraformFormattingIssue.message,
           payload: {
-            rootPath: topTerraformTarget.path
+            rootPath: topTerraformTarget.path,
+            actionFamily: 'terraform-repair'
           }
         }
       };
@@ -350,7 +444,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           rationale: `Repair loop: ${editPlan.rationale}`,
           payload: {
             writes: editPlan.writes,
-            editPlan
+            editPlan,
+            actionFamily: actionFamilyForEditPlan(editPlan.kind)
           }
         }
       };
@@ -365,7 +460,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           summary: summarizeValidationStep(input),
           rationale: summarizeValidationRationale(input),
           payload: {
-            commands
+            commands,
+            actionFamily: actionFamilyForValidation(input)
           }
         }
       };
@@ -379,7 +475,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           summary: 'Validation completed successfully.',
           rationale: 'The applied bounded edits passed the configured validation commands for the selected targets.',
           payload: {
-            stopReason: 'validation-succeeded'
+            stopReason: 'validation-succeeded',
+            actionFamily: actionFamilyForStopReason('validation-succeeded')
           }
         }
       };
@@ -401,7 +498,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
               ? `Validation failed with an unclassified blocker: ${unrepairableIssue.message}`
               : 'The current runtime captured validation failures, but the bounded repair planner could not derive a safe follow-up edit.',
           payload: {
-            stopReason: repairBudgetExhausted ? 'repair-budget-exhausted' : 'validation-blocked'
+            stopReason: repairBudgetExhausted ? 'repair-budget-exhausted' : 'validation-blocked',
+            actionFamily: actionFamilyForStopReason(repairBudgetExhausted ? 'repair-budget-exhausted' : 'validation-blocked')
           }
         }
       };
@@ -414,7 +512,8 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
         summary: 'No additional safe action was identified for the current task.',
         rationale: 'The current runtime state does not support another bounded edit or validation step.',
         payload: {
-          stopReason: 'no-safe-action'
+          stopReason: 'no-safe-action',
+          actionFamily: actionFamilyForStopReason('no-safe-action')
         }
       }
     };

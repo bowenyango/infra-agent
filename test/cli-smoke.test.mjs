@@ -2302,6 +2302,7 @@ test('rule-based planner emits Terraform-specific inspection summary for Terrafo
   });
 
   assert.equal(decision.action.kind, 'inspect-target-files');
+  assert.equal(decision.action.payload?.actionFamily, 'terraform-inspection');
   assert.match(decision.action.summary, /Inspect the selected Terraform root files/i);
   assert.match(decision.action.rationale, /requested terraform task/i);
 });
@@ -2342,8 +2343,82 @@ test('rule-based planner emits Helm-specific validation summary for Helm tasks',
   });
 
   assert.equal(decision.action.kind, 'validate-targets');
+  assert.equal(decision.action.payload?.actionFamily, 'helm-validation');
   assert.match(decision.action.summary, /Run Helm validators for the selected chart/i);
   assert.match(decision.action.rationale, /requested helm path/i);
+});
+
+test('rule-based planner tags Pulumi ambiguity clarifications with a Pulumi action family', async () => {
+  const preflight = await buildRunPreflight('update pulumi stack', 'fixtures/sample-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.actionFamily, 'pulumi-clarification');
+});
+
+test('rule-based planner tags validation-blocked stop actions with validation-blocked action family', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: 'terraform/payments-api/main.tf',
+            content: 'variable "app_image_tag" { type = string }\n',
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [
+        {
+          path: 'terraform/payments-api/dev.auto.tfvars',
+          content: 'app_image_tag = "2.3.4"\n',
+          reason: 'test write'
+        }
+      ],
+      validationResults: [
+        {
+          command: 'terraform -chdir=terraform/payments-api validate',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'Error: Missing required argument'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'terraform-validate-failure',
+          repairable: false,
+          sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+          message: 'Error: Missing required argument'
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.actionFamily, 'validation-blocked');
+  assert.equal(decision.action.payload?.stopReason, 'validation-blocked');
 });
 
 test('rule-based agent repairs missing ingress values after validation failure', async () => {

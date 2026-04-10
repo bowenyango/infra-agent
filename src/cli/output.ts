@@ -82,6 +82,11 @@ function summarizeBoundedPath(state: AgentRunState): string {
     return `${domainFromEditPlanKind(lastEditPlan.kind)} -> ${lastEditPlan.kind}`;
   }
 
+  const lastTurnActionFamily = state.turns[state.turns.length - 1]?.decision.action.payload?.actionFamily;
+  if (lastTurnActionFamily) {
+    return lastTurnActionFamily;
+  }
+
   const validationCommands = state.runtime.validationResults.map(result => result.command);
   if (validationCommands.some(command => command.includes('terraform '))) {
     return 'Terraform -> validation';
@@ -479,6 +484,10 @@ export function printAgentRunState(state: AgentRunState): void {
 
     if (decision.action.payload?.clarificationKind) {
       process.stdout.write(`clarification kind: ${decision.action.payload.clarificationKind}\n`);
+    }
+
+    if (decision.action.payload?.actionFamily) {
+      process.stdout.write(`action family: ${decision.action.payload.actionFamily}\n`);
     }
 
     if (decision.action.payload?.targetPaths && decision.action.payload.targetPaths.length > 0) {
