@@ -65,3 +65,17 @@ export interface TerraformFormatRepairOutput {
   stderr: string;
   formattedFiles: TerraformFormattedFile[];
 }
+
+export interface PulumiConfigSetOutput {
+  workspaceRoot: string;
+  projectRoot: string;
+  stackName: string;
+  key: string;
+  value: string;
+  stackFilePath: string;
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  content: string;
+}

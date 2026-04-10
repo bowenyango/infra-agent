@@ -18,6 +18,7 @@ import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
 import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizePreflightSuggestedCommands, summarizeRecommendedNextSteps, summarizeSuggestedCommands } from '../src/cli/output.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
+import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
 import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
@@ -1611,6 +1612,98 @@ test('apply-edit-plan execution uses replace_file for replace-mode writes', asyn
     assert.equal(execution?.executedTools[1]?.toolName, 'replace_file');
     const updatedDeployment = await readFile(deploymentPath, 'utf8');
     assert.match(updatedDeployment, /readinessProbe:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('PulumiConfigSetTool applies bounded stack config updates through the Pulumi CLI', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-config-set-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const result = await executeTool(
+      PulumiConfigSetTool,
+      {
+        projectRoot: 'infra/payments-api',
+        stackName: 'dev',
+        key: 'payments-api:imageTag',
+        value: '9.9.9'
+      },
+      {
+        workspaceRoot,
+        workspaceConfig: null
+      }
+    );
+
+    assert.equal(result.toolName, 'pulumi_config_set');
+    assert.equal(result.output.exitCode, 0);
+    assert.equal(result.output.stackFilePath, 'infra/payments-api/Pulumi.dev.yaml');
+    assert.match(result.output.content, /payments-api:imageTag: 9\.9\.9/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('apply-edit-plan execution uses pulumi_config_set for Pulumi stack config plans', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-apply-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const execution = await executeDecision(
+      {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: 'Apply Pulumi stack configuration updates.',
+          rationale: 'Use the native Pulumi CLI for bounded stack config writes.',
+          payload: {
+            editPlan: {
+              kind: 'pulumi-stack-config',
+              summary: 'Apply Pulumi stack configuration updates to infra/payments-api/Pulumi.dev.yaml.',
+              rationale: 'Synthetic Pulumi config write.',
+              pulumiConfigOperations: [
+                {
+                  projectRoot: 'infra/payments-api',
+                  stackName: 'dev',
+                  key: 'payments-api:environment',
+                  value: 'dev'
+                },
+                {
+                  projectRoot: 'infra/payments-api',
+                  stackName: 'dev',
+                  key: 'payments-api:imageTag',
+                  value: '2.4.6'
+                }
+              ],
+              writes: [
+                {
+                  path: 'infra/payments-api/Pulumi.dev.yaml',
+                  content: 'config:\n  payments-api:environment: dev\n  payments-api:imageTag: 2.4.6\n',
+                  reason: 'Synthetic Pulumi stack config write.'
+                }
+              ]
+            },
+            writes: [
+              {
+                path: 'infra/payments-api/Pulumi.dev.yaml',
+                content: 'config:\n  payments-api:environment: dev\n  payments-api:imageTag: 2.4.6\n',
+                reason: 'Synthetic Pulumi stack config write.'
+              }
+            ]
+          }
+        }
+      },
+      workspaceRoot,
+      null
+    );
+
+    assert.ok(execution);
+    assert.equal(execution?.executedTools[0]?.toolName, 'diff_preview');
+    assert.ok(execution?.executedTools.some(tool => tool.toolName === 'pulumi_config_set'));
+    assert.ok(execution?.executedTools.every(tool => tool.toolName !== 'write_file'));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

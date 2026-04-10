@@ -7,7 +7,7 @@ import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from '.
 import type { RunPreflightState } from './types/repository.ts';
 import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
-import type { FileReadOutput, TerraformFormatRepairOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
+import type { FileReadOutput, PulumiConfigSetOutput, TerraformFormatRepairOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
 import type { AgentRunOutcome } from './types/agent.ts';
@@ -41,6 +41,24 @@ function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDec
         safety: 'read_only',
         output: {
           path: output.path,
+          content: output.content,
+          truncated: false
+        } satisfies FileReadOutput
+      });
+    }
+
+    if (toolResult.toolName === 'pulumi_config_set') {
+      const output = toolResult.output as PulumiConfigSetOutput;
+      nextRuntime.appliedWrites.push({
+        path: output.stackFilePath,
+        content: output.content,
+        reason: `Applied ${output.key} via pulumi_config_set tool.`
+      } satisfies FileWritePlan);
+      nextRuntime.observations.push({
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: output.stackFilePath,
           content: output.content,
           truncated: false
         } satisfies FileReadOutput

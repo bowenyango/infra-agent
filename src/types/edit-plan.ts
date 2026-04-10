@@ -28,4 +28,10 @@ export interface EditPlan {
   summary: string;
   rationale: string;
   writes: FileWritePlan[];
+  pulumiConfigOperations?: Array<{
+    projectRoot: string;
+    stackName: string;
+    key: string;
+    value: string;
+  }>;
 }

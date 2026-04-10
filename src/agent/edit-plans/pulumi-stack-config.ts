@@ -246,6 +246,20 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
     kind: 'pulumi-stack-config',
     summary: `Apply Pulumi stack configuration updates to ${stackFileRelativePath}.`,
     rationale: 'The task requests a stack-level configuration change and the selected Pulumi project exposes a matching stack file.',
+    pulumiConfigOperations: [
+      {
+        projectRoot: topPulumiTarget.path,
+        stackName,
+        key: `${configNamespace}:environment`,
+        value: environmentValue
+      },
+      {
+        projectRoot: topPulumiTarget.path,
+        stackName,
+        key: `${configNamespace}:imageTag`,
+        value: imageTag
+      }
+    ],
     writes: [
       {
         path: stackFileRelativePath,

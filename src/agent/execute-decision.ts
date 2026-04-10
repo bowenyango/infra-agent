@@ -5,6 +5,7 @@ import { executeTool } from '../services/tools/execute-tool.ts';
 import { AppendFileTool } from '../tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from '../tools/DiffPreviewTool/DiffPreviewTool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
+import { PulumiConfigSetTool } from '../tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
 import { ReplaceFileTool } from '../tools/ReplaceFileTool/ReplaceFileTool.ts';
 import { SearchWorkspaceTool } from '../tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
@@ -159,6 +160,7 @@ export async function executeDecision(
 
   if (decision.action.kind === 'apply-edit-plan') {
     const writes = decision.action.payload?.writes ?? [];
+    const editPlan = decision.action.payload?.editPlan;
     if (writes.length === 0) {
       return {
         status: 'skipped',
@@ -177,6 +179,25 @@ export async function executeDecision(
     }
 
     const toolResults = [];
+    if (editPlan?.kind === 'pulumi-stack-config' && editPlan.pulumiConfigOperations && editPlan.pulumiConfigOperations.length > 0) {
+      for (const write of allowedWrites) {
+        const diffResult = await executeTool(DiffPreviewTool, {
+          path: write.path,
+          nextContent: write.content
+        }, context);
+        toolResults.push(diffResult);
+      }
+
+      for (const operation of editPlan.pulumiConfigOperations) {
+        toolResults.push(await executeTool(PulumiConfigSetTool, operation, context));
+      }
+
+      return {
+        status: 'completed',
+        executedTools: toolResults
+      };
+    }
+
     for (const write of allowedWrites) {
       const diffResult = await executeTool(DiffPreviewTool, {
         path: write.path,
