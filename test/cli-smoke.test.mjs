@@ -256,6 +256,7 @@ test('prioritizeEditPlanKinds prefers requested Terraform domain before Helm and
   assert.deepEqual(
     prioritizeEditPlanKinds(['terraform']),
     [
+      'terraform-missing-required-argument-repair',
       'terraform-tfvars-config',
       'helm-service-port-repair',
       'helm-ingress-values-repair',
@@ -277,6 +278,7 @@ test('prioritizeEditPlanKinds preserves requested domain order for mixed-domain 
       'helm-ingress-values-repair',
       'helm-ingress',
       'helm-probes',
+      'terraform-missing-required-argument-repair',
       'terraform-tfvars-config'
     ]
   );
@@ -404,7 +406,10 @@ test('buildRunPreflight constrains generic terraform-only workspaces to tfvars e
   const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
 
   assert.equal(preflight.profile.id, 'generic');
-  assert.deepEqual(preflight.effectiveEditPolicy.allowedEditPlanKinds, ['terraform-tfvars-config']);
+  assert.deepEqual(preflight.effectiveEditPolicy.allowedEditPlanKinds, [
+    'terraform-missing-required-argument-repair',
+    'terraform-tfvars-config'
+  ]);
   assert.deepEqual(preflight.effectiveEditPolicy.allowedTargetPrefixes, ['terraform/payments-api']);
   assert.ok(preflight.effectiveEditPolicy.sources.some(source => source.includes('terraform-only generic workspace')));
 });
@@ -448,7 +453,10 @@ test('resolveEffectiveEditPolicy derives terraform root prefixes for generic ter
   const inspection = await inspectWorkspace('fixtures/terraform-multi-root-workspace');
   const effectivePolicy = resolveEffectiveEditPolicy(null, 'generic', inspection);
 
-  assert.deepEqual(effectivePolicy.allowedEditPlanKinds, ['terraform-tfvars-config']);
+  assert.deepEqual(effectivePolicy.allowedEditPlanKinds, [
+    'terraform-missing-required-argument-repair',
+    'terraform-tfvars-config'
+  ]);
   assert.deepEqual(effectivePolicy.allowedTargetPrefixes, [
     'terraform/network-stack',
     'terraform/worker-stack'
@@ -2987,6 +2995,67 @@ test('buildEditPlan creates a bounded Pulumi missing-config repair plan', async 
   assert.match(editPlan?.writes[0]?.content ?? '', /payments-api:imageTag: 1\.2\.3/);
 });
 
+test('buildEditPlan creates a bounded Terraform missing-required-argument repair plan', async () => {
+  const preflight = await buildRunPreflight(
+    'update terraform payments-api dev image tag to 2.3.4',
+    'fixtures/terraform-workspace'
+  );
+  const tfvarsPath = resolve('fixtures/terraform-workspace/terraform/payments-api/dev.auto.tfvars');
+  const mainTfPath = resolve('fixtures/terraform-workspace/terraform/payments-api/main.tf');
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: tfvarsPath,
+          content: 'environment = "dev"\n',
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [
+      {
+        command: 'terraform -chdir=terraform/payments-api validate',
+        exitCode: 1,
+        stdout: '',
+        stderr: 'Error: Missing required argument\n\nThe argument "image_tag" is required, but no definition was found.'
+      }
+    ],
+    validationIssues: [
+      {
+        kind: 'terraform-validate-failure',
+        repairable: true,
+        sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+        message: 'Error: Missing required argument',
+        metadata: {
+          missingVariableName: 'image_tag'
+        }
+      }
+    ],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan?.kind, 'terraform-missing-required-argument-repair');
+  assert.match(editPlan?.writes[0]?.content ?? '', /image_tag = "2\.3\.4"/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /environment = "dev"/);
+});
+
 test('inspect-target-files reads Terraform root files into runtime observations', async () => {
   const execution = await executeDecision(
     {
@@ -3058,6 +3127,8 @@ test('classifyValidationIssues provides actionable guidance for missing required
   ]);
 
   assert.equal(issues[0]?.kind, 'terraform-validate-failure');
+  assert.equal(issues[0]?.repairable, true);
+  assert.equal(issues[0]?.metadata?.missingVariableName, 'image_tag');
   assert.match(issues[0]?.guidance ?? '', /add the missing required argument through an existing tfvars file or declared variable path/i);
 });
 

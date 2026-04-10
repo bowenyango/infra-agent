@@ -95,6 +95,7 @@ export interface ValidationIssue {
   guidance?: string;
   metadata?: {
     missingConfigKey?: string;
+    missingVariableName?: string;
   };
 }
 

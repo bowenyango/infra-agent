@@ -56,9 +56,11 @@ const DOMAIN_DEFINITIONS: DomainDefinition[] = [
     supportedTaskKinds: [
       'inspect roots and tfvars',
       'update bounded tfvars values',
+      'repair missing required Terraform variables',
       'repair formatting before revalidation'
     ],
     boundedEditKinds: [
+      'terraform-missing-required-argument-repair',
       'terraform-tfvars-config'
     ],
     validatorCommands: [

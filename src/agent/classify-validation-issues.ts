@@ -28,6 +28,11 @@ function buildTerraformValidateGuidance(output: string): string {
   return 'Read the failing Terraform root, review variable declarations and tfvars, then correct the configuration before rerunning validation.';
 }
 
+function extractMissingRequiredTerraformArgument(output: string): string | null {
+  const match = output.match(/argument\s+"([^"]+)"\s+is required/i);
+  return match?.[1] ?? null;
+}
+
 function buildPulumiPreviewGuidance(output: string): string {
   const missingConfigMatch =
     output.match(/missing required configuration (?:key|variable)[^"'`]*["'`]([^"'`]+)["'`]/i)
@@ -87,11 +92,17 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
     }
 
     if (/terraform\b.*validate/i.test(result.command)) {
+      const missingVariableName = extractMissingRequiredTerraformArgument(combinedOutput);
       issues.push(buildIssue(result, {
         kind: 'terraform-validate-failure',
-        repairable: false,
+        repairable: Boolean(missingVariableName),
         message: combinedOutput.trim().slice(0, 400) || 'Terraform validate reported a configuration error.',
-        guidance: buildTerraformValidateGuidance(combinedOutput)
+        guidance: buildTerraformValidateGuidance(combinedOutput),
+        metadata: missingVariableName
+          ? {
+              missingVariableName
+            }
+          : undefined
       }));
       continue;
     }

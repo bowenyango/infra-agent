@@ -148,7 +148,126 @@ function inferTerraformKey(runtime: AgentRuntimeState, rootPath: string, tfFileP
     ?? params.fallback;
 }
 
+function buildTerraformTfvarsWrite(
+  runtime: AgentRuntimeState,
+  rootPath: string,
+  tfFilePaths: string[],
+  tfvarsFilePaths: string[],
+  preferredTfvarsPath: string,
+  params: {
+    imageTag?: string | null;
+    explicitKey?: string | null;
+    explicitValue?: string | null;
+  }
+): { nextContent: string; rationaleParts: string[] } | null {
+  const existingContent = getLatestFileContent(runtime, preferredTfvarsPath) ?? '';
+  const nextEnvironment = normalizeEnvironmentValue(runtime.preflight.requestedEnvironment);
+  const imageTagKey = inferTerraformKey(runtime, rootPath, tfFilePaths, tfvarsFilePaths, {
+    tfvarsPatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
+    variablePatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
+    fallback: 'image_tag'
+  });
+  const environmentKey = inferTerraformKey(runtime, rootPath, tfFilePaths, tfvarsFilePaths, {
+    tfvarsPatterns: [/^environment$/i, /^env$/i, /environment/i, /env/i],
+    variablePatterns: [/^environment$/i, /^env$/i, /environment/i, /env/i],
+    fallback: 'environment'
+  });
+  let nextContent = existingContent;
+  const rationaleParts = [`The plan reuses Terraform variable keys ${imageTagKey} and ${environmentKey} when available.`];
+
+  if (params.imageTag) {
+    nextContent = upsertTfvarsValue(nextContent, imageTagKey, params.imageTag);
+  }
+
+  if (params.explicitKey && params.explicitValue) {
+    nextContent = upsertTfvarsValue(nextContent, params.explicitKey, params.explicitValue);
+    rationaleParts.push(`The repair path also restores the missing required variable ${params.explicitKey}.`);
+  }
+
+  if (nextEnvironment) {
+    nextContent = upsertTfvarsValue(nextContent, environmentKey, nextEnvironment);
+  }
+
+  if (nextContent === existingContent) {
+    return null;
+  }
+
+  return {
+    nextContent,
+    rationaleParts
+  };
+}
+
+export function buildTerraformMissingRequiredArgumentRepairEditPlan(runtime: AgentRuntimeState): EditPlan | null {
+  const missingRequiredIssue = runtime.validationIssues.find(
+    issue => issue.kind === 'terraform-validate-failure' && issue.metadata?.missingVariableName
+  );
+  const missingVariableName = missingRequiredIssue?.metadata?.missingVariableName;
+  if (!missingRequiredIssue || !missingVariableName) {
+    return null;
+  }
+
+  const topTerraformTarget = runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
+  if (!topTerraformTarget) {
+    return null;
+  }
+
+  const root = runtime.preflight.inspection.terraformRoots.find(candidate => candidate.rootPath === topTerraformTarget.path);
+  if (!root) {
+    return null;
+  }
+
+  if (runtime.preflight.profile.id === 'generic' && root.tfvarsFiles.length === 0) {
+    return null;
+  }
+
+  if (requiresTfvarsClarification(root.tfvarsFiles, runtime.preflight.requestedEnvironment)) {
+    return null;
+  }
+
+  const imageTag = detectImageTag(runtime.task);
+  const preferredTfvarsPath = selectTfvarsPath(root.tfvarsFiles, runtime.preflight.requestedEnvironment, topTerraformTarget.path);
+  const explicitValue =
+    /image/i.test(missingVariableName) && /tag/i.test(missingVariableName)
+      ? imageTag
+      : /^environment$/i.test(missingVariableName) || /^env$/i.test(missingVariableName)
+        ? normalizeEnvironmentValue(runtime.preflight.requestedEnvironment)
+        : null;
+  if (!explicitValue) {
+    return null;
+  }
+
+  const tfvarsWrite = buildTerraformTfvarsWrite(runtime, topTerraformTarget.path, root.tfFiles, root.tfvarsFiles, preferredTfvarsPath, {
+    imageTag,
+    explicitKey: missingVariableName,
+    explicitValue
+  });
+  if (!tfvarsWrite) {
+    return null;
+  }
+
+  return {
+    kind: 'terraform-missing-required-argument-repair',
+    summary: `Repair missing Terraform variable ${missingVariableName} in ${preferredTfvarsPath}.`,
+    rationale: `Terraform validate reported that ${missingVariableName} is required and the selected root exposes a safe tfvars-based repair path. ${tfvarsWrite.rationaleParts.join(' ')}`,
+    writes: [
+      {
+        path: preferredTfvarsPath,
+        content: tfvarsWrite.nextContent,
+        reason: `Repair missing required Terraform variable ${missingVariableName} through a bounded tfvars file change.`
+      }
+    ]
+  };
+}
+
 export function buildTerraformTfvarsConfigEditPlan(runtime: AgentRuntimeState): EditPlan | null {
+  const hasRepairableMissingRequiredArgument = runtime.validationIssues.some(
+    issue => issue.kind === 'terraform-validate-failure' && issue.repairable && Boolean(issue.metadata?.missingVariableName)
+  );
+  if (hasRepairableMissingRequiredArgument) {
+    return null;
+  }
+
   if (!hasTerraformConfigIntent(runtime.task)) {
     return null;
   }
@@ -177,36 +296,21 @@ export function buildTerraformTfvarsConfigEditPlan(runtime: AgentRuntimeState): 
   }
 
   const preferredTfvarsPath = selectTfvarsPath(root.tfvarsFiles, runtime.preflight.requestedEnvironment, topTerraformTarget.path);
-  const existingContent = getLatestFileContent(runtime, preferredTfvarsPath) ?? '';
-  const nextEnvironment = normalizeEnvironmentValue(runtime.preflight.requestedEnvironment);
-  const imageTagKey = inferTerraformKey(runtime, topTerraformTarget.path, root.tfFiles, root.tfvarsFiles, {
-    tfvarsPatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
-    variablePatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
-    fallback: 'image_tag'
+  const tfvarsWrite = buildTerraformTfvarsWrite(runtime, topTerraformTarget.path, root.tfFiles, root.tfvarsFiles, preferredTfvarsPath, {
+    imageTag
   });
-  const environmentKey = inferTerraformKey(runtime, topTerraformTarget.path, root.tfFiles, root.tfvarsFiles, {
-    tfvarsPatterns: [/^environment$/i, /^env$/i, /environment/i, /env/i],
-    variablePatterns: [/^environment$/i, /^env$/i, /environment/i, /env/i],
-    fallback: 'environment'
-  });
-
-  let nextContent = upsertTfvarsValue(existingContent, imageTagKey, imageTag);
-  if (nextEnvironment) {
-    nextContent = upsertTfvarsValue(nextContent, environmentKey, nextEnvironment);
-  }
-
-  if (nextContent === existingContent) {
+  if (!tfvarsWrite) {
     return null;
   }
 
   return {
     kind: 'terraform-tfvars-config',
     summary: `Apply Terraform variable updates to ${preferredTfvarsPath}.`,
-    rationale: `The task requests a bounded Terraform configuration change and the selected Terraform root exposes a safe tfvars-based update path. The plan reuses Terraform variable keys ${imageTagKey} and ${environmentKey} when available.`,
+    rationale: `The task requests a bounded Terraform configuration change and the selected Terraform root exposes a safe tfvars-based update path. ${tfvarsWrite.rationaleParts.join(' ')}`,
     writes: [
       {
         path: preferredTfvarsPath,
-        content: nextContent,
+        content: tfvarsWrite.nextContent,
         reason: 'Update Terraform variable values through a bounded tfvars file change.'
       }
     ]

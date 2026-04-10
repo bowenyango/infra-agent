@@ -119,7 +119,10 @@ export function resolveEffectiveEditPolicy(
     && inspection.pulumiProjects.length === 0
   ) {
     return {
-      allowedEditPlanKinds: ['terraform-tfvars-config'],
+      allowedEditPlanKinds: [
+        'terraform-missing-required-argument-repair',
+        'terraform-tfvars-config'
+      ],
       allowedTargetPrefixes: getDefaultAllowedTargetPrefixes(profileId, inspection),
       allowedTargetPrefixesByKind: {},
       sources: ['default: terraform-only generic workspace edit constraints']
