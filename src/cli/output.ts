@@ -5,7 +5,7 @@ import type {
   ValidationPreflight,
   WorkspaceInspection
 } from '../types/repository.ts';
-import type { DiffPreviewOutput, SearchWorkspaceOutput, ValidationRunOutput } from '../types/tools.ts';
+import type { DiffPreviewOutput, HelmShowValuesOutput, SearchWorkspaceOutput, ValidationRunOutput } from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
 
 function printHeader(title: string): void {
@@ -130,6 +130,10 @@ function summarizeNativeCliTools(state: AgentRunState): string {
 
   for (const turn of state.turns) {
     for (const result of turn.execution?.executedTools ?? []) {
+      if (result.toolName === 'helm_show_values') {
+        tools.add('Helm CLI');
+      }
+
       if (result.toolName === 'pulumi_config_set') {
         tools.add('Pulumi CLI');
       }
@@ -592,6 +596,17 @@ export function printAgentRunState(state: AgentRunState): void {
               ...output.preview
             ],
             'No diff preview available.'
+          );
+        }
+
+        if (toolResult.toolName === 'helm_show_values') {
+          const output = toolResult.output as HelmShowValuesOutput;
+          printList(
+            [
+              `${output.chartPath} -> exit ${output.exitCode}`,
+              ...output.content.split('\n').filter(Boolean).slice(0, 4)
+            ],
+            'No Helm values output available.'
           );
         }
 

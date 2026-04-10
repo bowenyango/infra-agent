@@ -1,6 +1,7 @@
 import type { Tool } from './Tool.ts';
 import { AppendFileTool } from './tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from './tools/DiffPreviewTool/DiffPreviewTool.ts';
+import { HelmShowValuesTool } from './tools/HelmShowValuesTool/HelmShowValuesTool.ts';
 import { ListDirectoryTool } from './tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { PulumiConfigSetTool } from './tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { ReadFileTool } from './tools/ReadFileTool/ReadFileTool.ts';
@@ -13,6 +14,7 @@ import { WriteFileTool } from './tools/WriteFileTool/WriteFileTool.ts';
 export const toolRegistry = {
   [AppendFileTool.name]: AppendFileTool,
   [DiffPreviewTool.name]: DiffPreviewTool,
+  [HelmShowValuesTool.name]: HelmShowValuesTool,
   [ListDirectoryTool.name]: ListDirectoryTool,
   [PulumiConfigSetTool.name]: PulumiConfigSetTool,
   [ReadFileTool.name]: ReadFileTool,

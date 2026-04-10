@@ -4,6 +4,7 @@ import { isWriteAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import { executeTool } from '../services/tools/execute-tool.ts';
 import { AppendFileTool } from '../tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from '../tools/DiffPreviewTool/DiffPreviewTool.ts';
+import { HelmShowValuesTool } from '../tools/HelmShowValuesTool/HelmShowValuesTool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { PulumiConfigSetTool } from '../tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { ReadFileTool } from '../tools/ReadFileTool/ReadFileTool.ts';
@@ -60,6 +61,10 @@ export async function executeDecision(
         listedFiles,
         requestedDomains: decision.action.payload?.requestedDomains ?? []
       });
+
+      if ((decision.action.payload?.requestedDomains ?? []).includes('helm') && listedFiles.includes('Chart.yaml')) {
+        toolResults.push(await executeTool(HelmShowValuesTool, { chartPath: targetPath }, context));
+      }
 
       for (const candidateFile of deduplicatePaths(candidateFiles)) {
         try {

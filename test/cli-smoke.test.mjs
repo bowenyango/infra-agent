@@ -2214,6 +2214,73 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Repair activity: 1 bounded repair attempt/i.test(line)));
 });
 
+test('summarizeResultCard includes Helm CLI usage when helm_show_values is executed', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [
+      {
+        index: 0,
+        decision: {
+          confidence: 'high',
+          action: {
+            kind: 'inspect-target-files',
+            summary: 'Inspect Helm chart files.',
+            rationale: 'Use Helm CLI.',
+            payload: {
+              actionFamily: 'helm-inspection'
+            }
+          }
+        },
+        execution: {
+          status: 'completed',
+          executedTools: [
+            {
+              toolName: 'helm_show_values',
+              safety: 'read_only',
+              output: {
+                workspaceRoot: preflight.workspaceRoot,
+                chartPath: 'charts/payments-api',
+                command: 'helm show values charts/payments-api',
+                exitCode: 0,
+                stdout: 'replicaCount: 2\n',
+                stderr: '',
+                content: 'replicaCount: 2\n'
+              }
+            }
+          ]
+        },
+        runtimeSnapshot: {
+          task: preflight.task,
+          preflight,
+          observations: [],
+          appliedWrites: [],
+          validationResults: [],
+          validationIssues: [],
+          approvalSignals: [],
+          repairAttempts: 0,
+          lastEditPlan: null
+        }
+      }
+    ]
+  });
+
+  assert.ok(summary.some(line => /Native CLI operations: Helm CLI/i.test(line)));
+});
+
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {
   const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
   const commands = summarizeSuggestedCommands({
@@ -3180,6 +3247,32 @@ test('inspect-target-files reads Terraform root files into runtime observations'
   assert.ok(readPaths?.some(path => path.endsWith('terraform/payments-api/main.tf')));
   assert.ok(readPaths?.some(path => path.endsWith('terraform/payments-api/dev.auto.tfvars')));
   assert.ok(readPaths?.every(path => !path.endsWith('Chart.yaml')));
+});
+
+test('inspect-target-files uses helm_show_values for Helm chart inspection', async () => {
+  const execution = await executeDecision(
+    {
+      confidence: 'high',
+      action: {
+        kind: 'inspect-target-files',
+        summary: 'Inspect Helm files.',
+        rationale: 'Test Helm inspection path.',
+        payload: {
+          targetPaths: ['charts/payments-api'],
+          requestedDomains: ['helm']
+        }
+      }
+    },
+    resolve('fixtures/sample-workspace'),
+    null
+  );
+
+  assert.ok(execution);
+  const helmShowValues = execution?.executedTools.find(result => result.toolName === 'helm_show_values');
+
+  assert.ok(helmShowValues);
+  assert.match(helmShowValues?.output.command ?? '', /helm show values charts\/payments-api/i);
+  assert.match(helmShowValues?.output.content ?? '', /service:\s*\n\s*port:\s*8080/i);
 });
 
 test('classifyValidationIssues marks terraform fmt failures as terraform-formatting-required', () => {
