@@ -147,6 +147,7 @@ export interface RunPreflightState {
   effectiveEditPolicy: ResolvedEditConstraintPolicy;
   inspection: WorkspaceInspection;
   validation: ValidationPreflight;
+  requestedDomains: InfraDomainId[];
   requestedEnvironment: string | null;
   requestedService: string | null;
   targetCandidates: TargetCandidate[];

@@ -102,6 +102,9 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     }
 
     if (preflight.assumptions.length > 0 || topScore === 0) {
+      const requestedDomainSummary = preflight.requestedDomains.length > 1
+        ? `The task currently spans multiple infrastructure domains (${preflight.requestedDomains.join(', ')}), so the primary domain boundary is still ambiguous.`
+        : null;
       return {
         confidence: 'medium',
         action: {
@@ -109,13 +112,20 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           summary: taskMentionsTerraform
             ? 'Clarify the intended Terraform root, variables, or environment before editing files.'
             : 'Clarify the intended service, chart, or environment before editing files.',
-          rationale: taskMentionsTerraform
+          rationale: requestedDomainSummary
+            ? requestedDomainSummary
+            : taskMentionsTerraform
             ? 'The task references Terraform, but the requested root, variable scope, or environment is still ambiguous.'
             : 'The task does not map strongly enough onto a detected workspace target.',
           payload: {
             questions: taskMentionsTerraform
               ? buildTerraformClarificationQuestions(input, 'ambiguous-target')
-              : [
+              : preflight.requestedDomains.length > 1
+                ? [
+                    `Which primary domain should the agent modify first: ${preflight.requestedDomains.join(', ')}?`,
+                    'Should the task be split into separate bounded changes per domain?'
+                  ]
+                : [
                   'What is the exact target service or chart name?',
                   'Which environment should be modified?'
                 ],

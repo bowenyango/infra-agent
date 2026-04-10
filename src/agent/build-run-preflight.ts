@@ -14,6 +14,7 @@ import {
   buildTargetCandidates,
   buildTargetingWarnings
 } from '../domain/task-targeting.ts';
+import { inferRequestedDomains } from '../domain/domain-focus.ts';
 import { resolveEffectiveEditPolicy } from '../domain/edit-policy.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { RunApprovalScope } from '../types/repository.ts';
@@ -23,6 +24,7 @@ function buildNextActions(state: {
   profileLabel: string;
   profileId: string;
   detectedDomains: string[];
+  requestedDomains: string[];
   repoLooksValid: boolean;
   hasHelmCharts: boolean;
   hasPulumiProjects: boolean;
@@ -44,6 +46,10 @@ function buildNextActions(state: {
 
   if (state.detectedDomains.length > 0) {
     nextActions.push(`Use the detected domain surfaces (${state.detectedDomains.join(', ')}) instead of generic file edits whenever a bounded domain-specific path exists.`);
+  }
+
+  if (state.requestedDomains.length > 0) {
+    nextActions.push(`Prefer the requested domain path (${state.requestedDomains.join(', ')}) when selecting targets, edits, and validators for this task.`);
   }
 
   if (state.hasAssumptions) {
@@ -90,6 +96,7 @@ export async function buildRunPreflight(
   const normalizedApprovalScope = normalizeApprovalScope(approvalScope);
   const effectiveApprovalPolicy = resolveEffectiveApprovalPolicy(inspection.config, inspection.profile.id);
   const effectiveEditPolicy = resolveEffectiveEditPolicy(inspection.config, inspection.profile.id, inspection);
+  const requestedDomains = inferRequestedDomains(task, inspection.domainCapabilities);
   const assumptions = buildTargetingWarnings({
     requestedEnvironment: targeting.requestedEnvironment,
     requestedService: targeting.requestedService,
@@ -122,6 +129,10 @@ export async function buildRunPreflight(
 
   if (normalizedApprovalScope.approvedWritePaths.length > 0) {
     assumptions.push(`Explicit approval granted for write paths: ${normalizedApprovalScope.approvedWritePaths.join(', ')}.`);
+  }
+
+  if (requestedDomains.length > 1) {
+    assumptions.push(`Task currently references multiple infrastructure domains (${requestedDomains.join(', ')}). Clarify the primary domain before editing if the change should be scoped to a single system.`);
   }
 
   if (
@@ -166,6 +177,7 @@ export async function buildRunPreflight(
     profileLabel: inspection.profile.label,
     profileId: inspection.profile.id,
     detectedDomains: inspection.domainCapabilities.map(domain => domain.label),
+    requestedDomains,
     repoLooksValid: looksLikeInfraWorkspace(inspection),
     hasHelmCharts: inspection.helmCharts.length > 0,
     hasPulumiProjects: inspection.pulumiProjects.length > 0,
@@ -188,6 +200,7 @@ export async function buildRunPreflight(
     effectiveEditPolicy,
     inspection,
     validation,
+    requestedDomains,
     requestedEnvironment: targeting.requestedEnvironment,
     requestedService: targeting.requestedService,
     targetCandidates: targeting.targetCandidates,

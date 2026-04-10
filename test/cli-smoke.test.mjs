@@ -21,6 +21,7 @@ import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
 import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
+import { inferRequestedDomains } from '../src/domain/domain-focus.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -158,10 +159,43 @@ test('summarizePreflightSnapshot highlights primary target and top ambiguity', a
   const snapshot = summarizePreflightSnapshot(preflight);
 
   assert.ok(snapshot.some(line => /Detected domains: Terraform/i.test(line)));
+  assert.ok(snapshot.some(line => /Requested domains: terraform/i.test(line)));
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/network-stack/i.test(line)));
   assert.ok(snapshot.some(line => /Requested service: undetected/i.test(line)));
   assert.ok(snapshot.some(line => /Approval posture: writes with risk high require approval/i.test(line)));
   assert.ok(snapshot.some(line => /Validation readiness:/i.test(line)));
+});
+
+test('inferRequestedDomains detects task domain focus from available domain capabilities', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+
+  assert.deepEqual(
+    inferRequestedDomains('add ingress to payments-api chart', inspection.domainCapabilities),
+    ['helm']
+  );
+  assert.deepEqual(
+    inferRequestedDomains('update pulumi stack config for payments-api', inspection.domainCapabilities),
+    ['pulumi']
+  );
+});
+
+test('buildRunPreflight records requested domains and warns when task spans multiple domains', async () => {
+  const preflight = await buildRunPreflight(
+    'update helm and pulumi config for payments-api dev',
+    'fixtures/sample-workspace'
+  );
+
+  assert.deepEqual(preflight.requestedDomains, ['helm', 'pulumi']);
+  assert.ok(preflight.assumptions.some(assumption => /multiple infrastructure domains/i.test(assumption)));
+});
+
+test('buildRunPreflight records a single requested domain for terraform-only workspaces', async () => {
+  const preflight = await buildRunPreflight(
+    'update terraform config for payments-api dev',
+    'fixtures/terraform-workspace'
+  );
+
+  assert.deepEqual(preflight.requestedDomains, ['terraform']);
 });
 
 test('inspectWorkspace resolves specialized domain capabilities for mixed infra workspaces', async () => {
@@ -1900,6 +1934,29 @@ test('rule-based planner asks Terraform-specific clarification questions when Te
   assert.ok(decision.action.payload?.questions?.some(question => /Which Terraform root should be updated\?/i.test(question)));
   assert.ok(decision.action.payload?.questions?.some(question => /terraform\/payments-api/i.test(question)));
   assert.ok(decision.action.payload?.questions?.some(question => /tfvars file/i.test(question)));
+});
+
+test('rule-based planner asks for primary domain clarification when a task spans multiple detected domains', async () => {
+  const preflight = await buildRunPreflight('update helm and pulumi config for payments-api dev', 'fixtures/sample-workspace');
+  const planner = new RuleBasedPlanningModel();
+  const decision = await planner.decideNextAction({
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.clarificationKind, 'target-ambiguity');
+  assert.match(decision.action.rationale, /multiple infrastructure domains/i);
+  assert.ok(decision.action.payload?.questions?.some(question => /Which primary domain should the agent modify first/i.test(question)));
 });
 
 test('rule-based planner asks Terraform-specific clarification when no Terraform root is detected', async () => {

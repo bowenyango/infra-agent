@@ -49,6 +49,7 @@ export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
 
   lines.push(`Profile: ${state.profile.id}`);
   lines.push(`Detected domains: ${state.inspection.domainCapabilities.length > 0 ? state.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
+  lines.push(`Requested domains: ${state.requestedDomains.length > 0 ? state.requestedDomains.join(', ') : 'undetected'}`);
   lines.push(`Requested environment: ${state.requestedEnvironment ?? 'undetected'}`);
   lines.push(`Requested service: ${state.requestedService ?? 'undetected'}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path} (score=${topTarget.score})` : 'undetected'}`);
@@ -182,6 +183,7 @@ export function summarizeAgentSnapshot(state: AgentRunState): string[] {
   lines.push(`Outcome: ${state.outcome}`);
   lines.push(`Model: ${state.modelName}`);
   lines.push(`Detected domains: ${state.preflight.inspection.domainCapabilities.length > 0 ? state.preflight.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
+  lines.push(`Requested domains: ${state.preflight.requestedDomains.length > 0 ? state.preflight.requestedDomains.join(', ') : 'undetected'}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path}` : 'undetected'}`);
   lines.push(`Repair attempts: ${state.runtime.repairAttempts}`);
   lines.push(`Validation status: ${state.runtime.validationResults.length === 0 ? 'not run yet' : state.runtime.validationResults.every(result => result.exitCode === 0) ? 'passed' : 'failed'}`);
