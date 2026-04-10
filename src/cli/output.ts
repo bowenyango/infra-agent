@@ -60,6 +60,33 @@ export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
   return lines;
 }
 
+export function summarizePreflightSuggestedCommands(state: RunPreflightState): string[] {
+  const base = buildCliBaseCommand();
+  const workspaceArg = shellQuote(state.workspaceRoot);
+  const workspaceFlag = buildWorkspaceFlag(state.workspaceRoot);
+  const taskFlag = buildTaskFlag(state.task);
+
+  if (state.blockers.length > 0) {
+    return [
+      `${base} inspect ${workspaceArg}`,
+      `${base} validate ${workspaceArg}`
+    ];
+  }
+
+  if (state.assumptions.length > 0) {
+    return [
+      `${base} inspect ${workspaceArg}`,
+      `${base} run ${taskFlag} ${workspaceFlag}`
+    ];
+  }
+
+  return [
+    `${base} inspect ${workspaceArg}`,
+    `${base} validate ${workspaceArg}`,
+    `${base} agent ${taskFlag} ${workspaceFlag}`
+  ];
+}
+
 export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
   const steps: string[] = [];
   const topTarget = state.preflight.targetCandidates[0];
@@ -225,6 +252,9 @@ export function printRunPreflight(state: RunPreflightState): void {
   process.stdout.write(`workspace: ${state.workspaceRoot}\n\n`);
   printHeader('Operation Snapshot');
   printList(summarizePreflightSnapshot(state), 'No snapshot available.');
+  process.stdout.write('\n');
+  printHeader('Suggested Commands');
+  printList(summarizePreflightSuggestedCommands(state), 'No suggested commands available.');
   process.stdout.write('\n');
   printHeader('Profile');
   process.stdout.write(`${state.profile.label} (${state.profile.id})\n`);

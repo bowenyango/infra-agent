@@ -16,7 +16,7 @@ import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
-import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizeRecommendedNextSteps, summarizeSuggestedCommands } from '../src/cli/output.ts';
+import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizePreflightSuggestedCommands, summarizeRecommendedNextSteps, summarizeSuggestedCommands } from '../src/cli/output.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
@@ -160,6 +160,24 @@ test('summarizePreflightSnapshot highlights primary target and top ambiguity', a
   assert.ok(snapshot.some(line => /Requested service: undetected/i.test(line)));
   assert.ok(snapshot.some(line => /Approval posture: writes with risk high require approval/i.test(line)));
   assert.ok(snapshot.some(line => /Validation readiness:/i.test(line)));
+});
+
+test('summarizePreflightSuggestedCommands recommends inspect and rerun when preflight has ambiguity', async () => {
+  const preflight = await buildRunPreflight('update terraform image tag to 2.3.4', 'fixtures/terraform-multi-root-workspace');
+  const commands = summarizePreflightSuggestedCommands(preflight);
+
+  assert.ok(commands.some(command => /inspect/.test(command)));
+  assert.ok(commands.some(command => /validate/.test(command)));
+  assert.ok(!commands.some(command => /main\.ts agent /.test(command)));
+});
+
+test('summarizePreflightSuggestedCommands recommends agent when preflight is ready to proceed', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const commands = summarizePreflightSuggestedCommands(preflight);
+
+  assert.ok(commands.some(command => /inspect/.test(command)));
+  assert.ok(commands.some(command => /validate/.test(command)));
+  assert.ok(commands.some(command => /agent/.test(command)));
 });
 
 test('buildRunPreflight exposes effective approval policy from profile defaults', async () => {
