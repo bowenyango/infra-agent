@@ -99,6 +99,10 @@ export async function buildRunPreflight(
   const allowedWritePaths = getAllowedWritePaths(inspection.config);
   const allowedWriteModes = getAllowedWriteModes(inspection.config);
   const topTargetPath = targeting.targetCandidates[0]?.path;
+  const topTerraformTarget =
+    targeting.targetCandidates[0]?.kind === 'terraform-root'
+      ? inspection.terraformRoots.find(root => root.rootPath === targeting.targetCandidates[0]?.path)
+      : null;
   if (allowedWritePaths && topTargetPath && !isPathAllowedByWorkspacePolicy(topTargetPath, inspection.config)) {
     blockers.unshift(`Workspace write policy does not allow edits under ${topTargetPath}. Allowed roots: ${allowedWritePaths.join(', ')}.`);
   }
@@ -113,6 +117,14 @@ export async function buildRunPreflight(
 
   if (normalizedApprovalScope.approvedWritePaths.length > 0) {
     assumptions.push(`Explicit approval granted for write paths: ${normalizedApprovalScope.approvedWritePaths.join(', ')}.`);
+  }
+
+  if (
+    inspection.profile.id === 'generic'
+    && topTerraformTarget
+    && topTerraformTarget.tfvarsFiles.length === 0
+  ) {
+    assumptions.push(`Terraform root ${topTerraformTarget.rootPath} has no existing tfvars file. In generic mode, clarify whether the agent should create terraform.auto.tfvars before editing.`);
   }
 
   const shouldSurfaceEditPolicyAsAssumption = effectiveEditPolicy.sources.some(source => source.startsWith('workspace-config:'));

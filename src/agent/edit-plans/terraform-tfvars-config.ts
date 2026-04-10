@@ -155,6 +155,10 @@ export function buildTerraformTfvarsConfigEditPlan(runtime: AgentRuntimeState): 
     return null;
   }
 
+  if (runtime.preflight.profile.id === 'generic' && root.tfvarsFiles.length === 0) {
+    return null;
+  }
+
   const imageTag = detectImageTag(runtime.task);
   if (!imageTag) {
     return null;

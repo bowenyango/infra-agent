@@ -244,6 +244,12 @@ test('buildRunPreflight constrains generic terraform-only workspaces to tfvars e
   assert.ok(preflight.effectiveEditPolicy.sources.some(source => source.includes('terraform-only generic workspace')));
 });
 
+test('buildRunPreflight asks for clarification before creating tfvars in generic terraform-only workspaces', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-no-tfvars-workspace');
+
+  assert.ok(preflight.assumptions.some(assumption => /has no existing tfvars file/i.test(assumption)));
+});
+
 test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
   const effectivePolicy = resolveEffectiveEditPolicy(
     {
@@ -2145,6 +2151,38 @@ test('buildEditPlan creates a bounded Terraform tfvars config plan', async () =>
   assert.equal(editPlan?.writes[0]?.path, 'terraform/payments-api/dev.auto.tfvars');
   assert.match(editPlan?.writes[0]?.content ?? '', /image_tag = "2.3.4"/);
   assert.match(editPlan?.writes[0]?.content ?? '', /environment = "dev"/);
+});
+
+test('buildEditPlan does not auto-create tfvars in generic terraform-only workspaces without an existing tfvars file', async () => {
+  const preflight = await buildRunPreflight(
+    'update terraform payments-api dev image tag to 2.3.4',
+    'fixtures/terraform-no-tfvars-workspace'
+  );
+  const mainTfPath = resolve('fixtures/terraform-no-tfvars-workspace/terraform/payments-api/main.tf');
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan, null);
 });
 
 test('buildEditPlan reuses existing Terraform variable key names from tfvars and variable declarations', async () => {
