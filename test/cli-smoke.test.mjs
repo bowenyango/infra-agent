@@ -235,6 +235,15 @@ test('buildRunPreflight exposes effective edit policy from profile defaults', as
   assert.ok(preflight.effectiveEditPolicy.sources.some(source => source.includes('profile-default')));
 });
 
+test('buildRunPreflight constrains generic terraform-only workspaces to tfvars edit plans', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+
+  assert.equal(preflight.profile.id, 'generic');
+  assert.deepEqual(preflight.effectiveEditPolicy.allowedEditPlanKinds, ['terraform-tfvars-config']);
+  assert.deepEqual(preflight.effectiveEditPolicy.allowedTargetPrefixes, ['terraform/payments-api']);
+  assert.ok(preflight.effectiveEditPolicy.sources.some(source => source.includes('terraform-only generic workspace')));
+});
+
 test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
   const effectivePolicy = resolveEffectiveEditPolicy(
     {
@@ -255,6 +264,17 @@ test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
     'pulumi-stack-config': ['networking']
   });
   assert.deepEqual(effectivePolicy.sources, ['workspace-config: editPolicy']);
+});
+
+test('resolveEffectiveEditPolicy derives terraform root prefixes for generic terraform-only inspections', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-multi-root-workspace');
+  const effectivePolicy = resolveEffectiveEditPolicy(null, 'generic', inspection);
+
+  assert.deepEqual(effectivePolicy.allowedEditPlanKinds, ['terraform-tfvars-config']);
+  assert.deepEqual(effectivePolicy.allowedTargetPrefixes, [
+    'terraform/network-stack',
+    'terraform/worker-stack'
+  ]);
 });
 
 test('buildEditPlan filters write modes disallowed by workspace policy', async () => {

@@ -4,6 +4,7 @@ import type { EditPlanKind } from '../types/edit-plan.ts';
 import type {
   RepoProfileId,
   ResolvedEditConstraintPolicy,
+  WorkspaceInspection,
   WorkspaceAgentConfig
 } from '../types/repository.ts';
 
@@ -28,13 +29,25 @@ function getDefaultAllowedEditPlanKinds(profileId: RepoProfileId): EditPlanKind[
   }
 }
 
-function getDefaultAllowedTargetPrefixes(profileId: RepoProfileId): string[] | null {
+function getDefaultAllowedTargetPrefixes(
+  profileId: RepoProfileId,
+  inspection?: Pick<WorkspaceInspection, 'helmCharts' | 'pulumiProjects' | 'terraformRoots'>
+): string[] | null {
   switch (profileId) {
     case 'scrawlr-infra-apps':
       return ['charts/apps', 'charts/infra'];
     case 'scrawlr-infra-cloud':
       return null;
     case 'generic':
+      if (
+        inspection
+        && inspection.terraformRoots.length > 0
+        && inspection.helmCharts.length === 0
+        && inspection.pulumiProjects.length === 0
+      ) {
+        return inspection.terraformRoots.map(root => normalizePolicyPath(root.rootPath));
+      }
+      return null;
     default:
       return null;
   }
@@ -84,7 +97,8 @@ function getDefaultEditPolicySources(profileId: RepoProfileId): string[] {
 
 export function resolveEffectiveEditPolicy(
   config: WorkspaceAgentConfig | null,
-  profileId: RepoProfileId = 'generic'
+  profileId: RepoProfileId = 'generic',
+  inspection?: Pick<WorkspaceInspection, 'helmCharts' | 'pulumiProjects' | 'terraformRoots'>
 ): ResolvedEditConstraintPolicy {
   if (config?.editPolicy) {
     return {
@@ -97,9 +111,24 @@ export function resolveEffectiveEditPolicy(
     };
   }
 
+  if (
+    profileId === 'generic'
+    && inspection
+    && inspection.terraformRoots.length > 0
+    && inspection.helmCharts.length === 0
+    && inspection.pulumiProjects.length === 0
+  ) {
+    return {
+      allowedEditPlanKinds: ['terraform-tfvars-config'],
+      allowedTargetPrefixes: getDefaultAllowedTargetPrefixes(profileId, inspection),
+      allowedTargetPrefixesByKind: {},
+      sources: ['default: terraform-only generic workspace edit constraints']
+    };
+  }
+
   return {
     allowedEditPlanKinds: getDefaultAllowedEditPlanKinds(profileId),
-    allowedTargetPrefixes: getDefaultAllowedTargetPrefixes(profileId),
+    allowedTargetPrefixes: getDefaultAllowedTargetPrefixes(profileId, inspection),
     allowedTargetPrefixesByKind: getDefaultAllowedTargetPrefixesByKind(profileId),
     sources: getDefaultEditPolicySources(profileId)
   };

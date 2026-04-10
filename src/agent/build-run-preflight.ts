@@ -84,7 +84,7 @@ export async function buildRunPreflight(
   const targeting = buildTargetCandidates(task, inspection);
   const normalizedApprovalScope = normalizeApprovalScope(approvalScope);
   const effectiveApprovalPolicy = resolveEffectiveApprovalPolicy(inspection.config, inspection.profile.id);
-  const effectiveEditPolicy = resolveEffectiveEditPolicy(inspection.config, inspection.profile.id);
+  const effectiveEditPolicy = resolveEffectiveEditPolicy(inspection.config, inspection.profile.id, inspection);
   const assumptions = buildTargetingWarnings({
     requestedEnvironment: targeting.requestedEnvironment,
     requestedService: targeting.requestedService,
@@ -115,16 +115,18 @@ export async function buildRunPreflight(
     assumptions.push(`Explicit approval granted for write paths: ${normalizedApprovalScope.approvedWritePaths.join(', ')}.`);
   }
 
-  if (effectiveEditPolicy.allowedEditPlanKinds) {
+  const shouldSurfaceEditPolicyAsAssumption = effectiveEditPolicy.sources.some(source => source.startsWith('workspace-config:'));
+
+  if (shouldSurfaceEditPolicyAsAssumption && effectiveEditPolicy.allowedEditPlanKinds) {
     assumptions.push(`Workspace edit policy allows edit plans: ${effectiveEditPolicy.allowedEditPlanKinds.join(', ')}.`);
   }
 
-  if (effectiveEditPolicy.allowedTargetPrefixes && effectiveEditPolicy.allowedTargetPrefixes.length > 0) {
+  if (shouldSurfaceEditPolicyAsAssumption && effectiveEditPolicy.allowedTargetPrefixes && effectiveEditPolicy.allowedTargetPrefixes.length > 0) {
     assumptions.push(`Workspace edit policy constrains edit targets to: ${effectiveEditPolicy.allowedTargetPrefixes.join(', ')}.`);
   }
 
   const kindScopedEditTargets = Object.entries(effectiveEditPolicy.allowedTargetPrefixesByKind);
-  if (kindScopedEditTargets.length > 0) {
+  if (shouldSurfaceEditPolicyAsAssumption && kindScopedEditTargets.length > 0) {
     assumptions.push(
       `Workspace edit policy applies kind-scoped target constraints: ${kindScopedEditTargets
         .map(([kind, prefixes]) => `${kind} -> ${prefixes.join(', ')}`)
