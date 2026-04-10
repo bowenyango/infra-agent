@@ -31,8 +31,33 @@ function formatRequestedDomains(domains: string[]): string {
   return domains.length > 0 ? domains.join(', ') : 'undetected';
 }
 
+function getPrimaryRequestedDomain(domains: string[]): string | null {
+  return domains[0] ?? null;
+}
+
 function toTitleCase(value: string): string {
   return value.length > 0 ? `${value[0]?.toUpperCase() ?? ''}${value.slice(1)}` : value;
+}
+
+function formatPrimaryDomainLabel(domain: string | null): string {
+  if (!domain) {
+    return 'Infrastructure';
+  }
+
+  return toTitleCase(domain);
+}
+
+function describeDomainTarget(domain: string | null): string {
+  switch (domain) {
+    case 'terraform':
+      return 'Terraform root';
+    case 'pulumi':
+      return 'Pulumi project';
+    case 'helm':
+      return 'Helm chart';
+    default:
+      return 'infrastructure target';
+  }
 }
 
 function domainFromEditPlanKind(kind: EditPlanKind): string {
@@ -147,6 +172,9 @@ export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
   const topTarget = state.preflight.targetCandidates[0];
   const lastTurn = state.turns[state.turns.length - 1];
   const topValidationIssue = state.runtime.validationIssues[0];
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const domainLabel = formatPrimaryDomainLabel(primaryDomain);
+  const domainTarget = describeDomainTarget(primaryDomain);
 
   if (topTarget) {
     steps.push(`Focus on ${topTarget.kind} target ${topTarget.path} for the next change or review step.`);
@@ -164,24 +192,24 @@ export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
       if (lastTurn?.decision.action.payload?.questions?.length) {
         steps.push(`Answer the clarification prompt: ${lastTurn.decision.action.payload.questions[0]}`);
       } else {
-        steps.push('Clarify the target service, root, or environment before retrying the task.');
+        steps.push(`Clarify the intended ${domainTarget}, environment, or values scope before retrying the task.`);
       }
       return steps;
     case 'validation-blocked':
       if (topValidationIssue?.guidance) {
         steps.push(topValidationIssue.guidance);
       } else if (topValidationIssue) {
-        steps.push(`Resolve the validation blocker: ${topValidationIssue.message}`);
+        steps.push(`Resolve the ${domainLabel} validation blocker: ${topValidationIssue.message}`);
       } else {
-        steps.push('Inspect the failed validation command output and correct the configuration before retrying.');
+        steps.push(`Inspect the failed ${domainLabel} validation output and correct the configuration before retrying.`);
       }
       return steps;
     case 'repair-budget-exhausted':
-      steps.push('Inspect the latest validation issue and apply a manual correction before retrying the agent.');
+      steps.push(`Inspect the latest ${domainLabel} validation issue and apply a manual correction before retrying the agent.`);
       return steps;
     case 'no-safe-action':
     default:
-      steps.push('Review target ambiguity, workspace policy, or missing validators before rerunning the task.');
+      steps.push(`Review ${domainLabel} target ambiguity, workspace policy, or missing validators before rerunning the task.`);
       return steps;
   }
 }
@@ -189,8 +217,14 @@ export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
 export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   const base = buildCliBaseCommand();
   const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
+  const workspaceArg = shellQuote(state.preflight.workspaceRoot);
   const taskFlag = buildTaskFlag(state.preflight.task);
   const topApprovalSignal = state.runtime.approvalSignals[0];
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const domainValidateCommand = `${base} validate ${workspaceArg}`;
+  const domainInspectCommand = `${base} inspect ${workspaceArg}`;
+  const rerunCommand = `${base} run ${taskFlag} ${workspaceFlag}`;
+  const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag} --json`;
 
   switch (state.outcome) {
     case 'approval-required':
@@ -201,24 +235,33 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
       }
       return [`${base} agent ${taskFlag} ${workspaceFlag}`];
     case 'clarification-required':
+      if (primaryDomain === 'terraform') {
+        return [rerunCommand, domainInspectCommand, domainValidateCommand];
+      }
+      if (primaryDomain === 'pulumi' || primaryDomain === 'helm') {
+        return [domainInspectCommand, rerunCommand, domainValidateCommand];
+      }
       return [
-        `${base} run ${taskFlag} ${workspaceFlag}`,
-        `${base} inspect ${shellQuote(state.preflight.workspaceRoot)}`
+        rerunCommand,
+        domainInspectCommand
       ];
     case 'validation-blocked':
     case 'repair-budget-exhausted':
+      if (primaryDomain === 'terraform' || primaryDomain === 'pulumi' || primaryDomain === 'helm') {
+        return [domainValidateCommand, domainInspectCommand, rerunCommand];
+      }
       return [
-        `${base} inspect ${shellQuote(state.preflight.workspaceRoot)}`,
-        `${base} run ${taskFlag} ${workspaceFlag}`
+        domainInspectCommand,
+        rerunCommand
       ];
     case 'completed':
       return [
-        `${base} agent ${taskFlag} ${workspaceFlag} --json`
+        agentJsonCommand
       ];
     case 'no-safe-action':
     default:
       return [
-        `${base} run ${taskFlag} ${workspaceFlag}`
+        rerunCommand
       ];
   }
 }
@@ -227,11 +270,13 @@ export function summarizeAgentSnapshot(state: AgentRunState): string[] {
   const lines: string[] = [];
   const topTarget = state.preflight.targetCandidates[0];
   const topValidationIssue = state.runtime.validationIssues[0];
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
 
   lines.push(`Outcome: ${state.outcome}`);
   lines.push(`Model: ${state.modelName}`);
   lines.push(`Detected domains: ${state.preflight.inspection.domainCapabilities.length > 0 ? state.preflight.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
   lines.push(`Requested domains: ${formatRequestedDomains(state.preflight.requestedDomains)}`);
+  lines.push(`Primary domain: ${formatPrimaryDomainLabel(primaryDomain)}`);
   lines.push(`Active bounded path: ${summarizeBoundedPath(state)}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path}` : 'undetected'}`);
   lines.push(`Repair attempts: ${state.runtime.repairAttempts}`);

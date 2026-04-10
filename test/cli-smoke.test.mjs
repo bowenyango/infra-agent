@@ -1978,6 +1978,7 @@ test('summarizeAgentSnapshot highlights validation failure and approval count', 
   });
 
   assert.ok(snapshot.some(line => /Outcome: validation-blocked/i.test(line)));
+  assert.ok(snapshot.some(line => /Primary domain: Terraform/i.test(line)));
   assert.ok(snapshot.some(line => /Active bounded path: Terraform -> validation/i.test(line)));
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/payments-api/i.test(line)));
   assert.ok(snapshot.some(line => /Validation status: failed/i.test(line)));
@@ -2039,8 +2040,57 @@ test('summarizeSuggestedCommands recommends inspect and run for validation-block
     turns: []
   });
 
+  assert.ok(commands.some(command => /validate/.test(command)));
   assert.ok(commands.some(command => /inspect/.test(command)));
   assert.ok(commands.some(command => /run/.test(command)));
+});
+
+test('summarizeRecommendedNextSteps uses Helm-specific clarification wording', async () => {
+  const preflight = await buildRunPreflight('update helm chart', 'fixtures/sample-workspace');
+  const steps = summarizeRecommendedNextSteps({
+    modelName: 'test-model',
+    outcome: 'clarification-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(steps.some(step => /helm chart, environment, or values scope/i.test(step)));
+});
+
+test('summarizeSuggestedCommands adds domain-aware validate command for Helm clarification runs', async () => {
+  const preflight = await buildRunPreflight('update helm chart', 'fixtures/sample-workspace');
+  const commands = summarizeSuggestedCommands({
+    modelName: 'test-model',
+    outcome: 'clarification-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(commands.some(command => /inspect/.test(command)));
+  assert.ok(commands.some(command => /run/.test(command)));
+  assert.ok(commands.some(command => /validate/.test(command)));
 });
 
 test('rule-based planner asks Terraform-specific clarification questions when Terraform task lacks root and environment detail', async () => {
