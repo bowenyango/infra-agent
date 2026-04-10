@@ -22,6 +22,7 @@ import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWork
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
 import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
 import { inferRequestedDomains } from '../src/domain/domain-focus.ts';
+import { prioritizeEditPlanKinds } from '../src/agent/edit-plan-priority.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -246,6 +247,34 @@ test('buildRunPreflight records a single requested domain for terraform-only wor
   );
 
   assert.deepEqual(preflight.requestedDomains, ['terraform']);
+});
+
+test('prioritizeEditPlanKinds prefers requested Terraform domain before Helm and Pulumi families', () => {
+  assert.deepEqual(
+    prioritizeEditPlanKinds(['terraform']),
+    [
+      'terraform-tfvars-config',
+      'helm-service-port-repair',
+      'helm-ingress-values-repair',
+      'helm-ingress',
+      'helm-probes',
+      'pulumi-stack-config'
+    ]
+  );
+});
+
+test('prioritizeEditPlanKinds preserves requested domain order for mixed-domain tasks', () => {
+  assert.deepEqual(
+    prioritizeEditPlanKinds(['pulumi', 'helm']),
+    [
+      'pulumi-stack-config',
+      'helm-service-port-repair',
+      'helm-ingress-values-repair',
+      'helm-ingress',
+      'helm-probes',
+      'terraform-tfvars-config'
+    ]
+  );
 });
 
 test('inspectWorkspace resolves specialized domain capabilities for mixed infra workspaces', async () => {
