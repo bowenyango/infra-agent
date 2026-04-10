@@ -16,7 +16,7 @@ import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
-import { summarizeRecommendedNextSteps } from '../src/cli/output.ts';
+import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizeRecommendedNextSteps } from '../src/cli/output.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
@@ -150,6 +150,16 @@ test('buildRunPreflight records explicit approval scope', async () => {
   assert.deepEqual(preflight.approval.approvedWritePaths, ['charts/payments-api']);
   assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write risks')));
   assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write paths')));
+});
+
+test('summarizePreflightSnapshot highlights primary target and top ambiguity', async () => {
+  const preflight = await buildRunPreflight('update terraform image tag to 2.3.4', 'fixtures/terraform-multi-root-workspace');
+  const snapshot = summarizePreflightSnapshot(preflight);
+
+  assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/network-stack/i.test(line)));
+  assert.ok(snapshot.some(line => /Requested service: undetected/i.test(line)));
+  assert.ok(snapshot.some(line => /Approval posture: writes with risk high require approval/i.test(line)));
+  assert.ok(snapshot.some(line => /Validation readiness:/i.test(line)));
 });
 
 test('buildRunPreflight exposes effective approval policy from profile defaults', async () => {
@@ -1686,6 +1696,46 @@ test('summarizeRecommendedNextSteps surfaces Terraform validation guidance for b
 
   assert.ok(steps.some(step => /add the missing required argument through an existing tfvars file/i.test(step)));
   assert.ok(steps.some(step => /terraform-root target terraform\/payments-api/i.test(step)));
+});
+
+test('summarizeAgentSnapshot highlights validation failure and approval count', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const snapshot = summarizeAgentSnapshot({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'terraform -chdir=terraform/payments-api validate',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'Error: Missing required argument'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'terraform-validate-failure',
+          repairable: false,
+          sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+          message: 'Error: Missing required argument'
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(snapshot.some(line => /Outcome: validation-blocked/i.test(line)));
+  assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/payments-api/i.test(line)));
+  assert.ok(snapshot.some(line => /Validation status: failed/i.test(line)));
+  assert.ok(snapshot.some(line => /Top validation issue: terraform-validate-failure/i.test(line)));
 });
 
 test('rule-based planner asks Terraform-specific clarification questions when Terraform task lacks root and environment detail', async () => {

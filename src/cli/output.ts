@@ -21,6 +21,29 @@ function printList(items: string[], fallback: string): void {
   }
 }
 
+export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
+  const lines: string[] = [];
+  const topTarget = state.targetCandidates[0];
+  const unavailableValidators = state.validation.validators.filter(validator => !validator.available).map(validator => validator.name);
+
+  lines.push(`Profile: ${state.profile.id}`);
+  lines.push(`Requested environment: ${state.requestedEnvironment ?? 'undetected'}`);
+  lines.push(`Requested service: ${state.requestedService ?? 'undetected'}`);
+  lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path} (score=${topTarget.score})` : 'undetected'}`);
+  lines.push(`Validation readiness: ${unavailableValidators.length === 0 ? 'all configured validators available' : `missing ${unavailableValidators.join(', ')}`}`);
+  lines.push(`Approval posture: ${state.effectiveApprovalPolicy.requiredWriteRisks.length > 0 ? `writes with risk ${state.effectiveApprovalPolicy.requiredWriteRisks.join(', ')} require approval` : 'no approval rules active'}`);
+
+  if (state.blockers[0]) {
+    lines.push(`Top blocker: ${state.blockers[0]}`);
+  } else if (state.assumptions[0]) {
+    lines.push(`Top ambiguity: ${state.assumptions[0]}`);
+  } else {
+    lines.push('Top blocker: none');
+  }
+
+  return lines;
+}
+
 export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
   const steps: string[] = [];
   const topTarget = state.preflight.targetCandidates[0];
@@ -63,6 +86,27 @@ export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
       steps.push('Review target ambiguity, workspace policy, or missing validators before rerunning the task.');
       return steps;
   }
+}
+
+export function summarizeAgentSnapshot(state: AgentRunState): string[] {
+  const lines: string[] = [];
+  const topTarget = state.preflight.targetCandidates[0];
+  const topValidationIssue = state.runtime.validationIssues[0];
+
+  lines.push(`Outcome: ${state.outcome}`);
+  lines.push(`Model: ${state.modelName}`);
+  lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path}` : 'undetected'}`);
+  lines.push(`Repair attempts: ${state.runtime.repairAttempts}`);
+  lines.push(`Validation status: ${state.runtime.validationResults.length === 0 ? 'not run yet' : state.runtime.validationResults.every(result => result.exitCode === 0) ? 'passed' : 'failed'}`);
+  lines.push(`Approval signals: ${state.runtime.approvalSignals.length}`);
+
+  if (topValidationIssue) {
+    lines.push(`Top validation issue: ${topValidationIssue.kind}`);
+  } else {
+    lines.push('Top validation issue: none');
+  }
+
+  return lines;
 }
 
 export function printInspection(inspection: WorkspaceInspection): void {
@@ -126,6 +170,9 @@ export function printRunPreflight(state: RunPreflightState): void {
   printHeader('Run Preflight');
   process.stdout.write(`task: ${state.task}\n`);
   process.stdout.write(`workspace: ${state.workspaceRoot}\n\n`);
+  printHeader('Operation Snapshot');
+  printList(summarizePreflightSnapshot(state), 'No snapshot available.');
+  process.stdout.write('\n');
   printHeader('Profile');
   process.stdout.write(`${state.profile.label} (${state.profile.id})\n`);
   printList(state.profile.reasons, 'No profile reasons recorded.');
@@ -205,6 +252,9 @@ export function printAgentRunState(state: AgentRunState): void {
   process.stdout.write(`outcome: ${state.outcome}\n`);
   process.stdout.write(`turn count: ${state.turns.length}\n`);
   process.stdout.write(`repair attempts: ${state.runtime.repairAttempts}\n`);
+  process.stdout.write('\n');
+  printHeader('Operation Snapshot');
+  printList(summarizeAgentSnapshot(state), 'No snapshot available.');
   process.stdout.write('\n');
   printHeader('Recommended Next Step');
   printList(summarizeRecommendedNextSteps(state), 'No next step summary available.');
