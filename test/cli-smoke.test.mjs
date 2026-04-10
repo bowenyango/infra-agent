@@ -2915,6 +2915,38 @@ test('classifyValidationIssues provides actionable guidance for missing required
   assert.match(issues[0]?.guidance ?? '', /add the missing required argument through an existing tfvars file or declared variable path/i);
 });
 
+test('classifyValidationIssues marks missing Pulumi config as pulumi-missing-config', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+      exitCode: 1,
+      stdout: '',
+      stderr: 'error: missing required configuration variable "payments-api:imageTag"; run `pulumi config set payments-api:imageTag <value>`'
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-missing-config');
+  assert.equal(issues[0]?.repairable, false);
+  assert.match(issues[0]?.guidance ?? '', /set payments-api:imageTag/i);
+});
+
+test('classifyValidationIssues marks general Pulumi preview failures as pulumi-preview-failure', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+      exitCode: 1,
+      stdout: '',
+      stderr: 'error: preview failed because the stack configuration is invalid'
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-preview-failure');
+  assert.equal(issues[0]?.repairable, false);
+  assert.match(issues[0]?.guidance ?? '', /failing Pulumi project and stack file/i);
+});
+
 test('executeDecision runs terraform formatting repair inside the selected Terraform root', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-fmt-'));
   const workspaceRoot = join(tempRoot, 'workspace');

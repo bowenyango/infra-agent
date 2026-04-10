@@ -28,6 +28,27 @@ function buildTerraformValidateGuidance(output: string): string {
   return 'Read the failing Terraform root, review variable declarations and tfvars, then correct the configuration before rerunning validation.';
 }
 
+function buildPulumiPreviewGuidance(output: string): string {
+  const missingConfigMatch =
+    output.match(/missing required configuration (?:key|variable)[^"'`]*["'`]([^"'`]+)["'`]/i)
+    ?? output.match(/configuration[^"'`]*["'`]([^"'`]+)["'`][^"'`]*is required/i);
+
+  const missingConfigKey = missingConfigMatch?.[1]?.trim();
+  if (missingConfigKey) {
+    if (/:imageTag$/i.test(missingConfigKey)) {
+      return `Update the selected Pulumi stack file and set ${missingConfigKey} using the existing stack config namespace before rerunning preview.`;
+    }
+
+    if (/:environment$/i.test(missingConfigKey)) {
+      return `Update the selected Pulumi stack file and set ${missingConfigKey} to the intended environment value before rerunning preview.`;
+    }
+
+    return `Update the selected Pulumi stack file and define ${missingConfigKey} using the existing project config shape before rerunning preview.`;
+  }
+
+  return 'Read the failing Pulumi project and stack file, then correct the missing or invalid config value before rerunning preview.';
+}
+
 export function classifyValidationIssues(results: ValidationCommandOutput[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -71,6 +92,20 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
         repairable: false,
         message: combinedOutput.trim().slice(0, 400) || 'Terraform validate reported a configuration error.',
         guidance: buildTerraformValidateGuidance(combinedOutput)
+      }));
+      continue;
+    }
+
+    if (/pulumi\b.*preview/i.test(result.command)) {
+      const missingConfigMatch =
+        combinedOutput.match(/missing required configuration (?:key|variable)[^"'`]*["'`]([^"'`]+)["'`]/i)
+        ?? combinedOutput.match(/configuration[^"'`]*["'`]([^"'`]+)["'`][^"'`]*is required/i);
+
+      issues.push(buildIssue(result, {
+        kind: missingConfigMatch ? 'pulumi-missing-config' : 'pulumi-preview-failure',
+        repairable: false,
+        message: combinedOutput.trim().slice(0, 400) || 'Pulumi preview reported a configuration error.',
+        guidance: buildPulumiPreviewGuidance(combinedOutput)
       }));
       continue;
     }
