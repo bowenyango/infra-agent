@@ -12,6 +12,8 @@ The initial infrastructure domains are:
 
 The primary product user is a non-Infra contributor who needs help producing correct configuration without already knowing repository-specific infrastructure conventions.
 
+A future expansion target, after the CLI runtime is stable, is a local visualization server that can render the expected infrastructure topology inferred from repository configuration.
+
 ## Product Principles
 
 - Narrow domain before broad autonomy
@@ -52,6 +54,7 @@ Do not build these in the first phase:
 - chat UI
 - automatic secret creation
 - speculative repository-wide migrations
+- provider visualization server before the CLI runtime is stable
 
 ## Delivery Phases
 
@@ -176,6 +179,22 @@ Shape the product for the actual end user.
 - avoid requiring users to know internal IaC layout before the first run
 - preserve strict safety boundaries while reducing Infra jargon where possible
 
+### Phase 12: Local Visualization Server
+
+Add a local visualization layer after the CLI runtime is reliable across Helm, Pulumi, and Terraform.
+
+- run a local server that reads structured repository facts and agent-derived infra graph data
+- render provider-aware topology views instead of raw file trees
+- start with AWS-oriented views such as:
+  - resources grouped by VPC
+  - public vs private subnets
+  - security-group-derived reachability
+  - load balancer to service to compute paths
+  - cross-stack or cross-module references where they can be inferred safely
+- keep the visualization local-first and repo-derived rather than cloud-account-derived
+- support additional providers later through provider-specific graph adapters
+- keep the visualization layer downstream from the CLI runtime so the graph is built from trusted inspection and domain parsing
+
 ## Initial Vertical Slice
 
 The first end-to-end slice should solve one narrow workflow:
@@ -201,6 +220,13 @@ Each successful run should produce:
 - open risks or assumptions
 - approval-required actions, if any
 - follow-up questions for the user, if the run was blocked on missing inputs
+
+Future local visualization runs should additionally produce:
+
+- a normalized infra graph snapshot
+- provider-specific topology sections
+- communication or reachability hints with confidence levels
+- explicit uncertainty markers where repository configuration is incomplete
 
 ## Open Questions To Resolve Before Implementation
 

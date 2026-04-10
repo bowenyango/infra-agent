@@ -18,6 +18,10 @@ The active infrastructure domains are:
 
 The active focus is the **general foundation runtime**, not the final repository-specific production version.
 
+There is also a pinned future expansion target:
+
+- after the CLI runtime is stable, add a local visualization server that shows the inferred infrastructure topology
+
 ## What This Means In Practice
 
 Current development should prioritize:
@@ -38,6 +42,7 @@ Current development should not drift into:
 - multi-agent orchestration
 - chat UI or IDE productization
 - deployment automation
+- visualization server work before the CLI runtime is complete
 
 ## Design Reference
 
@@ -64,6 +69,7 @@ Development should continue in this order unless explicitly changed:
 5. Add `Terraform` as a first-class supported domain beside `Pulumi` and `Helm`.
 6. Add repository-specific behavior for real infrastructure repositories.
 7. Only then consider higher-level agent-platform concerns.
+8. After the CLI runtime is stable, add a local visualization server for inferred infrastructure topology.
 
 ## Current Runtime Boundary
 
@@ -122,6 +128,27 @@ The next major adaptation layer should be:
 - the user's local infrastructure repositories, starting with `scrawlr/infra-apps` and `scrawlr/infra-cloud` when appropriate
 
 These repositories should shape future domain rules, validation conventions, Terraform conventions, and safety constraints.
+
+## Future Visualization Target
+
+The visualization target should be treated as a separate phase after the CLI is reliable.
+
+The intended shape is:
+
+- local server, not cloud-hosted service
+- read repository-derived infra graph data from the CLI/runtime layer
+- show topology views that non-Infra users can understand
+
+The first visualization provider should likely be AWS, with views such as:
+
+- which resources are inside the same VPC
+- which resources are public vs private
+- which resources can likely communicate because of shared or connected security groups
+- how load balancers, services, compute, and data stores are connected
+
+This should remain repository-derived and inference-based at first, not dependent on direct cloud account reads.
+
+Provider support should be extensible over time so later versions can add other clouds and platforms without changing the core CLI runtime boundary.
 
 ## Change Control
 

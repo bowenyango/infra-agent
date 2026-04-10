@@ -12,6 +12,10 @@ The runtime should be optimized for:
 - safety and approvals
 - non-Infra contributor usability
 
+A future product layer may sit on top of this runtime:
+
+- a local visualization server for inferred infrastructure topology
+
 ## Runtime Shape
 
 The CLI runtime should be organized into five layers.
@@ -161,3 +165,36 @@ That vertical slice should be complete before introducing:
 - provider abstraction
 - complex approval workflows
 - multi-agent behavior
+
+## Future Visualization Layer
+
+After the CLI runtime is stable, add a separate local visualization layer.
+
+### 6. Visualization Layer
+
+Responsibilities:
+
+- consume normalized infra graph data produced from repository inspection and domain parsing
+- render human-readable topology views
+- expose uncertainty explicitly when repository facts are incomplete
+- remain local-first and safe to run without cloud-provider credentials
+
+The first provider-specific target can be AWS.
+
+Expected first views:
+
+- VPC containment
+- subnet grouping
+- public vs private exposure
+- security group adjacency or reachability hints
+- service-to-database and load-balancer-to-service relationships
+
+This layer should not parse repositories independently.
+
+Instead, it should sit downstream from the CLI/domain runtime:
+
+1. CLI/domain layers inspect repository facts
+2. domain layers normalize those facts into an infra graph
+3. visualization layer renders that graph through provider-specific adapters
+
+This keeps graph generation deterministic and keeps the visualization product aligned with the same repository-aware facts used by the CLI agent.
