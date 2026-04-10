@@ -21,6 +21,50 @@ function printList(items: string[], fallback: string): void {
   }
 }
 
+export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
+  const steps: string[] = [];
+  const topTarget = state.preflight.targetCandidates[0];
+  const lastTurn = state.turns[state.turns.length - 1];
+  const topValidationIssue = state.runtime.validationIssues[0];
+
+  if (topTarget) {
+    steps.push(`Focus on ${topTarget.kind} target ${topTarget.path} for the next change or review step.`);
+  }
+
+  switch (state.outcome) {
+    case 'completed':
+      steps.push('Review the bounded file changes and keep the validated output as the proposed infra update.');
+      return steps;
+    case 'approval-required':
+      steps.push('Approve the flagged write risk or write path before asking the agent to continue.');
+      steps.push('Use --approve-write-risk and optionally --approve-write-path to continue the same task with explicit approval.');
+      return steps;
+    case 'clarification-required':
+      if (lastTurn?.decision.action.payload?.questions?.length) {
+        steps.push(`Answer the clarification prompt: ${lastTurn.decision.action.payload.questions[0]}`);
+      } else {
+        steps.push('Clarify the target service, root, or environment before retrying the task.');
+      }
+      return steps;
+    case 'validation-blocked':
+      if (topValidationIssue?.guidance) {
+        steps.push(topValidationIssue.guidance);
+      } else if (topValidationIssue) {
+        steps.push(`Resolve the validation blocker: ${topValidationIssue.message}`);
+      } else {
+        steps.push('Inspect the failed validation command output and correct the configuration before retrying.');
+      }
+      return steps;
+    case 'repair-budget-exhausted':
+      steps.push('Inspect the latest validation issue and apply a manual correction before retrying the agent.');
+      return steps;
+    case 'no-safe-action':
+    default:
+      steps.push('Review target ambiguity, workspace policy, or missing validators before rerunning the task.');
+      return steps;
+  }
+}
+
 export function printInspection(inspection: WorkspaceInspection): void {
   printHeader('Workspace Inspection');
   process.stdout.write(`workspace: ${inspection.workspaceRoot}\n`);
@@ -161,6 +205,9 @@ export function printAgentRunState(state: AgentRunState): void {
   process.stdout.write(`outcome: ${state.outcome}\n`);
   process.stdout.write(`turn count: ${state.turns.length}\n`);
   process.stdout.write(`repair attempts: ${state.runtime.repairAttempts}\n`);
+  process.stdout.write('\n');
+  printHeader('Recommended Next Step');
+  printList(summarizeRecommendedNextSteps(state), 'No next step summary available.');
 
   for (let index = 0; index < state.turns.length; index += 1) {
     const turn = state.turns[index];

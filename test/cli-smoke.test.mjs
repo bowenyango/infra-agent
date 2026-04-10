@@ -16,6 +16,7 @@ import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
+import { summarizeRecommendedNextSteps } from '../src/cli/output.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
@@ -1576,6 +1577,115 @@ test('runSingleStep returns approval-required outcome for approval clarification
   );
 
   assert.equal(result.outcome, 'approval-required');
+});
+
+test('summarizeRecommendedNextSteps suggests approval continuation for approval-required runs', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const steps = summarizeRecommendedNextSteps({
+    modelName: 'test-model',
+    outcome: 'approval-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [
+      {
+        index: 0,
+        decision: {
+          confidence: 'high',
+          action: {
+            kind: 'ask-for-clarification',
+            summary: 'Approval required',
+            rationale: 'High-risk write needs approval.',
+            payload: {
+              clarificationKind: 'approval-required',
+              questions: ['Proceed with this rewrite?']
+            }
+          }
+        },
+        runtimeSnapshot: {
+          task: preflight.task,
+          preflight,
+          observations: [],
+          appliedWrites: [],
+          validationResults: [],
+          validationIssues: [],
+          approvalSignals: [],
+          repairAttempts: 0,
+          lastEditPlan: null
+        }
+      }
+    ]
+  });
+
+  assert.ok(steps.some(step => /approve the flagged write risk or write path/i.test(step)));
+  assert.ok(steps.some(step => /--approve-write-risk/i.test(step)));
+});
+
+test('summarizeRecommendedNextSteps surfaces Terraform validation guidance for blocked runs', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const steps = summarizeRecommendedNextSteps({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [
+        {
+          kind: 'terraform-validate-failure',
+          repairable: false,
+          sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+          message: 'Error: Missing required argument',
+          guidance: 'Read the referenced Terraform module inputs and add the missing required argument through an existing tfvars file or declared variable path.'
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [
+      {
+        index: 0,
+        decision: {
+          confidence: 'medium',
+          action: {
+            kind: 'stop',
+            summary: 'Validation failed and no bounded repair action was available.',
+            rationale: 'Terraform validate failed.',
+            payload: {
+              stopReason: 'validation-blocked'
+            }
+          }
+        },
+        runtimeSnapshot: {
+          task: preflight.task,
+          preflight,
+          observations: [],
+          appliedWrites: [],
+          validationResults: [],
+          validationIssues: [],
+          approvalSignals: [],
+          repairAttempts: 0,
+          lastEditPlan: null
+        }
+      }
+    ]
+  });
+
+  assert.ok(steps.some(step => /add the missing required argument through an existing tfvars file/i.test(step)));
+  assert.ok(steps.some(step => /terraform-root target terraform\/payments-api/i.test(step)));
 });
 
 test('rule-based planner asks Terraform-specific clarification questions when Terraform task lacks root and environment detail', async () => {
