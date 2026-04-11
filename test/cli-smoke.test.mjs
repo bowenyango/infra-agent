@@ -2229,6 +2229,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
   assert.ok(summary.some(line => /Validators executed: 1 command\(s\) across Pulumi/i.test(line)));
+  assert.ok(summary.some(line => /Validation findings: none/i.test(line)));
   assert.ok(summary.some(line => /Repair activity: 1 bounded repair attempt/i.test(line)));
 });
 
@@ -2350,6 +2351,88 @@ test('summarizeResultCard includes rendered Helm resource kinds from helm templa
   });
 
   assert.ok(summary.some(line => /Validation findings: Helm rendered resources: Deployment, Service, Ingress/i.test(line)));
+});
+
+test('summarizeResultCard includes Pulumi validation findings for missing config blockers', async () => {
+  const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'error: missing required configuration variable "payments-api:imageTag"'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'pulumi-missing-config',
+          repairable: true,
+          sourceCommand: 'pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+          message: 'missing required configuration variable "payments-api:imageTag"',
+          guidance: 'Update the selected Pulumi stack file and set payments-api:imageTag using the existing stack config namespace before rerunning preview.',
+          metadata: {
+            missingConfigKey: 'payments-api:imageTag'
+          }
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(summary.some(line => /Validation findings: Pulumi preview missing config: payments-api:imageTag/i.test(line)));
+});
+
+test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'terraform -chdir=terraform/payments-api validate',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'Error: Missing required argument\n\nThe argument "image_tag" is required, but no definition was found.'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'terraform-validate-failure',
+          repairable: true,
+          sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+          message: 'Error: Missing required argument',
+          guidance: 'Read the referenced Terraform module inputs and add the missing required argument through an existing tfvars file or declared variable path.',
+          metadata: {
+            missingVariableName: 'image_tag'
+          }
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(summary.some(line => /Validation findings: Terraform validate is missing required variable: image_tag/i.test(line)));
 });
 
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {

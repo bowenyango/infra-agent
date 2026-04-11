@@ -152,6 +152,31 @@ function summarizeValidationFindings(state: AgentRunState): string {
     return `Helm rendered resources: ${Array.from(renderedKinds).join(', ')}`;
   }
 
+  const topIssue = state.runtime.validationIssues[0];
+  if (topIssue?.kind === 'pulumi-missing-config') {
+    const missingConfigKey = topIssue.metadata?.missingConfigKey;
+    return missingConfigKey
+      ? `Pulumi preview missing config: ${missingConfigKey}`
+      : 'Pulumi preview is blocked by a missing required config value.';
+  }
+
+  if (topIssue?.kind === 'pulumi-preview-failure') {
+    return topIssue.guidance ?? 'Pulumi preview reported a configuration error.';
+  }
+
+  if (topIssue?.kind === 'terraform-formatting-required') {
+    return 'Terraform formatting repair is required before validation can pass.';
+  }
+
+  if (topIssue?.kind === 'terraform-validate-failure') {
+    const missingVariableName = topIssue.metadata?.missingVariableName;
+    if (missingVariableName) {
+      return `Terraform validate is missing required variable: ${missingVariableName}`;
+    }
+
+    return topIssue.guidance ?? 'Terraform validate reported a configuration error.';
+  }
+
   return 'none';
 }
 
