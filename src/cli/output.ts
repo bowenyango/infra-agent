@@ -5,7 +5,15 @@ import type {
   ValidationPreflight,
   WorkspaceInspection
 } from '../types/repository.ts';
-import type { DiffPreviewOutput, HelmShowChartOutput, HelmShowValuesOutput, SearchWorkspaceOutput, ValidationRunOutput } from '../types/tools.ts';
+import type {
+  DiffPreviewOutput,
+  HelmShowChartOutput,
+  HelmShowValuesOutput,
+  PulumiConfigSetOutput,
+  SearchWorkspaceOutput,
+  TerraformFormatRepairOutput,
+  ValidationRunOutput
+} from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
 
 function printHeader(title: string): void {
@@ -151,12 +159,57 @@ function summarizeNativeCliTools(state: AgentRunState): string {
   return tools.size > 0 ? Array.from(tools).join(', ') : 'none';
 }
 
+function summarizeNativeCliFindings(state: AgentRunState): string {
+  const findings: string[] = [];
+
+  for (const turn of state.turns) {
+    for (const result of turn.execution?.executedTools ?? []) {
+      if (result.toolName === 'helm_show_chart') {
+        const output = result.output as HelmShowChartOutput;
+        const nameMatch = output.content.match(/^\s*name:\s*(.+)$/m);
+        const versionMatch = output.content.match(/^\s*version:\s*(.+)$/m);
+        findings.push(`Helm chart ${nameMatch?.[1]?.trim() ?? output.chartPath}${versionMatch?.[1] ? ` v${versionMatch[1].trim()}` : ''}`);
+        continue;
+      }
+
+      if (result.toolName === 'helm_show_values') {
+        const output = result.output as HelmShowValuesOutput;
+        const topLevelKeys = Array.from(
+          new Set(
+            output.content
+              .split('\n')
+              .map(line => line.match(/^([A-Za-z0-9_-]+):\s*$/)?.[1])
+              .filter((key): key is string => Boolean(key))
+          )
+        );
+
+        findings.push(`Helm values inspected for ${output.chartPath}${topLevelKeys.length > 0 ? ` (${topLevelKeys.slice(0, 3).join(', ')})` : ''}`);
+        continue;
+      }
+
+      if (result.toolName === 'pulumi_config_set') {
+        const output = result.output as PulumiConfigSetOutput;
+        findings.push(`Pulumi config updated ${output.key} on stack ${output.stackName}`);
+        continue;
+      }
+
+      if (result.toolName === 'terraform_fmt') {
+        const output = result.output as TerraformFormatRepairOutput;
+        findings.push(`Terraform fmt normalized ${output.formattedFiles.length} file(s) in ${output.rootPath}`);
+      }
+    }
+  }
+
+  return findings.length > 0 ? findings.slice(0, 3).join('; ') : 'none';
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
 
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
+  lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
   lines.push(`Validators executed: ${state.runtime.validationResults.length} command(s) across ${summarizeValidatorFamilies(state)}`);
   lines.push(`Repair activity: ${state.runtime.repairAttempts > 0 ? `${state.runtime.repairAttempts} bounded repair attempt(s)` : 'none'}`);
 

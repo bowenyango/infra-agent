@@ -2227,6 +2227,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
 
   assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
+  assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
   assert.ok(summary.some(line => /Validators executed: 1 command\(s\) across Pulumi/i.test(line)));
   assert.ok(summary.some(line => /Repair activity: 1 bounded repair attempt/i.test(line)));
 });
@@ -2266,6 +2267,19 @@ test('summarizeResultCard includes Helm CLI usage when helm_show_values is execu
           status: 'completed',
           executedTools: [
             {
+              toolName: 'helm_show_chart',
+              safety: 'read_only',
+              output: {
+                workspaceRoot: preflight.workspaceRoot,
+                chartPath: 'charts/payments-api',
+                command: 'helm show chart charts/payments-api',
+                exitCode: 0,
+                stdout: 'name: payments-api\nversion: 0.1.0\n',
+                stderr: '',
+                content: 'name: payments-api\nversion: 0.1.0\n'
+              }
+            },
+            {
               toolName: 'helm_show_values',
               safety: 'read_only',
               output: {
@@ -2296,6 +2310,7 @@ test('summarizeResultCard includes Helm CLI usage when helm_show_values is execu
   });
 
   assert.ok(summary.some(line => /Native CLI operations: Helm CLI/i.test(line)));
+  assert.ok(summary.some(line => /Native CLI findings: Helm chart payments-api v0.1.0; Helm values inspected for charts\/payments-api/i.test(line)));
 });
 
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {
