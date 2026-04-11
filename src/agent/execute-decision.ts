@@ -4,6 +4,7 @@ import { isWriteAllowedByWorkspacePolicy } from '../domain/workspace-policy.ts';
 import { executeTool } from '../services/tools/execute-tool.ts';
 import { AppendFileTool } from '../tools/AppendFileTool/AppendFileTool.ts';
 import { DiffPreviewTool } from '../tools/DiffPreviewTool/DiffPreviewTool.ts';
+import { HelmShowChartTool } from '../tools/HelmShowChartTool/HelmShowChartTool.ts';
 import { HelmShowValuesTool } from '../tools/HelmShowValuesTool/HelmShowValuesTool.ts';
 import { ListDirectoryTool } from '../tools/ListDirectoryTool/ListDirectoryTool.ts';
 import { PulumiConfigSetTool } from '../tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
@@ -63,6 +64,7 @@ export async function executeDecision(
       });
 
       if ((decision.action.payload?.requestedDomains ?? []).includes('helm') && listedFiles.includes('Chart.yaml')) {
+        toolResults.push(await executeTool(HelmShowChartTool, { chartPath: targetPath }, context));
         toolResults.push(await executeTool(HelmShowValuesTool, { chartPath: targetPath }, context));
       }
 

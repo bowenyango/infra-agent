@@ -3292,6 +3292,33 @@ test('inspect-target-files uses helm_show_values for Helm chart inspection', asy
   assert.match(helmShowValues?.output.content ?? '', /service:\s*\n\s*port:\s*8080/i);
 });
 
+test('inspect-target-files uses helm_show_chart for Helm chart metadata inspection', async () => {
+  const execution = await executeDecision(
+    {
+      confidence: 'high',
+      action: {
+        kind: 'inspect-target-files',
+        summary: 'Inspect Helm files.',
+        rationale: 'Test Helm chart metadata path.',
+        payload: {
+          targetPaths: ['charts/payments-api'],
+          requestedDomains: ['helm']
+        }
+      }
+    },
+    resolve('fixtures/sample-workspace'),
+    null
+  );
+
+  assert.ok(execution);
+  const helmShowChart = execution?.executedTools.find(result => result.toolName === 'helm_show_chart');
+
+  assert.ok(helmShowChart);
+  assert.match(helmShowChart?.output.command ?? '', /helm show chart charts\/payments-api/i);
+  assert.match(helmShowChart?.output.content ?? '', /name:\s*payments-api/i);
+  assert.match(helmShowChart?.output.content ?? '', /version:\s*0.1.0/i);
+});
+
 test('classifyValidationIssues marks terraform fmt failures as terraform-formatting-required', () => {
   const issues = classifyValidationIssues([
     {

@@ -28,6 +28,16 @@ export interface HelmShowValuesOutput {
   content: string;
 }
 
+export interface HelmShowChartOutput {
+  workspaceRoot: string;
+  chartPath: string;
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  content: string;
+}
+
 export interface FileReadOutput {
   path: string;
   content: string;

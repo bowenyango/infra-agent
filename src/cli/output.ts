@@ -5,7 +5,7 @@ import type {
   ValidationPreflight,
   WorkspaceInspection
 } from '../types/repository.ts';
-import type { DiffPreviewOutput, HelmShowValuesOutput, SearchWorkspaceOutput, ValidationRunOutput } from '../types/tools.ts';
+import type { DiffPreviewOutput, HelmShowChartOutput, HelmShowValuesOutput, SearchWorkspaceOutput, ValidationRunOutput } from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
 
 function printHeader(title: string): void {
@@ -131,6 +131,10 @@ function summarizeNativeCliTools(state: AgentRunState): string {
   for (const turn of state.turns) {
     for (const result of turn.execution?.executedTools ?? []) {
       if (result.toolName === 'helm_show_values') {
+        tools.add('Helm CLI');
+      }
+
+      if (result.toolName === 'helm_show_chart') {
         tools.add('Helm CLI');
       }
 
@@ -607,6 +611,17 @@ export function printAgentRunState(state: AgentRunState): void {
               ...output.content.split('\n').filter(Boolean).slice(0, 4)
             ],
             'No Helm values output available.'
+          );
+        }
+
+        if (toolResult.toolName === 'helm_show_chart') {
+          const output = toolResult.output as HelmShowChartOutput;
+          printList(
+            [
+              `${output.chartPath} -> exit ${output.exitCode}`,
+              ...output.content.split('\n').filter(Boolean).slice(0, 4)
+            ],
+            'No Helm chart metadata available.'
           );
         }
 
