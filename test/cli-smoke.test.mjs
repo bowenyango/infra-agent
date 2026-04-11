@@ -2313,6 +2313,45 @@ test('summarizeResultCard includes Helm CLI usage when helm_show_values is execu
   assert.ok(summary.some(line => /Native CLI findings: Helm chart payments-api v0.1.0; Helm values inspected for charts\/payments-api/i.test(line)));
 });
 
+test('summarizeResultCard includes rendered Helm resource kinds from helm template output', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'helm template charts/payments-api',
+          exitCode: 0,
+          stdout: [
+            'apiVersion: apps/v1',
+            'kind: Deployment',
+            '---',
+            'apiVersion: v1',
+            'kind: Service',
+            '---',
+            'apiVersion: networking.k8s.io/v1',
+            'kind: Ingress'
+          ].join('\n'),
+          stderr: ''
+        }
+      ],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(summary.some(line => /Validation findings: Helm rendered resources: Deployment, Service, Ingress/i.test(line)));
+});
+
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {
   const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
   const commands = summarizeSuggestedCommands({

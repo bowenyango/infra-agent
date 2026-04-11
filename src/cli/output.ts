@@ -133,6 +133,28 @@ function summarizeValidatorFamilies(state: AgentRunState): string {
   return families.size > 0 ? Array.from(families).join(', ') : 'none';
 }
 
+function summarizeValidationFindings(state: AgentRunState): string {
+  const renderedKinds = new Set<string>();
+
+  for (const result of state.runtime.validationResults) {
+    if (!result.command.includes('helm template')) {
+      continue;
+    }
+
+    for (const match of result.stdout.matchAll(/^\s*kind:\s*([A-Za-z0-9]+)/gm)) {
+      if (match[1]) {
+        renderedKinds.add(match[1]);
+      }
+    }
+  }
+
+  if (renderedKinds.size > 0) {
+    return `Helm rendered resources: ${Array.from(renderedKinds).join(', ')}`;
+  }
+
+  return 'none';
+}
+
 function summarizeNativeCliTools(state: AgentRunState): string {
   const tools = new Set<string>();
 
@@ -211,6 +233,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
   lines.push(`Validators executed: ${state.runtime.validationResults.length} command(s) across ${summarizeValidatorFamilies(state)}`);
+  lines.push(`Validation findings: ${summarizeValidationFindings(state)}`);
   lines.push(`Repair activity: ${state.runtime.repairAttempts > 0 ? `${state.runtime.repairAttempts} bounded repair attempt(s)` : 'none'}`);
 
   return lines;
