@@ -335,10 +335,33 @@ function summarizePrimaryTargetImpact(state: AgentRunState): string {
   return `${domainLabel} target ${targetPath} was inspected`;
 }
 
+function summarizeRunPosture(state: AgentRunState): string {
+  switch (state.outcome) {
+    case 'completed':
+      if (state.runtime.validationResults.length > 0) {
+        return 'validated and ready for review';
+      }
+
+      return 'completed with bounded inspection or edits';
+    case 'approval-required':
+      return 'paused pending explicit approval for a scoped high-risk change';
+    case 'validation-blocked':
+      return 'blocked by validation and needs follow-up action';
+    case 'clarification-required':
+      return 'paused pending clarification about target, environment, or scope';
+    case 'repair-budget-exhausted':
+      return 'stopped after bounded repair attempts were exhausted';
+    case 'no-safe-action':
+    default:
+      return 'stopped because no safe next action was available';
+  }
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
 
+  lines.push(`Run posture: ${summarizeRunPosture(state)}`);
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
