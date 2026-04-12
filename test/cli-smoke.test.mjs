@@ -2225,6 +2225,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
     ]
   });
 
+  assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api with 1 changed file\(s\)/i.test(line)));
   assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
@@ -2310,6 +2311,7 @@ test('summarizeResultCard includes Helm CLI usage when helm_show_values is execu
     ]
   });
 
+  assert.ok(summary.some(line => /Primary target impact: Helm target charts\/payments-api was inspected/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Helm CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Helm chart payments-api v0.1.0; Helm values inspected for charts\/payments-api/i.test(line)));
 });
@@ -2350,6 +2352,7 @@ test('summarizeResultCard includes rendered Helm resource kinds from helm templa
     turns: []
   });
 
+  assert.ok(summary.some(line => /Primary target impact: Helm target charts\/payments-api was validated without direct file changes/i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Helm rendered resources: Deployment, Service, Ingress/i.test(line)));
 });
 
@@ -2391,6 +2394,7 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
     turns: []
   });
 
+  assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api was validated without direct file changes/i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Pulumi preview missing config: payments-api:imageTag/i.test(line)));
 });
 
@@ -2432,6 +2436,7 @@ test('summarizeResultCard includes Terraform validation findings for missing req
     turns: []
   });
 
+  assert.ok(summary.some(line => /Primary target impact: Terraform target terraform\/payments-api was validated without direct file changes/i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Terraform validate is missing required variable: image_tag/i.test(line)));
 });
 

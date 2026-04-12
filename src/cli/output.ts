@@ -250,10 +250,96 @@ function summarizeNativeCliFindings(state: AgentRunState): string {
   return findings.length > 0 ? findings.slice(0, 3).join('; ') : 'none';
 }
 
+function extractTargetPathFromValidationCommand(command: string, primaryDomain: string | null): string | null {
+  if (primaryDomain === 'helm') {
+    const match = command.match(/helm (?:lint|template) (\S+)/);
+    return match?.[1] ?? null;
+  }
+
+  if (primaryDomain === 'pulumi') {
+    const match = command.match(/--cwd (\S+)/);
+    return match?.[1] ?? null;
+  }
+
+  if (primaryDomain === 'terraform') {
+    const match = command.match(/-chdir=(\S+)/);
+    return match?.[1] ?? null;
+  }
+
+  return null;
+}
+
+function inferPrimaryImpactTargetPath(state: AgentRunState, primaryDomain: string | null): string | null {
+  for (const turn of state.turns) {
+    for (const result of turn.execution?.executedTools ?? []) {
+      if (result.toolName === 'helm_show_chart' || result.toolName === 'helm_show_values') {
+        return (result.output as HelmShowChartOutput | HelmShowValuesOutput).chartPath;
+      }
+
+      if (result.toolName === 'pulumi_config_set') {
+        return (result.output as PulumiConfigSetOutput).projectRoot;
+      }
+
+      if (result.toolName === 'terraform_fmt') {
+        return (result.output as TerraformFormatRepairOutput).rootPath;
+      }
+    }
+  }
+
+  for (const write of state.runtime.appliedWrites) {
+    if (primaryDomain === 'helm' && write.path.startsWith('charts/')) {
+      const segments = write.path.split('/');
+      return segments.length >= 2 ? `${segments[0]}/${segments[1]}` : write.path;
+    }
+
+    if (primaryDomain === 'pulumi' && /\/Pulumi(\..+)?\.(yaml|yml)$/i.test(write.path)) {
+      const segments = write.path.split('/');
+      return segments.slice(0, -1).join('/');
+    }
+
+    if (primaryDomain === 'terraform' && (write.path.endsWith('.tf') || /\.tfvars(\.json)?$/i.test(write.path))) {
+      const segments = write.path.split('/');
+      return segments.length >= 2 ? `${segments[0]}/${segments[1]}` : write.path;
+    }
+  }
+
+  for (const result of state.runtime.validationResults) {
+    const targetPath = extractTargetPathFromValidationCommand(result.command, primaryDomain);
+    if (targetPath) {
+      return targetPath;
+    }
+  }
+
+  return state.preflight.targetCandidates[0]?.path ?? null;
+}
+
+function summarizePrimaryTargetImpact(state: AgentRunState): string {
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const targetPath = inferPrimaryImpactTargetPath(state, primaryDomain);
+  const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
+
+  if (!targetPath) {
+    return 'undetected';
+  }
+
+  const domainLabel = formatPrimaryDomainLabel(primaryDomain);
+  const changedInTarget = changedPaths.filter(path => path.startsWith(targetPath));
+  if (changedInTarget.length > 0) {
+    return `${domainLabel} target ${targetPath} with ${changedInTarget.length} changed file(s)`;
+  }
+
+  if (state.runtime.validationResults.length > 0) {
+    return `${domainLabel} target ${targetPath} was validated without direct file changes`;
+  }
+
+  return `${domainLabel} target ${targetPath} was inspected`;
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
 
+  lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
