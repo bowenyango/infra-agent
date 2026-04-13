@@ -477,6 +477,32 @@ function summarizeReviewArtifacts(state: AgentRunState): string {
   return targetPath ?? 'undetected';
 }
 
+function summarizeReviewCommand(state: AgentRunState): string {
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const nativeCommands = summarizeDomainSuggestedCommands(state);
+
+  if (primaryDomain === 'helm') {
+    return nativeCommands.find(command => command.startsWith('helm show values '))
+      ?? nativeCommands[0]
+      ?? 'undetected';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return nativeCommands.find(command => command.startsWith('pulumi preview '))
+      ?? nativeCommands[0]
+      ?? 'undetected';
+  }
+
+  if (primaryDomain === 'terraform') {
+    return nativeCommands.find(command => command.includes(' validate'))
+      ?? nativeCommands.find(command => command.includes('fmt -check'))
+      ?? nativeCommands[0]
+      ?? 'undetected';
+  }
+
+  return nativeCommands[0] ?? 'undetected';
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -486,6 +512,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
   lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);
+  lines.push(`Review command: ${summarizeReviewCommand(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
