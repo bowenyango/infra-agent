@@ -2322,6 +2322,7 @@ test('summarizeResultCard includes Helm CLI usage when helm_show_values is execu
   assert.ok(summary.some(line => /Review focus: Review the target chart metadata, values, and templates for the requested Helm change\./i.test(line)));
   assert.ok(summary.some(line => /Review artifacts: charts\/payments-api\/Chart\.yaml, charts\/payments-api\/values\.yaml, charts\/payments-api\/templates\//i.test(line)));
   assert.ok(summary.some(line => /Review command: helm show values "charts\/payments-api"/i.test(line)));
+  assert.ok(summary.some(line => /Next operator step: Run helm show values "charts\/payments-api" and review the bounded change before merging or handing off the update\./i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Helm CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Helm chart payments-api v0.1.0; Helm values inspected for charts\/payments-api/i.test(line)));
 });
@@ -2458,6 +2459,7 @@ test('summarizeResultCard includes Terraform validation findings for missing req
   assert.ok(summary.some(line => /Review focus: Review the target tfvars file and the Terraform module inputs referenced by validate\./i.test(line)));
   assert.ok(summary.some(line => /Review artifacts: terraform\/payments-api\/terraform\*\.tfvars, variable declarations under terraform\/payments-api/i.test(line)));
   assert.ok(summary.some(line => /Review command: terraform -chdir=terraform\/payments-api validate/i.test(line)));
+  assert.ok(summary.some(line => /Next operator step: Run terraform -chdir=terraform\/payments-api validate, correct the blocking Terraform issue, and rerun the agent\./i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Terraform validate is missing required variable: image_tag/i.test(line)));
 });
 
