@@ -2228,6 +2228,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Run posture: validated and ready for review/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api with 1 changed file\(s\)/i.test(line)));
   assert.ok(summary.some(line => /Open concern: none/i.test(line)));
+  assert.ok(summary.some(line => /Review focus: Review the selected Pulumi stack file, config keys, and preview output\./i.test(line)));
   assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
@@ -2315,6 +2316,7 @@ test('summarizeResultCard includes Helm CLI usage when helm_show_values is execu
 
   assert.ok(summary.some(line => /Run posture: completed with bounded inspection or edits/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Helm target charts\/payments-api was inspected/i.test(line)));
+  assert.ok(summary.some(line => /Review focus: Review the target chart metadata, values, and templates for the requested Helm change\./i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Helm CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Helm chart payments-api v0.1.0; Helm values inspected for charts\/payments-api/i.test(line)));
 });
@@ -2357,6 +2359,7 @@ test('summarizeResultCard includes rendered Helm resource kinds from helm templa
 
   assert.ok(summary.some(line => /Run posture: validated and ready for review/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Helm target charts\/payments-api was validated without direct file changes/i.test(line)));
+  assert.ok(summary.some(line => /Review focus: Review rendered Kubernetes objects and the Helm values block that drives them\./i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Helm rendered resources: Deployment, Service, Ingress/i.test(line)));
 });
 
@@ -2401,6 +2404,7 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
   assert.ok(summary.some(line => /Run posture: blocked by validation and needs follow-up action/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api was validated without direct file changes/i.test(line)));
   assert.ok(summary.some(line => /Open concern: Update the selected Pulumi stack file and set payments-api:imageTag/i.test(line)));
+  assert.ok(summary.some(line => /Review focus: Review the selected Pulumi stack file and its config namespace before rerunning preview\./i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Pulumi preview missing config: payments-api:imageTag/i.test(line)));
 });
 
@@ -2445,6 +2449,7 @@ test('summarizeResultCard includes Terraform validation findings for missing req
   assert.ok(summary.some(line => /Run posture: blocked by validation and needs follow-up action/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Terraform target terraform\/payments-api was validated without direct file changes/i.test(line)));
   assert.ok(summary.some(line => /Open concern: Read the referenced Terraform module inputs and add the missing required argument/i.test(line)));
+  assert.ok(summary.some(line => /Review focus: Review the target tfvars file and the Terraform module inputs referenced by validate\./i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Terraform validate is missing required variable: image_tag/i.test(line)));
 });
 

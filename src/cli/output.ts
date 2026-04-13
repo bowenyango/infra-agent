@@ -394,6 +394,45 @@ function summarizeOpenConcern(state: AgentRunState): string {
   }
 }
 
+function summarizeReviewFocus(state: AgentRunState): string {
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const topValidationIssue = state.runtime.validationIssues[0];
+
+  if (state.outcome === 'approval-required') {
+    return 'Review the scoped high-risk write before granting approval.';
+  }
+
+  if (primaryDomain === 'helm') {
+    if (state.runtime.validationResults.some(result => result.command.includes('helm template'))) {
+      return 'Review rendered Kubernetes objects and the Helm values block that drives them.';
+    }
+
+    return 'Review the target chart metadata, values, and templates for the requested Helm change.';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    if (topValidationIssue?.kind === 'pulumi-missing-config') {
+      return 'Review the selected Pulumi stack file and its config namespace before rerunning preview.';
+    }
+
+    return 'Review the selected Pulumi stack file, config keys, and preview output.';
+  }
+
+  if (primaryDomain === 'terraform') {
+    if (topValidationIssue?.kind === 'terraform-validate-failure') {
+      return 'Review the target tfvars file and the Terraform module inputs referenced by validate.';
+    }
+
+    if (state.runtime.validationResults.some(result => result.command.includes('terraform '))) {
+      return 'Review the target tfvars file and Terraform validation output for the selected root.';
+    }
+
+    return 'Review the selected Terraform root, tfvars files, and declared variable inputs.';
+  }
+
+  return 'Review the primary target, validation output, and bounded changes before continuing.';
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -401,6 +440,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Run posture: ${summarizeRunPosture(state)}`);
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
+  lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
