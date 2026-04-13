@@ -503,6 +503,44 @@ function summarizeReviewCommand(state: AgentRunState): string {
   return nativeCommands[0] ?? 'undetected';
 }
 
+function summarizeNextOperatorStep(state: AgentRunState): string {
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const domainLabel = formatPrimaryDomainLabel(primaryDomain);
+  const reviewCommand = summarizeReviewCommand(state);
+  const topApprovalSignal = state.runtime.approvalSignals[0];
+  const lastQuestion = state.turns[state.turns.length - 1]?.decision.action.payload?.questions?.[0];
+
+  switch (state.outcome) {
+    case 'completed':
+      return reviewCommand === 'undetected'
+        ? 'Review the bounded change and validated output before merging or handing off the update.'
+        : `Run ${reviewCommand} and review the bounded change before merging or handing off the update.`;
+    case 'approval-required':
+      if (topApprovalSignal) {
+        return `Decide whether to approve the ${topApprovalSignal.risk}-risk write for ${topApprovalSignal.path} before continuing.`;
+      }
+
+      return 'Decide whether to approve the pending scoped write before continuing.';
+    case 'validation-blocked':
+      return reviewCommand === 'undetected'
+        ? `Inspect the failing ${domainLabel} validation output and correct the configuration before retrying.`
+        : `Run ${reviewCommand}, correct the blocking ${domainLabel} issue, and rerun the agent.`;
+    case 'repair-budget-exhausted':
+      return reviewCommand === 'undetected'
+        ? `Inspect the latest ${domainLabel} validation issue and apply a manual correction before retrying.`
+        : `Run ${reviewCommand}, apply a manual fix, and retry the bounded ${domainLabel} task.`;
+    case 'clarification-required':
+      if (lastQuestion) {
+        return `Answer this question and rerun the task: ${lastQuestion}`;
+      }
+
+      return `Clarify the intended ${domainLabel} target, environment, or values scope before retrying.`;
+    case 'no-safe-action':
+    default:
+      return `Review ${domainLabel} target ambiguity, workspace policy, or validator readiness before rerunning the task.`;
+  }
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -513,6 +551,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
   lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);
   lines.push(`Review command: ${summarizeReviewCommand(state)}`);
+  lines.push(`Next operator step: ${summarizeNextOperatorStep(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);

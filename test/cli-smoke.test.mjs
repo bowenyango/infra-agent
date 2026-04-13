@@ -2231,6 +2231,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Review focus: Review the selected Pulumi stack file, config keys, and preview output\./i.test(line)));
   assert.ok(summary.some(line => /Review artifacts: infra\/payments-api\/Pulumi\.dev\.yaml, config key payments-api:imageTag/i.test(line)));
   assert.ok(summary.some(line => /Review command: .*pulumi preview .*infra\/payments-api.*--stack dev/i.test(line)));
+  assert.ok(summary.some(line => /Next operator step: Run .*pulumi preview .*infra\/payments-api.*--stack dev.*review the bounded change before merging or handing off the update\./i.test(line)));
   assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
@@ -2409,6 +2410,7 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
   assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api was validated without direct file changes/i.test(line)));
   assert.ok(summary.some(line => /Open concern: Update the selected Pulumi stack file and set payments-api:imageTag/i.test(line)));
   assert.ok(summary.some(line => /Review focus: Review the selected Pulumi stack file and its config namespace before rerunning preview\./i.test(line)));
+  assert.ok(summary.some(line => /Next operator step: Run .*pulumi preview .*infra\/payments-api.*--stack dev.*correct the blocking Pulumi issue, and rerun the agent\./i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Pulumi preview missing config: payments-api:imageTag/i.test(line)));
 });
 
@@ -2488,6 +2490,7 @@ test('summarizeResultCard includes approval-required posture', async () => {
 
   assert.ok(summary.some(line => /Run posture: paused pending explicit approval for a scoped high-risk change/i.test(line)));
   assert.ok(summary.some(line => /Open concern: Approval required for high-risk write at charts\/payments-api\/templates\/deployment\.yaml/i.test(line)));
+  assert.ok(summary.some(line => /Next operator step: Decide whether to approve the high-risk write for charts\/payments-api\/templates\/deployment\.yaml before continuing\./i.test(line)));
 });
 
 test('summarizeResultCard includes clarification concern from the planner question', async () => {
@@ -2544,6 +2547,7 @@ test('summarizeResultCard includes clarification concern from the planner questi
   });
 
   assert.ok(summary.some(line => /Open concern: Which Helm chart should be updated\?/i.test(line)));
+  assert.ok(summary.some(line => /Next operator step: Answer this question and rerun the task: Which Helm chart should be updated\?/i.test(line)));
 });
 
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {
