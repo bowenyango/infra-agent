@@ -433,6 +433,50 @@ function summarizeReviewFocus(state: AgentRunState): string {
   return 'Review the primary target, validation output, and bounded changes before continuing.';
 }
 
+function summarizeReviewArtifacts(state: AgentRunState): string {
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const targetPath = inferPrimaryImpactTargetPath(state, primaryDomain);
+
+  if (primaryDomain === 'helm' && targetPath) {
+    return `${targetPath}/Chart.yaml, ${targetPath}/values.yaml, ${targetPath}/templates/`;
+  }
+
+  if (primaryDomain === 'pulumi') {
+    for (const turn of state.turns) {
+      for (const result of turn.execution?.executedTools ?? []) {
+        if (result.toolName === 'pulumi_config_set') {
+          const output = result.output as PulumiConfigSetOutput;
+          return `${output.stackFilePath}, config key ${output.key}`;
+        }
+      }
+    }
+
+    if (targetPath) {
+      return `${targetPath}/Pulumi.<stack>.yaml, project config namespace`;
+    }
+  }
+
+  if (primaryDomain === 'terraform') {
+    const tfvarsWrites = state.runtime.appliedWrites
+      .map(write => write.path)
+      .filter(path => /\.tfvars(\.json)?$/i.test(path));
+
+    if (tfvarsWrites[0] && targetPath) {
+      return `${tfvarsWrites[0]}, variables declared under ${targetPath}`;
+    }
+
+    if (targetPath) {
+      return `${targetPath}/terraform*.tfvars, variable declarations under ${targetPath}`;
+    }
+  }
+
+  if (state.runtime.appliedWrites[0]) {
+    return state.runtime.appliedWrites[0].path;
+  }
+
+  return targetPath ?? 'undetected';
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -441,6 +485,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
+  lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
