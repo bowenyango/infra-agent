@@ -2565,6 +2565,8 @@ test('summarizeSuggestedCommands recommends inspect and run for validation-block
   assert.ok(commands.some(command => /validate/.test(command)));
   assert.ok(commands.some(command => /inspect/.test(command)));
   assert.ok(commands.some(command => /run/.test(command)));
+  assert.ok(commands.some(command => /terraform -chdir=terraform\/payments-api fmt -check -recursive/.test(command)));
+  assert.ok(commands.some(command => /terraform -chdir=terraform\/payments-api validate/.test(command)));
 });
 
 test('summarizeRecommendedNextSteps uses Helm-specific clarification wording', async () => {
@@ -2613,6 +2615,64 @@ test('summarizeSuggestedCommands adds domain-aware validate command for Helm cla
   assert.ok(commands.some(command => /inspect/.test(command)));
   assert.ok(commands.some(command => /run/.test(command)));
   assert.ok(commands.some(command => /validate/.test(command)));
+});
+
+test('summarizeSuggestedCommands includes native Helm commands for Helm clarification runs', async () => {
+  const preflight = await buildRunPreflight('update helm chart', 'fixtures/sample-workspace');
+  const commands = summarizeSuggestedCommands({
+    modelName: 'test-model',
+    outcome: 'clarification-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(commands.some(command => /helm show chart "charts\/payments-api"/.test(command)));
+  assert.ok(commands.some(command => /helm show values "charts\/payments-api"/.test(command)));
+  assert.ok(commands.some(command => /helm lint "charts\/payments-api"/.test(command)));
+});
+
+test('summarizeSuggestedCommands includes native Pulumi preview command for blocked Pulumi runs', async () => {
+  const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
+  const commands = summarizeSuggestedCommands({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [
+        {
+          kind: 'pulumi-missing-config',
+          repairable: true,
+          sourceCommand: 'pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+          message: 'missing required configuration variable "payments-api:imageTag"',
+          metadata: {
+            missingConfigKey: 'payments-api:imageTag'
+          }
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(commands.some(command => /pulumi preview --cwd infra\/payments-api --stack dev --non-interactive/.test(command)));
 });
 
 test('rule-based planner asks Terraform-specific clarification questions when Terraform task lacks root and environment detail', async () => {

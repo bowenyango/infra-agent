@@ -427,6 +427,57 @@ function buildTaskFlag(task: string): string {
   return shellQuote(task);
 }
 
+function getPrimaryDomainTargetPath(state: AgentRunState, primaryDomain: string | null): string | null {
+  if (primaryDomain === 'helm') {
+    return state.preflight.targetCandidates.find(candidate => candidate.kind === 'helm-chart')?.path ?? null;
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return state.preflight.targetCandidates.find(candidate => candidate.kind === 'pulumi-project')?.path ?? null;
+  }
+
+  if (primaryDomain === 'terraform') {
+    return state.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root')?.path ?? null;
+  }
+
+  return state.preflight.targetCandidates[0]?.path ?? null;
+}
+
+function summarizeDomainSuggestedCommands(state: AgentRunState): string[] {
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const targetPath = getPrimaryDomainTargetPath(state, primaryDomain);
+
+  if (!primaryDomain || !targetPath) {
+    return [];
+  }
+
+  if (primaryDomain === 'helm') {
+    return [
+      `helm show chart ${shellQuote(targetPath)}`,
+      `helm show values ${shellQuote(targetPath)}`,
+      `helm lint ${shellQuote(targetPath)}`
+    ];
+  }
+
+  if (primaryDomain === 'pulumi') {
+    const commands = state.preflight.validation.plan.find(
+      entry => entry.kind === 'pulumi' && entry.target === targetPath
+    )?.commands;
+
+    return commands ? commands.slice(0, 1) : [];
+  }
+
+  if (primaryDomain === 'terraform') {
+    const commands = state.preflight.validation.plan.find(
+      entry => entry.kind === 'terraform' && entry.target === targetPath
+    )?.commands;
+
+    return commands ? commands.slice(0, 2) : [];
+  }
+
+  return [];
+}
+
 export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
   const lines: string[] = [];
   const topTarget = state.targetCandidates[0];
@@ -538,6 +589,7 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   const domainInspectCommand = `${base} inspect ${workspaceArg}`;
   const rerunCommand = `${base} run ${taskFlag} ${workspaceFlag}`;
   const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag} --json`;
+  const domainNativeCommands = summarizeDomainSuggestedCommands(state);
 
   switch (state.outcome) {
     case 'approval-required':
@@ -549,10 +601,10 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
       return [`${base} agent ${taskFlag} ${workspaceFlag}`];
     case 'clarification-required':
       if (primaryDomain === 'terraform') {
-        return [rerunCommand, domainInspectCommand, domainValidateCommand];
+        return [rerunCommand, ...domainNativeCommands, domainInspectCommand, domainValidateCommand];
       }
       if (primaryDomain === 'pulumi' || primaryDomain === 'helm') {
-        return [domainInspectCommand, rerunCommand, domainValidateCommand];
+        return [domainInspectCommand, ...domainNativeCommands, rerunCommand, domainValidateCommand];
       }
       return [
         rerunCommand,
@@ -561,7 +613,7 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
     case 'validation-blocked':
     case 'repair-budget-exhausted':
       if (primaryDomain === 'terraform' || primaryDomain === 'pulumi' || primaryDomain === 'helm') {
-        return [domainValidateCommand, domainInspectCommand, rerunCommand];
+        return [...domainNativeCommands, domainValidateCommand, domainInspectCommand, rerunCommand];
       }
       return [
         domainInspectCommand,
