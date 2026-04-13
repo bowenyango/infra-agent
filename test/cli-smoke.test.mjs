@@ -2227,6 +2227,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
 
   assert.ok(summary.some(line => /Run posture: validated and ready for review/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api with 1 changed file\(s\)/i.test(line)));
+  assert.ok(summary.some(line => /Open concern: none/i.test(line)));
   assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
@@ -2399,6 +2400,7 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
 
   assert.ok(summary.some(line => /Run posture: blocked by validation and needs follow-up action/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api was validated without direct file changes/i.test(line)));
+  assert.ok(summary.some(line => /Open concern: Update the selected Pulumi stack file and set payments-api:imageTag/i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Pulumi preview missing config: payments-api:imageTag/i.test(line)));
 });
 
@@ -2442,6 +2444,7 @@ test('summarizeResultCard includes Terraform validation findings for missing req
 
   assert.ok(summary.some(line => /Run posture: blocked by validation and needs follow-up action/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Terraform target terraform\/payments-api was validated without direct file changes/i.test(line)));
+  assert.ok(summary.some(line => /Open concern: Read the referenced Terraform module inputs and add the missing required argument/i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Terraform validate is missing required variable: image_tag/i.test(line)));
 });
 
@@ -2473,6 +2476,63 @@ test('summarizeResultCard includes approval-required posture', async () => {
   });
 
   assert.ok(summary.some(line => /Run posture: paused pending explicit approval for a scoped high-risk change/i.test(line)));
+  assert.ok(summary.some(line => /Open concern: Approval required for high-risk write at charts\/payments-api\/templates\/deployment\.yaml/i.test(line)));
+});
+
+test('summarizeResultCard includes clarification concern from the planner question', async () => {
+  const preflight = await buildRunPreflight('update helm chart', 'fixtures/sample-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'clarification-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [
+      {
+        index: 0,
+        decision: {
+          confidence: 'medium',
+          action: {
+            kind: 'ask-for-clarification',
+            summary: 'Clarify the Helm target before making changes.',
+            rationale: 'The workspace has multiple possible Helm targets.',
+            payload: {
+              clarificationKind: 'target-ambiguity',
+              actionFamily: 'helm-clarification',
+              questions: ['Which Helm chart should be updated?']
+            }
+          }
+        },
+        execution: {
+          status: 'skipped',
+          executedTools: [],
+          reason: 'clarification-required'
+        },
+        runtimeSnapshot: {
+          task: preflight.task,
+          preflight,
+          observations: [],
+          appliedWrites: [],
+          validationResults: [],
+          validationIssues: [],
+          approvalSignals: [],
+          repairAttempts: 0,
+          lastEditPlan: null
+        }
+      }
+    ]
+  });
+
+  assert.ok(summary.some(line => /Open concern: Which Helm chart should be updated\?/i.test(line)));
 });
 
 test('summarizeSuggestedCommands recommends inspect and run for validation-blocked runs', async () => {

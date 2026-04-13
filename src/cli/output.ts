@@ -357,12 +357,50 @@ function summarizeRunPosture(state: AgentRunState): string {
   }
 }
 
+function summarizeOpenConcern(state: AgentRunState): string {
+  const topApprovalSignal = state.runtime.approvalSignals[0];
+  const topValidationIssue = state.runtime.validationIssues[0];
+  const lastQuestion = state.turns[state.turns.length - 1]?.decision.action.payload?.questions?.[0];
+
+  switch (state.outcome) {
+    case 'approval-required':
+      if (topApprovalSignal) {
+        return `Approval required for ${topApprovalSignal.risk}-risk write at ${topApprovalSignal.path}.`;
+      }
+
+      return 'Approval is required before the agent can continue.';
+    case 'validation-blocked':
+    case 'repair-budget-exhausted':
+      if (topValidationIssue?.guidance) {
+        return topValidationIssue.guidance;
+      }
+
+      if (topValidationIssue?.message) {
+        return topValidationIssue.message;
+      }
+
+      return 'Validation is blocked and needs follow-up action.';
+    case 'clarification-required':
+      if (lastQuestion) {
+        return lastQuestion;
+      }
+
+      return 'The agent needs clarification about the target, environment, or intended scope.';
+    case 'no-safe-action':
+      return 'No safe next action is currently available.';
+    case 'completed':
+    default:
+      return 'none';
+  }
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
 
   lines.push(`Run posture: ${summarizeRunPosture(state)}`);
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
+  lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
