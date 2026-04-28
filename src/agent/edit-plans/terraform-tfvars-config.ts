@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
+import { collectTerraformDeclaredVariableNames } from '../../domain/terraform-variables.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
 function hasTerraformConfigIntent(task: string): boolean {
@@ -108,20 +109,6 @@ function collectAssignedKeys(contents: string[]): string[] {
   return keys;
 }
 
-function collectDeclaredVariables(contents: string[]): string[] {
-  const keys: string[] = [];
-
-  for (const content of contents) {
-    for (const match of content.matchAll(/variable\s+"([^"]+)"/g)) {
-      if (match[1]) {
-        keys.push(match[1]);
-      }
-    }
-  }
-
-  return keys;
-}
-
 function pickMatchingKey(keys: string[], patterns: RegExp[]): string | null {
   for (const pattern of patterns) {
     const match = keys.find(key => pattern.test(key));
@@ -141,7 +128,7 @@ function inferTerraformKey(runtime: AgentRuntimeState, rootPath: string, tfFileP
   const tfvarsContents = collectTerraformFileContents(runtime, rootPath, tfvarsFilePaths);
   const tfContents = collectTerraformFileContents(runtime, rootPath, tfFilePaths);
   const assignedKeys = collectAssignedKeys(tfvarsContents);
-  const declaredVariables = collectDeclaredVariables(tfContents);
+  const declaredVariables = collectTerraformDeclaredVariableNames(tfContents);
 
   return pickMatchingKey(assignedKeys, params.tfvarsPatterns)
     ?? pickMatchingKey(declaredVariables, params.variablePatterns)

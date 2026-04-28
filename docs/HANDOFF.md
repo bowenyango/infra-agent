@@ -5,12 +5,17 @@ This document captures current development state for future Codex sessions.
 ## Current Branch State
 
 - Branch: `agent-1`
-- There are intentionally staged and unstaged changes.
-- Do not reset or discard either set without explicit user approval.
+- Recent completed commits:
+  - `d4db75f` Use Helm schema facts in edit plans
+  - `4eae18b` Add YAML guards and Helm schema semantics
+  - `5397b73` Focus mixed-domain preflight output
+- After each completed slice, keep committing intentionally on `agent-1`.
+- Do not reset or discard future uncommitted work without explicit user
+  approval.
 
-## Staged Slice: Domain-Focused Preflight And Result Output
+## Historical Slice: Domain-Focused Preflight And Result Output
 
-Files currently staged:
+Files:
 
 - `src/agent/build-run-preflight.ts`
 - `src/cli/output.ts`
@@ -30,7 +35,7 @@ Known validation:
 - `npm run lint` passed.
 - `npm run smoke` passed.
 
-## Unstaged Slice: Tool Trace Runtime Summary
+## Historical Slice: Tool Trace Runtime Summary
 
 Files involved:
 
@@ -58,7 +63,7 @@ Known validation:
 - `npm run smoke`: passed.
 - `git diff --check`: passed.
 
-## Unstaged Slice: Explicit Query Loop Config
+## Historical Slice: Explicit Query Loop Config
 
 Files involved:
 
@@ -109,7 +114,7 @@ Patterns not currently appropriate:
 - LLM-generated tool summaries.
 - Background daemon or remote execution model.
 
-## Suggested Next Development Plan
+## Historical Suggested Development Plan
 
 1. Review staged vs unstaged changes and decide whether to commit as two or three commits:
    - domain-focused output
@@ -288,6 +293,54 @@ Recommended next implementation slice:
 2. Add schema-aware repair for missing required fields beyond `service.port` and
    `ingress.enabled`.
 3. Add Terraform variable semantics extraction.
+
+## 2026-04-28 Terraform Variable Semantics Slice
+
+Files added or updated:
+
+- `src/domain/terraform-variables.ts`
+- `src/types/config-semantics.ts`
+- `src/domain/inspect-workspace.ts`
+- `src/agent/edit-plans/terraform-tfvars-config.ts`
+- `fixtures/terraform-workspace/terraform/payments-api/main.tf`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add Terraform variable semantic extraction during workspace inspection.
+- Emit high-confidence facts for `.tf` variable declarations:
+  - `required-field` when a variable has no default
+  - `defaulted-field` when a variable has a default
+  - `type-constraint` from `type = ...`
+  - `validation-rule` from nested `validation` blocks
+  - validation-derived `enum` when the condition uses a `contains([...], var.x)`
+    pattern
+- Reuse the Terraform variable block scanner inside tfvars edit-plan key
+  inference so variable-name discovery is no longer duplicated there.
+- Add focused prompt coverage so Terraform config semantics are available to the
+  planner for top Terraform targets.
+- Record the behavior in the roadmap, repo rules, and agent-facing skill
+  reference.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 152/152 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Use Terraform enum/type facts in tfvars edit plans before writing values.
+2. Add Pulumi stack config semantics from stack YAML and missing-config preview
+   output.
+3. Start the knowledge-cache type definitions once repo-local schema facts cover
+   the three primary domains.
 
 ## Current Verification Commands
 

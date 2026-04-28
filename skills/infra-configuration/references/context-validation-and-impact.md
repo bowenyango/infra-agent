@@ -68,6 +68,10 @@ Current implemented source:
 - Helm `values.schema.json` is detected during workspace inspection.
 - The first extraction pass records `required-field`, `defaulted-field`, `enum`,
   and `exactly-one-group` facts from chart values JSON Schema.
+- Terraform variable blocks are detected during workspace inspection.
+- The first Terraform extraction pass records `required-field`,
+  `defaulted-field`, `type-constraint`, `validation-rule`, and
+  validation-derived `enum` facts from `.tf` variable declarations.
 - These facts are focused to top candidate targets before being sent to the
   planner.
 

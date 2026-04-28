@@ -6,6 +6,7 @@ import {
 import { detectRepoProfile } from './repo-profile.ts';
 import { resolveDomainCapabilities } from './domain-capabilities.ts';
 import { extractHelmValuesSchemaSemanticsForCharts } from './helm-values-schema.ts';
+import { extractTerraformVariableSemanticsForRoots } from './terraform-variables.ts';
 import { readWorkspaceConfig } from './workspace-config.ts';
 import type {
   HelmChartSummary,
@@ -195,7 +196,9 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
   state.helmCharts.sort((left, right) => left.chartRoot.localeCompare(right.chartRoot));
   state.pulumiProjects.sort((left, right) => left.projectRoot.localeCompare(right.projectRoot));
   state.terraformRoots.sort((left, right) => left.rootPath.localeCompare(right.rootPath));
-  const configSemantics = await extractHelmValuesSchemaSemanticsForCharts(workspaceRoot, state.helmCharts);
+  const helmSemantics = await extractHelmValuesSchemaSemanticsForCharts(workspaceRoot, state.helmCharts);
+  const terraformSemantics = await extractTerraformVariableSemanticsForRoots(workspaceRoot, state.terraformRoots);
+  const configSemantics = [...helmSemantics, ...terraformSemantics];
 
   return {
     workspaceRoot,

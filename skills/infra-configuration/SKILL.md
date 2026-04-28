@@ -36,6 +36,8 @@ guessing infrastructure conventions from generic IaC knowledge.
 
 - Use repo-local facts first: existing files, lockfiles, schemas, examples, and
   validator output.
+- Prefer `infra-agent` config semantics from Helm schemas and Terraform variable
+  declarations over raw file dumps when deciding valid fields and values.
 - Load only the files selected by `infra-agent` unless the task clearly needs
   more.
 - Prefer structured CLI output and validation results over long prose docs.

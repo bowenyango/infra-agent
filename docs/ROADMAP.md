@@ -17,9 +17,9 @@ The repository already has a working TypeScript CLI skeleton with:
 - approval signals for higher-risk writes
 - fixtures and smoke tests across mixed-domain workspaces
 
-The active worktree also contains staged and unstaged slices documented in
-`docs/HANDOFF.md`. Future sessions must preserve those changes unless the user
-explicitly asks to rewrite history or discard work.
+Recent implementation slices are documented in `docs/HANDOFF.md`. Future
+sessions must preserve committed work and any newly discovered uncommitted
+changes unless the user explicitly asks to rewrite history or discard work.
 
 ## Product Target
 
@@ -289,6 +289,9 @@ Status on 2026-04-28:
 - Workspace inspection now detects Helm `values.schema.json` files.
 - Helm values schema extraction currently emits high-confidence
   `required-field`, `defaulted-field`, `enum`, and `exactly-one-group` facts.
+- Terraform variable extraction currently emits high-confidence
+  `required-field`, `defaulted-field`, `type-constraint`, `validation-rule`,
+  and validation-derived `enum` facts from `.tf` variable blocks.
 - Focused config semantics are included in the planner user prompt for the top
   candidate targets.
 

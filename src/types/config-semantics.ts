@@ -10,7 +10,9 @@ export type ConfigSemanticSourceKind =
 export type ConfigSemanticFactKind =
   | 'required-field'
   | 'defaulted-field'
+  | 'type-constraint'
   | 'enum'
+  | 'validation-rule'
   | 'mutually-exclusive-group'
   | 'exactly-one-group'
   | 'at-least-one-group'

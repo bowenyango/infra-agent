@@ -76,6 +76,42 @@ test('inspectWorkspace extracts Helm values schema semantic facts', async () => 
   ));
 });
 
+test('inspectWorkspace extracts Terraform variable semantic facts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const terraformSemantics = inspection.configSemantics.find(summary =>
+    summary.targetKind === 'terraform-root'
+    && summary.targetPath === 'terraform/payments-api'
+  );
+
+  assert.ok(terraformSemantics);
+  assert.ok(terraformSemantics.facts.some(fact =>
+    fact.kind === 'required-field'
+    && fact.path === 'var.image_tag'
+    && fact.source.kind === 'terraform-variable'
+  ));
+  assert.ok(terraformSemantics.facts.some(fact =>
+    fact.kind === 'defaulted-field'
+    && fact.path === 'var.service_name'
+    && fact.values?.includes('payments-api')
+  ));
+  assert.ok(terraformSemantics.facts.some(fact =>
+    fact.kind === 'type-constraint'
+    && fact.path === 'var.environment'
+    && fact.values?.includes('string')
+  ));
+  assert.ok(terraformSemantics.facts.some(fact =>
+    fact.kind === 'enum'
+    && fact.path === 'var.environment'
+    && fact.values?.includes('dev')
+    && fact.values?.includes('prod')
+  ));
+  assert.ok(terraformSemantics.facts.some(fact =>
+    fact.kind === 'validation-rule'
+    && fact.path === 'var.environment'
+    && fact.message.includes('dev, stage, or prod')
+  ));
+});
+
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
   const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');
 
@@ -2160,6 +2196,32 @@ test('planner user prompt includes focused config semantics', async () => {
   assert.ok(parsed.configSemantics.some(summary =>
     summary.targetPath === 'charts/payments-api'
     && summary.facts.some(fact => fact.kind === 'required-field' && fact.path === 'service.port')
+  ));
+});
+
+test('planner user prompt includes focused Terraform variable semantics', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const prompt = buildPlannerUserPrompt({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.ok(parsed.configSemantics.some(summary =>
+    summary.targetPath === 'terraform/payments-api'
+    && summary.facts.some(fact => fact.kind === 'required-field' && fact.path === 'var.image_tag')
+  ));
+  assert.ok(parsed.configSemantics.some(summary =>
+    summary.targetPath === 'terraform/payments-api'
+    && summary.facts.some(fact => fact.kind === 'enum' && fact.path === 'var.environment')
   ));
 });
 

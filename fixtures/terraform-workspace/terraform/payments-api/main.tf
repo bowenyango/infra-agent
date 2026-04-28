@@ -4,6 +4,11 @@ variable "image_tag" {
 
 variable "environment" {
   type = string
+
+  validation {
+    condition     = contains(["dev", "stage", "prod"], var.environment)
+    error_message = "environment must be dev, stage, or prod."
+  }
 }
 
 locals {
