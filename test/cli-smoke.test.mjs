@@ -35,6 +35,7 @@ import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
 import { inferRequestedDomains } from '../src/domain/domain-focus.ts';
 import { prioritizeEditPlanKinds } from '../src/agent/edit-plan-priority.ts';
 import { buildInspectionCandidateFiles, buildInspectionSearchPattern } from '../src/agent/inspection-priority.ts';
+import { deriveConfigSemanticsFromValidationIssues, mergeConfigSemantics } from '../src/agent/config-semantics-state.ts';
 import { resolveQueryLoopConfig } from '../src/query-config.ts';
 
 test('inspect command detects fixture workspace assets', () => {
@@ -2347,6 +2348,57 @@ test('planner user prompt includes focused Pulumi config semantics', async () =>
   assert.ok(parsed.configSemantics.some(summary =>
     summary.targetPath === 'infra/payments-api'
     && summary.facts.some(fact => fact.kind === 'type-constraint' && fact.path === 'config.payments-api:environment')
+  ));
+});
+
+test('Pulumi missing-config validation issues are promoted into config semantics', async () => {
+  const preflight = await buildRunPreflight('update pulumi payments-api dev image tag to 2.3.4', 'fixtures/sample-workspace');
+  const sourceCommand = preflight.validation.plan
+    .find(entry => entry.kind === 'pulumi' && entry.target === 'infra/payments-api' && entry.commands.some(command => /--stack dev\b/.test(command)))
+    ?.commands[0];
+  assert.ok(sourceCommand);
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    configSemantics: [...preflight.inspection.configSemantics],
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [
+      {
+        kind: 'pulumi-missing-config',
+        repairable: true,
+        sourceCommand,
+        message: 'missing required configuration variable "payments-api:imageTag"',
+        metadata: {
+          missingConfigKey: 'payments-api:imageTag'
+        }
+      }
+    ],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const derivedSemantics = deriveConfigSemanticsFromValidationIssues(runtime);
+  const mergedSemantics = mergeConfigSemantics(runtime.configSemantics, derivedSemantics);
+  const prompt = buildPlannerUserPrompt({
+    ...runtime,
+    configSemantics: mergedSemantics
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.ok(derivedSemantics.some(summary =>
+    summary.targetPath === 'infra/payments-api'
+    && summary.facts.some(fact =>
+      fact.kind === 'required-field'
+      && fact.path === 'config.payments-api:imageTag'
+      && fact.source.kind === 'pulumi-preview'
+    )
+  ));
+  assert.ok(parsed.configSemantics.some(summary =>
+    summary.targetPath === 'infra/payments-api'
+    && summary.facts.some(fact => fact.kind === 'required-field' && fact.path === 'config.payments-api:imageTag')
   ));
 });
 

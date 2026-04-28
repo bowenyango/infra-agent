@@ -1,5 +1,6 @@
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { ConfigSemanticFact } from '../../types/config-semantics.ts';
+import { getRuntimeConfigSemantics } from '../config-semantics-state.ts';
 
 export interface HelmSemanticValueChoice {
   value: string;
@@ -7,7 +8,7 @@ export interface HelmSemanticValueChoice {
 }
 
 function findHelmFacts(runtime: AgentRuntimeState, chartPath: string): ConfigSemanticFact[] {
-  return runtime.preflight.inspection.configSemantics
+  return getRuntimeConfigSemantics(runtime)
     .find(summary => summary.targetKind === 'helm-chart' && summary.targetPath === chartPath)
     ?.facts ?? [];
 }

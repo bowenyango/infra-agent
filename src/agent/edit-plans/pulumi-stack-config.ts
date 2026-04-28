@@ -2,6 +2,7 @@ import { basename, join } from 'node:path';
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { ConfigSemanticFact } from '../../types/config-semantics.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
+import { getRuntimeConfigSemantics } from '../config-semantics-state.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
 function hasPulumiConfigIntent(task: string): boolean {
@@ -130,7 +131,7 @@ function configKeyFromSemanticPath(path: string): string | null {
 }
 
 function pulumiConfigFactsForProject(runtime: AgentRuntimeState, projectRoot: string): ConfigSemanticFact[] {
-  return runtime.preflight.inspection.configSemantics
+  return getRuntimeConfigSemantics(runtime)
     .find(summary => summary.targetKind === 'pulumi-project' && summary.targetPath === projectRoot)
     ?.facts ?? [];
 }
@@ -159,7 +160,7 @@ function selectPulumiConfigKeyFromFacts(params: {
     && keyForFact(fact)
   );
   const declaredFact = params.facts.find(fact =>
-    (fact.kind === 'type-constraint' || fact.kind === 'defaulted-field')
+    (fact.kind === 'required-field' || fact.kind === 'type-constraint' || fact.kind === 'defaulted-field')
     && keyForFact(fact)
   );
   const selectedFact = stackConfiguredFact ?? anyConfiguredFact ?? declaredFact ?? null;

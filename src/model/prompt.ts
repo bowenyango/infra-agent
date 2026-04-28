@@ -1,4 +1,5 @@
 import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
+import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 
 function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
   return runtime.validationResults.slice(-6).map(result => {
@@ -48,7 +49,7 @@ function summarizeEditPlan(runtime: AgentRuntimeState): object | null {
 function summarizeConfigSemantics(runtime: AgentRuntimeState): object[] {
   const targetPaths = new Set(runtime.preflight.targetCandidates.slice(0, 5).map(candidate => candidate.path));
 
-  return runtime.preflight.inspection.configSemantics
+  return getRuntimeConfigSemantics(runtime)
     .filter(summary => targetPaths.size === 0 || targetPaths.has(summary.targetPath))
     .slice(0, 5)
     .map(summary => ({

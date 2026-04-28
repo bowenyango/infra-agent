@@ -302,6 +302,9 @@ Status on 2026-04-28:
   plans block environment values that violate validation-derived enums.
 - Pulumi stack edit plans now consume config semantics to reuse existing config
   keys/namespaces before falling back to project-name heuristics.
+- Runtime validation can now promote Pulumi preview missing-config failures into
+  high-confidence `required-field` facts, so planner prompts and repairs can use
+  validator-discovered semantics.
 
 ### Step 6: Add Impact Analysis
 

@@ -1,6 +1,7 @@
 import type { InfraDomainId, RunPreflightState } from './repository.ts';
 import type { ToolResult, ToolSafety } from '../Tool.ts';
 import type { ValidationCommandOutput } from './tools.ts';
+import type { ConfigSemanticsSummary } from './config-semantics.ts';
 export type AgentActionKind =
   | 'ask-for-clarification'
   | 'inspect-target-files'
@@ -129,6 +130,7 @@ export interface PlanningModel {
 export interface AgentRuntimeState {
   task: string;
   preflight: RunPreflightState;
+  configSemantics?: ConfigSemanticsSummary[];
   observations: ToolResult<unknown>[];
   toolSummaries: ToolExecutionSummary[];
   appliedWrites: FileWritePlan[];

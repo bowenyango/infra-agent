@@ -2,6 +2,7 @@ import { buildRunPreflight } from './agent/build-run-preflight.ts';
 import { isAbsolute, relative } from 'node:path';
 import { resolveQueryLoopConfig } from './query-config.ts';
 import { classifyValidationIssues } from './agent/classify-validation-issues.ts';
+import { refreshRuntimeConfigSemantics } from './agent/config-semantics-state.ts';
 import { collectApprovalSignals } from './agent/collect-approval-signals.ts';
 import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
@@ -30,6 +31,10 @@ import type { AgentRunOutcome } from './types/agent.ts';
 function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
   return {
     ...runtime,
+    configSemantics: runtime.configSemantics?.map(summary => ({
+      ...summary,
+      facts: [...summary.facts]
+    })),
     observations: [...runtime.observations],
     toolSummaries: [...(runtime.toolSummaries ?? [])],
     appliedWrites: [...runtime.appliedWrites],
@@ -213,12 +218,14 @@ function applyExecutionToRuntime(
       const output = toolResult.output as ValidationRunOutput;
       nextRuntime.validationResults.push(...output.results);
       nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
+      nextRuntime.configSemantics = refreshRuntimeConfigSemantics(nextRuntime);
     }
 
     if (toolResult.toolName === 'validate_yaml_syntax') {
       const output = toolResult.output as YamlSyntaxValidationOutput;
       nextRuntime.validationResults.push(output.result);
       nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
+      nextRuntime.configSemantics = refreshRuntimeConfigSemantics(nextRuntime);
     }
 
     if (toolResult.toolName === 'terraform_fmt') {
@@ -251,6 +258,7 @@ function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentR
   return {
     task,
     preflight,
+    configSemantics: [...preflight.inspection.configSemantics],
     observations: [],
     toolSummaries: [],
     appliedWrites: [],

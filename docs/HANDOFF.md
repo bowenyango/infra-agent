@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `f4c0f40` Use Pulumi config semantics in edit plans
   - `9a53a35` Extract Pulumi stack config semantics
   - `7ad7fb3` Gate Terraform tfvars plans with enum semantics
   - `3ff220a` Extract Terraform variable semantics
@@ -457,6 +458,48 @@ Recommended next implementation slice:
 2. Add Terraform type-aware tfvars value formatting for booleans, numbers, and
    simple collection values.
 3. Start knowledge-cache type definitions and filesystem layout.
+
+## 2026-04-28 Runtime Validation-Derived Semantics Slice
+
+Files added or updated:
+
+- `src/agent/config-semantics-state.ts`
+- `src/types/agent.ts`
+- `src/types/config-semantics.ts`
+- `src/query.ts`
+- `src/model/prompt.ts`
+- `src/agent/edit-plans/helm-schema-semantics.ts`
+- `src/agent/edit-plans/pulumi-stack-config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add runtime-level config semantics that start from inspection facts and can be
+  augmented during the validation loop.
+- Promote Pulumi missing-config preview failures into high-confidence
+  `required-field` facts with `source.kind = pulumi-preview`.
+- Merge validation-derived facts without duplicating existing facts.
+- Make planner prompts consume runtime semantics rather than only static
+  inspection semantics.
+- Make Helm/Pulumi edit-plan helpers read runtime semantics, so later
+  validation-derived facts can influence repairs.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 158/158 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add Terraform type-aware tfvars value formatting for booleans, numbers, and
+   simple collection values.
+2. Start knowledge-cache type definitions and filesystem layout.
+3. Add result-card output for validation-derived semantic blockers.
 
 ## Current Verification Commands
 

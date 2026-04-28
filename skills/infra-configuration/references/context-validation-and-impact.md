@@ -83,6 +83,8 @@ Current implemented source:
   `secure` values.
 - Pulumi stack edit plans use these facts to reuse established config keys and
   namespaces before falling back to project names.
+- Pulumi preview missing-config failures are promoted into runtime
+  `required-field` facts sourced from `pulumi-preview`.
 
 ## Rename And Replacement Impact
 

@@ -4,6 +4,7 @@ export type ConfigSemanticSourceKind =
   | 'helm-values-schema'
   | 'terraform-variable'
   | 'pulumi-config'
+  | 'pulumi-preview'
   | 'repo-example'
   | 'llm-inference';
 
