@@ -294,6 +294,9 @@ Status on 2026-04-28:
   and validation-derived `enum` facts from `.tf` variable blocks.
 - Focused config semantics are included in the planner user prompt for the top
   candidate targets.
+- Helm and Terraform edit-plan builders now consume selected semantics before
+  writing values. Helm ingress plans use schema enum facts, and Terraform tfvars
+  plans block environment values that violate validation-derived enums.
 
 ### Step 6: Add Impact Analysis
 

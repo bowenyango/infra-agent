@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `3ff220a` Extract Terraform variable semantics
   - `d4db75f` Use Helm schema facts in edit plans
   - `4eae18b` Add YAML guards and Helm schema semantics
   - `5397b73` Focus mixed-domain preflight output
@@ -341,6 +342,42 @@ Recommended next implementation slice:
    output.
 3. Start the knowledge-cache type definitions once repo-local schema facts cover
    the three primary domains.
+
+## 2026-04-28 Terraform Enum-Gated Tfvars Slice
+
+Files added or updated:
+
+- `src/domain/terraform-config-semantics.ts`
+- `src/agent/build-run-preflight.ts`
+- `src/agent/edit-plans/terraform-tfvars-config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Use Terraform enum facts before generating tfvars writes.
+- Normalize Terraform environment aliases (`development` -> `dev`,
+  `production` -> `prod`) through a shared helper.
+- Add preflight clarification assumptions when a requested Terraform environment
+  violates a variable validation enum.
+- Block bounded tfvars edit plans when the environment value would violate the
+  extracted enum constraint.
+- Include enum rationale in safe Terraform tfvars edit plans.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 154/154 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add Pulumi stack config semantics from stack YAML and missing-config preview
+   output.
+2. Add Terraform type-aware tfvars value formatting for booleans, numbers, and
+   simple collection values.
+3. Start the knowledge-cache type definitions after Pulumi config semantics land.
 
 ## Current Verification Commands
 

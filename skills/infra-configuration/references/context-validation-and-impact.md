@@ -74,6 +74,8 @@ Current implemented source:
   validation-derived `enum` facts from `.tf` variable declarations.
 - These facts are focused to top candidate targets before being sent to the
   planner.
+- Terraform tfvars edit plans now block requested environment values that
+  violate extracted enum facts.
 
 ## Rename And Replacement Impact
 

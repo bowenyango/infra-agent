@@ -14,6 +14,11 @@ import {
   buildTargetCandidates,
   buildTargetingWarnings
 } from '../domain/task-targeting.ts';
+import {
+  buildTerraformEnumMismatch,
+  findTerraformEnvironmentEnumFact,
+  normalizeTerraformEnvironmentValue
+} from '../domain/terraform-config-semantics.ts';
 import { inferRequestedDomains } from '../domain/domain-focus.ts';
 import { resolveEffectiveEditPolicy } from '../domain/edit-policy.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
@@ -189,6 +194,18 @@ export async function buildRunPreflight(
     assumptions.push(
       `Terraform root ${topTerraformTarget.rootPath} exposes multiple tfvars files (${topTerraformTarget.tfvarsFiles.join(', ')}). Clarify which environment or tfvars file should be updated before editing.`
     );
+  }
+
+  const normalizedTerraformEnvironment = normalizeTerraformEnvironmentValue(targeting.requestedEnvironment);
+  const environmentEnumMismatch =
+    topTerraformTarget && normalizedTerraformEnvironment
+      ? buildTerraformEnumMismatch(
+        findTerraformEnvironmentEnumFact(inspection, topTerraformTarget.rootPath),
+        normalizedTerraformEnvironment
+      )
+      : null;
+  if (environmentEnumMismatch) {
+    assumptions.push(`Requested Terraform environment is not allowed by variable validation: ${environmentEnumMismatch.message}`);
   }
 
   const shouldSurfaceEditPolicyAsAssumption = effectiveEditPolicy.sources.some(source => source.startsWith('workspace-config:'));

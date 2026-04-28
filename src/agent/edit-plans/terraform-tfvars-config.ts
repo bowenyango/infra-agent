@@ -1,6 +1,11 @@
 import { join } from 'node:path';
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
+import {
+  buildTerraformEnumMismatch,
+  findTerraformVariableEnumFact,
+  normalizeTerraformEnvironmentValue
+} from '../../domain/terraform-config-semantics.ts';
 import { collectTerraformDeclaredVariableNames } from '../../domain/terraform-variables.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
@@ -50,24 +55,8 @@ function upsertTfvarsValue(content: string, key: string, value: string): string 
   return `${lines.join('\n').trimEnd()}\n`;
 }
 
-function normalizeEnvironmentValue(environment: string | null): string | null {
-  if (!environment) {
-    return null;
-  }
-
-  if (environment === 'development') {
-    return 'dev';
-  }
-
-  if (environment === 'production') {
-    return 'prod';
-  }
-
-  return environment;
-}
-
 function selectTfvarsPath(tfvarsFiles: string[], requestedEnvironment: string | null, rootPath: string): string {
-  const normalizedEnvironment = normalizeEnvironmentValue(requestedEnvironment);
+  const normalizedEnvironment = normalizeTerraformEnvironmentValue(requestedEnvironment);
   if (normalizedEnvironment) {
     const matchingPath = tfvarsFiles.find(filePath => filePath.toLowerCase().includes(normalizedEnvironment.toLowerCase()));
     if (matchingPath) {
@@ -148,7 +137,7 @@ function buildTerraformTfvarsWrite(
   }
 ): { nextContent: string; rationaleParts: string[] } | null {
   const existingContent = getLatestFileContent(runtime, preferredTfvarsPath) ?? '';
-  const nextEnvironment = normalizeEnvironmentValue(runtime.preflight.requestedEnvironment);
+  const nextEnvironment = normalizeTerraformEnvironmentValue(runtime.preflight.requestedEnvironment);
   const imageTagKey = inferTerraformKey(runtime, rootPath, tfFilePaths, tfvarsFilePaths, {
     tfvarsPatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
     variablePatterns: [/^image_tag$/i, /^imageTag$/i, /image.*tag/i, /tag.*image/i],
@@ -159,8 +148,23 @@ function buildTerraformTfvarsWrite(
     variablePatterns: [/^environment$/i, /^env$/i, /environment/i, /env/i],
     fallback: 'environment'
   });
+  const environmentEnumFact = findTerraformVariableEnumFact(
+    runtime.preflight.inspection,
+    rootPath,
+    [environmentKey]
+  );
+  const environmentEnumMismatch = nextEnvironment
+    ? buildTerraformEnumMismatch(environmentEnumFact, nextEnvironment)
+    : null;
+  if (environmentEnumMismatch) {
+    return null;
+  }
+
   let nextContent = existingContent;
   const rationaleParts = [`The plan reuses Terraform variable keys ${imageTagKey} and ${environmentKey} when available.`];
+  if (environmentEnumFact?.values && environmentEnumFact.values.length > 0) {
+    rationaleParts.push(`Terraform validation allows ${environmentKey} values: ${environmentEnumFact.values.join(', ')}.`);
+  }
 
   if (params.imageTag) {
     nextContent = upsertTfvarsValue(nextContent, imageTagKey, params.imageTag);
@@ -218,7 +222,7 @@ export function buildTerraformMissingRequiredArgumentRepairEditPlan(runtime: Age
     /image/i.test(missingVariableName) && /tag/i.test(missingVariableName)
       ? imageTag
       : /^environment$/i.test(missingVariableName) || /^env$/i.test(missingVariableName)
-        ? normalizeEnvironmentValue(runtime.preflight.requestedEnvironment)
+        ? normalizeTerraformEnvironmentValue(runtime.preflight.requestedEnvironment)
         : null;
   if (!explicitValue) {
     return null;

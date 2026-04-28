@@ -554,6 +554,16 @@ test('buildRunPreflight asks for clarification before selecting among multiple t
   assert.ok(preflight.assumptions.some(assumption => /which environment or tfvars file should be updated/i.test(assumption)));
 });
 
+test('buildRunPreflight asks for clarification when requested Terraform environment violates enum semantics', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api qa image tag to 2.3.4', 'fixtures/terraform-workspace');
+
+  assert.ok(preflight.assumptions.some(assumption =>
+    /Requested Terraform environment is not allowed/i.test(assumption)
+    && /var\.environment allows dev, stage, prod/i.test(assumption)
+    && /requested value is qa/i.test(assumption)
+  ));
+});
+
 test('resolveEffectiveEditPolicy exposes workspace config overrides', () => {
   const effectivePolicy = resolveEffectiveEditPolicy(
     {
@@ -3786,8 +3796,48 @@ test('buildEditPlan creates a bounded Terraform tfvars config plan', async () =>
   assert.ok(editPlan);
   assert.equal(editPlan?.kind, 'terraform-tfvars-config');
   assert.equal(editPlan?.writes[0]?.path, 'terraform/payments-api/dev.auto.tfvars');
+  assert.match(editPlan?.rationale ?? '', /Terraform validation allows environment values: dev, stage, prod/);
   assert.match(editPlan?.writes[0]?.content ?? '', /image_tag = "2.3.4"/);
   assert.match(editPlan?.writes[0]?.content ?? '', /environment = "dev"/);
+});
+
+test('buildEditPlan blocks Terraform tfvars writes that violate enum semantics', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api qa image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const tfvarsPath = resolve('fixtures/terraform-workspace/terraform/payments-api/dev.auto.tfvars');
+  const mainTfPath = resolve('fixtures/terraform-workspace/terraform/payments-api/main.tf');
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: tfvarsPath,
+          content: await readFile(tfvarsPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(editPlan, null);
 });
 
 test('buildEditPlan does not auto-create tfvars in generic terraform-only workspaces without an existing tfvars file', async () => {
