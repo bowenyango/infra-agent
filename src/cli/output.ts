@@ -1,7 +1,9 @@
 import type { AgentRunState } from '../agent/run-single-step.ts';
+import type { ApprovalSignal, ValidationIssue } from '../types/agent.ts';
 import type {
   DomainCapabilitySummary,
   RunPreflightState,
+  TargetCandidate,
   ValidationPlanEntry,
   ValidationPreflight,
   WorkspaceInspection
@@ -18,6 +20,47 @@ import type {
 } from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
+
+interface ValidationDerivedSemanticBlocker {
+  targetKind: string;
+  targetPath: string;
+  path: string;
+  sourceKind: string;
+  confidence: string;
+  message?: string;
+}
+
+export interface CompactAgentRunResult {
+  kind: 'infra-agent.agent-result';
+  schemaVersion: 1;
+  outcome: AgentRunState['outcome'];
+  modelName: string;
+  turnsUsed: number;
+  task: string;
+  workspaceRoot: string;
+  profileId: string;
+  requestedDomains: string[];
+  requestedEnvironment: string | null;
+  requestedService: string | null;
+  primaryTarget: Pick<TargetCandidate, 'kind' | 'name' | 'path' | 'score'> | null;
+  changedFiles: string[];
+  resultCard: string[];
+  nextSteps: string[];
+  suggestedCommands: string[];
+  validation: {
+    status: string;
+    findings: string;
+    semanticBlockers: ValidationDerivedSemanticBlocker[];
+    targetCommandCount: number;
+    yamlGuardCount: number;
+    issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
+  };
+  approval: {
+    requiredWriteRisks: string[];
+    signals: Pick<ApprovalSignal, 'kind' | 'path' | 'risk' | 'message'>[];
+  };
+  knowledgeCache: WorkspaceInspection['knowledgeCache'];
+}
 
 function printHeader(title: string): void {
   process.stdout.write(`${title}\n`);
@@ -264,8 +307,8 @@ function summarizeValidationFindings(state: AgentRunState): string {
   return 'none';
 }
 
-function summarizeValidationDerivedSemanticBlockers(state: AgentRunState): string {
-  const blockers = getRuntimeConfigSemantics(state.runtime)
+function collectValidationDerivedSemanticBlockers(state: AgentRunState): ValidationDerivedSemanticBlocker[] {
+  return getRuntimeConfigSemantics(state.runtime)
     .flatMap(summary => summary.facts.map(fact => ({
       targetKind: summary.targetKind,
       targetPath: summary.targetPath,
@@ -274,14 +317,26 @@ function summarizeValidationDerivedSemanticBlockers(state: AgentRunState): strin
     .filter(item =>
       item.fact.source.kind === 'pulumi-preview'
       && item.fact.kind === 'required-field'
-    );
+    )
+    .map(item => ({
+      targetKind: item.targetKind,
+      targetPath: item.targetPath,
+      path: item.fact.path,
+      sourceKind: item.fact.source.kind,
+      confidence: item.fact.confidence,
+      message: item.fact.message
+    }));
+}
+
+function summarizeValidationDerivedSemanticBlockers(state: AgentRunState): string {
+  const blockers = collectValidationDerivedSemanticBlockers(state);
 
   if (blockers.length === 0) {
     return 'none';
   }
 
   return blockers.slice(0, 3).map(item =>
-    `${item.targetKind} ${item.targetPath}: ${item.fact.path} required by ${item.fact.source.kind}`
+    `${item.targetKind} ${item.targetPath}: ${item.path} required by ${item.sourceKind}`
   ).join('; ');
 }
 
@@ -680,6 +735,63 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Repair activity: ${state.runtime.repairAttempts > 0 ? `${state.runtime.repairAttempts} bounded repair attempt(s)` : 'none'}`);
 
   return lines;
+}
+
+export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRunResult {
+  const primaryTarget = getPrimaryTargetCandidateFromAgent(state);
+  const changedFiles = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
+  const targetValidationCount = getTargetValidationResults(state).length;
+  const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
+
+  return {
+    kind: 'infra-agent.agent-result',
+    schemaVersion: 1,
+    outcome: state.outcome,
+    modelName: state.modelName,
+    turnsUsed: state.turns.length,
+    task: state.preflight.task,
+    workspaceRoot: state.preflight.workspaceRoot,
+    profileId: state.preflight.profile.id,
+    requestedDomains: [...state.preflight.requestedDomains],
+    requestedEnvironment: state.preflight.requestedEnvironment,
+    requestedService: state.preflight.requestedService,
+    primaryTarget: primaryTarget
+      ? {
+          kind: primaryTarget.kind,
+          name: primaryTarget.name,
+          path: primaryTarget.path,
+          score: primaryTarget.score
+        }
+      : null,
+    changedFiles,
+    resultCard: summarizeResultCard(state),
+    nextSteps: summarizeRecommendedNextSteps(state),
+    suggestedCommands: summarizeSuggestedCommands(state),
+    validation: {
+      status: summarizeValidationStatus(state),
+      findings: summarizeValidationFindings(state),
+      semanticBlockers: collectValidationDerivedSemanticBlockers(state).slice(0, 5),
+      targetCommandCount: targetValidationCount,
+      yamlGuardCount,
+      issues: state.runtime.validationIssues.slice(0, 5).map(issue => ({
+        kind: issue.kind,
+        repairable: issue.repairable,
+        message: issue.message,
+        guidance: issue.guidance,
+        metadata: issue.metadata
+      }))
+    },
+    approval: {
+      requiredWriteRisks: [...state.preflight.effectiveApprovalPolicy.requiredWriteRisks],
+      signals: state.runtime.approvalSignals.slice(0, 5).map(signal => ({
+        kind: signal.kind,
+        path: signal.path,
+        risk: signal.risk,
+        message: signal.message
+      }))
+    },
+    knowledgeCache: state.preflight.inspection.knowledgeCache
+  };
 }
 
 function shellQuote(value: string): string {

@@ -250,6 +250,15 @@ local-only and read the graph JSON. It should start with high-value views:
 - Add a documented install path once package metadata is ready to publish or
   install from git.
 
+Status on 2026-04-28:
+
+- `agent --json` now emits a compact `infra-agent.agent-result` payload for
+  downstream agents instead of the full runtime state.
+- `agent --json-full` remains available for full debug state output.
+- The compact payload includes outcome, target, changed files, result-card
+  lines, next steps, suggested commands, validation issue summaries, semantic
+  blockers, approval signals, and the resolved knowledge-cache root.
+
 ### Step 3: Add Syntax Validators
 
 - Add a YAML parsing validator used before accepting YAML writes.

@@ -7,13 +7,20 @@ import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
-import { printAgentRunState, printInspection, printRunPreflight, printValidationPreflight } from './output.ts';
+import {
+  buildCompactAgentRunResult,
+  printAgentRunState,
+  printInspection,
+  printRunPreflight,
+  printValidationPreflight
+} from './output.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'help';
   task: string | null;
   workspace: string;
   json: boolean;
+  jsonFull: boolean;
   planner: PlannerMode;
   approvedWritePaths: string[];
   approvedWriteRisks: FileWriteRisk[];
@@ -28,7 +35,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
       ''
     ].join('\n')
@@ -47,6 +54,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       task: null,
       workspace: cwd(),
       json: false,
+      jsonFull: false,
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
@@ -56,8 +64,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   const commandName = argv[0];
   const rest = argv.slice(1);
-  const json = rest.includes('--json');
-  const cleanArgs = rest.filter(arg => arg !== '--json');
+  const jsonFull = rest.includes('--json-full');
+  const json = rest.includes('--json') || jsonFull;
+  const cleanArgs = rest.filter(arg => arg !== '--json' && arg !== '--json-full');
 
   if (commandName === 'inspect' || commandName === 'validate') {
     const workspace = cleanArgs[0] ?? cwd();
@@ -66,6 +75,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       task: null,
       workspace,
       json,
+      jsonFull,
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
@@ -153,6 +163,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       task,
       workspace,
       json,
+      jsonFull,
       planner,
       approvedWritePaths,
       approvedWriteRisks,
@@ -203,7 +214,8 @@ async function main(): Promise<void> {
       maxTurns: parsed.maxTurns ?? undefined
     });
     if (parsed.json) {
-      process.stdout.write(`${JSON.stringify(agentRunState, null, 2)}\n`);
+      const payload = parsed.jsonFull ? agentRunState : buildCompactAgentRunResult(agentRunState);
+      process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
       return;
     }
 

@@ -15,6 +15,15 @@ semantics, replacement analysis, rename detection, or topology graph planning.
 Do not pass full docs to the model when a schema, focused excerpt, or validator
 message is enough.
 
+## Agent-Facing Output
+
+- Prefer `infra-agent agent "<task>" --workspace <workspace> --json` when
+  another agent will consume the result.
+- The `--json` agent output is compact and uses kind
+  `infra-agent.agent-result`.
+- Use `--json-full` only for debugging because it includes the complete runtime
+  state and can carry more context than another agent should need.
+
 ## Official Docs Strategy
 
 Use a hybrid cache:

@@ -132,6 +132,7 @@
 - Validation output is part of the task state and must inform the next step.
 - Surface validation-derived semantic blockers as structured result output when they exist; do not bury required config facts in raw stderr.
 - Use the resolved knowledge-cache root for docs/schema cache writes. Treat `INFRA_AGENT_KNOWLEDGE_CACHE` as the explicit user override, and only accept workspace-config cache roots that stay inside the workspace.
+- Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
 - The agent must not call deploy or apply commands in version `v0`.
 - The agent should stop and ask for clarification when any of these are ambiguous:
 - target environment

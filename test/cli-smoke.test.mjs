@@ -17,6 +17,7 @@ import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/p
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
 import {
+  buildCompactAgentRunResult,
   summarizeAgentSnapshot,
   summarizeFocusedDomainCapabilities,
   summarizeFocusedValidationPlan,
@@ -2114,6 +2115,21 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
   assert.equal(parsed.planner, 'rule-based');
   assert.equal(parsed.maxTurns, 1);
   assert.equal(parsed.json, true);
+  assert.equal(parsed.jsonFull, false);
+});
+
+test('agent CLI args accept --json-full for full debug state output', () => {
+  const parsed = parseArgs([
+    'agent',
+    'add ingress to payments-api dev chart',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--json-full'
+  ]);
+
+  assert.equal(parsed.command, 'agent');
+  assert.equal(parsed.json, true);
+  assert.equal(parsed.jsonFull, true);
 });
 
 test('apply-edit-plan execution uses append_file for append-mode writes', async () => {
@@ -3180,7 +3196,7 @@ test('summarizeResultCard includes rendered Helm resource kinds from helm templa
 
 test('summarizeResultCard includes Pulumi validation findings for missing config blockers', async () => {
   const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
-  const summary = summarizeResultCard({
+  const state = {
     modelName: 'test-model',
     outcome: 'validation-blocked',
     preflight,
@@ -3233,7 +3249,8 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
       lastEditPlan: null
     },
     turns: []
-  });
+  };
+  const summary = summarizeResultCard(state);
 
   assert.ok(summary.some(line => /Run posture: blocked by validation and needs follow-up action/i.test(line)));
   assert.ok(summary.some(line => /Primary target impact: Pulumi target infra\/payments-api was validated without direct file changes/i.test(line)));
@@ -3242,6 +3259,16 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
   assert.ok(summary.some(line => /Next operator step: Run .*pulumi preview .*infra\/payments-api.*--stack dev.*correct the blocking Pulumi issue, and rerun the agent\./i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Pulumi preview missing config: payments-api:imageTag/i.test(line)));
   assert.ok(summary.some(line => /Semantic blockers: pulumi-project infra\/payments-api: config\.payments-api:imageTag required by pulumi-preview/i.test(line)));
+
+  const compact = buildCompactAgentRunResult(state);
+  assert.equal(compact.kind, 'infra-agent.agent-result');
+  assert.equal(compact.outcome, 'validation-blocked');
+  assert.equal(compact.validation.semanticBlockers[0]?.path, 'config.payments-api:imageTag');
+  assert.equal(compact.validation.semanticBlockers[0]?.sourceKind, 'pulumi-preview');
+  assert.equal(compact.validation.issues[0]?.kind, 'pulumi-missing-config');
+  assert.ok(compact.suggestedCommands.some(command => /validate/i.test(command)));
+  assert.equal(Object.hasOwn(compact, 'turns'), false);
+  assert.equal(Object.hasOwn(compact, 'preflight'), false);
 });
 
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {

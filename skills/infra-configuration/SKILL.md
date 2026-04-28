@@ -24,7 +24,9 @@ guessing infrastructure conventions from generic IaC knowledge.
    infra-agent agent "<task>" --workspace <workspace>
    ```
 
-4. Prefer `--json` when another agent will consume the result.
+4. Prefer `--json` when another agent will consume the result. This returns the
+   compact `infra-agent.agent-result` payload; reserve `--json-full` for
+   debugging the whole runtime state.
 5. If the result asks for approval, do not work around it. Ask the user or rerun
    with the requested approval flags only when the user has approved that scope.
 6. If validation fails, use the structured failure and suggested next action

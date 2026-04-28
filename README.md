@@ -65,7 +65,7 @@ The current repository includes a minimal TypeScript CLI skeleton with four comm
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent run "<task>" [--workspace <path>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]`
 
 Current behavior is intentionally runtime-foundation oriented:
 
@@ -76,6 +76,8 @@ Current behavior is intentionally runtime-foundation oriented:
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
+- `agent --json` emits a compact `infra-agent.agent-result` payload for other
+  agents; use `--json-full` only when debugging the complete runtime state
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 - `inspect` resolves the knowledge-cache root used for future docs/schema
   context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;

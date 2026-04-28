@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `f46ef4b` Resolve knowledge cache roots
   - `7a01e78` Surface semantic blockers in result cards
   - `8dff15e` Add knowledge cache foundation
   - `b425ee8` Format Terraform tfvars values using type facts
@@ -657,6 +658,47 @@ Recommended next implementation slice:
    much prose.
 2. Add a first dynamic official-doc fetcher using the resolved cache root and a
    no-network fallback path.
+3. Start impact-analysis graph types before building any topology UI.
+
+## 2026-04-28 Compact Agent JSON Result Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Make `agent --json` usable by other agents without forcing them to ingest the
+  full runtime state, preflight, and turn history.
+- Add compact payload kind `infra-agent.agent-result` with schema version `1`.
+- Include only high-signal fields: outcome, model, turn count, task, workspace,
+  requested domain/environment/service, primary target, changed files,
+  result-card lines, next steps, suggested commands, validation status/findings,
+  semantic blockers, validation issues, approval signals, and resolved
+  knowledge-cache root.
+- Preserve full debug output behind `agent --json-full`.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 166/166 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add a first dynamic official-doc fetcher using the resolved cache root and a
+   deterministic no-network fallback when fetching is unavailable.
+2. Add compact JSON mode for `run --json` only if downstream agent preflight
+   output becomes too large.
 3. Start impact-analysis graph types before building any topology UI.
 
 ## Current Verification Commands
