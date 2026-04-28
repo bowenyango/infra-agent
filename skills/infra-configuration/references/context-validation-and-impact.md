@@ -52,6 +52,10 @@ Current cache foundation:
   may return the stale entry with medium confidence.
 - A first official URL fetcher abstraction exists, but automatic official-doc
   selection from planner/runtime flows is not implemented yet.
+- Terraform Registry context selection now exists for Terraform resource and
+  data-source docs. It uses `required_providers` plus `.terraform.lock.hcl`
+  provider versions when available, then retrieves compact packets through the
+  cache layer.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.

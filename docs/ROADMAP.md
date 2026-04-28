@@ -302,6 +302,10 @@ Status on 2026-04-28:
   with medium confidence when fresh retrieval is unavailable.
 - Added a first official URL fetcher abstraction with content-type
   normalization. Tests use mocked fetchers; no test requires external network.
+- Added a first Terraform Registry context selection path for Terraform
+  resource/data-source docs. It reads `required_providers` and
+  `.terraform.lock.hcl` when present, records provider source/version metadata,
+  and retrieves compact packets through the cache layer.
 - End-to-end automatic official-doc selection and retrieval from planner/runtime
   flows is intentionally not implemented yet.
 

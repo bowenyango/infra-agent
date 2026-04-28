@@ -86,6 +86,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - Internally, official-doc context retrieval is cache-first and produces compact
   excerpts for downstream planner use; automatic docs selection is still a
   planned follow-up.
+- Terraform Registry context selection can now derive resource/data-source doc
+  sources from `required_providers`, `.terraform.lock.hcl`, and Terraform
+  resource blocks.
 
 LLM planner environment variables:
 

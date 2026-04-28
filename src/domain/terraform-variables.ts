@@ -2,187 +2,30 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ConfigSemanticFact, ConfigSemanticSource, ConfigSemanticsSummary } from '../types/config-semantics.ts';
 import type { TerraformRootSummary } from '../types/repository.ts';
-
-interface TerraformVariableBlock {
-  name: string;
-  body: string;
-  sourcePath: string;
-}
+import {
+  extractTerraformBlocksFromContent,
+  findMatchingBrace,
+  readAttributeExpression,
+  unquoteHclString
+} from './terraform-hcl.ts';
 
 interface TerraformValidationBlock {
   condition: string | null;
   errorMessage: string | null;
 }
 
-function findMatchingBrace(content: string, openBraceIndex: number): number {
-  let depth = 0;
-  let inString = false;
-  let inLineComment = false;
-  let inBlockComment = false;
-
-  for (let index = openBraceIndex; index < content.length; index += 1) {
-    const char = content[index];
-    const nextChar = content[index + 1];
-    const previousChar = content[index - 1];
-
-    if (inLineComment) {
-      if (char === '\n') {
-        inLineComment = false;
-      }
-      continue;
-    }
-
-    if (inBlockComment) {
-      if (char === '*' && nextChar === '/') {
-        inBlockComment = false;
-        index += 1;
-      }
-      continue;
-    }
-
-    if (inString) {
-      if (char === '"' && previousChar !== '\\') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (char === '#') {
-      inLineComment = true;
-      continue;
-    }
-
-    if (char === '/' && nextChar === '/') {
-      inLineComment = true;
-      index += 1;
-      continue;
-    }
-
-    if (char === '/' && nextChar === '*') {
-      inBlockComment = true;
-      index += 1;
-      continue;
-    }
-
-    if (char === '{') {
-      depth += 1;
-      continue;
-    }
-
-    if (char === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        return index;
-      }
-    }
-  }
-
-  return -1;
-}
-
-function extractVariableBlocksFromContent(content: string, sourcePath: string): TerraformVariableBlock[] {
-  const blocks: TerraformVariableBlock[] = [];
-  const variablePattern = /\bvariable\s+"([^"]+)"\s*\{/g;
-
-  for (const match of content.matchAll(variablePattern)) {
-    if (match.index === undefined) {
-      continue;
-    }
-
-    const name = match[1];
-    const openBraceIndex = match.index + match[0].lastIndexOf('{');
-    const closeBraceIndex = findMatchingBrace(content, openBraceIndex);
-    if (!name || closeBraceIndex < 0) {
-      continue;
-    }
-
-    blocks.push({
-      name,
-      body: content.slice(openBraceIndex + 1, closeBraceIndex),
-      sourcePath
-    });
-  }
-
-  return blocks;
-}
-
 export function collectTerraformDeclaredVariableNames(contents: string[]): string[] {
   const names: string[] = [];
 
   for (const content of contents) {
-    names.push(...extractVariableBlocksFromContent(content, '').map(block => block.name));
+    names.push(
+      ...extractTerraformBlocksFromContent(content, '', 'variable')
+        .map(block => block.labels[0])
+        .filter((name): name is string => Boolean(name))
+    );
   }
 
   return names;
-}
-
-function normalizeHclExpression(expression: string): string {
-  return expression.replace(/\s+/g, ' ').trim();
-}
-
-function readAttributeExpression(body: string, attributeName: string): string | null {
-  const pattern = new RegExp(`(^|\\n)\\s*${attributeName}\\s*=\\s*`, 'm');
-  const match = body.match(pattern);
-  if (!match || match.index === undefined) {
-    return null;
-  }
-
-  const startIndex = match.index + match[0].length;
-  let depth = 0;
-  let inString = false;
-  let endIndex = body.length;
-
-  for (let index = startIndex; index < body.length; index += 1) {
-    const char = body[index];
-    const previousChar = body[index - 1];
-
-    if (inString) {
-      if (char === '"' && previousChar !== '\\') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (char === '(' || char === '[' || char === '{') {
-      depth += 1;
-      continue;
-    }
-
-    if (char === ')' || char === ']' || char === '}') {
-      depth = Math.max(0, depth - 1);
-      continue;
-    }
-
-    if (char === '\n' && depth === 0) {
-      endIndex = index;
-      break;
-    }
-  }
-
-  const expression = body.slice(startIndex, endIndex).trim();
-  return expression.length > 0 ? normalizeHclExpression(expression) : null;
-}
-
-function unquoteHclString(value: string): string {
-  if (!/^".*"$/.test(value)) {
-    return value;
-  }
-
-  try {
-    return JSON.parse(value) as string;
-  } catch {
-    return value.slice(1, -1);
-  }
 }
 
 function collectValidationBlocks(body: string): TerraformValidationBlock[] {
@@ -253,14 +96,18 @@ function buildFact(params: {
   };
 }
 
-function collectVariableFacts(block: TerraformVariableBlock, facts: ConfigSemanticFact[]): void {
-  const variablePath = `var.${block.name}`;
+function collectVariableFacts(params: {
+  name: string;
+  body: string;
+  sourcePath: string;
+}, facts: ConfigSemanticFact[]): void {
+  const variablePath = `var.${params.name}`;
   const source: ConfigSemanticSource = {
     kind: 'terraform-variable',
-    path: block.sourcePath
+    path: params.sourcePath
   };
-  const typeExpression = readAttributeExpression(block.body, 'type');
-  const defaultExpression = readAttributeExpression(block.body, 'default');
+  const typeExpression = readAttributeExpression(params.body, 'type');
+  const defaultExpression = readAttributeExpression(params.body, 'default');
 
   if (typeExpression) {
     facts.push(buildFact({
@@ -289,12 +136,12 @@ function collectVariableFacts(block: TerraformVariableBlock, facts: ConfigSemant
     }));
   }
 
-  for (const validation of collectValidationBlocks(block.body)) {
+  for (const validation of collectValidationBlocks(params.body)) {
     if (!validation.condition) {
       continue;
     }
 
-    const enumValues = extractContainsEnumValues(validation.condition, block.name);
+    const enumValues = extractContainsEnumValues(validation.condition, params.name);
     if (enumValues.length > 0) {
       facts.push(buildFact({
         kind: 'enum',
@@ -331,8 +178,17 @@ export async function extractTerraformVariableSemantics(
       continue;
     }
 
-    for (const block of extractVariableBlocksFromContent(content, tfFile)) {
-      collectVariableFacts(block, facts);
+    for (const block of extractTerraformBlocksFromContent(content, tfFile, 'variable')) {
+      const name = block.labels[0];
+      if (!name) {
+        continue;
+      }
+
+      collectVariableFacts({
+        name,
+        body: block.body,
+        sourcePath: block.sourcePath
+      }, facts);
     }
   }
 

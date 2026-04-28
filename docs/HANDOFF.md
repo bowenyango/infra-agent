@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `46f3e21` Add cache-backed knowledge retrieval
   - `5a30d1d` Emit compact agent JSON results
   - `f46ef4b` Resolve knowledge cache roots
   - `7a01e78` Surface semantic blockers in result cards
@@ -739,6 +740,49 @@ Recommended next implementation slice:
    source family, such as Terraform Registry provider docs or Helm docs.
 2. Keep all fetched context version-scoped and compact before exposing it to the
    planner.
+3. Start impact-analysis graph types before building any topology UI.
+
+## 2026-04-28 Terraform Registry Context Source Slice
+
+Files added or updated:
+
+- `src/domain/terraform-hcl.ts`
+- `src/domain/terraform-variables.ts`
+- `src/domain/terraform-registry-context.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a focused Terraform Registry context selection path for Terraform
+  resource and data-source docs.
+- Extract provider source and version metadata from `required_providers` and
+  `.terraform.lock.hcl` when present.
+- Build version-sensitive `KnowledgeSource` records for resource/data-source
+  references such as `aws_instance` and `aws_ami`.
+- Retrieve selected Terraform Registry docs through the cache-backed knowledge
+  retrieval layer using mock fetchers in tests.
+- Refactor shared lightweight Terraform HCL helpers out of
+  `terraform-variables.ts` so variable semantics and Registry context selection
+  use the same brace/attribute parsing behavior.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 172/172 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Feed selected Terraform Registry context packets into planner prompts only
+   when a Terraform task touches a resource/data-source whose docs are relevant.
+2. Add Helm official-doc or chart-doc source selection using chart metadata and
+   `values.schema.json`.
 3. Start impact-analysis graph types before building any topology UI.
 
 ## Current Verification Commands

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, cp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
@@ -46,6 +46,10 @@ import {
 } from '../src/knowledge/cache.ts';
 import { resolveKnowledgeCacheRoot } from '../src/knowledge/cache-root.ts';
 import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from '../src/knowledge/retrieve.ts';
+import {
+  buildTerraformRegistryKnowledgeSources,
+  retrieveTerraformRegistryContextPackets
+} from '../src/domain/terraform-registry-context.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -389,6 +393,129 @@ test('official knowledge fetcher normalizes response content type', async () => 
   assert.equal(fetched?.contentType, 'text/markdown');
   assert.match(fetched?.content ?? '', /fetched from/);
   assert.equal(fetched?.metadata?.retrieval, 'official-url');
+});
+
+test('Terraform Registry context sources use provider requirements and lockfile versions', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-sources-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(terraformRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source  = "hashicorp/aws"',
+        '      version = "~> 5.0"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_instance" "api" {',
+        '  ami           = "ami-123456"',
+        '  instance_type = "t3.micro"',
+        '}',
+        '',
+        'data "aws_ami" "ubuntu" {',
+        '  most_recent = true',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version     = "5.37.0"',
+        '  constraints = "~> 5.0"',
+        '  hashes      = []',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === 'terraform/app');
+    assert.ok(root);
+    const sources = await buildTerraformRegistryKnowledgeSources(tempRoot, root);
+    const instanceSource = sources.find(source => source.name === 'resource:aws_instance');
+    const amiSource = sources.find(source => source.name === 'data-source:aws_ami');
+
+    assert.ok(instanceSource);
+    assert.equal(instanceSource.provider, 'hashicorp/aws');
+    assert.equal(instanceSource.version, '5.37.0');
+    assert.match(instanceSource.url ?? '', /providers\/hashicorp\/aws\/latest\/docs\/resources\/instance$/);
+    assert.ok(amiSource);
+    assert.match(amiSource.url ?? '', /providers\/hashicorp\/aws\/latest\/docs\/data-sources\/ami$/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Terraform Registry context packets retrieve selected source docs through the cache layer', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-retrieve-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-cache-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(terraformRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source  = "hashicorp/aws"',
+        '      version = "~> 5.0"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_instance" "api" {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version = "5.37.0"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === 'terraform/app');
+    assert.ok(root);
+    const packets = await retrieveTerraformRegistryContextPackets({
+      workspaceRoot: tempRoot,
+      root,
+      cacheRoot,
+      reason: 'Terraform AWS resource docs for selected root',
+      fetcher: async source => ({
+        source,
+        contentType: 'text/markdown',
+        content: `# ${source.name}\nVersion ${source.version} docs for ${source.provider}.`,
+        fetchedAt: '2026-04-28T00:00:00.000Z',
+        staleAfter: '2026-05-28T00:00:00.000Z'
+      })
+    });
+
+    assert.equal(packets.length, 1);
+    assert.equal(packets[0]?.source.kind, 'terraform-registry');
+    assert.equal(packets[0]?.confidence, 'high');
+    assert.match(packets[0]?.excerpt ?? '', /Version 5\.37\.0 docs/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
 });
 
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
