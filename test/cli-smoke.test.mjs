@@ -112,6 +112,28 @@ test('inspectWorkspace extracts Terraform variable semantic facts', async () => 
   ));
 });
 
+test('inspectWorkspace extracts Pulumi stack config semantic facts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pulumiSemantics = inspection.configSemantics.find(summary =>
+    summary.targetKind === 'pulumi-project'
+    && summary.targetPath === 'infra/payments-api'
+  );
+
+  assert.ok(pulumiSemantics);
+  assert.ok(pulumiSemantics.facts.some(fact =>
+    fact.kind === 'type-constraint'
+    && fact.path === 'config.payments-api:environment'
+    && fact.values?.includes('string')
+    && fact.source.path === 'infra/payments-api/Pulumi.yaml'
+  ));
+  assert.ok(pulumiSemantics.facts.some(fact =>
+    fact.kind === 'configured-field'
+    && fact.path === 'config.payments-api:imageTag'
+    && fact.values?.includes('latest')
+    && fact.source.path === 'infra/payments-api/Pulumi.dev.yaml'
+  ));
+});
+
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
   const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');
 
@@ -2232,6 +2254,32 @@ test('planner user prompt includes focused Terraform variable semantics', async 
   assert.ok(parsed.configSemantics.some(summary =>
     summary.targetPath === 'terraform/payments-api'
     && summary.facts.some(fact => fact.kind === 'enum' && fact.path === 'var.environment')
+  ));
+});
+
+test('planner user prompt includes focused Pulumi config semantics', async () => {
+  const preflight = await buildRunPreflight('update pulumi payments-api dev image tag to 2.3.4', 'fixtures/sample-workspace');
+  const prompt = buildPlannerUserPrompt({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.ok(parsed.configSemantics.some(summary =>
+    summary.targetPath === 'infra/payments-api'
+    && summary.facts.some(fact => fact.kind === 'configured-field' && fact.path === 'config.payments-api:imageTag')
+  ));
+  assert.ok(parsed.configSemantics.some(summary =>
+    summary.targetPath === 'infra/payments-api'
+    && summary.facts.some(fact => fact.kind === 'type-constraint' && fact.path === 'config.payments-api:environment')
   ));
 });
 

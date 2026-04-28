@@ -9,6 +9,7 @@ export type ConfigSemanticSourceKind =
 
 export type ConfigSemanticFactKind =
   | 'required-field'
+  | 'configured-field'
   | 'defaulted-field'
   | 'type-constraint'
   | 'enum'

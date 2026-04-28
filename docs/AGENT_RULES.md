@@ -127,7 +127,7 @@
 
 - Prefer editing existing Helm, Pulumi, and Terraform assets over creating new parallel assets.
 - Infer repository conventions from concrete files, not from generic best practices alone.
-- Use structured `ConfigSemantics` facts from Helm schemas, Terraform variables, validation blocks, and repo examples before asking the LLM to infer constraints.
+- Use structured `ConfigSemantics` facts from Helm schemas, Terraform variables, Pulumi stack config, validation blocks, and repo examples before asking the LLM to infer constraints.
 - Treat Terraform variable enums and validation rules as configuration constraints, and validate generated values against them before writing when possible.
 - Validation output is part of the task state and must inform the next step.
 - The agent must not call deploy or apply commands in version `v0`.

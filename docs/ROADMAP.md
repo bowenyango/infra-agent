@@ -292,6 +292,9 @@ Status on 2026-04-28:
 - Terraform variable extraction currently emits high-confidence
   `required-field`, `defaulted-field`, `type-constraint`, `validation-rule`,
   and validation-derived `enum` facts from `.tf` variable blocks.
+- Pulumi config extraction currently emits high-confidence `type-constraint`,
+  `defaulted-field`, and `configured-field` facts from `Pulumi.yaml` and
+  `Pulumi.<stack>.yaml`, without exposing secret `secure` values.
 - Focused config semantics are included in the planner user prompt for the top
   candidate targets.
 - Helm and Terraform edit-plan builders now consume selected semantics before

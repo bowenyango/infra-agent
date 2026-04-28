@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `7ad7fb3` Gate Terraform tfvars plans with enum semantics
   - `3ff220a` Extract Terraform variable semantics
   - `d4db75f` Use Helm schema facts in edit plans
   - `4eae18b` Add YAML guards and Helm schema semantics
@@ -378,6 +379,45 @@ Recommended next implementation slice:
 2. Add Terraform type-aware tfvars value formatting for booleans, numbers, and
    simple collection values.
 3. Start the knowledge-cache type definitions after Pulumi config semantics land.
+
+## 2026-04-28 Pulumi Stack Config Semantics Slice
+
+Files added or updated:
+
+- `src/domain/pulumi-stack-config.ts`
+- `src/domain/inspect-workspace.ts`
+- `src/types/config-semantics.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add Pulumi project/stack config semantics during workspace inspection.
+- Extract `type-constraint` and `defaulted-field` facts from `Pulumi.yaml`
+  `config` declarations.
+- Extract `configured-field` facts from `Pulumi.<stack>.yaml` stack config.
+- Avoid copying Pulumi secret `secure` values into fact values; record only that
+  the key is configured as a secret.
+- Include focused Pulumi config semantics in planner prompts for top Pulumi
+  targets.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 156/156 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Use Pulumi config semantics in stack edit plans to select existing namespaces
+   and avoid introducing parallel config keys.
+2. Add Pulumi missing-config preview facts into `ConfigSemantics`, not just
+   repair-specific `ValidationIssue` metadata.
+3. Start knowledge-cache type definitions and filesystem layout.
 
 ## Current Verification Commands
 

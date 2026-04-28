@@ -6,6 +6,7 @@ import {
 import { detectRepoProfile } from './repo-profile.ts';
 import { resolveDomainCapabilities } from './domain-capabilities.ts';
 import { extractHelmValuesSchemaSemanticsForCharts } from './helm-values-schema.ts';
+import { extractPulumiStackConfigSemanticsForProjects } from './pulumi-stack-config.ts';
 import { extractTerraformVariableSemanticsForRoots } from './terraform-variables.ts';
 import { readWorkspaceConfig } from './workspace-config.ts';
 import type {
@@ -197,8 +198,9 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
   state.pulumiProjects.sort((left, right) => left.projectRoot.localeCompare(right.projectRoot));
   state.terraformRoots.sort((left, right) => left.rootPath.localeCompare(right.rootPath));
   const helmSemantics = await extractHelmValuesSchemaSemanticsForCharts(workspaceRoot, state.helmCharts);
+  const pulumiSemantics = await extractPulumiStackConfigSemanticsForProjects(workspaceRoot, state.pulumiProjects);
   const terraformSemantics = await extractTerraformVariableSemanticsForRoots(workspaceRoot, state.terraformRoots);
-  const configSemantics = [...helmSemantics, ...terraformSemantics];
+  const configSemantics = [...helmSemantics, ...pulumiSemantics, ...terraformSemantics];
 
   return {
     workspaceRoot,

@@ -76,6 +76,11 @@ Current implemented source:
   planner.
 - Terraform tfvars edit plans now block requested environment values that
   violate extracted enum facts.
+- Pulumi `Pulumi.yaml` and `Pulumi.<stack>.yaml` files are detected during
+  workspace inspection.
+- The first Pulumi extraction pass records `type-constraint`,
+  `defaulted-field`, and `configured-field` facts without exposing secret
+  `secure` values.
 
 ## Rename And Replacement Impact
 
