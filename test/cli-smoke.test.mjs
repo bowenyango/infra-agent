@@ -3968,6 +3968,48 @@ test('buildEditPlan creates a bounded Terraform tfvars config plan', async () =>
   assert.match(editPlan?.writes[0]?.content ?? '', /environment = "dev"/);
 });
 
+test('buildEditPlan respects Terraform string type when formatting numeric-looking tfvars values', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 123', 'fixtures/terraform-workspace');
+  const tfvarsPath = resolve('fixtures/terraform-workspace/terraform/payments-api/dev.auto.tfvars');
+  const mainTfPath = resolve('fixtures/terraform-workspace/terraform/payments-api/main.tf');
+
+  const editPlan = buildEditPlan({
+    task: preflight.task,
+    preflight,
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: tfvarsPath,
+          content: await readFile(tfvarsPath, 'utf8'),
+          truncated: false
+        }
+      },
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.ok(editPlan);
+  assert.match(editPlan?.rationale ?? '', /Terraform declares image_tag as string/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /image_tag = "123"/);
+  assert.doesNotMatch(editPlan?.writes[0]?.content ?? '', /image_tag = 123/);
+});
+
 test('buildEditPlan blocks Terraform tfvars writes that violate enum semantics', async () => {
   const preflight = await buildRunPreflight('update terraform payments-api qa image tag to 2.3.4', 'fixtures/terraform-workspace');
   const tfvarsPath = resolve('fixtures/terraform-workspace/terraform/payments-api/dev.auto.tfvars');

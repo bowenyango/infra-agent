@@ -4,6 +4,7 @@ import type { EditPlan } from '../../types/edit-plan.ts';
 import {
   buildTerraformEnumMismatch,
   findTerraformVariableEnumFact,
+  findTerraformVariableTypeFact,
   normalizeTerraformEnvironmentValue
 } from '../../domain/terraform-config-semantics.ts';
 import { collectTerraformDeclaredVariableNames } from '../../domain/terraform-variables.ts';
@@ -30,7 +31,20 @@ function detectImageTag(task: string): string | null {
   return null;
 }
 
-function formatTfvarsValue(value: string): string {
+function formatTfvarsValue(value: string, typeExpression?: string | null): string {
+  const normalizedType = typeExpression?.trim().toLowerCase() ?? null;
+  if (normalizedType === 'string') {
+    return JSON.stringify(value);
+  }
+
+  if (normalizedType === 'bool') {
+    return /^(true|false)$/i.test(value) ? value.toLowerCase() : JSON.stringify(value);
+  }
+
+  if (normalizedType === 'number') {
+    return /^[0-9]+(?:\.[0-9]+)?$/.test(value) ? value : JSON.stringify(value);
+  }
+
   if (/^(true|false|null|[0-9]+(?:\.[0-9]+)?)$/i.test(value)) {
     return value;
   }
@@ -38,10 +52,10 @@ function formatTfvarsValue(value: string): string {
   return JSON.stringify(value);
 }
 
-function upsertTfvarsValue(content: string, key: string, value: string): string {
+function upsertTfvarsValue(content: string, key: string, value: string, typeExpression?: string | null): string {
   const normalized = content.trimEnd();
   const lines = normalized.length > 0 ? normalized.split('\n') : [];
-  const renderedLine = `${key} = ${formatTfvarsValue(value)}`;
+  const renderedLine = `${key} = ${formatTfvarsValue(value, typeExpression)}`;
   const targetPrefix = `${key} = `;
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -153,6 +167,16 @@ function buildTerraformTfvarsWrite(
     rootPath,
     [environmentKey]
   );
+  const imageTagTypeFact = findTerraformVariableTypeFact(
+    runtime.preflight.inspection,
+    rootPath,
+    [imageTagKey]
+  );
+  const environmentTypeFact = findTerraformVariableTypeFact(
+    runtime.preflight.inspection,
+    rootPath,
+    [environmentKey]
+  );
   const environmentEnumMismatch = nextEnvironment
     ? buildTerraformEnumMismatch(environmentEnumFact, nextEnvironment)
     : null;
@@ -165,18 +189,29 @@ function buildTerraformTfvarsWrite(
   if (environmentEnumFact?.values && environmentEnumFact.values.length > 0) {
     rationaleParts.push(`Terraform validation allows ${environmentKey} values: ${environmentEnumFact.values.join(', ')}.`);
   }
+  if (imageTagTypeFact?.values?.[0]) {
+    rationaleParts.push(`Terraform declares ${imageTagKey} as ${imageTagTypeFact.values[0]}.`);
+  }
+  if (environmentTypeFact?.values?.[0]) {
+    rationaleParts.push(`Terraform declares ${environmentKey} as ${environmentTypeFact.values[0]}.`);
+  }
 
   if (params.imageTag) {
-    nextContent = upsertTfvarsValue(nextContent, imageTagKey, params.imageTag);
+    nextContent = upsertTfvarsValue(nextContent, imageTagKey, params.imageTag, imageTagTypeFact?.values?.[0]);
   }
 
   if (params.explicitKey && params.explicitValue) {
-    nextContent = upsertTfvarsValue(nextContent, params.explicitKey, params.explicitValue);
+    const explicitTypeFact = findTerraformVariableTypeFact(
+      runtime.preflight.inspection,
+      rootPath,
+      [params.explicitKey]
+    );
+    nextContent = upsertTfvarsValue(nextContent, params.explicitKey, params.explicitValue, explicitTypeFact?.values?.[0]);
     rationaleParts.push(`The repair path also restores the missing required variable ${params.explicitKey}.`);
   }
 
   if (nextEnvironment) {
-    nextContent = upsertTfvarsValue(nextContent, environmentKey, nextEnvironment);
+    nextContent = upsertTfvarsValue(nextContent, environmentKey, nextEnvironment, environmentTypeFact?.values?.[0]);
   }
 
   if (nextContent === existingContent) {

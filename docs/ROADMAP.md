@@ -305,6 +305,8 @@ Status on 2026-04-28:
 - Runtime validation can now promote Pulumi preview missing-config failures into
   high-confidence `required-field` facts, so planner prompts and repairs can use
   validator-discovered semantics.
+- Terraform tfvars edit plans now use `type-constraint` facts when rendering
+  scalar values, so string variables stay quoted even when values look numeric.
 
 ### Step 6: Add Impact Analysis
 

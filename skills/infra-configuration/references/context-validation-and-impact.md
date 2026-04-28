@@ -85,6 +85,8 @@ Current implemented source:
   namespaces before falling back to project names.
 - Pulumi preview missing-config failures are promoted into runtime
   `required-field` facts sourced from `pulumi-preview`.
+- Terraform tfvars edit plans use extracted `type-constraint` facts when
+  rendering scalar values.
 
 ## Rename And Replacement Impact
 

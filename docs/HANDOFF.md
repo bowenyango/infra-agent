@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `39196f9` Promote validation issues into config semantics
   - `f4c0f40` Use Pulumi config semantics in edit plans
   - `9a53a35` Extract Pulumi stack config semantics
   - `7ad7fb3` Gate Terraform tfvars plans with enum semantics
@@ -500,6 +501,40 @@ Recommended next implementation slice:
    simple collection values.
 2. Start knowledge-cache type definitions and filesystem layout.
 3. Add result-card output for validation-derived semantic blockers.
+
+## 2026-04-28 Terraform Type-Aware Tfvars Formatting Slice
+
+Files added or updated:
+
+- `src/domain/terraform-config-semantics.ts`
+- `src/agent/edit-plans/terraform-tfvars-config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Use Terraform `type-constraint` facts before formatting generated tfvars
+  values.
+- Keep `string` variables quoted even when the requested value looks numeric,
+  such as image tag `123`.
+- Preserve raw formatting for valid `bool` and `number` variable values.
+- Include type facts in Terraform edit-plan rationale.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 159/159 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Start knowledge-cache type definitions and filesystem layout.
+2. Add result-card output for validation-derived semantic blockers.
+3. Expand Terraform type-aware formatting for simple list/map values when the
+   task language can safely identify them.
 
 ## Current Verification Commands
 

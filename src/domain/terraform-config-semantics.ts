@@ -45,6 +45,17 @@ export function findTerraformVariableEnumFact(
     .find(fact => fact.kind === 'enum' && paths.includes(fact.path)) ?? null;
 }
 
+export function findTerraformVariableTypeFact(
+  inspection: WorkspaceInspection,
+  rootPath: string,
+  variableNames: string[]
+): ConfigSemanticFact | null {
+  const paths = variableNames.map(terraformVariablePath);
+
+  return terraformFactsForRoot(inspection, rootPath)
+    .find(fact => fact.kind === 'type-constraint' && paths.includes(fact.path)) ?? null;
+}
+
 export function findTerraformEnvironmentEnumFact(
   inspection: WorkspaceInspection,
   rootPath: string
