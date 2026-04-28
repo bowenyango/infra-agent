@@ -81,6 +81,8 @@ Current implemented source:
 - The first Pulumi extraction pass records `type-constraint`,
   `defaulted-field`, and `configured-field` facts without exposing secret
   `secure` values.
+- Pulumi stack edit plans use these facts to reuse established config keys and
+  namespaces before falling back to project names.
 
 ## Rename And Replacement Impact
 

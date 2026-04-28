@@ -300,6 +300,8 @@ Status on 2026-04-28:
 - Helm and Terraform edit-plan builders now consume selected semantics before
   writing values. Helm ingress plans use schema enum facts, and Terraform tfvars
   plans block environment values that violate validation-derived enums.
+- Pulumi stack edit plans now consume config semantics to reuse existing config
+  keys/namespaces before falling back to project-name heuristics.
 
 ### Step 6: Add Impact Analysis
 

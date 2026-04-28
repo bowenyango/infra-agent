@@ -1,5 +1,6 @@
 import { basename, join } from 'node:path';
 import type { AgentRuntimeState } from '../../types/agent.ts';
+import type { ConfigSemanticFact } from '../../types/config-semantics.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
@@ -122,6 +123,48 @@ function extractExistingConfigNamespace(
     .filter((value): value is string => Boolean(value));
 
   return namespaces[0] ?? projectName;
+}
+
+function configKeyFromSemanticPath(path: string): string | null {
+  return path.startsWith('config.') ? path.slice('config.'.length) : null;
+}
+
+function pulumiConfigFactsForProject(runtime: AgentRuntimeState, projectRoot: string): ConfigSemanticFact[] {
+  return runtime.preflight.inspection.configSemantics
+    .find(summary => summary.targetKind === 'pulumi-project' && summary.targetPath === projectRoot)
+    ?.facts ?? [];
+}
+
+function selectPulumiConfigKeyFromFacts(params: {
+  facts: ConfigSemanticFact[];
+  stackFilePath: string;
+  suffix: string;
+}): string | null {
+  const normalizedSuffix = `:${params.suffix.toLowerCase()}`;
+  const keyForFact = (fact: ConfigSemanticFact): string | null => {
+    const key = configKeyFromSemanticPath(fact.path);
+    if (!key || !key.toLowerCase().endsWith(normalizedSuffix)) {
+      return null;
+    }
+
+    return key;
+  };
+  const stackConfiguredFact = params.facts.find(fact =>
+    fact.kind === 'configured-field'
+    && fact.source.path === params.stackFilePath
+    && keyForFact(fact)
+  );
+  const anyConfiguredFact = params.facts.find(fact =>
+    fact.kind === 'configured-field'
+    && keyForFact(fact)
+  );
+  const declaredFact = params.facts.find(fact =>
+    (fact.kind === 'type-constraint' || fact.kind === 'defaulted-field')
+    && keyForFact(fact)
+  );
+  const selectedFact = stackConfiguredFact ?? anyConfiguredFact ?? declaredFact ?? null;
+
+  return selectedFact ? keyForFact(selectedFact) : null;
 }
 
 function normalizeEnvironmentValueForProfile(
@@ -305,16 +348,29 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
   const stackFileRelativePath = existingStackFileRelativePath ?? join(topPulumiTarget.path, `Pulumi.${stackName}.yaml`);
   const stackFileContent = getLatestFileContent(runtime, stackFileRelativePath) ?? '';
   const projectName = extractProjectName(projectFileContent, topPulumiTarget.path);
-  const configNamespace = extractExistingConfigNamespace(runtime.preflight.profile.id, stackFileContent, projectName);
+  const configNamespaceFallback = extractExistingConfigNamespace(runtime.preflight.profile.id, stackFileContent, projectName);
+  const configFacts = pulumiConfigFactsForProject(runtime, topPulumiTarget.path);
+  const environmentConfigKey =
+    selectPulumiConfigKeyFromFacts({
+      facts: configFacts,
+      stackFilePath: stackFileRelativePath,
+      suffix: 'environment'
+    }) ?? `${configNamespaceFallback}:environment`;
+  const imageTagConfigKey =
+    selectPulumiConfigKeyFromFacts({
+      facts: configFacts,
+      stackFilePath: stackFileRelativePath,
+      suffix: 'imageTag'
+    }) ?? `${configNamespaceFallback}:imageTag`;
   const environmentValue = normalizeEnvironmentValueForProfile(runtime.preflight.profile.id, stackName);
 
   const nextContent = upsertConfigValue(
     upsertConfigValue(
       stackFileContent,
-      `${configNamespace}:environment`,
+      environmentConfigKey,
       environmentValue
     ),
-    `${configNamespace}:imageTag`,
+    imageTagConfigKey,
     imageTag
   );
 
@@ -325,18 +381,18 @@ export function buildPulumiStackConfigEditPlan(runtime: AgentRuntimeState): Edit
   return {
     kind: 'pulumi-stack-config',
     summary: `Apply Pulumi stack configuration updates to ${stackFileRelativePath}.`,
-    rationale: 'The task requests a stack-level configuration change and the selected Pulumi project exposes a matching stack file.',
+    rationale: `The task requests a stack-level configuration change and the selected Pulumi project exposes a matching stack file. The plan reuses Pulumi config keys ${environmentConfigKey} and ${imageTagConfigKey} when available.`,
     pulumiConfigOperations: [
       {
         projectRoot: topPulumiTarget.path,
         stackName,
-        key: `${configNamespace}:environment`,
+        key: environmentConfigKey,
         value: environmentValue
       },
       {
         projectRoot: topPulumiTarget.path,
         stackName,
-        key: `${configNamespace}:imageTag`,
+        key: imageTagConfigKey,
         value: imageTag
       }
     ],

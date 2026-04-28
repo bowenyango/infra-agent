@@ -1120,6 +1120,73 @@ test('buildEditPlan reuses existing scrawlr infra-cloud config namespace from st
   assert.doesNotMatch(writeContent, /shared-networking:imageTag:/);
 });
 
+test('buildEditPlan reuses Pulumi config semantics before project-name fallback', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-semantics-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    await writeFile(
+      join(workspaceRoot, 'infra/payments-api/Pulumi.yaml'),
+      [
+        'name: shared-payments',
+        'runtime: yaml',
+        'description: Synthetic project name drift',
+        'config:',
+        '  payments-api:environment:',
+        '    type: string',
+        '  payments-api:imageTag:',
+        '    type: string',
+        'resources: {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const preflight = await buildRunPreflight('update pulumi payments-api dev image tag to 3.4.5', workspaceRoot);
+    const projectPath = join(workspaceRoot, 'infra/payments-api/Pulumi.yaml');
+    const stackPath = join(workspaceRoot, 'infra/payments-api/Pulumi.dev.yaml');
+    const editPlan = buildEditPlan({
+      task: preflight.task,
+      preflight,
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: projectPath,
+            content: await readFile(projectPath, 'utf8'),
+            truncated: false
+          }
+        },
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: stackPath,
+            content: await readFile(stackPath, 'utf8'),
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    });
+
+    assert.ok(editPlan);
+    const writeContent = editPlan?.writes[0]?.content ?? '';
+    assert.match(editPlan?.rationale ?? '', /payments-api:environment and payments-api:imageTag/);
+    assert.match(writeContent, /payments-api:imageTag:\s+3\.4\.5/);
+    assert.doesNotMatch(writeContent, /shared-payments:imageTag:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('buildEditPlan normalizes scrawlr infra-cloud environment config values away from full stack names', async () => {
   const preflight = await buildRunPreflight(
     'update eks non-prod stack image tag to 2.4.0',

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `9a53a35` Extract Pulumi stack config semantics
   - `7ad7fb3` Gate Terraform tfvars plans with enum semantics
   - `3ff220a` Extract Terraform variable semantics
   - `d4db75f` Use Helm schema facts in edit plans
@@ -417,6 +418,44 @@ Recommended next implementation slice:
    and avoid introducing parallel config keys.
 2. Add Pulumi missing-config preview facts into `ConfigSemantics`, not just
    repair-specific `ValidationIssue` metadata.
+3. Start knowledge-cache type definitions and filesystem layout.
+
+## 2026-04-28 Pulumi Semantics-Aware Edit Plans Slice
+
+Files added or updated:
+
+- `src/agent/edit-plans/pulumi-stack-config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Use Pulumi config semantics in stack edit plans before falling back to project
+  name or stack text heuristics.
+- Prefer stack-specific `configured-field` facts when choosing config keys like
+  `<namespace>:environment` and `<namespace>:imageTag`.
+- Fall back to project `type-constraint`/`defaulted-field` declaration facts
+  when the target stack has no existing value for that key.
+- Preserve the previous stack-text namespace fallback for workspaces without
+  extracted semantics.
+- Add a regression test where `Pulumi.yaml` project `name` drifts but existing
+  stack/config facts still point to the repository's established namespace.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 157/157 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add Pulumi missing-config preview facts into `ConfigSemantics`, not just
+   repair-specific `ValidationIssue` metadata.
+2. Add Terraform type-aware tfvars value formatting for booleans, numbers, and
+   simple collection values.
 3. Start knowledge-cache type definitions and filesystem layout.
 
 ## Current Verification Commands
