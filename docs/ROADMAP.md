@@ -314,6 +314,9 @@ Status on 2026-04-28:
   Helm schema docs, and chart `home`/`sources` metadata from `Chart.yaml`.
   Local chart schema context is emitted directly as a high-confidence packet;
   external Helm/chart docs still go through cache retrieval.
+- Helm runs now load selected chart schema context into runtime state and
+  planner prompts. External Helm/chart docs remain cache-only inside the agent
+  loop unless a separate fetch/prefetch path populates them.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

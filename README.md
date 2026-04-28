@@ -95,6 +95,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - Helm chart context selection can derive high-confidence local schema packets
   from `values.schema.json` and cache-backed Helm/chart docs from `Chart.yaml`
   metadata.
+- Helm agent runs load selected chart schema context into planner prompts by
+  default; external Helm/chart docs are still cache-only unless explicitly
+  fetched elsewhere.
 
 LLM planner environment variables:
 

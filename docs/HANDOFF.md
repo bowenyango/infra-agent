@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `640cd0b` Select Helm chart context sources
   - `0657434` Load cached Terraform context into prompts
   - `a7ea04f` Select Terraform Registry context sources
   - `46f3e21` Add cache-backed knowledge retrieval
@@ -860,11 +861,49 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Load cached Helm chart context into runtime prompts for Helm-focused tasks,
-   mirroring the current Terraform cache-only prompt path.
-2. Add a CLI command to prefetch selected official docs explicitly, instead of
+1. Add a CLI command to prefetch selected official docs explicitly, instead of
    fetching implicitly inside `agent`.
-3. Start impact-analysis graph types before building any topology UI.
+2. Start impact-analysis graph types before building any topology UI.
+3. Expand Helm context selection to include chart dependency metadata when
+   `Chart.lock` or `charts/` dependencies are present.
+
+## 2026-04-28 Helm Chart Context Prompt Slice
+
+Files added or updated:
+
+- `src/query.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Load selected Helm chart context packets during initial runtime construction
+  when the task requested Helm.
+- Keep local `values.schema.json` available to the planner as high-confidence,
+  compact context without requiring network access.
+- Keep external Helm/chart docs cache-only by default in the agent loop, matching
+  the Terraform prompt path's no-implicit-fetch policy.
+- Add regression coverage showing Helm runtime state includes local chart schema
+  context for Helm-focused tasks.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 177/177 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add a CLI command to prefetch selected official docs explicitly, instead of
+   fetching implicitly inside `agent`.
+2. Start impact-analysis graph types before building any topology UI.
+3. Expand Helm context selection to include chart dependency metadata when
+   `Chart.lock` or `charts/` dependencies are present.
 
 ## Current Verification Commands
 

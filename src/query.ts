@@ -13,6 +13,7 @@ import type { QueryLoopResult, QueryTurn } from './types/query.ts';
 import type { QueryLoopConfig } from './query-config.ts';
 import type { RetrievedContextPacket } from './types/knowledge.ts';
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
+import { retrieveHelmChartContextPackets } from './domain/helm-chart-context.ts';
 import type {
   DiffPreviewOutput,
   DirectoryListingOutput,
@@ -29,6 +30,7 @@ import type {
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
 import type { AgentRunOutcome } from './types/agent.ts';
+import type { HelmChartSummary } from './types/repository.ts';
 
 function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
   return {
@@ -276,6 +278,25 @@ function selectTerraformContextRoots(preflight: RunPreflightState): TerraformRoo
   return preflight.inspection.terraformRoots.filter(root => targetPaths.has(root.rootPath));
 }
 
+function selectHelmContextCharts(preflight: RunPreflightState): HelmChartSummary[] {
+  if (!preflight.requestedDomains.includes('helm')) {
+    return [];
+  }
+
+  const targetPaths = new Set(
+    preflight.targetCandidates
+      .filter(candidate => candidate.kind === 'helm-chart')
+      .slice(0, 2)
+      .map(candidate => candidate.path)
+  );
+
+  if (targetPaths.size === 0) {
+    return [];
+  }
+
+  return preflight.inspection.helmCharts.filter(chart => targetPaths.has(chart.chartRoot));
+}
+
 async function retrieveInitialContext(preflight: RunPreflightState): Promise<RetrievedContextPacket[]> {
   const packets: RetrievedContextPacket[] = [];
 
@@ -286,6 +307,16 @@ async function retrieveInitialContext(preflight: RunPreflightState): Promise<Ret
       cacheRoot: preflight.inspection.knowledgeCache.root,
       reason: `Terraform Registry docs for selected root ${root.rootPath}`,
       maxSources: 3
+    }));
+  }
+
+  for (const chart of selectHelmContextCharts(preflight)) {
+    packets.push(...await retrieveHelmChartContextPackets({
+      workspaceRoot: preflight.workspaceRoot,
+      chart,
+      cacheRoot: preflight.inspection.knowledgeCache.root,
+      reason: `Helm chart docs for selected chart ${chart.chartRoot}`,
+      maxExternalSources: 2
     }));
   }
 

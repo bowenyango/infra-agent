@@ -62,6 +62,9 @@ Current cache foundation:
 - Helm chart context selection exists for repo-local `values.schema.json`, Helm
   schema docs, and chart `home`/`sources` metadata. Treat local chart schema
   packets as higher authority than external chart docs.
+- Helm agent runs load selected chart schema packets into runtime prompts for
+  Helm-focused tasks. External Helm/chart docs should only appear when already
+  present in the version-aware cache or fetched by a deliberate prefetch path.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.

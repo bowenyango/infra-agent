@@ -702,6 +702,74 @@ test('Helm chart context packets include local schema and cached external docs',
   }
 });
 
+test('agent runtime loads Helm chart schema context for Helm tasks', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-context-runtime-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'values.schema.json'),
+      [
+        '{',
+        '  "type": "object",',
+        '  "required": ["image"],',
+        '  "properties": {',
+        '    "image": {',
+        '      "type": "object",',
+        '      "required": ["repository", "tag"]',
+        '    }',
+        '  }',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const checkingModel = {
+      name: 'helm-context-check',
+      async decideNextAction({ runtime }) {
+        assert.ok(runtime.retrievedContext.some(packet =>
+          packet.source.kind === 'chart-schema'
+          && packet.source.localPath === 'charts/api/values.schema.json'
+          && packet.confidence === 'high'
+          && packet.contentType === 'application/json'
+          && packet.excerpt.includes('"repository"')
+        ));
+        return {
+          confidence: 'high',
+          action: {
+            kind: 'stop',
+            summary: 'Context checked.',
+            rationale: 'The runtime loaded local Helm chart schema context.',
+            payload: {
+              stopReason: 'no-safe-action'
+            }
+          }
+        };
+      }
+    };
+    const result = await runSingleStep('update helm chart image repository', tempRoot, checkingModel);
+
+    assert.ok(result.runtime.retrievedContext.some(packet =>
+      packet.source.kind === 'chart-schema'
+      && packet.source.name === 'api:values.schema.json'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
   const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');
 
