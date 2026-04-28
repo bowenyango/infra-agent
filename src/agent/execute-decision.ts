@@ -13,10 +13,12 @@ import { ReplaceFileTool } from '../tools/ReplaceFileTool/ReplaceFileTool.ts';
 import { SearchWorkspaceTool } from '../tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
 import { TerraformFormatTool } from '../tools/TerraformFormatTool/TerraformFormatTool.ts';
 import { ValidateTargetsTool } from '../tools/ValidateTargetsTool/ValidateTargetsTool.ts';
+import { ValidateYamlSyntaxTool } from '../tools/ValidateYamlSyntaxTool/ValidateYamlSyntaxTool.ts';
 import { WriteFileTool } from '../tools/WriteFileTool/WriteFileTool.ts';
 import type { AgentDecision, AgentDecisionExecution } from '../types/agent.ts';
 import type { ToolUseContext } from '../Tool.ts';
-import type { DiffPreviewOutput, DirectoryListingOutput, SearchWorkspaceOutput } from '../types/tools.ts';
+import type { DiffPreviewOutput, DirectoryListingOutput, SearchWorkspaceOutput, WriteFileOutput, YamlSyntaxValidationOutput } from '../types/tools.ts';
+import { shouldValidateYamlSyntaxPath } from '../validators/yaml-syntax.ts';
 
 function deduplicatePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
@@ -36,6 +38,22 @@ function getAppendDelta(nextContent: string, previousExists: boolean, previousCo
   }
 
   return nextContent;
+}
+
+function yamlValidationFailed(output: unknown): boolean {
+  return (output as YamlSyntaxValidationOutput).result.exitCode !== 0;
+}
+
+async function validatePlannedYamlWriteIfNeeded(
+  path: string,
+  content: string,
+  context: ToolUseContext
+) {
+  if (!shouldValidateYamlSyntaxPath(path)) {
+    return null;
+  }
+
+  return executeTool(ValidateYamlSyntaxTool, { path, content }, context);
 }
 
 export async function executeDecision(
@@ -193,10 +211,38 @@ export async function executeDecision(
           nextContent: write.content
         }, context);
         toolResults.push(diffResult);
+
+        const yamlValidation = await validatePlannedYamlWriteIfNeeded(write.path, write.content, context);
+        if (yamlValidation) {
+          toolResults.push(yamlValidation);
+          if (yamlValidationFailed(yamlValidation.output)) {
+            return {
+              status: 'completed',
+              executedTools: toolResults
+            };
+          }
+        }
       }
 
       for (const operation of editPlan.pulumiConfigOperations) {
-        toolResults.push(await executeTool(PulumiConfigSetTool, operation, context));
+        const pulumiResult = await executeTool(PulumiConfigSetTool, operation, context);
+        toolResults.push(pulumiResult);
+
+        const pulumiOutput = pulumiResult.output;
+        const yamlValidation = await validatePlannedYamlWriteIfNeeded(
+          pulumiOutput.stackFilePath,
+          pulumiOutput.content,
+          context
+        );
+        if (yamlValidation) {
+          toolResults.push(yamlValidation);
+          if (yamlValidationFailed(yamlValidation.output)) {
+            return {
+              status: 'completed',
+              executedTools: toolResults
+            };
+          }
+        }
       }
 
       return {
@@ -212,31 +258,54 @@ export async function executeDecision(
       }, context);
       toolResults.push(diffResult);
 
+      const plannedYamlValidation = await validatePlannedYamlWriteIfNeeded(write.path, write.content, context);
+      if (plannedYamlValidation) {
+        toolResults.push(plannedYamlValidation);
+        if (yamlValidationFailed(plannedYamlValidation.output)) {
+          return {
+            status: 'completed',
+            executedTools: toolResults
+          };
+        }
+      }
+
+      let writeResult;
+
       if (write.mode === 'append') {
         const diffOutput = diffResult.output as DiffPreviewOutput;
         const writeTool = diffOutput?.exists === false ? WriteFileTool : AppendFileTool;
-        toolResults.push(await executeTool(writeTool, {
+        writeResult = await executeTool(writeTool, {
           path: write.path,
           content: writeTool.name === 'append_file'
             ? getAppendDelta(write.content, diffOutput.exists, diffOutput.previousContent)
             : write.content
-        }, context));
-        continue;
-      }
-
-      if (write.mode === 'replace' && write.replacePatch) {
-        toolResults.push(await executeTool(ReplaceFileTool, {
+        }, context);
+      } else if (write.mode === 'replace' && write.replacePatch) {
+        writeResult = await executeTool(ReplaceFileTool, {
           path: write.path,
           before: write.replacePatch.before,
           after: write.replacePatch.after
-        }, context));
-        continue;
+        }, context);
+      } else {
+        writeResult = await executeTool(WriteFileTool, {
+          path: write.path,
+          content: write.content
+        }, context);
       }
 
-      toolResults.push(await executeTool(WriteFileTool, {
-        path: write.path,
-        content: write.content
-      }, context));
+      toolResults.push(writeResult);
+
+      const writeOutput = writeResult.output as WriteFileOutput;
+      const actualYamlValidation = await validatePlannedYamlWriteIfNeeded(write.path, writeOutput.content, context);
+      if (actualYamlValidation) {
+        toolResults.push(actualYamlValidation);
+        if (yamlValidationFailed(actualYamlValidation.output)) {
+          return {
+            status: 'completed',
+            executedTools: toolResults
+          };
+        }
+      }
     }
 
     return {

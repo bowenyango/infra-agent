@@ -1,4 +1,5 @@
 import type { EditPlanKind, FileWriteMode, FileWriteRisk } from './edit-plan.ts';
+import type { ConfigSemanticsSummary } from './config-semantics.ts';
 
 export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
 export type InfraDomainId = 'helm' | 'pulumi' | 'terraform';
@@ -73,6 +74,7 @@ export interface HelmChartSummary {
   chartName: string;
   hasValuesFile: boolean;
   hasTemplatesDir: boolean;
+  valuesSchemaFile: string | null;
   environmentHints: string[];
 }
 
@@ -100,6 +102,7 @@ export interface WorkspaceInspection {
   helmCharts: HelmChartSummary[];
   pulumiProjects: PulumiProjectSummary[];
   terraformRoots: TerraformRootSummary[];
+  configSemantics: ConfigSemanticsSummary[];
   fileCounts: {
     chartFiles: number;
     pulumiProjectFiles: number;

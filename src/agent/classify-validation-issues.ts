@@ -62,6 +62,11 @@ function buildHelmValidationGuidance(kind: 'service-port' | 'ingress-values'): s
   return 'Read the selected Helm chart values and define the ingress block in values.yaml before rerunning helm lint or helm template.';
 }
 
+function extractYamlValidationPath(command: string): string | null {
+  const match = command.match(/^infra-agent yaml-parse (.+)$/);
+  return match?.[1]?.trim() ?? null;
+}
+
 export function classifyValidationIssues(results: ValidationCommandOutput[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -71,6 +76,22 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
     }
 
     const combinedOutput = `${result.stdout}\n${result.stderr}`;
+    const yamlPath = extractYamlValidationPath(result.command);
+
+    if (yamlPath) {
+      const parserMatch = combinedOutput.match(/\b(parser|using):\s*([A-Za-z0-9:_-]+)/i);
+      issues.push(buildIssue(result, {
+        kind: 'yaml-syntax-failure',
+        repairable: false,
+        message: combinedOutput.trim().slice(0, 400) || `YAML syntax validation failed for ${yamlPath}.`,
+        guidance: `Fix the planned YAML content for ${yamlPath} before applying the write. Do not continue to Helm, Pulumi, or Terraform validation until the file parses as YAML.`,
+        metadata: {
+          yamlPath,
+          yamlParser: parserMatch?.[2]
+        }
+      }));
+      continue;
+    }
 
     if (/service\.port/i.test(combinedOutput)) {
       issues.push(buildIssue(result, {

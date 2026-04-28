@@ -50,6 +50,13 @@ export interface WriteFileOutput {
   content: string;
 }
 
+export interface YamlSyntaxValidationOutput {
+  workspaceRoot: string;
+  path: string;
+  parser: string;
+  result: ValidationCommandOutput;
+}
+
 export interface DiffPreviewOutput {
   path: string;
   exists: boolean;

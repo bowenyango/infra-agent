@@ -4,6 +4,10 @@
 
 Build a TypeScript CLI agent named `infra-agent` that can safely read, generate, modify, and validate infrastructure configuration in an existing repository by using AI-guided planning, repository-aware tools, structured state, and mandatory validation.
 
+The current optimized roadmap lives in [Roadmap](./ROADMAP.md). Treat that
+document as the active next-step plan when it conflicts with this older phase
+breakdown.
+
 The initial infrastructure domains are:
 
 - `Pulumi`

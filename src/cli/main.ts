@@ -1,4 +1,6 @@
 import { cwd, exit } from 'node:process';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
 import { runSingleStep } from '../agent/run-single-step.ts';
@@ -7,7 +9,7 @@ import type { PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 import { printAgentRunState, printInspection, printRunPreflight, printValidationPreflight } from './output.ts';
 
-interface ParsedArgs {
+export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'help';
   task: string | null;
   workspace: string;
@@ -15,6 +17,7 @@ interface ParsedArgs {
   planner: PlannerMode;
   approvedWritePaths: string[];
   approvedWriteRisks: FileWriteRisk[];
+  maxTurns: number | null;
 }
 
 function printUsage(): void {
@@ -25,7 +28,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
       ''
     ].join('\n')
@@ -37,7 +40,7 @@ function fail(message: string): never {
   exit(1);
 }
 
-function parseArgs(argv: string[]): ParsedArgs {
+export function parseArgs(argv: string[]): ParsedArgs {
   if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) {
     return {
       command: 'help',
@@ -46,7 +49,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       json: false,
       planner: 'auto',
       approvedWritePaths: [],
-      approvedWriteRisks: []
+      approvedWriteRisks: [],
+      maxTurns: null
     };
   }
 
@@ -64,13 +68,15 @@ function parseArgs(argv: string[]): ParsedArgs {
       json,
       planner: 'auto',
       approvedWritePaths: [],
-      approvedWriteRisks: []
+      approvedWriteRisks: [],
+      maxTurns: null
     };
   }
 
   if (commandName === 'run' || commandName === 'agent') {
     let workspace = cwd();
     let planner: PlannerMode = 'auto';
+    let maxTurns: number | null = null;
     const approvedWritePaths: string[] = [];
     const approvedWriteRisks: FileWriteRisk[] = [];
     const taskArgs: string[] = [];
@@ -96,6 +102,18 @@ function parseArgs(argv: string[]): ParsedArgs {
         }
 
         planner = plannerValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--max-turns') {
+        const maxTurnsValue = cleanArgs[index + 1];
+        const parsedMaxTurns = Number(maxTurnsValue);
+        if (!maxTurnsValue || !Number.isInteger(parsedMaxTurns) || parsedMaxTurns < 1) {
+          fail('Missing or invalid value for --max-turns. Expected a positive integer.');
+        }
+
+        maxTurns = parsedMaxTurns;
         index += 1;
         continue;
       }
@@ -137,7 +155,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       json,
       planner,
       approvedWritePaths,
-      approvedWriteRisks
+      approvedWriteRisks,
+      maxTurns
     };
   }
 
@@ -180,6 +199,8 @@ async function main(): Promise<void> {
     const agentRunState = await runSingleStep(parsed.task, parsed.workspace, undefined, parsed.planner, {
       approvedWritePaths: parsed.approvedWritePaths,
       approvedWriteRisks: parsed.approvedWriteRisks
+    }, {
+      maxTurns: parsed.maxTurns ?? undefined
     });
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(agentRunState, null, 2)}\n`);
@@ -202,8 +223,10 @@ async function main(): Promise<void> {
   printRunPreflight(preflight);
 }
 
-main().catch(error => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`infra-agent failed: ${message}\n`);
-  exit(1);
-});
+if (fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '')) {
+  main().catch(error => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`infra-agent failed: ${message}\n`);
+    exit(1);
+  });
+}

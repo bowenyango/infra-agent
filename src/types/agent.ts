@@ -1,5 +1,5 @@
 import type { InfraDomainId, RunPreflightState } from './repository.ts';
-import type { ToolResult } from '../Tool.ts';
+import type { ToolResult, ToolSafety } from '../Tool.ts';
 import type { ValidationCommandOutput } from './tools.ts';
 export type AgentActionKind =
   | 'ask-for-clarification'
@@ -78,6 +78,14 @@ export interface AgentDecisionExecution {
   reason?: string;
 }
 
+export interface ToolExecutionSummary {
+  turnIndex: number;
+  actionKind: AgentActionKind;
+  toolName: string;
+  safety: ToolSafety;
+  summary: string;
+}
+
 export type ValidationIssueKind =
   | 'helm-missing-service-port'
   | 'helm-missing-ingress-values'
@@ -85,6 +93,7 @@ export type ValidationIssueKind =
   | 'pulumi-preview-failure'
   | 'terraform-formatting-required'
   | 'terraform-validate-failure'
+  | 'yaml-syntax-failure'
   | 'unknown-validation-failure';
 
 export interface ValidationIssue {
@@ -96,6 +105,8 @@ export interface ValidationIssue {
   metadata?: {
     missingConfigKey?: string;
     missingVariableName?: string;
+    yamlPath?: string;
+    yamlParser?: string;
   };
 }
 
@@ -119,6 +130,7 @@ export interface AgentRuntimeState {
   task: string;
   preflight: RunPreflightState;
   observations: ToolResult<unknown>[];
+  toolSummaries: ToolExecutionSummary[];
   appliedWrites: FileWritePlan[];
   validationResults: ValidationCommandOutput[];
   validationIssues: ValidationIssue[];

@@ -1,13 +1,28 @@
 import { buildRunPreflight } from './agent/build-run-preflight.ts';
+import { isAbsolute, relative } from 'node:path';
+import { resolveQueryLoopConfig } from './query-config.ts';
 import { classifyValidationIssues } from './agent/classify-validation-issues.ts';
 import { collectApprovalSignals } from './agent/collect-approval-signals.ts';
 import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
-import type { AgentDecisionExecution, AgentRuntimeState, FileWritePlan } from './types/agent.ts';
+import type { AgentActionKind, AgentDecisionExecution, AgentRuntimeState, FileWritePlan, ToolExecutionSummary } from './types/agent.ts';
 import type { RunPreflightState } from './types/repository.ts';
 import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
-import type { FileReadOutput, PulumiConfigSetOutput, TerraformFormatRepairOutput, ValidationRunOutput, WriteFileOutput } from './types/tools.ts';
+import type { QueryLoopConfig } from './query-config.ts';
+import type {
+  DiffPreviewOutput,
+  DirectoryListingOutput,
+  FileReadOutput,
+  HelmShowChartOutput,
+  HelmShowValuesOutput,
+  PulumiConfigSetOutput,
+  SearchWorkspaceOutput,
+  TerraformFormatRepairOutput,
+  ValidationRunOutput,
+  WriteFileOutput,
+  YamlSyntaxValidationOutput
+} from './types/tools.ts';
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
 import type { AgentRunOutcome } from './types/agent.ts';
@@ -16,6 +31,7 @@ function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
   return {
     ...runtime,
     observations: [...runtime.observations],
+    toolSummaries: [...(runtime.toolSummaries ?? [])],
     appliedWrites: [...runtime.appliedWrites],
     validationResults: [...runtime.validationResults],
     validationIssues: [...runtime.validationIssues],
@@ -23,11 +39,139 @@ function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
   };
 }
 
-function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDecisionExecution): AgentRuntimeState {
+function displayPath(path: string, workspaceRoot: string): string {
+  if (!isAbsolute(path)) {
+    return path;
+  }
+
+  const relativePath = relative(workspaceRoot, path);
+  return relativePath && !relativePath.startsWith('..') ? relativePath : path;
+}
+
+function summarizeExecutedTool(params: {
+  turnIndex: number;
+  actionKind: AgentActionKind;
+  toolResult: AgentDecisionExecution['executedTools'][number];
+  workspaceRoot: string;
+}): ToolExecutionSummary {
+  const { turnIndex, actionKind, toolResult, workspaceRoot } = params;
+  const base = {
+    turnIndex,
+    actionKind,
+    toolName: toolResult.toolName,
+    safety: toolResult.safety
+  };
+
+  switch (toolResult.toolName) {
+    case 'list_directory': {
+      const output = toolResult.output as DirectoryListingOutput;
+      return {
+        ...base,
+        summary: `Listed ${output.path} (${output.entries.length} item(s))`
+      };
+    }
+    case 'search_workspace': {
+      const output = toolResult.output as SearchWorkspaceOutput;
+      return {
+        ...base,
+        summary: `Searched ${output.rootPath} (${output.matches.length} match(es))`
+      };
+    }
+    case 'read_file': {
+      const output = toolResult.output as FileReadOutput;
+      return {
+        ...base,
+        summary: `Read ${displayPath(output.path, workspaceRoot)}${output.truncated ? ' (truncated)' : ''}`
+      };
+    }
+    case 'helm_show_chart': {
+      const output = toolResult.output as HelmShowChartOutput;
+      return {
+        ...base,
+        summary: `Loaded Helm chart metadata for ${output.chartPath}${output.exitCode === 0 ? '' : ` (exit ${output.exitCode})`}`
+      };
+    }
+    case 'helm_show_values': {
+      const output = toolResult.output as HelmShowValuesOutput;
+      return {
+        ...base,
+        summary: `Loaded Helm values for ${output.chartPath}${output.exitCode === 0 ? '' : ` (exit ${output.exitCode})`}`
+      };
+    }
+    case 'diff_preview': {
+      const output = toolResult.output as DiffPreviewOutput;
+      return {
+        ...base,
+        summary: `Previewed diff for ${displayPath(output.path, workspaceRoot)} (+${output.addedLines}/-${output.removedLines})`
+      };
+    }
+    case 'write_file':
+    case 'append_file':
+    case 'replace_file': {
+      const output = toolResult.output as WriteFileOutput;
+      const verb = toolResult.toolName === 'append_file'
+        ? 'Appended'
+        : toolResult.toolName === 'replace_file'
+          ? 'Replaced'
+          : 'Wrote';
+      return {
+        ...base,
+        summary: `${verb} ${displayPath(output.path, workspaceRoot)} (${output.bytesWritten} byte(s))`
+      };
+    }
+    case 'pulumi_config_set': {
+      const output = toolResult.output as PulumiConfigSetOutput;
+      return {
+        ...base,
+        summary: `Set Pulumi config ${output.key} in ${output.stackFilePath}${output.exitCode === 0 ? '' : ` (exit ${output.exitCode})`}`
+      };
+    }
+    case 'validate_targets': {
+      const output = toolResult.output as ValidationRunOutput;
+      const failed = output.results.filter(result => result.exitCode !== 0).length;
+      return {
+        ...base,
+        summary: `Ran ${output.results.length} validator command(s)${failed > 0 ? ` (${failed} failed)` : ' (passed)'}`
+      };
+    }
+    case 'validate_yaml_syntax': {
+      const output = toolResult.output as YamlSyntaxValidationOutput;
+      return {
+        ...base,
+        summary: `Parsed YAML for ${displayPath(output.path, workspaceRoot)} with ${output.parser}${output.result.exitCode === 0 ? ' (passed)' : ' (failed)'}`
+      };
+    }
+    case 'terraform_fmt': {
+      const output = toolResult.output as TerraformFormatRepairOutput;
+      return {
+        ...base,
+        summary: `Ran terraform fmt for ${output.rootPath} (${output.formattedFiles.length} file(s) formatted)`
+      };
+    }
+    default:
+      return {
+        ...base,
+        summary: `Executed ${toolResult.toolName}`
+      };
+  }
+}
+
+function applyExecutionToRuntime(
+  runtime: AgentRuntimeState,
+  execution: AgentDecisionExecution,
+  turnIndex: number,
+  actionKind: AgentActionKind
+): AgentRuntimeState {
   const nextRuntime = cloneRuntimeState(runtime);
 
   for (const toolResult of execution.executedTools) {
     nextRuntime.observations.push(toolResult);
+    nextRuntime.toolSummaries.push(summarizeExecutedTool({
+      turnIndex,
+      actionKind,
+      toolResult,
+      workspaceRoot: runtime.preflight.workspaceRoot
+    }));
 
     if (toolResult.toolName === 'write_file' || toolResult.toolName === 'append_file' || toolResult.toolName === 'replace_file') {
       const output = toolResult.output as WriteFileOutput;
@@ -71,6 +215,12 @@ function applyExecutionToRuntime(runtime: AgentRuntimeState, execution: AgentDec
       nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
     }
 
+    if (toolResult.toolName === 'validate_yaml_syntax') {
+      const output = toolResult.output as YamlSyntaxValidationOutput;
+      nextRuntime.validationResults.push(output.result);
+      nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
+    }
+
     if (toolResult.toolName === 'terraform_fmt') {
       const output = toolResult.output as TerraformFormatRepairOutput;
       for (const formattedFile of output.formattedFiles) {
@@ -102,6 +252,7 @@ function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentR
     task,
     preflight,
     observations: [],
+    toolSummaries: [],
     appliedWrites: [],
     validationResults: [],
     validationIssues: [],
@@ -109,6 +260,16 @@ function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentR
     repairAttempts: 0,
     lastEditPlan: null
   };
+}
+
+function executionHasValidationFailure(execution: AgentDecisionExecution | null): boolean {
+  return execution?.executedTools.some(toolResult => {
+    if (toolResult.toolName !== 'validate_yaml_syntax') {
+      return false;
+    }
+
+    return (toolResult.output as YamlSyntaxValidationOutput).result.exitCode !== 0;
+  }) ?? false;
 }
 
 function shouldStopLoop(turn: QueryTurn): boolean {
@@ -156,24 +317,29 @@ export async function runQueryLoop(
   task: string,
   workspacePath: string,
   modelClient?: ModelClient,
-  approvalScope?: Partial<RunApprovalScope>
+  approvalScope?: Partial<RunApprovalScope>,
+  config?: Partial<QueryLoopConfig>
 ): Promise<QueryLoopResult> {
   const effectiveModelClient = modelClient ?? new RuleBasedModelClient();
+  const queryConfig = resolveQueryLoopConfig(config);
   const preflight = await buildRunPreflight(task, workspacePath, approvalScope);
   let runtime = buildInitialRuntime(task, preflight);
   const turns: QueryTurn[] = [];
 
-  for (let turnIndex = 0; turnIndex < 6; turnIndex += 1) {
+  for (let turnIndex = 0; turnIndex < queryConfig.maxTurns; turnIndex += 1) {
     const decision = await effectiveModelClient.decideNextAction(runtime);
+    const hadValidationIssuesBeforeAction = runtime.validationIssues.length > 0;
     const execution = await executeDecision(decision, preflight.workspaceRoot, preflight.inspection.config);
 
     if (execution) {
-      runtime = applyExecutionToRuntime(runtime, execution);
+      runtime = applyExecutionToRuntime(runtime, execution, turnIndex, decision.action.kind);
     }
 
     if (
       (decision.action.kind === 'apply-edit-plan' || decision.action.kind === 'repair-terraform-formatting')
+      && hadValidationIssuesBeforeAction
       && runtime.validationIssues.length > 0
+      && !executionHasValidationFailure(execution)
     ) {
       runtime = {
         ...runtime,
@@ -209,6 +375,7 @@ export async function runQueryLoop(
   return {
     outcome: determineOutcome(turns),
     runtime,
-    turns
+    turns,
+    config: queryConfig
   };
 }

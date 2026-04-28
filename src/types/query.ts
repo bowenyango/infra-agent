@@ -1,4 +1,5 @@
 import type { AgentDecision, AgentDecisionExecution, AgentRunOutcome, AgentRuntimeState } from './agent.ts';
+import type { QueryLoopConfig } from '../query-config.ts';
 
 export interface QueryTurn {
   index: number;
@@ -11,4 +12,5 @@ export interface QueryLoopResult {
   outcome: AgentRunOutcome;
   runtime: AgentRuntimeState;
   turns: QueryTurn[];
+  config: QueryLoopConfig;
 }

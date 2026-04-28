@@ -45,6 +45,25 @@ function summarizeEditPlan(runtime: AgentRuntimeState): object | null {
   };
 }
 
+function summarizeConfigSemantics(runtime: AgentRuntimeState): object[] {
+  const targetPaths = new Set(runtime.preflight.targetCandidates.slice(0, 5).map(candidate => candidate.path));
+
+  return runtime.preflight.inspection.configSemantics
+    .filter(summary => targetPaths.size === 0 || targetPaths.has(summary.targetPath))
+    .slice(0, 5)
+    .map(summary => ({
+      targetKind: summary.targetKind,
+      targetPath: summary.targetPath,
+      facts: summary.facts.slice(0, 12).map(fact => ({
+        kind: fact.kind,
+        path: fact.path,
+        values: fact.values,
+        relatedPaths: fact.relatedPaths,
+        source: fact.source
+      }))
+    }));
+}
+
 export function buildPlannerSystemPrompt(): string {
   const allowedActionKinds: AgentActionKind[] = [
     'ask-for-clarification',
@@ -78,6 +97,7 @@ export function buildPlannerSystemPrompt(): string {
     '- Prefer inspect-target-files before apply-edit-plan when file context is missing.',
     '- Prefer apply-edit-plan only when runtime.lastEditPlan is present and writes are available.',
     '- Prefer validate-targets after successful writes when validation commands are available.',
+    '- YAML syntax validation results with commands beginning "infra-agent yaml-parse " are write guards, not full Helm, Pulumi, or Terraform target validation.',
     '- Use repair-terraform-formatting only when validationIssues include terraform-formatting-required and a Terraform root is already selected.',
     '- Use ask-for-clarification when target, environment, or ownership is ambiguous.',
     '- When ask-for-clarification is used, include payload.clarificationKind.',
@@ -87,7 +107,7 @@ export function buildPlannerSystemPrompt(): string {
     '- For validate-targets, copy commands from the relevant entry in runtime.preflight.validation.plan.',
     '- For repair-terraform-formatting, set payload.rootPath to the selected Terraform root path from runtime.preflight.targetCandidates.',
     '- For stop, always include payload.stopReason.',
-    '- Use stopReason=validation-succeeded only when validationResults are present and all exit codes are 0.',
+    '- Use stopReason=validation-succeeded only when non-YAML target validation results are present and all exit codes are 0.',
     '- Use stopReason=repair-budget-exhausted only when validationIssues are repairable but the bounded repair budget is already exhausted.',
     '- Use stopReason=validation-blocked when validation failed and no bounded repair is available.',
     '- If no safe action exists, return stop with stopReason=no-safe-action.',
@@ -115,6 +135,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       validationIssues: summarizeValidationIssues(runtime),
       approvalSignals: summarizeApprovalSignals(runtime),
       lastEditPlan: summarizeEditPlan(runtime),
+      configSemantics: summarizeConfigSemantics(runtime),
       validationPlan: runtime.preflight.validation.plan
     },
     null,

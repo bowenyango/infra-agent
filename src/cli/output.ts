@@ -13,6 +13,7 @@ import type {
   PulumiConfigSetOutput,
   SearchWorkspaceOutput,
   TerraformFormatRepairOutput,
+  ValidationCommandOutput,
   ValidationRunOutput
 } from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
@@ -162,7 +163,7 @@ function summarizeBoundedPath(state: AgentRunState): string {
 function summarizeValidatorFamilies(state: AgentRunState): string {
   const families = new Set<string>();
 
-  for (const result of state.runtime.validationResults) {
+  for (const result of getTargetValidationResults(state)) {
     if (result.command.includes('terraform ')) {
       families.add('Terraform');
       continue;
@@ -179,6 +180,34 @@ function summarizeValidatorFamilies(state: AgentRunState): string {
   }
 
   return families.size > 0 ? Array.from(families).join(', ') : 'none';
+}
+
+function isYamlSyntaxValidationCommand(command: string): boolean {
+  return command.startsWith('infra-agent yaml-parse ');
+}
+
+function getTargetValidationResults(state: AgentRunState): ValidationCommandOutput[] {
+  return state.runtime.validationResults.filter(result => !isYamlSyntaxValidationCommand(result.command));
+}
+
+function summarizeValidationStatus(state: AgentRunState): string {
+  const targetValidationResults = getTargetValidationResults(state);
+  const hasValidationFailures = state.runtime.validationResults.some(result => result.exitCode !== 0);
+  const yamlGuardResults = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command));
+
+  if (hasValidationFailures) {
+    return 'failed';
+  }
+
+  if (targetValidationResults.length > 0) {
+    return 'passed';
+  }
+
+  if (yamlGuardResults.length > 0) {
+    return 'YAML syntax guard passed; target validation not run yet';
+  }
+
+  return 'not run yet';
 }
 
 function summarizeValidationFindings(state: AgentRunState): string {
@@ -223,6 +252,12 @@ function summarizeValidationFindings(state: AgentRunState): string {
     }
 
     return topIssue.guidance ?? 'Terraform validate reported a configuration error.';
+  }
+
+  if (topIssue?.kind === 'yaml-syntax-failure') {
+    return topIssue.metadata?.yamlPath
+      ? `YAML syntax validation failed for ${topIssue.metadata.yamlPath}`
+      : 'YAML syntax validation failed for a planned file write.';
   }
 
   return 'none';
@@ -589,6 +624,17 @@ function summarizeNextOperatorStep(state: AgentRunState): string {
   }
 }
 
+function summarizeToolTrace(state: AgentRunState): string {
+  const summaries = state.runtime.toolSummaries ?? [];
+  if (summaries.length === 0) {
+    return 'none';
+  }
+
+  const latest = summaries.slice(-4).map(summary => `t${summary.turnIndex}:${summary.summary}`);
+  const omitted = summaries.length - latest.length;
+  return `${latest.join(' | ')}${omitted > 0 ? ` (+${omitted} earlier)` : ''}`;
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -600,10 +646,13 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);
   lines.push(`Review command: ${summarizeReviewCommand(state)}`);
   lines.push(`Next operator step: ${summarizeNextOperatorStep(state)}`);
+  lines.push(`Tool trace: ${summarizeToolTrace(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
-  lines.push(`Validators executed: ${state.runtime.validationResults.length} command(s) across ${summarizeValidatorFamilies(state)}`);
+  const targetValidationCount = getTargetValidationResults(state).length;
+  const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
+  lines.push(`Validators executed: ${targetValidationCount} command(s) across ${summarizeValidatorFamilies(state)}${yamlGuardCount > 0 ? `; ${yamlGuardCount} YAML syntax guard(s)` : ''}`);
   lines.push(`Validation findings: ${summarizeValidationFindings(state)}`);
   lines.push(`Repair activity: ${state.runtime.repairAttempts > 0 ? `${state.runtime.repairAttempts} bounded repair attempt(s)` : 'none'}`);
 
@@ -874,8 +923,9 @@ export function summarizeAgentSnapshot(state: AgentRunState): string[] {
   lines.push(`Primary domain: ${formatPrimaryDomainLabel(primaryDomain)}`);
   lines.push(`Active bounded path: ${summarizeBoundedPath(state)}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path}` : 'undetected'}`);
+  lines.push(`Tool trace: ${summarizeToolTrace(state)}`);
   lines.push(`Repair attempts: ${state.runtime.repairAttempts}`);
-  lines.push(`Validation status: ${state.runtime.validationResults.length === 0 ? 'not run yet' : state.runtime.validationResults.every(result => result.exitCode === 0) ? 'passed' : 'failed'}`);
+  lines.push(`Validation status: ${summarizeValidationStatus(state)}`);
   lines.push(`Approval signals: ${state.runtime.approvalSignals.length}`);
 
   if (topValidationIssue) {
@@ -903,7 +953,8 @@ export function printInspection(inspection: WorkspaceInspection): void {
     inspection.helmCharts.map(chart => {
       const features = [
         chart.hasValuesFile ? 'values' : 'missing-values',
-        chart.hasTemplatesDir ? 'templates' : 'missing-templates'
+        chart.hasTemplatesDir ? 'templates' : 'missing-templates',
+        chart.valuesSchemaFile ? 'values-schema' : 'missing-values-schema'
       ].join(', ');
       return `${chart.chartRoot} (${features})`;
     }),
@@ -932,6 +983,14 @@ export function printInspection(inspection: WorkspaceInspection): void {
   printList(
     summarizeFocusedDomainCapabilities(inspection.domainCapabilities, []),
     'No supported infra domains detected.'
+  );
+
+  process.stdout.write('\n');
+
+  printHeader('Config Semantics');
+  printList(
+    inspection.configSemantics.map(summary => `${summary.targetKind} ${summary.targetPath}: ${summary.facts.length} fact(s)`),
+    'No structured config semantics detected.'
   );
 }
 
@@ -1187,6 +1246,14 @@ export function printAgentRunState(state: AgentRunState): void {
           printList(
             output.results.map(result => `${result.command} -> exit ${result.exitCode}`),
             'No validator commands executed.'
+          );
+        }
+
+        if (toolResult.toolName === 'validate_yaml_syntax') {
+          const output = toolResult.output as { path: string; parser: string; result: { exitCode: number; stderr: string } };
+          printList(
+            [`${output.path} parsed with ${output.parser} -> exit ${output.result.exitCode}${output.result.stderr ? `: ${output.result.stderr.slice(0, 160)}` : ''}`],
+            'No YAML syntax validation output available.'
           );
         }
       }

@@ -13,7 +13,7 @@ import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { classifyValidationIssues } from '../src/agent/classify-validation-issues.ts';
 import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
-import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
+import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
 import {
@@ -26,6 +26,7 @@ import {
   summarizeResultCard,
   summarizeSuggestedCommands
 } from '../src/cli/output.ts';
+import { parseArgs } from '../src/cli/main.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
@@ -34,6 +35,7 @@ import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
 import { inferRequestedDomains } from '../src/domain/domain-focus.ts';
 import { prioritizeEditPlanKinds } from '../src/agent/edit-plan-priority.ts';
 import { buildInspectionCandidateFiles, buildInspectionSearchPattern } from '../src/agent/inspection-priority.ts';
+import { resolveQueryLoopConfig } from '../src/query-config.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -41,9 +43,37 @@ test('inspect command detects fixture workspace assets', () => {
   return inspection.then(result => {
     assert.equal(result.profile.id, 'generic');
     assert.equal(result.helmCharts.length, 1);
+    assert.equal(result.helmCharts[0]?.valuesSchemaFile, 'charts/payments-api/values.schema.json');
+    assert.ok(result.configSemantics.some(summary =>
+      summary.targetKind === 'helm-chart'
+      && summary.targetPath === 'charts/payments-api'
+      && summary.facts.some(fact => fact.kind === 'required-field' && fact.path === 'image.repository')
+    ));
     assert.equal(result.pulumiProjects.length, 1);
     assert.deepEqual(result.domainCapabilities.map(domain => domain.id), ['helm', 'pulumi']);
   });
+});
+
+test('inspectWorkspace extracts Helm values schema semantic facts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const helmSemantics = inspection.configSemantics.find(summary => summary.targetPath === 'charts/payments-api');
+
+  assert.ok(helmSemantics);
+  assert.ok(helmSemantics.facts.some(fact =>
+    fact.kind === 'required-field'
+    && fact.path === 'service.port'
+    && fact.source.kind === 'helm-values-schema'
+  ));
+  assert.ok(helmSemantics.facts.some(fact =>
+    fact.kind === 'defaulted-field'
+    && fact.path === 'replicaCount'
+    && fact.values?.includes('1')
+  ));
+  assert.ok(helmSemantics.facts.some(fact =>
+    fact.kind === 'enum'
+    && fact.path === 'ingress.className'
+    && fact.values?.includes('alb')
+  ));
 });
 
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
@@ -1588,11 +1618,183 @@ test('apply-edit-plan execution emits diff preview before write', async () => {
     );
 
     assert.ok(execution);
-    assert.equal(execution?.executedTools[0]?.toolName, 'diff_preview');
-    assert.equal(execution?.executedTools[1]?.toolName, 'write_file');
+    assert.deepEqual(
+      execution?.executedTools.map(tool => tool.toolName),
+      ['diff_preview', 'validate_yaml_syntax', 'write_file', 'validate_yaml_syntax']
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('apply-edit-plan validates YAML syntax before writing YAML files', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-yaml-preflight-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const valuesPath = join(workspaceRoot, 'charts/payments-api/values.yaml');
+    const existingValues = await readFile(valuesPath, 'utf8');
+    const execution = await executeDecision(
+      {
+        confidence: 'high',
+        action: {
+          kind: 'apply-edit-plan',
+          summary: 'Apply invalid YAML.',
+          rationale: 'Test YAML syntax gate.',
+          payload: {
+            writes: [
+              {
+                path: 'charts/payments-api/values.yaml',
+                content: 'ingress:\n  hosts: [\n',
+                reason: 'Invalid YAML test write'
+              }
+            ]
+          }
+        }
+      },
+      workspaceRoot,
+      null
+    );
+
+    assert.ok(execution);
+    assert.deepEqual(
+      execution?.executedTools.map(tool => tool.toolName),
+      ['diff_preview', 'validate_yaml_syntax']
+    );
+    assert.equal(execution?.executedTools[1]?.output.result.exitCode, 1);
+    assert.equal(await readFile(valuesPath, 'utf8'), existingValues);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('runSingleStep preserves YAML syntax failures found during apply-edit-plan', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-yaml-runtime-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'write invalid YAML to payments-api values',
+      workspaceRoot,
+      {
+        name: 'invalid-yaml-test-planner',
+        async decideNextAction({ runtime }) {
+          if (runtime.validationIssues.length > 0) {
+            return {
+              confidence: 'high',
+              action: {
+                kind: 'stop',
+                summary: 'Stop after YAML validation failure.',
+                rationale: 'The runtime preserved the YAML syntax blocker.',
+                payload: {
+                  stopReason: 'validation-blocked'
+                }
+              }
+            };
+          }
+
+          return {
+            confidence: 'high',
+            action: {
+              kind: 'apply-edit-plan',
+              summary: 'Apply invalid YAML.',
+              rationale: 'Synthetic planner output for YAML validation.',
+              payload: {
+                writes: [
+                  {
+                    path: 'charts/payments-api/values.yaml',
+                    content: 'ingress:\n  hosts: [\n',
+                    reason: 'Invalid YAML test write'
+                  }
+                ]
+              }
+            }
+          };
+        }
+      },
+      'rule-based'
+    );
+
+    assert.equal(result.outcome, 'validation-blocked');
+    assert.equal(result.runtime.validationIssues[0]?.kind, 'yaml-syntax-failure');
+    assert.ok(result.runtime.validationResults.some(entry => entry.command.includes('yaml-parse')));
+    assert.equal(result.runtime.appliedWrites.length, 0);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('runSingleStep records deterministic tool execution summaries', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-tool-summary-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'add ingress to payments-api dev chart',
+      workspaceRoot,
+      undefined,
+      'rule-based'
+    );
+
+    assert.ok(result.runtime.toolSummaries.some(summary => summary.summary.includes('Loaded Helm values for charts/payments-api')));
+    assert.ok(result.runtime.toolSummaries.some(summary => summary.summary.includes('Previewed diff for charts/payments-api/values.yaml')));
+    assert.ok(result.runtime.toolSummaries.every(summary => typeof summary.turnIndex === 'number'));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('resolveQueryLoopConfig keeps bounded defaults and normalizes overrides', () => {
+  assert.equal(resolveQueryLoopConfig().maxTurns, 6);
+  assert.equal(resolveQueryLoopConfig({ maxTurns: 2.8 }).maxTurns, 2);
+  assert.equal(resolveQueryLoopConfig({ maxTurns: 0 }).maxTurns, 1);
+});
+
+test('runSingleStep respects the configured maximum turn count', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-turn-budget-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'add ingress to payments-api dev chart',
+      workspaceRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      { maxTurns: 1 }
+    );
+
+    assert.equal(result.turns.length, 1);
+    assert.equal(result.outcome, 'no-safe-action');
+    assert.ok(result.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files'));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('agent CLI args accept --max-turns for bounded loop control', () => {
+  const parsed = parseArgs([
+    'agent',
+    'add ingress to payments-api dev chart',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--planner',
+    'rule-based',
+    '--max-turns',
+    '1',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'agent');
+  assert.equal(parsed.task, 'add ingress to payments-api dev chart');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.planner, 'rule-based');
+  assert.equal(parsed.maxTurns, 1);
+  assert.equal(parsed.json, true);
 });
 
 test('apply-edit-plan execution uses append_file for append-mode writes', async () => {
@@ -1627,7 +1829,9 @@ test('apply-edit-plan execution uses append_file for append-mode writes', async 
 
     assert.ok(execution);
     assert.equal(execution?.executedTools[0]?.toolName, 'diff_preview');
-    assert.equal(execution?.executedTools[1]?.toolName, 'append_file');
+    assert.equal(execution?.executedTools[1]?.toolName, 'validate_yaml_syntax');
+    assert.equal(execution?.executedTools[2]?.toolName, 'append_file');
+    assert.equal(execution?.executedTools[3]?.toolName, 'validate_yaml_syntax');
     const updatedValues = await readFile(join(workspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
     assert.match(updatedValues, /featureFlag:\n  enabled: true/);
   } finally {
@@ -1853,6 +2057,24 @@ test('classifyValidationIssues adds actionable guidance for missing Helm service
   assert.match(issues[0]?.guidance ?? '', /define service\.port in values\.yaml/i);
 });
 
+test('classifyValidationIssues marks YAML syntax failures as blockers', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'infra-agent yaml-parse charts/payments-api/values.yaml',
+      exitCode: 1,
+      stdout: 'parser: python:pyyaml',
+      stderr: 'while parsing a flow sequence'
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'yaml-syntax-failure');
+  assert.equal(issues[0]?.repairable, false);
+  assert.equal(issues[0]?.metadata?.yamlPath, 'charts/payments-api/values.yaml');
+  assert.equal(issues[0]?.metadata?.yamlParser, 'python:pyyaml');
+  assert.match(issues[0]?.guidance ?? '', /Fix the planned YAML content/i);
+});
+
 test('planner system prompt documents explicit stop reasons', () => {
   const prompt = buildPlannerSystemPrompt();
 
@@ -1860,6 +2082,28 @@ test('planner system prompt documents explicit stop reasons', () => {
   assert.match(prompt, /Allowed ask-for-clarification payload\.clarificationKind values:/);
   assert.match(prompt, /repair-budget-exhausted/);
   assert.match(prompt, /validation-succeeded/);
+});
+
+test('planner user prompt includes focused config semantics', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const prompt = buildPlannerUserPrompt({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.ok(parsed.configSemantics.some(summary =>
+    summary.targetPath === 'charts/payments-api'
+    && summary.facts.some(fact => fact.kind === 'required-field' && fact.path === 'service.port')
+  ));
 });
 
 test('parsePlannerDecision requires stopReason for stop actions', async () => {
@@ -2076,6 +2320,15 @@ test('summarizeSuggestedCommands includes review and export commands for complet
       task: preflight.task,
       preflight,
       observations: [],
+      toolSummaries: [
+        {
+          turnIndex: 0,
+          actionKind: 'apply-edit-plan',
+          toolName: 'pulumi_config_set',
+          safety: 'write_scoped',
+          summary: 'Set Pulumi config payments-api:imageTag in infra/payments-api/Pulumi.dev.yaml'
+        }
+      ],
       appliedWrites: [
         {
           path: 'charts/payments-api/values.yaml',
@@ -2147,6 +2400,7 @@ test('summarizeRecommendedNextSteps surfaces Terraform validation guidance for b
           task: preflight.task,
           preflight,
           observations: [],
+          toolSummaries: [],
           appliedWrites: [],
           validationResults: [],
           validationIssues: [],
@@ -2265,6 +2519,15 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
       task: preflight.task,
       preflight,
       observations: [],
+      toolSummaries: [
+        {
+          turnIndex: 0,
+          actionKind: 'apply-edit-plan',
+          toolName: 'pulumi_config_set',
+          safety: 'write_scoped',
+          summary: 'Set Pulumi config payments-api:imageTag in infra/payments-api/Pulumi.dev.yaml'
+        }
+      ],
       appliedWrites: [
         {
           path: 'infra/payments-api/Pulumi.dev.yaml',
@@ -2336,6 +2599,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
           task: preflight.task,
           preflight,
           observations: [],
+          toolSummaries: [],
           appliedWrites: [],
           validationResults: [],
           validationIssues: [],
@@ -2354,6 +2618,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Review artifacts: infra\/payments-api\/Pulumi\.dev\.yaml, config key payments-api:imageTag/i.test(line)));
   assert.ok(summary.some(line => /Review command: .*pulumi preview .*infra\/payments-api.*--stack dev/i.test(line)));
   assert.ok(summary.some(line => /Next operator step: Run .*pulumi preview .*infra\/payments-api.*--stack dev.*review the bounded change before merging or handing off the update\./i.test(line)));
+  assert.ok(summary.some(line => /Tool trace: t0:Set Pulumi config payments-api:imageTag in infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));

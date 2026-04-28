@@ -95,6 +95,8 @@
 ## 12. Validation and Iteration
 
 - Validate all generated or modified artifacts.
+- Parse touched ordinary YAML files before and after writes.
+- Do not raw-parse Helm files under `templates/`; validate those through `helm template` because Go template syntax is not plain YAML.
 - Run `helm lint` when a chart is touched.
 - Run `helm template` when rendered output matters.
 - Run `pulumi preview` when Pulumi code or config changes.

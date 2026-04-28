@@ -65,7 +65,7 @@ The current repository includes a minimal TypeScript CLI skeleton with four comm
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent run "<task>" [--workspace <path>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>]`
 
 Current behavior is intentionally runtime-foundation oriented:
 
@@ -75,6 +75,7 @@ Current behavior is intentionally runtime-foundation oriented:
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
+- `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 
 LLM planner environment variables:

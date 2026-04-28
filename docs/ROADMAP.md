@@ -1,0 +1,318 @@
+# infra-agent Roadmap
+
+This document is the durable product and engineering plan for future sessions.
+It refines the earlier phase plan with the current implementation state and with
+runtime patterns learned from `learning-claude-code`.
+
+## Current Baseline
+
+The repository already has a working TypeScript CLI skeleton with:
+
+- `inspect`, `validate`, `run`, and bounded `agent` commands
+- workspace inspection for Helm, Pulumi, and Terraform
+- domain-focused targeting and validation selection
+- a query loop with planner mode selection and bounded turn config
+- controlled file tools and validation tools
+- edit plans for selected Helm, Pulumi, and Terraform config workflows
+- approval signals for higher-risk writes
+- fixtures and smoke tests across mixed-domain workspaces
+
+The active worktree also contains staged and unstaged slices documented in
+`docs/HANDOFF.md`. Future sessions must preserve those changes unless the user
+explicitly asks to rewrite history or discard work.
+
+## Product Target
+
+`infra-agent` should become an installable CLI and an agent-facing skill package
+for infrastructure configuration work. It is not a general coding assistant.
+
+The CLI should help Infra and non-Infra users:
+
+- inspect an existing infrastructure repo
+- infer repository-specific conventions from concrete files
+- retrieve only task-relevant official and local context
+- generate or modify Helm, Pulumi, and Terraform configuration
+- validate syntax, schema, module inputs, and provider constraints
+- explain update, replace, rename, and dependency impact before deployment
+- stop before destructive operations or state mutations unless explicitly approved
+
+## Claude Code Patterns To Keep
+
+Borrow the runtime architecture, not the full product surface.
+
+- Snapshot immutable query config at loop entry.
+- Keep mutable runtime state separate from config.
+- Treat tool calls and tool results as first-class events.
+- Write tool results back into state in one deterministic place.
+- Preserve permission and approval facts as structured state.
+- Use progressive disclosure for context: metadata first, detailed references only
+  when needed.
+- Keep agent-facing skills lean; move detailed domain references behind links.
+- Summarize tool activity for operator visibility without making summaries part of
+  correctness.
+
+Avoid copying these into v0:
+
+- multi-agent orchestration
+- background daemon behavior
+- chat or terminal UI productization
+- broad coding-agent tools
+- speculative autonomous deploy/apply flows
+
+## Architecture Target
+
+The product should settle into seven layers.
+
+1. **Installable CLI**
+   - publishable package shape
+   - stable `bin/infra-agent.js`
+   - compact JSON output for other agents
+   - clear exit codes for blocked, failed validation, and completed runs
+
+2. **Agent Skill Surface**
+   - bundled `skills/infra-configuration/SKILL.md`
+   - instructions for other agents to call the CLI instead of hand-editing IaC
+   - minimal trigger metadata and deeper references loaded only when needed
+
+3. **Harness Runtime**
+   - immutable `QueryLoopConfig`
+   - mutable `AgentRuntimeState`
+   - bounded planner decisions
+   - deterministic tool-result writeback
+   - approval and policy gates before writes or state suggestions
+
+4. **Repository and Domain Tools**
+   - repository search/read/write tools
+   - Helm, Pulumi, and Terraform inspection adapters
+   - native CLI wrappers with structured outputs
+   - safe shell boundaries for validation only
+
+5. **Knowledge and Context System**
+   - version-aware local cache for official docs and examples
+   - dynamic retrieval for missing or stale official material
+   - repo-local facts as the highest priority source
+   - provider, module, and chart schemas preferred over prose where available
+
+6. **Semantics and Validation Layer**
+   - YAML syntax parsing before any YAML write is accepted
+   - Helm schema/lint/template validation
+   - Terraform fmt/validate plus provider/module schema extraction
+   - Pulumi config/preview plus language-level checks when project type is known
+   - semantic constraints for exclusive options, required companions, defaults,
+     replacement risk, and dependency relationships
+
+7. **Change Impact and Graph Layer**
+   - normalized infra graph JSON first
+   - state/rename impact analysis before any web UI
+   - local topology visualization only after graph data is reliable
+
+## Knowledge Strategy
+
+Use a hybrid model.
+
+Do not bundle full official docs into the package. Full docs go stale, create a
+large install, and can mismatch provider versions. Instead:
+
+- bundle only durable retrieval logic, parsers, validation adapters, and small
+  hand-authored rules
+- persist official docs, examples, schemas, and summaries in a local versioned
+  cache
+- dynamically fetch or refresh official sources when the cache is missing, stale,
+  or for a different provider/chart/package version
+- always prefer repo-local files, lockfiles, installed provider schemas, chart
+  schemas, and validator output over generic docs prose
+
+The cache key should include at least:
+
+- source kind: `terraform-registry`, `pulumi-docs`, `helm-docs`, `chart-docs`,
+  `repo-example`, or `module-readme`
+- provider, module, chart, or package name
+- resolved version or version constraint
+- URL or local path
+- content hash or ETag when available
+- fetched time and stale-after policy
+
+The planner should receive small retrieved context packets, not whole documents.
+Each packet should include source, version, confidence, excerpt or structured
+schema facts, and why it was selected.
+
+## Validation Strategy
+
+Validation should be tool-first and layered.
+
+- **Universal YAML**: parse every touched YAML file before and after edits.
+- **Helm**: `helm lint`, `helm template`, values schema checks when
+  `values.schema.json` exists, and Kubernetes schema validation through an
+  optional adapter such as `kubeconform`.
+- **Terraform**: `terraform fmt -check`, `terraform validate`, `terraform
+  providers schema -json` where initialized, `terraform plan -json` for impact
+  analysis when state/backend access is available, and optional `tflint`.
+- **Pulumi**: `pulumi preview` with local safe environment defaults, stack config
+  inspection, language checks such as `tsc` or package tests when detected, and
+  preview JSON/event parsing for replacements and dependency impact.
+- **Policy**: optional `conftest`, `checkov`, or organization-specific validators
+  should be workspace-configured, not hardcoded as mandatory.
+
+The LLM may propose a repair, but deterministic validators decide whether a
+configuration is acceptable.
+
+## Module Semantics Strategy
+
+Infrastructure modules and chart values need a structured semantic model, not
+only prompt reasoning.
+
+Represent discovered constraints as `ConfigSemantics` records:
+
+- required fields
+- defaulted fields
+- enum values
+- mutually exclusive groups
+- at-least-one and exactly-one groups
+- fields that imply new required fields
+- fields that become invalid when another mode is selected
+- identity fields that often indicate rename vs replacement
+- fields likely to force replacement
+- dependency edges between resources or rendered objects
+- confidence and source for every fact
+
+Sources should be ordered by authority:
+
+1. repo-local schemas and validation blocks
+2. native tool schema output and preview/plan output
+3. official docs for the exact resolved version
+4. examples from the same repo or module
+5. LLM-inferred candidates marked as low confidence until a tool confirms them
+
+This layer should drive both generation and explanation. For example, if an
+option selects `ingress.enabled=true`, the agent should know that host, class,
+TLS, service port, and path semantics may become relevant, and should ask or
+infer from repo examples before writing incomplete values.
+
+## Rename And Replacement Strategy
+
+Terraform and Pulumi often describe source-level renames as delete/create
+operations. `infra-agent` should add a plan-analysis layer that can distinguish:
+
+- pure source-address renames where the remote resource identity is unchanged
+- provider identity changes that require replacement
+- field updates that can happen in place
+- replacement cascades caused by dependencies
+- unknown cases where state inspection is required
+
+The CLI should suggest safe state operations or source-level alias/moved-block
+patterns, but v0 should not execute state mutations automatically.
+
+Initial Terraform support should parse plan JSON and compare delete/create pairs
+by provider type, stable identity attributes, module path, and dependencies.
+When confidence is high, suggest `moved` blocks or state move guidance. When
+confidence is medium or lower, ask the user to confirm whether it is a rename.
+
+Initial Pulumi support should parse preview events and identify URN/name/type
+changes that may be modeled as aliases or state operations. It should explain
+replacement reasons and dependency cascades before suggesting any state change.
+
+## Topology Visualization Strategy
+
+The topology web UI is useful, but it depends on a reliable graph model.
+
+Do this first:
+
+- produce `infra-agent graph --json`
+- include resources, logical modules/stacks/charts, dependencies, exposure hints,
+  replacement risk, and confidence
+- derive graph data from repository facts, rendered Helm manifests, Terraform
+  plan/state JSON where available, and Pulumi preview/stack exports where
+  available
+
+Only after that should the project add a local web server. The first UI should be
+local-only and read the graph JSON. It should start with high-value views:
+
+- VPC/subnet/resource containment
+- load balancer to service to workload paths
+- security-group or NetworkPolicy reachability hints
+- cross-stack/module references
+- planned create/update/delete/replace changes
+
+## Next Execution Plan
+
+### Step 1: Stabilize Current Runtime Slices
+
+- Review staged and unstaged work in `docs/HANDOFF.md`.
+- Commit or otherwise preserve the current slices intentionally.
+- Keep verification passing: `npm run lint`, `npm run test`, `npm run smoke`,
+  `git diff --check`.
+
+### Step 2: Make The Agent-Facing Surface Real
+
+- Keep `skills/infra-configuration/SKILL.md` in the repo as the canonical
+  instruction surface for other agents.
+- Add compact JSON result mode if `agent --json` becomes too verbose.
+- Add a documented install path once package metadata is ready to publish or
+  install from git.
+
+### Step 3: Add Syntax Validators
+
+- Add a YAML parsing validator used before accepting YAML writes.
+- Normalize validator results into `ValidationIssue` records.
+- Add tests with invalid Helm values, Pulumi stack YAML, and generic YAML config.
+
+Status on 2026-04-28:
+
+- Ordinary YAML writes now run `validate_yaml_syntax` before and after the write.
+- Invalid YAML is blocked before file mutation and classified as
+  `yaml-syntax-failure`.
+- Helm files under `templates/` are excluded from raw YAML parsing and remain
+  covered by rendered `helm template` validation.
+- YAML parse success is treated as a write guard, not as full target validation.
+- YAML parsing now uses the project `yaml` npm dependency instead of relying on
+  a machine-local Python/PyYAML fallback.
+
+### Step 4: Add Knowledge Cache Interfaces
+
+- Define `KnowledgeSource`, `KnowledgeCacheEntry`, and `RetrievedContextPacket`
+  types.
+- Implement a local filesystem cache with version/source metadata.
+- Add repo-local schema discovery first; add dynamic official-doc fetching later.
+
+### Step 5: Add Semantic Constraint Extraction
+
+- Extract Helm constraints from `values.schema.json`, rendered manifests, and
+  existing values files.
+- Extract Terraform variable requirements and validation blocks from `.tf` files.
+- Extract Pulumi stack config keys and required-missing-config failures from
+  preview output.
+- Feed these facts into edit-plan builders before LLM planning.
+
+Status on 2026-04-28:
+
+- Added `ConfigSemanticsSummary` and `ConfigSemanticFact` types.
+- Workspace inspection now detects Helm `values.schema.json` files.
+- Helm values schema extraction currently emits high-confidence
+  `required-field`, `defaulted-field`, `enum`, and `exactly-one-group` facts.
+- Focused config semantics are included in the planner user prompt for the top
+  candidate targets.
+
+### Step 6: Add Impact Analysis
+
+- Add a read-only `analyze-plan` path for Terraform plan JSON and Pulumi preview
+  JSON/events.
+- Detect candidate renames and replacement cascades.
+- Print guidance without executing state changes.
+
+### Step 7: Add Graph JSON Before Web UI
+
+- Add normalized graph types.
+- Generate graph JSON from Helm rendered output, Terraform plan/state facts, and
+  Pulumi preview/stack facts.
+- Build the web topology viewer only after graph snapshots are stable in tests.
+
+## Near-Term Definition Of Done
+
+The next durable milestone is not the web UI. It is:
+
+- installable local CLI shape
+- agent-facing skill checked into the repo
+- syntax validation for YAML writes
+- first knowledge-cache type definitions
+- first semantic constraints used by edit plans
+- clear plan-impact output for update vs replacement vs possible rename

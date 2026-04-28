@@ -153,6 +153,10 @@ function getPrimaryRequestedDomain(input: AgentPlanningInput): string | null {
   return input.runtime.preflight.requestedDomains[0] ?? null;
 }
 
+function isYamlSyntaxValidationCommand(command: string): boolean {
+  return command.startsWith('infra-agent yaml-parse ');
+}
+
 function actionFamilyForClarification(input: AgentPlanningInput, clarificationKind: AgentClarificationKind): AgentActionFamily {
   if (clarificationKind === 'approval-required') {
     return 'approval-clarification';
@@ -251,7 +255,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
     const hasObservations = runtime.observations.length > 0;
     const hasAppliedWrites = runtime.appliedWrites.length > 0;
-    const hasValidationResults = runtime.validationResults.length > 0;
+    const hasTargetValidationResults = runtime.validationResults.some(result => !isYamlSyntaxValidationCommand(result.command));
     const hasValidationFailures = runtime.validationResults.some(result => result.exitCode !== 0);
     const hasRepairableValidationIssues = runtime.validationIssues.some(issue => issue.repairable);
     const hasApprovalSignals = runtime.approvalSignals.length > 0;
@@ -451,7 +455,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (hasAppliedWrites && !hasValidationResults && preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
+    if (hasAppliedWrites && !hasTargetValidationResults && !hasValidationFailures && preflight.validation.plan.length > 0 && hasValidatorsAvailable) {
       const commands = selectValidationCommands(runtime);
       return {
         confidence: 'medium',
@@ -467,7 +471,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (hasValidationResults && !hasValidationFailures) {
+    if (hasTargetValidationResults && !hasValidationFailures) {
       return {
         confidence: 'high',
         action: {
