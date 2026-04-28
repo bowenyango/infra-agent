@@ -45,8 +45,13 @@ Current cache foundation:
   `knowledgeCache.root`, then the user cache directory.
 - Workspace-config cache roots must be relative paths inside the workspace;
   absolute or escaping paths should be rejected before any cache write.
-- Official-doc fetching is not implemented yet; do not assume network retrieval
-  is available until a later slice adds explicit fetchers and cache root policy.
+- Context retrieval is cache-first and returns compact
+  `RetrievedContextPacket` excerpts instead of whole documents.
+- Missing or stale sources can be refreshed through an explicit fetcher. If
+  fresh retrieval fails but a version-scoped cached entry exists, the retriever
+  may return the stale entry with medium confidence.
+- A first official URL fetcher abstraction exists, but automatic official-doc
+  selection from planner/runtime flows is not implemented yet.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.

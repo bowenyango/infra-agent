@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `5a30d1d` Emit compact agent JSON results
   - `f46ef4b` Resolve knowledge cache roots
   - `7a01e78` Surface semantic blockers in result cards
   - `8dff15e` Add knowledge cache foundation
@@ -699,6 +700,45 @@ Recommended next implementation slice:
    deterministic no-network fallback when fetching is unavailable.
 2. Add compact JSON mode for `run --json` only if downstream agent preflight
    output becomes too large.
+3. Start impact-analysis graph types before building any topology UI.
+
+## 2026-04-28 Knowledge Context Retrieval Slice
+
+Files added or updated:
+
+- `src/knowledge/retrieve.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a cache-first retrieval helper that returns compact
+  `RetrievedContextPacket` excerpts instead of full official documents.
+- Prefer fresh cache entries before fetching.
+- Fetch missing or stale sources when an explicit fetcher is provided.
+- Fall back to stale version-scoped cached entries with `medium` confidence when
+  fresh retrieval is unavailable, so network/doc failures do not hard-block
+  unrelated configuration work.
+- Add a first official URL fetcher abstraction with response content-type
+  normalization. Tests use mocked fetchers; no test requires network access.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 170/170 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Wire retrieval into a focused docs/context selection path for one concrete
+   source family, such as Terraform Registry provider docs or Helm docs.
+2. Keep all fetched context version-scoped and compact before exposing it to the
+   planner.
 3. Start impact-analysis graph types before building any topology UI.
 
 ## Current Verification Commands

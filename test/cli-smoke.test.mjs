@@ -45,6 +45,7 @@ import {
   writeKnowledgeCacheEntry
 } from '../src/knowledge/cache.ts';
 import { resolveKnowledgeCacheRoot } from '../src/knowledge/cache-root.ts';
+import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from '../src/knowledge/retrieve.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -258,6 +259,136 @@ test('knowledge cache root resolver rejects workspace config paths outside the w
     }),
     /must stay inside the workspace/
   );
+});
+
+test('knowledge context retrieval uses fresh cache entries before fetching', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-retrieve-fresh-'));
+
+  try {
+    const source = {
+      kind: 'pulumi-docs',
+      name: 'config',
+      packageName: '@pulumi/pulumi',
+      version: '3.0.0',
+      url: 'https://www.pulumi.com/docs/iac/concepts/config/'
+    };
+    await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'text/markdown',
+      content: '# Pulumi Config\nUse stack config for environment-specific values.',
+      fetchedAt: '2026-04-28T00:00:00.000Z',
+      staleAfter: '2026-05-28T00:00:00.000Z'
+    });
+    const packet = await retrieveKnowledgeContextPacket({
+      cacheRoot: tempRoot,
+      source,
+      reason: 'Pulumi stack config task',
+      now: new Date('2026-05-01T00:00:00.000Z')
+    });
+
+    assert.ok(packet);
+    assert.equal(packet.confidence, 'high');
+    assert.match(packet.excerpt ?? '', /Pulumi Config/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge context retrieval fetches missing sources and writes cache', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-retrieve-fetch-'));
+
+  try {
+    const source = {
+      kind: 'terraform-registry',
+      name: 'aws_instance',
+      provider: 'hashicorp/aws',
+      version: '5.0.0',
+      url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance'
+    };
+    const packet = await retrieveKnowledgeContextPacket({
+      cacheRoot: tempRoot,
+      source,
+      reason: 'Terraform resource docs',
+      fetcher: async fetchedSource => ({
+        source: fetchedSource,
+        contentType: 'text/markdown',
+        content: '# aws_instance\nInstance docs.',
+        fetchedAt: '2026-04-28T00:00:00.000Z',
+        staleAfter: '2026-05-28T00:00:00.000Z'
+      })
+    });
+    const cached = await readKnowledgeCacheEntry(tempRoot, source);
+
+    assert.ok(packet);
+    assert.equal(packet?.confidence, 'high');
+    assert.match(packet?.excerpt ?? '', /aws_instance/);
+    assert.ok(cached);
+    assert.equal(cached?.content, '# aws_instance\nInstance docs.');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge context retrieval falls back to stale cache when refresh is unavailable', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-retrieve-stale-'));
+
+  try {
+    const source = {
+      kind: 'helm-docs',
+      name: 'chart-template-guide',
+      version: '3.14.0',
+      url: 'https://helm.sh/docs/chart_template_guide/'
+    };
+    await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'text/markdown',
+      content: '# Helm Templates\nStale but version-scoped docs.',
+      fetchedAt: '2026-01-01T00:00:00.000Z',
+      staleAfter: '2026-02-01T00:00:00.000Z'
+    });
+    const packet = await retrieveKnowledgeContextPacket({
+      cacheRoot: tempRoot,
+      source,
+      reason: 'Helm template task',
+      now: new Date('2026-04-28T00:00:00.000Z'),
+      fetcher: async () => {
+        throw new Error('network unavailable');
+      }
+    });
+
+    assert.ok(packet);
+    assert.equal(packet?.confidence, 'medium');
+    assert.match(packet?.reason ?? '', /stale cached context/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('official knowledge fetcher normalizes response content type', async () => {
+  const source = {
+    kind: 'terraform-registry',
+    name: 'aws_instance',
+    provider: 'hashicorp/aws',
+    version: '5.0.0',
+    url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance'
+  };
+  const fetched = await fetchOfficialKnowledgeSource(source, {
+    fetchedAt: '2026-04-28T00:00:00.000Z',
+    fetchImpl: async url => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        get: name => name.toLowerCase() === 'content-type' ? 'text/markdown; charset=utf-8' : null
+      },
+      text: async () => `# fetched from ${url}`
+    })
+  });
+
+  assert.ok(fetched);
+  assert.equal(fetched?.contentType, 'text/markdown');
+  assert.match(fetched?.content ?? '', /fetched from/);
+  assert.equal(fetched?.metadata?.retrieval, 'official-url');
 });
 
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {

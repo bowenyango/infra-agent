@@ -296,7 +296,14 @@ Status on 2026-04-28:
   be relative paths that stay inside the active workspace.
 - `inspect` now exposes the resolved knowledge-cache root and source for
   downstream agents and operators.
-- Dynamic official-doc fetching is intentionally not implemented yet.
+- Added a cache-first context retrieval helper that returns compact
+  `RetrievedContextPacket` excerpts, fetches missing or stale sources when a
+  fetcher is available, and falls back to stale version-scoped cache entries
+  with medium confidence when fresh retrieval is unavailable.
+- Added a first official URL fetcher abstraction with content-type
+  normalization. Tests use mocked fetchers; no test requires external network.
+- End-to-end automatic official-doc selection and retrieval from planner/runtime
+  flows is intentionally not implemented yet.
 
 ### Step 5: Add Semantic Constraint Extraction
 

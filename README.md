@@ -83,6 +83,9 @@ Current behavior is intentionally runtime-foundation oriented:
   context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;
   otherwise `infra-agent.config.json` may set a workspace-relative
   `knowledgeCache.root`; otherwise the CLI uses the user cache directory.
+- Internally, official-doc context retrieval is cache-first and produces compact
+  excerpts for downstream planner use; automatic docs selection is still a
+  planned follow-up.
 
 LLM planner environment variables:
 
