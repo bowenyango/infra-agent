@@ -12,6 +12,7 @@ import type { InfraDomainId } from '../types/repository.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
+import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
 import {
   buildCompactAgentRunResult,
   printAgentRunState,
@@ -36,6 +37,7 @@ export interface ParsedArgs {
   targetPaths: string[];
   maxSources: number | null;
   terraformPlanPaths: string[];
+  pulumiPreviewPaths: string[];
 }
 
 function printUsage(): void {
@@ -46,7 +48,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
-      '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--target <terraform-root>] [--json]',
+      '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
@@ -75,7 +77,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains: [],
       targetPaths: [],
       maxSources: null,
-      terraformPlanPaths: []
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
     };
   }
 
@@ -100,7 +103,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains: [],
       targetPaths: [],
       maxSources: null,
-      terraformPlanPaths: []
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
     };
   }
 
@@ -108,6 +112,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let workspace = cwd();
     const targetPaths: string[] = [];
     const terraformPlanPaths: string[] = [];
+    const pulumiPreviewPaths: string[] = [];
     const positionalArgs: string[] = [];
 
     for (let index = 0; index < cleanArgs.length; index += 1) {
@@ -120,6 +125,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         terraformPlanPaths.push(planPath);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--pulumi-preview') {
+        const previewPath = cleanArgs[index + 1];
+        if (!previewPath) {
+          fail('Missing value for --pulumi-preview.');
+        }
+
+        pulumiPreviewPaths.push(previewPath);
         index += 1;
         continue;
       }
@@ -161,7 +177,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains: [],
       targetPaths,
       maxSources: null,
-      terraformPlanPaths
+      terraformPlanPaths,
+      pulumiPreviewPaths
     };
   }
 
@@ -235,7 +252,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains,
       targetPaths,
       maxSources,
-      terraformPlanPaths: []
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
     };
   }
 
@@ -327,7 +345,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains: [],
       targetPaths: [],
       maxSources: null,
-      terraformPlanPaths: []
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
     };
   }
 
@@ -374,6 +393,14 @@ async function main(): Promise<void> {
       const resolvedPlanPath = isAbsolute(planPath) ? planPath : resolve(parsed.workspace, planPath);
       const planContent = await readFile(resolvedPlanPath, 'utf8');
       graph = attachTerraformPlanToGraph(graph, JSON.parse(planContent) as unknown, {
+        targetPath: parsed.targetPaths[0] ?? null
+      });
+    }
+
+    for (const previewPath of parsed.pulumiPreviewPaths) {
+      const resolvedPreviewPath = isAbsolute(previewPath) ? previewPath : resolve(parsed.workspace, previewPath);
+      const previewContent = await readFile(resolvedPreviewPath, 'utf8');
+      graph = attachPulumiPreviewToGraph(graph, JSON.parse(previewContent) as unknown, {
         targetPath: parsed.targetPaths[0] ?? null
       });
     }

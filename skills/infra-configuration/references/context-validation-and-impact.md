@@ -171,6 +171,9 @@ Current graph foundation:
 - Matching Terraform delete/create resources may be linked with
   `possible-rename` edges when type, provider, and stable identity fields match.
   Treat these as state-move review candidates, not automatic instructions.
+- `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project>
+  --json` attaches Pulumi preview resource actions as `pulumi-resource` nodes
+  and `planned-change` edges without executing Pulumi.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 

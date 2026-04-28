@@ -3,6 +3,7 @@ export type InfraGraphNodeKind =
   | 'helm-chart'
   | 'helm-values-schema'
   | 'pulumi-project'
+  | 'pulumi-resource'
   | 'pulumi-stack'
   | 'terraform-root'
   | 'terraform-resource'
@@ -16,7 +17,7 @@ export type InfraGraphEdgeKind =
   | 'possible-rename';
 
 export type InfraGraphConfidence = 'low' | 'medium' | 'high';
-export type InfraGraphSource = 'workspace-inspection' | 'terraform-plan';
+export type InfraGraphSource = 'workspace-inspection' | 'terraform-plan' | 'pulumi-preview';
 export type InfraGraphChangeAction = 'create' | 'update' | 'delete' | 'replace' | 'read' | 'no-op';
 
 export interface InfraGraphNode {

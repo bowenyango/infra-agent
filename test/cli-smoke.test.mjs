@@ -60,6 +60,10 @@ import {
   attachTerraformPlanToGraph,
   parseTerraformPlanResourceChanges
 } from '../src/impact/terraform-plan-graph.ts';
+import {
+  attachPulumiPreviewToGraph,
+  parsePulumiPreviewResourceChanges
+} from '../src/impact/pulumi-preview-graph.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -232,6 +236,74 @@ test('Terraform plan impact marks matching delete and create resources as possib
   assert.equal(renameEdges[0]?.to, 'terraform-resource:aws_s3_bucket.new_name');
   assert.equal(renameEdges[0]?.confidence, 'medium');
   assert.equal(renameEdges[0]?.metadata?.matchingIdentityKeys, 'bucket,tags.Name');
+});
+
+test('Pulumi preview impact attaches resource change nodes to the infra graph', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create',
+          urn: 'urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api',
+          type: 'kubernetes:apps/v1:Deployment',
+          name: 'payments-api',
+          diffs: ['spec.template.spec.containers[0].image']
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'replace',
+          urn: 'urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api',
+          type: 'aws:ec2/securityGroup:SecurityGroup',
+          name: 'api',
+          detailedDiff: {
+            ingress: {
+              kind: 'update'
+            }
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'same',
+          urn: 'urn:pulumi:dev::payments-api::pulumi:pulumi:Stack::payments-api-dev',
+          type: 'pulumi:pulumi:Stack',
+          name: 'payments-api-dev'
+        }
+      }
+    }
+  ];
+
+  const changes = parsePulumiPreviewResourceChanges(previewJson);
+  assert.deepEqual(changes.map(change => change.action), ['create', 'replace', 'no-op']);
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const deploymentNode = impactedGraph.nodes.find(node =>
+    node.id === 'pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api'
+  );
+
+  assert.ok(deploymentNode);
+  assert.equal(deploymentNode.kind, 'pulumi-resource');
+  assert.equal(deploymentNode.source, 'pulumi-preview');
+  assert.equal(deploymentNode.metadata?.action, 'create');
+  assert.equal(deploymentNode.metadata?.diffs, 'spec.template.spec.containers[0].image');
+  assert.equal(impactedGraph.summary.changesByAction?.create, 1);
+  assert.equal(impactedGraph.summary.changesByAction?.replace, 1);
+  assert.equal(impactedGraph.summary.changesByAction?.['no-op'], undefined);
+  assert.ok(impactedGraph.edges.some(edge =>
+    edge.kind === 'planned-change'
+    && edge.source === 'pulumi-preview'
+    && edge.from === 'pulumi-project:infra/payments-api'
+    && edge.to === deploymentNode.id
+  ));
 });
 
 test('inspectWorkspace extracts Helm values schema semantic facts', async () => {
@@ -2949,6 +3021,24 @@ test('graph CLI args accept Terraform plan impact flags', () => {
   assert.equal(parsed.workspace, 'fixtures/terraform-workspace');
   assert.deepEqual(parsed.terraformPlanPaths, ['plan.json']);
   assert.deepEqual(parsed.targetPaths, ['terraform/payments-api']);
+  assert.equal(parsed.json, true);
+});
+
+test('graph CLI args accept Pulumi preview impact flags', () => {
+  const parsed = parseArgs([
+    'graph',
+    'fixtures/sample-workspace',
+    '--pulumi-preview',
+    'preview.json',
+    '--target',
+    'infra/payments-api',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'graph');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.pulumiPreviewPaths, ['preview.json']);
+  assert.deepEqual(parsed.targetPaths, ['infra/payments-api']);
   assert.equal(parsed.json, true);
 });
 

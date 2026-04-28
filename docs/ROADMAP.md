@@ -331,6 +331,10 @@ Status on 2026-04-28:
 - Terraform plan graph analysis now marks medium-confidence `possible-rename`
   edges when delete/create pairs share resource type, provider, and stable
   identity fields such as `name`, `bucket`, or `tags.Name`.
+- `infra-agent graph` can also attach read-only Pulumi preview JSON/event
+  actions as `pulumi-resource` nodes with `planned-change` edges. It currently
+  parses common `resourcePreEvent.metadata`, `resOutputsEvent.metadata`, and
+  simple `steps` shapes.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 
@@ -373,10 +377,8 @@ Status on 2026-04-28:
 
 ### Step 6: Add Impact Analysis
 
-- Expand read-only plan/preview analysis from Terraform plan JSON to Pulumi
-  preview JSON/events.
 - Refine candidate renames and detect replacement cascades from parsed graph
-  actions.
+  actions across Terraform and Pulumi.
 - Print guidance without executing state changes.
 
 ### Step 7: Add Graph JSON Before Web UI

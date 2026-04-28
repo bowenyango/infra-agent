@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `f4adcb1` Mark Terraform rename candidates in graph
   - `3eccc71` Attach Terraform plan actions to graph
   - `f1cc221` Add workspace infra graph foundation
   - `674921b` Add bounded knowledge prefetch command
@@ -1071,9 +1072,48 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Add Pulumi preview event actions to graph nodes.
-2. Refine Terraform rename detection with provider-specific stable identity
+1. Refine Terraform rename detection with provider-specific stable identity
    fields and confidence scoring.
+2. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
+3. Expand Helm context selection to include chart dependency metadata when
+   `Chart.lock` or `charts/` dependencies are present.
+
+## 2026-04-28 Pulumi Preview Graph Impact Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/pulumi-preview-graph.ts`
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `pulumi-resource` graph nodes and `planned-change` edges sourced from
+  read-only Pulumi preview JSON/event JSON.
+- Parse common `resourcePreEvent.metadata`, `resOutputsEvent.metadata`, and
+  simple `steps` shapes into create/update/delete/replace/read/no-op actions.
+- Add CLI support for
+  `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project>
+  --json` without executing Pulumi.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 186/186 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Refine Terraform rename detection with provider-specific stable identity
+   fields and confidence scoring.
+2. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
 3. Expand Helm context selection to include chart dependency metadata when
    `Chart.lock` or `charts/` dependencies are present.
 
