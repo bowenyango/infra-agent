@@ -12,7 +12,8 @@ export type InfraGraphEdgeKind =
   | 'contains'
   | 'configures'
   | 'has-schema'
-  | 'planned-change';
+  | 'planned-change'
+  | 'possible-rename';
 
 export type InfraGraphConfidence = 'low' | 'medium' | 'high';
 export type InfraGraphSource = 'workspace-inspection' | 'terraform-plan';
@@ -37,6 +38,7 @@ export interface InfraGraphEdge {
   confidence: InfraGraphConfidence;
   source: InfraGraphSource;
   label?: string;
+  metadata?: Record<string, string | number | boolean | null>;
 }
 
 export interface InfraGraphSummary {

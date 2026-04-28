@@ -168,6 +168,9 @@ Current graph foundation:
 - `infra-agent graph --terraform-plan <plan.json> --target <terraform-root>
   --json` attaches Terraform plan resource actions as `terraform-resource`
   nodes and `planned-change` edges without executing Terraform.
+- Matching Terraform delete/create resources may be linked with
+  `possible-rename` edges when type, provider, and stable identity fields match.
+  Treat these as state-move review candidates, not automatic instructions.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 

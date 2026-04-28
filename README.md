@@ -75,7 +75,8 @@ Current behavior is intentionally runtime-foundation oriented:
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
   from workspace inspection facts and can attach read-only Terraform plan JSON
-  resource actions when `--terraform-plan` is provided
+  resource actions when `--terraform-plan` is provided, including
+  medium-confidence possible rename edges for matching delete/create pairs
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval

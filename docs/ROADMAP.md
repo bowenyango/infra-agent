@@ -328,6 +328,9 @@ Status on 2026-04-28:
   actions as `terraform-resource` nodes with `planned-change` edges. It parses
   `create`, `update`, `delete`, `replace`, `read`, and `no-op` actions, and
   records Terraform `replace_paths` when present.
+- Terraform plan graph analysis now marks medium-confidence `possible-rename`
+  edges when delete/create pairs share resource type, provider, and stable
+  identity fields such as `name`, `bucket`, or `tags.Name`.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 
@@ -372,7 +375,8 @@ Status on 2026-04-28:
 
 - Expand read-only plan/preview analysis from Terraform plan JSON to Pulumi
   preview JSON/events.
-- Detect candidate renames and replacement cascades from parsed graph actions.
+- Refine candidate renames and detect replacement cascades from parsed graph
+  actions.
 - Print guidance without executing state changes.
 
 ### Step 7: Add Graph JSON Before Web UI

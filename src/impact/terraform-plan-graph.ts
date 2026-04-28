@@ -11,6 +11,7 @@ interface TerraformResourceChange {
   actions: string[];
   actionReason: string | null;
   replacePaths: string[];
+  identityValues: Record<string, string>;
 }
 
 interface AttachTerraformPlanOptions {
@@ -30,6 +31,18 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.map(asString).filter((entry): entry is string => Boolean(entry))
     : [];
+}
+
+function identityString(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return null;
 }
 
 function classifyTerraformActions(actions: string[]): InfraGraphChangeAction {
@@ -54,6 +67,49 @@ function classifyTerraformActions(actions: string[]): InfraGraphChangeAction {
   }
 
   return 'no-op';
+}
+
+function collectIdentityValues(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const identityKeys = [
+    'name',
+    'name_prefix',
+    'bucket',
+    'identifier',
+    'cluster_identifier',
+    'db_instance_identifier',
+    'function_name',
+    'role',
+    'user',
+    'group',
+    'key_name',
+    'repository',
+    'namespace',
+    'service',
+    'topic',
+    'queue'
+  ];
+  const values: Record<string, string> = {};
+
+  for (const key of identityKeys) {
+    const identityValue = identityString(value[key]);
+    if (identityValue) {
+      values[key] = identityValue;
+    }
+  }
+
+  const tags = value.tags;
+  if (isRecord(tags)) {
+    const tagName = identityString(tags.Name) ?? identityString(tags.name);
+    if (tagName) {
+      values['tags.Name'] = tagName;
+    }
+  }
+
+  return values;
 }
 
 function collectReplacePaths(change: Record<string, unknown>): string[] {
@@ -96,7 +152,8 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
       action: classifyTerraformActions(actions),
       actions,
       actionReason: asString(entry.action_reason),
-      replacePaths: collectReplacePaths(change)
+      replacePaths: collectReplacePaths(change),
+      identityValues: collectIdentityValues(change.after ?? change.before)
     });
   }
 
@@ -105,6 +162,10 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
 
 function edgeId(from: string, to: string): string {
   return `planned-change:${from}->${to}`;
+}
+
+function renameEdgeId(from: string, to: string): string {
+  return `possible-rename:${from}->${to}`;
 }
 
 function findParentNodeId(graph: InfraGraph, targetPath: string | null | undefined): string {
@@ -136,7 +197,8 @@ function buildResourceNode(change: TerraformResourceChange, targetPath: string |
       name: change.name,
       providerName: change.providerName,
       actionReason: change.actionReason,
-      replacePaths: change.replacePaths.join(',')
+      replacePaths: change.replacePaths.join(','),
+      identityKeys: Object.keys(change.identityValues).join(',')
     }
   };
 }
@@ -151,6 +213,68 @@ function buildChangeEdge(parentNodeId: string, resourceNodeId: string, change: T
     source: 'terraform-plan',
     label: `Terraform plan ${change.action}`
   };
+}
+
+function findMatchingIdentityKeys(left: TerraformResourceChange, right: TerraformResourceChange): string[] {
+  return Object.entries(left.identityValues)
+    .filter(([key, value]) => right.identityValues[key] === value)
+    .map(([key]) => key);
+}
+
+function changesMayBeRename(left: TerraformResourceChange, right: TerraformResourceChange): string[] {
+  if (left.action !== 'delete' || right.action !== 'create') {
+    return [];
+  }
+
+  if (!left.type || left.type !== right.type) {
+    return [];
+  }
+
+  if (left.providerName && right.providerName && left.providerName !== right.providerName) {
+    return [];
+  }
+
+  return findMatchingIdentityKeys(left, right);
+}
+
+function buildPossibleRenameEdges(changes: TerraformResourceChange[], edgeIds: Set<string>): InfraGraphEdge[] {
+  const deletes = changes.filter(change => change.action === 'delete');
+  const creates = changes.filter(change => change.action === 'create');
+  const edges: InfraGraphEdge[] = [];
+
+  for (const deleted of deletes) {
+    for (const created of creates) {
+      const matchingIdentityKeys = changesMayBeRename(deleted, created);
+      if (matchingIdentityKeys.length === 0) {
+        continue;
+      }
+
+      const from = `terraform-resource:${deleted.address}`;
+      const to = `terraform-resource:${created.address}`;
+      const id = renameEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'possible-rename',
+        confidence: 'medium',
+        source: 'terraform-plan',
+        label: 'Possible Terraform address rename',
+        metadata: {
+          matchingIdentityKeys: matchingIdentityKeys.join(','),
+          resourceType: deleted.type,
+          providerName: deleted.providerName ?? created.providerName
+        }
+      });
+    }
+  }
+
+  return edges;
 }
 
 export function attachTerraformPlanToGraph(
@@ -179,6 +303,8 @@ export function attachTerraformPlanToGraph(
       edgeIds.add(edge.id);
     }
   }
+
+  edges.push(...buildPossibleRenameEdges(changes, edgeIds));
 
   return {
     ...graph,

@@ -169,6 +169,71 @@ test('Terraform plan impact attaches resource change nodes to the infra graph', 
   ));
 });
 
+test('Terraform plan impact marks matching delete and create resources as possible renames', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_s3_bucket.old_name',
+        mode: 'managed',
+        type: 'aws_s3_bucket',
+        name: 'old_name',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['delete'],
+          before: {
+            bucket: 'payments-artifacts',
+            tags: {
+              Name: 'payments-artifacts'
+            }
+          }
+        }
+      },
+      {
+        address: 'aws_s3_bucket.new_name',
+        mode: 'managed',
+        type: 'aws_s3_bucket',
+        name: 'new_name',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create'],
+          after: {
+            bucket: 'payments-artifacts',
+            tags: {
+              Name: 'payments-artifacts'
+            }
+          }
+        }
+      },
+      {
+        address: 'aws_s3_bucket.unrelated',
+        mode: 'managed',
+        type: 'aws_s3_bucket',
+        name: 'unrelated',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create'],
+          after: {
+            bucket: 'unrelated-artifacts'
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const renameEdges = impactedGraph.edges.filter(edge => edge.kind === 'possible-rename');
+
+  assert.equal(renameEdges.length, 1);
+  assert.equal(renameEdges[0]?.from, 'terraform-resource:aws_s3_bucket.old_name');
+  assert.equal(renameEdges[0]?.to, 'terraform-resource:aws_s3_bucket.new_name');
+  assert.equal(renameEdges[0]?.confidence, 'medium');
+  assert.equal(renameEdges[0]?.metadata?.matchingIdentityKeys, 'bucket,tags.Name');
+});
+
 test('inspectWorkspace extracts Helm values schema semantic facts', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const helmSemantics = inspection.configSemantics.find(summary => summary.targetPath === 'charts/payments-api');

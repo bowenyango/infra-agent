@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `3eccc71` Attach Terraform plan actions to graph
   - `f1cc221` Add workspace infra graph foundation
   - `674921b` Add bounded knowledge prefetch command
   - `155d0fd` Load Helm chart context into prompts
@@ -1032,9 +1033,47 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Detect candidate Terraform renames by comparing delete/create graph nodes
-   with matching type/provider and stable identity fields.
-2. Add Pulumi preview event actions to graph nodes.
+1. Add Pulumi preview event actions to graph nodes.
+2. Refine Terraform rename detection with additional provider-specific stable
+   identity fields and confidence scoring.
+3. Expand Helm context selection to include chart dependency metadata when
+   `Chart.lock` or `charts/` dependencies are present.
+
+## 2026-04-28 Terraform Rename Candidate Graph Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/terraform-plan-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add medium-confidence `possible-rename` graph edges for Terraform plan
+  delete/create pairs that share resource type, provider, and stable identity
+  fields.
+- Extract generic identity fields such as `name`, `bucket`, and `tags.Name`
+  from Terraform plan `before` and `after` objects.
+- Keep rename output advisory only; it is a review candidate for moved blocks or
+  state moves, not an automatic state mutation instruction.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 184/184 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add Pulumi preview event actions to graph nodes.
+2. Refine Terraform rename detection with provider-specific stable identity
+   fields and confidence scoring.
 3. Expand Helm context selection to include chart dependency metadata when
    `Chart.lock` or `charts/` dependencies are present.
 
