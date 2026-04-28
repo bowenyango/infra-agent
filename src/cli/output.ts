@@ -17,6 +17,7 @@ import type {
   ValidationRunOutput
 } from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
+import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 
 function printHeader(title: string): void {
   process.stdout.write(`${title}\n`);
@@ -261,6 +262,27 @@ function summarizeValidationFindings(state: AgentRunState): string {
   }
 
   return 'none';
+}
+
+function summarizeValidationDerivedSemanticBlockers(state: AgentRunState): string {
+  const blockers = getRuntimeConfigSemantics(state.runtime)
+    .flatMap(summary => summary.facts.map(fact => ({
+      targetKind: summary.targetKind,
+      targetPath: summary.targetPath,
+      fact
+    })))
+    .filter(item =>
+      item.fact.source.kind === 'pulumi-preview'
+      && item.fact.kind === 'required-field'
+    );
+
+  if (blockers.length === 0) {
+    return 'none';
+  }
+
+  return blockers.slice(0, 3).map(item =>
+    `${item.targetKind} ${item.targetPath}: ${item.fact.path} required by ${item.fact.source.kind}`
+  ).join('; ');
 }
 
 function summarizeNativeCliTools(state: AgentRunState): string {
@@ -654,6 +676,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
   lines.push(`Validators executed: ${targetValidationCount} command(s) across ${summarizeValidatorFamilies(state)}${yamlGuardCount > 0 ? `; ${yamlGuardCount} YAML syntax guard(s)` : ''}`);
   lines.push(`Validation findings: ${summarizeValidationFindings(state)}`);
+  lines.push(`Semantic blockers: ${summarizeValidationDerivedSemanticBlockers(state)}`);
   lines.push(`Repair activity: ${state.runtime.repairAttempts > 0 ? `${state.runtime.repairAttempts} bounded repair attempt(s)` : 'none'}`);
 
   return lines;

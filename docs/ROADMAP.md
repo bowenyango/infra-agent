@@ -317,6 +317,9 @@ Status on 2026-04-28:
   validator-discovered semantics.
 - Terraform tfvars edit plans now use `type-constraint` facts when rendering
   scalar values, so string variables stay quoted even when values look numeric.
+- Result cards now surface validation-derived Pulumi preview `required-field`
+  semantic blockers as compact structured output, so downstream agents and
+  human operators can see the config path without rereading raw stderr.
 
 ### Step 6: Add Impact Analysis
 

@@ -3119,6 +3119,25 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
     runtime: {
       task: preflight.task,
       preflight,
+      configSemantics: [
+        ...preflight.inspection.configSemantics,
+        {
+          targetKind: 'pulumi-project',
+          targetPath: 'infra/payments-api',
+          facts: [
+            {
+              kind: 'required-field',
+              path: 'config.payments-api:imageTag',
+              message: 'Pulumi preview reported payments-api:imageTag as required.',
+              source: {
+                kind: 'pulumi-preview',
+                path: 'pulumi preview --cwd infra/payments-api --stack dev --non-interactive'
+              },
+              confidence: 'high'
+            }
+          ]
+        }
+      ],
       observations: [],
       appliedWrites: [],
       validationResults: [
@@ -3154,6 +3173,7 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
   assert.ok(summary.some(line => /Review focus: Review the selected Pulumi stack file and its config namespace before rerunning preview\./i.test(line)));
   assert.ok(summary.some(line => /Next operator step: Run .*pulumi preview .*infra\/payments-api.*--stack dev.*correct the blocking Pulumi issue, and rerun the agent\./i.test(line)));
   assert.ok(summary.some(line => /Validation findings: Pulumi preview missing config: payments-api:imageTag/i.test(line)));
+  assert.ok(summary.some(line => /Semantic blockers: pulumi-project infra\/payments-api: config\.payments-api:imageTag required by pulumi-preview/i.test(line)));
 });
 
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {

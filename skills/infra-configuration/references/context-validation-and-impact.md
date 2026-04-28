@@ -96,6 +96,9 @@ Current implemented source:
   `required-field` facts sourced from `pulumi-preview`.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
+- Result cards expose validation-derived Pulumi preview `required-field`
+  semantic blockers in a compact `Semantic blockers` line. Treat a non-`none`
+  value there as structured validator-backed context, not generic prose.
 
 ## Rename And Replacement Impact
 

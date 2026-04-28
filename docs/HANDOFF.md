@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `8dff15e` Add knowledge cache foundation
   - `b425ee8` Format Terraform tfvars values using type facts
   - `39196f9` Promote validation issues into config semantics
   - `f4c0f40` Use Pulumi config semantics in edit plans
@@ -574,6 +575,42 @@ Recommended next implementation slice:
 1. Add result-card output for validation-derived semantic blockers.
 2. Add a cache root resolver and workspace-config override for knowledge cache
    location.
+3. Add dynamic official-doc fetchers only after cache root policy is explicit.
+
+## 2026-04-28 Result-Card Semantic Blockers Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Surface validation-derived config semantics directly in result cards instead
+  of leaving them only in planner prompts or raw validation stderr.
+- Add a `Semantic blockers` result-card line.
+- Currently reports high-confidence Pulumi preview `required-field` facts, for
+  example missing stack config discovered by `pulumi preview`.
+- Keep the output compact by showing at most three structured blockers with
+  target kind, target path, config path, and semantic source.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 161/161 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add a cache root resolver and workspace-config override for knowledge cache
+   location.
+2. Add compact JSON result output if downstream agent usage starts carrying too
+   much prose.
 3. Add dynamic official-doc fetchers only after cache root policy is explicit.
 
 ## Current Verification Commands
