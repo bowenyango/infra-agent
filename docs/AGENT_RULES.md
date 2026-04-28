@@ -139,6 +139,7 @@
 - Use `infra-agent prefetch` for deliberate official-doc cache updates. Keep prefetch bounded with `--domain`, `--target`, and `--max-sources` when the workspace has many resources.
 - Planner prompts may include cached retrieved-context packets. Keep these compact and targeted; do not inject whole official docs into the prompt.
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
+- Use `infra-agent graph --json` as the topology handoff surface. Treat it as inspection-derived structure until plan/preview impact data is explicitly attached.
 - The agent must not call deploy or apply commands in version `v0`.
 - The agent should stop and ask for clarification when any of these are ambiguous:
 - target environment

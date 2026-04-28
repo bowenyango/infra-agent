@@ -9,9 +9,11 @@ import type { PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
+import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import {
   buildCompactAgentRunResult,
   printAgentRunState,
+  printInfraGraph,
   printInspection,
   printKnowledgePrefetchResult,
   printRunPreflight,
@@ -19,7 +21,7 @@ import {
 } from './output.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'help';
   task: string | null;
   workspace: string;
   json: boolean;
@@ -41,6 +43,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
+      '  infra-agent graph [workspace] [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
@@ -78,7 +81,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const json = rest.includes('--json') || jsonFull;
   const cleanArgs = rest.filter(arg => arg !== '--json' && arg !== '--json-full');
 
-  if (commandName === 'inspect' || commandName === 'validate') {
+  if (commandName === 'inspect' || commandName === 'validate' || commandName === 'graph') {
     const workspace = cleanArgs[0] ?? cwd();
     return {
       command: commandName,
@@ -292,6 +295,19 @@ async function main(): Promise<void> {
     }
 
     printValidationPreflight(validationPreflight);
+    return;
+  }
+
+  if (parsed.command === 'graph') {
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const graph = buildWorkspaceInfraGraph(inspection);
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(graph, null, 2)}\n`);
+      return;
+    }
+
+    printInfraGraph(graph);
     return;
   }
 

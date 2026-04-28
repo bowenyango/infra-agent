@@ -21,6 +21,7 @@ import type {
 import type { EditPlanKind } from '../types/edit-plan.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
+import type { InfraGraph } from '../types/infra-graph.ts';
 
 interface ValidationDerivedSemanticBlocker {
   targetKind: string;
@@ -1167,6 +1168,19 @@ export function printKnowledgePrefetchResult(result: KnowledgePrefetchResult): v
   process.stdout.write(`summary: fetched=${result.summary.fetched}, cached=${result.summary.cached}, stale-cache=${result.summary.staleCache}, local=${result.summary.local}, skipped=${result.summary.skipped}, failed=${result.summary.failed}\n\n`);
   printHeader('Sources');
   printList(result.sources.map(formatKnowledgeSourceResult), 'No knowledge sources selected.');
+}
+
+export function printInfraGraph(graph: InfraGraph): void {
+  printHeader('Infrastructure graph');
+  process.stdout.write(`workspace: ${graph.workspaceRoot}\n`);
+  process.stdout.write(`nodes: ${graph.summary.nodeCount}\n`);
+  process.stdout.write(`edges: ${graph.summary.edgeCount}\n`);
+  process.stdout.write(`node kinds: ${Object.entries(graph.summary.nodesByKind).map(([kind, count]) => `${kind}=${count}`).join(', ') || 'none'}\n\n`);
+  printHeader('Nodes');
+  printList(graph.nodes.map(node => `${node.kind} ${node.id}${node.path ? ` (${node.path})` : ''}`), 'No graph nodes detected.');
+  process.stdout.write('\n');
+  printHeader('Edges');
+  printList(graph.edges.map(edge => `${edge.kind} ${edge.from} -> ${edge.to}`), 'No graph edges detected.');
 }
 
 export function printRunPreflight(state: RunPreflightState): void {

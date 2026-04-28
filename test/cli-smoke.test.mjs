@@ -55,6 +55,7 @@ import {
   retrieveHelmChartContextPackets
 } from '../src/domain/helm-chart-context.ts';
 import { prefetchWorkspaceKnowledge } from '../src/knowledge/prefetch.ts';
+import { buildWorkspaceInfraGraph } from '../src/impact/workspace-graph.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -71,6 +72,34 @@ test('inspect command detects fixture workspace assets', () => {
     assert.equal(result.pulumiProjects.length, 1);
     assert.deepEqual(result.domainCapabilities.map(domain => domain.id), ['helm', 'pulumi']);
   });
+});
+
+test('workspace graph exposes inspected infra topology foundation', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+
+  assert.equal(graph.kind, 'infra-agent.infra-graph');
+  assert.ok(graph.nodes.some(node =>
+    node.kind === 'helm-chart'
+    && node.path === 'charts/payments-api'
+    && node.domain === 'helm'
+  ));
+  assert.ok(graph.nodes.some(node =>
+    node.kind === 'helm-values-schema'
+    && node.path === 'charts/payments-api/values.schema.json'
+  ));
+  assert.ok(graph.nodes.some(node =>
+    node.kind === 'pulumi-project'
+    && node.path === 'infra/payments-api'
+  ));
+  assert.ok(graph.edges.some(edge =>
+    edge.kind === 'has-schema'
+    && edge.from === 'helm-chart:charts/payments-api'
+    && edge.to === 'helm-values-schema:charts/payments-api/values.schema.json'
+  ));
+  assert.equal(graph.summary.nodesByKind['workspace'], 1);
+  assert.equal(graph.summary.nodeCount, graph.nodes.length);
+  assert.equal(graph.summary.edgeCount, graph.edges.length);
 });
 
 test('inspectWorkspace extracts Helm values schema semantic facts', async () => {
@@ -2758,6 +2787,18 @@ test('prefetch CLI args accept bounded source selection flags', () => {
   assert.deepEqual(parsed.domains, ['helm']);
   assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
   assert.equal(parsed.maxSources, 2);
+  assert.equal(parsed.json, true);
+});
+
+test('graph CLI args accept workspace and json flags', () => {
+  const parsed = parseArgs([
+    'graph',
+    'fixtures/sample-workspace',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'graph');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
   assert.equal(parsed.json, true);
 });
 

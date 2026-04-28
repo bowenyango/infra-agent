@@ -321,6 +321,9 @@ Status on 2026-04-28:
   sources. It uses the same version-aware cache and is bounded by
   `--max-sources` so dynamic official-doc retrieval stays outside the agent
   loop unless deliberately invoked.
+- Added a first normalized `infra-agent.infra-graph` workspace graph with nodes
+  and edges derived from inspection facts. This is a topology/impact foundation
+  only; plan/preview actions and dependency impact are still future work.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

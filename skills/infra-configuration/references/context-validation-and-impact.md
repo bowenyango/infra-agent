@@ -161,6 +161,13 @@ For true replacements, explain:
 
 Graph JSON should come before a web topology viewer.
 
+Current graph foundation:
+
+- `infra-agent graph --json` emits kind `infra-agent.infra-graph`.
+- Current nodes and edges are derived from workspace inspection facts only.
+- Treat graph confidence as structure confidence, not deploy impact confidence,
+  until Terraform plan JSON or Pulumi preview events are attached.
+
 Minimum graph nodes:
 
 - stack, module, chart, and manifest/resource nodes

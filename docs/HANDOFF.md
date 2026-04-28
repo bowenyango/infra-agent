@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `674921b` Add bounded knowledge prefetch command
   - `155d0fd` Load Helm chart context into prompts
   - `640cd0b` Select Helm chart context sources
   - `0657434` Load cached Terraform context into prompts
@@ -941,11 +942,56 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Start impact-analysis graph types before building any topology UI.
-2. Expand Helm context selection to include chart dependency metadata when
+1. Expand Helm context selection to include chart dependency metadata when
    `Chart.lock` or `charts/` dependencies are present.
-3. Add Pulumi official-doc/source selection for detected package imports and
+2. Add Pulumi official-doc/source selection for detected package imports and
    stack config namespaces.
+3. Attach Terraform plan JSON or Pulumi preview event actions to graph nodes
+   after the graph foundation is stable.
+
+## 2026-04-28 Workspace Infra Graph Foundation Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `scripts/smoke.mjs`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a normalized `infra-agent.infra-graph` JSON shape before any web topology
+  viewer work.
+- Build graph nodes and edges from workspace inspection facts for Helm charts,
+  Helm values schemas, Pulumi projects/stacks, Terraform roots, and Terraform
+  tfvars files.
+- Add `infra-agent graph [workspace] [--json]` as a local topology handoff
+  surface for future agents and UI work.
+- Keep graph confidence scoped to inspection-derived structure; plan/preview
+  actions and replacement impact are not attached yet.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 181/181 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Expand Helm context selection to include chart dependency metadata when
+   `Chart.lock` or `charts/` dependencies are present.
+2. Add Pulumi official-doc/source selection for detected package imports and
+   stack config namespaces.
+3. Attach Terraform plan JSON or Pulumi preview event actions to graph nodes
+   after the graph foundation is stable.
 
 ## Current Verification Commands
 
