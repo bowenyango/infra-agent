@@ -282,6 +282,11 @@ Status on 2026-04-28:
   read/write helpers, and stale-after checks.
 - Cache IDs include source kind/name/version/url/path metadata so official docs
   and schemas can be cached per provider/chart/package version.
+- Added a knowledge-cache root resolver with explicit env override,
+  workspace-config override, and user-cache default. Workspace-config roots must
+  be relative paths that stay inside the active workspace.
+- `inspect` now exposes the resolved knowledge-cache root and source for
+  downstream agents and operators.
 - Dynamic official-doc fetching is intentionally not implemented yet.
 
 ### Step 5: Add Semantic Constraint Extraction

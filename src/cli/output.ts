@@ -965,6 +965,7 @@ export function printInspection(inspection: WorkspaceInspection): void {
   process.stdout.write(`workspace: ${inspection.workspaceRoot}\n`);
   process.stdout.write(`profile: ${inspection.profile.label} (${inspection.profile.id})\n`);
   process.stdout.write(`workspace config: ${inspection.config ? 'present' : 'absent'}\n`);
+  process.stdout.write(`knowledge cache: ${inspection.knowledgeCache.root} (${inspection.knowledgeCache.source})\n`);
   process.stdout.write(`helm charts: ${inspection.helmCharts.length}\n`);
   process.stdout.write(`pulumi projects: ${inspection.pulumiProjects.length}\n`);
   process.stdout.write(`pulumi stack files: ${inspection.fileCounts.pulumiStackFiles}\n\n`);

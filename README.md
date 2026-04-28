@@ -77,6 +77,10 @@ Current behavior is intentionally runtime-foundation oriented:
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
+- `inspect` resolves the knowledge-cache root used for future docs/schema
+  context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;
+  otherwise `infra-agent.config.json` may set a workspace-relative
+  `knowledgeCache.root`; otherwise the CLI uses the user cache directory.
 
 LLM planner environment variables:
 
@@ -133,6 +137,9 @@ The agent must respect clear execution boundaries.
 - Repository profiles can also provide safer default approval rules when no explicit workspace config is present.
 - Repository profiles can now also constrain which edit-plan kinds and target prefixes are allowed by default.
 - Workspace config can now override those edit constraints with kind-scoped target prefixes when a repository needs tighter local rules than the profile defaults.
+- Workspace config may set `knowledgeCache.root`, but it must be
+  workspace-relative so a repository cannot redirect cache writes outside the
+  active workspace.
 - Terraform changes will ultimately be expected to follow the same bounded edit, validation, and approval model as Helm and Pulumi.
 - `scrawlr-infra-cloud` stack edits now prefer existing `non-prod` / `prod` naming conventions over creating speculative new stack files.
 - `scrawlr-infra-cloud` stack edits also prefer existing config key namespaces already present in stack files, instead of inventing a new key prefix from project metadata.

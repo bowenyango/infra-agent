@@ -9,6 +9,7 @@ import { extractHelmValuesSchemaSemanticsForCharts } from './helm-values-schema.
 import { extractPulumiStackConfigSemanticsForProjects } from './pulumi-stack-config.ts';
 import { extractTerraformVariableSemanticsForRoots } from './terraform-variables.ts';
 import { readWorkspaceConfig } from './workspace-config.ts';
+import { resolveKnowledgeCacheRoot } from '../knowledge/cache-root.ts';
 import type {
   HelmChartSummary,
   PulumiProjectSummary,
@@ -181,6 +182,10 @@ async function scanDirectory(currentDir: string, workspaceRoot: string, state: S
 export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInspection> {
   const workspaceRoot = resolve(inputPath);
   const workspaceConfig = await readWorkspaceConfig(workspaceRoot);
+  const knowledgeCache = resolveKnowledgeCacheRoot({
+    workspaceRoot,
+    workspaceConfig
+  });
   const state: ScanState = {
     helmCharts: [],
     pulumiProjects: [],
@@ -215,6 +220,7 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
       pulumiProjects: state.pulumiProjects,
       terraformRoots: state.terraformRoots
     }),
+    knowledgeCache,
     configSemantics,
     helmCharts: state.helmCharts,
     pulumiProjects: state.pulumiProjects,

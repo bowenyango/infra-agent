@@ -1,5 +1,6 @@
 import type { EditPlanKind, FileWriteMode, FileWriteRisk } from './edit-plan.ts';
 import type { ConfigSemanticsSummary } from './config-semantics.ts';
+import type { ResolvedKnowledgeCacheRoot } from './knowledge.ts';
 
 export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
 export type InfraDomainId = 'helm' | 'pulumi' | 'terraform';
@@ -32,6 +33,9 @@ export interface WorkspaceApprovalPathRule {
 
 export interface WorkspaceAgentConfig {
   profileId?: RepoProfileId;
+  knowledgeCache?: {
+    root?: string;
+  };
   writePolicy?: {
     allowedPaths?: string[];
     allowedModes?: FileWriteMode[];
@@ -103,6 +107,7 @@ export interface WorkspaceInspection {
   pulumiProjects: PulumiProjectSummary[];
   terraformRoots: TerraformRootSummary[];
   configSemantics: ConfigSemanticsSummary[];
+  knowledgeCache: ResolvedKnowledgeCacheRoot;
   fileCounts: {
     chartFiles: number;
     pulumiProjectFiles: number;

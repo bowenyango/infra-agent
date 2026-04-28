@@ -1,5 +1,8 @@
 {
   "profileId": "scrawlr-infra-cloud",
+  "knowledgeCache": {
+    "root": ".infra-agent/knowledge-cache"
+  },
   "validation": {
     "includeDefaults": false,
     "entries": [

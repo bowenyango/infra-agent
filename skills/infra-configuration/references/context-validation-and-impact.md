@@ -31,6 +31,11 @@ Current cache foundation:
   `RetrievedContextPacket` types.
 - The local cache adapter stores JSON entries with source metadata, content hash,
   fetched time, and stale-after policy.
+- The resolved cache root is visible from workspace inspection. Precedence is:
+  `INFRA_AGENT_KNOWLEDGE_CACHE`, then workspace-config
+  `knowledgeCache.root`, then the user cache directory.
+- Workspace-config cache roots must be relative paths inside the workspace;
+  absolute or escaping paths should be rejected before any cache write.
 - Official-doc fetching is not implemented yet; do not assume network retrieval
   is available until a later slice adds explicit fetchers and cache root policy.
 

@@ -43,6 +43,7 @@ import {
   readKnowledgeCacheEntry,
   writeKnowledgeCacheEntry
 } from '../src/knowledge/cache.ts';
+import { resolveKnowledgeCacheRoot } from '../src/knowledge/cache-root.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -193,6 +194,71 @@ test('knowledge cache writes versioned entries and detects staleness', async () 
   }
 });
 
+test('knowledge cache root resolver uses workspace config inside the workspace', () => {
+  const workspaceRoot = resolve('/tmp/infra-agent-workspace');
+  const resolved = resolveKnowledgeCacheRoot({
+    workspaceRoot,
+    workspaceConfig: {
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      }
+    },
+    env: {},
+    homeDir: '/home/tester'
+  });
+
+  assert.equal(resolved.root, resolve(workspaceRoot, '.infra-agent/knowledge-cache'));
+  assert.equal(resolved.source, 'workspace-config: knowledgeCache.root');
+});
+
+test('knowledge cache root resolver lets explicit env override workspace config', () => {
+  const resolved = resolveKnowledgeCacheRoot({
+    workspaceRoot: resolve('/tmp/infra-agent-workspace'),
+    workspaceConfig: {
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      }
+    },
+    env: {
+      INFRA_AGENT_KNOWLEDGE_CACHE: '~/infra-agent-cache'
+    },
+    homeDir: '/home/tester'
+  });
+
+  assert.equal(resolved.root, resolve('/home/tester/infra-agent-cache'));
+  assert.equal(resolved.source, 'environment: INFRA_AGENT_KNOWLEDGE_CACHE');
+});
+
+test('knowledge cache root resolver defaults to user cache when unconfigured', () => {
+  const resolved = resolveKnowledgeCacheRoot({
+    workspaceRoot: resolve('/tmp/infra-agent-workspace'),
+    workspaceConfig: null,
+    env: {
+      XDG_CACHE_HOME: '/tmp/xdg-cache'
+    },
+    homeDir: '/home/tester'
+  });
+
+  assert.equal(resolved.root, resolve('/tmp/xdg-cache/infra-agent/knowledge'));
+  assert.equal(resolved.source, 'default: user cache');
+});
+
+test('knowledge cache root resolver rejects workspace config paths outside the workspace', () => {
+  assert.throws(
+    () => resolveKnowledgeCacheRoot({
+      workspaceRoot: resolve('/tmp/infra-agent-workspace'),
+      workspaceConfig: {
+        knowledgeCache: {
+          root: '../shared-cache'
+        }
+      },
+      env: {},
+      homeDir: '/home/tester'
+    }),
+    /must stay inside the workspace/
+  );
+});
+
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
   const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');
 
@@ -214,6 +280,8 @@ test('workspace config can pin the repo profile', async () => {
 
   assert.equal(inspection.profile.id, 'scrawlr-infra-cloud');
   assert.equal(inspection.config?.profileId, 'scrawlr-infra-cloud');
+  assert.equal(inspection.knowledgeCache.root, resolve('fixtures/configured-workspace/.infra-agent/knowledge-cache'));
+  assert.equal(inspection.knowledgeCache.source, 'workspace-config: knowledgeCache.root');
 });
 
 test('search workspace tool finds chart and Pulumi files under the selected root', async () => {

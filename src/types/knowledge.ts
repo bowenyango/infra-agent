@@ -52,6 +52,11 @@ export interface KnowledgeCacheWrite {
   metadata?: Record<string, string>;
 }
 
+export interface ResolvedKnowledgeCacheRoot {
+  root: string;
+  source: 'environment: INFRA_AGENT_KNOWLEDGE_CACHE' | 'workspace-config: knowledgeCache.root' | 'default: user cache';
+}
+
 export interface RetrievedContextPacket {
   id: string;
   source: KnowledgeSource | ConfigSemanticSource;

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `7a01e78` Surface semantic blockers in result cards
   - `8dff15e` Add knowledge cache foundation
   - `b425ee8` Format Terraform tfvars values using type facts
   - `39196f9` Promote validation issues into config semantics
@@ -612,6 +613,51 @@ Recommended next implementation slice:
 2. Add compact JSON result output if downstream agent usage starts carrying too
    much prose.
 3. Add dynamic official-doc fetchers only after cache root policy is explicit.
+
+## 2026-04-28 Knowledge Cache Root Resolver Slice
+
+Files added or updated:
+
+- `src/knowledge/cache-root.ts`
+- `src/types/knowledge.ts`
+- `src/types/repository.ts`
+- `src/domain/inspect-workspace.ts`
+- `src/cli/output.ts`
+- `fixtures/configured-workspace/infra-agent.config.json`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a deterministic knowledge-cache root resolver before adding dynamic
+  official-doc fetching.
+- Resolve cache roots with clear precedence:
+  `INFRA_AGENT_KNOWLEDGE_CACHE`, then workspace config
+  `knowledgeCache.root`, then user cache directory.
+- Expand `~` for the explicit environment override and `XDG_CACHE_HOME`.
+- Keep repo-provided `knowledgeCache.root` safe by requiring a
+  workspace-relative path that stays inside the active workspace.
+- Add the resolved cache root/source to workspace inspection and `inspect`
+  output so downstream agents can see where persistent context will live.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 165/165 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add a compact JSON result mode if downstream agent usage starts carrying too
+   much prose.
+2. Add a first dynamic official-doc fetcher using the resolved cache root and a
+   no-network fallback path.
+3. Start impact-analysis graph types before building any topology UI.
 
 ## Current Verification Commands
 
