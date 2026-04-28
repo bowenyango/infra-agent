@@ -59,6 +59,9 @@ Current cache foundation:
 - Terraform agent runs load cached Terraform Registry packets for selected
   Terraform roots into planner prompts. The runtime does not automatically fetch
   missing docs from the network yet.
+- Helm chart context selection exists for repo-local `values.schema.json`, Helm
+  schema docs, and chart `home`/`sources` metadata. Treat local chart schema
+  packets as higher authority than external chart docs.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.

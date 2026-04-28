@@ -134,6 +134,7 @@
 - Use the resolved knowledge-cache root for docs/schema cache writes. Treat `INFRA_AGENT_KNOWLEDGE_CACHE` as the explicit user override, and only accept workspace-config cache roots that stay inside the workspace.
 - Retrieve official docs through cache-first context packets. If only stale cached context is available, keep confidence at medium and do not treat it as validator-grade authority.
 - For Terraform Registry docs, prefer provider source and locked provider version from `required_providers` and `.terraform.lock.hcl` before falling back to local-name heuristics.
+- For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
 - Planner prompts may include cached retrieved-context packets. Keep these compact and targeted; do not inject whole official docs into the prompt.
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
 - The agent must not call deploy or apply commands in version `v0`.

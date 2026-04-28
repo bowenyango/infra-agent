@@ -92,6 +92,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - Terraform agent runs load cached Registry context into planner prompts when it
   is relevant to the selected root; the runtime does not fetch missing docs from
   the network automatically yet.
+- Helm chart context selection can derive high-confidence local schema packets
+  from `values.schema.json` and cache-backed Helm/chart docs from `Chart.yaml`
+  metadata.
 
 LLM planner environment variables:
 

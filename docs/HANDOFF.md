@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `0657434` Load cached Terraform context into prompts
   - `a7ea04f` Select Terraform Registry context sources
   - `46f3e21` Add cache-backed knowledge retrieval
   - `5a30d1d` Emit compact agent JSON results
@@ -823,6 +824,44 @@ Recommended next implementation slice:
 
 1. Add Helm official-doc or chart-doc source selection using chart metadata and
    `values.schema.json`.
+2. Add a CLI command to prefetch selected official docs explicitly, instead of
+   fetching implicitly inside `agent`.
+3. Start impact-analysis graph types before building any topology UI.
+
+## 2026-04-28 Helm Chart Context Source Slice
+
+Files added or updated:
+
+- `src/domain/helm-chart-context.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add Helm chart context source selection for repo-local chart schema and
+  external Helm/chart docs.
+- Emit local `values.schema.json` as a high-confidence `chart-schema`
+  `RetrievedContextPacket`.
+- Derive optional `helm-docs` and `chart-docs` `KnowledgeSource` records from
+  `Chart.yaml` metadata such as `home` and `sources`.
+- Keep external docs cache-backed through the existing retrieval layer and
+  mocked in tests; no network is required.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 176/176 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Load cached Helm chart context into runtime prompts for Helm-focused tasks,
+   mirroring the current Terraform cache-only prompt path.
 2. Add a CLI command to prefetch selected official docs explicitly, instead of
    fetching implicitly inside `agent`.
 3. Start impact-analysis graph types before building any topology UI.

@@ -310,6 +310,10 @@ Status on 2026-04-28:
   Terraform roots into runtime state and planner prompts. This path is
   cache-only by default and does not automatically fetch from the network during
   the agent loop.
+- Added Helm chart context selection for repo-local `values.schema.json`,
+  Helm schema docs, and chart `home`/`sources` metadata from `Chart.yaml`.
+  Local chart schema context is emitted directly as a high-confidence packet;
+  external Helm/chart docs still go through cache retrieval.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

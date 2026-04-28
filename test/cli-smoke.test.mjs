@@ -50,6 +50,10 @@ import {
   buildTerraformRegistryKnowledgeSources,
   retrieveTerraformRegistryContextPackets
 } from '../src/domain/terraform-registry-context.ts';
+import {
+  buildHelmChartKnowledgeSources,
+  retrieveHelmChartContextPackets
+} from '../src/domain/helm-chart-context.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -598,6 +602,103 @@ test('agent runtime loads cached Terraform Registry context for Terraform tasks'
     assert.ok(result.runtime.retrievedContext.some(packet => packet.source.name === 'resource:aws_instance'));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Helm chart context sources include local schema and chart docs metadata', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-context-sources-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://example.com/api-chart',
+        'sources:',
+        '  - https://example.com/api-chart/source',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'values.schema.json'),
+      '{"type":"object","properties":{"service":{"type":"object"}}}\n',
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
+    assert.ok(chart);
+    const sources = await buildHelmChartKnowledgeSources(tempRoot, chart);
+    const schemaSource = sources.find(source => source.kind === 'chart-schema');
+    const helmDocsSource = sources.find(source => source.kind === 'helm-docs');
+    const chartDocsSource = sources.find(source => source.kind === 'chart-docs' && source.name === 'api:home');
+
+    assert.ok(schemaSource);
+    assert.equal(schemaSource.localPath, 'charts/api/values.schema.json');
+    assert.equal(schemaSource.version, '0.2.0');
+    assert.ok(helmDocsSource);
+    assert.match(helmDocsSource.url ?? '', /helm\.sh\/docs\/topics\/charts/);
+    assert.ok(chartDocsSource);
+    assert.equal(chartDocsSource.url, 'https://example.com/api-chart');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Helm chart context packets include local schema and cached external docs', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-context-packets-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-context-cache-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://example.com/api-chart',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'values.schema.json'),
+      '{"type":"object","required":["image"]}\n',
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
+    assert.ok(chart);
+    const packets = await retrieveHelmChartContextPackets({
+      workspaceRoot: tempRoot,
+      chart,
+      cacheRoot,
+      reason: 'Helm chart docs for selected chart',
+      maxExternalSources: 1,
+      fetcher: async source => ({
+        source,
+        contentType: 'text/markdown',
+        content: `# ${source.name}\nExternal Helm docs.`,
+        fetchedAt: '2026-04-28T00:00:00.000Z',
+        staleAfter: '2026-05-28T00:00:00.000Z'
+      })
+    });
+
+    assert.equal(packets.length, 2);
+    assert.equal(packets[0]?.source.kind, 'chart-schema');
+    assert.equal(packets[0]?.contentType, 'application/json');
+    assert.match(packets[0]?.excerpt ?? '', /required/);
+    assert.equal(packets[1]?.source.kind, 'helm-docs');
+    assert.match(packets[1]?.excerpt ?? '', /External Helm docs/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
   }
 });
 
