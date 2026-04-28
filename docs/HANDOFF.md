@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `a7ea04f` Select Terraform Registry context sources
   - `46f3e21` Add cache-backed knowledge retrieval
   - `5a30d1d` Emit compact agent JSON results
   - `f46ef4b` Resolve knowledge cache roots
@@ -783,6 +784,47 @@ Recommended next implementation slice:
    when a Terraform task touches a resource/data-source whose docs are relevant.
 2. Add Helm official-doc or chart-doc source selection using chart metadata and
    `values.schema.json`.
+3. Start impact-analysis graph types before building any topology UI.
+
+## 2026-04-28 Cached Terraform Context Prompt Slice
+
+Files added or updated:
+
+- `src/types/agent.ts`
+- `src/query.ts`
+- `src/model/prompt.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `retrievedContext` to `AgentRuntimeState`.
+- During initial runtime construction, load cached Terraform Registry context
+  packets for selected Terraform roots when the task requested Terraform.
+- Keep runtime docs retrieval cache-only by default; no automatic network fetch
+  happens inside the query loop.
+- Add compact `retrievedContext` packets to planner user prompts with excerpts
+  capped to keep context bounded.
+- Add regression coverage showing cached Terraform Registry docs are loaded into
+  runtime and passed to the planner prompt.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 174/174 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add Helm official-doc or chart-doc source selection using chart metadata and
+   `values.schema.json`.
+2. Add a CLI command to prefetch selected official docs explicitly, instead of
+   fetching implicitly inside `agent`.
 3. Start impact-analysis graph types before building any topology UI.
 
 ## Current Verification Commands

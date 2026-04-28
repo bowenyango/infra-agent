@@ -56,6 +56,9 @@ Current cache foundation:
   data-source docs. It uses `required_providers` plus `.terraform.lock.hcl`
   provider versions when available, then retrieves compact packets through the
   cache layer.
+- Terraform agent runs load cached Terraform Registry packets for selected
+  Terraform roots into planner prompts. The runtime does not automatically fetch
+  missing docs from the network yet.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.

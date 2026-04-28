@@ -89,6 +89,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - Terraform Registry context selection can now derive resource/data-source doc
   sources from `required_providers`, `.terraform.lock.hcl`, and Terraform
   resource blocks.
+- Terraform agent runs load cached Registry context into planner prompts when it
+  is relevant to the selected root; the runtime does not fetch missing docs from
+  the network automatically yet.
 
 LLM planner environment variables:
 

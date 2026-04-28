@@ -518,6 +518,89 @@ test('Terraform Registry context packets retrieve selected source docs through t
   }
 });
 
+test('agent runtime loads cached Terraform Registry context for Terraform tasks', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-context-runtime-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(terraformRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source = "hashicorp/aws"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_instance" "api" {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version = "5.37.0"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === 'terraform/app');
+    assert.ok(root);
+    const source = (await buildTerraformRegistryKnowledgeSources(tempRoot, root))[0];
+    assert.ok(source);
+    await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source,
+      contentType: 'text/markdown',
+      content: '# aws_instance\nCached docs for planning.',
+      fetchedAt: '2026-04-28T00:00:00.000Z',
+      staleAfter: '2026-05-28T00:00:00.000Z'
+    });
+
+    const checkingModel = {
+      name: 'context-check',
+      async decideNextAction({ runtime }) {
+        assert.ok(runtime.retrievedContext.some(packet =>
+          packet.source.kind === 'terraform-registry'
+          && packet.source.name === 'resource:aws_instance'
+          && packet.confidence === 'high'
+        ));
+        return {
+          confidence: 'high',
+          action: {
+            kind: 'stop',
+            summary: 'Context checked.',
+            rationale: 'The runtime loaded cached Terraform Registry context.',
+            payload: {
+              stopReason: 'no-safe-action'
+            }
+          }
+        };
+      }
+    };
+    const result = await runSingleStep('update terraform aws instance', tempRoot, checkingModel);
+
+    assert.ok(result.runtime.retrievedContext.some(packet => packet.source.name === 'resource:aws_instance'));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
   const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');
 
@@ -2723,6 +2806,44 @@ test('planner user prompt includes focused Terraform variable semantics', async 
     summary.targetPath === 'terraform/payments-api'
     && summary.facts.some(fact => fact.kind === 'enum' && fact.path === 'var.environment')
   ));
+});
+
+test('planner user prompt includes compact retrieved context packets', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const prompt = buildPlannerUserPrompt({
+    task: preflight.task,
+    preflight,
+    retrievedContext: [
+      {
+        id: 'terraform-registry-aws-instance',
+        source: {
+          kind: 'terraform-registry',
+          name: 'resource:aws_instance',
+          provider: 'hashicorp/aws',
+          version: '5.37.0',
+          url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance'
+        },
+        confidence: 'high',
+        reason: 'Terraform Registry docs for selected root terraform/payments-api',
+        contentType: 'text/markdown',
+        excerpt: '# aws_instance\nUse instance_type for EC2 shape.',
+        tokenEstimate: 12
+      }
+    ],
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.equal(parsed.retrievedContext[0]?.source.name, 'resource:aws_instance');
+  assert.equal(parsed.retrievedContext[0]?.source.version, '5.37.0');
+  assert.match(parsed.retrievedContext[0]?.excerpt ?? '', /instance_type/);
 });
 
 test('planner user prompt includes focused Pulumi config semantics', async () => {

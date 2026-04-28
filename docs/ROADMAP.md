@@ -306,8 +306,12 @@ Status on 2026-04-28:
   resource/data-source docs. It reads `required_providers` and
   `.terraform.lock.hcl` when present, records provider source/version metadata,
   and retrieves compact packets through the cache layer.
-- End-to-end automatic official-doc selection and retrieval from planner/runtime
-  flows is intentionally not implemented yet.
+- Terraform runs now load cached Terraform Registry context packets for selected
+  Terraform roots into runtime state and planner prompts. This path is
+  cache-only by default and does not automatically fetch from the network during
+  the agent loop.
+- End-to-end automatic network fetching from planner/runtime flows is
+  intentionally not implemented yet.
 
 ### Step 5: Add Semantic Constraint Extraction
 

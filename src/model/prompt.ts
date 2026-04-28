@@ -65,6 +65,17 @@ function summarizeConfigSemantics(runtime: AgentRuntimeState): object[] {
     }));
 }
 
+function summarizeRetrievedContext(runtime: AgentRuntimeState): object[] {
+  return (runtime.retrievedContext ?? []).slice(0, 5).map(packet => ({
+    id: packet.id,
+    source: packet.source,
+    confidence: packet.confidence,
+    reason: packet.reason,
+    excerpt: packet.excerpt?.slice(0, 1200),
+    tokenEstimate: packet.tokenEstimate
+  }));
+}
+
 export function buildPlannerSystemPrompt(): string {
   const allowedActionKinds: AgentActionKind[] = [
     'ask-for-clarification',
@@ -137,6 +148,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       approvalSignals: summarizeApprovalSignals(runtime),
       lastEditPlan: summarizeEditPlan(runtime),
       configSemantics: summarizeConfigSemantics(runtime),
+      retrievedContext: summarizeRetrievedContext(runtime),
       validationPlan: runtime.preflight.validation.plan
     },
     null,

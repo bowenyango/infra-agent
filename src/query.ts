@@ -7,10 +7,12 @@ import { collectApprovalSignals } from './agent/collect-approval-signals.ts';
 import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
 import type { AgentActionKind, AgentDecisionExecution, AgentRuntimeState, FileWritePlan, ToolExecutionSummary } from './types/agent.ts';
-import type { RunPreflightState } from './types/repository.ts';
+import type { RunPreflightState, TerraformRootSummary } from './types/repository.ts';
 import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
 import type { QueryLoopConfig } from './query-config.ts';
+import type { RetrievedContextPacket } from './types/knowledge.ts';
+import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
 import type {
   DiffPreviewOutput,
   DirectoryListingOutput,
@@ -35,6 +37,7 @@ function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
       ...summary,
       facts: [...summary.facts]
     })),
+    retrievedContext: [...runtime.retrievedContext],
     observations: [...runtime.observations],
     toolSummaries: [...(runtime.toolSummaries ?? [])],
     appliedWrites: [...runtime.appliedWrites],
@@ -254,11 +257,47 @@ function applyExecutionToRuntime(
   return nextRuntime;
 }
 
-function buildInitialRuntime(task: string, preflight: RunPreflightState): AgentRuntimeState {
+function selectTerraformContextRoots(preflight: RunPreflightState): TerraformRootSummary[] {
+  if (!preflight.requestedDomains.includes('terraform')) {
+    return [];
+  }
+
+  const targetPaths = new Set(
+    preflight.targetCandidates
+      .filter(candidate => candidate.kind === 'terraform-root')
+      .slice(0, 2)
+      .map(candidate => candidate.path)
+  );
+
+  if (targetPaths.size === 0) {
+    return [];
+  }
+
+  return preflight.inspection.terraformRoots.filter(root => targetPaths.has(root.rootPath));
+}
+
+async function retrieveInitialContext(preflight: RunPreflightState): Promise<RetrievedContextPacket[]> {
+  const packets: RetrievedContextPacket[] = [];
+
+  for (const root of selectTerraformContextRoots(preflight)) {
+    packets.push(...await retrieveTerraformRegistryContextPackets({
+      workspaceRoot: preflight.workspaceRoot,
+      root,
+      cacheRoot: preflight.inspection.knowledgeCache.root,
+      reason: `Terraform Registry docs for selected root ${root.rootPath}`,
+      maxSources: 3
+    }));
+  }
+
+  return packets.slice(0, 5);
+}
+
+async function buildInitialRuntime(task: string, preflight: RunPreflightState): Promise<AgentRuntimeState> {
   return {
     task,
     preflight,
     configSemantics: [...preflight.inspection.configSemantics],
+    retrievedContext: await retrieveInitialContext(preflight),
     observations: [],
     toolSummaries: [],
     appliedWrites: [],
@@ -331,7 +370,7 @@ export async function runQueryLoop(
   const effectiveModelClient = modelClient ?? new RuleBasedModelClient();
   const queryConfig = resolveQueryLoopConfig(config);
   const preflight = await buildRunPreflight(task, workspacePath, approvalScope);
-  let runtime = buildInitialRuntime(task, preflight);
+  let runtime = await buildInitialRuntime(task, preflight);
   const turns: QueryTurn[] = [];
 
   for (let turnIndex = 0; turnIndex < queryConfig.maxTurns; turnIndex += 1) {
