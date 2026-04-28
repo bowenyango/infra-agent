@@ -16,7 +16,16 @@ import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
-import { summarizeAgentSnapshot, summarizePreflightSnapshot, summarizePreflightSuggestedCommands, summarizeRecommendedNextSteps, summarizeResultCard, summarizeSuggestedCommands } from '../src/cli/output.ts';
+import {
+  summarizeAgentSnapshot,
+  summarizeFocusedDomainCapabilities,
+  summarizeFocusedValidationPlan,
+  summarizePreflightSnapshot,
+  summarizePreflightSuggestedCommands,
+  summarizeRecommendedNextSteps,
+  summarizeResultCard,
+  summarizeSuggestedCommands
+} from '../src/cli/output.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
@@ -220,6 +229,13 @@ test('summarizePreflightSnapshot highlights primary target and top ambiguity', a
   assert.ok(snapshot.some(line => /Validation readiness:/i.test(line)));
 });
 
+test('summarizePreflightSnapshot prefers the requested Helm target in mixed workspaces', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const snapshot = summarizePreflightSnapshot(preflight);
+
+  assert.ok(snapshot.some(line => /Primary target: helm-chart charts\/payments-api/i.test(line)));
+});
+
 test('inferRequestedDomains detects task domain focus from available domain capabilities', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
 
@@ -334,7 +350,8 @@ test('summarizePreflightSuggestedCommands recommends inspect and rerun when pref
   const commands = summarizePreflightSuggestedCommands(preflight);
 
   assert.ok(commands.some(command => /inspect/.test(command)));
-  assert.ok(commands.some(command => /validate/.test(command)));
+  assert.ok(commands.some(command => /run/.test(command)));
+  assert.ok(!commands.some(command => /validate/.test(command)));
   assert.ok(!commands.some(command => /main\.ts agent /.test(command)));
 });
 
@@ -345,6 +362,50 @@ test('summarizePreflightSuggestedCommands recommends agent when preflight is rea
   assert.ok(commands.some(command => /inspect/.test(command)));
   assert.ok(commands.some(command => /validate/.test(command)));
   assert.ok(commands.some(command => /agent/.test(command)));
+});
+
+test('summarizeFocusedDomainCapabilities prioritizes requested domains', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const lines = summarizeFocusedDomainCapabilities(inspection.domainCapabilities, ['helm']);
+
+  assert.match(lines[0] ?? '', /^Helm:/);
+  assert.match(lines[0] ?? '', /\[requested\]$/);
+  assert.match(lines[1] ?? '', /^Pulumi:/);
+});
+
+test('summarizeFocusedValidationPlan prioritizes requested domain entries', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const lines = summarizeFocusedValidationPlan(preflight.validation.plan, ['helm']);
+
+  assert.match(lines[0] ?? '', /^helm charts\/payments-api:/);
+  assert.match(lines[0] ?? '', /\[requested\]$/);
+  assert.match(lines[1] ?? '', /^helm charts\/payments-api:/);
+  assert.match(lines[2] ?? '', /^pulumi infra\/payments-api:/);
+});
+
+test('buildRunPreflight filters unrelated domain blockers for Helm-only tasks', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+
+  assert.ok(preflight.blockers.every(blocker => !blocker.includes('Terraform')));
+  assert.ok(preflight.blockers.every(blocker => !blocker.includes('Pulumi')));
+});
+
+test('summarizePreflightSuggestedCommands recommends agent for ready Helm-only workspaces', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const commands = summarizePreflightSuggestedCommands(preflight);
+
+  assert.ok(commands.some(command => /inspect/.test(command)));
+  assert.ok(commands.some(command => /validate/.test(command)));
+  assert.ok(commands.some(command => /agent/.test(command)));
+});
+
+test('buildRunPreflight filters unrelated domain next actions for Helm-only tasks', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+
+  assert.ok(preflight.nextActions.some(action => /Read the target Helm chart files/i.test(action)));
+  assert.ok(preflight.nextActions.some(action => /Use Helm validators as the mandatory refinement loop/i.test(action)));
+  assert.ok(preflight.nextActions.every(action => !action.includes('Pulumi project')));
+  assert.ok(preflight.nextActions.every(action => !action.includes('Terraform root')));
 });
 
 test('buildRunPreflight exposes effective approval policy from profile defaults', async () => {
@@ -2005,6 +2066,44 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.ok(commands[0]?.includes('--approve-write-path "charts/payments-api/values.yaml"'));
 });
 
+test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const commands = summarizeSuggestedCommands({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [
+        {
+          path: 'charts/payments-api/values.yaml',
+          content: 'ingress:\n  enabled: true\n',
+          reason: 'Enable ingress.'
+        }
+      ],
+      validationResults: [
+        {
+          command: 'helm lint charts/payments-api',
+          cwd: 'fixtures/sample-workspace',
+          exitCode: 0,
+          stdout: 'lint ok',
+          stderr: ''
+        }
+      ],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(commands.some(command => /helm show values "charts\/payments-api"/.test(command)));
+  assert.ok(commands.some(command => /agent "add ingress to payments-api dev chart".*--json/.test(command)));
+});
+
 test('summarizeRecommendedNextSteps surfaces Terraform validation guidance for blocked runs', async () => {
   const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
   const steps = summarizeRecommendedNextSteps({
@@ -2103,6 +2202,29 @@ test('summarizeAgentSnapshot highlights validation failure and approval count', 
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/payments-api/i.test(line)));
   assert.ok(snapshot.some(line => /Validation status: failed/i.test(line)));
   assert.ok(snapshot.some(line => /Top validation issue: terraform-validate-failure/i.test(line)));
+});
+
+test('summarizeAgentSnapshot prefers the requested Helm target in mixed workspaces', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const snapshot = summarizeAgentSnapshot({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(snapshot.some(line => /Primary target: helm-chart charts\/payments-api/i.test(line)));
 });
 
 test('summarizeAgentSnapshot surfaces the active bounded edit path when an edit plan exists', async () => {
@@ -2607,6 +2729,29 @@ test('summarizeRecommendedNextSteps uses Helm-specific clarification wording', a
   });
 
   assert.ok(steps.some(step => /helm chart, environment, or values scope/i.test(step)));
+});
+
+test('summarizeRecommendedNextSteps focuses the requested Helm target in mixed workspaces', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const steps = summarizeRecommendedNextSteps({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(steps.some(step => /Focus on helm-chart target charts\/payments-api/i.test(step)));
 });
 
 test('summarizeSuggestedCommands adds domain-aware validate command for Helm clarification runs', async () => {
@@ -3164,6 +3309,15 @@ test('targeting prefers Terraform roots for Terraform-oriented tasks', async () 
   assert.equal(targeting.targetCandidates[0]?.kind, 'terraform-root');
   assert.equal(targeting.targetCandidates[0]?.path, 'terraform/payments-api');
   assert.ok(targeting.targetCandidates[0]?.matchedEnvironmentHints.includes('dev'));
+});
+
+test('targeting prefers requested Helm domain over higher-scoring non-Helm candidates in mixed workspaces', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const targeting = buildTargetCandidates('add ingress to payments-api dev chart', inspection);
+
+  assert.equal(targeting.targetCandidates[0]?.kind, 'helm-chart');
+  assert.equal(targeting.targetCandidates[0]?.path, 'charts/payments-api');
+  assert.equal(targeting.targetCandidates[1]?.kind, 'pulumi-project');
 });
 
 test('targeting uses Terraform module hints to disambiguate multi-root workspaces', async () => {

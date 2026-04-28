@@ -60,22 +60,30 @@ function buildNextActions(state: {
     nextActions.push('Inspect candidate charts, Pulumi projects, and Terraform roots to identify the correct edit target before changing files.');
   }
 
-  if (state.hasHelmCharts) {
+  const shouldMentionHelm = state.requestedDomains.length === 0 || state.requestedDomains.includes('helm');
+  const shouldMentionPulumi = state.requestedDomains.length === 0 || state.requestedDomains.includes('pulumi');
+  const shouldMentionTerraform = state.requestedDomains.length === 0 || state.requestedDomains.includes('terraform');
+
+  if (shouldMentionHelm && state.hasHelmCharts) {
     nextActions.push('Read the target Helm chart files and infer repository-specific values and template conventions.');
   }
 
-  if (state.hasPulumiProjects) {
+  if (shouldMentionPulumi && state.hasPulumiProjects) {
     nextActions.push('Read the relevant Pulumi project and stack files before proposing infrastructure edits.');
   }
 
-  if (state.hasTerraformRoots) {
+  if (shouldMentionTerraform && state.hasTerraformRoots) {
     nextActions.push('Read the relevant Terraform root, tfvars files, and variable definitions before proposing infrastructure edits.');
   }
 
   if (state.hasMissingValidators) {
     nextActions.push('Install or expose missing validators before relying on validation-driven refinement.');
   } else {
-    nextActions.push('Use Helm, Pulumi, and Terraform validators as the mandatory refinement loop after file changes.');
+    if (state.requestedDomains.length > 0) {
+      nextActions.push(`Use ${state.requestedDomains.map(domain => domain[0]?.toUpperCase() + domain.slice(1)).join(' and ')} validators as the mandatory refinement loop after file changes.`);
+    } else {
+      nextActions.push('Use Helm, Pulumi, and Terraform validators as the mandatory refinement loop after file changes.');
+    }
   }
 
   if (state.profileId === 'generic') {
@@ -83,6 +91,36 @@ function buildNextActions(state: {
   }
 
   return nextActions;
+}
+
+function filterDomainRelevantBlockers(blockers: string[], requestedDomains: string[]): string[] {
+  if (requestedDomains.length === 0) {
+    return blockers;
+  }
+
+  return blockers.filter(blocker => {
+    if (blocker.startsWith('Workspace does not look like')) {
+      return true;
+    }
+
+    if (blocker.startsWith('Workspace write policy')) {
+      return true;
+    }
+
+    if (requestedDomains.includes('helm') && blocker.includes('Helm')) {
+      return true;
+    }
+
+    if (requestedDomains.includes('pulumi') && blocker.includes('Pulumi')) {
+      return true;
+    }
+
+    if (requestedDomains.includes('terraform') && blocker.includes('Terraform')) {
+      return true;
+    }
+
+    return false;
+  });
 }
 
 export async function buildRunPreflight(
@@ -102,7 +140,7 @@ export async function buildRunPreflight(
     requestedService: targeting.requestedService,
     targetCandidates: targeting.targetCandidates
   });
-  const blockers = collectWorkspaceWarnings(inspection);
+  const blockers = filterDomainRelevantBlockers(collectWorkspaceWarnings(inspection), requestedDomains);
 
   if (!looksLikeInfraWorkspace(inspection)) {
     blockers.unshift('Workspace does not look like a Pulumi, Terraform, or Helm repository.');

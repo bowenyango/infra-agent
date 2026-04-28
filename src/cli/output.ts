@@ -2,6 +2,7 @@ import type { AgentRunState } from '../agent/run-single-step.ts';
 import type {
   DomainCapabilitySummary,
   RunPreflightState,
+  ValidationPlanEntry,
   ValidationPreflight,
   WorkspaceInspection
 } from '../types/repository.ts';
@@ -33,6 +34,53 @@ function printList(items: string[], fallback: string): void {
 
 function formatDomainCapability(domain: DomainCapabilitySummary): string {
   return `${domain.label}: ${domain.detectedTargets} target(s); tasks=${domain.supportedTaskKinds.join(', ')}; edits=${domain.boundedEditKinds.join(', ')}; validators=${domain.validatorCommands.join(', ')}`;
+}
+
+function domainLabelToId(label: string): string {
+  return label.trim().toLowerCase();
+}
+
+function validationKindToId(kind: ValidationPlanEntry['kind']): string {
+  return kind.trim().toLowerCase();
+}
+
+export function summarizeFocusedDomainCapabilities(
+  domains: DomainCapabilitySummary[],
+  requestedDomains: string[]
+): string[] {
+  const prioritizedDomains = [...domains].sort((left, right) => {
+    const leftRank = requestedDomains.indexOf(domainLabelToId(left.label));
+    const rightRank = requestedDomains.indexOf(domainLabelToId(right.label));
+    const normalizedLeftRank = leftRank === -1 ? Number.MAX_SAFE_INTEGER : leftRank;
+    const normalizedRightRank = rightRank === -1 ? Number.MAX_SAFE_INTEGER : rightRank;
+
+    return normalizedLeftRank - normalizedRightRank || left.label.localeCompare(right.label);
+  });
+
+  return prioritizedDomains.map(domain => {
+    const isPrimary = requestedDomains.length > 0 && requestedDomains.includes(domainLabelToId(domain.label));
+    return `${formatDomainCapability(domain)}${isPrimary ? ' [requested]' : ''}`;
+  });
+}
+
+export function summarizeFocusedValidationPlan(
+  plan: ValidationPlanEntry[],
+  requestedDomains: string[]
+): string[] {
+  const prioritizedEntries = [...plan].sort((left, right) => {
+    const leftRank = requestedDomains.indexOf(validationKindToId(left.kind));
+    const rightRank = requestedDomains.indexOf(validationKindToId(right.kind));
+    const normalizedLeftRank = leftRank === -1 ? Number.MAX_SAFE_INTEGER : leftRank;
+    const normalizedRightRank = rightRank === -1 ? Number.MAX_SAFE_INTEGER : rightRank;
+
+    return normalizedLeftRank - normalizedRightRank
+      || left.target.localeCompare(right.target)
+      || left.kind.localeCompare(right.kind);
+  });
+
+  return prioritizedEntries.flatMap(entry =>
+    entry.commands.map(command => `${entry.kind} ${entry.target}: ${command}${requestedDomains.includes(validationKindToId(entry.kind)) ? ' [requested]' : ''}`)
+  );
 }
 
 function formatRequestedDomains(domains: string[]): string {
@@ -594,6 +642,35 @@ function getPrimaryDomainTargetPath(state: AgentRunState, primaryDomain: string 
   return state.preflight.targetCandidates[0]?.path ?? null;
 }
 
+function getPrimaryTargetCandidateFromPreflight(state: RunPreflightState) {
+  const primaryDomain = getPrimaryRequestedDomain(state.requestedDomains);
+
+  if (primaryDomain === 'helm') {
+    return state.targetCandidates.find(candidate => candidate.kind === 'helm-chart') ?? state.targetCandidates[0];
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return state.targetCandidates.find(candidate => candidate.kind === 'pulumi-project') ?? state.targetCandidates[0];
+  }
+
+  if (primaryDomain === 'terraform') {
+    return state.targetCandidates.find(candidate => candidate.kind === 'terraform-root') ?? state.targetCandidates[0];
+  }
+
+  return state.targetCandidates[0];
+}
+
+function getPrimaryTargetCandidateFromAgent(state: AgentRunState) {
+  const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const topTargetPath = getPrimaryDomainTargetPath(state, primaryDomain);
+
+  if (topTargetPath) {
+    return state.preflight.targetCandidates.find(candidate => candidate.path === topTargetPath) ?? state.preflight.targetCandidates[0];
+  }
+
+  return state.preflight.targetCandidates[0];
+}
+
 function summarizeDomainSuggestedCommands(state: AgentRunState): string[] {
   const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
   const targetPath = getPrimaryDomainTargetPath(state, primaryDomain);
@@ -631,8 +708,8 @@ function summarizeDomainSuggestedCommands(state: AgentRunState): string[] {
 
 export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
   const lines: string[] = [];
-  const topTarget = state.targetCandidates[0];
   const unavailableValidators = state.validation.validators.filter(validator => !validator.available).map(validator => validator.name);
+  const topTarget = getPrimaryTargetCandidateFromPreflight(state);
 
   lines.push(`Profile: ${state.profile.id}`);
   lines.push(`Detected domains: ${state.inspection.domainCapabilities.length > 0 ? state.inspection.domainCapabilities.map(domain => domain.label).join(', ') : 'none'}`);
@@ -684,12 +761,12 @@ export function summarizePreflightSuggestedCommands(state: RunPreflightState): s
 
 export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
   const steps: string[] = [];
-  const topTarget = state.preflight.targetCandidates[0];
   const lastTurn = state.turns[state.turns.length - 1];
   const topValidationIssue = state.runtime.validationIssues[0];
   const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
   const domainLabel = formatPrimaryDomainLabel(primaryDomain);
   const domainTarget = describeDomainTarget(primaryDomain);
+  const topTarget = getPrimaryTargetCandidateFromAgent(state);
 
   if (topTarget) {
     steps.push(`Focus on ${topTarget.kind} target ${topTarget.path} for the next change or review step.`);
@@ -741,6 +818,7 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   const rerunCommand = `${base} run ${taskFlag} ${workspaceFlag}`;
   const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag} --json`;
   const domainNativeCommands = summarizeDomainSuggestedCommands(state);
+  const reviewCommand = summarizeReviewCommand(state);
 
   switch (state.outcome) {
     case 'approval-required':
@@ -772,6 +850,7 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
       ];
     case 'completed':
       return [
+        ...(reviewCommand !== 'undetected' ? [reviewCommand] : []),
         agentJsonCommand
       ];
     case 'no-safe-action':
@@ -784,9 +863,9 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
 
 export function summarizeAgentSnapshot(state: AgentRunState): string[] {
   const lines: string[] = [];
-  const topTarget = state.preflight.targetCandidates[0];
   const topValidationIssue = state.runtime.validationIssues[0];
   const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
+  const topTarget = getPrimaryTargetCandidateFromAgent(state);
 
   lines.push(`Outcome: ${state.outcome}`);
   lines.push(`Model: ${state.modelName}`);
@@ -851,7 +930,7 @@ export function printInspection(inspection: WorkspaceInspection): void {
 
   printHeader('Domain Capabilities');
   printList(
-    inspection.domainCapabilities.map(formatDomainCapability),
+    summarizeFocusedDomainCapabilities(inspection.domainCapabilities, []),
     'No supported infra domains detected.'
   );
 }
@@ -868,7 +947,7 @@ export function printValidationPreflight(preflight: ValidationPreflight): void {
 
   printHeader('Validation Plan');
   printList(
-    preflight.plan.flatMap(entry => entry.commands.map(command => `${entry.kind} ${entry.target}: ${command}`)),
+    summarizeFocusedValidationPlan(preflight.plan, []),
     'No validation targets detected.'
   );
 }
@@ -928,7 +1007,7 @@ export function printRunPreflight(state: RunPreflightState): void {
 
   printHeader('Domain Capabilities');
   printList(
-    state.inspection.domainCapabilities.map(formatDomainCapability),
+    summarizeFocusedDomainCapabilities(state.inspection.domainCapabilities, state.requestedDomains),
     'No supported infra domains detected.'
   );
   process.stdout.write('\n');
@@ -948,7 +1027,18 @@ export function printRunPreflight(state: RunPreflightState): void {
 
   printInspection(state.inspection);
   process.stdout.write('\n\n');
-  printValidationPreflight(state.validation);
+  printHeader('Validator Availability');
+  printList(
+    state.validation.validators.map(validator => `${validator.name}: ${validator.available ? validator.resolvedPath : 'missing'}`),
+    'No validators configured.'
+  );
+  process.stdout.write('\n');
+  process.stdout.write(`workspace config validation: ${state.validation.usedWorkspaceConfig ? 'enabled' : 'disabled'}\n\n`);
+  printHeader('Validation Plan');
+  printList(
+    summarizeFocusedValidationPlan(state.validation.plan, state.requestedDomains),
+    'No validation targets detected.'
+  );
   process.stdout.write('\n\n');
 
   printHeader('Assumptions');

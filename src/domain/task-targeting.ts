@@ -3,6 +3,7 @@ import type {
   TargetCandidate,
   WorkspaceInspection
 } from '../types/repository.ts';
+import { inferRequestedDomains } from './domain-focus.ts';
 
 const ENVIRONMENT_KEYWORDS = ['dev', 'development', 'stage', 'staging', 'prod', 'production', 'qa', 'test'] as const;
 const DOMAIN_KEYWORDS = [
@@ -102,6 +103,17 @@ function buildCandidateDetails(params: {
   }
 
   return details;
+}
+
+function domainIdForCandidate(kind: TargetCandidate['kind']): 'helm' | 'pulumi' | 'terraform' {
+  switch (kind) {
+    case 'helm-chart':
+      return 'helm';
+    case 'pulumi-project':
+      return 'pulumi';
+    case 'terraform-root':
+      return 'terraform';
+  }
 }
 
 function scoreCandidate(params: {
@@ -217,6 +229,7 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
 } {
   const requestedEnvironment = detectRequestedEnvironment(task);
   const requestedService = detectRequestedService(task);
+  const requestedDomains = inferRequestedDomains(task, inspection.domainCapabilities);
   const targetCandidates: TargetCandidate[] = [];
 
   for (const chart of inspection.helmCharts) {
@@ -295,7 +308,16 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
     });
   }
 
-  targetCandidates.sort((left, right) => right.score - left.score || left.path.localeCompare(right.path));
+  targetCandidates.sort((left, right) => {
+    const leftDomainRank = requestedDomains.indexOf(domainIdForCandidate(left.kind));
+    const rightDomainRank = requestedDomains.indexOf(domainIdForCandidate(right.kind));
+    const normalizedLeftRank = leftDomainRank === -1 ? Number.MAX_SAFE_INTEGER : leftDomainRank;
+    const normalizedRightRank = rightDomainRank === -1 ? Number.MAX_SAFE_INTEGER : rightDomainRank;
+
+    return normalizedLeftRank - normalizedRightRank
+      || right.score - left.score
+      || left.path.localeCompare(right.path);
+  });
 
   return {
     requestedEnvironment,
