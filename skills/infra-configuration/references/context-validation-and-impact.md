@@ -25,6 +25,15 @@ Use a hybrid cache:
 - Refresh dynamically when the requested version is missing or stale.
 - Prefer local provider and chart schemas over cached prose.
 
+Current cache foundation:
+
+- The CLI has `KnowledgeSource`, `KnowledgeCacheEntry`, and
+  `RetrievedContextPacket` types.
+- The local cache adapter stores JSON entries with source metadata, content hash,
+  fetched time, and stale-after policy.
+- Official-doc fetching is not implemented yet; do not assume network retrieval
+  is available until a later slice adds explicit fetchers and cache root policy.
+
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.
 

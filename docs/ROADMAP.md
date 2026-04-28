@@ -274,6 +274,16 @@ Status on 2026-04-28:
 - Implement a local filesystem cache with version/source metadata.
 - Add repo-local schema discovery first; add dynamic official-doc fetching later.
 
+Status on 2026-04-28:
+
+- Added `KnowledgeSource`, `KnowledgeCacheEntry`, `KnowledgeCacheWrite`, and
+  `RetrievedContextPacket` types.
+- Added a local JSON cache adapter with deterministic source IDs, content hashes,
+  read/write helpers, and stale-after checks.
+- Cache IDs include source kind/name/version/url/path metadata so official docs
+  and schemas can be cached per provider/chart/package version.
+- Dynamic official-doc fetching is intentionally not implemented yet.
+
 ### Step 5: Add Semantic Constraint Extraction
 
 - Extract Helm constraints from `values.schema.json`, rendered manifests, and

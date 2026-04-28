@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `b425ee8` Format Terraform tfvars values using type facts
   - `39196f9` Promote validation issues into config semantics
   - `f4c0f40` Use Pulumi config semantics in edit plans
   - `9a53a35` Extract Pulumi stack config semantics
@@ -535,6 +536,45 @@ Recommended next implementation slice:
 2. Add result-card output for validation-derived semantic blockers.
 3. Expand Terraform type-aware formatting for simple list/map values when the
    task language can safely identify them.
+
+## 2026-04-28 Knowledge Cache Foundation Slice
+
+Files added or updated:
+
+- `src/types/knowledge.ts`
+- `src/knowledge/cache.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add first-class knowledge/context cache types:
+  - `KnowledgeSource`
+  - `KnowledgeCacheEntry`
+  - `KnowledgeCacheWrite`
+  - `RetrievedContextPacket`
+- Add a local JSON cache adapter with deterministic source IDs, content hashes,
+  read/write helpers, and stale-after checks.
+- Keep cache IDs version-sensitive by including source kind/name/version/url/path
+  metadata in the source hash.
+- Do not add network fetching yet; this is only the durable local storage and
+  typing layer for later official-doc retrieval.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 161/161 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add result-card output for validation-derived semantic blockers.
+2. Add a cache root resolver and workspace-config override for knowledge cache
+   location.
+3. Add dynamic official-doc fetchers only after cache root policy is explicit.
 
 ## Current Verification Commands
 

@@ -37,6 +37,12 @@ import { prioritizeEditPlanKinds } from '../src/agent/edit-plan-priority.ts';
 import { buildInspectionCandidateFiles, buildInspectionSearchPattern } from '../src/agent/inspection-priority.ts';
 import { deriveConfigSemanticsFromValidationIssues, mergeConfigSemantics } from '../src/agent/config-semantics-state.ts';
 import { resolveQueryLoopConfig } from '../src/query-config.ts';
+import {
+  buildKnowledgeCacheId,
+  isKnowledgeCacheEntryStale,
+  readKnowledgeCacheEntry,
+  writeKnowledgeCacheEntry
+} from '../src/knowledge/cache.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -133,6 +139,58 @@ test('inspectWorkspace extracts Pulumi stack config semantic facts', async () =>
     && fact.values?.includes('latest')
     && fact.source.path === 'infra/payments-api/Pulumi.dev.yaml'
   ));
+});
+
+test('knowledge cache ids include version-sensitive source metadata', () => {
+  const sourceV1 = {
+    kind: 'terraform-registry',
+    name: 'aws_instance',
+    provider: 'hashicorp/aws',
+    version: '5.0.0',
+    url: 'https://registry.terraform.io/providers/hashicorp/aws/5.0.0/docs/resources/instance'
+  };
+  const sourceV2 = {
+    ...sourceV1,
+    version: '6.0.0',
+    url: 'https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/instance'
+  };
+
+  assert.notEqual(buildKnowledgeCacheId(sourceV1), buildKnowledgeCacheId(sourceV2));
+});
+
+test('knowledge cache writes versioned entries and detects staleness', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-cache-'));
+
+  try {
+    const source = {
+      kind: 'helm-docs',
+      name: 'values.schema.json',
+      chart: 'payments-api',
+      version: '1.2.3',
+      url: 'https://helm.sh/docs/topics/charts/'
+    };
+    const written = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'text/markdown',
+      content: '# Values Schema\nUse JSON Schema for chart values.',
+      fetchedAt: '2026-04-28T00:00:00.000Z',
+      staleAfter: '2026-05-28T00:00:00.000Z',
+      summary: 'Helm chart values schema reference.',
+      metadata: {
+        sourceAuthority: 'official-docs'
+      }
+    });
+    const readBack = await readKnowledgeCacheEntry(tempRoot, source);
+
+    assert.ok(readBack);
+    assert.equal(readBack?.id, written.id);
+    assert.equal(readBack?.contentHash, written.contentHash);
+    assert.equal(readBack?.source.version, '1.2.3');
+    assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-05-01T00:00:00.000Z')), false);
+    assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-06-01T00:00:00.000Z')), true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
