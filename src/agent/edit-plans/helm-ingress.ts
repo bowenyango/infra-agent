@@ -1,17 +1,18 @@
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
+import { chooseHelmEnumValue, summarizeHelmRequiredFacts } from './helm-schema-semantics.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
 function hasIngressIntent(task: string): boolean {
   return /\bingress\b/i.test(task);
 }
 
-function buildIngressValuesBlock(hostname: string): string {
+function buildIngressValuesBlock(hostname: string, className: string): string {
   return [
     '',
     'ingress:',
     '  enabled: true',
-    '  className: nginx',
+    `  className: ${className}`,
     '  annotations: {}',
     `  host: ${hostname}`,
     '  path: /',
@@ -95,6 +96,8 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
   const serviceName = topHelmTarget.name;
   const environment = normalizeEnvironmentForHostname(runtime.preflight.requestedEnvironment);
   const hostname = `${serviceName}.${environment}.internal`;
+  const ingressClassName = chooseHelmEnumValue(runtime, topHelmTarget.path, 'ingress.className', 'nginx');
+  const requiredFactNote = summarizeHelmRequiredFacts(runtime, topHelmTarget.path, ['service.port']);
   const needsDefaultServicePort =
     runtime.preflight.profile.id === 'scrawlr-infra-apps'
     && topHelmTarget.path.startsWith('charts/apps/')
@@ -104,7 +107,7 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
     const serviceBlock = needsDefaultServicePort ? buildServiceValuesBlock() : '';
     writes.push({
       path: valuesPath,
-      content: `${valuesContent.trimEnd()}${serviceBlock}${buildIngressValuesBlock(hostname)}\n`,
+      content: `${valuesContent.trimEnd()}${serviceBlock}${buildIngressValuesBlock(hostname, ingressClassName.value)}\n`,
       reason: needsDefaultServicePort
         ? 'Add ingress values and a bounded default service.port to the chart values file.'
         : 'Add ingress values to the chart values file.'
@@ -127,9 +130,13 @@ export function buildHelmIngressEditPlan(runtime: AgentRuntimeState): EditPlan |
   return {
     kind: 'helm-ingress',
     summary: `Apply ingress configuration updates to ${topHelmTarget.path}.`,
-    rationale: needsDefaultServicePort
-      ? 'The task requests ingress changes and the selected app chart needs both ingress values and a minimal service.port default to satisfy common template references.'
-      : 'The task requests ingress changes and the selected chart is missing one or more required ingress assets.',
+    rationale: [
+      needsDefaultServicePort
+        ? 'The task requests ingress changes and the selected app chart needs both ingress values and a minimal service.port default to satisfy common template references.'
+        : 'The task requests ingress changes and the selected chart is missing one or more required ingress assets.',
+      ingressClassName.note,
+      requiredFactNote
+    ].filter(Boolean).join(' '),
     writes
   };
 }

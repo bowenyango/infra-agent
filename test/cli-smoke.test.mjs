@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, cp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, cp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
@@ -762,6 +762,63 @@ test('buildEditPlan does not inject a default service.port into generic ingress 
   const valuesWrite = editPlan?.writes.find(write => write.path.endsWith('values.yaml'));
   assert.ok(valuesWrite);
   assert.doesNotMatch(valuesWrite?.content ?? '', /\nservice:\n  port: 8080\n\ningress:\n/);
+});
+
+test('buildEditPlan uses Helm values schema enum facts for ingress className', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-schema-enum-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    await writeFile(
+      join(workspaceRoot, 'charts/payments-api/values.schema.json'),
+      JSON.stringify({
+        type: 'object',
+        properties: {
+          ingress: {
+            type: 'object',
+            properties: {
+              className: {
+                type: 'string',
+                enum: ['alb']
+              }
+            }
+          }
+        }
+      }, null, 2),
+      'utf8'
+    );
+
+    const preflight = await buildRunPreflight('add ingress to payments-api dev chart', workspaceRoot);
+    const valuesPath = join(workspaceRoot, 'charts/payments-api/values.yaml');
+    const editPlan = buildEditPlan({
+      task: preflight.task,
+      preflight,
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: valuesPath,
+            content: await readFile(valuesPath, 'utf8'),
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    });
+
+    const valuesWrite = editPlan?.writes.find(write => write.path.endsWith('values.yaml'));
+    assert.match(valuesWrite?.content ?? '', /\n  className: alb\n/);
+    assert.match(editPlan?.rationale ?? '', /allows alb/i);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('buildEditPlan respects workspace-config kind-scoped target prefix overrides', async () => {

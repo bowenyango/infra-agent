@@ -190,6 +190,8 @@ Implementation note:
 - In the current workspace it falls back to `python3` with PyYAML. The fallback
   uses a temp file rather than stdin because `spawnSync` with `input` can hang
   in the current sandbox.
+- Superseded by the later YAML dependency slice below: current code uses the
+  bundled `yaml` npm dependency directly.
 
 Known validation:
 
@@ -247,6 +249,45 @@ Recommended next implementation slice:
    missing-config output.
 4. Extend validation result cards to show semantic blockers separately from
    validator stderr.
+
+## 2026-04-28 Helm Schema-Aware Edit Plans Slice
+
+Files added or updated:
+
+- `src/agent/edit-plans/helm-schema-semantics.ts`
+- `src/agent/edit-plans/helm-ingress.ts`
+- `src/agent/edit-plans/helm-ingress-values-repair.ts`
+- `src/agent/edit-plans/helm-service-port-repair.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Start consuming extracted Helm values schema facts in edit-plan builders.
+- Add a focused helper for Helm semantic lookups so schema logic does not spread
+  across individual edit-plan files.
+- Use `enum` facts to choose `ingress.className`. For example, if schema allows
+  only `alb`, the ingress plan now writes `className: alb` instead of hardcoded
+  `nginx`.
+- Surface schema rationale in edit-plan rationale when schema facts influence
+  generated values.
+- Include required `service.port` schema notes in ingress/service-port repair
+  rationales when available.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 150/150 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Use required/default Helm schema facts to decide when ingress/service/probe
+   values are incomplete before validators fail.
+2. Add schema-aware repair for missing required fields beyond `service.port` and
+   `ingress.enabled`.
+3. Add Terraform variable semantics extraction.
 
 ## Current Verification Commands
 

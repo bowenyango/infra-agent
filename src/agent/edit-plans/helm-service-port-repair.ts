@@ -1,5 +1,6 @@
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
+import { summarizeHelmRequiredFacts } from './helm-schema-semantics.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
 function needsServicePortRepair(runtime: AgentRuntimeState): boolean {
@@ -26,10 +27,15 @@ export function buildHelmServicePortRepairEditPlan(runtime: AgentRuntimeState): 
     return null;
   }
 
+  const requiredFactNote = summarizeHelmRequiredFacts(runtime, topHelmTarget.path, ['service.port']);
+
   return {
     kind: 'helm-service-port-repair',
     summary: `Repair missing service.port configuration in ${valuesPath}.`,
-    rationale: 'Validation failed on a service.port reference and the selected chart values file does not currently define service.port.',
+    rationale: [
+      'Validation failed on a service.port reference and the selected chart values file does not currently define service.port.',
+      requiredFactNote
+    ].filter(Boolean).join(' '),
     writes: [
       {
         path: valuesPath,

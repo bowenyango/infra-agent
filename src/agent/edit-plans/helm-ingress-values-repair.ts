@@ -1,5 +1,6 @@
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
+import { chooseHelmEnumValue } from './helm-schema-semantics.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
 function needsIngressValuesRepair(runtime: AgentRuntimeState): boolean {
@@ -22,12 +23,12 @@ function normalizeEnvironmentForHostname(environment: string | null): string {
   return environment;
 }
 
-function buildIngressValuesBlock(hostname: string): string {
+function buildIngressValuesBlock(hostname: string, className: string): string {
   return [
     '',
     'ingress:',
     '  enabled: true',
-    '  className: nginx',
+    `  className: ${className}`,
     '  annotations: {}',
     `  host: ${hostname}`,
     '  path: /',
@@ -53,15 +54,19 @@ export function buildHelmIngressValuesRepairEditPlan(runtime: AgentRuntimeState)
 
   const environment = normalizeEnvironmentForHostname(runtime.preflight.requestedEnvironment);
   const hostname = `${topHelmTarget.name}.${environment}.internal`;
+  const ingressClassName = chooseHelmEnumValue(runtime, topHelmTarget.path, 'ingress.className', 'nginx');
 
   return {
     kind: 'helm-ingress-values-repair',
     summary: `Repair missing ingress values in ${valuesPath}.`,
-    rationale: 'Validation failed on ingress.enabled and the selected chart values file does not currently define ingress settings.',
+    rationale: [
+      'Validation failed on ingress.enabled and the selected chart values file does not currently define ingress settings.',
+      ingressClassName.note
+    ].filter(Boolean).join(' '),
     writes: [
       {
         path: valuesPath,
-        content: `${valuesContent.trimEnd()}${buildIngressValuesBlock(hostname)}\n`,
+        content: `${valuesContent.trimEnd()}${buildIngressValuesBlock(hostname, ingressClassName.value)}\n`,
         reason: 'Add bounded ingress defaults so existing ingress templates can render during validation.'
       }
     ]
