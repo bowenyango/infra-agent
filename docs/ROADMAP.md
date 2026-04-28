@@ -324,6 +324,10 @@ Status on 2026-04-28:
 - Added a first normalized `infra-agent.infra-graph` workspace graph with nodes
   and edges derived from inspection facts. This is a topology/impact foundation
   only; plan/preview actions and dependency impact are still future work.
+- `infra-agent graph` can now attach read-only Terraform plan JSON resource
+  actions as `terraform-resource` nodes with `planned-change` edges. It parses
+  `create`, `update`, `delete`, `replace`, `read`, and `no-op` actions, and
+  records Terraform `replace_paths` when present.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 
@@ -366,9 +370,9 @@ Status on 2026-04-28:
 
 ### Step 6: Add Impact Analysis
 
-- Add a read-only `analyze-plan` path for Terraform plan JSON and Pulumi preview
-  JSON/events.
-- Detect candidate renames and replacement cascades.
+- Expand read-only plan/preview analysis from Terraform plan JSON to Pulumi
+  preview JSON/events.
+- Detect candidate renames and replacement cascades from parsed graph actions.
 - Print guidance without executing state changes.
 
 ### Step 7: Add Graph JSON Before Web UI

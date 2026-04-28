@@ -1,5 +1,6 @@
 import { cwd, exit } from 'node:process';
-import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
@@ -10,6 +11,7 @@ import type { FileWriteRisk } from '../types/edit-plan.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
+import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import {
   buildCompactAgentRunResult,
   printAgentRunState,
@@ -33,6 +35,7 @@ export interface ParsedArgs {
   domains: InfraDomainId[];
   targetPaths: string[];
   maxSources: number | null;
+  terraformPlanPaths: string[];
 }
 
 function printUsage(): void {
@@ -43,7 +46,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
-      '  infra-agent graph [workspace] [--json]',
+      '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--target <terraform-root>] [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
@@ -71,7 +74,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       maxTurns: null,
       domains: [],
       targetPaths: [],
-      maxSources: null
+      maxSources: null,
+      terraformPlanPaths: []
     };
   }
 
@@ -81,7 +85,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const json = rest.includes('--json') || jsonFull;
   const cleanArgs = rest.filter(arg => arg !== '--json' && arg !== '--json-full');
 
-  if (commandName === 'inspect' || commandName === 'validate' || commandName === 'graph') {
+  if (commandName === 'inspect' || commandName === 'validate') {
     const workspace = cleanArgs[0] ?? cwd();
     return {
       command: commandName,
@@ -95,7 +99,69 @@ export function parseArgs(argv: string[]): ParsedArgs {
       maxTurns: null,
       domains: [],
       targetPaths: [],
-      maxSources: null
+      maxSources: null,
+      terraformPlanPaths: []
+    };
+  }
+
+  if (commandName === 'graph') {
+    let workspace = cwd();
+    const targetPaths: string[] = [];
+    const terraformPlanPaths: string[] = [];
+    const positionalArgs: string[] = [];
+
+    for (let index = 0; index < cleanArgs.length; index += 1) {
+      const arg = cleanArgs[index];
+
+      if (arg === '--terraform-plan') {
+        const planPath = cleanArgs[index + 1];
+        if (!planPath) {
+          fail('Missing value for --terraform-plan.');
+        }
+
+        terraformPlanPaths.push(planPath);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--target') {
+        const targetValue = cleanArgs[index + 1];
+        if (!targetValue) {
+          fail('Missing value for --target.');
+        }
+
+        targetPaths.push(targetValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg.startsWith('--')) {
+        fail(`Unknown graph option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('graph accepts at most one workspace path.');
+    }
+
+    workspace = positionalArgs[0] ?? workspace;
+
+    return {
+      command: 'graph',
+      task: null,
+      workspace,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      maxTurns: null,
+      domains: [],
+      targetPaths,
+      maxSources: null,
+      terraformPlanPaths
     };
   }
 
@@ -168,7 +234,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       maxTurns: null,
       domains,
       targetPaths,
-      maxSources
+      maxSources,
+      terraformPlanPaths: []
     };
   }
 
@@ -259,7 +326,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       maxTurns,
       domains: [],
       targetPaths: [],
-      maxSources: null
+      maxSources: null,
+      terraformPlanPaths: []
     };
   }
 
@@ -300,7 +368,15 @@ async function main(): Promise<void> {
 
   if (parsed.command === 'graph') {
     const inspection = await inspectWorkspace(parsed.workspace);
-    const graph = buildWorkspaceInfraGraph(inspection);
+    let graph = buildWorkspaceInfraGraph(inspection);
+
+    for (const planPath of parsed.terraformPlanPaths) {
+      const resolvedPlanPath = isAbsolute(planPath) ? planPath : resolve(parsed.workspace, planPath);
+      const planContent = await readFile(resolvedPlanPath, 'utf8');
+      graph = attachTerraformPlanToGraph(graph, JSON.parse(planContent) as unknown, {
+        targetPath: parsed.targetPaths[0] ?? null
+      });
+    }
 
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(graph, null, 2)}\n`);

@@ -64,7 +64,7 @@ The current repository includes a minimal TypeScript CLI skeleton with six comma
 
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
-- `infra-agent graph [workspace]`
+- `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--target <terraform-root>]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent run "<task>" [--workspace <path>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]`
@@ -74,8 +74,8 @@ Current behavior is intentionally runtime-foundation oriented:
 - `inspect` detects Helm charts, Pulumi projects, and Terraform roots
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
-  from workspace inspection facts; it does not yet consume plan/preview impact
-  data
+  from workspace inspection facts and can attach read-only Terraform plan JSON
+  resource actions when `--terraform-plan` is provided
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval

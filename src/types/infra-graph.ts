@@ -5,14 +5,18 @@ export type InfraGraphNodeKind =
   | 'pulumi-project'
   | 'pulumi-stack'
   | 'terraform-root'
+  | 'terraform-resource'
   | 'terraform-tfvars';
 
 export type InfraGraphEdgeKind =
   | 'contains'
   | 'configures'
-  | 'has-schema';
+  | 'has-schema'
+  | 'planned-change';
 
 export type InfraGraphConfidence = 'low' | 'medium' | 'high';
+export type InfraGraphSource = 'workspace-inspection' | 'terraform-plan';
+export type InfraGraphChangeAction = 'create' | 'update' | 'delete' | 'replace' | 'read' | 'no-op';
 
 export interface InfraGraphNode {
   id: string;
@@ -21,7 +25,7 @@ export interface InfraGraphNode {
   path: string | null;
   domain: 'helm' | 'pulumi' | 'terraform' | 'workspace';
   confidence: InfraGraphConfidence;
-  source: 'workspace-inspection';
+  source: InfraGraphSource;
   metadata?: Record<string, string | number | boolean | null>;
 }
 
@@ -31,7 +35,7 @@ export interface InfraGraphEdge {
   to: string;
   kind: InfraGraphEdgeKind;
   confidence: InfraGraphConfidence;
-  source: 'workspace-inspection';
+  source: InfraGraphSource;
   label?: string;
 }
 
@@ -39,6 +43,7 @@ export interface InfraGraphSummary {
   nodeCount: number;
   edgeCount: number;
   nodesByKind: Partial<Record<InfraGraphNodeKind, number>>;
+  changesByAction?: Partial<Record<InfraGraphChangeAction, number>>;
 }
 
 export interface InfraGraph {

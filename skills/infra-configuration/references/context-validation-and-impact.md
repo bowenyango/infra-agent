@@ -165,8 +165,11 @@ Current graph foundation:
 
 - `infra-agent graph --json` emits kind `infra-agent.infra-graph`.
 - Current nodes and edges are derived from workspace inspection facts only.
-- Treat graph confidence as structure confidence, not deploy impact confidence,
-  until Terraform plan JSON or Pulumi preview events are attached.
+- `infra-agent graph --terraform-plan <plan.json> --target <terraform-root>
+  --json` attaches Terraform plan resource actions as `terraform-resource`
+  nodes and `planned-change` edges without executing Terraform.
+- Treat graph confidence as parser confidence, not deploy approval. Replacement
+  and rename guidance remains advisory until reviewed against state.
 
 Minimum graph nodes:
 

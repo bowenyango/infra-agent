@@ -1176,8 +1176,15 @@ export function printInfraGraph(graph: InfraGraph): void {
   process.stdout.write(`nodes: ${graph.summary.nodeCount}\n`);
   process.stdout.write(`edges: ${graph.summary.edgeCount}\n`);
   process.stdout.write(`node kinds: ${Object.entries(graph.summary.nodesByKind).map(([kind, count]) => `${kind}=${count}`).join(', ') || 'none'}\n\n`);
+  if (graph.summary.changesByAction) {
+    process.stdout.write(`changes: ${Object.entries(graph.summary.changesByAction).map(([action, count]) => `${action}=${count}`).join(', ')}\n\n`);
+  }
+
   printHeader('Nodes');
-  printList(graph.nodes.map(node => `${node.kind} ${node.id}${node.path ? ` (${node.path})` : ''}`), 'No graph nodes detected.');
+  printList(graph.nodes.map(node => {
+    const action = typeof node.metadata?.action === 'string' ? ` [${node.metadata.action}]` : '';
+    return `${node.kind} ${node.id}${node.path ? ` (${node.path})` : ''}${action}`;
+  }), 'No graph nodes detected.');
   process.stdout.write('\n');
   printHeader('Edges');
   printList(graph.edges.map(edge => `${edge.kind} ${edge.from} -> ${edge.to}`), 'No graph edges detected.');

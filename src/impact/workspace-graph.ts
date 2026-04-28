@@ -1,4 +1,4 @@
-import type { InfraGraph, InfraGraphEdge, InfraGraphEdgeKind, InfraGraphNode, InfraGraphNodeKind } from '../types/infra-graph.ts';
+import type { InfraGraph, InfraGraphChangeAction, InfraGraphEdge, InfraGraphEdgeKind, InfraGraphNode, InfraGraphNodeKind } from '../types/infra-graph.ts';
 import type { WorkspaceInspection } from '../types/repository.ts';
 
 function graphId(prefix: string, path: string): string {
@@ -26,17 +26,32 @@ function buildEdge(params: Omit<InfraGraphEdge, 'id' | 'confidence' | 'source'>)
   };
 }
 
-function summarizeNodes(nodes: InfraGraphNode[], edges: InfraGraphEdge[]): InfraGraph['summary'] {
+function isGraphChangeAction(value: unknown): value is InfraGraphChangeAction {
+  return value === 'create'
+    || value === 'update'
+    || value === 'delete'
+    || value === 'replace'
+    || value === 'read'
+    || value === 'no-op';
+}
+
+export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEdge[]): InfraGraph['summary'] {
   const nodesByKind: Partial<Record<InfraGraphNodeKind, number>> = {};
+  const changesByAction: Partial<Record<InfraGraphChangeAction, number>> = {};
 
   for (const node of nodes) {
     nodesByKind[node.kind] = (nodesByKind[node.kind] ?? 0) + 1;
+
+    if (isGraphChangeAction(node.metadata?.action)) {
+      changesByAction[node.metadata.action] = (changesByAction[node.metadata.action] ?? 0) + 1;
+    }
   }
 
   return {
     nodeCount: nodes.length,
     edgeCount: edges.length,
-    nodesByKind
+    nodesByKind,
+    changesByAction: Object.keys(changesByAction).length > 0 ? changesByAction : undefined
   };
 }
 
@@ -183,6 +198,6 @@ export function buildWorkspaceInfraGraph(inspection: WorkspaceInspection): Infra
     workspaceRoot: inspection.workspaceRoot,
     nodes,
     edges,
-    summary: summarizeNodes(nodes, edges)
+    summary: summarizeInfraGraph(nodes, edges)
   };
 }

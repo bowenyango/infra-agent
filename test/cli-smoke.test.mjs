@@ -56,6 +56,10 @@ import {
 } from '../src/domain/helm-chart-context.ts';
 import { prefetchWorkspaceKnowledge } from '../src/knowledge/prefetch.ts';
 import { buildWorkspaceInfraGraph } from '../src/impact/workspace-graph.ts';
+import {
+  attachTerraformPlanToGraph,
+  parseTerraformPlanResourceChanges
+} from '../src/impact/terraform-plan-graph.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -100,6 +104,69 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   assert.equal(graph.summary.nodesByKind['workspace'], 1);
   assert.equal(graph.summary.nodeCount, graph.nodes.length);
   assert.equal(graph.summary.edgeCount, graph.edges.length);
+});
+
+test('Terraform plan impact attaches resource change nodes to the infra graph', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_instance.api',
+        mode: 'managed',
+        type: 'aws_instance',
+        name: 'api',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['delete', 'create'],
+          replace_paths: [['ami'], ['tags', 'Name']]
+        },
+        action_reason: 'replace_because_cannot_update'
+      },
+      {
+        address: 'aws_security_group.api',
+        mode: 'managed',
+        type: 'aws_security_group',
+        name: 'api',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['update']
+        }
+      },
+      {
+        address: 'data.aws_caller_identity.current',
+        mode: 'data',
+        type: 'aws_caller_identity',
+        name: 'current',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['no-op']
+        }
+      }
+    ]
+  };
+
+  const changes = parseTerraformPlanResourceChanges(planJson);
+  assert.deepEqual(changes.map(change => change.action), ['replace', 'update', 'no-op']);
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const replacementNode = impactedGraph.nodes.find(node => node.id === 'terraform-resource:aws_instance.api');
+
+  assert.ok(replacementNode);
+  assert.equal(replacementNode.kind, 'terraform-resource');
+  assert.equal(replacementNode.source, 'terraform-plan');
+  assert.equal(replacementNode.metadata?.action, 'replace');
+  assert.equal(replacementNode.metadata?.replacePaths, 'ami,tags.Name');
+  assert.equal(impactedGraph.summary.changesByAction?.replace, 1);
+  assert.equal(impactedGraph.summary.changesByAction?.update, 1);
+  assert.equal(impactedGraph.summary.changesByAction?.['no-op'], undefined);
+  assert.ok(impactedGraph.edges.some(edge =>
+    edge.kind === 'planned-change'
+    && edge.from === 'terraform-root:terraform/payments-api'
+    && edge.to === 'terraform-resource:aws_instance.api'
+  ));
 });
 
 test('inspectWorkspace extracts Helm values schema semantic facts', async () => {
@@ -2799,6 +2866,24 @@ test('graph CLI args accept workspace and json flags', () => {
 
   assert.equal(parsed.command, 'graph');
   assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.json, true);
+});
+
+test('graph CLI args accept Terraform plan impact flags', () => {
+  const parsed = parseArgs([
+    'graph',
+    'fixtures/terraform-workspace',
+    '--terraform-plan',
+    'plan.json',
+    '--target',
+    'terraform/payments-api',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'graph');
+  assert.equal(parsed.workspace, 'fixtures/terraform-workspace');
+  assert.deepEqual(parsed.terraformPlanPaths, ['plan.json']);
+  assert.deepEqual(parsed.targetPaths, ['terraform/payments-api']);
   assert.equal(parsed.json, true);
 });
 
