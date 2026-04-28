@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `155d0fd` Load Helm chart context into prompts
   - `640cd0b` Select Helm chart context sources
   - `0657434` Load cached Terraform context into prompts
   - `a7ea04f` Select Terraform Registry context sources
@@ -899,11 +900,52 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Add a CLI command to prefetch selected official docs explicitly, instead of
-   fetching implicitly inside `agent`.
-2. Start impact-analysis graph types before building any topology UI.
-3. Expand Helm context selection to include chart dependency metadata when
+1. Start impact-analysis graph types before building any topology UI.
+2. Expand Helm context selection to include chart dependency metadata when
    `Chart.lock` or `charts/` dependencies are present.
+3. Add Pulumi official-doc/source selection for detected package imports and
+   stack config namespaces.
+
+## 2026-04-28 Knowledge Prefetch CLI Slice
+
+Files added or updated:
+
+- `src/knowledge/prefetch.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add an explicit `infra-agent prefetch` command for deliberate official-doc
+  cache updates outside the agent loop.
+- Reuse Terraform Registry and Helm chart context source builders so the fetch
+  path selects the same version-sensitive sources used by planner retrieval.
+- Keep prefetch bounded through `--domain`, `--target`, and `--max-sources`.
+- Treat repo-local sources such as `values.schema.json` as local and skip
+  unnecessary fetch attempts.
+- Add pure prefetch coverage with a mocked fetcher and CLI argument parsing
+  coverage for source selection flags.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 179/179 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Start impact-analysis graph types before building any topology UI.
+2. Expand Helm context selection to include chart dependency metadata when
+   `Chart.lock` or `charts/` dependencies are present.
+3. Add Pulumi official-doc/source selection for detected package imports and
+   stack config namespaces.
 
 ## Current Verification Commands
 

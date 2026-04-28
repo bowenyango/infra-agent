@@ -65,6 +65,9 @@ Current cache foundation:
 - Helm agent runs load selected chart schema packets into runtime prompts for
   Helm-focused tasks. External Helm/chart docs should only appear when already
   present in the version-aware cache or fetched by a deliberate prefetch path.
+- The CLI exposes `infra-agent prefetch` for deliberate official-doc cache
+  updates. Prefer `--domain`, `--target`, and `--max-sources` to keep retrieval
+  bounded before running the agent.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.

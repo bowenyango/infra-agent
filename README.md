@@ -60,10 +60,11 @@ If validation fails, the agent should continue iterating until the failure is re
 
 ## Current CLI Surface
 
-The current repository includes a minimal TypeScript CLI skeleton with four commands:
+The current repository includes a minimal TypeScript CLI skeleton with five commands:
 
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
+- `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent run "<task>" [--workspace <path>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]`
 
@@ -71,6 +72,9 @@ Current behavior is intentionally runtime-foundation oriented:
 
 - `inspect` detects Helm charts, Pulumi projects, and Terraform roots
 - `validate` reports validator availability and the validation plan implied by the workspace
+- `prefetch` explicitly fills the version-aware knowledge cache for selected
+  Terraform/Helm official docs; it is bounded by `--max-sources` and skips
+  repo-local schema files that do not require network retrieval
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model

@@ -317,6 +317,10 @@ Status on 2026-04-28:
 - Helm runs now load selected chart schema context into runtime state and
   planner prompts. External Helm/chart docs remain cache-only inside the agent
   loop unless a separate fetch/prefetch path populates them.
+- Added an explicit `prefetch` CLI path for selected Terraform/Helm knowledge
+  sources. It uses the same version-aware cache and is bounded by
+  `--max-sources` so dynamic official-doc retrieval stays outside the agent
+  loop unless deliberately invoked.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

@@ -20,6 +20,7 @@ import type {
 } from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
+import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
 
 interface ValidationDerivedSemanticBlocker {
   targetKind: string;
@@ -60,6 +61,15 @@ export interface CompactAgentRunResult {
     signals: Pick<ApprovalSignal, 'kind' | 'path' | 'risk' | 'message'>[];
   };
   knowledgeCache: WorkspaceInspection['knowledgeCache'];
+}
+
+function formatKnowledgeSourceResult(result: KnowledgePrefetchSourceResult): string {
+  const location = result.source.url ?? result.source.localPath ?? 'unknown-source';
+  const confidence = result.confidence ? ` confidence=${result.confidence}` : '';
+  const contentType = result.contentType ? ` content=${result.contentType}` : '';
+  const message = result.message ? ` (${result.message})` : '';
+
+  return `${result.status} ${result.domain} ${result.targetPath}: ${result.source.kind} ${result.source.name} -> ${location}${confidence}${contentType}${message}`;
 }
 
 function printHeader(title: string): void {
@@ -1145,6 +1155,18 @@ export function printValidationPreflight(preflight: ValidationPreflight): void {
     summarizeFocusedValidationPlan(preflight.plan, []),
     'No validation targets detected.'
   );
+}
+
+export function printKnowledgePrefetchResult(result: KnowledgePrefetchResult): void {
+  printHeader('Knowledge prefetch');
+  process.stdout.write(`workspace: ${result.workspaceRoot}\n`);
+  process.stdout.write(`knowledge cache: ${result.cacheRoot}\n`);
+  process.stdout.write(`domains: ${result.requestedDomains.length > 0 ? result.requestedDomains.join(', ') : 'none'}\n`);
+  process.stdout.write(`targets: ${result.targetPaths.length > 0 ? result.targetPaths.join(', ') : 'all'}\n`);
+  process.stdout.write(`max external sources: ${result.maxSources}\n`);
+  process.stdout.write(`summary: fetched=${result.summary.fetched}, cached=${result.summary.cached}, stale-cache=${result.summary.staleCache}, local=${result.summary.local}, skipped=${result.summary.skipped}, failed=${result.summary.failed}\n\n`);
+  printHeader('Sources');
+  printList(result.sources.map(formatKnowledgeSourceResult), 'No knowledge sources selected.');
 }
 
 export function printRunPreflight(state: RunPreflightState): void {

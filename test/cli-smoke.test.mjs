@@ -54,6 +54,7 @@ import {
   buildHelmChartKnowledgeSources,
   retrieveHelmChartContextPackets
 } from '../src/domain/helm-chart-context.ts';
+import { prefetchWorkspaceKnowledge } from '../src/knowledge/prefetch.ts';
 
 test('inspect command detects fixture workspace assets', () => {
   const inspection = inspectWorkspace('fixtures/sample-workspace');
@@ -765,6 +766,103 @@ test('agent runtime loads Helm chart schema context for Helm tasks', async () =>
       packet.source.kind === 'chart-schema'
       && packet.source.name === 'api:values.schema.json'
     ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge prefetch fetches bounded external docs and skips local schema', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-prefetch-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(terraformRoot, { recursive: true });
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source = "hashicorp/aws"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_instance" "api" {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version = "5.37.0"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://example.com/api-chart',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'values.schema.json'),
+      '{"type":"object","required":["image"]}\n',
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['terraform', 'helm'],
+      targetPaths: ['terraform/app', 'charts/api'],
+      maxSources: 2,
+      fetcher: async source => ({
+        source,
+        contentType: 'text/markdown',
+        content: `# ${source.name}\nPrefetched docs for ${source.kind}.`,
+        fetchedAt: '2026-04-28T00:00:00.000Z',
+        staleAfter: '2026-05-28T00:00:00.000Z'
+      })
+    });
+
+    assert.equal(result.kind, 'infra-agent.knowledge-prefetch');
+    assert.equal(result.summary.fetched, 2);
+    assert.equal(result.summary.local, 1);
+    assert.equal(result.summary.skipped, 1);
+    assert.equal(result.summary.failed, 0);
+    assert.equal(result.cacheRoot, join(tempRoot, '.infra-agent/knowledge-cache'));
+    assert.ok(result.sources.some(source =>
+      source.status === 'local'
+      && source.source.kind === 'chart-schema'
+      && source.source.localPath === 'charts/api/values.schema.json'
+    ));
+    const fetchedTerraform = result.sources.find(source =>
+      source.status === 'fetched'
+      && source.source.kind === 'terraform-registry'
+    );
+    assert.ok(fetchedTerraform);
+    const cachedTerraform = await readKnowledgeCacheEntry(result.cacheRoot, fetchedTerraform.source);
+    assert.match(cachedTerraform?.content ?? '', /Prefetched docs/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -2640,6 +2738,27 @@ test('agent CLI args accept --json-full for full debug state output', () => {
   assert.equal(parsed.command, 'agent');
   assert.equal(parsed.json, true);
   assert.equal(parsed.jsonFull, true);
+});
+
+test('prefetch CLI args accept bounded source selection flags', () => {
+  const parsed = parseArgs([
+    'prefetch',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--max-sources',
+    '2',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'prefetch');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.equal(parsed.maxSources, 2);
+  assert.equal(parsed.json, true);
 });
 
 test('apply-edit-plan execution uses append_file for append-mode writes', async () => {

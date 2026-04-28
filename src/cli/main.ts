@@ -7,16 +7,19 @@ import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
+import type { InfraDomainId } from '../types/repository.ts';
+import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import {
   buildCompactAgentRunResult,
   printAgentRunState,
   printInspection,
+  printKnowledgePrefetchResult,
   printRunPreflight,
   printValidationPreflight
 } from './output.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'help';
   task: string | null;
   workspace: string;
   json: boolean;
@@ -25,6 +28,9 @@ export interface ParsedArgs {
   approvedWritePaths: string[];
   approvedWriteRisks: FileWriteRisk[];
   maxTurns: number | null;
+  domains: InfraDomainId[];
+  targetPaths: string[];
+  maxSources: number | null;
 }
 
 function printUsage(): void {
@@ -35,6 +41,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
+      '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
       ''
@@ -58,7 +65,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
-      maxTurns: null
+      maxTurns: null,
+      domains: [],
+      targetPaths: [],
+      maxSources: null
     };
   }
 
@@ -79,7 +89,83 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
-      maxTurns: null
+      maxTurns: null,
+      domains: [],
+      targetPaths: [],
+      maxSources: null
+    };
+  }
+
+  if (commandName === 'prefetch') {
+    let workspace = cwd();
+    let maxSources: number | null = null;
+    const domains: InfraDomainId[] = [];
+    const targetPaths: string[] = [];
+    const positionalArgs: string[] = [];
+
+    for (let index = 0; index < cleanArgs.length; index += 1) {
+      const arg = cleanArgs[index];
+
+      if (arg === '--domain') {
+        const domainValue = cleanArgs[index + 1];
+        if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
+          fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
+        }
+
+        domains.push(domainValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--target') {
+        const targetValue = cleanArgs[index + 1];
+        if (!targetValue) {
+          fail('Missing value for --target.');
+        }
+
+        targetPaths.push(targetValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--max-sources') {
+        const maxSourcesValue = cleanArgs[index + 1];
+        const parsedMaxSources = Number(maxSourcesValue);
+        if (!maxSourcesValue || !Number.isInteger(parsedMaxSources) || parsedMaxSources < 1) {
+          fail('Missing or invalid value for --max-sources. Expected a positive integer.');
+        }
+
+        maxSources = parsedMaxSources;
+        index += 1;
+        continue;
+      }
+
+      if (arg.startsWith('--')) {
+        fail(`Unknown prefetch option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('prefetch accepts at most one workspace path.');
+    }
+
+    workspace = positionalArgs[0] ?? workspace;
+
+    return {
+      command: 'prefetch',
+      task: null,
+      workspace,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      maxTurns: null,
+      domains,
+      targetPaths,
+      maxSources
     };
   }
 
@@ -167,7 +253,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner,
       approvedWritePaths,
       approvedWriteRisks,
-      maxTurns
+      maxTurns,
+      domains: [],
+      targetPaths: [],
+      maxSources: null
     };
   }
 
@@ -203,6 +292,23 @@ async function main(): Promise<void> {
     }
 
     printValidationPreflight(validationPreflight);
+    return;
+  }
+
+  if (parsed.command === 'prefetch') {
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: parsed.domains,
+      targetPaths: parsed.targetPaths,
+      maxSources: parsed.maxSources ?? undefined
+    });
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgePrefetchResult(result);
     return;
   }
 
