@@ -175,12 +175,20 @@ Current graph foundation:
   `possible-rename` edges when type, provider, and stable identity fields match.
   The edge includes `score`, `matchingIdentityKeys`, and `reason` metadata.
   Treat these as state-move review candidates, not automatic instructions.
+- Terraform plan graph output may include `depends-on` edges between changed
+  resources when plan value dependencies or configuration expression references
+  identify the relationship. When a replaced/deleted dependency has a changed
+  dependent, a `replacement-cascade` edge explains the likely downstream blast
+  radius.
 - `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project>
   --json` attaches Pulumi preview resource actions as `pulumi-resource` nodes
   and `planned-change` edges without executing Pulumi.
 - Matching Pulumi delete/create resources may also be linked with
   `possible-rename` edges when type and stable identity fields match. Namespace
   alone is not enough evidence for Kubernetes objects.
+- Pulumi preview graph output may include `depends-on` edges from dependency
+  metadata and `replacement-cascade` edges when a replaced/deleted upstream
+  resource has a changed dependent.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 

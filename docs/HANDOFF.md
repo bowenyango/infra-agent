@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `09e60c7` Mark Pulumi rename candidates in graph
   - `546ac03` Select Helm dependency context sources
   - `f80aa26` Score Terraform rename candidates
   - `60f863f` Attach Pulumi preview actions to graph
@@ -1231,6 +1232,49 @@ Recommended next implementation slice:
 2. Extend graph dependency edges beyond containment/configuration using plan or
    preview dependency metadata.
 3. Add a compact impact summary command/output on top of graph JSON.
+
+## 2026-04-28 Dependency Cascade Graph Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/terraform-plan-graph.ts`
+- `src/impact/pulumi-preview-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add graph edge kinds for `depends-on` and `replacement-cascade`.
+- Extract Terraform dependencies from plan value `depends_on` arrays and
+  configuration expression references that resolve to changed resource
+  addresses.
+- Extract Pulumi dependencies from preview metadata fields such as
+  `dependencies`, `dependencyUrns`, `dependencyURNs`, `dependsOn`, and
+  `propertyDependencies`.
+- Emit `replacement-cascade` edges when a replaced/deleted upstream resource has
+  a changed dependent in the same plan or preview graph.
+- Keep cascade edges advisory: they explain blast radius and likely causal
+  relationships, but they do not authorize apply/deploy or state mutation.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 190/190 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add a compact impact summary command/output on top of graph JSON.
+2. Extend dependency extraction to unchanged state resources when safe state or
+   preview metadata is available, avoiding dangling graph edges.
+3. Start provider-specific replacement reason enrichment from schemas or known
+   force-replacement fields.
 
 ## Current Verification Commands
 

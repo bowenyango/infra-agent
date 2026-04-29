@@ -12,6 +12,7 @@ interface TerraformResourceChange {
   actionReason: string | null;
   replacePaths: string[];
   identityValues: Record<string, string>;
+  dependsOn: string[];
 }
 
 interface TerraformRenameCandidate {
@@ -167,11 +168,108 @@ function collectReplacePaths(change: Record<string, unknown>): string[] {
   );
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function collectExpressionReferences(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap(collectExpressionReferences);
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return [
+    ...asStringArray(value.references),
+    ...Object.values(value).flatMap(collectExpressionReferences)
+  ];
+}
+
+function normalizeTerraformReference(reference: string, knownAddresses: string[]): string | null {
+  return knownAddresses.find(address => reference === address || reference.startsWith(`${address}.`)) ?? null;
+}
+
+function addDependency(dependencies: Map<string, Set<string>>, address: string, dependency: string | null): void {
+  if (!dependency || dependency === address) {
+    return;
+  }
+
+  const existing = dependencies.get(address) ?? new Set<string>();
+  existing.add(dependency);
+  dependencies.set(address, existing);
+}
+
+function collectTerraformModuleDependencies(
+  moduleValue: unknown,
+  knownAddresses: string[],
+  dependencies: Map<string, Set<string>>
+): void {
+  if (!isRecord(moduleValue)) {
+    return;
+  }
+
+  if (Array.isArray(moduleValue.resources)) {
+    for (const resource of moduleValue.resources) {
+      if (!isRecord(resource)) {
+        continue;
+      }
+
+      const address = asString(resource.address);
+      if (!address) {
+        continue;
+      }
+
+      for (const dependency of asStringArray(resource.depends_on)) {
+        addDependency(dependencies, address, normalizeTerraformReference(dependency, knownAddresses) ?? dependency);
+      }
+
+      for (const reference of collectExpressionReferences(resource.expressions)) {
+        addDependency(dependencies, address, normalizeTerraformReference(reference, knownAddresses));
+      }
+    }
+  }
+
+  if (Array.isArray(moduleValue.child_modules)) {
+    for (const childModule of moduleValue.child_modules) {
+      collectTerraformModuleDependencies(childModule, knownAddresses, dependencies);
+    }
+  }
+
+  if (isRecord(moduleValue.module_calls)) {
+    for (const moduleCall of Object.values(moduleValue.module_calls)) {
+      if (isRecord(moduleCall)) {
+        collectTerraformModuleDependencies(moduleCall.module, knownAddresses, dependencies);
+      }
+    }
+  }
+}
+
+function collectTerraformDependencyMap(planJson: Record<string, unknown>, knownAddresses: string[]): Map<string, string[]> {
+  const dependencies = new Map<string, Set<string>>();
+  const plannedValues = isRecord(planJson.planned_values) ? planJson.planned_values : null;
+  const priorState = isRecord(planJson.prior_state) ? planJson.prior_state : null;
+  const priorValues = isRecord(priorState?.values) ? priorState.values : null;
+  const configuration = isRecord(planJson.configuration) ? planJson.configuration : null;
+
+  collectTerraformModuleDependencies(plannedValues?.root_module, knownAddresses, dependencies);
+  collectTerraformModuleDependencies(priorValues?.root_module, knownAddresses, dependencies);
+  collectTerraformModuleDependencies(configuration?.root_module, knownAddresses, dependencies);
+
+  return new Map([...dependencies.entries()].map(([address, values]) => [address, [...values]]));
+}
+
 export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformResourceChange[] {
   if (!isRecord(planJson) || !Array.isArray(planJson.resource_changes)) {
     return [];
   }
 
+  const knownAddresses = planJson.resource_changes
+    .map(entry => isRecord(entry) ? asString(entry.address) : null)
+    .filter((address): address is string => Boolean(address))
+    .sort((left, right) => right.length - left.length);
+  const dependencyMap = collectTerraformDependencyMap(planJson, knownAddresses);
   const changes: TerraformResourceChange[] = [];
 
   for (const entry of planJson.resource_changes) {
@@ -197,7 +295,11 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
       actions,
       actionReason: asString(entry.action_reason),
       replacePaths: collectReplacePaths(change),
-      identityValues: collectIdentityValues(change.after ?? change.before, type)
+      identityValues: collectIdentityValues(change.after ?? change.before, type),
+      dependsOn: uniqueStrings([
+        ...(dependencyMap.get(address) ?? []),
+        ...asStringArray(entry.depends_on)
+      ]).filter(dependency => dependency !== address)
     });
   }
 
@@ -208,8 +310,16 @@ function edgeId(from: string, to: string): string {
   return `planned-change:${from}->${to}`;
 }
 
+function dependencyEdgeId(from: string, to: string): string {
+  return `depends-on:${from}->${to}`;
+}
+
 function renameEdgeId(from: string, to: string): string {
   return `possible-rename:${from}->${to}`;
+}
+
+function cascadeEdgeId(from: string, to: string): string {
+  return `replacement-cascade:${from}->${to}`;
 }
 
 function findParentNodeId(graph: InfraGraph, targetPath: string | null | undefined): string {
@@ -242,7 +352,8 @@ function buildResourceNode(change: TerraformResourceChange, targetPath: string |
       providerName: change.providerName,
       actionReason: change.actionReason,
       replacePaths: change.replacePaths.join(','),
-      identityKeys: Object.keys(change.identityValues).join(',')
+      identityKeys: Object.keys(change.identityValues).join(','),
+      dependsOn: change.dependsOn.join(',')
     }
   };
 }
@@ -257,6 +368,102 @@ function buildChangeEdge(parentNodeId: string, resourceNodeId: string, change: T
     source: 'terraform-plan',
     label: `Terraform plan ${change.action}`
   };
+}
+
+function buildDependencyEdges(
+  changes: TerraformResourceChange[],
+  edgeIds: Set<string>,
+  nodeIds: Set<string>
+): InfraGraphEdge[] {
+  const edges: InfraGraphEdge[] = [];
+
+  for (const change of changes) {
+    const from = `terraform-resource:${change.address}`;
+    if (!nodeIds.has(from)) {
+      continue;
+    }
+
+    for (const dependency of change.dependsOn) {
+      const to = `terraform-resource:${dependency}`;
+      if (!nodeIds.has(to)) {
+        continue;
+      }
+
+      const id = dependencyEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'depends-on',
+        confidence: 'high',
+        source: 'terraform-plan',
+        label: 'Terraform plan dependency',
+        metadata: {
+          dependentAction: change.action
+        }
+      });
+    }
+  }
+
+  return edges;
+}
+
+function isCascadeSource(change: TerraformResourceChange): boolean {
+  return change.action === 'replace' || change.action === 'delete';
+}
+
+function cascadeConfidence(dependency: TerraformResourceChange, dependent: TerraformResourceChange): 'medium' | 'high' {
+  return dependency.action === 'replace' && dependent.action === 'replace' ? 'high' : 'medium';
+}
+
+function buildReplacementCascadeEdges(changes: TerraformResourceChange[], edgeIds: Set<string>): InfraGraphEdge[] {
+  const changesByAddress = new Map(changes.map(change => [change.address, change]));
+  const edges: InfraGraphEdge[] = [];
+
+  for (const dependent of changes) {
+    if (dependent.action === 'no-op') {
+      continue;
+    }
+
+    for (const dependencyAddress of dependent.dependsOn) {
+      const dependency = changesByAddress.get(dependencyAddress);
+      if (!dependency || !isCascadeSource(dependency)) {
+        continue;
+      }
+
+      const from = `terraform-resource:${dependency.address}`;
+      const to = `terraform-resource:${dependent.address}`;
+      const id = cascadeEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'replacement-cascade',
+        confidence: cascadeConfidence(dependency, dependent),
+        source: 'terraform-plan',
+        label: 'Potential Terraform replacement cascade',
+        metadata: {
+          dependencyAction: dependency.action,
+          dependentAction: dependent.action,
+          dependencyAddress: dependency.address,
+          dependentAddress: dependent.address,
+          reason: `${dependent.address} depends on ${dependency.address}; upstream ${dependency.action} may explain downstream ${dependent.action}`
+        }
+      });
+    }
+  }
+
+  return edges;
 }
 
 function findMatchingIdentityKeys(left: TerraformResourceChange, right: TerraformResourceChange): string[] {
@@ -399,6 +606,8 @@ export function attachTerraformPlanToGraph(
     }
   }
 
+  edges.push(...buildDependencyEdges(changes, edgeIds, nodeIds));
+  edges.push(...buildReplacementCascadeEdges(changes, edgeIds));
   edges.push(...buildPossibleRenameEdges(changes, edgeIds));
 
   return {

@@ -9,6 +9,7 @@ interface PulumiResourceChange {
   action: InfraGraphChangeAction;
   diffs: string[];
   identityValues: Record<string, string>;
+  dependencyUrns: string[];
 }
 
 interface PulumiRenameCandidate {
@@ -60,6 +61,10 @@ function asStringArray(value: unknown): string[] {
   return [];
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
 function identityString(value: unknown): string | null {
   if (typeof value === 'string' && value.trim().length > 0) {
     return value.trim();
@@ -105,6 +110,29 @@ function collectIdentityValues(value: unknown): Record<string, string> {
 
 function identitySourceForMetadata(metadata: Record<string, unknown>): unknown {
   return metadata.new ?? metadata.inputs ?? metadata.outputs ?? metadata.old;
+}
+
+function collectPropertyDependencyUrns(value: unknown): string[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return Object.values(value).flatMap(asStringArray);
+}
+
+function collectPulumiDependencyUrns(value: unknown): string[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return uniqueStrings([
+    ...asStringArray(value.dependencies),
+    ...asStringArray(value.dependencyUrns),
+    ...asStringArray(value.dependencyURNs),
+    ...asStringArray(value.dependsOn),
+    ...asStringArray(value.depends_on),
+    ...collectPropertyDependencyUrns(value.propertyDependencies)
+  ]);
 }
 
 function normalizePulumiOperation(operation: string | null): InfraGraphChangeAction {
@@ -157,7 +185,8 @@ function parsePulumiMetadata(metadata: unknown): PulumiResourceChange | null {
       ...asStringArray(metadata.diffs),
       ...asStringArray(metadata.detailedDiff)
     ].filter((entry, index, entries) => entries.indexOf(entry) === index),
-    identityValues: collectIdentityValues(identitySourceForMetadata(metadata))
+    identityValues: collectIdentityValues(identitySourceForMetadata(metadata)),
+    dependencyUrns: collectPulumiDependencyUrns(metadata)
   };
 }
 
@@ -179,7 +208,8 @@ function parsePulumiStep(step: unknown): PulumiResourceChange | null {
     operation,
     action: normalizePulumiOperation(operation),
     diffs: asStringArray(step.diffs),
-    identityValues: collectIdentityValues(step.new ?? step.inputs ?? step.outputs ?? step.old)
+    identityValues: collectIdentityValues(step.new ?? step.inputs ?? step.outputs ?? step.old),
+    dependencyUrns: collectPulumiDependencyUrns(step)
   };
 }
 
@@ -227,6 +257,14 @@ function edgeId(from: string, to: string): string {
   return `planned-change:${from}->${to}`;
 }
 
+function dependencyEdgeId(from: string, to: string): string {
+  return `depends-on:${from}->${to}`;
+}
+
+function cascadeEdgeId(from: string, to: string): string {
+  return `replacement-cascade:${from}->${to}`;
+}
+
 function findParentNodeId(graph: InfraGraph, targetPath: string | null | undefined): string {
   if (targetPath) {
     const targetNodeId = `pulumi-project:${targetPath}`;
@@ -254,7 +292,8 @@ function buildResourceNode(change: PulumiResourceChange, targetPath: string | nu
       type: change.type,
       name: change.name,
       diffs: change.diffs.join(','),
-      identityKeys: Object.keys(change.identityValues).join(',')
+      identityKeys: Object.keys(change.identityValues).join(','),
+      dependencyUrns: change.dependencyUrns.join(',')
     }
   };
 }
@@ -269,6 +308,102 @@ function buildChangeEdge(parentNodeId: string, resourceNodeId: string, change: P
     source: 'pulumi-preview',
     label: `Pulumi preview ${change.action}`
   };
+}
+
+function buildDependencyEdges(
+  changes: PulumiResourceChange[],
+  edgeIds: Set<string>,
+  nodeIds: Set<string>
+): InfraGraphEdge[] {
+  const edges: InfraGraphEdge[] = [];
+
+  for (const change of changes) {
+    const from = `pulumi-resource:${change.urn}`;
+    if (!nodeIds.has(from)) {
+      continue;
+    }
+
+    for (const dependencyUrn of change.dependencyUrns) {
+      const to = `pulumi-resource:${dependencyUrn}`;
+      if (!nodeIds.has(to)) {
+        continue;
+      }
+
+      const id = dependencyEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'depends-on',
+        confidence: 'high',
+        source: 'pulumi-preview',
+        label: 'Pulumi preview dependency',
+        metadata: {
+          dependentAction: change.action
+        }
+      });
+    }
+  }
+
+  return edges;
+}
+
+function isCascadeSource(change: PulumiResourceChange): boolean {
+  return change.action === 'replace' || change.action === 'delete';
+}
+
+function cascadeConfidence(dependency: PulumiResourceChange, dependent: PulumiResourceChange): 'medium' | 'high' {
+  return dependency.action === 'replace' && dependent.action === 'replace' ? 'high' : 'medium';
+}
+
+function buildReplacementCascadeEdges(changes: PulumiResourceChange[], edgeIds: Set<string>): InfraGraphEdge[] {
+  const changesByUrn = new Map(changes.map(change => [change.urn, change]));
+  const edges: InfraGraphEdge[] = [];
+
+  for (const dependent of changes) {
+    if (dependent.action === 'no-op') {
+      continue;
+    }
+
+    for (const dependencyUrn of dependent.dependencyUrns) {
+      const dependency = changesByUrn.get(dependencyUrn);
+      if (!dependency || !isCascadeSource(dependency)) {
+        continue;
+      }
+
+      const from = `pulumi-resource:${dependency.urn}`;
+      const to = `pulumi-resource:${dependent.urn}`;
+      const id = cascadeEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'replacement-cascade',
+        confidence: cascadeConfidence(dependency, dependent),
+        source: 'pulumi-preview',
+        label: 'Potential Pulumi replacement cascade',
+        metadata: {
+          dependencyAction: dependency.action,
+          dependentAction: dependent.action,
+          dependencyUrn: dependency.urn,
+          dependentUrn: dependent.urn,
+          reason: `${dependent.urn} depends on ${dependency.urn}; upstream ${dependency.action} may explain downstream ${dependent.action}`
+        }
+      });
+    }
+  }
+
+  return edges;
 }
 
 function renameEdgeId(from: string, to: string): string {
@@ -409,6 +544,8 @@ export function attachPulumiPreviewToGraph(
     }
   }
 
+  edges.push(...buildDependencyEdges(changes, edgeIds, nodeIds));
+  edges.push(...buildReplacementCascadeEdges(changes, edgeIds));
   edges.push(...buildPossibleRenameEdges(changes, edgeIds));
 
   return {

@@ -12,9 +12,11 @@ export type InfraGraphNodeKind =
 export type InfraGraphEdgeKind =
   | 'contains'
   | 'configures'
+  | 'depends-on'
   | 'has-schema'
   | 'planned-change'
-  | 'possible-rename';
+  | 'possible-rename'
+  | 'replacement-cascade';
 
 export type InfraGraphConfidence = 'low' | 'medium' | 'high';
 export type InfraGraphSource = 'workspace-inspection' | 'terraform-plan' | 'pulumi-preview';

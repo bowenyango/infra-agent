@@ -335,6 +335,10 @@ Status on 2026-04-28:
   edges when delete/create pairs share resource type, provider, and stable
   identity fields such as `name`, `bucket`, or `tags.Name`. Strong identity
   fields can raise confidence to high; weak tag-only matches stay medium.
+- Terraform plan graph analysis now attaches `depends-on` edges from plan value
+  dependencies or configuration expression references, and marks
+  `replacement-cascade` edges when a replaced/deleted upstream resource has a
+  changed dependent in the same plan graph.
 - `infra-agent graph` can also attach read-only Pulumi preview JSON/event
   actions as `pulumi-resource` nodes with `planned-change` edges. It currently
   parses common `resourcePreEvent.metadata`, `resOutputsEvent.metadata`, and
@@ -342,6 +346,9 @@ Status on 2026-04-28:
 - Pulumi preview graph analysis now marks advisory `possible-rename` edges for
   delete/create pairs with matching resource type and stable identity fields,
   while avoiding namespace-only Kubernetes matches.
+- Pulumi preview graph analysis now also attaches `depends-on` edges from
+  preview dependency metadata and marks advisory `replacement-cascade` edges
+  when a replaced/deleted upstream resource has a changed dependent.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 
