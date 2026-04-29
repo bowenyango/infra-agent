@@ -87,10 +87,10 @@ Current behavior is intentionally runtime-foundation oriented:
   nodes without `planned-change` edges so agents can explain relationships
   without counting those resources as modified. Shared exclusive-identity rules
   currently cover examples such as AWS Routes, S3 buckets, named AWS resources,
-  and Kubernetes objects. Graph JSON includes compact `summary.impact` counts
-  and the text output includes an `Impact` section for quick handoff. A stable
-  graph snapshot fixture now covers the cross-domain impact contract before any
-  topology viewer work starts
+  AWS load balancing listener priorities, and Kubernetes objects. Graph JSON
+  includes compact `summary.impact` counts and the text output includes an
+  `Impact` section for quick handoff. A stable graph snapshot fixture now
+  covers the cross-domain impact contract before any topology viewer work starts
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval

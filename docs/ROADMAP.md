@@ -379,10 +379,11 @@ Status on 2026-04-28:
   create-before-delete conflicts, and replacement reason metadata. This is the
   contract baseline before a topology viewer is introduced.
 - Pulumi preview graph analysis uses the same shared exclusive-identity specs
-  and flags common exclusive-identity
-  delete/create pairs, including `delete-replaced`/`create-replacement` step
-  pairs, as `create-before-delete-conflict` edges. Current specs include AWS
-  Routes, S3 buckets, selected named AWS resources, and Kubernetes objects.
+  and flags common exclusive-identity delete/create pairs, including
+  `delete-replaced`/`create-replacement` step pairs, as
+  `create-before-delete-conflict` edges. Current specs include AWS Routes, S3
+  buckets, selected named AWS resources, AWS load balancing listener priorities,
+  and Kubernetes objects.
 - Runtime validation issue classification now recognizes Pulumi
   `AlreadyExists`/duplicate-name failures and produces guidance for aliases,
   `deleteBeforeReplace`, manually sequenced replacement, or explicit

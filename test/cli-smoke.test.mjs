@@ -608,6 +608,48 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   ));
 });
 
+test('Terraform plan impact marks AWS listener rule priority conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_lb_listener_rule.payments',
+        mode: 'managed',
+        type: 'aws_lb_listener_rule',
+        name: 'payments',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create', 'delete'],
+          replace_paths: [['condition']],
+          before: {
+            listener_arn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/app/1/2',
+            priority: 100
+          },
+          after: {
+            listener_arn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/app/1/2',
+            priority: 100
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const conflictEdge = impactedGraph.edges.find(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.ok(conflictEdge);
+  assert.equal(conflictEdge.confidence, 'high');
+  assert.equal(conflictEdge.metadata?.exclusiveIdentitySpec, 'aws-lb-listener-rule');
+  assert.equal(
+    conflictEdge.metadata?.exclusiveIdentityValues,
+    'listenerArn=arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/app/1/2,priority=100'
+  );
+  assert.match(String(conflictEdge.metadata?.reason), /PriorityInUse/);
+});
+
 test('Terraform plan impact enriches replacement reasons from known replacement paths', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -986,6 +1028,48 @@ test('Pulumi preview impact enriches replacement reasons from detailed diff', as
   assert.equal(bucketNode.metadata?.replacementReasonCategories, 'exclusive-identity');
   assert.match(String(bucketNode.metadata?.replacementReasons), /AWS S3 Bucket: bucket is the globally unique physical bucket name/);
   assert.match(String(bucketNode.metadata?.replacementSuggestedActions), /bucket identity change/);
+});
+
+test('Pulumi preview impact enriches AWS listener rule priority replacement reasons', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const ruleUrn = 'urn:pulumi:dev::payments-api::aws:lb/listenerRule:ListenerRule::payments';
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'replace',
+          urn: ruleUrn,
+          type: 'aws:lb/listenerRule:ListenerRule',
+          name: 'payments',
+          detailedDiff: {
+            priority: {
+              kind: 'update-replace'
+            }
+          },
+          old: {
+            listenerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/app/1/2',
+            priority: 100
+          },
+          new: {
+            listenerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/app/1/2',
+            priority: 200
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const ruleNode = impactedGraph.nodes.find(node => node.id === `pulumi-resource:${ruleUrn}`);
+
+  assert.ok(ruleNode);
+  assert.equal(ruleNode.metadata?.replacementPaths, 'priority');
+  assert.equal(ruleNode.metadata?.replacementReasonCategories, 'exclusive-identity');
+  assert.match(String(ruleNode.metadata?.replacementReasons), /AWS Load Balancer Listener Rule: priority must be unique/);
+  assert.match(String(ruleNode.metadata?.replacementSuggestedActions), /PriorityInUse/);
 });
 
 test('Pulumi preview impact marks AWS route create-before-delete replacement conflicts', async () => {

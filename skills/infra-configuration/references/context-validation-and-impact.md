@@ -226,10 +226,11 @@ Current graph foundation:
 - Pulumi preview graph output may include `create-before-delete-conflict` edges
   for delete/create or delete-replaced/create-replacement pairs that share a
   provider-exclusive identity. Current specs include AWS Routes, S3 buckets,
-  selected named AWS resources, and Kubernetes objects. Treat this as a
-  high-risk ordering warning: use aliases for logical renames,
-  `deleteBeforeReplace` or manual sequencing for true replacements with accepted
-  temporary removal, or explicit state/import repair after approval.
+  selected named AWS resources, AWS load balancing listener priorities, and
+  Kubernetes objects. Treat this as a high-risk ordering warning: use aliases
+  for logical renames, `deleteBeforeReplace` or manual sequencing for true
+  replacements with accepted temporary removal, or explicit state/import repair
+  after approval.
 - The exclusive-identity specs are shared between Terraform and Pulumi graph
   analysis. Add provider/resource specs there before adding provider-specific
   conflict logic elsewhere.

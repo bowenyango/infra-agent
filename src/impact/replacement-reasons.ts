@@ -113,6 +113,8 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
       'aws:iam/role:Role',
       'aws:iam/user:User',
       'aws:lambda/function:Function',
+      'aws:lb/loadBalancer:LoadBalancer',
+      'aws:lb/targetGroup:TargetGroup',
       'aws:rds/cluster:Cluster',
       'aws:rds/instance:Instance',
       'aws:sns/topic:Topic',
@@ -128,6 +130,8 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
       'aws_iam_role',
       'aws_iam_user',
       'aws_lambda_function',
+      'aws_lb',
+      'aws_lb_target_group',
       'aws_rds_cluster',
       'aws_sns_topic',
       'aws_sqs_queue'
@@ -136,6 +140,8 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
       {
         paths: [
           'name',
+          'namePrefix',
+          'name_prefix',
           'functionName',
           'function_name',
           'identifier',
@@ -148,6 +154,26 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
         category: 'exclusive-identity',
         reason: 'name-like field is the provider-visible physical identity',
         suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      }
+    ]
+  },
+  {
+    id: 'aws-lb-listener-rule',
+    label: 'AWS Load Balancer Listener Rule',
+    pulumiTypes: ['aws:lb/listenerRule:ListenerRule'],
+    terraformTypes: ['aws_lb_listener_rule'],
+    pathRules: [
+      {
+        paths: ['listenerArn', 'listener_arn'],
+        category: 'exclusive-identity',
+        reason: 'listener ARN is part of the listener rule identity boundary',
+        suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      },
+      {
+        paths: ['priority'],
+        category: 'exclusive-identity',
+        reason: 'priority must be unique for rules on the same listener',
+        suggestedAction: 'Check for PriorityInUse risk; use rename mapping for logical moves or explicitly sequence the old rule removal before recreating the same listener priority.'
       }
     ]
   },

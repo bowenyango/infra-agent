@@ -42,6 +42,9 @@ export const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
       'aws:iam/role:Role',
       'aws:iam/user:User',
       'aws:lambda/function:Function',
+      'aws:lb/loadBalancer:LoadBalancer',
+      'aws:lb/targetGroup:TargetGroup',
+      'aws:rds/cluster:Cluster',
       'aws:rds/instance:Instance',
       'aws:sns/topic:Topic',
       'aws:sqs/queue:Queue'
@@ -56,14 +59,29 @@ export const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
       'aws_iam_role',
       'aws_iam_user',
       'aws_lambda_function',
+      'aws_lb',
+      'aws_lb_target_group',
+      'aws_rds_cluster',
       'aws_sns_topic',
       'aws_sqs_queue'
     ],
     identityGroups: [
-      { key: 'name', paths: ['name', 'functionName', 'function_name', 'identifier', 'repository', 'queue', 'topic'] }
+      { key: 'name', paths: ['name', 'functionName', 'function_name', 'identifier', 'clusterIdentifier', 'cluster_identifier', 'repository', 'queue', 'topic'] }
     ],
     conflictError: 'AlreadyExists',
     suggestedAction: 'Use an IaC-native rename mapping for logical renames, or explicitly sequence replacement with delete-before-create/import/state repair after approval.'
+  },
+  {
+    id: 'aws-lb-listener-rule',
+    label: 'AWS Load Balancer Listener Rule',
+    pulumiTypes: ['aws:lb/listenerRule:ListenerRule'],
+    terraformTypes: ['aws_lb_listener_rule'],
+    identityGroups: [
+      { key: 'listenerArn', paths: ['listenerArn', 'listener_arn'] },
+      { key: 'priority', paths: ['priority'] }
+    ],
+    conflictError: 'PriorityInUse',
+    suggestedAction: 'Use an IaC-native rename mapping for logical renames, or explicitly sequence/delete the old rule before creating a new rule with the same listener priority.'
   },
   {
     id: 'aws-s3-bucket',

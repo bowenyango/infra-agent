@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `55d9da1` Add stable graph impact snapshot
   - `a5da92f` Enrich graph replacement reasons
   - `9f98219` Add unchanged dependency context nodes
   - `6a81fe5` Detect Terraform exclusive identity conflicts
@@ -1614,6 +1615,49 @@ Recommended next implementation slice:
    keeping prompts compact.
 3. Start a read-only local topology viewer only after one more graph contract
    slice if the graph snapshots remain stable.
+
+## 2026-04-29 AWS Load Balancing Identity Slice
+
+Files added or updated:
+
+- `src/impact/exclusive-identity.ts`
+- `src/impact/replacement-reasons.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add AWS Load Balancer and Target Group resources to shared named-resource
+  exclusive identity and replacement reason rules.
+- Add AWS Load Balancer Listener Rule as a separate exclusive identity spec
+  keyed by `listenerArn`/`listener_arn` plus `priority`, because listener rule
+  priority must be unique per listener and create-before-delete can fail with
+  `PriorityInUse`.
+- Add replacement reason rules for listener rule `listenerArn`/`listener_arn`
+  and `priority`, so graph output can explain priority-driven replacements
+  before users accept downtime or state changes.
+- Cover Terraform create-before-destroy listener rule conflict detection and
+  Pulumi listener rule replacement reason enrichment in smoke tests.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 202/202 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Explore safe provider schema ingestion for initialized Terraform roots while
+   keeping prompts compact.
+2. Add more provider-exclusive specs from real failure examples, especially
+   CloudFront aliases, API Gateway custom domains, Route53 records, and ACM
+   certificate domain validation records.
+3. Start a read-only local topology viewer only after schema-backed graph
+   enrichment and snapshot coverage remain stable.
 
 ## Current Verification Commands
 
