@@ -706,6 +706,55 @@ test('Terraform plan impact marks AWS security group rule duplicate permission c
   assert.match(String(conflictEdge.metadata?.reason), /InvalidPermission\.Duplicate/);
 });
 
+test('Terraform plan impact marks AWS VPC security group ingress rule duplicate permission conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_vpc_security_group_ingress_rule.api_https',
+        mode: 'managed',
+        type: 'aws_vpc_security_group_ingress_rule',
+        name: 'api_https',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create', 'delete'],
+          replace_paths: [['description']],
+          before: {
+            security_group_id: 'sg-1234567890',
+            ip_protocol: 'tcp',
+            from_port: 443,
+            to_port: 443,
+            cidr_ipv4: '10.0.0.0/16'
+          },
+          after: {
+            security_group_id: 'sg-1234567890',
+            ip_protocol: 'tcp',
+            from_port: 443,
+            to_port: 443,
+            cidr_ipv4: '10.0.0.0/16',
+            description: 'managed https ingress'
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const conflictEdge = impactedGraph.edges.find(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.ok(conflictEdge);
+  assert.equal(conflictEdge.metadata?.exclusiveIdentitySpec, 'aws-vpc-security-group-rule');
+  assert.equal(conflictEdge.metadata?.matchingExclusiveIdentityKeys, 'securityGroupId,ipProtocol,fromPort,toPort,peer');
+  assert.equal(
+    conflictEdge.metadata?.exclusiveIdentityValues,
+    'securityGroupId=sg-1234567890,ipProtocol=tcp,fromPort=443,toPort=443,peer=10.0.0.0/16'
+  );
+  assert.match(String(conflictEdge.metadata?.reason), /InvalidPermission\.Duplicate/);
+});
+
 test('Terraform plan impact marks CloudFront alias overlap conflicts', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -1444,6 +1493,60 @@ test('Pulumi preview impact marks AWS security group rule duplicate permission c
   assert.equal(
     conflictEdges[0]?.metadata?.exclusiveIdentityValues,
     'securityGroupId=sg-1234567890,type=ingress,protocol=tcp,fromPort=443,toPort=443,source=10.0.0.0/16'
+  );
+  assert.match(String(conflictEdges[0]?.metadata?.reason), /InvalidPermission\.Duplicate/);
+});
+
+test('Pulumi preview impact marks AWS VPC security group egress rule duplicate permission conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'delete-replaced',
+          urn: 'urn:pulumi:prod::network::aws:vpc/securityGroupEgressRule:SecurityGroupEgressRule::old-api-egress',
+          type: 'aws:vpc/securityGroupEgressRule:SecurityGroupEgressRule',
+          name: 'old-api-egress',
+          old: {
+            securityGroupId: 'sg-1234567890',
+            ipProtocol: 'tcp',
+            fromPort: 443,
+            toPort: 443,
+            referencedSecurityGroupId: 'sg-0987654321'
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create-replacement',
+          urn: 'urn:pulumi:prod::network::aws:vpc/securityGroupEgressRule:SecurityGroupEgressRule::new-api-egress',
+          type: 'aws:vpc/securityGroupEgressRule:SecurityGroupEgressRule',
+          name: 'new-api-egress',
+          new: {
+            securityGroupId: 'sg-1234567890',
+            ipProtocol: 'tcp',
+            fromPort: 443,
+            toPort: 443,
+            referencedSecurityGroupId: 'sg-0987654321'
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const conflictEdges = impactedGraph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.equal(conflictEdges.length, 1);
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-vpc-security-group-rule');
+  assert.equal(
+    conflictEdges[0]?.metadata?.exclusiveIdentityValues,
+    'securityGroupId=sg-1234567890,ipProtocol=tcp,fromPort=443,toPort=443,peer=sg-0987654321'
   );
   assert.match(String(conflictEdges[0]?.metadata?.reason), /InvalidPermission\.Duplicate/);
 });

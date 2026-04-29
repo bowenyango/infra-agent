@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `15fe5a9` Add security rule identity conflicts
   - `b4d511a` Classify Pulumi DNS identity conflicts
   - `a5cd2a8` Add AWS DNS domain identity rules
   - `526595a` Tag provider schema context with lockfile versions
@@ -1884,13 +1885,57 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Add current best-practice AWS VPC security group ingress/egress rule specs
-   (`aws_vpc_security_group_ingress_rule`/`egress_rule` and Pulumi equivalents)
-   if local provider schema or real preview examples confirm the exact identity
-   field names.
-2. Add runtime validation classifiers for `InvalidPermission.Duplicate` and
+1. Add runtime validation classifiers for `InvalidPermission.Duplicate` and
    IAM OIDC `EntityAlreadyExists` only after collecting representative CLI
    output examples.
+2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-29 VPC Security Group Rule Identity Slice
+
+Files added or updated:
+
+- `src/impact/exclusive-identity.ts`
+- `src/impact/replacement-reasons.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add shared exclusive-identity specs for current VPC-style AWS security group
+  ingress and egress rule resources:
+  - Terraform `aws_vpc_security_group_ingress_rule`
+  - Terraform `aws_vpc_security_group_egress_rule`
+  - Pulumi `aws:vpc:SecurityGroupIngressRule`
+  - Pulumi `aws:vpc:SecurityGroupEgressRule`
+- Keep these separate from legacy `aws_security_group_rule` semantics because
+  current VPC-style resources use a single peer field instead of source lists.
+- Match identity by security group ID, IP protocol, ports, and one combined peer
+  field from `cidrIpv4`/`cidr_ipv4`, `cidrIpv6`/`cidr_ipv6`,
+  `prefixListId`/`prefix_list_id`, or
+  `referencedSecurityGroupId`/`referenced_security_group_id`.
+- Add replacement reason path rules for the same identity fields.
+- Cover Terraform ingress and Pulumi egress create-before-delete conflict graph
+  behavior.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 217/217 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add runtime validation classifiers for `InvalidPermission.Duplicate` and
+   IAM OIDC `EntityAlreadyExists` only after collecting representative CLI
+   output examples.
+2. Consider provider-schema-assisted conditional identity matching for
+   all-protocol VPC security group rules where `fromPort`/`toPort` are omitted,
+   but keep the current graph rule conservative until exact plan shapes are
+   observed.
 3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands

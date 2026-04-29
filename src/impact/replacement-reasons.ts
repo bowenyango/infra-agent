@@ -207,6 +207,40 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
     ]
   },
   {
+    id: 'aws-vpc-security-group-rule',
+    label: 'AWS VPC Security Group Rule',
+    pulumiTypes: [
+      'aws:vpc:SecurityGroupIngressRule',
+      'aws:vpc/securityGroupIngressRule:SecurityGroupIngressRule',
+      'aws:vpc:SecurityGroupEgressRule',
+      'aws:vpc/securityGroupEgressRule:SecurityGroupEgressRule'
+    ],
+    terraformTypes: [
+      'aws_vpc_security_group_ingress_rule',
+      'aws_vpc_security_group_egress_rule'
+    ],
+    pathRules: [
+      {
+        paths: ['securityGroupId', 'security_group_id'],
+        category: 'exclusive-identity',
+        reason: 'security group ID is part of the VPC security group rule permission identity',
+        suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      },
+      {
+        paths: ['ipProtocol', 'ip_protocol', 'fromPort', 'from_port', 'toPort', 'to_port'],
+        category: 'exclusive-identity',
+        reason: 'protocol and ports are part of the VPC security group rule permission identity',
+        suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      },
+      {
+        paths: ['cidrIpv4', 'cidr_ipv4', 'cidrIpv6', 'cidr_ipv6', 'prefixListId', 'prefix_list_id', 'referencedSecurityGroupId', 'referenced_security_group_id'],
+        category: 'exclusive-identity',
+        reason: 'traffic peer is part of the VPC security group rule permission identity',
+        suggestedAction: 'Check for InvalidPermission.Duplicate risk; use import/state repair for logical adoption or explicitly sequence duplicate permission replacement after approval.'
+      }
+    ]
+  },
+  {
     id: 'aws-cloudfront-alias',
     label: 'AWS CloudFront distribution alias',
     pulumiTypes: ['aws:cloudfront/distribution:Distribution'],

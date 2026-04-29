@@ -111,6 +111,34 @@ export const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
     suggestedAction: 'Security group rules are exclusive by group, direction, protocol, ports, and traffic source. Use import/state repair for logical moves, or explicitly remove/sequence the old rule before creating a duplicate permission.'
   },
   {
+    id: 'aws-vpc-security-group-rule',
+    label: 'AWS VPC Security Group Rule',
+    pulumiTypes: [
+      'aws:vpc:SecurityGroupIngressRule',
+      'aws:vpc/securityGroupIngressRule:SecurityGroupIngressRule',
+      'aws:vpc:SecurityGroupEgressRule',
+      'aws:vpc/securityGroupEgressRule:SecurityGroupEgressRule'
+    ],
+    terraformTypes: [
+      'aws_vpc_security_group_ingress_rule',
+      'aws_vpc_security_group_egress_rule'
+    ],
+    identityGroups: [
+      { key: 'securityGroupId', paths: ['securityGroupId', 'security_group_id'] },
+      { key: 'ipProtocol', paths: ['ipProtocol', 'ip_protocol'] },
+      { key: 'fromPort', paths: ['fromPort', 'from_port'] },
+      { key: 'toPort', paths: ['toPort', 'to_port'] },
+      {
+        key: 'peer',
+        paths: ['cidrIpv4', 'cidr_ipv4', 'cidrIpv6', 'cidr_ipv6', 'prefixListId', 'prefix_list_id', 'referencedSecurityGroupId', 'referenced_security_group_id'],
+        combine: true,
+        match: 'overlap'
+      }
+    ],
+    conflictError: 'InvalidPermission.Duplicate',
+    suggestedAction: 'VPC security group rule resources are exclusive by group, direction, protocol, ports, and one traffic peer. Use import/state repair for logical adoption, or sequence duplicate permission replacement after reviewing source/destination scope.'
+  },
+  {
     id: 'aws-cloudfront-alias',
     label: 'AWS CloudFront distribution alias',
     pulumiTypes: ['aws:cloudfront/distribution:Distribution'],

@@ -382,10 +382,10 @@ Status on 2026-04-28:
   and flags common exclusive-identity delete/create pairs, including
   `delete-replaced`/`create-replacement` step pairs, as
   `create-before-delete-conflict` edges. Current specs include AWS Routes, S3
-  buckets, selected named AWS resources, AWS security group rules, IAM OIDC
-  providers, AWS load balancing listener priorities, CloudFront aliases, API
-  Gateway custom domains, Route53 records including ACM validation CNAMEs, and
-  Kubernetes objects.
+  buckets, selected named AWS resources, legacy and VPC-style AWS security
+  group rules, IAM OIDC providers, AWS load balancing listener priorities,
+  CloudFront aliases, API Gateway custom domains, Route53 records including ACM
+  validation CNAMEs, and Kubernetes objects.
 - Runtime validation issue classification now recognizes Pulumi
   `AlreadyExists`/duplicate-name failures plus DNS/domain conflicts such as
   CloudFront `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, and

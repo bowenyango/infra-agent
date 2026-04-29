@@ -238,13 +238,13 @@ Current graph foundation:
 - Pulumi preview graph output may include `create-before-delete-conflict` edges
   for delete/create or delete-replaced/create-replacement pairs that share a
   provider-exclusive identity. Current specs include AWS Routes, S3 buckets,
-  selected named AWS resources, AWS security group rules, IAM OIDC providers,
-  AWS load balancing listener priorities, CloudFront aliases, API Gateway custom
-  domains, Route53 records including ACM validation CNAMEs, and Kubernetes
-  objects. Treat this as a high-risk ordering warning: use aliases for logical
-  renames, `deleteBeforeReplace` or manual sequencing for true replacements
-  with accepted temporary removal, or explicit state/import repair after
-  approval.
+  selected named AWS resources, legacy and VPC-style AWS security group rules,
+  IAM OIDC providers, AWS load balancing listener priorities, CloudFront
+  aliases, API Gateway custom domains, Route53 records including ACM validation
+  CNAMEs, and Kubernetes objects. Treat this as a high-risk ordering warning:
+  use aliases for logical renames, `deleteBeforeReplace` or manual sequencing
+  for true replacements with accepted temporary removal, or explicit
+  state/import repair after approval.
 - The exclusive-identity specs are shared between Terraform and Pulumi graph
   analysis. Add provider/resource specs there before adding provider-specific
   conflict logic elsewhere.
@@ -253,6 +253,10 @@ Current graph foundation:
   `self` into a single overlap-matched identity group. Explain the matched
   source facts before recommending imports, state moves, or delete-before-create
   sequencing.
+- VPC-style security group rule specs use the current single-peer field shape:
+  `cidrIpv4`, `cidrIpv6`, `prefixListId`, or `referencedSecurityGroupId`
+  combined as one peer identity. Keep these separate from legacy
+  `aws_security_group_rule` source-list semantics.
 - Replacement reason specs are also shared between Terraform and Pulumi impact
   analysis. Add path rules for known immutable or exclusive-identity fields
   before adding one-off graph logic.
