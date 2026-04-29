@@ -94,6 +94,7 @@ export interface TerraformRootSummary {
   rootPath: string;
   tfFiles: string[];
   tfvarsFiles: string[];
+  providerSchemaFiles: string[];
   moduleHints: string[];
   environmentHints: string[];
 }

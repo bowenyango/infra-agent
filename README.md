@@ -94,6 +94,14 @@ Current behavior is intentionally runtime-foundation oriented:
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval
+- Terraform roots may include a read-only local provider schema export at
+  `.infra-agent/terraform-provider-schema.json` (or
+  `.infra-agent/terraform-providers-schema.json`) generated from
+  `terraform providers schema -json`. `inspect`, `prefetch`, and the agent
+  runtime use compact facts from that file for provider-required fields, field
+  types, and nested block shape without loading the full schema JSON into the
+  planner prompt. Replacement and ForceNew behavior still comes from native
+  plan output plus provider-specific impact rules.
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model

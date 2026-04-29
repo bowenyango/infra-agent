@@ -87,6 +87,7 @@ export function detectRequestedService(task: string): string | null {
 function buildCandidateDetails(params: {
   candidateKind: 'helm-chart' | 'pulumi-project' | 'terraform-root';
   tfvarsFiles?: string[];
+  providerSchemaFiles?: string[];
   moduleHints?: string[];
 }): string[] {
   if (params.candidateKind !== 'terraform-root') {
@@ -96,6 +97,10 @@ function buildCandidateDetails(params: {
   const details: string[] = [];
   if (params.tfvarsFiles && params.tfvarsFiles.length > 0) {
     details.push(`tfvars: ${params.tfvarsFiles.join(', ')}`);
+  }
+
+  if (params.providerSchemaFiles && params.providerSchemaFiles.length > 0) {
+    details.push(`provider schema: ${params.providerSchemaFiles.join(', ')}`);
   }
 
   if (params.moduleHints && params.moduleHints.length > 0) {
@@ -303,6 +308,7 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       details: buildCandidateDetails({
         candidateKind: 'terraform-root',
         tfvarsFiles: root.tfvarsFiles,
+        providerSchemaFiles: root.providerSchemaFiles,
         moduleHints: root.moduleHints
       })
     });

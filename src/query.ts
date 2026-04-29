@@ -12,6 +12,7 @@ import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
 import type { QueryLoopConfig } from './query-config.ts';
 import type { RetrievedContextPacket } from './types/knowledge.ts';
+import { retrieveTerraformProviderSchemaContextPackets } from './domain/terraform-provider-schema.ts';
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
 import { retrieveHelmChartContextPackets } from './domain/helm-chart-context.ts';
 import type {
@@ -301,6 +302,12 @@ async function retrieveInitialContext(preflight: RunPreflightState): Promise<Ret
   const packets: RetrievedContextPacket[] = [];
 
   for (const root of selectTerraformContextRoots(preflight)) {
+    packets.push(...await retrieveTerraformProviderSchemaContextPackets({
+      workspaceRoot: preflight.workspaceRoot,
+      root,
+      reason: `Local Terraform provider schema for selected root ${root.rootPath}`
+    }));
+
     packets.push(...await retrieveTerraformRegistryContextPackets({
       workspaceRoot: preflight.workspaceRoot,
       root,

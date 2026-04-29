@@ -388,6 +388,15 @@ Status on 2026-04-28:
   `AlreadyExists`/duplicate-name failures and produces guidance for aliases,
   `deleteBeforeReplace`, manually sequenced replacement, or explicit
   state/import repair review.
+- Terraform roots can now ingest an optional local
+  `.infra-agent/terraform-provider-schema.json` or
+  `.infra-agent/terraform-providers-schema.json` export from
+  `terraform providers schema -json`. The runtime extracts compact provider
+  schema facts for resources and data sources actually used by the root, and
+  exposes a bounded local context packet instead of passing the full schema JSON
+  to the planner. Treat this as shape/type/required-field context; replacement
+  behavior remains driven by native plan output and provider-specific impact
+  rules.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

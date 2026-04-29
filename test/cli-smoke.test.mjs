@@ -52,6 +52,10 @@ import {
   retrieveTerraformRegistryContextPackets
 } from '../src/domain/terraform-registry-context.ts';
 import {
+  buildTerraformProviderSchemaKnowledgeSources,
+  retrieveTerraformProviderSchemaContextPackets
+} from '../src/domain/terraform-provider-schema.ts';
+import {
   buildHelmChartKnowledgeSources,
   retrieveHelmChartContextPackets
 } from '../src/domain/helm-chart-context.ts';
@@ -1605,6 +1609,105 @@ test('official knowledge fetcher normalizes response content type', async () => 
   assert.equal(fetched?.metadata?.retrieval, 'official-url');
 });
 
+async function writeTerraformProviderSchemaWorkspace(tempRoot) {
+  const terraformRoot = join(tempRoot, 'terraform/app');
+  await mkdir(join(terraformRoot, '.infra-agent'), { recursive: true });
+  await writeFile(
+    join(terraformRoot, 'main.tf'),
+    [
+      'terraform {',
+      '  required_providers {',
+      '    aws = {',
+      '      source = "hashicorp/aws"',
+      '    }',
+      '  }',
+      '}',
+      '',
+      'resource "aws_lb_listener_rule" "payments" {',
+      '  listener_arn = "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/app/1/2"',
+      '  priority     = 100',
+      '',
+      '  action {',
+      '    type             = "forward"',
+      '    target_group_arn = "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/app/1"',
+      '  }',
+      '',
+      '  condition {',
+      '    path_pattern {',
+      '      values = ["/payments/*"]',
+      '    }',
+      '  }',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(terraformRoot, '.infra-agent/terraform-provider-schema.json'),
+    JSON.stringify({
+      format_version: '1.0',
+      provider_schemas: {
+        'registry.terraform.io/hashicorp/aws': {
+          resource_schemas: {
+            aws_lb_listener_rule: {
+              version: 0,
+              block: {
+                attributes: {
+                  arn: {
+                    type: 'string',
+                    computed: true
+                  },
+                  listener_arn: {
+                    type: 'string',
+                    required: true
+                  },
+                  priority: {
+                    type: 'number',
+                    optional: true
+                  }
+                },
+                block_types: {
+                  action: {
+                    nesting_mode: 'list',
+                    min_items: 1,
+                    max_items: 1,
+                    block: {
+                      attributes: {
+                        type: {
+                          type: 'string',
+                          required: true
+                        }
+                      }
+                    }
+                  },
+                  condition: {
+                    nesting_mode: 'list',
+                    min_items: 1
+                  }
+                }
+              }
+            },
+            aws_instance: {
+              version: 0,
+              block: {
+                attributes: {
+                  ami: {
+                    type: 'string',
+                    required: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }, null, 2),
+    'utf8'
+  );
+
+  return terraformRoot;
+}
+
 test('Terraform Registry context sources use provider requirements and lockfile versions', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-sources-'));
 
@@ -1661,6 +1764,94 @@ test('Terraform Registry context sources use provider requirements and lockfile 
     assert.match(instanceSource.url ?? '', /providers\/hashicorp\/aws\/latest\/docs\/resources\/instance$/);
     assert.ok(amiSource);
     assert.match(amiSource.url ?? '', /providers\/hashicorp\/aws\/latest\/docs\/data-sources\/ami$/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('inspectWorkspace extracts compact Terraform provider schema semantics', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-provider-schema-'));
+
+  try {
+    await writeTerraformProviderSchemaWorkspace(tempRoot);
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === 'terraform/app');
+    assert.ok(root);
+    assert.deepEqual(root.providerSchemaFiles, ['terraform/app/.infra-agent/terraform-provider-schema.json']);
+    const targeting = buildTargetCandidates('update terraform app listener rule priority', inspection);
+    assert.ok(targeting.targetCandidates[0]?.details?.some(detail =>
+      detail.includes('provider schema: terraform/app/.infra-agent/terraform-provider-schema.json')
+    ));
+
+    const providerSchemaSummary = inspection.configSemantics.find(summary =>
+      summary.targetKind === 'terraform-root'
+      && summary.targetPath === 'terraform/app'
+      && summary.facts.some(fact => fact.source.kind === 'terraform-provider-schema')
+    );
+    assert.ok(providerSchemaSummary);
+    assert.ok(providerSchemaSummary.facts.some(fact =>
+      fact.kind === 'required-field'
+      && fact.path === 'resource.aws_lb_listener_rule.listener_arn'
+      && fact.values?.includes('string')
+    ));
+    assert.ok(providerSchemaSummary.facts.some(fact =>
+      fact.kind === 'type-constraint'
+      && fact.path === 'resource.aws_lb_listener_rule.priority'
+      && fact.values?.includes('number')
+    ));
+    assert.ok(providerSchemaSummary.facts.some(fact =>
+      fact.kind === 'required-field'
+      && fact.path === 'resource.aws_lb_listener_rule.action'
+      && fact.values?.includes('max_items=1')
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Terraform provider schema context stays local and compact', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-provider-schema-context-'));
+
+  try {
+    await writeTerraformProviderSchemaWorkspace(tempRoot);
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === 'terraform/app');
+    assert.ok(root);
+
+    const sources = await buildTerraformProviderSchemaKnowledgeSources(tempRoot, root);
+    assert.equal(sources.length, 1);
+    assert.equal(sources[0]?.kind, 'provider-schema');
+    assert.equal(sources[0]?.localPath, 'terraform/app/.infra-agent/terraform-provider-schema.json');
+
+    const packets = await retrieveTerraformProviderSchemaContextPackets({
+      workspaceRoot: tempRoot,
+      root,
+      reason: 'Local provider schema for Terraform planning'
+    });
+    assert.equal(packets.length, 1);
+    assert.equal(packets[0]?.source.kind, 'provider-schema');
+    assert.match(packets[0]?.excerpt ?? '', /aws_lb_listener_rule/);
+    assert.match(packets[0]?.excerpt ?? '', /listener_arn/);
+    assert.doesNotMatch(packets[0]?.excerpt ?? '', /aws_instance/);
+
+    const prefetch = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxSources: 1,
+      fetcher: async source => ({
+        source,
+        contentType: 'text/markdown',
+        content: `# ${source.name}`,
+        fetchedAt: '2026-04-29T00:00:00.000Z',
+        staleAfter: '2026-05-29T00:00:00.000Z'
+      })
+    });
+    assert.ok(prefetch.sources.some(source =>
+      source.status === 'local'
+      && source.source.kind === 'provider-schema'
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

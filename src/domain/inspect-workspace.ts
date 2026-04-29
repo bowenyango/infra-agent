@@ -7,6 +7,10 @@ import { detectRepoProfile } from './repo-profile.ts';
 import { resolveDomainCapabilities } from './domain-capabilities.ts';
 import { extractHelmValuesSchemaSemanticsForCharts } from './helm-values-schema.ts';
 import { extractPulumiStackConfigSemanticsForProjects } from './pulumi-stack-config.ts';
+import {
+  detectTerraformProviderSchemaFiles,
+  extractTerraformProviderSchemaSemanticsForRoots
+} from './terraform-provider-schema.ts';
 import { extractTerraformVariableSemanticsForRoots } from './terraform-variables.ts';
 import { readWorkspaceConfig } from './workspace-config.ts';
 import { resolveKnowledgeCacheRoot } from '../knowledge/cache-root.ts';
@@ -136,6 +140,7 @@ function buildTerraformRootSummary(
     rootPath: relative(workspaceRoot, dirPath) || '.',
     tfFiles: tfFiles.map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
     tfvarsFiles: tfvarsFiles.map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
+    providerSchemaFiles: [],
     moduleHints: Array.from(moduleHints).sort(),
     environmentHints: extractEnvironmentHints([relative(workspaceRoot, dirPath) || '.', ...tfvarsFiles])
   };
@@ -202,10 +207,14 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
   state.helmCharts.sort((left, right) => left.chartRoot.localeCompare(right.chartRoot));
   state.pulumiProjects.sort((left, right) => left.projectRoot.localeCompare(right.projectRoot));
   state.terraformRoots.sort((left, right) => left.rootPath.localeCompare(right.rootPath));
+  for (const root of state.terraformRoots) {
+    root.providerSchemaFiles = await detectTerraformProviderSchemaFiles(workspaceRoot, root);
+  }
   const helmSemantics = await extractHelmValuesSchemaSemanticsForCharts(workspaceRoot, state.helmCharts);
   const pulumiSemantics = await extractPulumiStackConfigSemanticsForProjects(workspaceRoot, state.pulumiProjects);
   const terraformSemantics = await extractTerraformVariableSemanticsForRoots(workspaceRoot, state.terraformRoots);
-  const configSemantics = [...helmSemantics, ...pulumiSemantics, ...terraformSemantics];
+  const terraformProviderSchemaSemantics = await extractTerraformProviderSchemaSemanticsForRoots(workspaceRoot, state.terraformRoots);
+  const configSemantics = [...helmSemantics, ...pulumiSemantics, ...terraformSemantics, ...terraformProviderSchemaSemantics];
 
   return {
     workspaceRoot,

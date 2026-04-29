@@ -1130,7 +1130,7 @@ export function printInspection(inspection: WorkspaceInspection): void {
 
   printHeader('Terraform Roots');
   printList(
-    inspection.terraformRoots.map(root => `${root.rootPath} (${root.tfFiles.length} .tf file(s), ${root.tfvarsFiles.length} tfvars file(s))`),
+    inspection.terraformRoots.map(root => `${root.rootPath} (${root.tfFiles.length} .tf file(s), ${root.tfvarsFiles.length} tfvars file(s), ${root.providerSchemaFiles.length} provider schema file(s))`),
     'No Terraform roots detected.'
   );
 

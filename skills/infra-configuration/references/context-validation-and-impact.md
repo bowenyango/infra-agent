@@ -210,6 +210,14 @@ Current graph foundation:
 - `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project>
   --json` attaches Pulumi preview resource actions as `pulumi-resource` nodes
   and `planned-change` edges without executing Pulumi.
+- Terraform roots may carry a local provider schema export at
+  `.infra-agent/terraform-provider-schema.json` or
+  `.infra-agent/terraform-providers-schema.json`. Use compact facts from this
+  source for required provider fields, configured field types, and nested block
+  shape. Do not paste full provider schema JSON into prompts, and do not treat
+  provider schema shape alone as proof that a change is in-place or
+  replacement-only; confirm replacement behavior with Terraform plan output and
+  provider-specific impact rules.
 - Matching Pulumi delete/create resources may also be linked with
   `possible-rename` edges when type and stable identity fields match. Namespace
   alone is not enough evidence for Kubernetes objects.

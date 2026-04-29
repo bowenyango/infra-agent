@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `0082b6a` Add AWS load balancing identity rules
   - `55d9da1` Add stable graph impact snapshot
   - `a5da92f` Enrich graph replacement reasons
   - `9f98219` Add unchanged dependency context nodes
@@ -1658,6 +1659,60 @@ Recommended next implementation slice:
    certificate domain validation records.
 3. Start a read-only local topology viewer only after schema-backed graph
    enrichment and snapshot coverage remain stable.
+
+## 2026-04-29 Terraform Provider Schema Context Slice
+
+Files added or updated:
+
+- `src/domain/terraform-provider-schema.ts`
+- `src/domain/inspect-workspace.ts`
+- `src/knowledge/prefetch.ts`
+- `src/query.ts`
+- `src/impact/workspace-graph.ts`
+- `src/domain/task-targeting.ts`
+- `src/types/config-semantics.ts`
+- `src/types/repository.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add read-only ingestion for local Terraform provider schema exports saved
+  inside a Terraform root at `.infra-agent/terraform-provider-schema.json`,
+  `.infra-agent/terraform-providers-schema.json`,
+  `terraform-provider-schema.json`, or `terraform-providers-schema.json`.
+- Parse `terraform providers schema -json` output defensively and only extract
+  compact facts for resources and data sources actually used by the selected
+  Terraform root.
+- Add provider schema `ConfigSemantics` facts for provider-required fields,
+  configured field types, and required/configured nested block constraints.
+- Add a compact local provider-schema context packet for agent prompts without
+  caching or injecting the full provider schema JSON.
+- Add provider schema local source reporting to `prefetch`; local schema files
+  are reported as local and do not consume external fetch budget.
+- Surface provider schema file counts in inspection and workspace graph
+  Terraform root metadata.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 204/204 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add provider version labels from `.terraform.lock.hcl` to provider schema
+   context packets so exact schema provenance is clearer.
+2. Add more provider-exclusive specs from real failure examples, especially
+   CloudFront aliases, API Gateway custom domains, Route53 records, and ACM
+   certificate domain validation records.
+3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands
 

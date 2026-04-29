@@ -176,6 +176,7 @@ export function buildWorkspaceInfraGraph(inspection: WorkspaceInspection): Infra
       metadata: {
         tfFileCount: root.tfFiles.length,
         tfvarsFileCount: root.tfvarsFiles.length,
+        providerSchemaFileCount: root.providerSchemaFiles.length,
         moduleHints: root.moduleHints.join(','),
         environmentHints: root.environmentHints.join(',')
       }

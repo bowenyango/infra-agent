@@ -2,6 +2,7 @@ export type ConfigSemanticsTargetKind = 'helm-chart' | 'pulumi-project' | 'terra
 
 export type ConfigSemanticSourceKind =
   | 'helm-values-schema'
+  | 'terraform-provider-schema'
   | 'terraform-variable'
   | 'pulumi-config'
   | 'pulumi-preview'
