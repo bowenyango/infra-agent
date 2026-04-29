@@ -139,6 +139,9 @@ Current implemented source:
   `CNAMEAlreadyExists`, API Gateway custom domain `ConflictException`, and
   Route53 `InvalidChangeBatch` are also classified as non-repairable ordering
   blockers with alias/domain/record metadata when the CLI output exposes it.
+  Security group rule `InvalidPermission.Duplicate` and IAM OIDC provider
+  `EntityAlreadyExists` failures are classified the same way with rule peer,
+  security group, or OIDC URL metadata when parseable.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

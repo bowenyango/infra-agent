@@ -5944,6 +5944,49 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
   assert.equal(Object.hasOwn(compact, 'preflight'), false);
 });
 
+test('summarizeResultCard includes Pulumi security duplicate validation findings', async () => {
+  const preflight = await buildRunPreflight('update pulumi dev stack networking rule', 'fixtures/sample-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'error: api error InvalidPermission.Duplicate: the specified rule "peer: 10.0.0.0/16, TCP, from port: 443, to port: 443, ALLOW" already exists'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'pulumi-create-before-delete-conflict',
+          repairable: false,
+          sourceCommand: 'pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+          message: 'api error InvalidPermission.Duplicate',
+          guidance: 'Review the preview for matching direction, protocol, port range, security group, and peer before sequencing replacement.',
+          metadata: {
+            conflictCode: 'InvalidPermission.Duplicate',
+            conflictFamily: 'aws-security-group-rule',
+            securityGroupRulePeers: '10.0.0.0/16'
+          }
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(summary.some(line => /Validation findings: Pulumi create-before-delete conflict: provider returned InvalidPermission\.Duplicate for 10\.0\.0\.0\/16\./i.test(line)));
+});
+
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {
   const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
   const summary = summarizeResultCard({
@@ -7453,6 +7496,52 @@ test('classifyValidationIssues marks Pulumi Route53 InvalidChangeBatch conflicts
   assert.equal(issues[0]?.metadata?.recordTypes, 'CNAME');
   assert.match(issues[0]?.guidance ?? '', /ACM validation CNAMEs/);
   assert.match(issues[0]?.guidance ?? '', /allowOverwrite/);
+});
+
+test('classifyValidationIssues marks Pulumi security group duplicate permission conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/network --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:vpc/securityGroupIngressRule:SecurityGroupIngressRule (api-https):',
+        'error: api error InvalidPermission.Duplicate: the specified rule "peer: 10.0.0.0/16, TCP, from port: 443, to port: 443, ALLOW" already exists: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'InvalidPermission.Duplicate');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-security-group-rule');
+  assert.equal(issues[0]?.metadata?.securityGroupRulePeers, '10.0.0.0/16');
+  assert.match(issues[0]?.guidance ?? '', /security group rule/);
+  assert.match(issues[0]?.guidance ?? '', /direction, protocol, port range, security group, and peer/);
+  assert.match(issues[0]?.guidance ?? '', /inline, legacy, and VPC-style rule managers/);
+});
+
+test('classifyValidationIssues marks Pulumi IAM OIDC provider duplicate conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/identity --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:iam/openIdConnectProvider:OpenIdConnectProvider (github):',
+        'error: api error EntityAlreadyExists: Provider with url https://token.actions.githubusercontent.com already exists: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'EntityAlreadyExists');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-iam-oidc-provider');
+  assert.equal(issues[0]?.metadata?.oidcProviderUrls, 'https://token.actions.githubusercontent.com');
+  assert.match(issues[0]?.guidance ?? '', /IAM OIDC provider/);
+  assert.match(issues[0]?.guidance ?? '', /role trust policies/);
+  assert.match(issues[0]?.guidance ?? '', /import\/state repair or aliases/);
 });
 
 test('classifyValidationIssues marks general Pulumi preview failures as pulumi-preview-failure', () => {

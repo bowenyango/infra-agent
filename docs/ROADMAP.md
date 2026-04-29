@@ -389,9 +389,10 @@ Status on 2026-04-28:
 - Runtime validation issue classification now recognizes Pulumi
   `AlreadyExists`/duplicate-name failures plus DNS/domain conflicts such as
   CloudFront `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, and
-  Route53 `InvalidChangeBatch`, then produces guidance for aliases,
-  `deleteBeforeReplace`, manually sequenced replacement, or explicit
-  state/import repair review.
+  Route53 `InvalidChangeBatch`, plus security group rule
+  `InvalidPermission.Duplicate` and IAM OIDC provider `EntityAlreadyExists`,
+  then produces guidance for aliases, `deleteBeforeReplace`, manually sequenced
+  replacement, or explicit state/import repair review.
 - Terraform roots can now ingest an optional local
   `.infra-agent/terraform-provider-schema.json` or
   `.infra-agent/terraform-providers-schema.json` export from

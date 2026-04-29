@@ -115,8 +115,11 @@ export interface ValidationIssue {
     providerName?: string;
     recordTypes?: string;
     resourceType?: string;
+    oidcProviderUrls?: string;
     routeDestinations?: string;
     routeTableIds?: string;
+    securityGroupIds?: string;
+    securityGroupRulePeers?: string;
     yamlPath?: string;
     yamlParser?: string;
   };

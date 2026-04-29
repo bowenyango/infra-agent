@@ -299,7 +299,11 @@ function summarizeValidationFindings(state: AgentRunState): string {
       return `Pulumi create-before-delete conflict: AWS route already exists${routeTables ? ` in ${routeTables}` : ''}${destinations ? ` for ${destinations}` : ''}.`;
     }
 
-    const identity = topIssue.metadata?.dnsNames || topIssue.metadata?.duplicateIdentity;
+    const identity = topIssue.metadata?.dnsNames
+      || topIssue.metadata?.oidcProviderUrls
+      || topIssue.metadata?.securityGroupRulePeers
+      || topIssue.metadata?.securityGroupIds
+      || topIssue.metadata?.duplicateIdentity;
     const conflictCode = topIssue.metadata?.conflictCode;
     return `Pulumi create-before-delete conflict: provider returned ${conflictCode ?? 'an exclusive identity error'}${identity ? ` for ${identity}` : ''}.`;
   }

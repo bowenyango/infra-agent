@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `2039f49` Add VPC security group rule identity conflicts
   - `15fe5a9` Add security rule identity conflicts
   - `b4d511a` Classify Pulumi DNS identity conflicts
   - `a5cd2a8` Add AWS DNS domain identity rules
@@ -1936,6 +1937,55 @@ Recommended next implementation slice:
    all-protocol VPC security group rules where `fromPort`/`toPort` are omitted,
    but keep the current graph rule conservative until exact plan shapes are
    observed.
+3. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-29 Security Runtime Conflict Classifier Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `src/types/agent.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Extend runtime validation classification for Pulumi provider-exclusive
+  ordering failures to security group duplicate permissions and IAM OIDC
+  provider duplicates.
+- Classify `InvalidPermission.Duplicate` outputs with security-group-rule
+  context as `conflictFamily=aws-security-group-rule`.
+- Classify `EntityAlreadyExists` outputs with OpenID Connect/OIDC provider
+  context as `conflictFamily=aws-iam-oidc-provider`.
+- Extract security group IDs, rule peers, and OIDC provider URLs when parseable
+  from CLI output.
+- Add family-specific guidance that keeps aliases, import, state repair,
+  delete-before-create sequencing, and IAM trust-policy changes behind native
+  preview/state review and explicit approval.
+- Keep the issue kind stable as `pulumi-create-before-delete-conflict` so
+  downstream planners continue handling these as non-repairable ordering
+  blockers.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 220/220 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Consider provider-schema-assisted conditional identity matching for
+   all-protocol VPC security group rules where `fromPort`/`toPort` are omitted,
+   but keep the current graph rule conservative until exact plan shapes are
+   observed.
+2. Add more runtime validation families only from representative provider CLI
+   outputs with clear identity boundaries.
 3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands

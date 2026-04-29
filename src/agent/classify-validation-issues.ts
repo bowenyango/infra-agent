@@ -6,11 +6,14 @@ interface PulumiCreateBeforeDeleteConflictFacts {
   conflictFamily: string;
   duplicateIdentity: string | null;
   dnsNames: string[];
+  oidcProviderUrls: string[];
   providerName: string | null;
   recordTypes: string[];
   resourceType: string | null;
   routeDestinations: string[];
   routeTableIds: string[];
+  securityGroupIds: string[];
+  securityGroupRulePeers: string[];
 }
 
 function buildIssue(result: ValidationCommandOutput, issue: Omit<ValidationIssue, 'sourceCommand'>): ValidationIssue {
@@ -99,6 +102,36 @@ function extractRecordTypes(output: string): string[] {
   return uniqueMatches(output, /\btype=['"`]?([A-Z][A-Z0-9_]*)['"`]?/gi).slice(0, 8);
 }
 
+function extractSecurityGroupIds(output: string): string[] {
+  return uniqueMatches(output, /\b(sg-[0-9a-f]+)\b/gi).slice(0, 8);
+}
+
+function extractSecurityGroupRulePeers(output: string): string[] {
+  const peers = [
+    ...uniqueMatches(output, /\b((?:\d{1,3}\.){3}\d{1,3}\/\d{1,2})\b/g),
+    ...uniqueMatches(output, /\b([0-9a-f:]+::[0-9a-f:/]*)\b/gi),
+    ...uniqueMatches(output, /\b(pl-[0-9a-f]+)\b/gi),
+    ...uniqueMatches(output, /\bsource security group ['"`]?((?:sg-)?[0-9a-f]+)['"`]?/gi),
+    ...uniqueMatches(output, /\bpeer:\s*([^,\n"]+)/gi)
+  ];
+
+  return [...new Set(peers)]
+    .map(peer => peer.trim())
+    .filter(peer => peer.length > 0)
+    .slice(0, 8);
+}
+
+function extractOidcProviderUrls(output: string): string[] {
+  const urls = [
+    ...uniqueMatches(output, /\b(https:\/\/[^\s'",)]+)/gi),
+    ...uniqueMatches(output, /\boidc-provider\/([A-Za-z0-9._~:/-]+)/gi)
+  ];
+
+  return [...new Set(urls.map(url => url.replace(/[.]+$/g, '').trim()))]
+    .filter(url => url.length > 0)
+    .slice(0, 8);
+}
+
 function conflictCodeFromOutput(output: string, resourceType: string | null): string | null {
   const directConflictCode = output.match(/\b(RouteAlreadyExists|BucketAlreadyExists|BucketAlreadyOwnedByYou|EntityAlreadyExists|ResourceAlreadyExistsException|RepositoryAlreadyExistsException|QueueAlreadyExists|TopicAlreadyExists|DBInstanceAlreadyExists|TableAlreadyExistsException|AlreadyExistsException|InvalidGroup\.Duplicate|InvalidPermission\.Duplicate|CNAMEAlreadyExists)\b/i)?.[1];
   if (directConflictCode) {
@@ -135,6 +168,14 @@ function conflictFamilyFromFacts(params: {
     return 'aws-route53-record';
   }
 
+  if (params.conflictCode === 'InvalidPermission.Duplicate' && /security.?group|SecurityGroup(?:Ingress|Egress)?Rule|permission/i.test(params.resourceType ?? params.output)) {
+    return 'aws-security-group-rule';
+  }
+
+  if (params.conflictCode === 'EntityAlreadyExists' && /open.?id.?connect|oidc|oidc-provider|OpenIdConnectProvider/i.test(params.resourceType ?? params.output)) {
+    return 'aws-iam-oidc-provider';
+  }
+
   if (params.conflictCode === 'ConflictException' && /domainName:DomainName|domain name|custom domain/i.test(params.resourceType ?? params.output)) {
     return 'aws-api-gateway-domain-name';
   }
@@ -164,11 +205,14 @@ function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCre
     }),
     duplicateIdentity: extractDuplicateIdentity(output),
     dnsNames: extractDnsNames(output),
+    oidcProviderUrls: extractOidcProviderUrls(output),
     providerName,
     recordTypes: extractRecordTypes(output),
     resourceType,
     routeDestinations,
-    routeTableIds
+    routeTableIds,
+    securityGroupIds: extractSecurityGroupIds(output),
+    securityGroupRulePeers: extractSecurityGroupRulePeers(output)
   };
 }
 
@@ -192,6 +236,17 @@ function buildPulumiCreateBeforeDeleteConflictGuidance(facts: PulumiCreateBefore
     const dnsText = facts.dnsNames.length > 0 ? ` ${facts.dnsNames.join(', ')}` : '';
     const typeText = facts.recordTypes.length > 0 ? ` type(s) ${facts.recordTypes.join(', ')}` : '';
     return `Pulumi attempted to create a Route53 record set${dnsText}${typeText} that conflicts with an existing record, and the provider returned ${facts.conflictCode}. This is common for ACM validation CNAMEs and logical record moves. Review the preview for matching hosted zone, name, type, and set identifier; prefer import/state repair for logical moves, use allowOverwrite only after DNS ownership review, or explicitly sequence delete-before-create after approval.`;
+  }
+
+  if (facts.conflictFamily === 'aws-security-group-rule') {
+    const groupText = facts.securityGroupIds.length > 0 ? ` in security group(s) ${facts.securityGroupIds.join(', ')}` : '';
+    const peerText = facts.securityGroupRulePeers.length > 0 ? ` for peer(s) ${facts.securityGroupRulePeers.join(', ')}` : '';
+    return `Pulumi attempted to create a security group rule${groupText}${peerText} before the existing duplicate permission was deleted or adopted, and the provider returned ${facts.conflictCode}. Review the preview for matching direction, protocol, port range, security group, and peer. Use aliases/import/state repair for logical adoption or renames, avoid mixing inline, legacy, and VPC-style rule managers for the same group, or explicitly sequence delete-before-create after approval.`;
+  }
+
+  if (facts.conflictFamily === 'aws-iam-oidc-provider') {
+    const providerText = facts.oidcProviderUrls.length > 0 ? ` (${facts.oidcProviderUrls.join(', ')})` : identityText;
+    return `Pulumi attempted to create an IAM OIDC provider${providerText} before the existing provider was adopted, moved, or removed, and the provider returned ${facts.conflictCode}. IAM OIDC provider URLs are account-unique; review role trust policies that reference the provider, use import/state repair or aliases for logical adoption/renames, and sequence replacement only after approval.`;
   }
 
   return `Pulumi attempted to create an exclusive${resourceText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the preview for delete/create or delete-replaced/create-replacement pairs with the same provider identity: if this is a logical rename, add Pulumi aliases from the old URNs; if the resource must be replaced, set deleteBeforeReplace or manually sequence the replacement with accepted downtime; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
@@ -298,11 +353,14 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
             conflictFamily: createBeforeDeleteConflictFacts.conflictFamily,
             duplicateIdentity: createBeforeDeleteConflictFacts.duplicateIdentity ?? undefined,
             dnsNames: createBeforeDeleteConflictFacts.dnsNames.join(','),
+            oidcProviderUrls: createBeforeDeleteConflictFacts.oidcProviderUrls.join(','),
             providerName: createBeforeDeleteConflictFacts.providerName ?? undefined,
             recordTypes: createBeforeDeleteConflictFacts.recordTypes.join(','),
             resourceType: createBeforeDeleteConflictFacts.resourceType ?? undefined,
             routeDestinations: createBeforeDeleteConflictFacts.routeDestinations.join(','),
-            routeTableIds: createBeforeDeleteConflictFacts.routeTableIds.join(',')
+            routeTableIds: createBeforeDeleteConflictFacts.routeTableIds.join(','),
+            securityGroupIds: createBeforeDeleteConflictFacts.securityGroupIds.join(','),
+            securityGroupRulePeers: createBeforeDeleteConflictFacts.securityGroupRulePeers.join(',')
           }
         }));
         continue;
