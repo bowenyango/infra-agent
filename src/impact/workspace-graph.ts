@@ -37,6 +37,7 @@ function isGraphChangeAction(value: unknown): value is InfraGraphChangeAction {
 
 export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEdge[]): InfraGraph['summary'] {
   const nodesByKind: Partial<Record<InfraGraphNodeKind, number>> = {};
+  const edgesByKind: Partial<Record<InfraGraphEdgeKind, number>> = {};
   const changesByAction: Partial<Record<InfraGraphChangeAction, number>> = {};
 
   for (const node of nodes) {
@@ -47,11 +48,22 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
     }
   }
 
+  for (const edge of edges) {
+    edgesByKind[edge.kind] = (edgesByKind[edge.kind] ?? 0) + 1;
+  }
+
   return {
     nodeCount: nodes.length,
     edgeCount: edges.length,
     nodesByKind,
-    changesByAction: Object.keys(changesByAction).length > 0 ? changesByAction : undefined
+    edgesByKind,
+    changesByAction: Object.keys(changesByAction).length > 0 ? changesByAction : undefined,
+    impact: {
+      dependencyEdges: edgesByKind['depends-on'] ?? 0,
+      plannedChanges: edgesByKind['planned-change'] ?? 0,
+      possibleRenames: edgesByKind['possible-rename'] ?? 0,
+      replacementCascades: edgesByKind['replacement-cascade'] ?? 0
+    }
   };
 }
 

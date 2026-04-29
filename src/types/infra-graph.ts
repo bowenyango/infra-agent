@@ -48,7 +48,14 @@ export interface InfraGraphSummary {
   nodeCount: number;
   edgeCount: number;
   nodesByKind: Partial<Record<InfraGraphNodeKind, number>>;
+  edgesByKind: Partial<Record<InfraGraphEdgeKind, number>>;
   changesByAction?: Partial<Record<InfraGraphChangeAction, number>>;
+  impact?: {
+    dependencyEdges: number;
+    plannedChanges: number;
+    possibleRenames: number;
+    replacementCascades: number;
+  };
 }
 
 export interface InfraGraph {

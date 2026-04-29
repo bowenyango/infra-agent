@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `b9438a7` Add impact dependency cascade edges
   - `09e60c7` Mark Pulumi rename candidates in graph
   - `546ac03` Select Helm dependency context sources
   - `f80aa26` Score Terraform rename candidates
@@ -1275,6 +1276,46 @@ Recommended next implementation slice:
    preview metadata is available, avoiding dangling graph edges.
 3. Start provider-specific replacement reason enrichment from schemas or known
    force-replacement fields.
+
+## 2026-04-28 Compact Impact Summary Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Extend `InfraGraphSummary` with `edgesByKind` and compact `summary.impact`
+  counters for planned changes, dependency edges, possible renames, and
+  replacement cascades.
+- Add `summarizeInfraGraphImpact` and an `Impact` section to graph text output
+  so users and downstream agents can consume key impact findings without
+  scanning every node and edge.
+- Keep full graph JSON available for topology/UI work while providing a smaller
+  agent-to-agent handoff surface.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 190/190 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Extend dependency extraction to unchanged state resources when safe state or
+   preview metadata is available, avoiding dangling graph edges.
+2. Start provider-specific replacement reason enrichment from schemas or known
+   force-replacement fields.
+3. Add a local topology viewer only after graph snapshots stabilize further.
 
 ## Current Verification Commands
 

@@ -349,6 +349,10 @@ Status on 2026-04-28:
 - Pulumi preview graph analysis now also attaches `depends-on` edges from
   preview dependency metadata and marks advisory `replacement-cascade` edges
   when a replaced/deleted upstream resource has a changed dependent.
+- Graph summaries now include `edgesByKind` and compact `summary.impact`
+  counters for planned changes, dependency edges, possible renames, and
+  replacement cascades. Text graph output includes an `Impact` section with the
+  most relevant rename and cascade edges.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

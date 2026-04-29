@@ -21,6 +21,7 @@ import {
   summarizeAgentSnapshot,
   summarizeFocusedDomainCapabilities,
   summarizeFocusedValidationPlan,
+  summarizeInfraGraphImpact,
   summarizePreflightSnapshot,
   summarizePreflightSuggestedCommands,
   summarizeRecommendedNextSteps,
@@ -106,6 +107,8 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
     && edge.to === 'helm-values-schema:charts/payments-api/values.schema.json'
   ));
   assert.equal(graph.summary.nodesByKind['workspace'], 1);
+  assert.equal(graph.summary.edgesByKind['has-schema'], 1);
+  assert.equal(graph.summary.impact?.plannedChanges, 0);
   assert.equal(graph.summary.nodeCount, graph.nodes.length);
   assert.equal(graph.summary.edgeCount, graph.edges.length);
 });
@@ -352,6 +355,11 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   assert.equal(cascadeEdge.confidence, 'high');
   assert.equal(cascadeEdge.metadata?.dependencyAction, 'replace');
   assert.equal(cascadeEdge.metadata?.dependentAction, 'replace');
+  assert.equal(impactedGraph.summary.edgesByKind['depends-on'], 1);
+  assert.equal(impactedGraph.summary.impact?.replacementCascades, 1);
+  assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
+    line.includes('replacement cascade: aws_s3_bucket.artifacts -> aws_lambda_function.api [high] replace -> replace')
+  ));
 });
 
 test('Pulumi preview impact attaches resource change nodes to the infra graph', async () => {
@@ -541,6 +549,11 @@ test('Pulumi preview impact marks dependency edges and replacement cascades', as
   assert.equal(cascadeEdge.confidence, 'medium');
   assert.equal(cascadeEdge.metadata?.dependencyAction, 'replace');
   assert.equal(cascadeEdge.metadata?.dependentAction, 'update');
+  assert.equal(impactedGraph.summary.edgesByKind['depends-on'], 1);
+  assert.equal(impactedGraph.summary.impact?.replacementCascades, 1);
+  assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
+    line.includes('replacement cascade: pulumi:aws:ec2/securityGroup:SecurityGroup::api -> pulumi:kubernetes:apps/v1:Deployment::payments-api [medium] replace -> update')
+  ));
 });
 
 test('inspectWorkspace extracts Helm values schema semantic facts', async () => {

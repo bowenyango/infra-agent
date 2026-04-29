@@ -167,7 +167,13 @@ Graph JSON should come before a web topology viewer.
 Current graph foundation:
 
 - `infra-agent graph --json` emits kind `infra-agent.infra-graph`.
-- Current nodes and edges are derived from workspace inspection facts only.
+- Graph JSON includes `summary.edgesByKind` and `summary.impact` counters for
+  planned changes, dependency edges, possible renames, and replacement
+  cascades. Prefer these compact fields for agent-to-agent handoff before
+  loading complete edge lists.
+- Base graph nodes and containment/configuration edges are derived from
+  workspace inspection facts; plan/preview impact data is attached only when
+  explicitly supplied.
 - `infra-agent graph --terraform-plan <plan.json> --target <terraform-root>
   --json` attaches Terraform plan resource actions as `terraform-resource`
   nodes and `planned-change` edges without executing Terraform.

@@ -1170,16 +1170,85 @@ export function printKnowledgePrefetchResult(result: KnowledgePrefetchResult): v
   printList(result.sources.map(formatKnowledgeSourceResult), 'No knowledge sources selected.');
 }
 
+function formatGraphCounts(counts: Record<string, number | undefined>): string {
+  return Object.entries(counts)
+    .filter(([, count]) => typeof count === 'number' && count > 0)
+    .map(([kind, count]) => `${kind}=${count}`)
+    .join(', ') || 'none';
+}
+
+function compactGraphRef(id: string): string {
+  if (id.startsWith('terraform-resource:')) {
+    return id.slice('terraform-resource:'.length);
+  }
+
+  if (id.startsWith('pulumi-resource:')) {
+    const urn = id.slice('pulumi-resource:'.length);
+    const parts = urn.split('::');
+    if (parts.length >= 2) {
+      return `pulumi:${parts[parts.length - 2]}::${parts[parts.length - 1]}`;
+    }
+    return urn;
+  }
+
+  return id;
+}
+
+function formatPossibleRename(edge: InfraGraph['edges'][number]): string {
+  const score = typeof edge.metadata?.score === 'number' ? ` score=${edge.metadata.score}` : '';
+  const keys = typeof edge.metadata?.matchingIdentityKeys === 'string'
+    && edge.metadata.matchingIdentityKeys.length > 0
+    ? ` keys=${edge.metadata.matchingIdentityKeys}`
+    : '';
+  return `${compactGraphRef(edge.from)} -> ${compactGraphRef(edge.to)} [${edge.confidence}]${score}${keys}`;
+}
+
+function formatReplacementCascade(edge: InfraGraph['edges'][number]): string {
+  const dependencyAction = typeof edge.metadata?.dependencyAction === 'string' ? edge.metadata.dependencyAction : 'changed';
+  const dependentAction = typeof edge.metadata?.dependentAction === 'string' ? edge.metadata.dependentAction : 'changed';
+  return `${compactGraphRef(edge.from)} -> ${compactGraphRef(edge.to)} [${edge.confidence}] ${dependencyAction} -> ${dependentAction}`;
+}
+
+export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
+  const impact = graph.summary.impact ?? {
+    dependencyEdges: graph.edges.filter(edge => edge.kind === 'depends-on').length,
+    plannedChanges: graph.edges.filter(edge => edge.kind === 'planned-change').length,
+    possibleRenames: graph.edges.filter(edge => edge.kind === 'possible-rename').length,
+    replacementCascades: graph.edges.filter(edge => edge.kind === 'replacement-cascade').length
+  };
+  const possibleRenames = graph.edges.filter(edge => edge.kind === 'possible-rename');
+  const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
+  const lines = [
+    `planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}`
+  ];
+
+  lines.push(...possibleRenames.slice(0, 5).map(edge => `possible rename: ${formatPossibleRename(edge)}`));
+  if (possibleRenames.length > 5) {
+    lines.push(`possible rename: ${possibleRenames.length - 5} more`);
+  }
+
+  lines.push(...replacementCascades.slice(0, 5).map(edge => `replacement cascade: ${formatReplacementCascade(edge)}`));
+  if (replacementCascades.length > 5) {
+    lines.push(`replacement cascade: ${replacementCascades.length - 5} more`);
+  }
+
+  return lines;
+}
+
 export function printInfraGraph(graph: InfraGraph): void {
   printHeader('Infrastructure graph');
   process.stdout.write(`workspace: ${graph.workspaceRoot}\n`);
   process.stdout.write(`nodes: ${graph.summary.nodeCount}\n`);
   process.stdout.write(`edges: ${graph.summary.edgeCount}\n`);
-  process.stdout.write(`node kinds: ${Object.entries(graph.summary.nodesByKind).map(([kind, count]) => `${kind}=${count}`).join(', ') || 'none'}\n\n`);
+  process.stdout.write(`node kinds: ${formatGraphCounts(graph.summary.nodesByKind)}\n`);
+  process.stdout.write(`edge kinds: ${formatGraphCounts(graph.summary.edgesByKind)}\n\n`);
   if (graph.summary.changesByAction) {
-    process.stdout.write(`changes: ${Object.entries(graph.summary.changesByAction).map(([action, count]) => `${action}=${count}`).join(', ')}\n\n`);
+    process.stdout.write(`changes: ${formatGraphCounts(graph.summary.changesByAction)}\n\n`);
   }
 
+  printHeader('Impact');
+  printList(summarizeInfraGraphImpact(graph), 'No graph impact detected.');
+  process.stdout.write('\n');
   printHeader('Nodes');
   printList(graph.nodes.map(node => {
     const action = typeof node.metadata?.action === 'string' ? ` [${node.metadata.action}]` : '';
