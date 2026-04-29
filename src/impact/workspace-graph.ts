@@ -60,6 +60,7 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
     changesByAction: Object.keys(changesByAction).length > 0 ? changesByAction : undefined,
     impact: {
       dependencyEdges: edgesByKind['depends-on'] ?? 0,
+      createBeforeDeleteConflicts: edgesByKind['create-before-delete-conflict'] ?? 0,
       plannedChanges: edgesByKind['planned-change'] ?? 0,
       possibleRenames: edgesByKind['possible-rename'] ?? 0,
       replacementCascades: edgesByKind['replacement-cascade'] ?? 0

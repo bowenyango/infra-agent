@@ -292,6 +292,12 @@ function summarizeValidationFindings(state: AgentRunState): string {
       : 'Pulumi preview is blocked by a missing required config value.';
   }
 
+  if (topIssue?.kind === 'pulumi-create-before-delete-conflict') {
+    const routeTables = topIssue.metadata?.routeTableIds;
+    const destinations = topIssue.metadata?.routeDestinations;
+    return `Pulumi create-before-delete conflict: AWS route already exists${routeTables ? ` in ${routeTables}` : ''}${destinations ? ` for ${destinations}` : ''}.`;
+  }
+
   if (topIssue?.kind === 'pulumi-preview-failure') {
     return topIssue.guidance ?? 'Pulumi preview reported a configuration error.';
   }
@@ -584,6 +590,10 @@ function summarizeReviewFocus(state: AgentRunState): string {
   if (primaryDomain === 'pulumi') {
     if (topValidationIssue?.kind === 'pulumi-missing-config') {
       return 'Review the selected Pulumi stack file and its config namespace before rerunning preview.';
+    }
+
+    if (topValidationIssue?.kind === 'pulumi-create-before-delete-conflict') {
+      return 'Review Pulumi route aliases, deleteBeforeReplace options, and the failed route table/destination pairs before retrying update.';
     }
 
     return 'Review the selected Pulumi stack file, config keys, and preview output.';
@@ -1212,14 +1222,16 @@ function formatReplacementCascade(edge: InfraGraph['edges'][number]): string {
 export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   const impact = graph.summary.impact ?? {
     dependencyEdges: graph.edges.filter(edge => edge.kind === 'depends-on').length,
+    createBeforeDeleteConflicts: graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict').length,
     plannedChanges: graph.edges.filter(edge => edge.kind === 'planned-change').length,
     possibleRenames: graph.edges.filter(edge => edge.kind === 'possible-rename').length,
     replacementCascades: graph.edges.filter(edge => edge.kind === 'replacement-cascade').length
   };
   const possibleRenames = graph.edges.filter(edge => edge.kind === 'possible-rename');
   const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
+  const createBeforeDeleteConflicts = graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
   const lines = [
-    `planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}`
+    `planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
   ];
 
   lines.push(...possibleRenames.slice(0, 5).map(edge => `possible rename: ${formatPossibleRename(edge)}`));
@@ -1230,6 +1242,13 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   lines.push(...replacementCascades.slice(0, 5).map(edge => `replacement cascade: ${formatReplacementCascade(edge)}`));
   if (replacementCascades.length > 5) {
     lines.push(`replacement cascade: ${replacementCascades.length - 5} more`);
+  }
+
+  lines.push(...createBeforeDeleteConflicts.slice(0, 5).map(edge =>
+    `create-before-delete conflict: ${compactGraphRef(edge.from)} -> ${compactGraphRef(edge.to)} [${edge.confidence}] ${edge.metadata?.reason ?? 'review replacement ordering'}`
+  ));
+  if (createBeforeDeleteConflicts.length > 5) {
+    lines.push(`create-before-delete conflict: ${createBeforeDeleteConflicts.length - 5} more`);
   }
 
   return lines;

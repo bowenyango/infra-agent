@@ -9,6 +9,8 @@ interface PulumiResourceChange {
   action: InfraGraphChangeAction;
   diffs: string[];
   identityValues: Record<string, string>;
+  exclusiveIdentityValues: Record<string, string>;
+  targetValues: Record<string, string>;
   dependencyUrns: string[];
 }
 
@@ -16,6 +18,12 @@ interface PulumiRenameCandidate {
   confidence: 'low' | 'medium' | 'high';
   score: number;
   matchingIdentityKeys: string[];
+  reason: string;
+}
+
+interface PulumiCreateBeforeDeleteConflict {
+  confidence: 'high';
+  matchingExclusiveIdentityKeys: string[];
   reason: string;
 }
 
@@ -40,6 +48,36 @@ const IDENTITY_PATHS = [
 
 const WEAK_IDENTITY_KEYS = new Set(['tags.Name', 'tags.name']);
 const NON_RENAME_ONLY_KEYS = new Set(['metadata.namespace']);
+const AWS_ROUTE_DESTINATION_PATHS = [
+  'destinationCidrBlock',
+  'destination_cidr_block',
+  'destinationIpv6CidrBlock',
+  'destination_ipv6_cidr_block',
+  'destinationPrefixListId',
+  'destination_prefix_list_id'
+];
+const AWS_ROUTE_TARGET_PATHS = [
+  'carrierGatewayId',
+  'carrier_gateway_id',
+  'coreNetworkArn',
+  'core_network_arn',
+  'egressOnlyGatewayId',
+  'egress_only_gateway_id',
+  'gatewayId',
+  'gateway_id',
+  'localGatewayId',
+  'local_gateway_id',
+  'natGatewayId',
+  'nat_gateway_id',
+  'networkInterfaceId',
+  'network_interface_id',
+  'transitGatewayId',
+  'transit_gateway_id',
+  'vpcEndpointId',
+  'vpc_endpoint_id',
+  'vpcPeeringConnectionId',
+  'vpc_peering_connection_id'
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -102,6 +140,54 @@ function collectIdentityValues(value: unknown): Record<string, string> {
     const identityValue = identityString(getPathValue(value, key));
     if (identityValue) {
       values[key] = identityValue;
+    }
+  }
+
+  return values;
+}
+
+function isAwsRouteType(resourceType: string | null): boolean {
+  return resourceType === 'aws:ec2:Route' || resourceType === 'aws:ec2/route:Route';
+}
+
+function collectAwsRouteExclusiveIdentityValues(
+  value: unknown,
+  resourceType: string | null
+): Record<string, string> {
+  if (!isRecord(value) || !isAwsRouteType(resourceType)) {
+    return {};
+  }
+
+  const values: Record<string, string> = {};
+  const routeTableId =
+    identityString(getPathValue(value, 'routeTableId'))
+    ?? identityString(getPathValue(value, 'route_table_id'));
+
+  if (routeTableId) {
+    values.routeTableId = routeTableId;
+  }
+
+  for (const destinationPath of AWS_ROUTE_DESTINATION_PATHS) {
+    const destination = identityString(getPathValue(value, destinationPath));
+    if (destination) {
+      values[destinationPath] = destination;
+      break;
+    }
+  }
+
+  return values;
+}
+
+function collectAwsRouteTargetValues(value: unknown, resourceType: string | null): Record<string, string> {
+  if (!isRecord(value) || !isAwsRouteType(resourceType)) {
+    return {};
+  }
+
+  const values: Record<string, string> = {};
+  for (const targetPath of AWS_ROUTE_TARGET_PATHS) {
+    const target = identityString(getPathValue(value, targetPath));
+    if (target) {
+      values[targetPath] = target;
     }
   }
 
@@ -175,9 +261,11 @@ function parsePulumiMetadata(metadata: unknown): PulumiResourceChange | null {
   }
 
   const operation = asString(metadata.op) ?? asString(metadata.operation) ?? 'same';
+  const type = asString(metadata.type) ?? resourceTypeFromUrn(urn);
+  const identitySource = identitySourceForMetadata(metadata);
   return {
     urn,
-    type: asString(metadata.type) ?? resourceTypeFromUrn(urn),
+    type,
     name: asString(metadata.name) ?? resourceNameFromUrn(urn),
     operation,
     action: normalizePulumiOperation(operation),
@@ -185,7 +273,9 @@ function parsePulumiMetadata(metadata: unknown): PulumiResourceChange | null {
       ...asStringArray(metadata.diffs),
       ...asStringArray(metadata.detailedDiff)
     ].filter((entry, index, entries) => entries.indexOf(entry) === index),
-    identityValues: collectIdentityValues(identitySourceForMetadata(metadata)),
+    identityValues: collectIdentityValues(identitySource),
+    exclusiveIdentityValues: collectAwsRouteExclusiveIdentityValues(identitySource, type),
+    targetValues: collectAwsRouteTargetValues(identitySource, type),
     dependencyUrns: collectPulumiDependencyUrns(metadata)
   };
 }
@@ -201,14 +291,18 @@ function parsePulumiStep(step: unknown): PulumiResourceChange | null {
   }
 
   const operation = asString(step.op) ?? asString(step.operation) ?? 'same';
+  const type = asString(step.type) ?? resourceTypeFromUrn(urn);
+  const identitySource = step.new ?? step.inputs ?? step.outputs ?? step.old;
   return {
     urn,
-    type: asString(step.type) ?? resourceTypeFromUrn(urn),
+    type,
     name: asString(step.name) ?? resourceNameFromUrn(urn),
     operation,
     action: normalizePulumiOperation(operation),
     diffs: asStringArray(step.diffs),
-    identityValues: collectIdentityValues(step.new ?? step.inputs ?? step.outputs ?? step.old),
+    identityValues: collectIdentityValues(identitySource),
+    exclusiveIdentityValues: collectAwsRouteExclusiveIdentityValues(identitySource, type),
+    targetValues: collectAwsRouteTargetValues(identitySource, type),
     dependencyUrns: collectPulumiDependencyUrns(step)
   };
 }
@@ -265,6 +359,10 @@ function cascadeEdgeId(from: string, to: string): string {
   return `replacement-cascade:${from}->${to}`;
 }
 
+function createBeforeDeleteConflictEdgeId(from: string, to: string): string {
+  return `create-before-delete-conflict:${from}->${to}`;
+}
+
 function findParentNodeId(graph: InfraGraph, targetPath: string | null | undefined): string {
   if (targetPath) {
     const targetNodeId = `pulumi-project:${targetPath}`;
@@ -293,6 +391,8 @@ function buildResourceNode(change: PulumiResourceChange, targetPath: string | nu
       name: change.name,
       diffs: change.diffs.join(','),
       identityKeys: Object.keys(change.identityValues).join(','),
+      exclusiveIdentityKeys: Object.keys(change.exclusiveIdentityValues).join(','),
+      targetKeys: Object.keys(change.targetValues).join(','),
       dependencyUrns: change.dependencyUrns.join(',')
     }
   };
@@ -398,6 +498,96 @@ function buildReplacementCascadeEdges(changes: PulumiResourceChange[], edgeIds: 
           dependencyUrn: dependency.urn,
           dependentUrn: dependent.urn,
           reason: `${dependent.urn} depends on ${dependency.urn}; upstream ${dependency.action} may explain downstream ${dependent.action}`
+        }
+      });
+    }
+  }
+
+  return edges;
+}
+
+function findMatchingExclusiveIdentityKeys(left: PulumiResourceChange, right: PulumiResourceChange): string[] {
+  return Object.entries(left.exclusiveIdentityValues)
+    .filter(([key, value]) => right.exclusiveIdentityValues[key] === value)
+    .map(([key]) => key);
+}
+
+function formatTargetValues(values: Record<string, string>): string {
+  return Object.entries(values).map(([key, value]) => `${key}=${value}`).join(',');
+}
+
+function destinationKeyFromIdentity(values: Record<string, string>): string | null {
+  return AWS_ROUTE_DESTINATION_PATHS.find(key => values[key]) ?? null;
+}
+
+function scoreCreateBeforeDeleteConflict(
+  left: PulumiResourceChange,
+  right: PulumiResourceChange
+): PulumiCreateBeforeDeleteConflict | null {
+  if (left.action !== 'delete' || right.action !== 'create') {
+    return null;
+  }
+
+  if (!isAwsRouteType(left.type) || left.type !== right.type) {
+    return null;
+  }
+
+  const matchingExclusiveIdentityKeys = findMatchingExclusiveIdentityKeys(left, right);
+  const hasRouteTable = matchingExclusiveIdentityKeys.includes('routeTableId');
+  const hasDestination = matchingExclusiveIdentityKeys.some(key => AWS_ROUTE_DESTINATION_PATHS.includes(key));
+  if (!hasRouteTable || !hasDestination) {
+    return null;
+  }
+
+  return {
+    confidence: 'high',
+    matchingExclusiveIdentityKeys,
+    reason: 'AWS routes are exclusive by route table and destination; Pulumi create-before-delete ordering can fail with RouteAlreadyExists.'
+  };
+}
+
+function buildCreateBeforeDeleteConflictEdges(
+  changes: PulumiResourceChange[],
+  edgeIds: Set<string>
+): InfraGraphEdge[] {
+  const deletes = changes.filter(change => change.action === 'delete');
+  const creates = changes.filter(change => change.action === 'create');
+  const edges: InfraGraphEdge[] = [];
+
+  for (const deleted of deletes) {
+    for (const created of creates) {
+      const conflict = scoreCreateBeforeDeleteConflict(deleted, created);
+      if (!conflict) {
+        continue;
+      }
+
+      const from = `pulumi-resource:${deleted.urn}`;
+      const to = `pulumi-resource:${created.urn}`;
+      const id = createBeforeDeleteConflictEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      const destinationKey = destinationKeyFromIdentity(deleted.exclusiveIdentityValues);
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'create-before-delete-conflict',
+        confidence: conflict.confidence,
+        source: 'pulumi-preview',
+        label: 'Pulumi create-before-delete conflict risk',
+        metadata: {
+          matchingExclusiveIdentityKeys: conflict.matchingExclusiveIdentityKeys.join(','),
+          resourceType: deleted.type,
+          routeTableId: deleted.exclusiveIdentityValues.routeTableId,
+          destinationKey,
+          destinationValue: destinationKey ? deleted.exclusiveIdentityValues[destinationKey] ?? null : null,
+          oldTargets: formatTargetValues(deleted.targetValues),
+          newTargets: formatTargetValues(created.targetValues),
+          reason: conflict.reason,
+          suggestedAction: 'Review Pulumi aliases for renamed routes or set deleteBeforeReplace on the aws.ec2.Route resources before updating.'
         }
       });
     }
@@ -546,6 +736,7 @@ export function attachPulumiPreviewToGraph(
 
   edges.push(...buildDependencyEdges(changes, edgeIds, nodeIds));
   edges.push(...buildReplacementCascadeEdges(changes, edgeIds));
+  edges.push(...buildCreateBeforeDeleteConflictEdges(changes, edgeIds));
   edges.push(...buildPossibleRenameEdges(changes, edgeIds));
 
   return {

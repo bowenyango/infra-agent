@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `c706bd6` Summarize graph impact output
   - `b9438a7` Add impact dependency cascade edges
   - `09e60c7` Mark Pulumi rename candidates in graph
   - `546ac03` Select Helm dependency context sources
@@ -1316,6 +1317,51 @@ Recommended next implementation slice:
 2. Start provider-specific replacement reason enrichment from schemas or known
    force-replacement fields.
 3. Add a local topology viewer only after graph snapshots stabilize further.
+
+## 2026-04-28 Pulumi Route Create-Before-Delete Conflict Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/types/agent.ts`
+- `src/impact/workspace-graph.ts`
+- `src/impact/pulumi-preview-graph.ts`
+- `src/agent/classify-validation-issues.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Detect Pulumi AWS Route delete/create pairs with the same route table and
+  destination as `create-before-delete-conflict` graph edges.
+- Extend graph impact summaries with `createBeforeDeleteConflicts` so downstream
+  agents can see ordering hazards without scanning every edge.
+- Classify Pulumi `RouteAlreadyExists` failures as
+  `pulumi-create-before-delete-conflict` validation issues.
+- Provide operator guidance: use Pulumi aliases for logical renames,
+  `deleteBeforeReplace` for true replacements with accepted temporary route
+  removal, or explicit state/import repair after human approval.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 192/192 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Generalize exclusive-identity conflict detection beyond AWS Route to other
+   scarce or singleton resources.
+2. Extend dependency extraction to unchanged state resources when safe state or
+   preview metadata is available, avoiding dangling graph edges.
+3. Start provider-specific replacement reason enrichment from schemas or known
+   force-replacement fields.
 
 ## Current Verification Commands
 

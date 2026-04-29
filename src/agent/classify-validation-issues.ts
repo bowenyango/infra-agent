@@ -1,6 +1,12 @@
 import type { ValidationCommandOutput } from '../types/tools.ts';
 import type { ValidationIssue } from '../types/agent.ts';
 
+interface PulumiRouteAlreadyExistsFacts {
+  providerName: string | null;
+  routeDestinations: string[];
+  routeTableIds: string[];
+}
+
 function buildIssue(result: ValidationCommandOutput, issue: Omit<ValidationIssue, 'sourceCommand'>): ValidationIssue {
   return {
     ...issue,
@@ -52,6 +58,35 @@ function buildPulumiPreviewGuidance(output: string): string {
   }
 
   return 'Read the failing Pulumi project and stack file, then correct the missing or invalid config value before rerunning preview.';
+}
+
+function uniqueMatches(output: string, pattern: RegExp): string[] {
+  return [...new Set([...output.matchAll(pattern)]
+    .map(match => match[1]?.trim())
+    .filter((value): value is string => Boolean(value)))];
+}
+
+function extractPulumiRouteAlreadyExistsFacts(output: string): PulumiRouteAlreadyExistsFacts | null {
+  if (!/RouteAlreadyExists/i.test(output)) {
+    return null;
+  }
+
+  const routeTableIds = uniqueMatches(output, /Route Table \((rtb-[^)]+)\)/gi);
+  const routeDestinations = uniqueMatches(output, /destination \(([^)]+)\)/gi);
+  const providerName = output.match(/\bprovider=([^\s]+)/i)?.[1]?.trim() ?? null;
+
+  return {
+    providerName,
+    routeDestinations,
+    routeTableIds
+  };
+}
+
+function buildPulumiRouteAlreadyExistsGuidance(facts: PulumiRouteAlreadyExistsFacts): string {
+  const routeTableText = facts.routeTableIds.length > 0 ? ` in route table(s) ${facts.routeTableIds.join(', ')}` : '';
+  const destinationText = facts.routeDestinations.length > 0 ? ` for destination(s) ${facts.routeDestinations.join(', ')}` : '';
+
+  return `Pulumi attempted to create an AWS route${routeTableText}${destinationText} before deleting the existing route with the same route-table/destination identity. Review the preview for aws.ec2.Route create/delete pairs: if this is a logical rename, add Pulumi aliases from the old route URNs; if the route must be replaced, set deleteBeforeReplace on the route resources and accept the temporary route removal; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
 }
 
 function buildHelmValidationGuidance(kind: 'service-port' | 'ingress-values'): string {
@@ -138,10 +173,26 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
       continue;
     }
 
-    if (/pulumi\b.*preview/i.test(result.command)) {
+    if (/pulumi\b.*(?:preview|up|update)/i.test(result.command)) {
       const missingConfigMatch =
         combinedOutput.match(/missing required configuration (?:key|variable)[^"'`]*["'`]([^"'`]+)["'`]/i)
         ?? combinedOutput.match(/configuration[^"'`]*["'`]([^"'`]+)["'`][^"'`]*is required/i);
+      const routeAlreadyExistsFacts = extractPulumiRouteAlreadyExistsFacts(combinedOutput);
+
+      if (routeAlreadyExistsFacts) {
+        issues.push(buildIssue(result, {
+          kind: 'pulumi-create-before-delete-conflict',
+          repairable: false,
+          message: combinedOutput.trim().slice(0, 400) || 'Pulumi failed because an AWS route with the same route table and destination already exists.',
+          guidance: buildPulumiRouteAlreadyExistsGuidance(routeAlreadyExistsFacts),
+          metadata: {
+            providerName: routeAlreadyExistsFacts.providerName ?? undefined,
+            routeDestinations: routeAlreadyExistsFacts.routeDestinations.join(','),
+            routeTableIds: routeAlreadyExistsFacts.routeTableIds.join(',')
+          }
+        }));
+        continue;
+      }
 
       issues.push(buildIssue(result, {
         kind: missingConfigMatch ? 'pulumi-missing-config' : 'pulumi-preview-failure',

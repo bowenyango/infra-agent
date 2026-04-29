@@ -12,6 +12,7 @@ export type InfraGraphNodeKind =
 export type InfraGraphEdgeKind =
   | 'contains'
   | 'configures'
+  | 'create-before-delete-conflict'
   | 'depends-on'
   | 'has-schema'
   | 'planned-change'
@@ -52,6 +53,7 @@ export interface InfraGraphSummary {
   changesByAction?: Partial<Record<InfraGraphChangeAction, number>>;
   impact?: {
     dependencyEdges: number;
+    createBeforeDeleteConflicts: number;
     plannedChanges: number;
     possibleRenames: number;
     replacementCascades: number;

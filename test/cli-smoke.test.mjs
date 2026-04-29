@@ -498,6 +498,60 @@ test('Pulumi preview impact marks matching delete and create resources as possib
   assert.equal(renameEdges[0]?.metadata?.score, 1);
 });
 
+test('Pulumi preview impact marks AWS route create-before-delete conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'delete',
+          urn: 'urn:pulumi:prod::networking::aws:ec2/route:Route::old-peer-route',
+          type: 'aws:ec2/route:Route',
+          name: 'old-peer-route',
+          old: {
+            routeTableId: 'rtb-0102177ec9e1ab465',
+            destinationCidrBlock: '10.0.0.0/16',
+            vpcPeeringConnectionId: 'pcx-01d08d08a5b09dc56'
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create',
+          urn: 'urn:pulumi:prod::networking::aws:ec2/route:Route::new-peer-route',
+          type: 'aws:ec2/route:Route',
+          name: 'new-peer-route',
+          new: {
+            routeTableId: 'rtb-0102177ec9e1ab465',
+            destinationCidrBlock: '10.0.0.0/16',
+            vpcPeeringConnectionId: 'pcx-0881f5cc374f72a09'
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const conflictEdges = impactedGraph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.equal(conflictEdges.length, 1);
+  assert.equal(conflictEdges[0]?.from, 'pulumi-resource:urn:pulumi:prod::networking::aws:ec2/route:Route::old-peer-route');
+  assert.equal(conflictEdges[0]?.to, 'pulumi-resource:urn:pulumi:prod::networking::aws:ec2/route:Route::new-peer-route');
+  assert.equal(conflictEdges[0]?.confidence, 'high');
+  assert.equal(conflictEdges[0]?.metadata?.routeTableId, 'rtb-0102177ec9e1ab465');
+  assert.equal(conflictEdges[0]?.metadata?.destinationValue, '10.0.0.0/16');
+  assert.match(String(conflictEdges[0]?.metadata?.reason), /RouteAlreadyExists/i);
+  assert.equal(impactedGraph.summary.impact?.createBeforeDeleteConflicts, 1);
+  assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
+    line.includes('create-before-delete conflict: pulumi:aws:ec2/route:Route::old-peer-route -> pulumi:aws:ec2/route:Route::new-peer-route [high]')
+  ));
+});
+
 test('Pulumi preview impact marks dependency edges and replacement cascades', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -5942,6 +5996,29 @@ test('classifyValidationIssues marks missing Pulumi config as pulumi-missing-con
   assert.equal(issues[0]?.repairable, true);
   assert.equal(issues[0]?.metadata?.missingConfigKey, 'payments-api:imageTag');
   assert.match(issues[0]?.guidance ?? '', /set payments-api:imageTag/i);
+});
+
+test('classifyValidationIssues marks Pulumi AWS route create-before-delete conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/networking --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:ec2:Route (scrawlr-prod-subnet-0cce76f6ee720890b-pcx-0881f5cc374f72a09):',
+        'error: api error RouteAlreadyExists: Route in Route Table (rtb-0102177ec9e1ab465) with destination (10.0.0.0/16) already exists: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.repairable, false);
+  assert.equal(issues[0]?.metadata?.routeTableIds, 'rtb-0102177ec9e1ab465');
+  assert.equal(issues[0]?.metadata?.routeDestinations, '10.0.0.0/16');
+  assert.equal(issues[0]?.metadata?.providerName, 'aws@7.23.0');
+  assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/i);
+  assert.match(issues[0]?.guidance ?? '', /aliases/i);
 });
 
 test('classifyValidationIssues marks general Pulumi preview failures as pulumi-preview-failure', () => {

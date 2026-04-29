@@ -351,8 +351,16 @@ Status on 2026-04-28:
   when a replaced/deleted upstream resource has a changed dependent.
 - Graph summaries now include `edgesByKind` and compact `summary.impact`
   counters for planned changes, dependency edges, possible renames, and
-  replacement cascades. Text graph output includes an `Impact` section with the
-  most relevant rename and cascade edges.
+  replacement cascades, plus create-before-delete conflict warnings. Text graph
+  output includes an `Impact` section with the most relevant rename, cascade,
+  and ordering-conflict edges.
+- Pulumi preview graph analysis now flags AWS Route delete/create pairs with
+  the same route table and destination as `create-before-delete-conflict`
+  edges, because Pulumi's default replacement ordering can fail with
+  `RouteAlreadyExists` for exclusive route identities.
+- Runtime validation issue classification now recognizes Pulumi
+  `RouteAlreadyExists` failures and produces guidance for aliases,
+  `deleteBeforeReplace`, or explicit state/import repair review.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

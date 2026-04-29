@@ -132,6 +132,9 @@ Current implemented source:
   namespaces before falling back to project names.
 - Pulumi preview missing-config failures are promoted into runtime
   `required-field` facts sourced from `pulumi-preview`.
+- Pulumi `RouteAlreadyExists` failures from AWS Route creation are classified
+  as create-before-delete ordering conflicts when route table and destination
+  facts can be extracted.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`
@@ -169,8 +172,8 @@ Current graph foundation:
 - `infra-agent graph --json` emits kind `infra-agent.infra-graph`.
 - Graph JSON includes `summary.edgesByKind` and `summary.impact` counters for
   planned changes, dependency edges, possible renames, and replacement
-  cascades. Prefer these compact fields for agent-to-agent handoff before
-  loading complete edge lists.
+  cascades, plus create-before-delete conflict warnings. Prefer these compact
+  fields for agent-to-agent handoff before loading complete edge lists.
 - Base graph nodes and containment/configuration edges are derived from
   workspace inspection facts; plan/preview impact data is attached only when
   explicitly supplied.
@@ -195,6 +198,11 @@ Current graph foundation:
 - Pulumi preview graph output may include `depends-on` edges from dependency
   metadata and `replacement-cascade` edges when a replaced/deleted upstream
   resource has a changed dependent.
+- Pulumi preview graph output may include `create-before-delete-conflict` edges
+  for AWS Route delete/create pairs that share the same route table and
+  destination. Treat this as a high-risk ordering warning: use aliases for
+  logical renames, `deleteBeforeReplace` for true replacements with accepted
+  temporary route removal, or explicit state/import repair after approval.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 
