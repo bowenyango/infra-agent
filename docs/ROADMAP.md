@@ -354,10 +354,11 @@ Status on 2026-04-28:
   replacement cascades, plus create-before-delete conflict warnings. Text graph
   output includes an `Impact` section with the most relevant rename, cascade,
   and ordering-conflict edges.
-- Pulumi preview graph analysis now flags AWS Route delete/create pairs with
-  the same route table and destination as `create-before-delete-conflict`
-  edges, because Pulumi's default replacement ordering can fail with
-  `RouteAlreadyExists` for exclusive route identities.
+- Pulumi preview graph analysis now flags AWS Route delete/create pairs,
+  including `delete-replaced`/`create-replacement` step pairs, with the same
+  route table and destination as `create-before-delete-conflict` edges, because
+  Pulumi's default replacement ordering can fail with `RouteAlreadyExists` for
+  exclusive route identities.
 - Runtime validation issue classification now recognizes Pulumi
   `RouteAlreadyExists` failures and produces guidance for aliases,
   `deleteBeforeReplace`, or explicit state/import repair review.

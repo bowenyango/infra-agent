@@ -224,13 +224,14 @@ function collectPulumiDependencyUrns(value: unknown): string[] {
 function normalizePulumiOperation(operation: string | null): InfraGraphChangeAction {
   switch (operation) {
     case 'create':
+    case 'create-replacement':
       return 'create';
     case 'update':
       return 'update';
     case 'delete':
+    case 'delete-replaced':
       return 'delete';
     case 'replace':
-    case 'delete-replaced':
       return 'replace';
     case 'read':
     case 'read-replacement':

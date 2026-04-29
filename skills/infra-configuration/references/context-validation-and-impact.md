@@ -199,10 +199,11 @@ Current graph foundation:
   metadata and `replacement-cascade` edges when a replaced/deleted upstream
   resource has a changed dependent.
 - Pulumi preview graph output may include `create-before-delete-conflict` edges
-  for AWS Route delete/create pairs that share the same route table and
-  destination. Treat this as a high-risk ordering warning: use aliases for
-  logical renames, `deleteBeforeReplace` for true replacements with accepted
-  temporary route removal, or explicit state/import repair after approval.
+  for AWS Route delete/create or delete-replaced/create-replacement pairs that
+  share the same route table and destination. Treat this as a high-risk
+  ordering warning: use aliases for logical renames, `deleteBeforeReplace` for
+  true replacements with accepted temporary route removal, or explicit
+  state/import repair after approval.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 

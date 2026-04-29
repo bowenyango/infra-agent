@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `2f32398` Detect Pulumi route replacement conflicts
   - `c706bd6` Summarize graph impact output
   - `b9438a7` Add impact dependency cascade edges
   - `09e60c7` Mark Pulumi rename candidates in graph
@@ -1346,6 +1347,39 @@ Purpose:
 - Provide operator guidance: use Pulumi aliases for logical renames,
   `deleteBeforeReplace` for true replacements with accepted temporary route
   removal, or explicit state/import repair after human approval.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 192/192 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Generalize exclusive-identity conflict detection beyond AWS Route to other
+   scarce or singleton resources.
+2. Extend dependency extraction to unchanged state resources when safe state or
+   preview metadata is available, avoiding dangling graph edges.
+3. Start provider-specific replacement reason enrichment from schemas or known
+   force-replacement fields.
+
+## 2026-04-28 Pulumi Replacement Operation Compatibility Slice
+
+Files added or updated:
+
+- `src/impact/pulumi-preview-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Normalize Pulumi `create-replacement` preview operations as create-like graph
+  actions and `delete-replaced` operations as delete-like graph actions.
+- Cover AWS Route create-before-delete conflict detection for real Pulumi
+  replacement step pairs, not only plain create/delete pairs.
 
 Known validation:
 

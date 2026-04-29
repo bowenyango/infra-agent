@@ -498,14 +498,14 @@ test('Pulumi preview impact marks matching delete and create resources as possib
   assert.equal(renameEdges[0]?.metadata?.score, 1);
 });
 
-test('Pulumi preview impact marks AWS route create-before-delete conflicts', async () => {
+test('Pulumi preview impact marks AWS route create-before-delete replacement conflicts', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
   const previewJson = [
     {
       resourcePreEvent: {
         metadata: {
-          op: 'delete',
+          op: 'delete-replaced',
           urn: 'urn:pulumi:prod::networking::aws:ec2/route:Route::old-peer-route',
           type: 'aws:ec2/route:Route',
           name: 'old-peer-route',
@@ -520,7 +520,7 @@ test('Pulumi preview impact marks AWS route create-before-delete conflicts', asy
     {
       resourcePreEvent: {
         metadata: {
-          op: 'create',
+          op: 'create-replacement',
           urn: 'urn:pulumi:prod::networking::aws:ec2/route:Route::new-peer-route',
           type: 'aws:ec2/route:Route',
           name: 'new-peer-route',
