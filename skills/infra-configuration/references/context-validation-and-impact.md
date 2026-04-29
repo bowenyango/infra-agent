@@ -238,15 +238,21 @@ Current graph foundation:
 - Pulumi preview graph output may include `create-before-delete-conflict` edges
   for delete/create or delete-replaced/create-replacement pairs that share a
   provider-exclusive identity. Current specs include AWS Routes, S3 buckets,
-  selected named AWS resources, AWS load balancing listener priorities,
-  CloudFront aliases, API Gateway custom domains, Route53 records including ACM
-  validation CNAMEs, and Kubernetes objects. Treat this as a high-risk ordering
-  warning: use aliases for logical renames, `deleteBeforeReplace` or manual
-  sequencing for true replacements with accepted temporary removal, or explicit
-  state/import repair after approval.
+  selected named AWS resources, AWS security group rules, IAM OIDC providers,
+  AWS load balancing listener priorities, CloudFront aliases, API Gateway custom
+  domains, Route53 records including ACM validation CNAMEs, and Kubernetes
+  objects. Treat this as a high-risk ordering warning: use aliases for logical
+  renames, `deleteBeforeReplace` or manual sequencing for true replacements
+  with accepted temporary removal, or explicit state/import repair after
+  approval.
 - The exclusive-identity specs are shared between Terraform and Pulumi graph
   analysis. Add provider/resource specs there before adding provider-specific
   conflict logic elsewhere.
+- Security group rule specs combine mutually exclusive source fields such as
+  CIDR blocks, IPv6 CIDR blocks, prefix lists, source security groups, and
+  `self` into a single overlap-matched identity group. Explain the matched
+  source facts before recommending imports, state moves, or delete-before-create
+  sequencing.
 - Replacement reason specs are also shared between Terraform and Pulumi impact
   analysis. Add path rules for known immutable or exclusive-identity fields
   before adding one-off graph logic.

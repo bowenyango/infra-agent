@@ -178,6 +178,35 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
     ]
   },
   {
+    id: 'aws-security-group-rule',
+    label: 'AWS Security Group Rule',
+    pulumiTypes: [
+      'aws:ec2:SecurityGroupRule',
+      'aws:ec2/securityGroupRule:SecurityGroupRule'
+    ],
+    terraformTypes: ['aws_security_group_rule'],
+    pathRules: [
+      {
+        paths: ['securityGroupId', 'security_group_id'],
+        category: 'exclusive-identity',
+        reason: 'security group ID is part of the rule permission identity',
+        suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      },
+      {
+        paths: ['type', 'protocol', 'fromPort', 'from_port', 'toPort', 'to_port'],
+        category: 'exclusive-identity',
+        reason: 'direction, protocol, and ports are part of the rule permission identity',
+        suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      },
+      {
+        paths: ['cidrBlocks', 'cidr_blocks', 'ipv6CidrBlocks', 'ipv6_cidr_blocks', 'prefixListIds', 'prefix_list_ids', 'sourceSecurityGroupId', 'source_security_group_id', 'self'],
+        category: 'exclusive-identity',
+        reason: 'traffic source is part of the security group rule permission identity',
+        suggestedAction: 'Check for InvalidPermission.Duplicate risk; use import/state repair for logical moves or explicitly sequence duplicate permission replacement after approval.'
+      }
+    ]
+  },
+  {
     id: 'aws-cloudfront-alias',
     label: 'AWS CloudFront distribution alias',
     pulumiTypes: ['aws:cloudfront/distribution:Distribution'],
@@ -284,6 +313,23 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
         category: 'immutable-target',
         reason: 'validation method affects how ACM proves domain ownership',
         suggestedAction: 'Confirm DNS/email validation ownership before accepting replacement.'
+      }
+    ]
+  },
+  {
+    id: 'aws-iam-oidc-provider',
+    label: 'AWS IAM OIDC provider',
+    pulumiTypes: [
+      'aws:iam:OpenIdConnectProvider',
+      'aws:iam/openIdConnectProvider:OpenIdConnectProvider'
+    ],
+    terraformTypes: ['aws_iam_openid_connect_provider'],
+    pathRules: [
+      {
+        paths: ['url'],
+        category: 'exclusive-identity',
+        reason: 'OIDC issuer URL is the provider-visible IAM identity',
+        suggestedAction: 'Check for EntityAlreadyExists risk; use import/state repair for existing providers or sequence replacement after reviewing IAM role trust policies.'
       }
     ]
   },

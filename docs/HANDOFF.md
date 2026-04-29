@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `b4d511a` Classify Pulumi DNS identity conflicts
   - `a5cd2a8` Add AWS DNS domain identity rules
   - `526595a` Tag provider schema context with lockfile versions
   - `a20b52b` Add Terraform provider schema context
@@ -1847,6 +1848,50 @@ Recommended next implementation slice:
    EIP allocations/associations, VPC endpoint service names, or IAM OIDC
    providers, only when the identity boundary is clear.
 2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-29 Security Rule And OIDC Identity Slice
+
+Files added or updated:
+
+- `src/impact/exclusive-identity.ts`
+- `src/impact/replacement-reasons.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add shared exclusive-identity specs for legacy AWS Security Group Rule
+  resources and IAM OIDC providers.
+- Add `combine` support to exclusive identity groups so security group rule
+  source fields can be matched as one overlap-based identity boundary across
+  CIDR blocks, IPv6 CIDR blocks, prefix lists, source security groups, and
+  `self`.
+- Add replacement reason path rules for security group permission identity
+  fields and IAM OIDC provider URL changes.
+- Cover Terraform and Pulumi create-before-delete/create-before-destroy graph
+  conflicts for both new specs.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 215/215 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add current best-practice AWS VPC security group ingress/egress rule specs
+   (`aws_vpc_security_group_ingress_rule`/`egress_rule` and Pulumi equivalents)
+   if local provider schema or real preview examples confirm the exact identity
+   field names.
+2. Add runtime validation classifiers for `InvalidPermission.Duplicate` and
+   IAM OIDC `EntityAlreadyExists` only after collecting representative CLI
+   output examples.
+3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands
 

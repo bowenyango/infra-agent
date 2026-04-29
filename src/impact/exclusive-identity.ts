@@ -1,6 +1,7 @@
 export interface ExclusiveIdentityGroup {
   key: string;
   paths: string[];
+  combine?: boolean;
   optional?: boolean;
   match?: 'exact' | 'overlap';
 }
@@ -86,6 +87,30 @@ export const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
     suggestedAction: 'Use an IaC-native rename mapping for logical renames, or explicitly sequence/delete the old rule before creating a new rule with the same listener priority.'
   },
   {
+    id: 'aws-security-group-rule',
+    label: 'AWS Security Group Rule',
+    pulumiTypes: [
+      'aws:ec2:SecurityGroupRule',
+      'aws:ec2/securityGroupRule:SecurityGroupRule'
+    ],
+    terraformTypes: ['aws_security_group_rule'],
+    identityGroups: [
+      { key: 'securityGroupId', paths: ['securityGroupId', 'security_group_id'] },
+      { key: 'type', paths: ['type'] },
+      { key: 'protocol', paths: ['protocol'] },
+      { key: 'fromPort', paths: ['fromPort', 'from_port'] },
+      { key: 'toPort', paths: ['toPort', 'to_port'] },
+      {
+        key: 'source',
+        paths: ['cidrBlocks', 'cidr_blocks', 'ipv6CidrBlocks', 'ipv6_cidr_blocks', 'prefixListIds', 'prefix_list_ids', 'sourceSecurityGroupId', 'source_security_group_id', 'self'],
+        combine: true,
+        match: 'overlap'
+      }
+    ],
+    conflictError: 'InvalidPermission.Duplicate',
+    suggestedAction: 'Security group rules are exclusive by group, direction, protocol, ports, and traffic source. Use import/state repair for logical moves, or explicitly remove/sequence the old rule before creating a duplicate permission.'
+  },
+  {
     id: 'aws-cloudfront-alias',
     label: 'AWS CloudFront distribution alias',
     pulumiTypes: ['aws:cloudfront/distribution:Distribution'],
@@ -126,6 +151,20 @@ export const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
     ],
     conflictError: 'InvalidChangeBatch',
     suggestedAction: 'Route53 record sets are exclusive by hosted zone, record name, type, and routing identifier when present. For ACM validation CNAMEs or other logical moves, use state moves/imports; otherwise sequence delete-before-create after DNS impact review.'
+  },
+  {
+    id: 'aws-iam-oidc-provider',
+    label: 'AWS IAM OIDC provider',
+    pulumiTypes: [
+      'aws:iam:OpenIdConnectProvider',
+      'aws:iam/openIdConnectProvider:OpenIdConnectProvider'
+    ],
+    terraformTypes: ['aws_iam_openid_connect_provider'],
+    identityGroups: [
+      { key: 'url', paths: ['url'] }
+    ],
+    conflictError: 'EntityAlreadyExists',
+    suggestedAction: 'IAM OIDC provider URLs are exclusive within an AWS account. Use import/state repair for logical adoption or renames, and sequence replacement only after reviewing IAM trust policy consumers.'
   },
   {
     id: 'aws-s3-bucket',
@@ -236,6 +275,19 @@ export function collectExclusiveIdentityValues(
 
   const values: Record<string, string> = {};
   for (const group of spec.identityGroups) {
+    if (group.combine) {
+      const combinedValues = group.paths
+        .map(path => identityString(getPathValue(value, path)))
+        .filter((identityValue): identityValue is string => Boolean(identityValue))
+        .flatMap(identityValue => identityValue.split('|'))
+        .filter(identityValue => identityValue.length > 0);
+      const combinedIdentity = identityString(combinedValues);
+      if (combinedIdentity) {
+        values[group.key] = combinedIdentity;
+      }
+      continue;
+    }
+
     for (const path of group.paths) {
       const identityValue = identityString(getPathValue(value, path));
       if (identityValue) {

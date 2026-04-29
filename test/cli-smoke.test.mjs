@@ -654,6 +654,58 @@ test('Terraform plan impact marks AWS listener rule priority conflicts', async (
   assert.match(String(conflictEdge.metadata?.reason), /PriorityInUse/);
 });
 
+test('Terraform plan impact marks AWS security group rule duplicate permission conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_security_group_rule.api_https',
+        mode: 'managed',
+        type: 'aws_security_group_rule',
+        name: 'api_https',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create', 'delete'],
+          replace_paths: [['description']],
+          before: {
+            security_group_id: 'sg-1234567890',
+            type: 'ingress',
+            protocol: 'tcp',
+            from_port: 443,
+            to_port: 443,
+            cidr_blocks: ['10.0.0.0/16'],
+            ipv6_cidr_blocks: ['2001:db8::/48']
+          },
+          after: {
+            security_group_id: 'sg-1234567890',
+            type: 'ingress',
+            protocol: 'tcp',
+            from_port: 443,
+            to_port: 443,
+            cidr_blocks: ['10.1.0.0/16'],
+            ipv6_cidr_blocks: ['2001:db8::/48']
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const conflictEdge = impactedGraph.edges.find(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.ok(conflictEdge);
+  assert.equal(conflictEdge.metadata?.exclusiveIdentitySpec, 'aws-security-group-rule');
+  assert.equal(conflictEdge.metadata?.matchingExclusiveIdentityKeys, 'securityGroupId,type,protocol,fromPort,toPort,source');
+  assert.equal(
+    conflictEdge.metadata?.exclusiveIdentityValues,
+    'securityGroupId=sg-1234567890,type=ingress,protocol=tcp,fromPort=443,toPort=443,source=10.0.0.0/16|2001:db8::/48'
+  );
+  assert.match(String(conflictEdge.metadata?.reason), /InvalidPermission\.Duplicate/);
+});
+
 test('Terraform plan impact marks CloudFront alias overlap conflicts', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -734,6 +786,46 @@ test('Terraform plan impact marks Route53 ACM validation record conflicts', asyn
   assert.equal(conflictEdge.metadata?.exclusiveIdentityValues, 'zoneId=Z1234567890,name=_abc.api.example.com,type=CNAME');
   assert.match(String(conflictEdge.metadata?.reason), /InvalidChangeBatch/);
   assert.match(String(conflictEdge.metadata?.suggestedAction), /ACM validation CNAMEs/);
+});
+
+test('Terraform plan impact marks IAM OIDC provider URL conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_iam_openid_connect_provider.github',
+        mode: 'managed',
+        type: 'aws_iam_openid_connect_provider',
+        name: 'github',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create', 'delete'],
+          replace_paths: [['thumbprint_list']],
+          before: {
+            url: 'https://token.actions.githubusercontent.com',
+            client_id_list: ['sts.amazonaws.com'],
+            thumbprint_list: ['oldthumbprint']
+          },
+          after: {
+            url: 'https://token.actions.githubusercontent.com',
+            client_id_list: ['sts.amazonaws.com'],
+            thumbprint_list: ['newthumbprint']
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const conflictEdge = impactedGraph.edges.find(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.ok(conflictEdge);
+  assert.equal(conflictEdge.metadata?.exclusiveIdentitySpec, 'aws-iam-oidc-provider');
+  assert.equal(conflictEdge.metadata?.exclusiveIdentityValues, 'url=https://token.actions.githubusercontent.com');
+  assert.match(String(conflictEdge.metadata?.reason), /EntityAlreadyExists/);
 });
 
 test('Terraform plan impact enriches replacement reasons from known replacement paths', async () => {
@@ -1300,6 +1392,62 @@ test('Pulumi preview impact marks generic exclusive identity create-before-delet
   assert.match(String(conflictEdges[0]?.metadata?.reason), /BucketAlreadyExists/i);
 });
 
+test('Pulumi preview impact marks AWS security group rule duplicate permission conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'delete-replaced',
+          urn: 'urn:pulumi:prod::network::aws:ec2/securityGroupRule:SecurityGroupRule::old-api-https',
+          type: 'aws:ec2/securityGroupRule:SecurityGroupRule',
+          name: 'old-api-https',
+          old: {
+            securityGroupId: 'sg-1234567890',
+            type: 'ingress',
+            protocol: 'tcp',
+            fromPort: 443,
+            toPort: 443,
+            cidrBlocks: ['10.0.0.0/16']
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create-replacement',
+          urn: 'urn:pulumi:prod::network::aws:ec2/securityGroupRule:SecurityGroupRule::new-api-https',
+          type: 'aws:ec2/securityGroupRule:SecurityGroupRule',
+          name: 'new-api-https',
+          new: {
+            securityGroupId: 'sg-1234567890',
+            type: 'ingress',
+            protocol: 'tcp',
+            fromPort: 443,
+            toPort: 443,
+            cidrBlocks: ['10.0.0.0/16']
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const conflictEdges = impactedGraph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.equal(conflictEdges.length, 1);
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-security-group-rule');
+  assert.equal(
+    conflictEdges[0]?.metadata?.exclusiveIdentityValues,
+    'securityGroupId=sg-1234567890,type=ingress,protocol=tcp,fromPort=443,toPort=443,source=10.0.0.0/16'
+  );
+  assert.match(String(conflictEdges[0]?.metadata?.reason), /InvalidPermission\.Duplicate/);
+});
+
 test('Pulumi preview impact marks API Gateway custom domain conflicts', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -1341,6 +1489,49 @@ test('Pulumi preview impact marks API Gateway custom domain conflicts', async ()
   assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-api-gateway-domain-name');
   assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'domainName=api.example.com');
   assert.match(String(conflictEdges[0]?.metadata?.reason), /ConflictException/);
+});
+
+test('Pulumi preview impact marks IAM OIDC provider URL conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'delete-replaced',
+          urn: 'urn:pulumi:prod::identity::aws:iam/openIdConnectProvider:OpenIdConnectProvider::old-github',
+          type: 'aws:iam/openIdConnectProvider:OpenIdConnectProvider',
+          name: 'old-github',
+          old: {
+            url: 'https://token.actions.githubusercontent.com'
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create-replacement',
+          urn: 'urn:pulumi:prod::identity::aws:iam/openIdConnectProvider:OpenIdConnectProvider::new-github',
+          type: 'aws:iam/openIdConnectProvider:OpenIdConnectProvider',
+          name: 'new-github',
+          new: {
+            url: 'https://token.actions.githubusercontent.com'
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const conflictEdges = impactedGraph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.equal(conflictEdges.length, 1);
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-iam-oidc-provider');
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'url=https://token.actions.githubusercontent.com');
+  assert.match(String(conflictEdges[0]?.metadata?.reason), /EntityAlreadyExists/);
 });
 
 test('Pulumi preview impact marks dependency edges and replacement cascades', async () => {
