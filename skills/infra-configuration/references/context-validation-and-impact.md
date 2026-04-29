@@ -214,8 +214,9 @@ Current graph foundation:
   `.infra-agent/terraform-provider-schema.json` or
   `.infra-agent/terraform-providers-schema.json`. Use compact facts from this
   source for required provider fields, configured field types, and nested block
-  shape. Do not paste full provider schema JSON into prompts, and do not treat
-  provider schema shape alone as proof that a change is in-place or
+  shape, and preserve `.terraform.lock.hcl` provider version labels when they
+  are available. Do not paste full provider schema JSON into prompts, and do
+  not treat provider schema shape alone as proof that a change is in-place or
   replacement-only; confirm replacement behavior with Terraform plan output and
   provider-specific impact rules.
 - Matching Pulumi delete/create resources may also be linked with

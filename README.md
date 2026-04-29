@@ -100,8 +100,10 @@ Current behavior is intentionally runtime-foundation oriented:
   `terraform providers schema -json`. `inspect`, `prefetch`, and the agent
   runtime use compact facts from that file for provider-required fields, field
   types, and nested block shape without loading the full schema JSON into the
-  planner prompt. Replacement and ForceNew behavior still comes from native
-  plan output plus provider-specific impact rules.
+  planner prompt. When `.terraform.lock.hcl` is present, local provider schema
+  context is tagged with locked provider versions such as
+  `hashicorp/aws@5.37.0`. Replacement and ForceNew behavior still comes from
+  native plan output plus provider-specific impact rules.
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model

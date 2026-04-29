@@ -1643,6 +1643,18 @@ async function writeTerraformProviderSchemaWorkspace(tempRoot) {
     'utf8'
   );
   await writeFile(
+    join(terraformRoot, '.terraform.lock.hcl'),
+    [
+      'provider "registry.terraform.io/hashicorp/aws" {',
+      '  version     = "5.37.0"',
+      '  constraints = "~> 5.0"',
+      '  hashes      = []',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  await writeFile(
     join(terraformRoot, '.infra-agent/terraform-provider-schema.json'),
     JSON.stringify({
       format_version: '1.0',
@@ -1791,6 +1803,10 @@ test('inspectWorkspace extracts compact Terraform provider schema semantics', as
     );
     assert.ok(providerSchemaSummary);
     assert.ok(providerSchemaSummary.facts.some(fact =>
+      fact.source.kind === 'terraform-provider-schema'
+      && fact.source.version === 'hashicorp/aws@5.37.0'
+    ));
+    assert.ok(providerSchemaSummary.facts.some(fact =>
       fact.kind === 'required-field'
       && fact.path === 'resource.aws_lb_listener_rule.listener_arn'
       && fact.values?.includes('string')
@@ -1824,6 +1840,7 @@ test('Terraform provider schema context stays local and compact', async () => {
     assert.equal(sources.length, 1);
     assert.equal(sources[0]?.kind, 'provider-schema');
     assert.equal(sources[0]?.localPath, 'terraform/app/.infra-agent/terraform-provider-schema.json');
+    assert.equal(sources[0]?.version, 'hashicorp/aws@5.37.0');
 
     const packets = await retrieveTerraformProviderSchemaContextPackets({
       workspaceRoot: tempRoot,
@@ -1832,7 +1849,10 @@ test('Terraform provider schema context stays local and compact', async () => {
     });
     assert.equal(packets.length, 1);
     assert.equal(packets[0]?.source.kind, 'provider-schema');
+    assert.equal(packets[0]?.source.version, 'hashicorp/aws@5.37.0');
     assert.match(packets[0]?.excerpt ?? '', /aws_lb_listener_rule/);
+    assert.match(packets[0]?.excerpt ?? '', /"providerVersions": \{\n    "hashicorp\/aws": "5\.37\.0"/);
+    assert.match(packets[0]?.excerpt ?? '', /"providerVersion": "5\.37\.0"/);
     assert.match(packets[0]?.excerpt ?? '', /listener_arn/);
     assert.doesNotMatch(packets[0]?.excerpt ?? '', /aws_instance/);
 

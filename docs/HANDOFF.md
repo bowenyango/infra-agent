@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `a20b52b` Add Terraform provider schema context
   - `0082b6a` Add AWS load balancing identity rules
   - `55d9da1` Add stable graph impact snapshot
   - `a5da92f` Enrich graph replacement reasons
@@ -1707,11 +1708,54 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Add provider version labels from `.terraform.lock.hcl` to provider schema
-   context packets so exact schema provenance is clearer.
-2. Add more provider-exclusive specs from real failure examples, especially
+1. Add more provider-exclusive specs from real failure examples, especially
    CloudFront aliases, API Gateway custom domains, Route53 records, and ACM
    certificate domain validation records.
+2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-29 Terraform Provider Schema Version Slice
+
+Files added or updated:
+
+- `src/domain/terraform-provider-lock.ts`
+- `src/domain/terraform-registry-context.ts`
+- `src/domain/terraform-provider-schema.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Move Terraform `.terraform.lock.hcl` provider version parsing into a shared
+  helper so Registry docs and local provider schema context use the same
+  source/version normalization.
+- Tag local provider schema `KnowledgeSource` and `ConfigSemanticSource`
+  objects with locked provider version labels such as `hashicorp/aws@5.37.0`
+  when lockfile data is available.
+- Include a `providerVersions` map and per-block `providerVersion` value in the
+  compact provider schema context packet so downstream agents can see exact
+  local schema provenance without receiving the full schema JSON.
+- Preserve behavior when no lockfile is present: the provider schema remains
+  usable as unversioned local shape context, not as validator-grade replacement
+  proof.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 204/204 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more provider-exclusive specs from real failure examples, especially
+   CloudFront aliases, API Gateway custom domains, Route53 records, and ACM
+   certificate domain validation records.
+2. Add a small graph or impact fixture only when new specs change observable
+   graph behavior.
 3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands

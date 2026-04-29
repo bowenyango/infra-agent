@@ -5,6 +5,11 @@ import type { ConfigSemanticFact, ConfigSemanticSource, ConfigSemanticsSummary }
 import type { KnowledgeSource, RetrievedContextPacket } from '../types/knowledge.ts';
 import type { TerraformRootSummary } from '../types/repository.ts';
 import { extractTerraformBlocksFromContent, type TerraformHclBlock } from './terraform-hcl.ts';
+import {
+  collectTerraformLockedProviders,
+  normalizeTerraformProviderSourceAddress,
+  type TerraformLockedProvider
+} from './terraform-provider-lock.ts';
 
 const PROVIDER_SCHEMA_FILE_CANDIDATES = [
   '.infra-agent/terraform-provider-schema.json',
@@ -61,6 +66,7 @@ interface TerraformSchemaBlockUsage {
 
 interface TerraformSchemaMatch {
   providerAddress: string;
+  providerVersion: string | null;
   schema: TerraformProviderBlockSchema;
 }
 
@@ -78,6 +84,7 @@ interface CompactSchemaBlock {
   type: string;
   kind: 'resource' | 'data-source';
   provider: string;
+  providerVersion: string | null;
   sourcePaths: string[];
   requiredAttributes: CompactSchemaAttribute[];
   configuredAttributes: CompactSchemaAttribute[];
@@ -88,6 +95,8 @@ interface CompactSchemaBlock {
 interface CompactProviderSchemaContext {
   schemaFile: string;
   formatVersion: string | null;
+  providerVersionLabel: string | null;
+  providerVersions: Record<string, string>;
   blocks: CompactSchemaBlock[];
   note: string;
 }
@@ -244,10 +253,6 @@ async function readRootFile(workspaceRoot: string, path: string): Promise<string
   }
 }
 
-function normalizeProviderAddress(address: string): string {
-  return address.replace(/^registry\.terraform\.io\//, '');
-}
-
 function stringifySchemaType(value: unknown): string | undefined {
   if (value === undefined) {
     return undefined;
@@ -279,10 +284,11 @@ function blockUsesNestedBlock(block: TerraformHclBlock, blockName: string): bool
   return pattern.test(block.body);
 }
 
-function sourceForSchemaFile(schemaFile: string): ConfigSemanticSource {
+function sourceForSchemaFile(schemaFile: string, providerVersionLabel: string | null): ConfigSemanticSource {
   return {
     kind: 'terraform-provider-schema',
-    path: schemaFile
+    path: schemaFile,
+    version: providerVersionLabel ?? undefined
   };
 }
 
@@ -361,7 +367,8 @@ async function collectTerraformSchemaBlockUsages(
 
 function findSchemaForUsage(
   schemaFile: TerraformProvidersSchemaFile,
-  usage: TerraformSchemaBlockUsage
+  usage: TerraformSchemaBlockUsage,
+  lockedBySource: Map<string, TerraformLockedProvider>
 ): TerraformSchemaMatch | null {
   for (const [providerAddress, providerSchema] of Object.entries(schemaFile.provider_schemas ?? {})) {
     const schema = usage.docKind === 'resource'
@@ -369,8 +376,10 @@ function findSchemaForUsage(
       : providerSchema.data_source_schemas?.[usage.typeName];
 
     if (schema) {
+      const normalizedProviderAddress = normalizeTerraformProviderSourceAddress(providerAddress);
       return {
-        providerAddress: normalizeProviderAddress(providerAddress),
+        providerAddress: normalizedProviderAddress,
+        providerVersion: lockedBySource.get(normalizedProviderAddress)?.version ?? null,
         schema
       };
     }
@@ -527,6 +536,7 @@ function buildCompactBlock(params: {
     type: params.usage.typeName,
     kind: params.usage.docKind,
     provider: params.match.providerAddress,
+    providerVersion: params.match.providerVersion,
     sourcePaths: Array.from(new Set(params.usage.blocks.map(block => block.sourcePath))).sort(),
     requiredAttributes,
     configuredAttributes,
@@ -537,14 +547,21 @@ function buildCompactBlock(params: {
 
 function buildProviderSchemaKnowledgeSource(
   root: TerraformRootSummary,
-  schemaFile: string
+  schemaFile: string,
+  providerVersionLabel: string | null
 ): KnowledgeSource {
-  return {
+  const source: KnowledgeSource = {
     kind: 'provider-schema',
     name: `terraform-provider-schema:${root.rootPath}`,
     localPath: schemaFile,
     module: root.rootPath
   };
+
+  if (providerVersionLabel) {
+    source.version = providerVersionLabel;
+  }
+
+  return source;
 }
 
 function estimateTokens(value: string): number {
@@ -573,10 +590,13 @@ async function buildCompactProviderSchemaContext(
     return null;
   }
 
+  const lockedBySource = await collectTerraformLockedProviders(workspaceRoot, root);
+  const providerVersions = buildProviderVersionMap(parsedSchemaFile, lockedBySource);
+  const providerVersionLabel = buildProviderVersionLabel(providerVersions);
   const usages = await collectTerraformSchemaBlockUsages(workspaceRoot, root);
   const blocks: CompactSchemaBlock[] = [];
   for (const usage of usages) {
-    const match = findSchemaForUsage(parsedSchemaFile, usage);
+    const match = findSchemaForUsage(parsedSchemaFile, usage, lockedBySource);
     if (!match) {
       continue;
     }
@@ -598,9 +618,39 @@ async function buildCompactProviderSchemaContext(
   return {
     schemaFile,
     formatVersion: parsedSchemaFile.format_version ?? null,
+    providerVersionLabel,
+    providerVersions,
     blocks,
     note: 'Compact read-only summary from a local terraform providers schema -json export. Use it for shape/required/type context; confirm replacement behavior with plan output and provider-specific rules.'
   };
+}
+
+function buildProviderVersionMap(
+  schemaFile: TerraformProvidersSchemaFile,
+  lockedBySource: Map<string, TerraformLockedProvider>
+): Record<string, string> {
+  const providerVersions: Record<string, string> = {};
+
+  for (const providerAddress of Object.keys(schemaFile.provider_schemas ?? {}).sort()) {
+    const normalizedProviderAddress = normalizeTerraformProviderSourceAddress(providerAddress);
+    const lockedProvider = lockedBySource.get(normalizedProviderAddress);
+    if (!lockedProvider) {
+      continue;
+    }
+
+    providerVersions[normalizedProviderAddress] = lockedProvider.version;
+  }
+
+  return providerVersions;
+}
+
+function buildProviderVersionLabel(providerVersions: Record<string, string>): string | null {
+  const entries = Object.entries(providerVersions).sort(([left], [right]) => left.localeCompare(right));
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return entries.map(([providerAddress, version]) => `${providerAddress}@${version}`).join(',');
 }
 
 export async function detectTerraformProviderSchemaFiles(
@@ -633,12 +683,14 @@ export async function extractTerraformProviderSchemaSemantics(
     return null;
   }
 
-  const source = sourceForSchemaFile(schemaFile);
+  const lockedBySource = await collectTerraformLockedProviders(workspaceRoot, root);
+  const providerVersions = buildProviderVersionMap(parsedSchemaFile, lockedBySource);
+  const source = sourceForSchemaFile(schemaFile, buildProviderVersionLabel(providerVersions));
   const facts: ConfigSemanticFact[] = [];
   const usages = await collectTerraformSchemaBlockUsages(workspaceRoot, root);
 
   for (const usage of usages) {
-    const match = findSchemaForUsage(parsedSchemaFile, usage);
+    const match = findSchemaForUsage(parsedSchemaFile, usage, lockedBySource);
     if (!match) {
       continue;
     }
@@ -682,6 +734,7 @@ export async function buildTerraformProviderSchemaKnowledgeSources(
   root: TerraformRootSummary
 ): Promise<KnowledgeSource[]> {
   const sources: KnowledgeSource[] = [];
+  const lockedBySource = await collectTerraformLockedProviders(workspaceRoot, root);
 
   for (const schemaFile of root.providerSchemaFiles) {
     const parsedSchemaFile = await readTerraformProviderSchemaFile(workspaceRoot, schemaFile);
@@ -689,9 +742,11 @@ export async function buildTerraformProviderSchemaKnowledgeSources(
       continue;
     }
 
+    const providerVersions = buildProviderVersionMap(parsedSchemaFile, lockedBySource);
     sources.push(buildProviderSchemaKnowledgeSource(
       root,
-      schemaFile
+      schemaFile,
+      buildProviderVersionLabel(providerVersions)
     ));
   }
 
@@ -716,7 +771,8 @@ export async function retrieveTerraformProviderSchemaContextPackets(input: {
 
   const source = buildProviderSchemaKnowledgeSource(
     input.root,
-    compactContext.schemaFile
+    compactContext.schemaFile,
+    compactContext.providerVersionLabel
   );
   const fullExcerpt = JSON.stringify(compactContext, null, 2);
   const excerpt = fullExcerpt.length <= (input.maxExcerptChars ?? 2400)

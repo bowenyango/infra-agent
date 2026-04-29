@@ -11,17 +11,16 @@ import {
   unquoteHclString
 } from './terraform-hcl.ts';
 import { buildKnowledgeCacheId } from '../knowledge/cache.ts';
+import {
+  collectTerraformLockedProviders,
+  normalizeTerraformProviderSourceAddress
+} from './terraform-provider-lock.ts';
 
 interface TerraformProviderRequirement {
   localName: string;
   sourceAddress: string;
   versionConstraint: string | null;
   declarationPath: string;
-}
-
-interface TerraformLockedProvider {
-  sourceAddress: string;
-  version: string;
 }
 
 interface TerraformRegistryRetrievalInput {
@@ -43,7 +42,7 @@ function stripQuotes(value: string | null): string | null {
 }
 
 function normalizeRegistrySourceAddress(value: string): string {
-  return value.replace(/^registry\.terraform\.io\//, '');
+  return normalizeTerraformProviderSourceAddress(value);
 }
 
 function defaultProviderSourceAddress(localName: string): string {
@@ -116,25 +115,6 @@ function collectProviderRequirementsFromContent(content: string, sourcePath: str
   return requirements;
 }
 
-function collectLockedProvidersFromContent(content: string): TerraformLockedProvider[] {
-  const lockedProviders: TerraformLockedProvider[] = [];
-
-  for (const block of extractTerraformBlocksFromContent(content, '.terraform.lock.hcl', 'provider')) {
-    const sourceAddress = block.labels[0];
-    const version = stripQuotes(readAttributeExpression(block.body, 'version'));
-    if (!sourceAddress || !version) {
-      continue;
-    }
-
-    lockedProviders.push({
-      sourceAddress: normalizeRegistrySourceAddress(sourceAddress),
-      version
-    });
-  }
-
-  return lockedProviders;
-}
-
 async function readRootFile(workspaceRoot: string, path: string): Promise<string | null> {
   try {
     return await readFile(join(workspaceRoot, path), 'utf8');
@@ -161,23 +141,6 @@ async function collectProviderRequirements(
   }
 
   return requirementsByLocalName;
-}
-
-async function collectLockedProviders(
-  workspaceRoot: string,
-  root: TerraformRootSummary
-): Promise<Map<string, TerraformLockedProvider>> {
-  const lockContent = await readRootFile(workspaceRoot, join(root.rootPath, '.terraform.lock.hcl'));
-  const lockedBySource = new Map<string, TerraformLockedProvider>();
-  if (!lockContent) {
-    return lockedBySource;
-  }
-
-  for (const lockedProvider of collectLockedProvidersFromContent(lockContent)) {
-    lockedBySource.set(lockedProvider.sourceAddress, lockedProvider);
-  }
-
-  return lockedBySource;
 }
 
 function buildResourceSource(params: {
@@ -226,7 +189,7 @@ export async function buildTerraformRegistryKnowledgeSources(
   root: TerraformRootSummary
 ): Promise<KnowledgeSource[]> {
   const requirementsByLocalName = await collectProviderRequirements(workspaceRoot, root);
-  const lockedBySource = await collectLockedProviders(workspaceRoot, root);
+  const lockedBySource = await collectTerraformLockedProviders(workspaceRoot, root);
   const sources: KnowledgeSource[] = [];
 
   for (const tfFile of root.tfFiles) {
