@@ -9,6 +9,14 @@ import {
   matchingExclusiveIdentityKeys,
   type ExclusiveIdentitySpec
 } from './exclusive-identity.ts';
+import {
+  collectReplacementReasons,
+  formatReplacementReasonCategories,
+  formatReplacementReasonPaths,
+  formatReplacementReasonSummary,
+  formatReplacementSuggestedActions,
+  type ReplacementReason
+} from './replacement-reasons.ts';
 import { summarizeInfraGraph } from './workspace-graph.ts';
 
 interface PulumiResourceChange {
@@ -18,6 +26,8 @@ interface PulumiResourceChange {
   operation: string;
   action: InfraGraphChangeAction;
   diffs: string[];
+  replacementPaths: string[];
+  replacementReasons: ReplacementReason[];
   identityValues: Record<string, string>;
   exclusiveIdentitySpec: ExclusiveIdentitySpec | null;
   exclusiveIdentityValues: Record<string, string>;
@@ -160,6 +170,50 @@ function collectPulumiDependencyUrns(value: unknown): string[] {
   ]);
 }
 
+function collectDetailedDiffPaths(value: unknown): string[] {
+  return isRecord(value) ? Object.keys(value) : [];
+}
+
+function detailedDiffEntryKind(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (isRecord(value)) {
+    return asString(value.kind) ?? asString(value.diffKind) ?? asString(value.type);
+  }
+
+  return null;
+}
+
+function collectDetailedDiffReplacementPaths(value: unknown): string[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return Object.entries(value)
+    .filter(([, entry]) => detailedDiffEntryKind(entry)?.toLowerCase().includes('replace'))
+    .map(([path]) => path);
+}
+
+function isReplacementOperation(operation: string, action: InfraGraphChangeAction): boolean {
+  return action === 'replace' || operation.toLowerCase().includes('replacement');
+}
+
+function collectPulumiReplacementPaths(
+  detailedDiff: unknown,
+  diffs: string[],
+  operation: string,
+  action: InfraGraphChangeAction
+): string[] {
+  const detailedReplacementPaths = collectDetailedDiffReplacementPaths(detailedDiff);
+  if (detailedReplacementPaths.length > 0) {
+    return uniqueStrings(detailedReplacementPaths);
+  }
+
+  return isReplacementOperation(operation, action) ? uniqueStrings(diffs) : [];
+}
+
 function normalizePulumiOperation(operation: string | null): InfraGraphChangeAction {
   switch (operation) {
     case 'create':
@@ -204,16 +258,21 @@ function parsePulumiMetadata(metadata: unknown): PulumiResourceChange | null {
   const type = asString(metadata.type) ?? resourceTypeFromUrn(urn);
   const identitySource = identitySourceForMetadata(metadata);
   const exclusiveIdentitySpec = findExclusiveIdentitySpec(type, 'pulumi');
+  const action = normalizePulumiOperation(operation);
+  const diffs = uniqueStrings([
+    ...asStringArray(metadata.diffs),
+    ...collectDetailedDiffPaths(metadata.detailedDiff)
+  ]);
+  const replacementPaths = collectPulumiReplacementPaths(metadata.detailedDiff, diffs, operation, action);
   return {
     urn,
     type,
     name: asString(metadata.name) ?? resourceNameFromUrn(urn),
     operation,
-    action: normalizePulumiOperation(operation),
-    diffs: [
-      ...asStringArray(metadata.diffs),
-      ...asStringArray(metadata.detailedDiff)
-    ].filter((entry, index, entries) => entries.indexOf(entry) === index),
+    action,
+    diffs,
+    replacementPaths,
+    replacementReasons: collectReplacementReasons(type, 'pulumi', replacementPaths),
     identityValues: collectIdentityValues(identitySource),
     exclusiveIdentitySpec,
     exclusiveIdentityValues: collectExclusiveIdentityValues(identitySource, exclusiveIdentitySpec),
@@ -236,13 +295,21 @@ function parsePulumiStep(step: unknown): PulumiResourceChange | null {
   const type = asString(step.type) ?? resourceTypeFromUrn(urn);
   const identitySource = step.new ?? step.inputs ?? step.outputs ?? step.old;
   const exclusiveIdentitySpec = findExclusiveIdentitySpec(type, 'pulumi');
+  const action = normalizePulumiOperation(operation);
+  const diffs = uniqueStrings([
+    ...asStringArray(step.diffs),
+    ...collectDetailedDiffPaths(step.detailedDiff)
+  ]);
+  const replacementPaths = collectPulumiReplacementPaths(step.detailedDiff, diffs, operation, action);
   return {
     urn,
     type,
     name: asString(step.name) ?? resourceNameFromUrn(urn),
     operation,
-    action: normalizePulumiOperation(operation),
-    diffs: asStringArray(step.diffs),
+    action,
+    diffs,
+    replacementPaths,
+    replacementReasons: collectReplacementReasons(type, 'pulumi', replacementPaths),
     identityValues: collectIdentityValues(identitySource),
     exclusiveIdentitySpec,
     exclusiveIdentityValues: collectExclusiveIdentityValues(identitySource, exclusiveIdentitySpec),
@@ -329,6 +396,11 @@ function buildResourceNode(
     type: change.type,
     name: change.name,
     diffs: change.diffs.join(','),
+    replacementPaths: change.replacementPaths.join(','),
+    replacementReasonCategories: formatReplacementReasonCategories(change.replacementReasons),
+    replacementReasonPaths: formatReplacementReasonPaths(change.replacementReasons),
+    replacementReasons: formatReplacementReasonSummary(change.replacementReasons),
+    replacementSuggestedActions: formatReplacementSuggestedActions(change.replacementReasons),
     identityKeys: Object.keys(change.identityValues).join(','),
     exclusiveIdentitySpec: change.exclusiveIdentitySpec?.id ?? null,
     exclusiveIdentityKeys: Object.keys(change.exclusiveIdentityValues).join(','),
@@ -491,6 +563,9 @@ function buildReplacementCascadeEdges(changes: PulumiResourceChange[], edgeIds: 
           dependentAction: dependent.action,
           dependencyUrn: dependency.urn,
           dependentUrn: dependent.urn,
+          dependencyReplacementReasonCategories: formatReplacementReasonCategories(dependency.replacementReasons),
+          dependencyReplacementReasons: formatReplacementReasonSummary(dependency.replacementReasons),
+          dependencyReplacementSuggestedActions: formatReplacementSuggestedActions(dependency.replacementReasons),
           reason: `${dependent.urn} depends on ${dependency.urn}; upstream ${dependency.action} may explain downstream ${dependent.action}`
         }
       });

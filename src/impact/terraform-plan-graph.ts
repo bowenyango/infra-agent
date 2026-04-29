@@ -9,6 +9,14 @@ import {
   matchingExclusiveIdentityKeys,
   type ExclusiveIdentitySpec
 } from './exclusive-identity.ts';
+import {
+  collectReplacementReasons,
+  formatReplacementReasonCategories,
+  formatReplacementReasonPaths,
+  formatReplacementReasonSummary,
+  formatReplacementSuggestedActions,
+  type ReplacementReason
+} from './replacement-reasons.ts';
 import { summarizeInfraGraph } from './workspace-graph.ts';
 
 interface TerraformResourceChange {
@@ -21,6 +29,7 @@ interface TerraformResourceChange {
   actions: string[];
   actionReason: string | null;
   replacePaths: string[];
+  replacementReasons: ReplacementReason[];
   identityValues: Record<string, string>;
   exclusiveIdentitySpec: ExclusiveIdentitySpec | null;
   exclusiveIdentityValues: Record<string, string>;
@@ -445,6 +454,7 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
     const exclusiveIdentitySpec = findExclusiveIdentitySpec(type, 'terraform');
     const exclusiveIdentityBefore = collectExclusiveIdentityValues(change.before, exclusiveIdentitySpec);
     const exclusiveIdentityAfter = collectExclusiveIdentityValues(change.after, exclusiveIdentitySpec);
+    const replacePaths = collectReplacePaths(change);
     changes.push({
       address,
       mode: asString(entry.mode),
@@ -454,7 +464,8 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
       action: classifyTerraformActions(actions),
       actions,
       actionReason: asString(entry.action_reason),
-      replacePaths: collectReplacePaths(change),
+      replacePaths,
+      replacementReasons: collectReplacementReasons(type, 'terraform', replacePaths),
       identityValues: collectIdentityValues(change.after ?? change.before, type),
       exclusiveIdentitySpec,
       exclusiveIdentityValues: Object.keys(exclusiveIdentityAfter).length > 0 ? exclusiveIdentityAfter : exclusiveIdentityBefore,
@@ -522,6 +533,10 @@ function buildResourceNode(change: TerraformResourceChange, targetPath: string |
       providerName: change.providerName,
       actionReason: change.actionReason,
       replacePaths: change.replacePaths.join(','),
+      replacementReasonCategories: formatReplacementReasonCategories(change.replacementReasons),
+      replacementReasonPaths: formatReplacementReasonPaths(change.replacementReasons),
+      replacementReasons: formatReplacementReasonSummary(change.replacementReasons),
+      replacementSuggestedActions: formatReplacementSuggestedActions(change.replacementReasons),
       identityKeys: Object.keys(change.identityValues).join(','),
       exclusiveIdentitySpec: change.exclusiveIdentitySpec?.id ?? null,
       exclusiveIdentityKeys: Object.keys(change.exclusiveIdentityValues).join(','),
@@ -704,6 +719,9 @@ function buildReplacementCascadeEdges(changes: TerraformResourceChange[], edgeId
           dependentAction: dependent.action,
           dependencyAddress: dependency.address,
           dependentAddress: dependent.address,
+          dependencyReplacementReasonCategories: formatReplacementReasonCategories(dependency.replacementReasons),
+          dependencyReplacementReasons: formatReplacementReasonSummary(dependency.replacementReasons),
+          dependencyReplacementSuggestedActions: formatReplacementSuggestedActions(dependency.replacementReasons),
           reason: `${dependent.address} depends on ${dependency.address}; upstream ${dependency.action} may explain downstream ${dependent.action}`
         }
       });

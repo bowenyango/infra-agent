@@ -190,6 +190,11 @@ Current graph foundation:
   identify the relationship. When a replaced/deleted dependency has a changed
   dependent, a `replacement-cascade` edge explains the likely downstream blast
   radius.
+- Terraform plan graph resource nodes may include `replacementReasons`,
+  `replacementReasonCategories`, `replacementReasonPaths`, and
+  `replacementSuggestedActions` metadata derived from native `replace_paths`
+  plus known provider immutable/exclusive-identity fields. Cascade edges may
+  also include `dependencyReplacementReasons` for the upstream resource.
 - Terraform plan graph output may add unchanged dependency resources as
   `metadata.role=dependency-context` nodes when planned values, prior state
   values, or no-op resource changes provide safe metadata. These nodes support
@@ -208,6 +213,10 @@ Current graph foundation:
 - Pulumi preview graph output may include `depends-on` edges from dependency
   metadata and `replacement-cascade` edges when a replaced/deleted upstream
   resource has a changed dependent.
+- Pulumi preview graph resource nodes may include replacement reason metadata
+  derived from replacement-kind `detailedDiff` entries or replacement operation
+  `diffs`. Treat unknown paths as provider-reported fallback context, not as a
+  complete schema explanation.
 - Pulumi preview graph output may add unchanged resources from `same`/no-op
   preview metadata as `metadata.role=dependency-context` nodes. These preserve
   dependency context only and must not be counted as preview changes.
@@ -221,6 +230,9 @@ Current graph foundation:
 - The exclusive-identity specs are shared between Terraform and Pulumi graph
   analysis. Add provider/resource specs there before adding provider-specific
   conflict logic elsewhere.
+- Replacement reason specs are also shared between Terraform and Pulumi impact
+  analysis. Add path rules for known immutable or exclusive-identity fields
+  before adding one-off graph logic.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 

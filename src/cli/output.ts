@@ -1216,7 +1216,11 @@ function formatPossibleRename(edge: InfraGraph['edges'][number]): string {
 function formatReplacementCascade(edge: InfraGraph['edges'][number]): string {
   const dependencyAction = typeof edge.metadata?.dependencyAction === 'string' ? edge.metadata.dependencyAction : 'changed';
   const dependentAction = typeof edge.metadata?.dependentAction === 'string' ? edge.metadata.dependentAction : 'changed';
-  return `${compactGraphRef(edge.from)} -> ${compactGraphRef(edge.to)} [${edge.confidence}] ${dependencyAction} -> ${dependentAction}`;
+  const replacementReasons = typeof edge.metadata?.dependencyReplacementReasons === 'string'
+    && edge.metadata.dependencyReplacementReasons.length > 0
+    ? ` reason=${edge.metadata.dependencyReplacementReasons}`
+    : '';
+  return `${compactGraphRef(edge.from)} -> ${compactGraphRef(edge.to)} [${edge.confidence}] ${dependencyAction} -> ${dependentAction}${replacementReasons}`;
 }
 
 export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {

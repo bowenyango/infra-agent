@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `9f98219` Add unchanged dependency context nodes
   - `6a81fe5` Detect Terraform exclusive identity conflicts
   - `6ee9012` Generalize Pulumi exclusive identity conflicts
   - `4a6d609` Handle Pulumi replacement steps in route conflicts
@@ -1525,6 +1526,51 @@ Recommended next implementation slice:
 2. Add more exclusive-identity specs from real failure examples and provider
    schemas.
 3. Add stable graph snapshot fixtures before starting any topology viewer.
+
+## 2026-04-29 Provider Replacement Reason Slice
+
+Files added or updated:
+
+- `src/impact/replacement-reasons.ts`
+- `src/impact/terraform-plan-graph.ts`
+- `src/impact/pulumi-preview-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a shared provider replacement reason rule module used by Terraform and
+  Pulumi graph impact analysis.
+- Enrich Terraform resource nodes from native `replace_paths`, including known
+  exclusive-identity/immutable fields and provider-reported fallback metadata
+  for unknown paths.
+- Enrich Pulumi resource nodes from replacement-kind `detailedDiff` entries,
+  with fallback to preview `diffs` for replacement operations.
+- Add upstream replacement reason metadata to `replacement-cascade` edges and
+  surface it in compact impact text output.
+- Keep the metadata advisory: it explains likely replacement causes but does
+  not authorize apply, state mutation, or downtime without native plan/preview
+  and state review.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 199/199 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more exclusive-identity and replacement reason specs from real failure
+   examples and provider schemas.
+2. Add stable graph snapshot fixtures before starting any topology viewer.
+3. Explore safe provider schema ingestion for initialized Terraform roots while
+   keeping prompts compact.
 
 ## Current Verification Commands
 

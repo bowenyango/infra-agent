@@ -166,6 +166,8 @@ test('Terraform plan impact attaches resource change nodes to the infra graph', 
   assert.equal(replacementNode.source, 'terraform-plan');
   assert.equal(replacementNode.metadata?.action, 'replace');
   assert.equal(replacementNode.metadata?.replacePaths, 'ami,tags.Name');
+  assert.equal(replacementNode.metadata?.replacementReasonCategories, 'provider-reported');
+  assert.match(String(replacementNode.metadata?.replacementReasons), /Provider reported replacement for aws_instance\.ami/);
   assert.equal(impactedGraph.summary.changesByAction?.replace, 1);
   assert.equal(impactedGraph.summary.changesByAction?.update, 1);
   assert.equal(impactedGraph.summary.changesByAction?.['no-op'], undefined);
@@ -322,6 +324,43 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   ));
 });
 
+test('Terraform plan impact enriches replacement reasons from known replacement paths', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_s3_bucket.artifacts',
+        mode: 'managed',
+        type: 'aws_s3_bucket',
+        name: 'artifacts',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['delete', 'create'],
+          replace_paths: [['bucket']],
+          before: {
+            bucket: 'payments-artifacts'
+          },
+          after: {
+            bucket: 'payments-artifacts-v2'
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const bucketNode = impactedGraph.nodes.find(node => node.id === 'terraform-resource:aws_s3_bucket.artifacts');
+
+  assert.ok(bucketNode);
+  assert.equal(bucketNode.metadata?.replacementReasonCategories, 'exclusive-identity');
+  assert.equal(bucketNode.metadata?.replacementReasonPaths, 'bucket');
+  assert.match(String(bucketNode.metadata?.replacementReasons), /AWS S3 Bucket: bucket is the globally unique physical bucket name/);
+  assert.match(String(bucketNode.metadata?.replacementSuggestedActions), /bucket identity change/);
+});
+
 test('Terraform plan impact marks dependency edges and replacement cascades', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -400,10 +439,15 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   assert.equal(cascadeEdge.confidence, 'high');
   assert.equal(cascadeEdge.metadata?.dependencyAction, 'replace');
   assert.equal(cascadeEdge.metadata?.dependentAction, 'replace');
+  assert.equal(cascadeEdge.metadata?.dependencyReplacementReasonCategories, 'exclusive-identity');
+  assert.match(String(cascadeEdge.metadata?.dependencyReplacementReasons), /bucket: AWS S3 Bucket/);
   assert.equal(impactedGraph.summary.edgesByKind['depends-on'], 1);
   assert.equal(impactedGraph.summary.impact?.replacementCascades, 1);
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('replacement cascade: aws_s3_bucket.artifacts -> aws_lambda_function.api [high] replace -> replace')
+  ));
+  assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
+    line.includes('reason=bucket: AWS S3 Bucket')
   ));
 });
 
@@ -612,6 +656,52 @@ test('Pulumi preview impact marks matching delete and create resources as possib
   assert.equal(renameEdges[0]?.confidence, 'high');
   assert.equal(renameEdges[0]?.metadata?.matchingIdentityKeys, 'metadata.name,metadata.namespace');
   assert.equal(renameEdges[0]?.metadata?.score, 1);
+});
+
+test('Pulumi preview impact enriches replacement reasons from detailed diff', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const bucketUrn = 'urn:pulumi:dev::payments-api::aws:s3/bucket:Bucket::artifacts';
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'replace',
+          urn: bucketUrn,
+          type: 'aws:s3/bucket:Bucket',
+          name: 'artifacts',
+          detailedDiff: {
+            bucket: {
+              kind: 'update-replace'
+            },
+            tags: {
+              kind: 'update'
+            }
+          },
+          old: {
+            bucket: 'payments-artifacts'
+          },
+          new: {
+            bucket: 'payments-artifacts-v2'
+          }
+        }
+      }
+    }
+  ];
+
+  const changes = parsePulumiPreviewResourceChanges(previewJson);
+  assert.deepEqual(changes[0]?.replacementPaths, ['bucket']);
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const bucketNode = impactedGraph.nodes.find(node => node.id === `pulumi-resource:${bucketUrn}`);
+
+  assert.ok(bucketNode);
+  assert.equal(bucketNode.metadata?.replacementPaths, 'bucket');
+  assert.equal(bucketNode.metadata?.replacementReasonCategories, 'exclusive-identity');
+  assert.match(String(bucketNode.metadata?.replacementReasons), /AWS S3 Bucket: bucket is the globally unique physical bucket name/);
+  assert.match(String(bucketNode.metadata?.replacementSuggestedActions), /bucket identity change/);
 });
 
 test('Pulumi preview impact marks AWS route create-before-delete replacement conflicts', async () => {

@@ -339,6 +339,9 @@ Status on 2026-04-28:
   dependencies or configuration expression references, and marks
   `replacement-cascade` edges when a replaced/deleted upstream resource has a
   changed dependent in the same plan graph.
+- Terraform plan graph analysis now enriches changed resource nodes and
+  replacement-cascade edges with provider-specific replacement reasons derived
+  from `replace_paths` plus known immutable or exclusive-identity fields.
 - Terraform plan graph analysis now uses the shared exclusive-identity specs to
   mark `create-before-delete-conflict` edges for create-before-destroy
   replacements, and medium-confidence ordering warnings for delete/create pairs
@@ -357,6 +360,10 @@ Status on 2026-04-28:
 - Pulumi preview graph analysis now also attaches `depends-on` edges from
   preview dependency metadata and marks advisory `replacement-cascade` edges
   when a replaced/deleted upstream resource has a changed dependent.
+- Pulumi preview graph analysis now extracts replacement paths from
+  `detailedDiff` entries whose kind contains `replace`, falls back to preview
+  `diffs` for replacement operations, and enriches resource nodes/cascade edges
+  with the same provider-specific replacement reason metadata.
 - Pulumi preview graph analysis now adds unchanged preview resources as
   `dependency-context` nodes when `same`/no-op preview metadata is available,
   preserving dependency edges without treating the unchanged resources as
