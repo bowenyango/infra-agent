@@ -7,6 +7,7 @@ export type KnowledgeSourceKind =
   | 'chart-docs'
   | 'provider-schema'
   | 'chart-schema'
+  | 'chart-lock'
   | 'repo-example'
   | 'module-readme';
 

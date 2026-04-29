@@ -919,6 +919,84 @@ test('Helm chart context sources include local schema and chart docs metadata', 
   }
 });
 
+test('Helm chart context sources include chart lock and dependency repositories', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-dependency-context-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-dependency-cache-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.0',
+        '    repository: https://charts.bitnami.com/bitnami',
+        '  - name: local-helper',
+        '    version: 0.1.0',
+        '    repository: file://../local-helper',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.lock'),
+      [
+        'dependencies:',
+        '  - name: postgresql',
+        '    version: 12.1.0',
+        '    repository: https://charts.bitnami.com/bitnami',
+        'digest: sha256:abc123',
+        'generated: "2026-04-28T00:00:00Z"',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
+    assert.ok(chart);
+    const sources = await buildHelmChartKnowledgeSources(tempRoot, chart);
+    const lockSource = sources.find(source => source.kind === 'chart-lock');
+    const redisSource = sources.find(source => source.name === 'api:dependency:redis');
+    const postgresqlSource = sources.find(source => source.name === 'api:dependency:postgresql');
+    const localSource = sources.find(source => source.name === 'api:dependency:local-helper');
+
+    assert.ok(lockSource);
+    assert.equal(lockSource.localPath, 'charts/api/Chart.lock');
+    assert.equal(lockSource.version, '0.2.0');
+    assert.ok(redisSource);
+    assert.equal(redisSource.chart, 'redis');
+    assert.equal(redisSource.module, 'api');
+    assert.equal(redisSource.packageName, 'redis');
+    assert.equal(redisSource.version, '17.3.0');
+    assert.equal(redisSource.url, 'https://charts.bitnami.com/bitnami');
+    assert.ok(postgresqlSource);
+    assert.equal(postgresqlSource.version, '12.1.0');
+    assert.equal(localSource, undefined);
+
+    const packets = await retrieveHelmChartContextPackets({
+      workspaceRoot: tempRoot,
+      chart,
+      cacheRoot,
+      reason: 'Helm dependency docs for selected chart',
+      maxExternalSources: 0
+    });
+    const lockPacket = packets.find(packet => packet.source.kind === 'chart-lock');
+
+    assert.ok(lockPacket);
+    assert.equal(lockPacket.contentType, 'application/yaml');
+    assert.match(lockPacket.excerpt ?? '', /postgresql/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
+});
+
 test('Helm chart context packets include local schema and cached external docs', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-context-packets-'));
   const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-context-cache-'));

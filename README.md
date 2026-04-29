@@ -108,6 +108,10 @@ Current behavior is intentionally runtime-foundation oriented:
 - Helm agent runs load selected chart schema context into planner prompts by
   default; external Helm/chart docs are still cache-only unless explicitly
   fetched elsewhere.
+- Helm chart context also reads `Chart.lock` and chart dependency metadata, so
+  dependency chart names, versions, and HTTP(S) repositories can participate in
+  cache selection without fetching non-document URLs such as `file://` or
+  `oci://`.
 
 LLM planner environment variables:
 

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `f80aa26` Score Terraform rename candidates
   - `60f863f` Attach Pulumi preview actions to graph
   - `f4adcb1` Mark Terraform rename candidates in graph
   - `3eccc71` Attach Terraform plan actions to graph
@@ -1151,10 +1152,48 @@ Known validation:
 Recommended next implementation slice:
 
 1. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
-2. Expand Helm context selection to include chart dependency metadata when
-   `Chart.lock` or `charts/` dependencies are present.
-3. Add Pulumi rename candidate detection from preview delete/create pairs when
+2. Add Pulumi rename candidate detection from preview delete/create pairs when
    URN/type/name evidence is sufficient.
+3. Extend graph dependency edges beyond containment/configuration using plan or
+   preview dependency metadata.
+
+## 2026-04-28 Helm Dependency Context Slice
+
+Files added or updated:
+
+- `src/types/knowledge.ts`
+- `src/domain/helm-chart-context.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add local `chart-lock` knowledge sources and high-confidence local packets for
+  Helm `Chart.lock`.
+- Parse dependency metadata from both `Chart.yaml` and `Chart.lock`.
+- Add version-aware `chart-docs` sources for dependency chart repositories when
+  the repository URL is HTTP(S).
+- Skip non-document dependency schemes such as `file://` and `oci://` for
+  external fetch selection.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 187/187 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
+2. Add Pulumi rename candidate detection from preview delete/create pairs when
+   URN/type/name evidence is sufficient.
+3. Extend graph dependency edges beyond containment/configuration using plan or
+   preview dependency metadata.
 
 ## Current Verification Commands
 

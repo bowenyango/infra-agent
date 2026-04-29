@@ -12,6 +12,14 @@ interface HelmChartMetadata {
   version: string | null;
   home: string | null;
   sources: string[];
+  dependencies: HelmChartDependency[];
+}
+
+interface HelmChartDependency {
+  name: string;
+  version: string | null;
+  repository: string | null;
+  alias: string | null;
 }
 
 interface HelmChartContextRetrievalInput {
@@ -36,6 +44,34 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.map(asString).filter((entry): entry is string => Boolean(entry))
     : [];
+}
+
+function asDependencyArray(value: unknown): HelmChartDependency[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap(entry => {
+    if (!isRecord(entry)) {
+      return [];
+    }
+
+    const name = asString(entry.name);
+    if (!name) {
+      return [];
+    }
+
+    return [{
+      name,
+      version: asString(entry.version),
+      repository: asString(entry.repository),
+      alias: asString(entry.alias)
+    }];
+  });
+}
+
+function isFetchableUrl(value: string | null): value is string {
+  return Boolean(value && /^https?:\/\//i.test(value));
 }
 
 function estimateTokens(value: string): number {
@@ -65,7 +101,8 @@ async function readChartMetadata(workspaceRoot: string, chart: HelmChartSummary)
       name: chart.chartName,
       version: null,
       home: null,
-      sources: []
+      sources: [],
+      dependencies: []
     };
   }
 
@@ -75,7 +112,8 @@ async function readChartMetadata(workspaceRoot: string, chart: HelmChartSummary)
       name: chart.chartName,
       version: null,
       home: null,
-      sources: []
+      sources: [],
+      dependencies: []
     };
   }
 
@@ -83,8 +121,22 @@ async function readChartMetadata(workspaceRoot: string, chart: HelmChartSummary)
     name: asString(parsed.name) ?? chart.chartName,
     version: asString(parsed.version),
     home: asString(parsed.home),
-    sources: asStringArray(parsed.sources)
+    sources: asStringArray(parsed.sources),
+    dependencies: asDependencyArray(parsed.dependencies)
   };
+}
+
+async function readChartLockDependencies(
+  workspaceRoot: string,
+  chart: HelmChartSummary
+): Promise<HelmChartDependency[]> {
+  const content = await readWorkspaceFile(workspaceRoot, join(chart.chartRoot, 'Chart.lock'));
+  if (!content) {
+    return [];
+  }
+
+  const parsed = parseDocument(content).toJSON() as unknown;
+  return isRecord(parsed) ? asDependencyArray(parsed.dependencies) : [];
 }
 
 function withOptionalVersion(source: KnowledgeSource, version: string | null): KnowledgeSource {
@@ -115,11 +167,36 @@ function uniqueKnowledgeSources(sources: KnowledgeSource[]): KnowledgeSource[] {
   return unique;
 }
 
+function uniqueDependencies(dependencies: HelmChartDependency[]): HelmChartDependency[] {
+  const seen = new Set<string>();
+  const unique: HelmChartDependency[] = [];
+
+  for (const dependency of dependencies) {
+    const key = [
+      dependency.name,
+      dependency.version ?? '',
+      dependency.repository ?? '',
+      dependency.alias ?? ''
+    ].join('|');
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(dependency);
+  }
+
+  return unique;
+}
+
 export async function buildHelmChartKnowledgeSources(
   workspaceRoot: string,
   chart: HelmChartSummary
 ): Promise<KnowledgeSource[]> {
   const metadata = await readChartMetadata(workspaceRoot, chart);
+  const lockPath = join(chart.chartRoot, 'Chart.lock');
+  const hasChartLock = Boolean(await readWorkspaceFile(workspaceRoot, lockPath));
+  const lockedDependencies = await readChartLockDependencies(workspaceRoot, chart);
   const chartName = metadata.name ?? chart.chartName;
   const sources: KnowledgeSource[] = [];
 
@@ -136,6 +213,15 @@ export async function buildHelmChartKnowledgeSources(
       chart: chartName,
       url: 'https://helm.sh/docs/topics/charts/#schema-files'
     });
+  }
+
+  if (hasChartLock) {
+    sources.push(withOptionalVersion({
+      kind: 'chart-lock',
+      name: `${chartName}:Chart.lock`,
+      chart: chartName,
+      localPath: lockPath
+    }, metadata.version));
   }
 
   if (metadata.home) {
@@ -156,15 +242,35 @@ export async function buildHelmChartKnowledgeSources(
     }, metadata.version));
   }
 
+  for (const dependency of uniqueDependencies([...metadata.dependencies, ...lockedDependencies])) {
+    if (!isFetchableUrl(dependency.repository)) {
+      continue;
+    }
+
+    sources.push({
+      kind: 'chart-docs',
+      name: `${chartName}:dependency:${dependency.name}`,
+      chart: dependency.name,
+      module: chartName,
+      packageName: dependency.alias ?? dependency.name,
+      version: dependency.version ?? undefined,
+      url: dependency.repository
+    });
+  }
+
   return uniqueKnowledgeSources(sources);
 }
 
-async function buildLocalChartSchemaPacket(
+function contentTypeForLocalHelmSource(source: KnowledgeSource): 'application/json' | 'application/yaml' {
+  return source.kind === 'chart-schema' ? 'application/json' : 'application/yaml';
+}
+
+async function buildLocalHelmPacket(
   workspaceRoot: string,
   source: KnowledgeSource,
   reason: string
 ): Promise<RetrievedContextPacket | null> {
-  if (source.kind !== 'chart-schema' || !source.localPath) {
+  if ((source.kind !== 'chart-schema' && source.kind !== 'chart-lock') || !source.localPath) {
     return null;
   }
 
@@ -179,7 +285,7 @@ async function buildLocalChartSchemaPacket(
     source,
     confidence: 'high',
     reason,
-    contentType: 'application/json',
+    contentType: contentTypeForLocalHelmSource(source),
     excerpt,
     tokenEstimate: estimateTokens(excerpt)
   };
@@ -190,10 +296,10 @@ export async function retrieveHelmChartContextPackets(
 ): Promise<RetrievedContextPacket[]> {
   const sources = await buildHelmChartKnowledgeSources(input.workspaceRoot, input.chart);
   const packets: RetrievedContextPacket[] = [];
-  const externalSources = sources.filter(source => source.kind !== 'chart-schema');
+  const externalSources = sources.filter(source => source.kind !== 'chart-schema' && source.kind !== 'chart-lock');
 
-  for (const source of sources.filter(candidate => candidate.kind === 'chart-schema')) {
-    const packet = await buildLocalChartSchemaPacket(input.workspaceRoot, source, input.reason);
+  for (const source of sources.filter(candidate => candidate.kind === 'chart-schema' || candidate.kind === 'chart-lock')) {
+    const packet = await buildLocalHelmPacket(input.workspaceRoot, source, input.reason);
     if (packet) {
       packets.push(packet);
     }

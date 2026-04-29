@@ -135,6 +135,7 @@
 - Retrieve official docs through cache-first context packets. If only stale cached context is available, keep confidence at medium and do not treat it as validator-grade authority.
 - For Terraform Registry docs, prefer provider source and locked provider version from `required_providers` and `.terraform.lock.hcl` before falling back to local-name heuristics.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
+- For Helm dependency context, prefer repo-local `Chart.lock` over dependency repository prose. Treat HTTP(S) dependency repositories as fetch candidates and skip non-document schemes such as `file://` or `oci://`.
 - Helm planner prompts may include selected chart schema packets by default. External Helm/chart docs must stay cache-only unless a deliberate fetch or prefetch path populated them.
 - Use `infra-agent prefetch` for deliberate official-doc cache updates. Keep prefetch bounded with `--domain`, `--target`, and `--max-sources` when the workspace has many resources.
 - Planner prompts may include cached retrieved-context packets. Keep these compact and targeted; do not inject whole official docs into the prompt.
