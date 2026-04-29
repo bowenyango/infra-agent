@@ -339,6 +339,9 @@ Status on 2026-04-28:
   actions as `pulumi-resource` nodes with `planned-change` edges. It currently
   parses common `resourcePreEvent.metadata`, `resOutputsEvent.metadata`, and
   simple `steps` shapes.
+- Pulumi preview graph analysis now marks advisory `possible-rename` edges for
+  delete/create pairs with matching resource type and stable identity fields,
+  while avoiding namespace-only Kubernetes matches.
 - End-to-end automatic network fetching from planner/runtime flows is
   intentionally not implemented yet.
 

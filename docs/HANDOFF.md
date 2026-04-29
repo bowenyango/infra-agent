@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `546ac03` Select Helm dependency context sources
   - `f80aa26` Score Terraform rename candidates
   - `60f863f` Attach Pulumi preview actions to graph
   - `f4adcb1` Mark Terraform rename candidates in graph
@@ -1190,10 +1191,46 @@ Known validation:
 Recommended next implementation slice:
 
 1. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
-2. Add Pulumi rename candidate detection from preview delete/create pairs when
-   URN/type/name evidence is sufficient.
-3. Extend graph dependency edges beyond containment/configuration using plan or
+2. Extend graph dependency edges beyond containment/configuration using plan or
    preview dependency metadata.
+3. Add a compact impact summary command/output on top of graph JSON.
+
+## 2026-04-28 Pulumi Rename Candidate Graph Slice
+
+Files added or updated:
+
+- `src/impact/pulumi-preview-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add advisory `possible-rename` edges for Pulumi preview delete/create pairs
+  with matching resource type and stable identity fields.
+- Extract identity fields such as `metadata.name`, `metadata.namespace`,
+  `bucket`, and `tags.Name` from Pulumi preview `old`, `new`, `inputs`, or
+  `outputs` metadata.
+- Avoid namespace-only Kubernetes matches to reduce false positives.
+- Preserve the same safety rule as Terraform: rename edges are review
+  candidates only and do not authorize state mutation.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 188/188 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
+2. Extend graph dependency edges beyond containment/configuration using plan or
+   preview dependency metadata.
+3. Add a compact impact summary command/output on top of graph JSON.
 
 ## Current Verification Commands
 

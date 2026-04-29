@@ -342,6 +342,74 @@ test('Pulumi preview impact attaches resource change nodes to the infra graph', 
   ));
 });
 
+test('Pulumi preview impact marks matching delete and create resources as possible renames', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'delete',
+          urn: 'urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api',
+          type: 'kubernetes:core/v1:Service',
+          name: 'old-api',
+          old: {
+            metadata: {
+              name: 'payments-api',
+              namespace: 'default'
+            }
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create',
+          urn: 'urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api',
+          type: 'kubernetes:core/v1:Service',
+          name: 'new-api',
+          new: {
+            metadata: {
+              name: 'payments-api',
+              namespace: 'default'
+            }
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create',
+          urn: 'urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::other-api',
+          type: 'kubernetes:core/v1:Service',
+          name: 'other-api',
+          new: {
+            metadata: {
+              name: 'other-api',
+              namespace: 'default'
+            }
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const renameEdges = impactedGraph.edges.filter(edge => edge.kind === 'possible-rename');
+
+  assert.equal(renameEdges.length, 1);
+  assert.equal(renameEdges[0]?.from, 'pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api');
+  assert.equal(renameEdges[0]?.to, 'pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api');
+  assert.equal(renameEdges[0]?.source, 'pulumi-preview');
+  assert.equal(renameEdges[0]?.confidence, 'high');
+  assert.equal(renameEdges[0]?.metadata?.matchingIdentityKeys, 'metadata.name,metadata.namespace');
+  assert.equal(renameEdges[0]?.metadata?.score, 1);
+});
+
 test('inspectWorkspace extracts Helm values schema semantic facts', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const helmSemantics = inspection.configSemantics.find(summary => summary.targetPath === 'charts/payments-api');

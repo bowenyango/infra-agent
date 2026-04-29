@@ -178,6 +178,9 @@ Current graph foundation:
 - `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project>
   --json` attaches Pulumi preview resource actions as `pulumi-resource` nodes
   and `planned-change` edges without executing Pulumi.
+- Matching Pulumi delete/create resources may also be linked with
+  `possible-rename` edges when type and stable identity fields match. Namespace
+  alone is not enough evidence for Kubernetes objects.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 

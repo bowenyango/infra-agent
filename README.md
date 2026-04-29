@@ -77,7 +77,9 @@ Current behavior is intentionally runtime-foundation oriented:
   from workspace inspection facts and can attach read-only Terraform plan JSON
   resource actions when `--terraform-plan` is provided, including
   confidence-scored possible rename edges for matching delete/create pairs; it
-  can also attach read-only Pulumi preview event actions with `--pulumi-preview`
+  can also attach read-only Pulumi preview event actions with `--pulumi-preview`,
+  including advisory Pulumi possible rename edges when type and stable identity
+  fields match
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval

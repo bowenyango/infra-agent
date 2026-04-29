@@ -8,12 +8,37 @@ interface PulumiResourceChange {
   operation: string;
   action: InfraGraphChangeAction;
   diffs: string[];
+  identityValues: Record<string, string>;
+}
+
+interface PulumiRenameCandidate {
+  confidence: 'low' | 'medium' | 'high';
+  score: number;
+  matchingIdentityKeys: string[];
+  reason: string;
 }
 
 interface AttachPulumiPreviewOptions {
   targetPath?: string | null;
   includeNoOp?: boolean;
 }
+
+const IDENTITY_PATHS = [
+  'name',
+  'metadata.name',
+  'metadata.namespace',
+  'bucket',
+  'functionName',
+  'function_name',
+  'role',
+  'queue',
+  'topic',
+  'tags.Name',
+  'tags.name'
+];
+
+const WEAK_IDENTITY_KEYS = new Set(['tags.Name', 'tags.name']);
+const NON_RENAME_ONLY_KEYS = new Set(['metadata.namespace']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -33,6 +58,53 @@ function asStringArray(value: unknown): string[] {
   }
 
   return [];
+}
+
+function identityString(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return null;
+}
+
+function getPathValue(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, part) => {
+    if (Array.isArray(current)) {
+      const index = Number(part);
+      return Number.isInteger(index) ? current[index] : undefined;
+    }
+
+    if (isRecord(current)) {
+      return current[part];
+    }
+
+    return undefined;
+  }, value);
+}
+
+function collectIdentityValues(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const values: Record<string, string> = {};
+  for (const key of IDENTITY_PATHS) {
+    const identityValue = identityString(getPathValue(value, key));
+    if (identityValue) {
+      values[key] = identityValue;
+    }
+  }
+
+  return values;
+}
+
+function identitySourceForMetadata(metadata: Record<string, unknown>): unknown {
+  return metadata.new ?? metadata.inputs ?? metadata.outputs ?? metadata.old;
 }
 
 function normalizePulumiOperation(operation: string | null): InfraGraphChangeAction {
@@ -84,7 +156,8 @@ function parsePulumiMetadata(metadata: unknown): PulumiResourceChange | null {
     diffs: [
       ...asStringArray(metadata.diffs),
       ...asStringArray(metadata.detailedDiff)
-    ].filter((entry, index, entries) => entries.indexOf(entry) === index)
+    ].filter((entry, index, entries) => entries.indexOf(entry) === index),
+    identityValues: collectIdentityValues(identitySourceForMetadata(metadata))
   };
 }
 
@@ -105,7 +178,8 @@ function parsePulumiStep(step: unknown): PulumiResourceChange | null {
     name: asString(step.name) ?? resourceNameFromUrn(urn),
     operation,
     action: normalizePulumiOperation(operation),
-    diffs: asStringArray(step.diffs)
+    diffs: asStringArray(step.diffs),
+    identityValues: collectIdentityValues(step.new ?? step.inputs ?? step.outputs ?? step.old)
   };
 }
 
@@ -179,7 +253,8 @@ function buildResourceNode(change: PulumiResourceChange, targetPath: string | nu
       operation: change.operation,
       type: change.type,
       name: change.name,
-      diffs: change.diffs.join(',')
+      diffs: change.diffs.join(','),
+      identityKeys: Object.keys(change.identityValues).join(',')
     }
   };
 }
@@ -194,6 +269,117 @@ function buildChangeEdge(parentNodeId: string, resourceNodeId: string, change: P
     source: 'pulumi-preview',
     label: `Pulumi preview ${change.action}`
   };
+}
+
+function renameEdgeId(from: string, to: string): string {
+  return `possible-rename:${from}->${to}`;
+}
+
+function findMatchingIdentityKeys(left: PulumiResourceChange, right: PulumiResourceChange): string[] {
+  return Object.entries(left.identityValues)
+    .filter(([key, value]) => right.identityValues[key] === value)
+    .map(([key]) => key);
+}
+
+function confidenceFromScore(score: number): PulumiRenameCandidate['confidence'] {
+  if (score >= 0.85) {
+    return 'high';
+  }
+
+  if (score >= 0.6) {
+    return 'medium';
+  }
+
+  return 'low';
+}
+
+function buildRenameReason(params: {
+  matchingIdentityKeys: string[];
+  score: number;
+}): string {
+  return [
+    'same Pulumi resource type',
+    `matching identity fields: ${params.matchingIdentityKeys.join(', ')}`,
+    `score ${params.score.toFixed(2)}`
+  ].join('; ');
+}
+
+function scoreRenameCandidate(
+  left: PulumiResourceChange,
+  right: PulumiResourceChange
+): PulumiRenameCandidate | null {
+  if (left.action !== 'delete' || right.action !== 'create') {
+    return null;
+  }
+
+  if (!left.type || left.type !== right.type) {
+    return null;
+  }
+
+  const matchingIdentityKeys = findMatchingIdentityKeys(left, right);
+  if (matchingIdentityKeys.length === 0) {
+    return null;
+  }
+
+  if (matchingIdentityKeys.every(key => NON_RENAME_ONLY_KEYS.has(key))) {
+    return null;
+  }
+
+  const strongIdentityMatches = matchingIdentityKeys.filter(key => !WEAK_IDENTITY_KEYS.has(key)).length;
+  const score = Math.min(1, 0.45
+    + Math.min(0.35, matchingIdentityKeys.length * 0.18)
+    + Math.min(0.2, strongIdentityMatches * 0.1));
+
+  return {
+    confidence: confidenceFromScore(score),
+    score,
+    matchingIdentityKeys,
+    reason: buildRenameReason({
+      matchingIdentityKeys,
+      score
+    })
+  };
+}
+
+function buildPossibleRenameEdges(changes: PulumiResourceChange[], edgeIds: Set<string>): InfraGraphEdge[] {
+  const deletes = changes.filter(change => change.action === 'delete');
+  const creates = changes.filter(change => change.action === 'create');
+  const edges: InfraGraphEdge[] = [];
+
+  for (const deleted of deletes) {
+    for (const created of creates) {
+      const candidate = scoreRenameCandidate(deleted, created);
+      if (!candidate) {
+        continue;
+      }
+
+      const from = `pulumi-resource:${deleted.urn}`;
+      const to = `pulumi-resource:${created.urn}`;
+      const id = renameEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'possible-rename',
+        confidence: candidate.confidence,
+        source: 'pulumi-preview',
+        label: 'Possible Pulumi resource rename',
+        metadata: {
+          matchingIdentityKeys: candidate.matchingIdentityKeys.join(','),
+          resourceType: deleted.type,
+          score: Number(candidate.score.toFixed(2)),
+          reason: candidate.reason
+        }
+      });
+    }
+  }
+
+  return edges;
 }
 
 export function attachPulumiPreviewToGraph(
@@ -222,6 +408,8 @@ export function attachPulumiPreviewToGraph(
       edgeIds.add(edge.id);
     }
   }
+
+  edges.push(...buildPossibleRenameEdges(changes, edgeIds));
 
   return {
     ...graph,
