@@ -339,6 +339,10 @@ Status on 2026-04-28:
   dependencies or configuration expression references, and marks
   `replacement-cascade` edges when a replaced/deleted upstream resource has a
   changed dependent in the same plan graph.
+- Terraform plan graph analysis now uses the shared exclusive-identity specs to
+  mark `create-before-delete-conflict` edges for create-before-destroy
+  replacements, and medium-confidence ordering warnings for delete/create pairs
+  with the same provider-exclusive identity.
 - `infra-agent graph` can also attach read-only Pulumi preview JSON/event
   actions as `pulumi-resource` nodes with `planned-change` edges. It currently
   parses common `resourcePreEvent.metadata`, `resOutputsEvent.metadata`, and
@@ -354,7 +358,8 @@ Status on 2026-04-28:
   replacement cascades, plus create-before-delete conflict warnings. Text graph
   output includes an `Impact` section with the most relevant rename, cascade,
   and ordering-conflict edges.
-- Pulumi preview graph analysis now flags common exclusive-identity
+- Pulumi preview graph analysis uses the same shared exclusive-identity specs
+  and flags common exclusive-identity
   delete/create pairs, including `delete-replaced`/`create-replacement` step
   pairs, as `create-before-delete-conflict` edges. Current specs include AWS
   Routes, S3 buckets, selected named AWS resources, and Kubernetes objects.

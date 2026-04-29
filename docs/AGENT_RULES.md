@@ -147,7 +147,7 @@
 - Treat graph `possible-rename` edges as review candidates only, even when confidence is high. Use `score`, `matchingIdentityKeys`, and `reason` metadata to explain the candidate, but do not execute `terraform state mv`, write moved blocks, or mutate Pulumi state without explicit user approval and a human-reviewed address mapping.
 - For Pulumi rename candidates, require more than a namespace-only Kubernetes match before suggesting review.
 - Treat graph `depends-on` and `replacement-cascade` edges as impact explanation, not approval to apply. Use them to explain likely downstream blast radius and why a dependent changed, then confirm with native plan/preview output.
-- Treat graph `create-before-delete-conflict` edges as high-risk ordering warnings. These are common when a provider resource has an exclusive physical identity and Pulumi plans create-before-delete. Remediation candidates are Pulumi aliases for logical renames, `deleteBeforeReplace` or manual sequencing for true replacements with accepted downtime, or explicit state/import repair after human approval.
+- Treat graph `create-before-delete-conflict` edges as high-risk ordering warnings. These are common when a provider resource has an exclusive physical identity and Pulumi or Terraform plans creation before deletion. Remediation candidates are Pulumi aliases or Terraform moved blocks/state moves for logical renames, `deleteBeforeReplace`/delete-before-create/manual sequencing for true replacements with accepted downtime, or explicit state/import repair after human approval.
 - The agent must not call deploy or apply commands in version `v0`.
 - The agent should stop and ask for clarification when any of these are ambiguous:
 - target environment

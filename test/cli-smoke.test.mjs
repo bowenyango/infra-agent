@@ -277,6 +277,51 @@ test('Terraform plan impact marks matching delete and create resources as possib
   assert.equal(tagOnlyRename?.metadata?.matchingIdentityKeys, 'tags.Name');
 });
 
+test('Terraform plan impact marks exclusive identity create-before-destroy conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_s3_bucket.artifacts',
+        mode: 'managed',
+        type: 'aws_s3_bucket',
+        name: 'artifacts',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create', 'delete'],
+          replace_paths: [['force_destroy']],
+          before: {
+            bucket: 'payments-artifacts'
+          },
+          after: {
+            bucket: 'payments-artifacts',
+            force_destroy: true
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const conflictEdges = impactedGraph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.equal(conflictEdges.length, 1);
+  assert.equal(conflictEdges[0]?.from, 'terraform-resource:aws_s3_bucket.artifacts');
+  assert.equal(conflictEdges[0]?.to, 'terraform-resource:aws_s3_bucket.artifacts');
+  assert.equal(conflictEdges[0]?.confidence, 'high');
+  assert.equal(conflictEdges[0]?.metadata?.actionOrder, 'create,delete');
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-s3-bucket');
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'bucket=payments-artifacts');
+  assert.match(String(conflictEdges[0]?.metadata?.reason), /create-before-destroy replacement can fail with BucketAlreadyExists/i);
+  assert.equal(impactedGraph.summary.impact?.createBeforeDeleteConflicts, 1);
+  assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
+    line.includes('create-before-delete conflict: aws_s3_bucket.artifacts -> aws_s3_bucket.artifacts [high]')
+  ));
+});
+
 test('Terraform plan impact marks dependency edges and replacement cascades', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);

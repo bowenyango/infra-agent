@@ -1,4 +1,14 @@
 import type { InfraGraph, InfraGraphChangeAction, InfraGraphEdge, InfraGraphNode } from '../types/infra-graph.ts';
+import {
+  collectExclusiveIdentityValues,
+  collectExclusiveTargetValues,
+  findExclusiveIdentitySpec,
+  formatExclusiveIdentityValues,
+  formatExclusiveTargetValues,
+  hasCompleteExclusiveIdentityMatch,
+  matchingExclusiveIdentityKeys,
+  type ExclusiveIdentitySpec
+} from './exclusive-identity.ts';
 import { summarizeInfraGraph } from './workspace-graph.ts';
 
 interface TerraformResourceChange {
@@ -12,6 +22,12 @@ interface TerraformResourceChange {
   actionReason: string | null;
   replacePaths: string[];
   identityValues: Record<string, string>;
+  exclusiveIdentitySpec: ExclusiveIdentitySpec | null;
+  exclusiveIdentityValues: Record<string, string>;
+  exclusiveIdentityBefore: Record<string, string>;
+  exclusiveIdentityAfter: Record<string, string>;
+  exclusiveTargetBefore: Record<string, string>;
+  exclusiveTargetAfter: Record<string, string>;
   dependsOn: string[];
 }
 
@@ -19,6 +35,13 @@ interface TerraformRenameCandidate {
   confidence: 'low' | 'medium' | 'high';
   score: number;
   matchingIdentityKeys: string[];
+  reason: string;
+}
+
+interface TerraformCreateBeforeDeleteConflict {
+  confidence: 'medium' | 'high';
+  matchingExclusiveIdentityKeys: string[];
+  spec: ExclusiveIdentitySpec;
   reason: string;
 }
 
@@ -285,6 +308,9 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
     const change = isRecord(entry.change) ? entry.change : {};
     const type = asString(entry.type);
     const actions = asStringArray(change.actions);
+    const exclusiveIdentitySpec = findExclusiveIdentitySpec(type, 'terraform');
+    const exclusiveIdentityBefore = collectExclusiveIdentityValues(change.before, exclusiveIdentitySpec);
+    const exclusiveIdentityAfter = collectExclusiveIdentityValues(change.after, exclusiveIdentitySpec);
     changes.push({
       address,
       mode: asString(entry.mode),
@@ -296,6 +322,12 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
       actionReason: asString(entry.action_reason),
       replacePaths: collectReplacePaths(change),
       identityValues: collectIdentityValues(change.after ?? change.before, type),
+      exclusiveIdentitySpec,
+      exclusiveIdentityValues: Object.keys(exclusiveIdentityAfter).length > 0 ? exclusiveIdentityAfter : exclusiveIdentityBefore,
+      exclusiveIdentityBefore,
+      exclusiveIdentityAfter,
+      exclusiveTargetBefore: collectExclusiveTargetValues(change.before, exclusiveIdentitySpec),
+      exclusiveTargetAfter: collectExclusiveTargetValues(change.after, exclusiveIdentitySpec),
       dependsOn: uniqueStrings([
         ...(dependencyMap.get(address) ?? []),
         ...asStringArray(entry.depends_on)
@@ -320,6 +352,10 @@ function renameEdgeId(from: string, to: string): string {
 
 function cascadeEdgeId(from: string, to: string): string {
   return `replacement-cascade:${from}->${to}`;
+}
+
+function createBeforeDeleteConflictEdgeId(from: string, to: string): string {
+  return `create-before-delete-conflict:${from}->${to}`;
 }
 
 function findParentNodeId(graph: InfraGraph, targetPath: string | null | undefined): string {
@@ -353,6 +389,8 @@ function buildResourceNode(change: TerraformResourceChange, targetPath: string |
       actionReason: change.actionReason,
       replacePaths: change.replacePaths.join(','),
       identityKeys: Object.keys(change.identityValues).join(','),
+      exclusiveIdentitySpec: change.exclusiveIdentitySpec?.id ?? null,
+      exclusiveIdentityKeys: Object.keys(change.exclusiveIdentityValues).join(','),
       dependsOn: change.dependsOn.join(',')
     }
   };
@@ -458,6 +496,148 @@ function buildReplacementCascadeEdges(changes: TerraformResourceChange[], edgeId
           dependencyAddress: dependency.address,
           dependentAddress: dependent.address,
           reason: `${dependent.address} depends on ${dependency.address}; upstream ${dependency.action} may explain downstream ${dependent.action}`
+        }
+      });
+    }
+  }
+
+  return edges;
+}
+
+function isCreateBeforeDeleteReplacement(change: TerraformResourceChange): boolean {
+  const createIndex = change.actions.indexOf('create');
+  const deleteIndex = change.actions.indexOf('delete');
+  return createIndex >= 0 && deleteIndex >= 0 && createIndex < deleteIndex;
+}
+
+function scoreReplacementCreateBeforeDeleteConflict(
+  change: TerraformResourceChange
+): TerraformCreateBeforeDeleteConflict | null {
+  if (change.action !== 'replace' || !isCreateBeforeDeleteReplacement(change) || !change.exclusiveIdentitySpec) {
+    return null;
+  }
+
+  if (!hasCompleteExclusiveIdentityMatch(change.exclusiveIdentitySpec, change.exclusiveIdentityBefore, change.exclusiveIdentityAfter)) {
+    return null;
+  }
+
+  const matchedKeys = matchingExclusiveIdentityKeys(change.exclusiveIdentityBefore, change.exclusiveIdentityAfter);
+  return {
+    confidence: 'high',
+    matchingExclusiveIdentityKeys: matchedKeys,
+    spec: change.exclusiveIdentitySpec,
+    reason: `${change.exclusiveIdentitySpec.label} resources are exclusive by ${matchedKeys.join(', ')}; Terraform create-before-destroy replacement can fail with ${change.exclusiveIdentitySpec.conflictError}.`
+  };
+}
+
+function scoreDeleteCreateExclusiveIdentityConflict(
+  deleted: TerraformResourceChange,
+  created: TerraformResourceChange
+): TerraformCreateBeforeDeleteConflict | null {
+  if (deleted.action !== 'delete' || created.action !== 'create') {
+    return null;
+  }
+
+  if (!deleted.exclusiveIdentitySpec || deleted.exclusiveIdentitySpec !== created.exclusiveIdentitySpec) {
+    return null;
+  }
+
+  if (!deleted.type || deleted.type !== created.type) {
+    return null;
+  }
+
+  if (deleted.providerName && created.providerName && deleted.providerName !== created.providerName) {
+    return null;
+  }
+
+  if (!hasCompleteExclusiveIdentityMatch(deleted.exclusiveIdentitySpec, deleted.exclusiveIdentityValues, created.exclusiveIdentityValues)) {
+    return null;
+  }
+
+  const matchedKeys = matchingExclusiveIdentityKeys(deleted.exclusiveIdentityValues, created.exclusiveIdentityValues);
+  return {
+    confidence: 'medium',
+    matchingExclusiveIdentityKeys: matchedKeys,
+    spec: deleted.exclusiveIdentitySpec,
+    reason: `${deleted.exclusiveIdentitySpec.label} delete/create resources share exclusive identity ${matchedKeys.join(', ')}; if Terraform schedules creation before deletion, the provider can fail with ${deleted.exclusiveIdentitySpec.conflictError}.`
+  };
+}
+
+function buildCreateBeforeDeleteConflictEdges(changes: TerraformResourceChange[], edgeIds: Set<string>): InfraGraphEdge[] {
+  const deletes = changes.filter(change => change.action === 'delete');
+  const creates = changes.filter(change => change.action === 'create');
+  const edges: InfraGraphEdge[] = [];
+
+  for (const change of changes) {
+    const conflict = scoreReplacementCreateBeforeDeleteConflict(change);
+    if (!conflict) {
+      continue;
+    }
+
+    const nodeId = `terraform-resource:${change.address}`;
+    const id = createBeforeDeleteConflictEdgeId(nodeId, nodeId);
+    if (edgeIds.has(id)) {
+      continue;
+    }
+
+    edgeIds.add(id);
+    edges.push({
+      id,
+      from: nodeId,
+      to: nodeId,
+      kind: 'create-before-delete-conflict',
+      confidence: conflict.confidence,
+      source: 'terraform-plan',
+      label: 'Terraform create-before-destroy conflict risk',
+      metadata: {
+        actionOrder: change.actions.join(','),
+        exclusiveIdentitySpec: conflict.spec.id,
+        exclusiveIdentityValues: formatExclusiveIdentityValues(change.exclusiveIdentityBefore),
+        matchingExclusiveIdentityKeys: conflict.matchingExclusiveIdentityKeys.join(','),
+        newTargets: formatExclusiveTargetValues(change.exclusiveTargetAfter),
+        oldTargets: formatExclusiveTargetValues(change.exclusiveTargetBefore),
+        providerName: change.providerName,
+        replacePaths: change.replacePaths.join(','),
+        resourceType: change.type,
+        reason: conflict.reason,
+        suggestedAction: conflict.spec.suggestedAction
+      }
+    });
+  }
+
+  for (const deleted of deletes) {
+    for (const created of creates) {
+      const conflict = scoreDeleteCreateExclusiveIdentityConflict(deleted, created);
+      if (!conflict) {
+        continue;
+      }
+
+      const from = `terraform-resource:${deleted.address}`;
+      const to = `terraform-resource:${created.address}`;
+      const id = createBeforeDeleteConflictEdgeId(from, to);
+      if (edgeIds.has(id)) {
+        continue;
+      }
+
+      edgeIds.add(id);
+      edges.push({
+        id,
+        from,
+        to,
+        kind: 'create-before-delete-conflict',
+        confidence: conflict.confidence,
+        source: 'terraform-plan',
+        label: 'Terraform exclusive identity ordering risk',
+        metadata: {
+          exclusiveIdentitySpec: conflict.spec.id,
+          exclusiveIdentityValues: formatExclusiveIdentityValues(deleted.exclusiveIdentityValues),
+          matchingExclusiveIdentityKeys: conflict.matchingExclusiveIdentityKeys.join(','),
+          newTargets: formatExclusiveTargetValues(created.exclusiveTargetAfter),
+          oldTargets: formatExclusiveTargetValues(deleted.exclusiveTargetBefore),
+          providerName: deleted.providerName ?? created.providerName,
+          resourceType: deleted.type,
+          reason: conflict.reason,
+          suggestedAction: conflict.spec.suggestedAction
         }
       });
     }
@@ -608,6 +788,7 @@ export function attachTerraformPlanToGraph(
 
   edges.push(...buildDependencyEdges(changes, edgeIds, nodeIds));
   edges.push(...buildReplacementCascadeEdges(changes, edgeIds));
+  edges.push(...buildCreateBeforeDeleteConflictEdges(changes, edgeIds));
   edges.push(...buildPossibleRenameEdges(changes, edgeIds));
 
   return {

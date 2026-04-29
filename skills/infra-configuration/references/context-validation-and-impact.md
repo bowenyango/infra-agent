@@ -190,6 +190,10 @@ Current graph foundation:
   identify the relationship. When a replaced/deleted dependency has a changed
   dependent, a `replacement-cascade` edge explains the likely downstream blast
   radius.
+- Terraform plan graph output may include `create-before-delete-conflict` edges
+  for create-before-destroy replacements that keep the same provider-exclusive
+  identity. Delete/create pairs with the same exclusive identity may also be
+  marked as medium-confidence ordering warnings.
 - `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project>
   --json` attaches Pulumi preview resource actions as `pulumi-resource` nodes
   and `planned-change` edges without executing Pulumi.
@@ -206,6 +210,9 @@ Current graph foundation:
   high-risk ordering warning: use aliases for logical renames,
   `deleteBeforeReplace` or manual sequencing for true replacements with accepted
   temporary removal, or explicit state/import repair after approval.
+- The exclusive-identity specs are shared between Terraform and Pulumi graph
+  analysis. Add provider/resource specs there before adding provider-specific
+  conflict logic elsewhere.
 - Treat graph confidence as parser confidence, not deploy approval. Replacement
   and rename guidance remains advisory until reviewed against state.
 

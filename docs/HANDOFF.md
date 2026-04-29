@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `6ee9012` Generalize Pulumi exclusive identity conflicts
   - `4a6d609` Handle Pulumi replacement steps in route conflicts
   - `2f32398` Detect Pulumi route replacement conflicts
   - `c706bd6` Summarize graph impact output
@@ -1440,6 +1441,49 @@ Recommended next implementation slice:
    preview metadata is available, avoiding dangling graph edges.
 3. Move the Pulumi exclusive identity specs into a shared provider rule module
    once Terraform needs the same registry.
+
+## 2026-04-28 Terraform Exclusive Identity Conflict Slice
+
+Files added or updated:
+
+- `src/impact/exclusive-identity.ts`
+- `src/impact/pulumi-preview-graph.ts`
+- `src/impact/terraform-plan-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Move provider-exclusive identity specs into a shared graph rule module used by
+  both Pulumi and Terraform impact analysis.
+- Add Terraform `create-before-delete-conflict` graph edges for
+  create-before-destroy replacements that keep the same exclusive physical
+  identity.
+- Add medium-confidence Terraform ordering warnings for delete/create pairs that
+  share the same exclusive identity, because the plan may still need manual
+  sequencing or state-move review.
+- Preserve Pulumi behavior while making future provider/resource specs reusable
+  across IaC engines.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 195/195 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Extend dependency extraction to unchanged state resources when safe state or
+   preview metadata is available, avoiding dangling graph edges.
+2. Add provider-specific replacement reason enrichment from schemas or known
+   force-replacement fields.
+3. Add more exclusive-identity specs from real failure examples and provider
+   schemas.
 
 ## Current Verification Commands
 

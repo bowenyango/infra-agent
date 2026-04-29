@@ -1,4 +1,14 @@
 import type { InfraGraph, InfraGraphChangeAction, InfraGraphEdge, InfraGraphNode } from '../types/infra-graph.ts';
+import {
+  collectExclusiveIdentityValues,
+  collectExclusiveTargetValues,
+  findExclusiveIdentitySpec,
+  formatExclusiveIdentityValues,
+  formatExclusiveTargetValues,
+  hasCompleteExclusiveIdentityMatch,
+  matchingExclusiveIdentityKeys,
+  type ExclusiveIdentitySpec
+} from './exclusive-identity.ts';
 import { summarizeInfraGraph } from './workspace-graph.ts';
 
 interface PulumiResourceChange {
@@ -34,21 +44,6 @@ interface AttachPulumiPreviewOptions {
   includeNoOp?: boolean;
 }
 
-interface ExclusiveIdentityGroup {
-  key: string;
-  paths: string[];
-}
-
-interface ExclusiveIdentitySpec {
-  id: string;
-  label: string;
-  types: string[];
-  identityGroups: ExclusiveIdentityGroup[];
-  targetPaths?: string[];
-  conflictError: string;
-  suggestedAction: string;
-}
-
 const IDENTITY_PATHS = [
   'name',
   'metadata.name',
@@ -65,79 +60,6 @@ const IDENTITY_PATHS = [
 
 const WEAK_IDENTITY_KEYS = new Set(['tags.Name', 'tags.name']);
 const NON_RENAME_ONLY_KEYS = new Set(['metadata.namespace']);
-const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
-  {
-    id: 'aws-route',
-    label: 'AWS Route',
-    types: ['aws:ec2:Route', 'aws:ec2/route:Route'],
-    identityGroups: [
-      { key: 'routeTableId', paths: ['routeTableId', 'route_table_id'] },
-      { key: 'destination', paths: ['destinationCidrBlock', 'destination_cidr_block', 'destinationIpv6CidrBlock', 'destination_ipv6_cidr_block', 'destinationPrefixListId', 'destination_prefix_list_id'] }
-    ],
-    targetPaths: ['carrierGatewayId', 'carrier_gateway_id', 'coreNetworkArn', 'core_network_arn', 'egressOnlyGatewayId', 'egress_only_gateway_id', 'gatewayId', 'gateway_id', 'localGatewayId', 'local_gateway_id', 'natGatewayId', 'nat_gateway_id', 'networkInterfaceId', 'network_interface_id', 'transitGatewayId', 'transit_gateway_id', 'vpcEndpointId', 'vpc_endpoint_id', 'vpcPeeringConnectionId', 'vpc_peering_connection_id'],
-    conflictError: 'RouteAlreadyExists',
-    suggestedAction: 'Review Pulumi aliases for renamed routes or set deleteBeforeReplace on the aws.ec2.Route resources before updating.'
-  },
-  {
-    id: 'aws-named-resource',
-    label: 'AWS named resource',
-    types: [
-      'aws:cloudwatch/logGroup:LogGroup',
-      'aws:dynamodb/table:Table',
-      'aws:ecr/repository:Repository',
-      'aws:iam/group:Group',
-      'aws:iam/policy:Policy',
-      'aws:iam/role:Role',
-      'aws:iam/user:User',
-      'aws:lambda/function:Function',
-      'aws:rds/instance:Instance',
-      'aws:sns/topic:Topic',
-      'aws:sqs/queue:Queue'
-    ],
-    identityGroups: [
-      { key: 'name', paths: ['name', 'functionName', 'function_name', 'identifier', 'repository', 'queue', 'topic'] }
-    ],
-    conflictError: 'AlreadyExists',
-    suggestedAction: 'If this is a logical rename, add Pulumi aliases from the old URN; if this is a true replacement, set deleteBeforeReplace or perform an explicitly approved state/import repair sequence.'
-  },
-  {
-    id: 'aws-s3-bucket',
-    label: 'AWS S3 Bucket',
-    types: ['aws:s3:Bucket', 'aws:s3/bucket:Bucket'],
-    identityGroups: [
-      { key: 'bucket', paths: ['bucket'] }
-    ],
-    conflictError: 'BucketAlreadyExists',
-    suggestedAction: 'If this is a logical bucket rename, add Pulumi aliases from the old URN; if the physical bucket must be replaced, plan an explicit migration/import/state repair sequence with approval.'
-  },
-  {
-    id: 'kubernetes-namespaced-object',
-    label: 'Kubernetes namespaced object',
-    types: [
-      'kubernetes:apps/v1:Deployment',
-      'kubernetes:core/v1:ConfigMap',
-      'kubernetes:core/v1:Secret',
-      'kubernetes:core/v1:Service',
-      'kubernetes:networking.k8s.io/v1:Ingress'
-    ],
-    identityGroups: [
-      { key: 'metadata.name', paths: ['metadata.name'] },
-      { key: 'metadata.namespace', paths: ['metadata.namespace'] }
-    ],
-    conflictError: 'AlreadyExists',
-    suggestedAction: 'If this is a logical Kubernetes object rename, add Pulumi aliases from the old URN; if it is a true replacement, set deleteBeforeReplace or manually sequence deletion with accepted downtime.'
-  },
-  {
-    id: 'kubernetes-namespace',
-    label: 'Kubernetes Namespace',
-    types: ['kubernetes:core/v1:Namespace'],
-    identityGroups: [
-      { key: 'metadata.name', paths: ['metadata.name'] }
-    ],
-    conflictError: 'AlreadyExists',
-    suggestedAction: 'If this is a logical namespace rename, add Pulumi aliases from the old URN; otherwise use import/state repair or an explicitly approved replacement plan.'
-  }
-];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -200,53 +122,6 @@ function collectIdentityValues(value: unknown): Record<string, string> {
     const identityValue = identityString(getPathValue(value, key));
     if (identityValue) {
       values[key] = identityValue;
-    }
-  }
-
-  return values;
-}
-
-function findExclusiveIdentitySpec(resourceType: string | null): ExclusiveIdentitySpec | null {
-  if (!resourceType) {
-    return null;
-  }
-
-  return EXCLUSIVE_IDENTITY_SPECS.find(spec => spec.types.includes(resourceType)) ?? null;
-}
-
-function collectExclusiveIdentityValues(
-  value: unknown,
-  spec: ExclusiveIdentitySpec | null
-): Record<string, string> {
-  if (!isRecord(value) || !spec) {
-    return {};
-  }
-
-  const values: Record<string, string> = {};
-
-  for (const group of spec.identityGroups) {
-    for (const path of group.paths) {
-      const identityValue = identityString(getPathValue(value, path));
-      if (identityValue) {
-        values[group.key] = identityValue;
-        break;
-      }
-    }
-  }
-
-  return values;
-}
-
-function collectExclusiveTargetValues(value: unknown, spec: ExclusiveIdentitySpec | null): Record<string, string> {
-  if (!isRecord(value) || !spec?.targetPaths) {
-    return {};
-  }
-
-  const values: Record<string, string> = {};
-  for (const targetPath of spec.targetPaths) {
-    const target = identityString(getPathValue(value, targetPath));
-    if (target) {
-      values[targetPath] = target;
     }
   }
 
@@ -323,7 +198,7 @@ function parsePulumiMetadata(metadata: unknown): PulumiResourceChange | null {
   const operation = asString(metadata.op) ?? asString(metadata.operation) ?? 'same';
   const type = asString(metadata.type) ?? resourceTypeFromUrn(urn);
   const identitySource = identitySourceForMetadata(metadata);
-  const exclusiveIdentitySpec = findExclusiveIdentitySpec(type);
+  const exclusiveIdentitySpec = findExclusiveIdentitySpec(type, 'pulumi');
   return {
     urn,
     type,
@@ -355,7 +230,7 @@ function parsePulumiStep(step: unknown): PulumiResourceChange | null {
   const operation = asString(step.op) ?? asString(step.operation) ?? 'same';
   const type = asString(step.type) ?? resourceTypeFromUrn(urn);
   const identitySource = step.new ?? step.inputs ?? step.outputs ?? step.old;
-  const exclusiveIdentitySpec = findExclusiveIdentitySpec(type);
+  const exclusiveIdentitySpec = findExclusiveIdentitySpec(type, 'pulumi');
   return {
     urn,
     type,
@@ -571,20 +446,6 @@ function buildReplacementCascadeEdges(changes: PulumiResourceChange[], edgeIds: 
   return edges;
 }
 
-function findMatchingExclusiveIdentityKeys(left: PulumiResourceChange, right: PulumiResourceChange): string[] {
-  return Object.entries(left.exclusiveIdentityValues)
-    .filter(([key, value]) => right.exclusiveIdentityValues[key] === value)
-    .map(([key]) => key);
-}
-
-function formatTargetValues(values: Record<string, string>): string {
-  return Object.entries(values).map(([key, value]) => `${key}=${value}`).join(',');
-}
-
-function formatExclusiveIdentityValues(values: Record<string, string>): string {
-  return Object.entries(values).map(([key, value]) => `${key}=${value}`).join(',');
-}
-
 function scoreCreateBeforeDeleteConflict(
   left: PulumiResourceChange,
   right: PulumiResourceChange
@@ -597,16 +458,16 @@ function scoreCreateBeforeDeleteConflict(
     return null;
   }
 
-  const matchingExclusiveIdentityKeys = findMatchingExclusiveIdentityKeys(left, right);
-  if (matchingExclusiveIdentityKeys.length !== left.exclusiveIdentitySpec.identityGroups.length) {
+  if (!hasCompleteExclusiveIdentityMatch(left.exclusiveIdentitySpec, left.exclusiveIdentityValues, right.exclusiveIdentityValues)) {
     return null;
   }
 
+  const matchedKeys = matchingExclusiveIdentityKeys(left.exclusiveIdentityValues, right.exclusiveIdentityValues);
   return {
     confidence: 'high',
-    matchingExclusiveIdentityKeys,
+    matchingExclusiveIdentityKeys: matchedKeys,
     spec: left.exclusiveIdentitySpec,
-    reason: `${left.exclusiveIdentitySpec.label} resources are exclusive by ${matchingExclusiveIdentityKeys.join(', ')}; Pulumi create-before-delete ordering can fail with ${left.exclusiveIdentitySpec.conflictError}.`
+    reason: `${left.exclusiveIdentitySpec.label} resources are exclusive by ${matchedKeys.join(', ')}; Pulumi create-before-delete ordering can fail with ${left.exclusiveIdentitySpec.conflictError}.`
   };
 }
 
@@ -648,8 +509,8 @@ function buildCreateBeforeDeleteConflictEdges(
           exclusiveIdentityValues: formatExclusiveIdentityValues(deleted.exclusiveIdentityValues),
           routeTableId: deleted.exclusiveIdentityValues.routeTableId,
           destinationValue: deleted.exclusiveIdentityValues.destination ?? null,
-          oldTargets: formatTargetValues(deleted.targetValues),
-          newTargets: formatTargetValues(created.targetValues),
+          oldTargets: formatExclusiveTargetValues(deleted.targetValues),
+          newTargets: formatExclusiveTargetValues(created.targetValues),
           reason: conflict.reason,
           suggestedAction: conflict.spec.suggestedAction
         }

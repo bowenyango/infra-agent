@@ -77,14 +77,15 @@ Current behavior is intentionally runtime-foundation oriented:
   from workspace inspection facts and can attach read-only Terraform plan JSON
   resource actions when `--terraform-plan` is provided, including
   confidence-scored possible rename edges for matching delete/create pairs,
-  dependency edges, and replacement-cascade edges; it can also attach read-only
-  Pulumi preview event actions with `--pulumi-preview`, including advisory
-  Pulumi possible rename edges plus preview dependency and cascade edges when
-  source metadata is available; it also flags common Pulumi create-before-
-  delete conflicts for resources with exclusive provider identities, such as
-  AWS Routes, S3 buckets, named AWS resources, and Kubernetes objects. Graph
-  JSON includes compact `summary.impact` counts and the text output includes an
-  `Impact` section for quick handoff
+  dependency edges, replacement-cascade edges, and Terraform
+  create-before-destroy conflicts for exclusive provider identities; it can
+  also attach read-only Pulumi preview event actions with `--pulumi-preview`,
+  including advisory Pulumi possible rename edges plus preview dependency and
+  cascade edges when source metadata is available. Shared exclusive-identity
+  rules currently cover examples such as AWS Routes, S3 buckets, named AWS
+  resources, and Kubernetes objects. Graph JSON includes compact
+  `summary.impact` counts and the text output includes an `Impact` section for
+  quick handoff
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval
