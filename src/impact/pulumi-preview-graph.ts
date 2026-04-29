@@ -591,7 +591,11 @@ function scoreCreateBeforeDeleteConflict(
     return null;
   }
 
-  const matchedKeys = matchingExclusiveIdentityKeys(left.exclusiveIdentityValues, right.exclusiveIdentityValues);
+  const matchedKeys = matchingExclusiveIdentityKeys(
+    left.exclusiveIdentityValues,
+    right.exclusiveIdentityValues,
+    left.exclusiveIdentitySpec
+  );
   return {
     confidence: 'high',
     matchingExclusiveIdentityKeys: matchedKeys,

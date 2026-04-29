@@ -152,6 +152,7 @@
 - For Pulumi rename candidates, require more than a namespace-only Kubernetes match before suggesting review.
 - Treat graph `depends-on` and `replacement-cascade` edges as impact explanation, not approval to apply. Use them to explain likely downstream blast radius and why a dependent changed, then confirm with native plan/preview output.
 - Treat graph `create-before-delete-conflict` edges as high-risk ordering warnings. These are common when a provider resource has an exclusive physical identity and Pulumi or Terraform plans creation before deletion. Remediation candidates are Pulumi aliases or Terraform moved blocks/state moves for logical renames, `deleteBeforeReplace`/delete-before-create/manual sequencing for true replacements with accepted downtime, or explicit state/import repair after human approval.
+- Some exclusive-identity specs intentionally use overlap matching, such as CloudFront aliases, or optional identity parts, such as Route53 `set_identifier`. Explain the matched identity keys from graph metadata and still confirm with native plan/preview/state before recommending DNS, alias, or state changes.
 - The agent must not call deploy or apply commands in version `v0`.
 - The agent should stop and ask for clarification when any of these are ambiguous:
 - target environment

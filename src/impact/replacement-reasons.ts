@@ -178,6 +178,116 @@ const REPLACEMENT_RULE_SPECS: ReplacementRuleSpec[] = [
     ]
   },
   {
+    id: 'aws-cloudfront-alias',
+    label: 'AWS CloudFront distribution alias',
+    pulumiTypes: ['aws:cloudfront/distribution:Distribution'],
+    terraformTypes: ['aws_cloudfront_distribution'],
+    pathRules: [
+      {
+        paths: ['aliases'],
+        category: 'exclusive-identity',
+        reason: 'aliases/CNAMEs are globally unique across CloudFront distributions',
+        suggestedAction: 'Check for CNAMEAlreadyExists risk; move state for logical renames or explicitly detach the old alias before creating a replacement distribution.'
+      },
+      {
+        paths: ['viewerCertificate', 'viewer_certificate'],
+        category: 'immutable-target',
+        reason: 'certificate changes often couple with alias ownership and distribution replacement risk',
+        suggestedAction: 'Review alias ownership, certificate coverage, and CloudFront propagation before accepting replacement or sequencing changes.'
+      }
+    ]
+  },
+  {
+    id: 'aws-api-gateway-domain-name',
+    label: 'AWS API Gateway custom domain',
+    pulumiTypes: [
+      'aws:apigateway/domainName:DomainName',
+      'aws:apigatewayv2/domainName:DomainName'
+    ],
+    terraformTypes: [
+      'aws_api_gateway_domain_name',
+      'aws_apigatewayv2_domain_name'
+    ],
+    pathRules: [
+      {
+        paths: ['domainName', 'domain_name'],
+        category: 'exclusive-identity',
+        reason: 'custom domain name is the provider-visible exclusive domain identity',
+        suggestedAction: 'Check for ConflictException risk; use aliases/moved blocks for logical renames or sequence old domain removal before recreating the same domain.'
+      },
+      {
+        paths: ['certificateArn', 'certificate_arn', 'regionalCertificateArn', 'regional_certificate_arn'],
+        category: 'immutable-target',
+        reason: 'certificate attachment changes can force a different API Gateway domain configuration',
+        suggestedAction: 'Review certificate coverage and mapped APIs before accepting replacement or downtime.'
+      }
+    ]
+  },
+  {
+    id: 'aws-route53-record',
+    label: 'AWS Route53 record',
+    pulumiTypes: ['aws:route53/record:Record'],
+    terraformTypes: ['aws_route53_record'],
+    pathRules: [
+      {
+        paths: ['zoneId', 'zone_id'],
+        category: 'exclusive-identity',
+        reason: 'hosted zone is part of the Route53 record-set identity',
+        suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      },
+      {
+        paths: ['name', 'fqdn'],
+        category: 'exclusive-identity',
+        reason: 'record name is part of the Route53 record-set identity',
+        suggestedAction: 'Check for InvalidChangeBatch risk, especially for ACM validation CNAMEs; prefer import/state repair for logical moves or explicitly sequence DNS replacement.'
+      },
+      {
+        paths: ['type'],
+        category: 'exclusive-identity',
+        reason: 'record type is part of the Route53 record-set identity',
+        suggestedAction: REVIEW_RENAME_OR_SEQUENCE
+      },
+      {
+        paths: ['setIdentifier', 'set_identifier'],
+        category: 'exclusive-identity',
+        reason: 'routing policy set identifier participates in Route53 record-set identity when present',
+        suggestedAction: 'Review weighted/failover/latency record semantics before treating the change as a simple DNS rename.'
+      },
+      {
+        paths: ['records', 'alias'],
+        category: 'immutable-target',
+        reason: 'record target changes can be sequenced incorrectly when the record-set identity is unchanged',
+        suggestedAction: 'When the hosted zone, name, and type are unchanged, prefer in-place DNS updates when supported or explicit delete-before-create sequencing after DNS impact review.'
+      }
+    ]
+  },
+  {
+    id: 'aws-acm-certificate',
+    label: 'AWS ACM Certificate',
+    pulumiTypes: ['aws:acm/certificate:Certificate'],
+    terraformTypes: ['aws_acm_certificate'],
+    pathRules: [
+      {
+        paths: ['domainName', 'domain_name'],
+        category: 'resource-address',
+        reason: 'domain name defines the requested certificate identity and validation workflow',
+        suggestedAction: 'Review dependent listeners, CloudFront distributions, API Gateway domains, and DNS validation records before accepting certificate replacement.'
+      },
+      {
+        paths: ['subjectAlternativeNames', 'subject_alternative_names'],
+        category: 'resource-address',
+        reason: 'SAN changes request a different certificate and may create new domain validation records',
+        suggestedAction: 'Review validation CNAMEs and consumers before applying the certificate replacement.'
+      },
+      {
+        paths: ['validationMethod', 'validation_method'],
+        category: 'immutable-target',
+        reason: 'validation method affects how ACM proves domain ownership',
+        suggestedAction: 'Confirm DNS/email validation ownership before accepting replacement.'
+      }
+    ]
+  },
+  {
     id: 'aws-security-group',
     label: 'AWS Security Group',
     pulumiTypes: ['aws:ec2/securityGroup:SecurityGroup'],

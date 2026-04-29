@@ -1,6 +1,8 @@
 export interface ExclusiveIdentityGroup {
   key: string;
   paths: string[];
+  optional?: boolean;
+  match?: 'exact' | 'overlap';
 }
 
 export interface ExclusiveIdentitySpec {
@@ -84,6 +86,48 @@ export const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
     suggestedAction: 'Use an IaC-native rename mapping for logical renames, or explicitly sequence/delete the old rule before creating a new rule with the same listener priority.'
   },
   {
+    id: 'aws-cloudfront-alias',
+    label: 'AWS CloudFront distribution alias',
+    pulumiTypes: ['aws:cloudfront/distribution:Distribution'],
+    terraformTypes: ['aws_cloudfront_distribution'],
+    identityGroups: [
+      { key: 'aliases', paths: ['aliases'], match: 'overlap' }
+    ],
+    conflictError: 'CNAMEAlreadyExists',
+    suggestedAction: 'CloudFront aliases are globally exclusive. For logical renames, move state/aliases explicitly; for true replacements, remove or move the old alias before creating the replacement distribution.'
+  },
+  {
+    id: 'aws-api-gateway-domain-name',
+    label: 'AWS API Gateway custom domain',
+    pulumiTypes: [
+      'aws:apigateway/domainName:DomainName',
+      'aws:apigatewayv2/domainName:DomainName'
+    ],
+    terraformTypes: [
+      'aws_api_gateway_domain_name',
+      'aws_apigatewayv2_domain_name'
+    ],
+    identityGroups: [
+      { key: 'domainName', paths: ['domainName', 'domain_name'] }
+    ],
+    conflictError: 'ConflictException',
+    suggestedAction: 'API Gateway custom domains are account/region exclusive. Use aliases/moved blocks for logical renames, or explicitly sequence old-domain removal before recreating the same domain name.'
+  },
+  {
+    id: 'aws-route53-record',
+    label: 'AWS Route53 record',
+    pulumiTypes: ['aws:route53/record:Record'],
+    terraformTypes: ['aws_route53_record'],
+    identityGroups: [
+      { key: 'zoneId', paths: ['zoneId', 'zone_id'] },
+      { key: 'name', paths: ['name', 'fqdn'] },
+      { key: 'type', paths: ['type'] },
+      { key: 'setIdentifier', paths: ['setIdentifier', 'set_identifier'], optional: true }
+    ],
+    conflictError: 'InvalidChangeBatch',
+    suggestedAction: 'Route53 record sets are exclusive by hosted zone, record name, type, and routing identifier when present. For ACM validation CNAMEs or other logical moves, use state moves/imports; otherwise sequence delete-before-create after DNS impact review.'
+  },
+  {
     id: 'aws-s3-bucket',
     label: 'AWS S3 Bucket',
     pulumiTypes: ['aws:s3:Bucket', 'aws:s3/bucket:Bucket'],
@@ -136,6 +180,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function identityString(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    const values = value
+      .map(entry => identityString(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    const unique = [...new Set(values)].sort();
+    return unique.length > 0 ? unique.join('|') : null;
+  }
+
   if (typeof value === 'string' && value.trim().length > 0) {
     return value.trim();
   }
@@ -225,11 +277,31 @@ export function formatExclusiveTargetValues(values: Record<string, string>): str
 
 export function matchingExclusiveIdentityKeys(
   left: Record<string, string>,
-  right: Record<string, string>
+  right: Record<string, string>,
+  spec?: ExclusiveIdentitySpec
 ): string[] {
+  if (spec) {
+    return spec.identityGroups
+      .filter(group => {
+        const leftValue = left[group.key];
+        const rightValue = right[group.key];
+        return Boolean(leftValue && rightValue && exclusiveIdentityValuesMatch(group, leftValue, rightValue));
+      })
+      .map(group => group.key);
+  }
+
   return Object.entries(left)
     .filter(([key, value]) => right[key] === value)
     .map(([key]) => key);
+}
+
+function exclusiveIdentityValuesMatch(group: ExclusiveIdentityGroup, left: string, right: string): boolean {
+  if (group.match !== 'overlap') {
+    return left === right;
+  }
+
+  const rightValues = new Set(right.split('|').filter(value => value.length > 0));
+  return left.split('|').some(value => rightValues.has(value));
 }
 
 export function hasCompleteExclusiveIdentityMatch(
@@ -237,5 +309,21 @@ export function hasCompleteExclusiveIdentityMatch(
   left: Record<string, string>,
   right: Record<string, string>
 ): boolean {
-  return matchingExclusiveIdentityKeys(left, right).length === spec.identityGroups.length;
+  for (const group of spec.identityGroups) {
+    const leftValue = left[group.key];
+    const rightValue = right[group.key];
+
+    if (group.optional) {
+      if (leftValue && rightValue && !exclusiveIdentityValuesMatch(group, leftValue, rightValue)) {
+        return false;
+      }
+      continue;
+    }
+
+    if (!leftValue || !rightValue || !exclusiveIdentityValuesMatch(group, leftValue, rightValue)) {
+      return false;
+    }
+  }
+
+  return true;
 }

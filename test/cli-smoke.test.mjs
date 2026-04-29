@@ -654,6 +654,88 @@ test('Terraform plan impact marks AWS listener rule priority conflicts', async (
   assert.match(String(conflictEdge.metadata?.reason), /PriorityInUse/);
 });
 
+test('Terraform plan impact marks CloudFront alias overlap conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_cloudfront_distribution.edge',
+        mode: 'managed',
+        type: 'aws_cloudfront_distribution',
+        name: 'edge',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create', 'delete'],
+          replace_paths: [['viewer_certificate']],
+          before: {
+            aliases: ['api.example.com', 'old.example.com']
+          },
+          after: {
+            aliases: ['api.example.com', 'new.example.com']
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const conflictEdge = impactedGraph.edges.find(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.ok(conflictEdge);
+  assert.equal(conflictEdge.confidence, 'high');
+  assert.equal(conflictEdge.metadata?.exclusiveIdentitySpec, 'aws-cloudfront-alias');
+  assert.equal(conflictEdge.metadata?.matchingExclusiveIdentityKeys, 'aliases');
+  assert.equal(conflictEdge.metadata?.exclusiveIdentityValues, 'aliases=api.example.com|old.example.com');
+  assert.match(String(conflictEdge.metadata?.reason), /CNAMEAlreadyExists/);
+});
+
+test('Terraform plan impact marks Route53 ACM validation record conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    resource_changes: [
+      {
+        address: 'aws_route53_record.acm_validation',
+        mode: 'managed',
+        type: 'aws_route53_record',
+        name: 'acm_validation',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create', 'delete'],
+          replace_paths: [['records']],
+          before: {
+            zone_id: 'Z1234567890',
+            name: '_abc.api.example.com',
+            type: 'CNAME',
+            records: ['_old.acm-validations.aws.']
+          },
+          after: {
+            zone_id: 'Z1234567890',
+            name: '_abc.api.example.com',
+            type: 'CNAME',
+            records: ['_new.acm-validations.aws.']
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const conflictEdge = impactedGraph.edges.find(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.ok(conflictEdge);
+  assert.equal(conflictEdge.metadata?.exclusiveIdentitySpec, 'aws-route53-record');
+  assert.equal(conflictEdge.metadata?.matchingExclusiveIdentityKeys, 'zoneId,name,type');
+  assert.equal(conflictEdge.metadata?.exclusiveIdentityValues, 'zoneId=Z1234567890,name=_abc.api.example.com,type=CNAME');
+  assert.match(String(conflictEdge.metadata?.reason), /InvalidChangeBatch/);
+  assert.match(String(conflictEdge.metadata?.suggestedAction), /ACM validation CNAMEs/);
+});
+
 test('Terraform plan impact enriches replacement reasons from known replacement paths', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -1076,6 +1158,51 @@ test('Pulumi preview impact enriches AWS listener rule priority replacement reas
   assert.match(String(ruleNode.metadata?.replacementSuggestedActions), /PriorityInUse/);
 });
 
+test('Pulumi preview impact enriches ACM certificate domain replacement reasons', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const certificateUrn = 'urn:pulumi:dev::payments-api::aws:acm/certificate:Certificate::api';
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'replace',
+          urn: certificateUrn,
+          type: 'aws:acm/certificate:Certificate',
+          name: 'api',
+          detailedDiff: {
+            domainName: {
+              kind: 'update-replace'
+            },
+            subjectAlternativeNames: {
+              kind: 'update-replace'
+            }
+          },
+          old: {
+            domainName: 'api.example.com',
+            subjectAlternativeNames: ['www.example.com']
+          },
+          new: {
+            domainName: 'payments.example.com',
+            subjectAlternativeNames: ['api.example.com']
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const certificateNode = impactedGraph.nodes.find(node => node.id === `pulumi-resource:${certificateUrn}`);
+
+  assert.ok(certificateNode);
+  assert.equal(certificateNode.metadata?.replacementPaths, 'domainName,subjectAlternativeNames');
+  assert.equal(certificateNode.metadata?.replacementReasonCategories, 'resource-address');
+  assert.match(String(certificateNode.metadata?.replacementReasons), /AWS ACM Certificate: domain name defines the requested certificate identity/);
+  assert.match(String(certificateNode.metadata?.replacementSuggestedActions), /DNS validation records/);
+});
+
 test('Pulumi preview impact marks AWS route create-before-delete replacement conflicts', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -1171,6 +1298,49 @@ test('Pulumi preview impact marks generic exclusive identity create-before-delet
   assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-s3-bucket');
   assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'bucket=scrawlr-prod-artifacts');
   assert.match(String(conflictEdges[0]?.metadata?.reason), /BucketAlreadyExists/i);
+});
+
+test('Pulumi preview impact marks API Gateway custom domain conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'delete-replaced',
+          urn: 'urn:pulumi:prod::api::aws:apigateway/domainName:DomainName::old-api',
+          type: 'aws:apigateway/domainName:DomainName',
+          name: 'old-api',
+          old: {
+            domainName: 'api.example.com'
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create-replacement',
+          urn: 'urn:pulumi:prod::api::aws:apigateway/domainName:DomainName::new-api',
+          type: 'aws:apigateway/domainName:DomainName',
+          name: 'new-api',
+          new: {
+            domainName: 'api.example.com'
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const conflictEdges = impactedGraph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.equal(conflictEdges.length, 1);
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-api-gateway-domain-name');
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'domainName=api.example.com');
+  assert.match(String(conflictEdges[0]?.metadata?.reason), /ConflictException/);
 });
 
 test('Pulumi preview impact marks dependency edges and replacement cascades', async () => {

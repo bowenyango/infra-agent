@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `526595a` Tag provider schema context with lockfile versions
   - `a20b52b` Add Terraform provider schema context
   - `0082b6a` Add AWS load balancing identity rules
   - `55d9da1` Add stable graph impact snapshot
@@ -1751,11 +1752,59 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Add more provider-exclusive specs from real failure examples, especially
-   CloudFront aliases, API Gateway custom domains, Route53 records, and ACM
-   certificate domain validation records.
+1. Add runtime validation issue classifiers for the new DNS/domain conflict
+   families when real CLI output examples are available.
 2. Add a small graph or impact fixture only when new specs change observable
    graph behavior.
+3. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-29 AWS DNS And Domain Identity Slice
+
+Files added or updated:
+
+- `src/impact/exclusive-identity.ts`
+- `src/impact/replacement-reasons.ts`
+- `src/impact/terraform-plan-graph.ts`
+- `src/impact/pulumi-preview-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add shared exclusive-identity specs for:
+  - CloudFront distribution aliases/CNAMEs with overlap matching.
+  - API Gateway v1/v2 custom domains keyed by domain name.
+  - Route53 records keyed by hosted zone, record name, record type, and optional
+    routing set identifier.
+- Extend exclusive identity matching to support list-overlap identities and
+  optional identity groups while preserving existing exact-match behavior.
+- Add replacement reason rules for CloudFront aliases/viewer certificates, API
+  Gateway domain names/certificates, Route53 record identity/targets, and ACM
+  certificate domain/SAN/validation-method replacements.
+- Cover Terraform create-before-destroy conflicts for CloudFront alias overlap
+  and Route53 ACM validation CNAME records.
+- Cover Pulumi API Gateway custom domain create-before-delete conflicts and ACM
+  certificate replacement reason enrichment.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 208/208 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add runtime validation issue classifiers for DNS/domain conflict outputs,
+   especially CloudFront `CNAMEAlreadyExists`, API Gateway `ConflictException`,
+   and Route53 `InvalidChangeBatch`.
+2. Add provider-exclusive specs from additional real failure examples, such as
+   EIP allocations/associations, VPC endpoint service names, or IAM OIDC
+   providers, only when the identity boundary is clear.
 3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands

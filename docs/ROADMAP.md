@@ -383,7 +383,8 @@ Status on 2026-04-28:
   `delete-replaced`/`create-replacement` step pairs, as
   `create-before-delete-conflict` edges. Current specs include AWS Routes, S3
   buckets, selected named AWS resources, AWS load balancing listener priorities,
-  and Kubernetes objects.
+  CloudFront aliases, API Gateway custom domains, Route53 records including ACM
+  validation CNAMEs, and Kubernetes objects.
 - Runtime validation issue classification now recognizes Pulumi
   `AlreadyExists`/duplicate-name failures and produces guidance for aliases,
   `deleteBeforeReplace`, manually sequenced replacement, or explicit

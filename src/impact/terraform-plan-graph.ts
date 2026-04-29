@@ -748,7 +748,11 @@ function scoreReplacementCreateBeforeDeleteConflict(
     return null;
   }
 
-  const matchedKeys = matchingExclusiveIdentityKeys(change.exclusiveIdentityBefore, change.exclusiveIdentityAfter);
+  const matchedKeys = matchingExclusiveIdentityKeys(
+    change.exclusiveIdentityBefore,
+    change.exclusiveIdentityAfter,
+    change.exclusiveIdentitySpec
+  );
   return {
     confidence: 'high',
     matchingExclusiveIdentityKeys: matchedKeys,
@@ -781,7 +785,11 @@ function scoreDeleteCreateExclusiveIdentityConflict(
     return null;
   }
 
-  const matchedKeys = matchingExclusiveIdentityKeys(deleted.exclusiveIdentityValues, created.exclusiveIdentityValues);
+  const matchedKeys = matchingExclusiveIdentityKeys(
+    deleted.exclusiveIdentityValues,
+    created.exclusiveIdentityValues,
+    deleted.exclusiveIdentitySpec
+  );
   return {
     confidence: 'medium',
     matchingExclusiveIdentityKeys: matchedKeys,
