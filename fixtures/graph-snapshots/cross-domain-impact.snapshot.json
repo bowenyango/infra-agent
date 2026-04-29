@@ -1,0 +1,548 @@
+{
+  "kind": "infra-agent.infra-graph",
+  "schemaVersion": 1,
+  "workspaceRoot": "<workspace>",
+  "nodes": [
+    {
+      "id": "pulumi-project:infra/payments-api",
+      "kind": "pulumi-project",
+      "label": "infra/payments-api",
+      "path": "infra/payments-api",
+      "domain": "pulumi",
+      "confidence": "high",
+      "source": "workspace-inspection",
+      "metadata": {
+        "environmentHints": "dev",
+        "projectFile": "infra/payments-api/Pulumi.yaml",
+        "stackCount": 1
+      }
+    },
+    {
+      "id": "pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+      "kind": "pulumi-resource",
+      "label": "api",
+      "path": "infra/payments-api",
+      "domain": "pulumi",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "metadata": {
+        "action": "replace",
+        "dependencyUrns": "",
+        "diffs": "name",
+        "exclusiveIdentityKeys": "",
+        "exclusiveIdentitySpec": null,
+        "identityKeys": "name",
+        "name": "api",
+        "operation": "replace",
+        "replacementPaths": "name",
+        "replacementReasonCategories": "exclusive-identity",
+        "replacementReasonPaths": "name",
+        "replacementReasons": "name: AWS Security Group: security group name participates in the physical identity inside a VPC",
+        "replacementSuggestedActions": "If the physical object did not change, review aliases, moved blocks, or state moves; otherwise sequence the replacement explicitly after approval.",
+        "targetKeys": "",
+        "type": "aws:ec2/securityGroup:SecurityGroup",
+        "urn": "urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api"
+      }
+    },
+    {
+      "id": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+      "kind": "pulumi-resource",
+      "label": "payments-api",
+      "path": "infra/payments-api",
+      "domain": "pulumi",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "metadata": {
+        "action": "update",
+        "dependencyUrns": "urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api,urn:pulumi:dev::payments-api::kubernetes:core/v1:ConfigMap::payments-config",
+        "diffs": "",
+        "exclusiveIdentityKeys": "",
+        "exclusiveIdentitySpec": "kubernetes-namespaced-object",
+        "identityKeys": "",
+        "name": "payments-api",
+        "operation": "update",
+        "replacementPaths": "",
+        "replacementReasonCategories": "",
+        "replacementReasonPaths": "",
+        "replacementReasons": "",
+        "replacementSuggestedActions": "",
+        "targetKeys": "",
+        "type": "kubernetes:apps/v1:Deployment",
+        "urn": "urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api"
+      }
+    },
+    {
+      "id": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:ConfigMap::payments-config",
+      "kind": "pulumi-resource",
+      "label": "payments-config",
+      "path": "infra/payments-api",
+      "domain": "pulumi",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "metadata": {
+        "dependencyUrns": "",
+        "diffs": "",
+        "exclusiveIdentityKeys": "",
+        "exclusiveIdentitySpec": "kubernetes-namespaced-object",
+        "identityKeys": "",
+        "name": "payments-config",
+        "operation": "same",
+        "replacementPaths": "",
+        "replacementReasonCategories": "",
+        "replacementReasonPaths": "",
+        "replacementReasons": "",
+        "replacementSuggestedActions": "",
+        "role": "dependency-context",
+        "targetKeys": "",
+        "type": "kubernetes:core/v1:ConfigMap",
+        "urn": "urn:pulumi:dev::payments-api::kubernetes:core/v1:ConfigMap::payments-config"
+      }
+    },
+    {
+      "id": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+      "kind": "pulumi-resource",
+      "label": "new-api",
+      "path": "infra/payments-api",
+      "domain": "pulumi",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "metadata": {
+        "action": "create",
+        "dependencyUrns": "",
+        "diffs": "",
+        "exclusiveIdentityKeys": "metadata.name,metadata.namespace",
+        "exclusiveIdentitySpec": "kubernetes-namespaced-object",
+        "identityKeys": "metadata.name,metadata.namespace",
+        "name": "new-api",
+        "operation": "create",
+        "replacementPaths": "",
+        "replacementReasonCategories": "",
+        "replacementReasonPaths": "",
+        "replacementReasons": "",
+        "replacementSuggestedActions": "",
+        "targetKeys": "",
+        "type": "kubernetes:core/v1:Service",
+        "urn": "urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api"
+      }
+    },
+    {
+      "id": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
+      "kind": "pulumi-resource",
+      "label": "old-api",
+      "path": "infra/payments-api",
+      "domain": "pulumi",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "metadata": {
+        "action": "delete",
+        "dependencyUrns": "",
+        "diffs": "",
+        "exclusiveIdentityKeys": "metadata.name,metadata.namespace",
+        "exclusiveIdentitySpec": "kubernetes-namespaced-object",
+        "identityKeys": "metadata.name,metadata.namespace",
+        "name": "old-api",
+        "operation": "delete",
+        "replacementPaths": "",
+        "replacementReasonCategories": "",
+        "replacementReasonPaths": "",
+        "replacementReasons": "",
+        "replacementSuggestedActions": "",
+        "targetKeys": "",
+        "type": "kubernetes:core/v1:Service",
+        "urn": "urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api"
+      }
+    },
+    {
+      "id": "terraform-resource:aws_iam_role.lambda",
+      "kind": "terraform-resource",
+      "label": "aws_iam_role.lambda",
+      "path": "terraform/payments-api",
+      "domain": "terraform",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "metadata": {
+        "address": "aws_iam_role.lambda",
+        "dependsOn": "",
+        "exclusiveIdentityKeys": "name",
+        "exclusiveIdentitySpec": "aws-named-resource",
+        "mode": "managed",
+        "name": "lambda",
+        "providerName": "registry.terraform.io/hashicorp/aws",
+        "role": "dependency-context",
+        "type": "aws_iam_role"
+      }
+    },
+    {
+      "id": "terraform-resource:aws_lambda_function.api",
+      "kind": "terraform-resource",
+      "label": "aws_lambda_function.api",
+      "path": "terraform/payments-api",
+      "domain": "terraform",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "metadata": {
+        "action": "update",
+        "actionReason": null,
+        "actions": "update",
+        "address": "aws_lambda_function.api",
+        "dependsOn": "aws_s3_bucket.artifacts,aws_iam_role.lambda",
+        "exclusiveIdentityKeys": "name",
+        "exclusiveIdentitySpec": "aws-named-resource",
+        "identityKeys": "function_name",
+        "mode": "managed",
+        "name": "api",
+        "providerName": "registry.terraform.io/hashicorp/aws",
+        "replacementReasonCategories": "",
+        "replacementReasonPaths": "",
+        "replacementReasons": "",
+        "replacementSuggestedActions": "",
+        "replacePaths": "",
+        "type": "aws_lambda_function"
+      }
+    },
+    {
+      "id": "terraform-resource:aws_route.peer",
+      "kind": "terraform-resource",
+      "label": "aws_route.peer",
+      "path": "terraform/payments-api",
+      "domain": "terraform",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "metadata": {
+        "action": "replace",
+        "actionReason": null,
+        "actions": "create,delete",
+        "address": "aws_route.peer",
+        "dependsOn": "",
+        "exclusiveIdentityKeys": "routeTableId,destination",
+        "exclusiveIdentitySpec": "aws-route",
+        "identityKeys": "",
+        "mode": "managed",
+        "name": "peer",
+        "providerName": "registry.terraform.io/hashicorp/aws",
+        "replacementReasonCategories": "immutable-target",
+        "replacementReasonPaths": "vpc_peering_connection_id",
+        "replacementReasons": "vpc_peering_connection_id: AWS Route: route target changes commonly require replacing the route object while keeping the same route table and destination",
+        "replacementSuggestedActions": "Check for RouteAlreadyExists risk; use delete-before-create/manual sequencing when the existing route identity is unchanged.",
+        "replacePaths": "vpc_peering_connection_id",
+        "type": "aws_route"
+      }
+    },
+    {
+      "id": "terraform-resource:aws_s3_bucket.artifacts",
+      "kind": "terraform-resource",
+      "label": "aws_s3_bucket.artifacts",
+      "path": "terraform/payments-api",
+      "domain": "terraform",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "metadata": {
+        "action": "replace",
+        "actionReason": null,
+        "actions": "delete,create",
+        "address": "aws_s3_bucket.artifacts",
+        "dependsOn": "",
+        "exclusiveIdentityKeys": "bucket",
+        "exclusiveIdentitySpec": "aws-s3-bucket",
+        "identityKeys": "bucket",
+        "mode": "managed",
+        "name": "artifacts",
+        "providerName": "registry.terraform.io/hashicorp/aws",
+        "replacementReasonCategories": "exclusive-identity",
+        "replacementReasonPaths": "bucket",
+        "replacementReasons": "bucket: AWS S3 Bucket: bucket is the globally unique physical bucket name",
+        "replacementSuggestedActions": "Treat this as a bucket identity change; prefer import/state repair for logical renames and use an explicit migration plan for true replacements.",
+        "replacePaths": "bucket",
+        "type": "aws_s3_bucket"
+      }
+    },
+    {
+      "id": "terraform-root:terraform/payments-api",
+      "kind": "terraform-root",
+      "label": "terraform/payments-api",
+      "path": "terraform/payments-api",
+      "domain": "terraform",
+      "confidence": "high",
+      "source": "workspace-inspection",
+      "metadata": {
+        "environmentHints": "dev",
+        "moduleHints": "payments-api",
+        "tfFileCount": 1,
+        "tfvarsFileCount": 1
+      }
+    },
+    {
+      "id": "workspace",
+      "kind": "workspace",
+      "label": "Snapshot Workspace",
+      "path": null,
+      "domain": "workspace",
+      "confidence": "high",
+      "source": "workspace-inspection",
+      "metadata": {
+        "helmCharts": 0,
+        "profileId": "snapshot",
+        "pulumiProjects": 1,
+        "terraformRoots": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "contains:workspace->pulumi-project:infra/payments-api",
+      "from": "workspace",
+      "to": "pulumi-project:infra/payments-api",
+      "kind": "contains",
+      "confidence": "high",
+      "source": "workspace-inspection",
+      "label": "workspace contains Pulumi project"
+    },
+    {
+      "id": "contains:workspace->terraform-root:terraform/payments-api",
+      "from": "workspace",
+      "to": "terraform-root:terraform/payments-api",
+      "kind": "contains",
+      "confidence": "high",
+      "source": "workspace-inspection",
+      "label": "workspace contains Terraform root"
+    },
+    {
+      "id": "create-before-delete-conflict:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+      "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+      "kind": "create-before-delete-conflict",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Pulumi create-before-delete conflict risk",
+      "metadata": {
+        "destinationValue": null,
+        "exclusiveIdentitySpec": "kubernetes-namespaced-object",
+        "exclusiveIdentityValues": "metadata.name=payments-api,metadata.namespace=default",
+        "matchingExclusiveIdentityKeys": "metadata.name,metadata.namespace",
+        "newTargets": "",
+        "oldTargets": "",
+        "reason": "Kubernetes namespaced object resources are exclusive by metadata.name, metadata.namespace; Pulumi create-before-delete ordering can fail with AlreadyExists.",
+        "resourceType": "kubernetes:core/v1:Service",
+        "suggestedAction": "Use an IaC-native rename mapping for logical renames, or explicitly sequence replacement with accepted temporary object removal."
+      }
+    },
+    {
+      "id": "create-before-delete-conflict:terraform-resource:aws_route.peer->terraform-resource:aws_route.peer",
+      "from": "terraform-resource:aws_route.peer",
+      "to": "terraform-resource:aws_route.peer",
+      "kind": "create-before-delete-conflict",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "label": "Terraform create-before-destroy conflict risk",
+      "metadata": {
+        "actionOrder": "create,delete",
+        "exclusiveIdentitySpec": "aws-route",
+        "exclusiveIdentityValues": "routeTableId=rtb-123,destination=10.0.0.0/16",
+        "matchingExclusiveIdentityKeys": "routeTableId,destination",
+        "newTargets": "vpc_peering_connection_id=pcx-new",
+        "oldTargets": "vpc_peering_connection_id=pcx-old",
+        "providerName": "registry.terraform.io/hashicorp/aws",
+        "reason": "AWS Route resources are exclusive by routeTableId, destination; Terraform create-before-destroy replacement can fail with RouteAlreadyExists.",
+        "replacePaths": "vpc_peering_connection_id",
+        "resourceType": "aws_route",
+        "suggestedAction": "Use an IaC-native rename mapping for logical renames, or explicitly sequence delete-before-create replacement only when the temporary route removal is acceptable."
+      }
+    },
+    {
+      "id": "depends-on:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api->pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+      "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+      "kind": "depends-on",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Pulumi preview dependency",
+      "metadata": {
+        "dependentAction": "update"
+      }
+    },
+    {
+      "id": "depends-on:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:ConfigMap::payments-config",
+      "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:ConfigMap::payments-config",
+      "kind": "depends-on",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Pulumi preview dependency",
+      "metadata": {
+        "dependentAction": "update"
+      }
+    },
+    {
+      "id": "depends-on:terraform-resource:aws_lambda_function.api->terraform-resource:aws_iam_role.lambda",
+      "from": "terraform-resource:aws_lambda_function.api",
+      "to": "terraform-resource:aws_iam_role.lambda",
+      "kind": "depends-on",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "label": "Terraform plan dependency",
+      "metadata": {
+        "dependentAction": "update"
+      }
+    },
+    {
+      "id": "depends-on:terraform-resource:aws_lambda_function.api->terraform-resource:aws_s3_bucket.artifacts",
+      "from": "terraform-resource:aws_lambda_function.api",
+      "to": "terraform-resource:aws_s3_bucket.artifacts",
+      "kind": "depends-on",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "label": "Terraform plan dependency",
+      "metadata": {
+        "dependentAction": "update"
+      }
+    },
+    {
+      "id": "planned-change:pulumi-project:infra/payments-api->pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+      "from": "pulumi-project:infra/payments-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+      "kind": "planned-change",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Pulumi preview replace"
+    },
+    {
+      "id": "planned-change:pulumi-project:infra/payments-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+      "from": "pulumi-project:infra/payments-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+      "kind": "planned-change",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Pulumi preview update"
+    },
+    {
+      "id": "planned-change:pulumi-project:infra/payments-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+      "from": "pulumi-project:infra/payments-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+      "kind": "planned-change",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Pulumi preview create"
+    },
+    {
+      "id": "planned-change:pulumi-project:infra/payments-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
+      "from": "pulumi-project:infra/payments-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
+      "kind": "planned-change",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Pulumi preview delete"
+    },
+    {
+      "id": "planned-change:terraform-root:terraform/payments-api->terraform-resource:aws_lambda_function.api",
+      "from": "terraform-root:terraform/payments-api",
+      "to": "terraform-resource:aws_lambda_function.api",
+      "kind": "planned-change",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "label": "Terraform plan update"
+    },
+    {
+      "id": "planned-change:terraform-root:terraform/payments-api->terraform-resource:aws_route.peer",
+      "from": "terraform-root:terraform/payments-api",
+      "to": "terraform-resource:aws_route.peer",
+      "kind": "planned-change",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "label": "Terraform plan replace"
+    },
+    {
+      "id": "planned-change:terraform-root:terraform/payments-api->terraform-resource:aws_s3_bucket.artifacts",
+      "from": "terraform-root:terraform/payments-api",
+      "to": "terraform-resource:aws_s3_bucket.artifacts",
+      "kind": "planned-change",
+      "confidence": "high",
+      "source": "terraform-plan",
+      "label": "Terraform plan replace"
+    },
+    {
+      "id": "possible-rename:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+      "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+      "kind": "possible-rename",
+      "confidence": "high",
+      "source": "pulumi-preview",
+      "label": "Possible Pulumi resource rename",
+      "metadata": {
+        "matchingIdentityKeys": "metadata.name,metadata.namespace",
+        "reason": "same Pulumi resource type; matching identity fields: metadata.name, metadata.namespace; score 1.00",
+        "resourceType": "kubernetes:core/v1:Service",
+        "score": 1
+      }
+    },
+    {
+      "id": "replacement-cascade:pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+      "from": "pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+      "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+      "kind": "replacement-cascade",
+      "confidence": "medium",
+      "source": "pulumi-preview",
+      "label": "Potential Pulumi replacement cascade",
+      "metadata": {
+        "dependencyAction": "replace",
+        "dependencyReplacementReasonCategories": "exclusive-identity",
+        "dependencyReplacementReasons": "name: AWS Security Group: security group name participates in the physical identity inside a VPC",
+        "dependencyReplacementSuggestedActions": "If the physical object did not change, review aliases, moved blocks, or state moves; otherwise sequence the replacement explicitly after approval.",
+        "dependencyUrn": "urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+        "dependentAction": "update",
+        "dependentUrn": "urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+        "reason": "urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api depends on urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api; upstream replace may explain downstream update"
+      }
+    },
+    {
+      "id": "replacement-cascade:terraform-resource:aws_s3_bucket.artifacts->terraform-resource:aws_lambda_function.api",
+      "from": "terraform-resource:aws_s3_bucket.artifacts",
+      "to": "terraform-resource:aws_lambda_function.api",
+      "kind": "replacement-cascade",
+      "confidence": "medium",
+      "source": "terraform-plan",
+      "label": "Potential Terraform replacement cascade",
+      "metadata": {
+        "dependencyAction": "replace",
+        "dependencyAddress": "aws_s3_bucket.artifacts",
+        "dependencyReplacementReasonCategories": "exclusive-identity",
+        "dependencyReplacementReasons": "bucket: AWS S3 Bucket: bucket is the globally unique physical bucket name",
+        "dependencyReplacementSuggestedActions": "Treat this as a bucket identity change; prefer import/state repair for logical renames and use an explicit migration plan for true replacements.",
+        "dependentAction": "update",
+        "dependentAddress": "aws_lambda_function.api",
+        "reason": "aws_lambda_function.api depends on aws_s3_bucket.artifacts; upstream replace may explain downstream update"
+      }
+    }
+  ],
+  "summary": {
+    "nodeCount": 12,
+    "edgeCount": 18,
+    "nodesByKind": {
+      "pulumi-project": 1,
+      "pulumi-resource": 5,
+      "terraform-resource": 4,
+      "terraform-root": 1,
+      "workspace": 1
+    },
+    "edgesByKind": {
+      "contains": 2,
+      "create-before-delete-conflict": 2,
+      "depends-on": 4,
+      "planned-change": 7,
+      "possible-rename": 1,
+      "replacement-cascade": 2
+    },
+    "changesByAction": {
+      "create": 1,
+      "delete": 1,
+      "replace": 3,
+      "update": 2
+    },
+    "impact": {
+      "createBeforeDeleteConflicts": 2,
+      "dependencyEdges": 4,
+      "plannedChanges": 7,
+      "possibleRenames": 1,
+      "replacementCascades": 2
+    }
+  }
+}

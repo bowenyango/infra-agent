@@ -178,6 +178,9 @@ Current graph foundation:
 - Base graph nodes and containment/configuration edges are derived from
   workspace inspection facts; plan/preview impact data is attached only when
   explicitly supplied.
+- Stable graph snapshots normalize node order, edge order, metadata keys, and
+  workspace roots for regression testing. Treat snapshot fixture changes as
+  graph contract changes that need review before topology UI work consumes them.
 - `infra-agent graph --terraform-plan <plan.json> --target <terraform-root>
   --json` attaches Terraform plan resource actions as `terraform-resource`
   nodes and `planned-change` edges without executing Terraform.

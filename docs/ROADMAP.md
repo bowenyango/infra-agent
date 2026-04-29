@@ -373,6 +373,11 @@ Status on 2026-04-28:
   replacement cascades, plus create-before-delete conflict warnings. Text graph
   output includes an `Impact` section with the most relevant rename, cascade,
   and ordering-conflict edges.
+- Added a stable graph snapshot helper and cross-domain impact fixture covering
+  Terraform and Pulumi planned changes, unchanged dependency context,
+  dependency edges, replacement cascades, possible renames,
+  create-before-delete conflicts, and replacement reason metadata. This is the
+  contract baseline before a topology viewer is introduced.
 - Pulumi preview graph analysis uses the same shared exclusive-identity specs
   and flags common exclusive-identity
   delete/create pairs, including `delete-replaced`/`create-replacement` step

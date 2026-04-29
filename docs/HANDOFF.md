@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `a5da92f` Enrich graph replacement reasons
   - `9f98219` Add unchanged dependency context nodes
   - `6a81fe5` Detect Terraform exclusive identity conflicts
   - `6ee9012` Generalize Pulumi exclusive identity conflicts
@@ -1571,6 +1572,48 @@ Recommended next implementation slice:
 2. Add stable graph snapshot fixtures before starting any topology viewer.
 3. Explore safe provider schema ingestion for initialized Terraform roots while
    keeping prompts compact.
+
+## 2026-04-29 Stable Graph Snapshot Slice
+
+Files added or updated:
+
+- `src/impact/graph-snapshot.ts`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a stable graph snapshot normalizer that preserves the
+  `infra-agent.infra-graph` shape while sorting nodes, edges, metadata keys,
+  summary maps, and normalizing `workspaceRoot` for fixture comparison.
+- Add a cross-domain impact snapshot fixture covering Terraform and Pulumi
+  planned changes, unchanged dependency context nodes, `depends-on`,
+  `replacement-cascade`, `possible-rename`, `create-before-delete-conflict`,
+  and replacement reason metadata.
+- Establish a graph contract baseline before local topology viewer work starts.
+- Record the rule that snapshot changes are deliberate graph contract updates,
+  not incidental churn.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 200/200 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more exclusive-identity and replacement reason specs from real failure
+   examples and provider schemas.
+2. Explore safe provider schema ingestion for initialized Terraform roots while
+   keeping prompts compact.
+3. Start a read-only local topology viewer only after one more graph contract
+   slice if the graph snapshots remain stable.
 
 ## Current Verification Commands
 
