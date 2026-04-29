@@ -552,6 +552,49 @@ test('Pulumi preview impact marks AWS route create-before-delete replacement con
   ));
 });
 
+test('Pulumi preview impact marks generic exclusive identity create-before-delete conflicts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'delete-replaced',
+          urn: 'urn:pulumi:prod::storage::aws:s3/bucket:Bucket::old-artifacts',
+          type: 'aws:s3/bucket:Bucket',
+          name: 'old-artifacts',
+          old: {
+            bucket: 'scrawlr-prod-artifacts'
+          }
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'create-replacement',
+          urn: 'urn:pulumi:prod::storage::aws:s3/bucket:Bucket::new-artifacts',
+          type: 'aws:s3/bucket:Bucket',
+          name: 'new-artifacts',
+          new: {
+            bucket: 'scrawlr-prod-artifacts'
+          }
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const conflictEdges = impactedGraph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
+
+  assert.equal(conflictEdges.length, 1);
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentitySpec, 'aws-s3-bucket');
+  assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'bucket=scrawlr-prod-artifacts');
+  assert.match(String(conflictEdges[0]?.metadata?.reason), /BucketAlreadyExists/i);
+});
+
 test('Pulumi preview impact marks dependency edges and replacement cascades', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -6017,8 +6060,31 @@ test('classifyValidationIssues marks Pulumi AWS route create-before-delete confl
   assert.equal(issues[0]?.metadata?.routeTableIds, 'rtb-0102177ec9e1ab465');
   assert.equal(issues[0]?.metadata?.routeDestinations, '10.0.0.0/16');
   assert.equal(issues[0]?.metadata?.providerName, 'aws@7.23.0');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'RouteAlreadyExists');
   assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/i);
   assert.match(issues[0]?.guidance ?? '', /aliases/i);
+});
+
+test('classifyValidationIssues marks generic Pulumi already-exists conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/storage --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:s3:Bucket (prod-artifacts):',
+        'error: api error BucketAlreadyExists: The requested bucket name is not available: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.repairable, false);
+  assert.equal(issues[0]?.metadata?.conflictCode, 'BucketAlreadyExists');
+  assert.equal(issues[0]?.metadata?.resourceType, 'aws:s3:Bucket');
+  assert.match(issues[0]?.guidance ?? '', /same provider identity/i);
+  assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/i);
 });
 
 test('classifyValidationIssues marks general Pulumi preview failures as pulumi-preview-failure', () => {

@@ -106,9 +106,12 @@ export interface ValidationIssue {
   message: string;
   guidance?: string;
   metadata?: {
+    conflictCode?: string;
+    duplicateIdentity?: string;
     missingConfigKey?: string;
     missingVariableName?: string;
     providerName?: string;
+    resourceType?: string;
     routeDestinations?: string;
     routeTableIds?: string;
     yamlPath?: string;

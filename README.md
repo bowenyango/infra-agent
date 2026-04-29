@@ -80,10 +80,11 @@ Current behavior is intentionally runtime-foundation oriented:
   dependency edges, and replacement-cascade edges; it can also attach read-only
   Pulumi preview event actions with `--pulumi-preview`, including advisory
   Pulumi possible rename edges plus preview dependency and cascade edges when
-  source metadata is available; it also flags Pulumi AWS Route create-before-
-  delete conflicts that can fail with `RouteAlreadyExists`. Graph JSON includes
-  compact `summary.impact` counts and the text output includes an `Impact`
-  section for quick handoff
+  source metadata is available; it also flags common Pulumi create-before-
+  delete conflicts for resources with exclusive provider identities, such as
+  AWS Routes, S3 buckets, named AWS resources, and Kubernetes objects. Graph
+  JSON includes compact `summary.impact` counts and the text output includes an
+  `Impact` section for quick handoff
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval

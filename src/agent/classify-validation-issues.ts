@@ -1,8 +1,11 @@
 import type { ValidationCommandOutput } from '../types/tools.ts';
 import type { ValidationIssue } from '../types/agent.ts';
 
-interface PulumiRouteAlreadyExistsFacts {
+interface PulumiCreateBeforeDeleteConflictFacts {
+  conflictCode: string;
+  duplicateIdentity: string | null;
   providerName: string | null;
+  resourceType: string | null;
   routeDestinations: string[];
   routeTableIds: string[];
 }
@@ -66,8 +69,22 @@ function uniqueMatches(output: string, pattern: RegExp): string[] {
     .filter((value): value is string => Boolean(value)))];
 }
 
-function extractPulumiRouteAlreadyExistsFacts(output: string): PulumiRouteAlreadyExistsFacts | null {
-  if (!/RouteAlreadyExists/i.test(output)) {
+function extractPulumiResourceType(output: string): string | null {
+  const match = output.match(/(?:^|\n)\s*([A-Za-z0-9_./-]+:[A-Za-z0-9_./-]+(?::[A-Za-z0-9_./-]+)?)\s+\([^)]+\):/);
+  return match?.[1]?.trim() ?? null;
+}
+
+function extractDuplicateIdentity(output: string): string | null {
+  return output.match(/\b(?:name|bucket|repository|queue|topic|function|role|group|user)\s+["'`]([^"'`]+)["'`][^.\n]*already exists/i)?.[1]?.trim()
+    ?? output.match(/\b([A-Za-z0-9._:/-]+)\s+already exists\b/i)?.[1]?.trim()
+    ?? null;
+}
+
+function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCreateBeforeDeleteConflictFacts | null {
+  const conflictCode = output.match(/\b(RouteAlreadyExists|BucketAlreadyExists|BucketAlreadyOwnedByYou|EntityAlreadyExists|ResourceAlreadyExistsException|RepositoryAlreadyExistsException|QueueAlreadyExists|TopicAlreadyExists|DBInstanceAlreadyExists|TableAlreadyExistsException|AlreadyExistsException|InvalidGroup\.Duplicate|InvalidPermission\.Duplicate)\b/i)?.[1]
+    ?? (/\balready exists\b/i.test(output) ? 'AlreadyExists' : null);
+
+  if (!conflictCode) {
     return null;
   }
 
@@ -76,17 +93,22 @@ function extractPulumiRouteAlreadyExistsFacts(output: string): PulumiRouteAlread
   const providerName = output.match(/\bprovider=([^\s]+)/i)?.[1]?.trim() ?? null;
 
   return {
+    conflictCode,
+    duplicateIdentity: extractDuplicateIdentity(output),
     providerName,
+    resourceType: extractPulumiResourceType(output),
     routeDestinations,
     routeTableIds
   };
 }
 
-function buildPulumiRouteAlreadyExistsGuidance(facts: PulumiRouteAlreadyExistsFacts): string {
+function buildPulumiCreateBeforeDeleteConflictGuidance(facts: PulumiCreateBeforeDeleteConflictFacts): string {
   const routeTableText = facts.routeTableIds.length > 0 ? ` in route table(s) ${facts.routeTableIds.join(', ')}` : '';
   const destinationText = facts.routeDestinations.length > 0 ? ` for destination(s) ${facts.routeDestinations.join(', ')}` : '';
+  const resourceText = facts.resourceType ? ` ${facts.resourceType}` : '';
+  const identityText = facts.duplicateIdentity ? ` for identity ${facts.duplicateIdentity}` : '';
 
-  return `Pulumi attempted to create an AWS route${routeTableText}${destinationText} before deleting the existing route with the same route-table/destination identity. Review the preview for aws.ec2.Route create/delete pairs: if this is a logical rename, add Pulumi aliases from the old route URNs; if the route must be replaced, set deleteBeforeReplace on the route resources and accept the temporary route removal; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
+  return `Pulumi attempted to create an exclusive${resourceText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the preview for delete/create or delete-replaced/create-replacement pairs with the same provider identity: if this is a logical rename, add Pulumi aliases from the old URNs; if the resource must be replaced, set deleteBeforeReplace or manually sequence the replacement with accepted downtime; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
 }
 
 function buildHelmValidationGuidance(kind: 'service-port' | 'ingress-values'): string {
@@ -177,18 +199,21 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
       const missingConfigMatch =
         combinedOutput.match(/missing required configuration (?:key|variable)[^"'`]*["'`]([^"'`]+)["'`]/i)
         ?? combinedOutput.match(/configuration[^"'`]*["'`]([^"'`]+)["'`][^"'`]*is required/i);
-      const routeAlreadyExistsFacts = extractPulumiRouteAlreadyExistsFacts(combinedOutput);
+      const createBeforeDeleteConflictFacts = extractPulumiCreateBeforeDeleteConflictFacts(combinedOutput);
 
-      if (routeAlreadyExistsFacts) {
+      if (createBeforeDeleteConflictFacts) {
         issues.push(buildIssue(result, {
           kind: 'pulumi-create-before-delete-conflict',
           repairable: false,
-          message: combinedOutput.trim().slice(0, 400) || 'Pulumi failed because an AWS route with the same route table and destination already exists.',
-          guidance: buildPulumiRouteAlreadyExistsGuidance(routeAlreadyExistsFacts),
+          message: combinedOutput.trim().slice(0, 400) || 'Pulumi failed because a resource with the same provider identity already exists.',
+          guidance: buildPulumiCreateBeforeDeleteConflictGuidance(createBeforeDeleteConflictFacts),
           metadata: {
-            providerName: routeAlreadyExistsFacts.providerName ?? undefined,
-            routeDestinations: routeAlreadyExistsFacts.routeDestinations.join(','),
-            routeTableIds: routeAlreadyExistsFacts.routeTableIds.join(',')
+            conflictCode: createBeforeDeleteConflictFacts.conflictCode,
+            duplicateIdentity: createBeforeDeleteConflictFacts.duplicateIdentity ?? undefined,
+            providerName: createBeforeDeleteConflictFacts.providerName ?? undefined,
+            resourceType: createBeforeDeleteConflictFacts.resourceType ?? undefined,
+            routeDestinations: createBeforeDeleteConflictFacts.routeDestinations.join(','),
+            routeTableIds: createBeforeDeleteConflictFacts.routeTableIds.join(',')
           }
         }));
         continue;

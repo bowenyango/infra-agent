@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `4a6d609` Handle Pulumi replacement steps in route conflicts
   - `2f32398` Detect Pulumi route replacement conflicts
   - `c706bd6` Summarize graph impact output
   - `b9438a7` Add impact dependency cascade edges
@@ -1396,6 +1397,49 @@ Recommended next implementation slice:
    preview metadata is available, avoiding dangling graph edges.
 3. Start provider-specific replacement reason enrichment from schemas or known
    force-replacement fields.
+
+## 2026-04-28 Generic Exclusive Identity Conflict Slice
+
+Files added or updated:
+
+- `src/impact/pulumi-preview-graph.ts`
+- `src/agent/classify-validation-issues.ts`
+- `src/types/agent.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Generalize Pulumi create-before-delete conflict detection from AWS Route into
+  an `ExclusiveIdentitySpec` table.
+- Current graph specs cover AWS Routes, S3 buckets, selected named AWS
+  resources, and Kubernetes objects.
+- Classify generic Pulumi `AlreadyExists` and duplicate-name failures as
+  `pulumi-create-before-delete-conflict`, while preserving Route-specific
+  route table and destination metadata when available.
+- Record this as a common IaC risk pattern: provider-exclusive physical
+  identities often make create-before-delete replacement unsafe even when the
+  Pulumi plan looks mechanically valid.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 194/194 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add Terraform-side exclusive-identity conflict detection for known ForceNew
+   resources where create-before-destroy can collide with provider uniqueness.
+2. Extend dependency extraction to unchanged state resources when safe state or
+   preview metadata is available, avoiding dangling graph edges.
+3. Move the Pulumi exclusive identity specs into a shared provider rule module
+   once Terraform needs the same registry.
 
 ## Current Verification Commands
 
