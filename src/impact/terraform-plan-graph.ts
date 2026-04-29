@@ -31,6 +31,17 @@ interface TerraformResourceChange {
   dependsOn: string[];
 }
 
+interface TerraformResourceContext {
+  address: string;
+  mode: string | null;
+  type: string | null;
+  name: string | null;
+  providerName: string | null;
+  dependsOn: string[];
+  exclusiveIdentitySpec: ExclusiveIdentitySpec | null;
+  exclusiveIdentityValues: Record<string, string>;
+}
+
 interface TerraformRenameCandidate {
   confidence: 'low' | 'medium' | 'high';
   score: number;
@@ -269,6 +280,60 @@ function collectTerraformModuleDependencies(
   }
 }
 
+function collectTerraformModuleAddresses(moduleValue: unknown): string[] {
+  if (!isRecord(moduleValue)) {
+    return [];
+  }
+
+  const addresses: string[] = [];
+
+  if (Array.isArray(moduleValue.resources)) {
+    for (const resource of moduleValue.resources) {
+      if (isRecord(resource)) {
+        const address = asString(resource.address);
+        if (address) {
+          addresses.push(address);
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(moduleValue.child_modules)) {
+    for (const childModule of moduleValue.child_modules) {
+      addresses.push(...collectTerraformModuleAddresses(childModule));
+    }
+  }
+
+  if (isRecord(moduleValue.module_calls)) {
+    for (const moduleCall of Object.values(moduleValue.module_calls)) {
+      if (isRecord(moduleCall)) {
+        addresses.push(...collectTerraformModuleAddresses(moduleCall.module));
+      }
+    }
+  }
+
+  return addresses;
+}
+
+function collectTerraformKnownAddresses(planJson: Record<string, unknown>): string[] {
+  const plannedValues = isRecord(planJson.planned_values) ? planJson.planned_values : null;
+  const priorState = isRecord(planJson.prior_state) ? planJson.prior_state : null;
+  const priorValues = isRecord(priorState?.values) ? priorState.values : null;
+  const configuration = isRecord(planJson.configuration) ? planJson.configuration : null;
+  const changedAddresses = Array.isArray(planJson.resource_changes)
+    ? planJson.resource_changes
+      .map(entry => isRecord(entry) ? asString(entry.address) : null)
+      .filter((address): address is string => Boolean(address))
+    : [];
+
+  return uniqueStrings([
+    ...changedAddresses,
+    ...collectTerraformModuleAddresses(plannedValues?.root_module),
+    ...collectTerraformModuleAddresses(priorValues?.root_module),
+    ...collectTerraformModuleAddresses(configuration?.root_module)
+  ]).sort((left, right) => right.length - left.length);
+}
+
 function collectTerraformDependencyMap(planJson: Record<string, unknown>, knownAddresses: string[]): Map<string, string[]> {
   const dependencies = new Map<string, Set<string>>();
   const plannedValues = isRecord(planJson.planned_values) ? planJson.planned_values : null;
@@ -283,15 +348,84 @@ function collectTerraformDependencyMap(planJson: Record<string, unknown>, knownA
   return new Map([...dependencies.entries()].map(([address, values]) => [address, [...values]]));
 }
 
+function collectTerraformModuleResourceContexts(
+  moduleValue: unknown,
+  dependencyMap: Map<string, string[]>,
+  contexts: Map<string, TerraformResourceContext>
+): void {
+  if (!isRecord(moduleValue)) {
+    return;
+  }
+
+  if (Array.isArray(moduleValue.resources)) {
+    for (const resource of moduleValue.resources) {
+      if (!isRecord(resource)) {
+        continue;
+      }
+
+      const address = asString(resource.address);
+      if (!address || contexts.has(address)) {
+        continue;
+      }
+
+      const type = asString(resource.type);
+      const values = isRecord(resource.values) ? resource.values : {};
+      const exclusiveIdentitySpec = findExclusiveIdentitySpec(type, 'terraform');
+      contexts.set(address, {
+        address,
+        mode: asString(resource.mode),
+        type,
+        name: asString(resource.name),
+        providerName: asString(resource.provider_name),
+        dependsOn: uniqueStrings([
+          ...(dependencyMap.get(address) ?? []),
+          ...asStringArray(resource.depends_on)
+        ]).filter(dependency => dependency !== address),
+        exclusiveIdentitySpec,
+        exclusiveIdentityValues: collectExclusiveIdentityValues(values, exclusiveIdentitySpec)
+      });
+    }
+  }
+
+  if (Array.isArray(moduleValue.child_modules)) {
+    for (const childModule of moduleValue.child_modules) {
+      collectTerraformModuleResourceContexts(childModule, dependencyMap, contexts);
+    }
+  }
+
+  if (isRecord(moduleValue.module_calls)) {
+    for (const moduleCall of Object.values(moduleValue.module_calls)) {
+      if (isRecord(moduleCall)) {
+        collectTerraformModuleResourceContexts(moduleCall.module, dependencyMap, contexts);
+      }
+    }
+  }
+}
+
+function collectTerraformPlanResourceContexts(planJson: unknown): Map<string, TerraformResourceContext> {
+  if (!isRecord(planJson)) {
+    return new Map();
+  }
+
+  const knownAddresses = collectTerraformKnownAddresses(planJson);
+  const dependencyMap = collectTerraformDependencyMap(planJson, knownAddresses);
+  const plannedValues = isRecord(planJson.planned_values) ? planJson.planned_values : null;
+  const priorState = isRecord(planJson.prior_state) ? planJson.prior_state : null;
+  const priorValues = isRecord(priorState?.values) ? priorState.values : null;
+  const contexts = new Map<string, TerraformResourceContext>();
+
+  collectTerraformModuleResourceContexts(plannedValues?.root_module, dependencyMap, contexts);
+  collectTerraformModuleResourceContexts(priorValues?.root_module, dependencyMap, contexts);
+
+  return contexts;
+}
+
 export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformResourceChange[] {
   if (!isRecord(planJson) || !Array.isArray(planJson.resource_changes)) {
     return [];
   }
 
-  const knownAddresses = planJson.resource_changes
-    .map(entry => isRecord(entry) ? asString(entry.address) : null)
-    .filter((address): address is string => Boolean(address))
-    .sort((left, right) => right.length - left.length);
+  const knownAddresses = collectTerraformKnownAddresses(planJson);
   const dependencyMap = collectTerraformDependencyMap(planJson, knownAddresses);
   const changes: TerraformResourceChange[] = [];
 
@@ -394,6 +528,81 @@ function buildResourceNode(change: TerraformResourceChange, targetPath: string |
       dependsOn: change.dependsOn.join(',')
     }
   };
+}
+
+function buildResourceContextNode(context: TerraformResourceContext, targetPath: string | null | undefined): InfraGraphNode {
+  return {
+    id: `terraform-resource:${context.address}`,
+    kind: 'terraform-resource',
+    label: context.address,
+    path: targetPath ?? null,
+    domain: 'terraform',
+    confidence: 'high',
+    source: 'terraform-plan',
+    metadata: {
+      address: context.address,
+      role: 'dependency-context',
+      mode: context.mode,
+      type: context.type,
+      name: context.name,
+      providerName: context.providerName,
+      exclusiveIdentitySpec: context.exclusiveIdentitySpec?.id ?? null,
+      exclusiveIdentityKeys: Object.keys(context.exclusiveIdentityValues).join(','),
+      dependsOn: context.dependsOn.join(',')
+    }
+  };
+}
+
+function contextFromNoOpChange(change: TerraformResourceChange): TerraformResourceContext {
+  return {
+    address: change.address,
+    mode: change.mode,
+    type: change.type,
+    name: change.name,
+    providerName: change.providerName,
+    dependsOn: change.dependsOn,
+    exclusiveIdentitySpec: change.exclusiveIdentitySpec,
+    exclusiveIdentityValues: change.exclusiveIdentityValues
+  };
+}
+
+function addTerraformDependencyContextNodes(
+  changedResources: TerraformResourceChange[],
+  allResources: TerraformResourceChange[],
+  contextByAddress: Map<string, TerraformResourceContext>,
+  nodes: InfraGraphNode[],
+  nodeIds: Set<string>,
+  targetPath: string | null | undefined
+): void {
+  const changedAddresses = new Set(changedResources.map(change => change.address));
+
+  for (const change of allResources) {
+    if (change.action === 'no-op' && !contextByAddress.has(change.address)) {
+      contextByAddress.set(change.address, contextFromNoOpChange(change));
+    }
+  }
+
+  const contextAddresses = new Set<string>();
+  for (const change of changedResources) {
+    for (const dependency of change.dependsOn) {
+      if (!changedAddresses.has(dependency) && contextByAddress.has(dependency)) {
+        contextAddresses.add(dependency);
+      }
+    }
+  }
+
+  for (const address of contextAddresses) {
+    const context = contextByAddress.get(address);
+    if (!context) {
+      continue;
+    }
+
+    const node = buildResourceContextNode(context, targetPath);
+    if (!nodeIds.has(node.id)) {
+      nodes.push(node);
+      nodeIds.add(node.id);
+    }
+  }
 }
 
 function buildChangeEdge(parentNodeId: string, resourceNodeId: string, change: TerraformResourceChange): InfraGraphEdge {
@@ -765,8 +974,9 @@ export function attachTerraformPlanToGraph(
   options: AttachTerraformPlanOptions = {}
 ): InfraGraph {
   const parentNodeId = findParentNodeId(graph, options.targetPath);
-  const changes = parseTerraformPlanResourceChanges(planJson)
-    .filter(change => options.includeNoOp || change.action !== 'no-op');
+  const allChanges = parseTerraformPlanResourceChanges(planJson);
+  const changes = allChanges.filter(change => options.includeNoOp || change.action !== 'no-op');
+  const contextByAddress = collectTerraformPlanResourceContexts(planJson);
   const nodes = [...graph.nodes];
   const edges = [...graph.edges];
   const nodeIds = new Set(nodes.map(node => node.id));
@@ -786,6 +996,7 @@ export function attachTerraformPlanToGraph(
     }
   }
 
+  addTerraformDependencyContextNodes(changes, allChanges, contextByAddress, nodes, nodeIds, options.targetPath);
   edges.push(...buildDependencyEdges(changes, edgeIds, nodeIds));
   edges.push(...buildReplacementCascadeEdges(changes, edgeIds));
   edges.push(...buildCreateBeforeDeleteConflictEdges(changes, edgeIds));

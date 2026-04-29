@@ -144,6 +144,7 @@
 - Use `infra-agent graph --terraform-plan <plan.json> --target <terraform-root> --json` to attach Terraform plan actions without executing Terraform. Treat replacement and rename guidance as advisory until reviewed against state.
 - Use `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project> --json` to attach Pulumi preview actions without executing Pulumi.
 - When handing graph output to another agent, prefer compact `summary.impact` and the `Impact` text section before pasting full `nodes` and `edges`.
+- Treat graph nodes with `metadata.role=dependency-context` as relationship context only. They explain unchanged upstream resources needed by `depends-on` edges and must not be counted as planned changes unless a `planned-change` edge and `metadata.action` are also present.
 - Treat graph `possible-rename` edges as review candidates only, even when confidence is high. Use `score`, `matchingIdentityKeys`, and `reason` metadata to explain the candidate, but do not execute `terraform state mv`, write moved blocks, or mutate Pulumi state without explicit user approval and a human-reviewed address mapping.
 - For Pulumi rename candidates, require more than a namespace-only Kubernetes match before suggesting review.
 - Treat graph `depends-on` and `replacement-cascade` edges as impact explanation, not approval to apply. Use them to explain likely downstream blast radius and why a dependent changed, then confirm with native plan/preview output.

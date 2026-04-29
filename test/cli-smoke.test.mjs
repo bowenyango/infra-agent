@@ -407,6 +407,77 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   ));
 });
 
+test('Terraform plan impact adds unchanged dependency context nodes', async () => {
+  const inspection = await inspectWorkspace('fixtures/terraform-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const planJson = {
+    planned_values: {
+      root_module: {
+        resources: [
+          {
+            address: 'aws_s3_bucket.artifacts',
+            mode: 'managed',
+            type: 'aws_s3_bucket',
+            name: 'artifacts',
+            provider_name: 'registry.terraform.io/hashicorp/aws',
+            values: {
+              bucket: 'payments-artifacts'
+            }
+          },
+          {
+            address: 'aws_lambda_function.api',
+            mode: 'managed',
+            type: 'aws_lambda_function',
+            name: 'api',
+            provider_name: 'registry.terraform.io/hashicorp/aws',
+            depends_on: ['aws_s3_bucket.artifacts'],
+            values: {
+              function_name: 'payments-api'
+            }
+          }
+        ]
+      }
+    },
+    resource_changes: [
+      {
+        address: 'aws_lambda_function.api',
+        mode: 'managed',
+        type: 'aws_lambda_function',
+        name: 'api',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['update'],
+          after: {
+            function_name: 'payments-api'
+          }
+        }
+      }
+    ]
+  };
+
+  const impactedGraph = attachTerraformPlanToGraph(graph, planJson, {
+    targetPath: 'terraform/payments-api'
+  });
+  const contextNode = impactedGraph.nodes.find(node => node.id === 'terraform-resource:aws_s3_bucket.artifacts');
+  const dependencyEdge = impactedGraph.edges.find(edge =>
+    edge.kind === 'depends-on'
+    && edge.from === 'terraform-resource:aws_lambda_function.api'
+    && edge.to === 'terraform-resource:aws_s3_bucket.artifacts'
+  );
+
+  assert.ok(contextNode);
+  assert.equal(contextNode.source, 'terraform-plan');
+  assert.equal(contextNode.metadata?.role, 'dependency-context');
+  assert.equal(contextNode.metadata?.action, undefined);
+  assert.equal(contextNode.metadata?.exclusiveIdentitySpec, 'aws-s3-bucket');
+  assert.equal(contextNode.metadata?.exclusiveIdentityKeys, 'bucket');
+  assert.ok(dependencyEdge);
+  assert.equal(impactedGraph.summary.changesByAction?.update, 1);
+  assert.equal(impactedGraph.summary.changesByAction?.['no-op'], undefined);
+  assert.equal(impactedGraph.summary.impact?.plannedChanges, 1);
+  assert.equal(impactedGraph.summary.impact?.dependencyEdges, 1);
+});
+
 test('Pulumi preview impact attaches resource change nodes to the infra graph', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
@@ -696,6 +767,57 @@ test('Pulumi preview impact marks dependency edges and replacement cascades', as
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('replacement cascade: pulumi:aws:ec2/securityGroup:SecurityGroup::api -> pulumi:kubernetes:apps/v1:Deployment::payments-api [medium] replace -> update')
   ));
+});
+
+test('Pulumi preview impact adds unchanged dependency context nodes', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const securityGroupUrn = 'urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api';
+  const deploymentUrn = 'urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api';
+  const previewJson = [
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'same',
+          urn: securityGroupUrn,
+          type: 'aws:ec2/securityGroup:SecurityGroup',
+          name: 'api'
+        }
+      }
+    },
+    {
+      resourcePreEvent: {
+        metadata: {
+          op: 'update',
+          urn: deploymentUrn,
+          type: 'kubernetes:apps/v1:Deployment',
+          name: 'payments-api',
+          dependencies: [securityGroupUrn]
+        }
+      }
+    }
+  ];
+
+  const impactedGraph = attachPulumiPreviewToGraph(graph, previewJson, {
+    targetPath: 'infra/payments-api'
+  });
+  const contextNode = impactedGraph.nodes.find(node => node.id === `pulumi-resource:${securityGroupUrn}`);
+  const dependencyEdge = impactedGraph.edges.find(edge =>
+    edge.kind === 'depends-on'
+    && edge.from === `pulumi-resource:${deploymentUrn}`
+    && edge.to === `pulumi-resource:${securityGroupUrn}`
+  );
+
+  assert.ok(contextNode);
+  assert.equal(contextNode.source, 'pulumi-preview');
+  assert.equal(contextNode.metadata?.role, 'dependency-context');
+  assert.equal(contextNode.metadata?.action, undefined);
+  assert.equal(contextNode.metadata?.operation, 'same');
+  assert.ok(dependencyEdge);
+  assert.equal(impactedGraph.summary.changesByAction?.update, 1);
+  assert.equal(impactedGraph.summary.changesByAction?.['no-op'], undefined);
+  assert.equal(impactedGraph.summary.impact?.plannedChanges, 1);
+  assert.equal(impactedGraph.summary.impact?.dependencyEdges, 1);
 });
 
 test('inspectWorkspace extracts Helm values schema semantic facts', async () => {

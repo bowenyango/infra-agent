@@ -190,6 +190,11 @@ Current graph foundation:
   identify the relationship. When a replaced/deleted dependency has a changed
   dependent, a `replacement-cascade` edge explains the likely downstream blast
   radius.
+- Terraform plan graph output may add unchanged dependency resources as
+  `metadata.role=dependency-context` nodes when planned values, prior state
+  values, or no-op resource changes provide safe metadata. These nodes support
+  `depends-on` edges but do not carry `metadata.action` or `planned-change`
+  edges, so do not describe them as modified resources.
 - Terraform plan graph output may include `create-before-delete-conflict` edges
   for create-before-destroy replacements that keep the same provider-exclusive
   identity. Delete/create pairs with the same exclusive identity may also be
@@ -203,6 +208,9 @@ Current graph foundation:
 - Pulumi preview graph output may include `depends-on` edges from dependency
   metadata and `replacement-cascade` edges when a replaced/deleted upstream
   resource has a changed dependent.
+- Pulumi preview graph output may add unchanged resources from `same`/no-op
+  preview metadata as `metadata.role=dependency-context` nodes. These preserve
+  dependency context only and must not be counted as preview changes.
 - Pulumi preview graph output may include `create-before-delete-conflict` edges
   for delete/create or delete-replaced/create-replacement pairs that share a
   provider-exclusive identity. Current specs include AWS Routes, S3 buckets,

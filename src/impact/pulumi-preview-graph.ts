@@ -44,6 +44,11 @@ interface AttachPulumiPreviewOptions {
   includeNoOp?: boolean;
 }
 
+interface BuildPulumiResourceNodeOptions {
+  includeAction?: boolean;
+  role?: string;
+}
+
 const IDENTITY_PATHS = [
   'name',
   'metadata.name',
@@ -313,7 +318,32 @@ function findParentNodeId(graph: InfraGraph, targetPath: string | null | undefin
   return graph.nodes.some(node => node.id === 'workspace') ? 'workspace' : graph.nodes[0]?.id ?? 'workspace';
 }
 
-function buildResourceNode(change: PulumiResourceChange, targetPath: string | null | undefined): InfraGraphNode {
+function buildResourceNode(
+  change: PulumiResourceChange,
+  targetPath: string | null | undefined,
+  options: BuildPulumiResourceNodeOptions = {}
+): InfraGraphNode {
+  const metadata: NonNullable<InfraGraphNode['metadata']> = {
+    urn: change.urn,
+    operation: change.operation,
+    type: change.type,
+    name: change.name,
+    diffs: change.diffs.join(','),
+    identityKeys: Object.keys(change.identityValues).join(','),
+    exclusiveIdentitySpec: change.exclusiveIdentitySpec?.id ?? null,
+    exclusiveIdentityKeys: Object.keys(change.exclusiveIdentityValues).join(','),
+    targetKeys: Object.keys(change.targetValues).join(','),
+    dependencyUrns: change.dependencyUrns.join(',')
+  };
+
+  if (options.includeAction ?? true) {
+    metadata.action = change.action;
+  }
+
+  if (options.role) {
+    metadata.role = options.role;
+  }
+
   return {
     id: `pulumi-resource:${change.urn}`,
     kind: 'pulumi-resource',
@@ -322,20 +352,44 @@ function buildResourceNode(change: PulumiResourceChange, targetPath: string | nu
     domain: 'pulumi',
     confidence: 'high',
     source: 'pulumi-preview',
-    metadata: {
-      urn: change.urn,
-      action: change.action,
-      operation: change.operation,
-      type: change.type,
-      name: change.name,
-      diffs: change.diffs.join(','),
-      identityKeys: Object.keys(change.identityValues).join(','),
-      exclusiveIdentitySpec: change.exclusiveIdentitySpec?.id ?? null,
-      exclusiveIdentityKeys: Object.keys(change.exclusiveIdentityValues).join(','),
-      targetKeys: Object.keys(change.targetValues).join(','),
-      dependencyUrns: change.dependencyUrns.join(',')
-    }
+    metadata
   };
+}
+
+function addPulumiDependencyContextNodes(
+  changedResources: PulumiResourceChange[],
+  allResources: PulumiResourceChange[],
+  nodes: InfraGraphNode[],
+  nodeIds: Set<string>,
+  targetPath: string | null | undefined
+): void {
+  const changedUrns = new Set(changedResources.map(change => change.urn));
+  const contextByUrn = new Map(allResources.map(change => [change.urn, change]));
+  const contextUrns = new Set<string>();
+
+  for (const change of changedResources) {
+    for (const dependencyUrn of change.dependencyUrns) {
+      if (!changedUrns.has(dependencyUrn) && contextByUrn.has(dependencyUrn)) {
+        contextUrns.add(dependencyUrn);
+      }
+    }
+  }
+
+  for (const urn of contextUrns) {
+    const context = contextByUrn.get(urn);
+    if (!context) {
+      continue;
+    }
+
+    const node = buildResourceNode(context, targetPath, {
+      includeAction: false,
+      role: 'dependency-context'
+    });
+    if (!nodeIds.has(node.id)) {
+      nodes.push(node);
+      nodeIds.add(node.id);
+    }
+  }
 }
 
 function buildChangeEdge(parentNodeId: string, resourceNodeId: string, change: PulumiResourceChange): InfraGraphEdge {
@@ -638,8 +692,8 @@ export function attachPulumiPreviewToGraph(
   options: AttachPulumiPreviewOptions = {}
 ): InfraGraph {
   const parentNodeId = findParentNodeId(graph, options.targetPath);
-  const changes = parsePulumiPreviewResourceChanges(previewJson)
-    .filter(change => options.includeNoOp || change.action !== 'no-op');
+  const allChanges = parsePulumiPreviewResourceChanges(previewJson);
+  const changes = allChanges.filter(change => options.includeNoOp || change.action !== 'no-op');
   const nodes = [...graph.nodes];
   const edges = [...graph.edges];
   const nodeIds = new Set(nodes.map(node => node.id));
@@ -659,6 +713,7 @@ export function attachPulumiPreviewToGraph(
     }
   }
 
+  addPulumiDependencyContextNodes(changes, allChanges, nodes, nodeIds, options.targetPath);
   edges.push(...buildDependencyEdges(changes, edgeIds, nodeIds));
   edges.push(...buildReplacementCascadeEdges(changes, edgeIds));
   edges.push(...buildCreateBeforeDeleteConflictEdges(changes, edgeIds));

@@ -343,6 +343,10 @@ Status on 2026-04-28:
   mark `create-before-delete-conflict` edges for create-before-destroy
   replacements, and medium-confidence ordering warnings for delete/create pairs
   with the same provider-exclusive identity.
+- Terraform plan graph analysis now adds unchanged dependency resources as
+  `dependency-context` nodes when planned values, prior state values, or no-op
+  resource changes provide safe metadata. These nodes support `depends-on`
+  edges without adding `planned-change` edges or change counts.
 - `infra-agent graph` can also attach read-only Pulumi preview JSON/event
   actions as `pulumi-resource` nodes with `planned-change` edges. It currently
   parses common `resourcePreEvent.metadata`, `resOutputsEvent.metadata`, and
@@ -353,6 +357,10 @@ Status on 2026-04-28:
 - Pulumi preview graph analysis now also attaches `depends-on` edges from
   preview dependency metadata and marks advisory `replacement-cascade` edges
   when a replaced/deleted upstream resource has a changed dependent.
+- Pulumi preview graph analysis now adds unchanged preview resources as
+  `dependency-context` nodes when `same`/no-op preview metadata is available,
+  preserving dependency edges without treating the unchanged resources as
+  planned changes.
 - Graph summaries now include `edgesByKind` and compact `summary.impact`
   counters for planned changes, dependency edges, possible renames, and
   replacement cascades, plus create-before-delete conflict warnings. Text graph

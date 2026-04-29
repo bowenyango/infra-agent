@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `6a81fe5` Detect Terraform exclusive identity conflicts
   - `6ee9012` Generalize Pulumi exclusive identity conflicts
   - `4a6d609` Handle Pulumi replacement steps in route conflicts
   - `2f32398` Detect Pulumi route replacement conflicts
@@ -1484,6 +1485,46 @@ Recommended next implementation slice:
    force-replacement fields.
 3. Add more exclusive-identity specs from real failure examples and provider
    schemas.
+
+## 2026-04-29 Dependency Context Nodes Slice
+
+Files added or updated:
+
+- `src/impact/terraform-plan-graph.ts`
+- `src/impact/pulumi-preview-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add Terraform dependency context nodes for unchanged resources when planned
+  values, prior state values, or no-op resource changes provide safe metadata.
+- Add Pulumi dependency context nodes for unchanged resources when `same`/no-op
+  preview metadata is available.
+- Preserve graph impact semantics: dependency context nodes use
+  `metadata.role=dependency-context`, omit `metadata.action`, and do not receive
+  `planned-change` edges, so summaries keep counting only real planned changes.
+- Avoid dangling dependency edges in graph output while still minimizing prompt
+  context for downstream agents.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 197/197 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add provider-specific replacement reason enrichment from schemas or known
+   force-replacement fields.
+2. Add more exclusive-identity specs from real failure examples and provider
+   schemas.
+3. Add stable graph snapshot fixtures before starting any topology viewer.
 
 ## Current Verification Commands
 
