@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `a5cd2a8` Add AWS DNS domain identity rules
   - `526595a` Tag provider schema context with lockfile versions
   - `a20b52b` Add Terraform provider schema context
   - `0082b6a` Add AWS load balancing identity rules
@@ -1799,13 +1800,53 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Add runtime validation issue classifiers for DNS/domain conflict outputs,
-   especially CloudFront `CNAMEAlreadyExists`, API Gateway `ConflictException`,
-   and Route53 `InvalidChangeBatch`.
-2. Add provider-exclusive specs from additional real failure examples, such as
+1. Add provider-exclusive specs from additional real failure examples, such as
    EIP allocations/associations, VPC endpoint service names, or IAM OIDC
    providers, only when the identity boundary is clear.
-3. Keep topology viewer work behind graph/schema contract stability.
+2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-29 Pulumi DNS Conflict Classifier Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `src/types/agent.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Extend runtime validation classification for Pulumi provider-exclusive
+  ordering failures beyond generic `AlreadyExists`.
+- Classify CloudFront `CNAMEAlreadyExists`, API Gateway custom domain
+  `ConflictException`, and Route53 `InvalidChangeBatch` duplicate/conflicting
+  record outputs as `pulumi-create-before-delete-conflict`.
+- Add metadata for conflict family, DNS names, and Route53 record types when
+  parseable from CLI output.
+- Add family-specific guidance that keeps aliases, `deleteBeforeReplace`,
+  `allowOverwrite`, import, and state repair behind native preview/state review
+  and explicit approval.
+- Keep the issue kind stable so downstream planners and result cards continue
+  handling these as non-repairable ordering blockers.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 211/211 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add provider-exclusive specs from additional real failure examples, such as
+   EIP allocations/associations, VPC endpoint service names, or IAM OIDC
+   providers, only when the identity boundary is clear.
+2. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands
 

@@ -386,7 +386,9 @@ Status on 2026-04-28:
   CloudFront aliases, API Gateway custom domains, Route53 records including ACM
   validation CNAMEs, and Kubernetes objects.
 - Runtime validation issue classification now recognizes Pulumi
-  `AlreadyExists`/duplicate-name failures and produces guidance for aliases,
+  `AlreadyExists`/duplicate-name failures plus DNS/domain conflicts such as
+  CloudFront `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, and
+  Route53 `InvalidChangeBatch`, then produces guidance for aliases,
   `deleteBeforeReplace`, manually sequenced replacement, or explicit
   state/import repair review.
 - Terraform roots can now ingest an optional local

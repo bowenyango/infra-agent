@@ -3,8 +3,11 @@ import type { ValidationIssue } from '../types/agent.ts';
 
 interface PulumiCreateBeforeDeleteConflictFacts {
   conflictCode: string;
+  conflictFamily: string;
   duplicateIdentity: string | null;
+  dnsNames: string[];
   providerName: string | null;
+  recordTypes: string[];
   resourceType: string | null;
   routeDestinations: string[];
   routeTableIds: string[];
@@ -75,14 +78,73 @@ function extractPulumiResourceType(output: string): string | null {
 }
 
 function extractDuplicateIdentity(output: string): string | null {
-  return output.match(/\b(?:name|bucket|repository|queue|topic|function|role|group|user)\s+["'`]([^"'`]+)["'`][^.\n]*already exists/i)?.[1]?.trim()
+  return output.match(/\b(?:name|bucket|repository|queue|topic|function|role|group|user|domain name|CNAME|alias)\s+["'`]([^"'`]+)["'`][^.\n]*already exists/i)?.[1]?.trim()
+    ?? output.match(/\bname=['"`]([^'"`]+)['"`]/i)?.[1]?.trim()
     ?? output.match(/\b([A-Za-z0-9._:/-]+)\s+already exists\b/i)?.[1]?.trim()
     ?? null;
 }
 
+function extractDnsNames(output: string): string[] {
+  const matches = [
+    ...uniqueMatches(output, /\b(?:CNAME|alias|domain name|DNS name|RRSet)[^"'`\n=:(]*["'`(=: ]+((?:\*\.)?[A-Za-z0-9_*-]+(?:\.[A-Za-z0-9_*-]+)+\.?)/gi),
+    ...uniqueMatches(output, /\bname=['"`]((?:\*\.)?[A-Za-z0-9_*-]+(?:\.[A-Za-z0-9_*-]+)+\.?)['"`]/gi)
+  ];
+
+  return [...new Set(matches)]
+    .filter(value => !/amazonaws\.com\.?$/i.test(value))
+    .slice(0, 8);
+}
+
+function extractRecordTypes(output: string): string[] {
+  return uniqueMatches(output, /\btype=['"`]?([A-Z][A-Z0-9_]*)['"`]?/gi).slice(0, 8);
+}
+
+function conflictCodeFromOutput(output: string, resourceType: string | null): string | null {
+  const directConflictCode = output.match(/\b(RouteAlreadyExists|BucketAlreadyExists|BucketAlreadyOwnedByYou|EntityAlreadyExists|ResourceAlreadyExistsException|RepositoryAlreadyExistsException|QueueAlreadyExists|TopicAlreadyExists|DBInstanceAlreadyExists|TableAlreadyExistsException|AlreadyExistsException|InvalidGroup\.Duplicate|InvalidPermission\.Duplicate|CNAMEAlreadyExists)\b/i)?.[1];
+  if (directConflictCode) {
+    return directConflictCode;
+  }
+
+  const isDomainNameResource = /(?:api)?gateway[^:\n]*\/domainName:DomainName|api_gateway_domain_name|apigatewayv2_domain_name/i.test(resourceType ?? output);
+  if (/\bConflictException\b/i.test(output) && isDomainNameResource && /\b(already exists|conflict|domain name)\b/i.test(output)) {
+    return 'ConflictException';
+  }
+
+  if (/\bInvalidChangeBatch\b/i.test(output) && /\b(already exists|conflicting RRSet|Tried to create resource record set|duplicate)\b/i.test(output)) {
+    return 'InvalidChangeBatch';
+  }
+
+  return /\balready exists\b/i.test(output) ? 'AlreadyExists' : null;
+}
+
+function conflictFamilyFromFacts(params: {
+  conflictCode: string;
+  output: string;
+  resourceType: string | null;
+  routeTableIds: string[];
+}): string {
+  if (params.routeTableIds.length > 0 || params.conflictCode === 'RouteAlreadyExists') {
+    return 'aws-route';
+  }
+
+  if (params.conflictCode === 'CNAMEAlreadyExists') {
+    return 'aws-cloudfront-alias';
+  }
+
+  if (params.conflictCode === 'InvalidChangeBatch') {
+    return 'aws-route53-record';
+  }
+
+  if (params.conflictCode === 'ConflictException' && /domainName:DomainName|domain name|custom domain/i.test(params.resourceType ?? params.output)) {
+    return 'aws-api-gateway-domain-name';
+  }
+
+  return 'exclusive-identity';
+}
+
 function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCreateBeforeDeleteConflictFacts | null {
-  const conflictCode = output.match(/\b(RouteAlreadyExists|BucketAlreadyExists|BucketAlreadyOwnedByYou|EntityAlreadyExists|ResourceAlreadyExistsException|RepositoryAlreadyExistsException|QueueAlreadyExists|TopicAlreadyExists|DBInstanceAlreadyExists|TableAlreadyExistsException|AlreadyExistsException|InvalidGroup\.Duplicate|InvalidPermission\.Duplicate)\b/i)?.[1]
-    ?? (/\balready exists\b/i.test(output) ? 'AlreadyExists' : null);
+  const resourceType = extractPulumiResourceType(output);
+  const conflictCode = conflictCodeFromOutput(output, resourceType);
 
   if (!conflictCode) {
     return null;
@@ -94,9 +156,17 @@ function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCre
 
   return {
     conflictCode,
+    conflictFamily: conflictFamilyFromFacts({
+      conflictCode,
+      output,
+      resourceType,
+      routeTableIds
+    }),
     duplicateIdentity: extractDuplicateIdentity(output),
+    dnsNames: extractDnsNames(output),
     providerName,
-    resourceType: extractPulumiResourceType(output),
+    recordTypes: extractRecordTypes(output),
+    resourceType,
     routeDestinations,
     routeTableIds
   };
@@ -107,6 +177,22 @@ function buildPulumiCreateBeforeDeleteConflictGuidance(facts: PulumiCreateBefore
   const destinationText = facts.routeDestinations.length > 0 ? ` for destination(s) ${facts.routeDestinations.join(', ')}` : '';
   const resourceText = facts.resourceType ? ` ${facts.resourceType}` : '';
   const identityText = facts.duplicateIdentity ? ` for identity ${facts.duplicateIdentity}` : '';
+
+  if (facts.conflictFamily === 'aws-cloudfront-alias') {
+    const aliasText = facts.dnsNames.length > 0 ? ` (${facts.dnsNames.join(', ')})` : '';
+    return `Pulumi attempted to create a CloudFront distribution alias/CNAME${aliasText} before the existing distribution released it, and the provider returned ${facts.conflictCode}. Review the preview for delete/create or delete-replaced/create-replacement pairs that share aliases; use aliases or state moves for logical renames, or explicitly remove/move the old alias before creating the replacement distribution. Run refresh/import/state repair only with explicit approval.`;
+  }
+
+  if (facts.conflictFamily === 'aws-api-gateway-domain-name') {
+    const domainText = facts.dnsNames.length > 0 ? ` (${facts.dnsNames.join(', ')})` : identityText;
+    return `Pulumi attempted to create an API Gateway custom domain${domainText} before deleting or moving the existing domain, and the provider returned ${facts.conflictCode}. Review the preview for matching domainName identity: use Pulumi aliases for logical renames, deleteBeforeReplace or manual sequencing for true replacements with accepted downtime, and state/import repair only with explicit approval.`;
+  }
+
+  if (facts.conflictFamily === 'aws-route53-record') {
+    const dnsText = facts.dnsNames.length > 0 ? ` ${facts.dnsNames.join(', ')}` : '';
+    const typeText = facts.recordTypes.length > 0 ? ` type(s) ${facts.recordTypes.join(', ')}` : '';
+    return `Pulumi attempted to create a Route53 record set${dnsText}${typeText} that conflicts with an existing record, and the provider returned ${facts.conflictCode}. This is common for ACM validation CNAMEs and logical record moves. Review the preview for matching hosted zone, name, type, and set identifier; prefer import/state repair for logical moves, use allowOverwrite only after DNS ownership review, or explicitly sequence delete-before-create after approval.`;
+  }
 
   return `Pulumi attempted to create an exclusive${resourceText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the preview for delete/create or delete-replaced/create-replacement pairs with the same provider identity: if this is a logical rename, add Pulumi aliases from the old URNs; if the resource must be replaced, set deleteBeforeReplace or manually sequence the replacement with accepted downtime; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
 }
@@ -209,8 +295,11 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
           guidance: buildPulumiCreateBeforeDeleteConflictGuidance(createBeforeDeleteConflictFacts),
           metadata: {
             conflictCode: createBeforeDeleteConflictFacts.conflictCode,
+            conflictFamily: createBeforeDeleteConflictFacts.conflictFamily,
             duplicateIdentity: createBeforeDeleteConflictFacts.duplicateIdentity ?? undefined,
+            dnsNames: createBeforeDeleteConflictFacts.dnsNames.join(','),
             providerName: createBeforeDeleteConflictFacts.providerName ?? undefined,
+            recordTypes: createBeforeDeleteConflictFacts.recordTypes.join(','),
             resourceType: createBeforeDeleteConflictFacts.resourceType ?? undefined,
             routeDestinations: createBeforeDeleteConflictFacts.routeDestinations.join(','),
             routeTableIds: createBeforeDeleteConflictFacts.routeTableIds.join(',')

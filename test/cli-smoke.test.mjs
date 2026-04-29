@@ -7093,6 +7093,74 @@ test('classifyValidationIssues marks generic Pulumi already-exists conflicts', (
   assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/i);
 });
 
+test('classifyValidationIssues marks Pulumi CloudFront alias conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/edge --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:cloudfront/distribution:Distribution (edge):',
+        'error: api error CNAMEAlreadyExists: The CNAME alias "api.example.com" is already associated with another CloudFront distribution: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'CNAMEAlreadyExists');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-cloudfront-alias');
+  assert.equal(issues[0]?.metadata?.dnsNames, 'api.example.com');
+  assert.match(issues[0]?.guidance ?? '', /CloudFront distribution alias\/CNAME/);
+  assert.match(issues[0]?.guidance ?? '', /state moves/);
+});
+
+test('classifyValidationIssues marks Pulumi API Gateway custom domain conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/api --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:apigateway/domainName:DomainName (api-domain):',
+        'error: api error ConflictException: The domain name api.example.com already exists: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'ConflictException');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-api-gateway-domain-name');
+  assert.equal(issues[0]?.metadata?.dnsNames, 'api.example.com');
+  assert.match(issues[0]?.guidance ?? '', /API Gateway custom domain/);
+  assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/);
+});
+
+test('classifyValidationIssues marks Pulumi Route53 InvalidChangeBatch conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/dns --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:route53/record:Record (api-validation):',
+        'error: 1 error occurred:',
+        '  * api error InvalidChangeBatch: [Tried to create resource record set [name="_abc.api.example.com.", type="CNAME"] but it already exists]: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'InvalidChangeBatch');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-route53-record');
+  assert.equal(issues[0]?.metadata?.dnsNames, '_abc.api.example.com.');
+  assert.equal(issues[0]?.metadata?.recordTypes, 'CNAME');
+  assert.match(issues[0]?.guidance ?? '', /ACM validation CNAMEs/);
+  assert.match(issues[0]?.guidance ?? '', /allowOverwrite/);
+});
+
 test('classifyValidationIssues marks general Pulumi preview failures as pulumi-preview-failure', () => {
   const issues = classifyValidationIssues([
     {

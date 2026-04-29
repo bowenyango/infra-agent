@@ -107,10 +107,13 @@ export interface ValidationIssue {
   guidance?: string;
   metadata?: {
     conflictCode?: string;
+    conflictFamily?: string;
     duplicateIdentity?: string;
+    dnsNames?: string;
     missingConfigKey?: string;
     missingVariableName?: string;
     providerName?: string;
+    recordTypes?: string;
     resourceType?: string;
     routeDestinations?: string;
     routeTableIds?: string;

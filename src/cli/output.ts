@@ -295,7 +295,13 @@ function summarizeValidationFindings(state: AgentRunState): string {
   if (topIssue?.kind === 'pulumi-create-before-delete-conflict') {
     const routeTables = topIssue.metadata?.routeTableIds;
     const destinations = topIssue.metadata?.routeDestinations;
-    return `Pulumi create-before-delete conflict: AWS route already exists${routeTables ? ` in ${routeTables}` : ''}${destinations ? ` for ${destinations}` : ''}.`;
+    if (routeTables || destinations) {
+      return `Pulumi create-before-delete conflict: AWS route already exists${routeTables ? ` in ${routeTables}` : ''}${destinations ? ` for ${destinations}` : ''}.`;
+    }
+
+    const identity = topIssue.metadata?.dnsNames || topIssue.metadata?.duplicateIdentity;
+    const conflictCode = topIssue.metadata?.conflictCode;
+    return `Pulumi create-before-delete conflict: provider returned ${conflictCode ?? 'an exclusive identity error'}${identity ? ` for ${identity}` : ''}.`;
   }
 
   if (topIssue?.kind === 'pulumi-preview-failure') {

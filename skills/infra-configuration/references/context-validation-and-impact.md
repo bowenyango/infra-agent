@@ -135,7 +135,10 @@ Current implemented source:
 - Pulumi `AlreadyExists` or duplicate-name failures are classified as
   create-before-delete ordering conflicts when they occur during Pulumi
   preview/up/update. AWS Route failures can also expose route table and
-  destination facts.
+  destination facts. DNS/domain failures such as CloudFront
+  `CNAMEAlreadyExists`, API Gateway custom domain `ConflictException`, and
+  Route53 `InvalidChangeBatch` are also classified as non-repairable ordering
+  blockers with alias/domain/record metadata when the CLI output exposes it.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`
