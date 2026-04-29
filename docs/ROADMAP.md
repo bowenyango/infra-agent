@@ -328,9 +328,10 @@ Status on 2026-04-28:
   actions as `terraform-resource` nodes with `planned-change` edges. It parses
   `create`, `update`, `delete`, `replace`, `read`, and `no-op` actions, and
   records Terraform `replace_paths` when present.
-- Terraform plan graph analysis now marks medium-confidence `possible-rename`
+- Terraform plan graph analysis now marks confidence-scored `possible-rename`
   edges when delete/create pairs share resource type, provider, and stable
-  identity fields such as `name`, `bucket`, or `tags.Name`.
+  identity fields such as `name`, `bucket`, or `tags.Name`. Strong identity
+  fields can raise confidence to high; weak tag-only matches stay medium.
 - `infra-agent graph` can also attach read-only Pulumi preview JSON/event
   actions as `pulumi-resource` nodes with `planned-change` edges. It currently
   parses common `resourcePreEvent.metadata`, `resOutputsEvent.metadata`, and

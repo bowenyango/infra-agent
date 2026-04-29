@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `60f863f` Attach Pulumi preview actions to graph
   - `f4adcb1` Mark Terraform rename candidates in graph
   - `3eccc71` Attach Terraform plan actions to graph
   - `f1cc221` Add workspace infra graph foundation
@@ -1111,11 +1112,49 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Refine Terraform rename detection with provider-specific stable identity
-   fields and confidence scoring.
-2. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
-3. Expand Helm context selection to include chart dependency metadata when
+1. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
+2. Expand Helm context selection to include chart dependency metadata when
    `Chart.lock` or `charts/` dependencies are present.
+3. Add Pulumi rename candidate detection from preview delete/create pairs when
+   URN/type/name evidence is sufficient.
+
+## 2026-04-28 Terraform Rename Confidence Scoring Slice
+
+Files added or updated:
+
+- `src/impact/terraform-plan-graph.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Replace boolean Terraform rename candidate detection with a scored model.
+- Add provider/resource-specific stable identity field paths for common AWS and
+  Kubernetes resources.
+- Include `score`, `matchingIdentityKeys`, and `reason` metadata on
+  `possible-rename` edges.
+- Keep weak tag-only matches at medium confidence while allowing stronger
+  identity matches, such as `bucket` plus `tags.Name`, to become high
+  confidence.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 186/186 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Detect replacement cascades from Terraform and Pulumi graph dependency edges.
+2. Expand Helm context selection to include chart dependency metadata when
+   `Chart.lock` or `charts/` dependencies are present.
+3. Add Pulumi rename candidate detection from preview delete/create pairs when
+   URN/type/name evidence is sufficient.
 
 ## Current Verification Commands
 

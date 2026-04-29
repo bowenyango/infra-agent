@@ -222,6 +222,36 @@ test('Terraform plan impact marks matching delete and create resources as possib
             bucket: 'unrelated-artifacts'
           }
         }
+      },
+      {
+        address: 'aws_security_group.old_api',
+        mode: 'managed',
+        type: 'aws_security_group',
+        name: 'old_api',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['delete'],
+          before: {
+            tags: {
+              Name: 'api-shared'
+            }
+          }
+        }
+      },
+      {
+        address: 'aws_security_group.new_api',
+        mode: 'managed',
+        type: 'aws_security_group',
+        name: 'new_api',
+        provider_name: 'registry.terraform.io/hashicorp/aws',
+        change: {
+          actions: ['create'],
+          after: {
+            tags: {
+              Name: 'api-shared'
+            }
+          }
+        }
       }
     ]
   };
@@ -230,12 +260,18 @@ test('Terraform plan impact marks matching delete and create resources as possib
     targetPath: 'terraform/payments-api'
   });
   const renameEdges = impactedGraph.edges.filter(edge => edge.kind === 'possible-rename');
+  const bucketRename = renameEdges.find(edge => edge.from === 'terraform-resource:aws_s3_bucket.old_name');
+  const tagOnlyRename = renameEdges.find(edge => edge.from === 'terraform-resource:aws_security_group.old_api');
 
-  assert.equal(renameEdges.length, 1);
-  assert.equal(renameEdges[0]?.from, 'terraform-resource:aws_s3_bucket.old_name');
-  assert.equal(renameEdges[0]?.to, 'terraform-resource:aws_s3_bucket.new_name');
-  assert.equal(renameEdges[0]?.confidence, 'medium');
-  assert.equal(renameEdges[0]?.metadata?.matchingIdentityKeys, 'bucket,tags.Name');
+  assert.equal(renameEdges.length, 2);
+  assert.equal(bucketRename?.to, 'terraform-resource:aws_s3_bucket.new_name');
+  assert.equal(bucketRename?.confidence, 'high');
+  assert.equal(bucketRename?.metadata?.matchingIdentityKeys, 'bucket,tags.Name');
+  assert.equal(bucketRename?.metadata?.score, 0.95);
+  assert.match(String(bucketRename?.metadata?.reason), /same resource type; same provider/);
+  assert.equal(tagOnlyRename?.to, 'terraform-resource:aws_security_group.new_api');
+  assert.equal(tagOnlyRename?.confidence, 'medium');
+  assert.equal(tagOnlyRename?.metadata?.matchingIdentityKeys, 'tags.Name');
 });
 
 test('Pulumi preview impact attaches resource change nodes to the infra graph', async () => {

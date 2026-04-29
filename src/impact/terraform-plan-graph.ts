@@ -14,10 +14,58 @@ interface TerraformResourceChange {
   identityValues: Record<string, string>;
 }
 
+interface TerraformRenameCandidate {
+  confidence: 'low' | 'medium' | 'high';
+  score: number;
+  matchingIdentityKeys: string[];
+  reason: string;
+}
+
 interface AttachTerraformPlanOptions {
   targetPath?: string | null;
   includeNoOp?: boolean;
 }
+
+const GENERIC_IDENTITY_PATHS = [
+  'name',
+  'name_prefix',
+  'bucket',
+  'identifier',
+  'cluster_identifier',
+  'db_instance_identifier',
+  'function_name',
+  'role',
+  'user',
+  'group',
+  'key_name',
+  'repository',
+  'namespace',
+  'service',
+  'topic',
+  'queue',
+  'tags.Name',
+  'tags.name'
+];
+
+const RESOURCE_IDENTITY_PATHS: Record<string, string[]> = {
+  aws_s3_bucket: ['bucket', 'tags.Name'],
+  aws_db_instance: ['identifier', 'db_instance_identifier', 'tags.Name'],
+  aws_rds_cluster: ['cluster_identifier', 'tags.Name'],
+  aws_lambda_function: ['function_name', 'tags.Name'],
+  aws_iam_role: ['name', 'name_prefix', 'tags.Name'],
+  aws_iam_user: ['name', 'path', 'tags.Name'],
+  aws_iam_group: ['name', 'path'],
+  aws_security_group: ['name', 'name_prefix', 'vpc_id', 'tags.Name'],
+  aws_lb: ['name', 'name_prefix', 'tags.Name'],
+  aws_ecr_repository: ['name', 'repository', 'tags.Name'],
+  aws_sqs_queue: ['name', 'name_prefix', 'tags.Name'],
+  aws_sns_topic: ['name', 'name_prefix', 'tags.Name'],
+  kubernetes_namespace: ['metadata.0.name', 'metadata.name'],
+  kubernetes_service: ['metadata.0.name', 'metadata.0.namespace', 'metadata.name', 'metadata.namespace'],
+  kubernetes_deployment: ['metadata.0.name', 'metadata.0.namespace', 'metadata.name', 'metadata.namespace']
+};
+
+const WEAK_IDENTITY_KEYS = new Set(['tags.Name', 'tags.name']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -45,6 +93,21 @@ function identityString(value: unknown): string | null {
   return null;
 }
 
+function getPathValue(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, part) => {
+    if (Array.isArray(current)) {
+      const index = Number(part);
+      return Number.isInteger(index) ? current[index] : undefined;
+    }
+
+    if (isRecord(current)) {
+      return current[part];
+    }
+
+    return undefined;
+  }, value);
+}
+
 function classifyTerraformActions(actions: string[]): InfraGraphChangeAction {
   if (actions.includes('delete') && actions.includes('create')) {
     return 'replace';
@@ -69,43 +132,23 @@ function classifyTerraformActions(actions: string[]): InfraGraphChangeAction {
   return 'no-op';
 }
 
-function collectIdentityValues(value: unknown): Record<string, string> {
+function collectIdentityValues(value: unknown, resourceType: string | null): Record<string, string> {
   if (!isRecord(value)) {
     return {};
   }
 
   const identityKeys = [
-    'name',
-    'name_prefix',
-    'bucket',
-    'identifier',
-    'cluster_identifier',
-    'db_instance_identifier',
-    'function_name',
-    'role',
-    'user',
-    'group',
-    'key_name',
-    'repository',
-    'namespace',
-    'service',
-    'topic',
-    'queue'
+    ...new Set([
+      ...GENERIC_IDENTITY_PATHS,
+      ...(resourceType ? RESOURCE_IDENTITY_PATHS[resourceType] ?? [] : [])
+    ])
   ];
   const values: Record<string, string> = {};
 
   for (const key of identityKeys) {
-    const identityValue = identityString(value[key]);
+    const identityValue = identityString(getPathValue(value, key));
     if (identityValue) {
       values[key] = identityValue;
-    }
-  }
-
-  const tags = value.tags;
-  if (isRecord(tags)) {
-    const tagName = identityString(tags.Name) ?? identityString(tags.name);
-    if (tagName) {
-      values['tags.Name'] = tagName;
     }
   }
 
@@ -142,18 +185,19 @@ export function parseTerraformPlanResourceChanges(planJson: unknown): TerraformR
     }
 
     const change = isRecord(entry.change) ? entry.change : {};
+    const type = asString(entry.type);
     const actions = asStringArray(change.actions);
     changes.push({
       address,
       mode: asString(entry.mode),
-      type: asString(entry.type),
+      type,
       name: asString(entry.name),
       providerName: asString(entry.provider_name),
       action: classifyTerraformActions(actions),
       actions,
       actionReason: asString(entry.action_reason),
       replacePaths: collectReplacePaths(change),
-      identityValues: collectIdentityValues(change.after ?? change.before)
+      identityValues: collectIdentityValues(change.after ?? change.before, type)
     });
   }
 
@@ -221,20 +265,69 @@ function findMatchingIdentityKeys(left: TerraformResourceChange, right: Terrafor
     .map(([key]) => key);
 }
 
-function changesMayBeRename(left: TerraformResourceChange, right: TerraformResourceChange): string[] {
+function confidenceFromScore(score: number): TerraformRenameCandidate['confidence'] {
+  if (score >= 0.85) {
+    return 'high';
+  }
+
+  if (score >= 0.6) {
+    return 'medium';
+  }
+
+  return 'low';
+}
+
+function buildRenameReason(params: {
+  providerMatched: boolean;
+  matchingIdentityKeys: string[];
+  score: number;
+}): string {
+  return [
+    'same resource type',
+    params.providerMatched ? 'same provider' : 'provider unavailable on one side',
+    `matching identity fields: ${params.matchingIdentityKeys.join(', ')}`,
+    `score ${params.score.toFixed(2)}`
+  ].join('; ');
+}
+
+function scoreRenameCandidate(
+  left: TerraformResourceChange,
+  right: TerraformResourceChange
+): TerraformRenameCandidate | null {
   if (left.action !== 'delete' || right.action !== 'create') {
-    return [];
+    return null;
   }
 
   if (!left.type || left.type !== right.type) {
-    return [];
+    return null;
   }
 
   if (left.providerName && right.providerName && left.providerName !== right.providerName) {
-    return [];
+    return null;
   }
 
-  return findMatchingIdentityKeys(left, right);
+  const matchingIdentityKeys = findMatchingIdentityKeys(left, right);
+  if (matchingIdentityKeys.length === 0) {
+    return null;
+  }
+
+  const strongIdentityMatches = matchingIdentityKeys.filter(key => !WEAK_IDENTITY_KEYS.has(key)).length;
+  const providerMatched = Boolean(left.providerName && right.providerName && left.providerName === right.providerName);
+  const score = Math.min(1, 0.35
+    + (providerMatched ? 0.15 : 0.05)
+    + Math.min(0.35, matchingIdentityKeys.length * 0.18)
+    + Math.min(0.15, strongIdentityMatches * 0.1));
+
+  return {
+    confidence: confidenceFromScore(score),
+    score,
+    matchingIdentityKeys,
+    reason: buildRenameReason({
+      providerMatched,
+      matchingIdentityKeys,
+      score
+    })
+  };
 }
 
 function buildPossibleRenameEdges(changes: TerraformResourceChange[], edgeIds: Set<string>): InfraGraphEdge[] {
@@ -244,8 +337,8 @@ function buildPossibleRenameEdges(changes: TerraformResourceChange[], edgeIds: S
 
   for (const deleted of deletes) {
     for (const created of creates) {
-      const matchingIdentityKeys = changesMayBeRename(deleted, created);
-      if (matchingIdentityKeys.length === 0) {
+      const candidate = scoreRenameCandidate(deleted, created);
+      if (!candidate) {
         continue;
       }
 
@@ -262,13 +355,15 @@ function buildPossibleRenameEdges(changes: TerraformResourceChange[], edgeIds: S
         from,
         to,
         kind: 'possible-rename',
-        confidence: 'medium',
+        confidence: candidate.confidence,
         source: 'terraform-plan',
         label: 'Possible Terraform address rename',
         metadata: {
-          matchingIdentityKeys: matchingIdentityKeys.join(','),
+          matchingIdentityKeys: candidate.matchingIdentityKeys.join(','),
           resourceType: deleted.type,
-          providerName: deleted.providerName ?? created.providerName
+          providerName: deleted.providerName ?? created.providerName,
+          score: Number(candidate.score.toFixed(2)),
+          reason: candidate.reason
         }
       });
     }
