@@ -5023,7 +5023,7 @@ test('CLI version command reads package metadata', async () => {
 
 test('doctor command reports install and workspace readiness', async () => {
   const parsed = parseArgs(['doctor', 'fixtures/sample-workspace', '--json']);
-  const report = await buildDoctorReport('fixtures/sample-workspace');
+  const report = await buildDoctorReport('fixtures/sample-workspace', {});
 
   assert.equal(parsed.command, 'doctor');
   assert.equal(parsed.workspace, 'fixtures/sample-workspace');
@@ -5034,10 +5034,25 @@ test('doctor command reports install and workspace readiness', async () => {
   assert.ok(report.workspaceRoot.endsWith('fixtures/sample-workspace'));
   assert.ok(report.checks.some(check => check.name === 'package' && check.status === 'pass'));
   assert.ok(report.checks.some(check => check.name === 'node' && check.status === 'pass'));
+  assert.ok(report.checks.some(check => check.name === 'planner' && check.status === 'warn' && check.detail === 'rule-based-fallback'));
   assert.ok(report.checks.some(check => check.name === 'workspace' && check.status === 'pass'));
   assert.ok(report.checks.some(check => check.name === 'validation-plan'));
   assert.ok(report.checks.some(check => check.name === 'validator:helm'));
   assert.equal(report.summary.failCount, report.checks.filter(check => check.status === 'fail').length);
+});
+
+test('doctor command reports configured LLM planner without exposing secrets', async () => {
+  const report = await buildDoctorReport('fixtures/sample-workspace', {
+    INFRA_AGENT_OPENAI_API_KEY: 'secret-value',
+    INFRA_AGENT_MODEL: 'doctor-test-model',
+    INFRA_AGENT_OPENAI_BASE_URL: 'https://planner.example.test/v1/'
+  });
+  const plannerCheck = report.checks.find(check => check.name === 'planner');
+
+  assert.equal(plannerCheck?.status, 'pass');
+  assert.match(plannerCheck?.message ?? '', /doctor-test-model/);
+  assert.equal(plannerCheck?.detail, 'model=doctor-test-model, baseUrl=https://planner.example.test/v1');
+  assert.doesNotMatch(JSON.stringify(report), /secret-value/);
 });
 
 test('CLI exit codes map agent outcomes for downstream agents', async () => {

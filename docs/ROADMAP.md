@@ -299,8 +299,9 @@ Status on 2026-04-28:
 - The installable bin wrapper now preserves the caller working directory, and
   `infra-agent --version` provides a cheap installation self-check.
 - `infra-agent doctor [workspace]` now provides a read-only readiness report for
-  package metadata, Node engine, workspace inspection, validation plan, and
-  Helm/Pulumi/Terraform executable availability.
+  package metadata, Node engine, LLM planner configuration, workspace
+  inspection, validation plan, and Helm/Pulumi/Terraform executable
+  availability without exposing API keys.
 
 ### Step 3: Add Syntax Validators
 

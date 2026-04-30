@@ -75,7 +75,8 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 Current behavior is intentionally runtime-foundation oriented:
 
 - `doctor` reports package, Node engine, workspace inspection, validation plan,
-  and Helm/Pulumi/Terraform executable readiness without mutating the workspace
+  LLM planner configuration, and Helm/Pulumi/Terraform executable readiness
+  without mutating the workspace
 - `inspect` detects Helm charts, Pulumi projects, and Terraform roots
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation

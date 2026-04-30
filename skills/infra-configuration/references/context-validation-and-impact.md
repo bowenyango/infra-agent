@@ -20,8 +20,8 @@ message is enough.
 - Prefer `infra-agent agent "<task>" --workspace <workspace> --json` when
   another agent will consume the result.
 - Use `infra-agent doctor <workspace> --json` first when the caller needs to
-  confirm package, Node, workspace, validation-plan, and external IaC CLI
-  readiness without running the agent loop.
+  confirm package, Node, planner configuration, workspace, validation-plan, and
+  external IaC CLI readiness without running the agent loop.
 - The `--json` agent output is compact and uses kind
   `infra-agent.agent-result`.
 - Use `--json-full` only for debugging because it includes the complete runtime

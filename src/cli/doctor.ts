@@ -1,5 +1,6 @@
-import { cwd, version as nodeVersion } from 'node:process';
+import { cwd, env as processEnv, version as nodeVersion } from 'node:process';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
+import { resolveLLMClientConfig, type LLMConfigEnvironment } from '../model/config.ts';
 import { buildValidationPreflight, buildValidatorAvailability } from '../validators/preflight.ts';
 import { readPackageMetadata } from './package-metadata.ts';
 
@@ -63,8 +64,12 @@ function summarizeChecks(checks: DoctorCheck[]): DoctorReport['summary'] {
   };
 }
 
-export async function buildDoctorReport(workspacePath: string = cwd()): Promise<DoctorReport> {
+export async function buildDoctorReport(
+  workspacePath: string = cwd(),
+  env: LLMConfigEnvironment = processEnv
+): Promise<DoctorReport> {
   const packageMetadata = await readPackageMetadata();
+  const llmConfig = resolveLLMClientConfig(env);
   const checks: DoctorCheck[] = [
     {
       name: 'package',
@@ -81,10 +86,19 @@ export async function buildDoctorReport(workspacePath: string = cwd()): Promise<
         ? `Node ${nodeVersion} satisfies ${packageMetadata.nodeEngine ?? 'the package engine requirement'}.`
         : `Node ${nodeVersion} does not satisfy required engine ${packageMetadata.nodeEngine}.`,
       detail: packageMetadata.nodeEngine
+    },
+    {
+      name: 'planner',
+      status: llmConfig ? 'pass' : 'warn',
+      message: llmConfig
+        ? `LLM planner is configured for model ${llmConfig.model}.`
+        : 'No LLM API key is configured; auto planner mode will use the rule-based fallback.',
+      detail: llmConfig ? `model=${llmConfig.model}, baseUrl=${llmConfig.baseUrl}` : 'rule-based-fallback'
     }
   ];
 
   let workspaceRoot = workspacePath;
+  let validatorAvailability = null as ReturnType<typeof buildValidatorAvailability> | null;
   try {
     const inspection = await inspectWorkspace(workspacePath);
     workspaceRoot = inspection.workspaceRoot;
@@ -96,6 +110,7 @@ export async function buildDoctorReport(workspacePath: string = cwd()): Promise<
     });
 
     const validation = buildValidationPreflight(inspection);
+    validatorAvailability = validation.validators;
     checks.push({
       name: 'validation-plan',
       status: validation.plan.length > 0 ? 'pass' : 'warn',
@@ -113,7 +128,7 @@ export async function buildDoctorReport(workspacePath: string = cwd()): Promise<
     });
   }
 
-  for (const validator of buildValidatorAvailability()) {
+  for (const validator of validatorAvailability ?? buildValidatorAvailability()) {
     checks.push({
       name: `validator:${validator.name}`,
       status: validator.available ? 'pass' : 'warn',

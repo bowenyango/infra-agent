@@ -3145,12 +3145,15 @@ Files added or updated:
 Purpose:
 
 - Add `infra-agent doctor [workspace] [--json]` as a read-only readiness report
-  for package metadata, Node engine, workspace inspection, validation plan, and
-  Helm/Pulumi/Terraform executable availability.
+  for package metadata, Node engine, LLM planner configuration, workspace
+  inspection, validation plan, and Helm/Pulumi/Terraform executable
+  availability.
 - Return a compact structured payload with kind `infra-agent.doctor` and
   `schemaVersion=1` for downstream agents.
 - Treat missing external IaC CLIs as warnings, not fatal errors, because the
   workspace may not need every domain.
+- Treat missing LLM planner configuration as a warning because auto mode can use
+  the rule-based fallback. Do not expose API keys in doctor output.
 - Move package metadata reading into a small shared CLI module so `--version`
   and `doctor` use the same source.
 - Reuse validator availability checks from validation preflight.
@@ -3159,12 +3162,12 @@ Known validation:
 
 - `npm run verify`: passed.
 - `npm run lint`: passed.
-- `npm run test:unit`: 246/246 passed.
+- `npm run test:unit`: 247/247 passed.
 - `npm run smoke`: passed.
 - `npm run e2e`: passed.
 - `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
 - `git diff --check`: passed.
-- Manual CLI check: `node --experimental-strip-types src/cli/main.ts doctor fixtures/sample-workspace --json` returned `infra-agent.doctor` schema version `1` with zero failed checks.
+- Manual CLI check: `node --experimental-strip-types src/cli/main.ts doctor fixtures/sample-workspace --json` returned `infra-agent.doctor` schema version `1` with the planner fallback warning and no failed checks.
 
 ## Current Verification Commands
 

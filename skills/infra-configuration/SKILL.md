@@ -15,7 +15,8 @@ The installable package intentionally includes only the CLI runtime, skills,
 README, and durable docs. Use `infra-agent --version` as a cheap installation
 check before running repository-specific commands. Use
 `infra-agent doctor <workspace> --json` when another agent needs a structured,
-read-only readiness report before planning edits.
+read-only readiness report before planning edits. Doctor output may report
+whether the LLM planner is configured, but it must not expose API keys.
 
 ## Workflow
 
