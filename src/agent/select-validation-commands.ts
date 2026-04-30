@@ -1,4 +1,5 @@
 import type { AgentRuntimeState } from '../types/agent.ts';
+import type { ValidationPlanEntry } from '../types/repository.ts';
 
 function topTargetByKind(runtime: AgentRuntimeState): Record<'helm' | 'pulumi' | 'terraform', string | null> {
   return {
@@ -8,7 +9,7 @@ function topTargetByKind(runtime: AgentRuntimeState): Record<'helm' | 'pulumi' |
   };
 }
 
-export function selectValidationCommands(runtime: AgentRuntimeState): string[] {
+export function selectValidationPlanEntries(runtime: AgentRuntimeState): ValidationPlanEntry[] {
   const profileId = runtime.preflight.profile.id;
   const allowedDomains = new Set(
     runtime.preflight.requestedDomains.length > 0
@@ -23,7 +24,7 @@ export function selectValidationCommands(runtime: AgentRuntimeState): string[] {
   );
   const topTargets = topTargetByKind(runtime);
 
-  const filtered = runtime.preflight.validation.plan.filter(entry => {
+  return runtime.preflight.validation.plan.filter(entry => {
     if (profileId === 'scrawlr-infra-apps' && entry.kind !== 'helm') {
       return false;
     }
@@ -50,6 +51,8 @@ export function selectValidationCommands(runtime: AgentRuntimeState): string[] {
 
     return false;
   });
+}
 
-  return filtered.flatMap(entry => entry.commands).slice(0, 6);
+export function selectValidationCommands(runtime: AgentRuntimeState): string[] {
+  return selectValidationPlanEntries(runtime).flatMap(entry => entry.commands).slice(0, 6);
 }

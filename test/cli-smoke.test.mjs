@@ -4961,6 +4961,30 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       compact.knowledgeContext.includedPacketCount,
       compact.knowledgeContext.packets.filter(packet => packet.included).length
     );
+    assert.equal(compact.readiness.status, 'pass');
+    assert.match(compact.readiness.doctorCommand, / doctor /);
+    assert.ok(compact.readiness.checks.some(check =>
+      check.name === 'planner'
+      && check.status === 'pass'
+      && check.detail === 'rule-based-model-client'
+    ));
+    assert.ok(compact.readiness.checks.some(check =>
+      check.name === 'validator:helm'
+      && check.status === 'pass'
+    ));
+    assert.ok(!compact.readiness.checks.some(check => check.name === 'validator:pulumi'));
+    assert.ok(!compact.readiness.checks.some(check => check.name === 'validator:terraform'));
+
+    const fallbackCompact = buildCompactAgentRunResult({
+      ...result,
+      modelName: 'rule-based-fallback'
+    });
+    assert.equal(fallbackCompact.readiness.status, 'warn');
+    assert.ok(fallbackCompact.readiness.checks.some(check =>
+      check.name === 'planner'
+      && check.status === 'warn'
+      && /fallback/.test(check.message)
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

@@ -287,6 +287,10 @@ Status on 2026-04-28:
 - Tool summaries now carry explicit permission categories, and compact harness
   output aggregates workspace mutations, native CLI calls, and stack/state
   mutation-risk tools.
+- Compact `agent --json` output now includes a targeted `readiness` block with
+  planner mode, workspace blocker status, selected validation plan status, and
+  only validators required by that selected plan, plus a `doctorCommand` for
+  the fuller read-only package/Node/tool report.
 - Workspace approval policy can now require explicit approval for tool
   categories, with `--approve-tool-category` used to resume gated native
   operations.

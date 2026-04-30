@@ -137,6 +137,10 @@ Current behavior is intentionally runtime-foundation oriented:
   inspect execution evidence and permission categories without loading raw tool
   output. `harness.toolPermissionSummary` aggregates workspace mutations,
   native CLI calls, and stack/state mutation-risk tools.
+  `readiness` summarizes the planner mode, workspace blockers, selected
+  validation plan, and only the validators required by that selected plan. It
+  also includes a `doctorCommand` for a fuller read-only package/Node/tool
+  readiness report when another agent needs it.
   Retrieved official-doc/schema context is budgeted before planner handoff, and
   compact results expose `knowledgeContext` with packet/token counts and
   omitted-context reasons instead of raw excerpts.

@@ -21,6 +21,7 @@ import type {
 } from '../types/tools.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
+import { selectValidationPlanEntries } from '../agent/select-validation-commands.ts';
 import {
   collectRuntimeIdentityConflicts,
   formatIdentityConflictFields,
@@ -86,6 +87,22 @@ interface CompactApprovalSignal {
   path: string | null;
   risk: string | null;
   toolCategory: string | null;
+}
+
+interface CompactReadinessCheck {
+  name: string;
+  status: DoctorReport['summary']['status'];
+  message: string;
+  detail: string | null;
+}
+
+interface CompactReadinessSummary {
+  status: DoctorReport['summary']['status'];
+  passCount: number;
+  warnCount: number;
+  failCount: number;
+  doctorCommand: string;
+  checks: CompactReadinessCheck[];
 }
 
 export interface IdentityConflictIncident {
@@ -160,6 +177,7 @@ export interface CompactAgentRunResult {
   };
   knowledgeCache: WorkspaceInspection['knowledgeCache'];
   knowledgeContext: RetrievedContextBudgetSummary;
+  readiness: CompactReadinessSummary;
 }
 
 function formatKnowledgeSourceResult(result: KnowledgePrefetchSourceResult): string {
@@ -546,6 +564,93 @@ function compactApprovalSignal(signal: ApprovalSignal): CompactApprovalSignal {
     path: signal.kind === 'write-approval-required' ? signal.path : null,
     risk: signal.kind === 'write-approval-required' ? signal.risk : null,
     toolCategory: signal.kind === 'tool-category-approval-required' ? signal.toolCategory : null
+  };
+}
+
+function summarizeReadinessChecks(checks: CompactReadinessCheck[]): Omit<CompactReadinessSummary, 'doctorCommand' | 'checks'> {
+  const passCount = checks.filter(check => check.status === 'pass').length;
+  const warnCount = checks.filter(check => check.status === 'warn').length;
+  const failCount = checks.filter(check => check.status === 'fail').length;
+
+  return {
+    status: failCount > 0 ? 'fail' : warnCount > 0 ? 'warn' : 'pass',
+    passCount,
+    warnCount,
+    failCount
+  };
+}
+
+function summarizePlannerReadiness(modelName: string): CompactReadinessCheck {
+  if (modelName.startsWith('llm-model-client:')) {
+    return {
+      name: 'planner',
+      status: 'pass',
+      message: 'LLM planner is active for this run.',
+      detail: modelName.replace(/^llm-model-client:/, 'model=')
+    };
+  }
+
+  if (modelName === 'rule-based-fallback') {
+    return {
+      name: 'planner',
+      status: 'warn',
+      message: 'Auto planner mode is using the rule-based fallback because no LLM planner is configured.',
+      detail: modelName
+    };
+  }
+
+  return {
+    name: 'planner',
+    status: 'pass',
+    message: 'Rule-based planner is selected for this run.',
+    detail: modelName
+  };
+}
+
+function collectRequiredValidatorNames(state: AgentRunState): Set<string> {
+  return new Set(selectValidationPlanEntries(state.runtime).map(entry => entry.kind));
+}
+
+function collectCompactReadiness(state: AgentRunState): CompactReadinessSummary {
+  const selectedValidationPlan = selectValidationPlanEntries(state.runtime);
+  const requiredValidators = collectRequiredValidatorNames(state);
+  const checks: CompactReadinessCheck[] = [
+    summarizePlannerReadiness(state.modelName),
+    {
+      name: 'workspace',
+      status: state.preflight.blockers.length > 0 ? 'fail' : 'pass',
+      message: state.preflight.blockers[0] ?? `Workspace inspection is ready with profile ${state.preflight.profile.id}.`,
+      detail: state.preflight.profile.id
+    },
+    {
+      name: 'validation-plan',
+      status: selectedValidationPlan.length > 0 ? 'pass' : 'warn',
+      message: selectedValidationPlan.length > 0
+        ? `Validation plan has ${selectedValidationPlan.length} target group(s) for this task.`
+        : 'No validation targets were selected for this task.',
+      detail: selectedValidationPlan.map(entry => `${entry.kind}:${entry.target}`).join(', ') || null
+    }
+  ];
+
+  for (const validator of state.preflight.validation.validators) {
+    if (!requiredValidators.has(validator.name)) {
+      continue;
+    }
+
+    checks.push({
+      name: `validator:${validator.name}`,
+      status: validator.available ? 'pass' : 'warn',
+      message: validator.available
+        ? `${validator.name} is available for the selected validation plan.`
+        : `${validator.name} is missing for the selected validation plan.`,
+      detail: validator.resolvedPath
+    });
+  }
+
+  return {
+    ...summarizeReadinessChecks(checks),
+    doctorCommand: `${buildCliBaseCommand()} doctor ${shellQuote(state.preflight.workspaceRoot)} --json`,
+    checks
   };
 }
 
@@ -1123,7 +1228,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     knowledgeContext: budgetRetrievedContext(
       state.runtime.retrievedContext,
       state.runtime.retrievedContextBudget
-    ).budget
+    ).budget,
+    readiness: collectCompactReadiness(state)
   };
 }
 

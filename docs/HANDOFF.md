@@ -3169,6 +3169,47 @@ Known validation:
 - `git diff --check`: passed.
 - Manual CLI check: `node --experimental-strip-types src/cli/main.ts doctor fixtures/sample-workspace --json` returned `infra-agent.doctor` schema version `1` with the planner fallback warning and no failed checks.
 
+## 2026-04-30 Compact Agent Readiness Slice
+
+Files added or updated:
+
+- `src/agent/select-validation-commands.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a compact `readiness` block to `infra-agent.agent-result` JSON so
+  downstream agents can see planner mode, workspace blocker status, selected
+  validation plan status, and task-relevant validator availability without
+  running a separate command or loading raw preflight state.
+- Keep the readiness block targeted by reusing the same selected validation
+  plan logic as `selectValidationCommands`. For a Helm-only task in a mixed
+  workspace, readiness includes Helm validator status and omits unrelated
+  Pulumi/Terraform validator noise.
+- Include a `doctorCommand` in compact readiness for cases where another agent
+  needs the fuller read-only package, Node, planner, workspace, and external
+  tool report.
+- Keep planner readiness secret-safe. It reports the active planner mode/model
+  label but never API keys or request headers.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 247/247 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed.
+- Manual CLI check: `node --experimental-strip-types src/cli/main.ts agent "add ingress to payments-api dev chart" --workspace fixtures/sample-workspace --planner rule-based --max-turns 1 --json` returned the expected no-safe-action exit code `5` and compact readiness with `planner`, `workspace`, `validation-plan`, and `validator:helm` checks only.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

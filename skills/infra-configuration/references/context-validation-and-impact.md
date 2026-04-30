@@ -24,6 +24,10 @@ message is enough.
   external IaC CLI readiness without running the agent loop.
 - The `--json` agent output is compact and uses kind
   `infra-agent.agent-result`.
+- Read `readiness` first for planner mode, workspace blocker status, selected
+  validation plan status, and validators required by that selected plan. Use
+  its `doctorCommand` only when a fuller package, Node, planner, workspace, and
+  tool readiness report is needed.
 - Use `--json-full` only for debugging because it includes the complete runtime
   state and can carry more context than another agent should need.
 - Process exit codes are part of the handoff contract for automation: `0`

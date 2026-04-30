@@ -45,12 +45,15 @@ whether the LLM planner is configured, but it must not expose API keys.
    action flow and `harness.toolTrace` for budgeted recent tool summaries before
    asking for raw logs. Read `harness.toolPermissionSummary` to separate
    workspace writes, native CLI calls, and stack/state mutation-risk tools. Read
-   `knowledgeContext` to see which retrieved docs or schemas were included or
-   omitted by context budget. For replacement or
-   duplicate-provider failures, read `validation.identityConflicts` before raw
-   stderr or long guidance strings; it can include Terraform `resourceAddress`
-   and Pulumi `resourceName` locators, `riskCategory` triage grouping, and
-   `reviewSteps` for rename vs replacement triage.
+   `readiness` for planner mode, workspace blocker status, selected validation
+   plan status, and validator availability required by that selected plan before
+   asking for a full doctor report. Read `knowledgeContext` to see which
+   retrieved docs or schemas were included or omitted by context budget. For
+   replacement or duplicate-provider failures, read
+   `validation.identityConflicts` before raw stderr or long guidance strings; it
+   can include Terraform `resourceAddress` and Pulumi `resourceName` locators,
+   `riskCategory` triage grouping, and `reviewSteps` for rename vs replacement
+   triage.
    Use `infra-agent identity-report <agent-result.json>` when you need a
    focused read-only incident report from an existing compact result; do not
    pass graph JSON, full debug state, native plan/preview JSON, or raw logs.
