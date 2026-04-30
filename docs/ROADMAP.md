@@ -255,6 +255,9 @@ Status on 2026-04-28:
 - `agent --json` now emits a compact `infra-agent.agent-result` payload for
   downstream agents instead of the full runtime state.
 - `agent --json-full` remains available for full debug state output.
+- `identity-report <agent-result.json>` can render compact identity conflict
+  data into `infra-agent.identity-conflict-report` without rerunning validators
+  or native IaC commands.
 - The compact payload includes outcome, target, changed files, result-card
   lines, next steps, suggested commands, validation issue summaries, semantic
   blockers, exclusive-identity conflict summaries, approval signals, and the
@@ -409,6 +412,9 @@ Status on 2026-04-28:
   identity checks such as route table plus destination, listener plus priority,
   security group permission peers, DNS/domain ownership, OIDC URLs, physical
   AWS names, and Kubernetes name/namespace ownership.
+  `infra-agent identity-report <agent-result.json>` renders those compact
+  conflicts into a focused read-only incident report with
+  `mutationAllowed=false` for every incident.
   Kubernetes `AlreadyExists` failures can also include parsed object names and
   namespaces for agent-to-agent handoff. AWS named-resource failures such as
   ECR repository or IAM role duplicates can include parsed physical names as

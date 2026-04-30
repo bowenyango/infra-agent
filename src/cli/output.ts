@@ -47,6 +47,33 @@ interface ValidationIdentityConflictSummary {
   sourceCommand: string;
 }
 
+export interface IdentityConflictIncident {
+  engine: ValidationIdentityConflictSummary['engine'];
+  issueKind: ValidationIdentityConflictSummary['issueKind'];
+  conflictCode: string | null;
+  conflictFamily: string | null;
+  conflictLabel: string | null;
+  resourceLocator: string | null;
+  resourceType: string | null;
+  identity: Record<string, string>;
+  reviewSteps: string[];
+  suggestedAction: string | null;
+  sourceCommand: string;
+  mutationAllowed: false;
+}
+
+export interface IdentityConflictIncidentReport {
+  kind: 'infra-agent.identity-conflict-report';
+  schemaVersion: 1;
+  sourceKind: CompactAgentRunResult['kind'];
+  sourceTask: string;
+  workspaceRoot: string;
+  outcome: CompactAgentRunResult['outcome'];
+  incidentCount: number;
+  summary: string[];
+  incidents: IdentityConflictIncident[];
+}
+
 export interface CompactAgentRunResult {
   kind: 'infra-agent.agent-result';
   schemaVersion: 1;
@@ -523,6 +550,53 @@ function summarizeIdentityConflictReview(state: AgentRunState): string {
   const identity = formatIdentityConflictFields(conflict.identity);
 
   return `${engineLabel} ${locatorSummary}; identity ${identity}; classify logical rename vs real replacement before state, alias, import, or sequencing changes.`;
+}
+
+function identityConflictResourceLocator(conflict: ValidationIdentityConflictSummary): string | null {
+  return conflict.engine === 'terraform' ? conflict.resourceAddress : conflict.resourceName;
+}
+
+function summarizeIdentityConflictIncident(conflict: ValidationIdentityConflictSummary): string {
+  const engineLabel = conflict.engine === 'terraform' ? 'Terraform' : 'Pulumi';
+  const label = conflict.conflictLabel ?? conflict.conflictFamily ?? 'exclusive identity';
+  const locator = identityConflictResourceLocator(conflict);
+  const locatorSummary = locator ? ` at ${locator}` : '';
+  const identity = formatIdentityConflictFields(conflict.identity);
+
+  return `${engineLabel} ${label}${locatorSummary}: ${identity}.`;
+}
+
+export function buildIdentityConflictIncidentReport(
+  result: CompactAgentRunResult
+): IdentityConflictIncidentReport {
+  const incidents = result.validation.identityConflicts.map(conflict => ({
+    engine: conflict.engine,
+    issueKind: conflict.issueKind,
+    conflictCode: conflict.conflictCode,
+    conflictFamily: conflict.conflictFamily,
+    conflictLabel: conflict.conflictLabel,
+    resourceLocator: identityConflictResourceLocator(conflict),
+    resourceType: conflict.resourceType,
+    identity: conflict.identity,
+    reviewSteps: conflict.reviewSteps,
+    suggestedAction: conflict.suggestedAction,
+    sourceCommand: conflict.sourceCommand,
+    mutationAllowed: false as const
+  }));
+
+  return {
+    kind: 'infra-agent.identity-conflict-report',
+    schemaVersion: 1,
+    sourceKind: result.kind,
+    sourceTask: result.task,
+    workspaceRoot: result.workspaceRoot,
+    outcome: result.outcome,
+    incidentCount: incidents.length,
+    summary: result.validation.identityConflicts.length > 0
+      ? result.validation.identityConflicts.map(summarizeIdentityConflictIncident)
+      : ['No runtime exclusive-identity incidents found.'],
+    incidents
+  };
 }
 
 function summarizeValidationDerivedSemanticBlockers(state: AgentRunState): string {
@@ -1735,4 +1809,32 @@ export function printAgentRunState(state: AgentRunState): void {
 
   process.stdout.write('\n\n');
   printRunPreflight(state.preflight);
+}
+
+export function printIdentityConflictIncidentReport(report: IdentityConflictIncidentReport): void {
+  printHeader('Identity Conflict Incident Report');
+  process.stdout.write(`source task: ${report.sourceTask}\n`);
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`outcome: ${report.outcome}\n`);
+  process.stdout.write(`incidents: ${report.incidentCount}\n\n`);
+
+  printHeader('Summary');
+  printList(report.summary, 'No runtime exclusive-identity incidents found.');
+
+  for (let index = 0; index < report.incidents.length; index += 1) {
+    const incident = report.incidents[index];
+    process.stdout.write('\n');
+    printHeader(`Incident ${index + 1}`);
+    process.stdout.write(`engine: ${incident.engine}\n`);
+    process.stdout.write(`issue: ${incident.issueKind}\n`);
+    process.stdout.write(`conflict: ${incident.conflictCode ?? 'unknown'} (${incident.conflictLabel ?? incident.conflictFamily ?? 'unknown family'})\n`);
+    process.stdout.write(`resource: ${incident.resourceLocator ?? 'unknown locator'}${incident.resourceType ? ` type=${incident.resourceType}` : ''}\n`);
+    process.stdout.write(`identity: ${formatIdentityConflictFields(incident.identity)}\n`);
+    process.stdout.write('mutation allowed: no\n');
+    process.stdout.write(`source command: ${incident.sourceCommand}\n`);
+    if (incident.suggestedAction) {
+      process.stdout.write(`provider rule: ${incident.suggestedAction}\n`);
+    }
+    printList(incident.reviewSteps, 'No review steps available.');
+  }
 }

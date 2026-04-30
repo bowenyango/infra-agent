@@ -60,11 +60,12 @@ If validation fails, the agent should continue iterating until the failure is re
 
 ## Current CLI Surface
 
-The current repository includes a minimal TypeScript CLI skeleton with six commands:
+The current repository includes a minimal TypeScript CLI skeleton with seven commands:
 
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
+- `infra-agent identity-report <agent-result.json> [--json]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent run "<task>" [--workspace <path>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]`
@@ -119,6 +120,10 @@ Current behavior is intentionally runtime-foundation oriented:
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity
   fields, review checklist, source command, and suggested review action.
+- `identity-report` renders an existing compact `agent --json` result into a
+  read-only `infra-agent.identity-conflict-report` for human operators or other
+  agents. It consumes `validation.identityConflicts`; it does not rerun
+  Terraform, Pulumi, Helm, or any repair command.
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront

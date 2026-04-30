@@ -18,6 +18,7 @@ import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../src/agent/collect-approval-signals.ts';
 import {
   buildCompactAgentRunResult,
+  buildIdentityConflictIncidentReport,
   summarizeAgentSnapshot,
   summarizeFocusedDomainCapabilities,
   summarizeFocusedValidationPlan,
@@ -4899,6 +4900,19 @@ test('graph CLI args accept Pulumi preview impact flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('identity-report CLI args accept compact result input path', () => {
+  const parsed = parseArgs([
+    'identity-report',
+    'agent-result.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'identity-report');
+  assert.equal(parsed.inputPath, 'agent-result.json');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.json, true);
+});
+
 test('apply-edit-plan execution uses append_file for append-mode writes', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-append-'));
   const workspaceRoot = join(tempRoot, 'workspace');
@@ -6184,6 +6198,13 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.match(compact.validation.identityConflicts[0]?.reviewSteps[1] ?? '', /listener ARN and priority/i);
   assert.match(compact.validation.identityConflicts[0]?.reviewSteps[2] ?? '', /moved block|terraform state mv/i);
   assert.match(compact.validation.identityConflicts[0]?.suggestedAction ?? '', /listener priority/i);
+
+  const report = buildIdentityConflictIncidentReport(compact);
+  assert.equal(report.kind, 'infra-agent.identity-conflict-report');
+  assert.equal(report.incidentCount, 1);
+  assert.match(report.summary[0] ?? '', /Terraform AWS Load Balancer Listener Rule at aws_lb_listener_rule\.api/);
+  assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
+  assert.equal(report.incidents[0]?.mutationAllowed, false);
 });
 
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {

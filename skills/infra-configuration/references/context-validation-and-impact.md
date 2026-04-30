@@ -185,6 +185,11 @@ Current implemented source:
   ownership, OIDC URL, physical AWS name, or Kubernetes name/namespace
   ownership. The checklist must remain read-only until explicit approval covers
   any state, stack, import, alias, or sequencing change.
+- `infra-agent identity-report <agent-result.json>` renders an existing compact
+  result into `infra-agent.identity-conflict-report`. Use it when a downstream
+  agent or human operator needs only the incident summary and checklist. Each
+  incident carries `mutationAllowed=false`; the report is triage context, not a
+  remediation approval.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

@@ -14,7 +14,9 @@ import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
 import {
+  buildIdentityConflictIncidentReport,
   buildCompactAgentRunResult,
+  printIdentityConflictIncidentReport,
   printAgentRunState,
   printInfraGraph,
   printInspection,
@@ -24,9 +26,10 @@ import {
 } from './output.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'identity-report' | 'help';
   task: string | null;
   workspace: string;
+  inputPath: string | null;
   json: boolean;
   jsonFull: boolean;
   planner: PlannerMode;
@@ -49,6 +52,7 @@ function printUsage(): void {
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
+      '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
@@ -68,6 +72,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'help',
       task: null,
       workspace: cwd(),
+      inputPath: null,
       json: false,
       jsonFull: false,
       planner: 'auto',
@@ -94,6 +99,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: commandName,
       task: null,
       workspace,
+      inputPath: null,
       json,
       jsonFull,
       planner: 'auto',
@@ -168,6 +174,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'graph',
       task: null,
       workspace,
+      inputPath: null,
       json,
       jsonFull,
       planner: 'auto',
@@ -179,6 +186,39 @@ export function parseArgs(argv: string[]): ParsedArgs {
       maxSources: null,
       terraformPlanPaths,
       pulumiPreviewPaths
+    };
+  }
+
+  if (commandName === 'identity-report') {
+    const positionalArgs: string[] = [];
+    for (const arg of cleanArgs) {
+      if (arg.startsWith('--')) {
+        fail(`Unknown identity-report option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length !== 1) {
+      fail('identity-report requires exactly one compact agent result JSON path.');
+    }
+
+    return {
+      command: 'identity-report',
+      task: null,
+      workspace: cwd(),
+      inputPath: positionalArgs[0],
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      maxTurns: null,
+      domains: [],
+      targetPaths: [],
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
     };
   }
 
@@ -243,6 +283,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'prefetch',
       task: null,
       workspace,
+      inputPath: null,
       json,
       jsonFull,
       planner: 'auto',
@@ -336,6 +377,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: commandName,
       task,
       workspace,
+      inputPath: null,
       json,
       jsonFull,
       planner,
@@ -411,6 +453,24 @@ async function main(): Promise<void> {
     }
 
     printInfraGraph(graph);
+    return;
+  }
+
+  if (parsed.command === 'identity-report') {
+    if (!parsed.inputPath) {
+      fail('identity-report requires exactly one compact agent result JSON path.');
+    }
+
+    const resolvedInputPath = isAbsolute(parsed.inputPath) ? parsed.inputPath : resolve(cwd(), parsed.inputPath);
+    const inputContent = await readFile(resolvedInputPath, 'utf8');
+    const report = buildIdentityConflictIncidentReport(JSON.parse(inputContent));
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    printIdentityConflictIncidentReport(report);
     return;
   }
 

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `7cb7098` Refine identity conflict review steps
   - `06b97a7` Add identity conflict review checklists
   - `c07b81b` Expose runtime resource locators
   - `6337819` Extract AWS named runtime identities
@@ -2409,6 +2410,46 @@ Recommended next implementation slice:
    focused conflict explanation without full result JSON.
 2. Add provider-specific checklist branches only when representative native CLI
    output gives enough signal to avoid false confidence.
+
+## 2026-04-30 Identity Conflict Incident Report Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `infra-agent identity-report <agent-result.json> [--json]` as a
+  read-only renderer for compact `agent --json` results.
+- Emit `infra-agent.identity-conflict-report` JSON for downstream agents and a
+  concise text report for human operators.
+- Reuse `validation.identityConflicts` summaries, locators, identities,
+  provider-family review steps, suggested provider actions, and source
+  commands without parsing raw stderr.
+- Mark every incident with `mutationAllowed=false` so the report remains
+  triage context, not remediation approval.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 233/233 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add fixture-backed CLI execution coverage for `identity-report` if command
+   invocation tests become useful beyond parser and builder coverage.
+2. Continue adding provider-specific checklist branches only when native output
+   examples provide precise identity boundaries.
 
 ## Current Verification Commands
 
