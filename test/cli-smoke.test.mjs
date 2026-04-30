@@ -30,6 +30,7 @@ import {
   summarizeSuggestedCommands
 } from '../src/cli/output.ts';
 import { parseArgs } from '../src/cli/main.ts';
+import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
@@ -4911,6 +4912,50 @@ test('identity-report CLI args accept compact result input path', () => {
   assert.equal(parsed.inputPath, 'agent-result.json');
   assert.equal(parsed.workspace, process.cwd());
   assert.equal(parsed.json, true);
+});
+
+test('identity-report loader renders compact conflict reports from a JSON file', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-identity-report-'));
+  const inputPath = join(tempRoot, 'agent-result.json');
+
+  try {
+    await writeFile(inputPath, JSON.stringify({
+      kind: 'infra-agent.agent-result',
+      task: 'update terraform listener priority',
+      workspaceRoot: '/workspace',
+      outcome: 'validation-blocked',
+      validation: {
+        identityConflicts: [
+          {
+            engine: 'terraform',
+            issueKind: 'terraform-create-before-delete-conflict',
+            conflictCode: 'PriorityInUse',
+            conflictFamily: 'aws-lb-listener-rule',
+            conflictLabel: 'AWS Load Balancer Listener Rule',
+            resourceAddress: 'aws_lb_listener_rule.api',
+            resourceName: null,
+            resourceType: 'aws_lb_listener_rule',
+            identity: {
+              listenerRulePriorities: '100'
+            },
+            reviewSteps: [
+              'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.'
+            ],
+            suggestedAction: 'Use an IaC-native rename mapping for logical renames.',
+            sourceCommand: 'terraform -chdir=terraform/payments-api plan'
+          }
+        ]
+      }
+    }), 'utf8');
+
+    const report = await loadIdentityConflictIncidentReport(inputPath);
+    assert.equal(report.kind, 'infra-agent.identity-conflict-report');
+    assert.equal(report.incidentCount, 1);
+    assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
+    assert.equal(report.incidents[0]?.mutationAllowed, false);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('apply-edit-plan execution uses append_file for append-mode writes', async () => {

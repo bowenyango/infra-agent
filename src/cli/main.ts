@@ -13,8 +13,8 @@ import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
+import { loadIdentityConflictIncidentReport } from './identity-report.ts';
 import {
-  buildIdentityConflictIncidentReport,
   buildCompactAgentRunResult,
   printIdentityConflictIncidentReport,
   printAgentRunState,
@@ -461,9 +461,7 @@ async function main(): Promise<void> {
       fail('identity-report requires exactly one compact agent result JSON path.');
     }
 
-    const resolvedInputPath = isAbsolute(parsed.inputPath) ? parsed.inputPath : resolve(cwd(), parsed.inputPath);
-    const inputContent = await readFile(resolvedInputPath, 'utf8');
-    const report = buildIdentityConflictIncidentReport(JSON.parse(inputContent));
+    const report = await loadIdentityConflictIncidentReport(parsed.inputPath, cwd());
 
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
