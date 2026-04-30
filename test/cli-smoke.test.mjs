@@ -5060,6 +5060,12 @@ test('doctor command reports install and workspace readiness', async () => {
   assert.equal(report.version, await readPackageVersion());
   assert.ok(report.workspaceRoot.endsWith('fixtures/sample-workspace'));
   assert.ok(report.checks.some(check => check.name === 'package' && check.status === 'pass'));
+  assert.ok(report.checks.some(check =>
+    check.name === 'agent-surface'
+      && check.status === 'pass'
+      && /AGENTS\.md/.test(check.detail ?? '')
+      && /skills\//.test(check.detail ?? '')
+  ));
   assert.ok(report.checks.some(check => check.name === 'node' && check.status === 'pass'));
   assert.ok(report.checks.some(check => check.name === 'planner' && check.status === 'warn' && check.detail === 'rule-based-fallback'));
   assert.ok(report.checks.some(check => check.name === 'workspace' && check.status === 'pass'));

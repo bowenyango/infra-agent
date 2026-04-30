@@ -1,8 +1,10 @@
 import { cwd, env as processEnv, version as nodeVersion } from 'node:process';
+import { access } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { resolveLLMClientConfig, type LLMConfigEnvironment } from '../model/config.ts';
 import { buildValidationPreflight, buildValidatorAvailability } from '../validators/preflight.ts';
-import { readPackageMetadata } from './package-metadata.ts';
+import { readPackageMetadata, type InfraAgentPackageMetadata } from './package-metadata.ts';
 
 export type DoctorCheckStatus = 'pass' | 'warn' | 'fail';
 
@@ -64,6 +66,64 @@ function summarizeChecks(checks: DoctorCheck[]): DoctorReport['summary'] {
   };
 }
 
+const REQUIRED_AGENT_SURFACE_PACKAGE_ENTRIES = [
+  'bin/',
+  'src/',
+  'skills/',
+  'AGENTS.md',
+  'README.md',
+  'docs/AGENT_RULES.md',
+  'docs/CLAUDE_CODE_AGENT_PATTERNS.md',
+  'docs/ROADMAP.md'
+];
+
+const REQUIRED_AGENT_SURFACE_PATHS = [
+  'bin/infra-agent.js',
+  'src/cli/main.ts',
+  'skills/infra-configuration/SKILL.md',
+  'AGENTS.md',
+  'README.md',
+  'docs/AGENT_RULES.md',
+  'docs/CLAUDE_CODE_AGENT_PATTERNS.md',
+  'docs/ROADMAP.md'
+];
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function buildAgentSurfaceCheck(packageMetadata: InfraAgentPackageMetadata): Promise<DoctorCheck> {
+  const missingPackageEntries = REQUIRED_AGENT_SURFACE_PACKAGE_ENTRIES.filter(
+    entry => !packageMetadata.files.includes(entry)
+  );
+  const missingPaths: string[] = [];
+
+  for (const relativePath of REQUIRED_AGENT_SURFACE_PATHS) {
+    if (!await pathExists(resolve(packageMetadata.packageRoot, relativePath))) {
+      missingPaths.push(relativePath);
+    }
+  }
+
+  const missingDetails = [
+    missingPackageEntries.length > 0 ? `missing package files entries: ${missingPackageEntries.join(', ')}` : null,
+    missingPaths.length > 0 ? `missing installed paths: ${missingPaths.join(', ')}` : null
+  ].filter((detail): detail is string => Boolean(detail));
+
+  return {
+    name: 'agent-surface',
+    status: missingDetails.length > 0 ? 'fail' : 'pass',
+    message: missingDetails.length > 0
+      ? 'Installed agent-facing package surface is incomplete.'
+      : 'Installed agent-facing package surface includes CLI runtime, skills, AGENTS.md, README, and durable docs.',
+    detail: missingDetails.length > 0 ? missingDetails.join('; ') : REQUIRED_AGENT_SURFACE_PATHS.join(', ')
+  };
+}
+
 export async function buildDoctorReport(
   workspacePath: string = cwd(),
   env: LLMConfigEnvironment = processEnv
@@ -79,6 +139,7 @@ export async function buildDoctorReport(
         : `infra-agent package version ${packageMetadata.version} is readable.`,
       detail: null
     },
+    await buildAgentSurfaceCheck(packageMetadata),
     {
       name: 'node',
       status: satisfiesNodeEngine(nodeVersion, packageMetadata.nodeEngine) ? 'pass' : 'fail',

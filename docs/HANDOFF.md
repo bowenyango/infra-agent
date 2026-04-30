@@ -3311,6 +3311,42 @@ Known validation:
   passed and included `AGENTS.md`.
 - `git diff --check`: passed.
 
+## 2026-04-30 Doctor Agent Surface Check Slice
+
+Files added or updated:
+
+- `src/cli/doctor.ts`
+- `src/cli/package-metadata.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Purpose:
+
+- Add a read-only `agent-surface` check to `infra-agent doctor` so installed
+  packages verify the key future-agent entrypoints, including the bin wrapper,
+  CLI runtime source, `skills/infra-configuration/SKILL.md`, `AGENTS.md`,
+  README, and durable docs.
+- Extend package metadata reading to expose the package root and package
+  `files` allowlist for installation readiness checks without exposing secrets.
+- Keep doctor JSON compact and agent-facing: the new check is a normal
+  pass/warn/fail `checks[]` entry and does not add a new command or mutate the
+  workspace.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 247/247 passed.
+- `node --experimental-strip-types src/cli/main.ts doctor fixtures/sample-workspace --json`:
+  passed and emitted `agent-surface` as `pass`.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

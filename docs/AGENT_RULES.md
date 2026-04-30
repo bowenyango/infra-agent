@@ -163,7 +163,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `package.json.files`.
 - The installed `bin/infra-agent.js` wrapper must preserve the caller working directory so default workspace resolution points at the user's repository, not the package root.
 - Keep `infra-agent --version` available as a cheap installation and routing check for downstream agents.
-- Keep `infra-agent doctor [workspace] --json` read-only. Use it for package, Node engine, LLM planner configuration, workspace inspection, validation plan, and external validator readiness checks before deeper agent runs. Never expose API keys or secrets in doctor output.
+- Keep `infra-agent doctor [workspace] --json` read-only. Use it for package,
+  installed agent-facing surface, Node engine, LLM planner configuration,
+  workspace inspection, validation plan, and external validator readiness checks
+  before deeper agent runs. Never expose API keys or secrets in doctor output.
 - Use `infra-agent identity-report <agent-result.json>` when a human operator or downstream agent needs a focused runtime exclusive-identity incident report from an existing compact result. This command is read-only and must not rerun validators or mutate state.
 - `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `schemaVersion=1` and `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
 - When `suggestedCommands` includes an `agent --json > agent-result.json` export followed by `identity-report agent-result.json --json`, treat that as a read-only reporting handoff for exclusive-identity triage, not as approval to rerun apply/update or mutate state.
