@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `363ef24` Cover identity report file loading
   - `aa0d0f2` Add identity conflict incident reports
   - `7cb7098` Refine identity conflict review steps
   - `06b97a7` Add identity conflict review checklists
@@ -2484,6 +2485,40 @@ Recommended next implementation slice:
    examples provide precise identity boundaries.
 2. Consider child-process CLI invocation coverage only in an environment where
    spawning the local Node binary is not sandbox-blocked.
+
+## 2026-04-30 Identity Report Input Validation Slice
+
+Files added or updated:
+
+- `src/cli/identity-report.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Validate `identity-report` input before rendering.
+- Require compact `infra-agent.agent-result` JSON with a
+  `validation.identityConflicts` array.
+- Reject graph JSON, full debug state, native plan/preview JSON, raw logs, and
+  malformed conflict entries with explicit errors instead of implicit runtime
+  failures.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 235/235 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Continue adding provider-specific checklist branches only when native output
+   examples provide precise identity boundaries.
+2. Consider adding a schema-version compatibility check if compact result
+   schema version `2` is introduced later.
 
 ## Current Verification Commands
 

@@ -4958,6 +4958,37 @@ test('identity-report loader renders compact conflict reports from a JSON file',
   }
 });
 
+test('identity-report loader rejects non-compact result inputs', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-identity-report-invalid-'));
+  const inputPath = join(tempRoot, 'not-agent-result.json');
+
+  try {
+    await writeFile(inputPath, JSON.stringify({
+      kind: 'infra-agent.infra-graph',
+      validation: {
+        identityConflicts: []
+      }
+    }), 'utf8');
+
+    await assert.rejects(
+      loadIdentityConflictIncidentReport(inputPath),
+      /compact infra-agent\.agent-result/
+    );
+
+    await writeFile(inputPath, JSON.stringify({
+      kind: 'infra-agent.agent-result',
+      validation: {}
+    }), 'utf8');
+
+    await assert.rejects(
+      loadIdentityConflictIncidentReport(inputPath),
+      /validation\.identityConflicts array/
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('apply-edit-plan execution uses append_file for append-mode writes', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-append-'));
   const workspaceRoot = join(tempRoot, 'workspace');
