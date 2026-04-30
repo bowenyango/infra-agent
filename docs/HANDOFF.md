@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `0a56d76` Add compact harness tool trace
   - `33f0679` Add Claude Code inspired harness trace
   - `e3b4b8a` Test LLM planner mode config
   - `40cc136` Test LLM planner transport contract
@@ -2848,6 +2849,44 @@ Known validation:
 - `npm run verify`: passed.
 - `npm run lint`: passed.
 - `npm run test:unit`: 239/239 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Retrieved Context Budget Slice
+
+Files added or updated:
+
+- `src/knowledge/context-budget.ts`
+- `src/model/prompt.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a shared context budget helper for retrieved official docs, schemas, and
+  examples before planner handoff.
+- Clip excerpts, cap included packets, cap estimated prompt tokens, and report
+  omitted packets by packet-limit or token-budget reason.
+- Add `retrievedContextBudget` to planner user prompts so LLM decisions can see
+  context omissions without receiving raw cached documents.
+- Add compact `knowledgeContext` metadata to `infra-agent.agent-result` for
+  downstream agents.
+- Persist the rule that planner prompts must not inject full cached docs or
+  unbounded excerpts.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 240/240 passed.
 - `npm run smoke`: passed.
 - `npm run e2e`: passed.
 - `git diff --check`: passed.

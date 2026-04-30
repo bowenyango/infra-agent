@@ -1,6 +1,7 @@
 import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 import { collectRuntimeIdentityConflicts } from '../agent/identity-conflicts.ts';
+import { budgetRetrievedContext } from '../knowledge/context-budget.ts';
 
 function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
   return runtime.validationResults.slice(-6).map(result => {
@@ -84,17 +85,6 @@ function summarizeConfigSemantics(runtime: AgentRuntimeState): object[] {
     }));
 }
 
-function summarizeRetrievedContext(runtime: AgentRuntimeState): object[] {
-  return (runtime.retrievedContext ?? []).slice(0, 5).map(packet => ({
-    id: packet.id,
-    source: packet.source,
-    confidence: packet.confidence,
-    reason: packet.reason,
-    excerpt: packet.excerpt?.slice(0, 1200),
-    tokenEstimate: packet.tokenEstimate
-  }));
-}
-
 export function buildPlannerSystemPrompt(): string {
   const allowedActionKinds: AgentActionKind[] = [
     'ask-for-clarification',
@@ -149,6 +139,8 @@ export function buildPlannerSystemPrompt(): string {
 }
 
 export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
+  const retrievedContext = budgetRetrievedContext(runtime.retrievedContext);
+
   return JSON.stringify(
     {
       task: runtime.task,
@@ -170,7 +162,8 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       approvalSignals: summarizeApprovalSignals(runtime),
       lastEditPlan: summarizeEditPlan(runtime),
       configSemantics: summarizeConfigSemantics(runtime),
-      retrievedContext: summarizeRetrievedContext(runtime),
+      retrievedContextBudget: retrievedContext.budget,
+      retrievedContext: retrievedContext.packets,
       validationPlan: runtime.preflight.validation.plan
     },
     null,

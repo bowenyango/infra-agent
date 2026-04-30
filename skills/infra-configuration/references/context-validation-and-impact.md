@@ -140,6 +140,10 @@ Current implemented source:
 - Compact `agent --json` also includes `harness.toolTrace`, a bounded list of
   recent deterministic tool summaries with `omittedCount`. Prefer it over full
   tool result payloads when deciding what happened in the run.
+- Planner prompts include `retrievedContextBudget` and only budgeted retrieved
+  context packets. Compact `agent --json` exposes `knowledgeContext` with
+  packet counts, token estimates, and omitted reasons so downstream agents can
+  avoid loading raw cached docs unless necessary.
 - Pulumi `AlreadyExists` or duplicate-name failures are classified as
   create-before-delete ordering conflicts when they occur during Pulumi
   preview/up/update. AWS Route failures can also expose route table and

@@ -278,6 +278,9 @@ Status on 2026-04-28:
   `docs/CLAUDE_CODE_AGENT_PATTERNS.md`; compact agent output includes
   `harness.turnTrace` and `harness.toolTrace` for low-noise per-turn and
   tool-summary handoff.
+- Retrieved official-doc/schema context is compacted through a shared budget
+  helper before planner handoff, and compact output now reports
+  `knowledgeContext` packet/token budget metadata.
 
 ### Step 3: Add Syntax Validators
 

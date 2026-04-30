@@ -47,6 +47,10 @@ durable design reference for infra-agent development.
   runtime snapshots, and raw tool output.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
   deterministic tool summaries and an omitted count, not full tool outputs.
+- `retrievedContextBudget` and compact `knowledgeContext` summaries are the
+  context-compaction boundary for official docs, schemas, and examples. They
+  should report packet/token budgets and omissions without exposing raw cached
+  documents in ordinary handoff payloads.
 - `validation.identityConflicts`, `runtimeIdentityConflicts`, and
   `identity-report` are blocker-specific handoff surfaces. They must remain
   review-only until a separate remediation planner and approval model exists.

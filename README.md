@@ -127,6 +127,9 @@ Current behavior is intentionally runtime-foundation oriented:
   snapshots. It also includes `harness.toolTrace`, a budgeted list of recent
   deterministic tool summaries plus an omitted count, so downstream agents can
   inspect execution evidence without loading raw tool output.
+  Retrieved official-doc/schema context is budgeted before planner handoff, and
+  compact results expose `knowledgeContext` with packet/token counts and
+  omitted-context reasons instead of raw excerpts.
   The compact validation payload includes `identityConflicts`, a low-noise
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity

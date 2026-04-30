@@ -28,7 +28,8 @@ guessing infrastructure conventions from generic IaC knowledge.
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. Read `harness.turnTrace` for the bounded
    action flow and `harness.toolTrace` for budgeted recent tool summaries before
-   asking for raw logs. For replacement or
+   asking for raw logs. Read `knowledgeContext` to see which retrieved docs or
+   schemas were included or omitted by context budget. For replacement or
    duplicate-provider failures, read `validation.identityConflicts` before raw
    stderr or long guidance strings; it can include Terraform `resourceAddress`
    and Pulumi `resourceName` locators, `riskCategory` triage grouping, and

@@ -4806,6 +4806,11 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.toolTrace.omittedCount, Math.max(0, result.runtime.toolSummaries.length - 8));
     assert.ok(compact.harness.toolTrace.entries.some(entry => entry.actionKind === 'inspect-target-files'));
     assert.ok(compact.harness.toolTrace.entries.every(entry => entry.toolName.length > 0));
+    assert.equal(compact.knowledgeContext.totalPacketCount, result.runtime.retrievedContext.length);
+    assert.equal(
+      compact.knowledgeContext.includedPacketCount,
+      compact.knowledgeContext.packets.filter(packet => packet.included).length
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -5567,6 +5572,52 @@ test('planner user prompt includes compact retrieved context packets', async () 
   assert.equal(parsed.retrievedContext[0]?.source.name, 'resource:aws_instance');
   assert.equal(parsed.retrievedContext[0]?.source.version, '5.37.0');
   assert.match(parsed.retrievedContext[0]?.excerpt ?? '', /instance_type/);
+  assert.equal(parsed.retrievedContextBudget.totalPacketCount, 1);
+  assert.equal(parsed.retrievedContextBudget.includedPacketCount, 1);
+  assert.equal(parsed.retrievedContextBudget.omittedPacketCount, 0);
+});
+
+test('planner user prompt budgets retrieved context before model handoff', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const packets = Array.from({ length: 7 }, (_, index) => ({
+    id: `terraform-registry-${index}`,
+    source: {
+      kind: 'terraform-registry',
+      name: `resource:aws_test_${index}`,
+      provider: 'hashicorp/aws',
+      version: '5.37.0',
+      url: `https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/test_${index}`
+    },
+    confidence: 'high',
+    reason: 'Terraform Registry docs for selected root terraform/payments-api',
+    contentType: 'text/markdown',
+    excerpt: `# aws_test_${index}\n${'context '.repeat(240)}`,
+    tokenEstimate: 10000
+  }));
+  const prompt = buildPlannerUserPrompt({
+    task: preflight.task,
+    preflight,
+    retrievedContext: packets,
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.equal(parsed.retrievedContextBudget.totalPacketCount, packets.length);
+  assert.equal(parsed.retrievedContextBudget.includedPacketCount, parsed.retrievedContext.length);
+  assert.equal(
+    parsed.retrievedContextBudget.omittedPacketCount,
+    packets.length - parsed.retrievedContext.length
+  );
+  assert.ok(parsed.retrievedContext.length < packets.length);
+  assert.ok(parsed.retrievedContextBudget.omittedByTokenBudget > 0 || parsed.retrievedContextBudget.omittedByPacketLimit > 0);
+  assert.ok(parsed.retrievedContext.every(packet => packet.excerpt.length <= parsed.retrievedContextBudget.maxExcerptChars));
 });
 
 test('planner user prompt includes focused Pulumi config semantics', async () => {

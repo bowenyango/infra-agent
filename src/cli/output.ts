@@ -29,6 +29,7 @@ import {
   type RuntimeIdentityConflictSummary
 } from '../agent/identity-conflicts.ts';
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
+import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
@@ -135,6 +136,7 @@ export interface CompactAgentRunResult {
     signals: Pick<ApprovalSignal, 'kind' | 'path' | 'risk' | 'message'>[];
   };
   knowledgeCache: WorkspaceInspection['knowledgeCache'];
+  knowledgeContext: RetrievedContextBudgetSummary;
 }
 
 function formatKnowledgeSourceResult(result: KnowledgePrefetchSourceResult): string {
@@ -1019,7 +1021,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         message: signal.message
       }))
     },
-    knowledgeCache: state.preflight.inspection.knowledgeCache
+    knowledgeCache: state.preflight.inspection.knowledgeCache,
+    knowledgeContext: budgetRetrievedContext(state.runtime.retrievedContext).budget
   };
 }
 
