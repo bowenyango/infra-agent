@@ -113,6 +113,10 @@ Current behavior is intentionally runtime-foundation oriented:
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
+- LLM planner prompts include compact `runtimeIdentityConflicts` when native
+  validation reports provider-exclusive identity blockers. These entries carry
+  risk category, locator, identity fields, and review steps without passing
+  long stderr logs as the primary planning context.
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
 - `agent --json` emits a compact `infra-agent.agent-result` payload for other
   agents; use `--json-full` only when debugging the complete runtime state.

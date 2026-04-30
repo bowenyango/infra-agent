@@ -35,6 +35,8 @@ guessing infrastructure conventions from generic IaC knowledge.
    focused read-only incident report from an existing compact result; do not
    pass graph JSON, full debug state, native plan/preview JSON, or raw logs.
    The input must be compact `infra-agent.agent-result` schema version 1.
+   LLM planner prompts may include the same blockers as
+   `runtimeIdentityConflicts`; treat those fields as read-only triage context.
    If `suggestedCommands` includes an `agent --json > agent-result.json` export
    followed by `identity-report agent-result.json --json`, use it as a
    read-only reporting path.

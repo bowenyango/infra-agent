@@ -201,6 +201,11 @@ Current implemented source:
   compact agent JSON to `agent-result.json` and render it through
   `identity-report`. Treat this as a read-only handoff path for incident
   reporting.
+- Planner prompts expose the same runtime blockers as `runtimeIdentityConflicts`
+  so an LLM planner can use `riskCategory`, locators, parsed identity, and
+  review steps without reading raw provider stderr. This field is still
+  review-only blocker context and must not authorize state, stack, DNS,
+  Kubernetes ownership, deletion, or sequencing changes.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

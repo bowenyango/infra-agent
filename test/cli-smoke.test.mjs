@@ -5291,6 +5291,51 @@ test('planner system prompt documents explicit stop reasons', () => {
   assert.match(prompt, /Allowed ask-for-clarification payload\.clarificationKind values:/);
   assert.match(prompt, /repair-budget-exhausted/);
   assert.match(prompt, /validation-succeeded/);
+  assert.match(prompt, /runtimeIdentityConflicts/);
+  assert.match(prompt, /review-only incident context/);
+});
+
+test('planner user prompt includes runtime identity conflict summaries', async () => {
+  const preflight = await buildRunPreflight('review terraform listener rule conflict', 'fixtures/terraform-workspace');
+  const prompt = buildPlannerUserPrompt({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [
+      {
+        kind: 'terraform-create-before-delete-conflict',
+        repairable: false,
+        sourceCommand: 'terraform plan',
+        message: 'Listener rule priority already exists.',
+        metadata: {
+          conflictCode: 'PriorityInUse',
+          conflictFamily: 'aws-lb-listener-rule',
+          conflictLabel: 'AWS Load Balancer Listener Rule',
+          conflictSuggestedAction: 'Review listener priority ownership before retrying plan.',
+          listenerArns: 'arn:aws:elasticloadbalancing:us-west-2:123456789012:listener/app/api/abc/def',
+          listenerRulePriorities: '100',
+          resourceAddress: 'aws_lb_listener_rule.api',
+          resourceType: 'aws_lb_listener_rule'
+        }
+      }
+    ],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.equal(parsed.runtimeIdentityConflicts.length, 1);
+  assert.equal(parsed.runtimeIdentityConflicts[0]?.engine, 'terraform');
+  assert.equal(parsed.runtimeIdentityConflicts[0]?.conflictFamily, 'aws-lb-listener-rule');
+  assert.equal(parsed.runtimeIdentityConflicts[0]?.riskCategory, 'create-before-delete-ordering');
+  assert.equal(parsed.runtimeIdentityConflicts[0]?.resourceAddress, 'aws_lb_listener_rule.api');
+  assert.equal(parsed.runtimeIdentityConflicts[0]?.identity.listenerRulePriorities, '100');
+  assert.match(parsed.runtimeIdentityConflicts[0]?.reviewSteps[1] ?? '', /listener ARN and priority/i);
+  assert.equal(parsed.runtimeIdentityConflicts[0]?.message, undefined);
 });
 
 test('planner user prompt includes focused config semantics', async () => {

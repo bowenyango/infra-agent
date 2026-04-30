@@ -266,6 +266,9 @@ Status on 2026-04-28:
   lines, next steps, suggested commands, validation issue summaries, semantic
   blockers, exclusive-identity conflict summaries with triage risk categories,
   approval signals, and the resolved knowledge-cache root.
+- Planner prompts now include compact `runtimeIdentityConflicts` derived from
+  runtime validation issues, so LLM decisions can see exclusive-identity risk
+  category and review context without parsing raw provider stderr.
 
 ### Step 3: Add Syntax Validators
 

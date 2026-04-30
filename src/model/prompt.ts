@@ -1,5 +1,6 @@
 import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
+import { collectRuntimeIdentityConflicts } from '../agent/identity-conflicts.ts';
 
 function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
   return runtime.validationResults.slice(-6).map(result => {
@@ -15,6 +16,24 @@ function summarizeValidationIssues(runtime: AgentRuntimeState): object[] {
     repairable: issue.repairable,
     sourceCommand: issue.sourceCommand,
     message: issue.message
+  }));
+}
+
+function summarizeIdentityConflicts(runtime: AgentRuntimeState): object[] {
+  return collectRuntimeIdentityConflicts(runtime.validationIssues).map(conflict => ({
+    engine: conflict.engine,
+    issueKind: conflict.issueKind,
+    conflictCode: conflict.conflictCode,
+    conflictFamily: conflict.conflictFamily,
+    conflictLabel: conflict.conflictLabel,
+    riskCategory: conflict.riskCategory,
+    resourceAddress: conflict.resourceAddress,
+    resourceName: conflict.resourceName,
+    resourceType: conflict.resourceType,
+    identity: conflict.identity,
+    reviewSteps: conflict.reviewSteps.slice(0, 3),
+    suggestedAction: conflict.suggestedAction,
+    sourceCommand: conflict.sourceCommand
   }));
 }
 
@@ -122,6 +141,8 @@ export function buildPlannerSystemPrompt(): string {
     '- Use stopReason=validation-succeeded only when non-YAML target validation results are present and all exit codes are 0.',
     '- Use stopReason=repair-budget-exhausted only when validationIssues are repairable but the bounded repair budget is already exhausted.',
     '- Use stopReason=validation-blocked when validation failed and no bounded repair is available.',
+    '- Treat runtimeIdentityConflicts as review-only incident context. Do not propose state moves, imports, aliases, DNS changes, Kubernetes ownership changes, delete-before-create sequencing, or stack mutations as automatic actions.',
+    '- When runtimeIdentityConflicts is non-empty and no bounded edit plan already exists, prefer stop with stopReason=validation-blocked and summarize the risk category and review steps.',
     '- If no safe action exists, return stop with stopReason=no-safe-action.',
     'Do not include markdown. Do not include commentary outside the JSON object.'
   ].join('\n');
@@ -145,6 +166,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       })),
       validationResults: summarizeValidationResults(runtime),
       validationIssues: summarizeValidationIssues(runtime),
+      runtimeIdentityConflicts: summarizeIdentityConflicts(runtime),
       approvalSignals: summarizeApprovalSignals(runtime),
       lastEditPlan: summarizeEditPlan(runtime),
       configSemantics: summarizeConfigSemantics(runtime),

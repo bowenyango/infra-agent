@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `f67f470` Categorize identity conflict reports
   - `d720fc7` Add smoke and e2e verification layers
   - `65eab57` Suggest identity report handoff commands
   - `453048a` Check identity report schema versions
@@ -2673,6 +2674,44 @@ Recommended next implementation slice:
    examples provide precise identity boundaries.
 2. Add schema-version branching only when compact result schema version `2` is
    actually introduced.
+
+## 2026-04-30 LLM Planner Identity Context Slice
+
+Files added or updated:
+
+- `src/agent/identity-conflicts.ts`
+- `src/cli/output.ts`
+- `src/model/prompt.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Move runtime exclusive-identity summarization into a shared agent module so
+  compact output, incident reports, and planner prompts use the same risk
+  categories, identity fields, locators, and review steps.
+- Add `runtimeIdentityConflicts` to LLM planner prompts as compact blocker
+  context. The planner can now see `riskCategory`, resource locator fields,
+  parsed provider identity, suggested review action, and first review steps
+  without treating long provider stderr as primary context.
+- Keep the prompt contract review-only. Identity conflicts should drive
+  `validation-blocked` stops unless a separately approved bounded edit plan
+  already exists; they must not authorize state moves, imports, aliases, DNS
+  changes, Kubernetes ownership changes, deletions, or stack mutation.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 236/236 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
 
 ## Current Verification Commands
 
