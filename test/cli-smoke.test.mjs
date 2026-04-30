@@ -6070,6 +6070,7 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
   assert.equal(compact.outcome, 'validation-blocked');
   assert.equal(compact.validation.semanticBlockers[0]?.path, 'config.payments-api:imageTag');
   assert.equal(compact.validation.semanticBlockers[0]?.sourceKind, 'pulumi-preview');
+  assert.equal(compact.validation.identityConflicts.length, 0);
   assert.equal(compact.validation.issues[0]?.kind, 'pulumi-missing-config');
   assert.ok(compact.suggestedCommands.some(command => /validate/i.test(command)));
   assert.equal(Object.hasOwn(compact, 'turns'), false);
@@ -6121,7 +6122,7 @@ test('summarizeResultCard includes Pulumi security duplicate validation findings
 
 test('summarizeResultCard includes Terraform exclusive identity validation findings', async () => {
   const preflight = await buildRunPreflight('update terraform edge listener rule priority', 'fixtures/terraform-workspace');
-  const summary = summarizeResultCard({
+  const state = {
     modelName: 'test-model',
     outcome: 'validation-blocked',
     preflight,
@@ -6148,6 +6149,8 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
           metadata: {
             conflictCode: 'PriorityInUse',
             conflictFamily: 'aws-lb-listener-rule',
+            conflictLabel: 'AWS Load Balancer Listener Rule',
+            conflictSuggestedAction: 'Use an IaC-native rename mapping for logical renames, or explicitly sequence/delete the old rule before creating a new rule with the same listener priority.',
             listenerRulePriorities: '100'
           }
         }
@@ -6157,10 +6160,20 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
       lastEditPlan: null
     },
     turns: []
-  });
+  };
+  const summary = summarizeResultCard(state);
 
   assert.ok(summary.some(line => /Validation findings: Terraform create-before-delete conflict: provider returned PriorityInUse for 100\./i.test(line)));
   assert.ok(summary.some(line => /Review focus: Review Terraform moved blocks, import\/state repair needs, lifecycle ordering, and the matched provider identity before retrying\./i.test(line)));
+
+  const compact = buildCompactAgentRunResult(state);
+  assert.equal(compact.validation.identityConflicts.length, 1);
+  assert.equal(compact.validation.identityConflicts[0]?.engine, 'terraform');
+  assert.equal(compact.validation.identityConflicts[0]?.conflictCode, 'PriorityInUse');
+  assert.equal(compact.validation.identityConflicts[0]?.conflictFamily, 'aws-lb-listener-rule');
+  assert.equal(compact.validation.identityConflicts[0]?.conflictLabel, 'AWS Load Balancer Listener Rule');
+  assert.equal(compact.validation.identityConflicts[0]?.identity.listenerRulePriorities, '100');
+  assert.match(compact.validation.identityConflicts[0]?.suggestedAction ?? '', /listener priority/i);
 });
 
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {

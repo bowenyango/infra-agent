@@ -32,6 +32,18 @@ interface ValidationDerivedSemanticBlocker {
   message?: string;
 }
 
+interface ValidationIdentityConflictSummary {
+  engine: 'pulumi' | 'terraform';
+  issueKind: ValidationIssue['kind'];
+  conflictCode: string | null;
+  conflictFamily: string | null;
+  conflictLabel: string | null;
+  resourceType: string | null;
+  identity: Record<string, string>;
+  suggestedAction: string | null;
+  sourceCommand: string;
+}
+
 export interface CompactAgentRunResult {
   kind: 'infra-agent.agent-result';
   schemaVersion: 1;
@@ -53,6 +65,7 @@ export interface CompactAgentRunResult {
     status: string;
     findings: string;
     semanticBlockers: ValidationDerivedSemanticBlocker[];
+    identityConflicts: ValidationIdentityConflictSummary[];
     targetCommandCount: number;
     yamlGuardCount: number;
     issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
@@ -356,6 +369,70 @@ function collectValidationDerivedSemanticBlockers(state: AgentRunState): Validat
       confidence: item.fact.confidence,
       message: item.fact.message
     }));
+}
+
+function validationIssueEngine(issue: ValidationIssue): ValidationIdentityConflictSummary['engine'] | null {
+  if (issue.kind === 'pulumi-create-before-delete-conflict') {
+    return 'pulumi';
+  }
+
+  if (issue.kind === 'terraform-create-before-delete-conflict') {
+    return 'terraform';
+  }
+
+  return null;
+}
+
+function collectIdentityConflictMetadata(metadata: ValidationIssue['metadata']): Record<string, string> {
+  if (!metadata) {
+    return {};
+  }
+
+  const identityKeys: Array<keyof NonNullable<ValidationIssue['metadata']>> = [
+    'duplicateIdentity',
+    'dnsNames',
+    'listenerArns',
+    'listenerRulePriorities',
+    'oidcProviderUrls',
+    'recordTypes',
+    'routeDestinations',
+    'routeTableIds',
+    'securityGroupIds',
+    'securityGroupRulePeers'
+  ];
+  const identity: Record<string, string> = {};
+
+  for (const key of identityKeys) {
+    const value = metadata[key];
+    if (value) {
+      identity[key] = value;
+    }
+  }
+
+  return identity;
+}
+
+function collectValidationIdentityConflicts(state: AgentRunState): ValidationIdentityConflictSummary[] {
+  return state.runtime.validationIssues
+    .flatMap(issue => {
+      const engine = validationIssueEngine(issue);
+      if (!engine) {
+        return [];
+      }
+
+      return [{
+        engine,
+        issueKind: issue.kind,
+        conflictCode: issue.metadata?.conflictCode ?? null,
+        conflictFamily: issue.metadata?.conflictFamily ?? null,
+        conflictLabel: issue.metadata?.conflictLabel ?? null,
+        resourceType: issue.metadata?.resourceType ?? null,
+        identity: collectIdentityConflictMetadata(issue.metadata),
+        suggestedAction: issue.metadata?.conflictSuggestedAction ?? null,
+        sourceCommand: issue.sourceCommand
+      }];
+    })
+    .slice(0, 5);
 }
 
 function summarizeValidationDerivedSemanticBlockers(state: AgentRunState): string {
@@ -809,6 +886,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       status: summarizeValidationStatus(state),
       findings: summarizeValidationFindings(state),
       semanticBlockers: collectValidationDerivedSemanticBlockers(state).slice(0, 5),
+      identityConflicts: collectValidationIdentityConflicts(state),
       targetCommandCount: targetValidationCount,
       yamlGuardCount,
       issues: state.runtime.validationIssues.slice(0, 5).map(issue => ({

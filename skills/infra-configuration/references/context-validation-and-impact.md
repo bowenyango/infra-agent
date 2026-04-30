@@ -158,6 +158,11 @@ Current implemented source:
   because these compact fields are usually enough to explain bucket, named
   resource, Kubernetes object, security rule, DNS, listener, and OIDC identity
   conflicts without loading broad provider docs.
+- Compact `agent --json` output also exposes these blockers through
+  `validation.identityConflicts`. Prefer that array for agent-to-agent handoff:
+  it includes the engine, issue kind, conflict code/family/label, resource type,
+  parsed identity fields, suggested review action, and source command without
+  requiring raw stderr parsing.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

@@ -26,7 +26,9 @@ guessing infrastructure conventions from generic IaC knowledge.
 
 4. Prefer `--json` when another agent will consume the result. This returns the
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
-   debugging the whole runtime state.
+   debugging the whole runtime state. For replacement or duplicate-provider
+   failures, read `validation.identityConflicts` before raw stderr or long
+   guidance strings.
 5. If the result asks for approval, do not work around it. Ask the user or rerun
    with the requested approval flags only when the user has approved that scope.
 6. If validation fails, use the structured failure and suggested next action

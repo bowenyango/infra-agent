@@ -257,7 +257,8 @@ Status on 2026-04-28:
 - `agent --json-full` remains available for full debug state output.
 - The compact payload includes outcome, target, changed files, result-card
   lines, next steps, suggested commands, validation issue summaries, semantic
-  blockers, approval signals, and the resolved knowledge-cache root.
+  blockers, exclusive-identity conflict summaries, approval signals, and the
+  resolved knowledge-cache root.
 
 ### Step 3: Add Syntax Validators
 

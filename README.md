@@ -114,7 +114,11 @@ Current behavior is intentionally runtime-foundation oriented:
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
 - `agent --json` emits a compact `infra-agent.agent-result` payload for other
-  agents; use `--json-full` only when debugging the complete runtime state
+  agents; use `--json-full` only when debugging the complete runtime state.
+  The compact validation payload includes `identityConflicts`, a low-noise
+  machine-readable summary of Pulumi/Terraform exclusive-identity blockers
+  with engine, conflict family, identity fields, source command, and suggested
+  review action.
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront

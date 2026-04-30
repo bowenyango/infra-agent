@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `c9d5a04` Use exclusive specs for runtime conflicts
   - `fe3d114` Classify Terraform runtime identity conflicts
   - `81c051f` Classify listener rule priority conflicts
   - `f0ccb17` Handle all-protocol security rule identity
@@ -2155,6 +2156,47 @@ Recommended next implementation slice:
 2. Consider adding a compact machine-readable conflict explanation block to
    `agent --json` only if downstream agents need more than current validation
    issue metadata.
+3. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 Compact Identity Conflict JSON Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `validation.identityConflicts` to compact `agent --json` output so
+  downstream agents can consume runtime Pulumi/Terraform exclusive-identity
+  blockers without parsing raw stderr or long guidance strings.
+- Summaries include engine, issue kind, conflict code, conflict family,
+  conflict label, resource type, parsed identity fields, suggested review
+  action, and source command.
+- Keep this derived from existing `ValidationIssue` records; no validator or
+  repair behavior changes.
+- Preserve low-noise context discipline for agent-to-agent handoff.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 228/228 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime validation examples only from representative provider CLI
+   outputs with clear identity boundaries.
+2. Consider adding a compact text result-card line for identity conflicts only
+   if human users need it; for now `validation.identityConflicts` is the
+   machine-readable handoff surface.
 3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands
