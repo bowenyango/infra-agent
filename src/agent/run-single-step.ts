@@ -13,6 +13,7 @@ export interface AgentRunState {
   preflight: RunPreflightState;
   runtime: AgentRuntimeState;
   turns: Awaited<ReturnType<typeof runQueryLoop>>['turns'];
+  config: QueryLoopConfig;
 }
 
 function toModelClient(model: PlanningModel): ModelClient {
@@ -41,6 +42,7 @@ export async function runSingleStep(
     outcome: result.outcome,
     preflight,
     runtime: result.runtime,
-    turns: result.turns
+    turns: result.turns,
+    config: result.config
   };
 }

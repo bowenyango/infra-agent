@@ -120,6 +120,11 @@ Current behavior is intentionally runtime-foundation oriented:
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
 - `agent --json` emits a compact `infra-agent.agent-result` payload for other
   agents; use `--json-full` only when debugging the complete runtime state.
+  The compact payload includes `harness.turnTrace`, a bounded per-turn trace
+  inspired by Claude Code's query harness design. It exposes action kind,
+  terminal status, execution status, tool count, changed-file count, validation
+  issue count, and approval signal count without exposing full runtime
+  snapshots.
   The compact validation payload includes `identityConflicts`, a low-noise
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity

@@ -132,6 +132,11 @@ Current implemented source:
   namespaces before falling back to project names.
 - Pulumi preview missing-config failures are promoted into runtime
   `required-field` facts sourced from `pulumi-preview`.
+- Compact `agent --json` output includes `harness.turnTrace` for bounded
+  harness flow. Prefer it over raw turn objects: it includes action kind,
+  action family, terminal status, execution status, tool count, changed-file
+  count, validation issue count, and approval signal count without full runtime
+  snapshots.
 - Pulumi `AlreadyExists` or duplicate-name failures are classified as
   create-before-delete ordering conflicts when they occur during Pulumi
   preview/up/update. AWS Route failures can also expose route table and

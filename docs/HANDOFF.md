@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `e3b4b8a` Test LLM planner mode config
   - `40cc136` Test LLM planner transport contract
   - `05cc8d6` Feed identity conflicts into planner prompts
   - `f67f470` Categorize identity conflict reports
@@ -2771,6 +2772,42 @@ Purpose:
   LLM selection, and the missing-key error for `--planner llm`.
 - Persist the rule that LLM environment selection tests should use explicit env
   maps instead of process-wide mutation.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 239/239 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Claude Code Harness Pattern Slice
+
+Files added or updated:
+
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `src/agent/run-single-step.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Study local `learning-claude-code` harness design and persist reusable
+  patterns without copying implementation.
+- Add compact `harness.turnTrace` to `infra-agent.agent-result` so downstream
+  agents can understand per-turn action flow without loading full turns or
+  runtime snapshots.
+- Carry max-turn config into `AgentRunState` and compact handoff.
+- Keep the trace bounded and low-noise: action kind/family, confidence,
+  terminal flag, execution status, tool count, changed-file count, validation
+  issue count, approval signal count, stop signal, and clarification signal.
 
 Known validation:
 

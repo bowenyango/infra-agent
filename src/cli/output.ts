@@ -42,6 +42,22 @@ interface ValidationDerivedSemanticBlocker {
   message?: string;
 }
 
+interface CompactTurnTraceEntry {
+  index: number;
+  actionKind: string;
+  actionFamily: string | null;
+  confidence: string;
+  summary: string;
+  terminal: boolean;
+  executionStatus: string | null;
+  executedToolCount: number;
+  stopReason: string | null;
+  clarificationKind: string | null;
+  changedFileCount: number;
+  validationIssueCount: number;
+  approvalSignalCount: number;
+}
+
 export interface IdentityConflictIncident {
   engine: ValidationIdentityConflictSummary['engine'];
   issueKind: ValidationIdentityConflictSummary['issueKind'];
@@ -88,6 +104,10 @@ export interface CompactAgentRunResult {
   resultCard: string[];
   nextSteps: string[];
   suggestedCommands: string[];
+  harness: {
+    maxTurns: number;
+    turnTrace: CompactTurnTraceEntry[];
+  };
   validation: {
     status: string;
     findings: string;
@@ -398,6 +418,32 @@ function collectValidationDerivedSemanticBlockers(state: AgentRunState): Validat
       confidence: item.fact.confidence,
       message: item.fact.message
     }));
+}
+
+function isTerminalTurnAction(kind: string): boolean {
+  return kind === 'stop' || kind === 'ask-for-clarification';
+}
+
+function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
+  return state.turns.slice(0, 10).map(turn => ({
+    index: turn.index,
+    actionKind: turn.decision.action.kind,
+    actionFamily: turn.decision.action.payload?.actionFamily ?? null,
+    confidence: turn.decision.confidence,
+    summary: turn.decision.action.summary,
+    terminal: isTerminalTurnAction(turn.decision.action.kind),
+    executionStatus: turn.execution?.status ?? null,
+    executedToolCount: turn.execution?.executedTools.length ?? 0,
+    stopReason: turn.decision.action.payload?.stopReason ?? null,
+    clarificationKind: turn.decision.action.payload?.clarificationKind ?? null,
+    changedFileCount: turn.runtimeSnapshot.appliedWrites.length,
+    validationIssueCount: turn.runtimeSnapshot.validationIssues.length,
+    approvalSignalCount: turn.runtimeSnapshot.approvalSignals.length
+  }));
+}
+
+function getAgentMaxTurns(state: AgentRunState): number {
+  return (state as AgentRunState & { config?: { maxTurns?: number } }).config?.maxTurns ?? state.turns.length;
 }
 
 function collectValidationIdentityConflicts(state: AgentRunState): ValidationIdentityConflictSummary[] {
@@ -912,6 +958,10 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     resultCard: summarizeResultCard(state),
     nextSteps: summarizeRecommendedNextSteps(state),
     suggestedCommands: summarizeSuggestedCommands(state),
+    harness: {
+      maxTurns: getAgentMaxTurns(state),
+      turnTrace: collectCompactTurnTrace(state)
+    },
     validation: {
       status: summarizeValidationStatus(state),
       findings: summarizeValidationFindings(state),

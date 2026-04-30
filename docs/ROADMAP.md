@@ -274,6 +274,9 @@ Status on 2026-04-28:
 - LLM planner mode selection and environment precedence are testable with
   explicit environment maps, avoiding process-wide environment mutation in unit
   tests.
+- Claude Code harness design notes are persisted in
+  `docs/CLAUDE_CODE_AGENT_PATTERNS.md`; compact agent output includes
+  `harness.turnTrace` for low-noise per-turn handoff.
 
 ### Step 3: Add Syntax Validators
 

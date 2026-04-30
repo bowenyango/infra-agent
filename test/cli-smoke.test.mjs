@@ -4794,6 +4794,13 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(result.turns.length, 1);
     assert.equal(result.outcome, 'no-safe-action');
     assert.ok(result.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files'));
+    const compact = buildCompactAgentRunResult(result);
+    assert.equal(compact.harness.maxTurns, 1);
+    assert.equal(compact.harness.turnTrace.length, 1);
+    assert.equal(compact.harness.turnTrace[0]?.actionKind, 'inspect-target-files');
+    assert.equal(compact.harness.turnTrace[0]?.terminal, false);
+    assert.equal(compact.harness.turnTrace[0]?.executionStatus, 'completed');
+    assert.ok((compact.harness.turnTrace[0]?.executedToolCount ?? 0) > 0);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
