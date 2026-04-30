@@ -185,6 +185,7 @@ Development verification commands:
 - `npm run lint`
 - `npm run test`
 - `npm run smoke`
+- `npm run e2e`
 - `npm run verify`
 
 The current agent runtime now supports several bounded real slices:

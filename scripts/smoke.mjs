@@ -1,23 +1,66 @@
-import { mkdtemp, cp, rm, readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import { mkdtemp, cp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
+import { buildRunPreflight } from '../src/agent/build-run-preflight.ts';
+import { runSingleStep } from '../src/agent/run-single-step.ts';
+import { buildValidationPreflight } from '../src/validators/preflight.ts';
+import { buildWorkspaceInfraGraph } from '../src/impact/workspace-graph.ts';
+import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 
-function runCommand(args, options = {}) {
-  const result = spawnSync('node', args, {
-    cwd: resolve('.'),
-    encoding: 'utf8',
-    ...options
-  });
+async function smokeInspect(workspacePath) {
+  const inspection = await inspectWorkspace(workspacePath);
+  assert.ok(inspection.workspaceRoot);
+  return inspection;
+}
 
-  if (result.status !== 0) {
-    const stderr = result.stderr?.trim();
-    const stdout = result.stdout?.trim();
-    const output = [stdout, stderr].filter(Boolean).join('\n');
-    throw new Error(`Command failed: node ${args.join(' ')}\n${output}`);
-  }
+async function smokeValidate(workspacePath) {
+  const inspection = await smokeInspect(workspacePath);
+  const validation = buildValidationPreflight(inspection);
+  assert.ok(Array.isArray(validation.validators));
+  assert.ok(Array.isArray(validation.plan));
+  return validation;
+}
 
-  return result.stdout;
+async function smokeGraph(workspacePath) {
+  const inspection = await smokeInspect(workspacePath);
+  const graph = buildWorkspaceInfraGraph(inspection);
+  assert.equal(graph.kind, 'infra-agent.infra-graph');
+  assert.ok(graph.nodes.length > 0);
+  return graph;
+}
+
+async function writeIdentityConflictFixture(path) {
+  await writeFile(path, JSON.stringify({
+    kind: 'infra-agent.agent-result',
+    schemaVersion: 1,
+    task: 'update terraform listener priority',
+    workspaceRoot: '/workspace',
+    outcome: 'validation-blocked',
+    validation: {
+      identityConflicts: [
+        {
+          engine: 'terraform',
+          issueKind: 'terraform-create-before-delete-conflict',
+          conflictCode: 'PriorityInUse',
+          conflictFamily: 'aws-lb-listener-rule',
+          conflictLabel: 'AWS Load Balancer Listener Rule',
+          resourceAddress: 'aws_lb_listener_rule.api',
+          resourceName: null,
+          resourceType: 'aws_lb_listener_rule',
+          identity: {
+            listenerRulePriorities: '100'
+          },
+          reviewSteps: [
+            'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.'
+          ],
+          suggestedAction: 'Use an IaC-native rename mapping for logical renames.',
+          sourceCommand: 'terraform -chdir=terraform/payments-api plan'
+        }
+      ]
+    }
+  }), 'utf8');
 }
 
 async function main() {
@@ -39,110 +82,84 @@ async function main() {
     await cp(resolve('fixtures/repair-ingress-values-workspace'), repairIngressWorkspaceRoot, { recursive: true });
     await cp(resolve('fixtures/terraform-format-repair-workspace'), terraformRepairWorkspaceRoot, { recursive: true });
 
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', '--help']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/sample-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'graph', 'fixtures/sample-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'validate', 'fixtures/sample-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/scrawlr-infra-apps-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/scrawlr-infra-cloud-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/terraform-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'validate', 'fixtures/terraform-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'inspect', 'fixtures/terraform-format-repair-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'validate', 'fixtures/configured-workspace']);
-    runCommand(['--experimental-strip-types', 'src/cli/main.ts', 'run', 'add ingress to payments-api dev chart', '--workspace', 'fixtures/restricted-workspace']);
+    await smokeInspect('fixtures/sample-workspace');
+    await smokeGraph('fixtures/sample-workspace');
+    await smokeValidate('fixtures/sample-workspace');
+    await smokeInspect('fixtures/scrawlr-infra-apps-workspace');
+    await smokeInspect('fixtures/scrawlr-infra-cloud-workspace');
+    await smokeInspect('fixtures/terraform-workspace');
+    await smokeValidate('fixtures/terraform-workspace');
+    await smokeInspect('fixtures/terraform-format-repair-workspace');
+    await smokeValidate('fixtures/configured-workspace');
+    const restrictedPreflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/restricted-workspace');
+    assert.ok(restrictedPreflight.blockers.length > 0);
 
-    runCommand([
-      '--experimental-strip-types',
-      'src/cli/main.ts',
-      'agent',
+    const identityResultPath = join(tempRoot, 'identity-agent-result.json');
+    await writeIdentityConflictFixture(identityResultPath);
+    const identityReport = await loadIdentityConflictIncidentReport(identityResultPath);
+    assert.equal(identityReport.kind, 'infra-agent.identity-conflict-report');
+    assert.equal(identityReport.incidents[0]?.mutationAllowed, false);
+
+    await runSingleStep(
       'add ingress to payments-api dev chart',
-      '--workspace',
       ingressWorkspaceRoot,
-      '--planner',
+      undefined,
       'rule-based'
-    ]);
+    );
     const ingressValues = await readFile(join(ingressWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
     const ingressTemplate = await readFile(join(ingressWorkspaceRoot, 'charts/payments-api/templates/ingress.yaml'), 'utf8');
-    if (!ingressValues.includes('ingress:') || !ingressTemplate.includes('kind: Ingress')) {
-      throw new Error('ingress smoke check did not materialize expected chart changes.');
-    }
+    assert.match(ingressValues, /ingress:/);
+    assert.match(ingressTemplate, /kind: Ingress/);
 
-    runCommand([
-      '--experimental-strip-types',
-      'src/cli/main.ts',
-      'agent',
+    await runSingleStep(
       'add readiness and liveness probes to payments-api dev chart',
-      '--workspace',
       probeWorkspaceRoot,
-      '--planner',
+      undefined,
       'rule-based'
-    ]);
+    );
     const probeValues = await readFile(join(probeWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
     const deploymentTemplate = await readFile(join(probeWorkspaceRoot, 'charts/payments-api/templates/deployment.yaml'), 'utf8');
-    if (!probeValues.includes('probes:') || !deploymentTemplate.includes('readinessProbe:')) {
-      throw new Error('probe smoke check did not materialize expected deployment changes.');
-    }
+    assert.match(probeValues, /probes:/);
+    assert.match(deploymentTemplate, /readinessProbe:/);
 
-    runCommand([
-      '--experimental-strip-types',
-      'src/cli/main.ts',
-      'agent',
+    await runSingleStep(
       'update pulumi dev stack for payments-api image tag to 1.2.3',
-      '--workspace',
       pulumiWorkspaceRoot,
-      '--planner',
+      undefined,
       'rule-based'
-    ]);
+    );
     const pulumiStack = await readFile(join(pulumiWorkspaceRoot, 'infra/payments-api/Pulumi.dev.yaml'), 'utf8');
-    if (!pulumiStack.includes('payments-api:imageTag: 1.2.3')) {
-      throw new Error('Pulumi smoke check did not materialize expected stack config changes.');
-    }
+    assert.match(pulumiStack, /payments-api:imageTag: 1\.2\.3/);
 
-    runCommand([
-      '--experimental-strip-types',
-      'src/cli/main.ts',
-      'agent',
+    await runSingleStep(
       'add ingress to payments-api dev chart',
-      '--workspace',
       repairWorkspaceRoot,
-      '--planner',
+      undefined,
       'rule-based'
-    ]);
+    );
     const repairedValues = await readFile(join(repairWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
-    if (!repairedValues.includes('service:\n  port: 8080')) {
-      throw new Error('repair smoke check did not add the expected service.port repair.');
-    }
+    assert.match(repairedValues, /service:\n  port: 8080/);
 
-    runCommand([
-      '--experimental-strip-types',
-      'src/cli/main.ts',
-      'agent',
+    await runSingleStep(
       'add readiness and liveness probes to payments-api dev chart',
-      '--workspace',
       repairIngressWorkspaceRoot,
-      '--planner',
+      undefined,
       'rule-based'
-    ]);
+    );
     const repairedIngressValues = await readFile(join(repairIngressWorkspaceRoot, 'charts/payments-api/values.yaml'), 'utf8');
-    if (!repairedIngressValues.includes('ingress:') || !repairedIngressValues.includes('enabled: true')) {
-      throw new Error('ingress repair smoke check did not add the expected ingress values repair.');
-    }
+    assert.match(repairedIngressValues, /ingress:/);
+    assert.match(repairedIngressValues, /enabled: true/);
 
-    runCommand([
-      '--experimental-strip-types',
-      'src/cli/main.ts',
-      'agent',
+    await runSingleStep(
       'update terraform payments-api dev image tag to 2.3.4',
-      '--workspace',
       terraformRepairWorkspaceRoot,
-      '--planner',
+      undefined,
       'rule-based'
-    ]);
+    );
     const repairedTerraformMain = await readFile(join(terraformRepairWorkspaceRoot, 'terraform/payments-api/main.tf'), 'utf8');
     const repairedTerraformTfvars = await readFile(join(terraformRepairWorkspaceRoot, 'terraform/payments-api/dev.auto.tfvars'), 'utf8');
-    if (!repairedTerraformMain.includes('  image_tag   = var.image_tag') || !/image_tag\s*=\s*"2.3.4"/.test(repairedTerraformTfvars)) {
-      throw new Error('terraform repair smoke check did not format Terraform files and update tfvars as expected.');
-    }
+    assert.match(repairedTerraformMain, /  image_tag   = var\.image_tag/);
+    assert.match(repairedTerraformTfvars, /image_tag\s*=\s*"2\.3\.4"/);
 
     process.stdout.write(`smoke passed (${tempRoot})\n`);
   } finally {

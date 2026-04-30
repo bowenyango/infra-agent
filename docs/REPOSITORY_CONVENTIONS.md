@@ -50,5 +50,8 @@ When code is added, the repository should eventually support:
 - static type checking
 - unit tests for deterministic domain logic
 - integration tests for validator adapters
+- smoke tests for broad CLI regressions
+- E2E tests through the full runtime path when behavior must match the
+  user-facing command contract and actual file effects
 
 These should be added only when the corresponding implementation slice exists.

@@ -240,7 +240,7 @@ local-only and read the graph JSON. It should start with high-value views:
 - Review staged and unstaged work in `docs/HANDOFF.md`.
 - Commit or otherwise preserve the current slices intentionally.
 - Keep verification passing: `npm run lint`, `npm run test`, `npm run smoke`,
-  `git diff --check`.
+  `npm run e2e`, and `git diff --check`.
 
 ### Step 2: Make The Agent-Facing Surface Real
 

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `65eab57` Suggest identity report handoff commands
   - `453048a` Check identity report schema versions
   - `84bc3c9` Validate identity report inputs
   - `363ef24` Cover identity report file loading
@@ -2559,6 +2560,46 @@ Recommended next implementation slice:
 2. Add schema-version branching only when compact result schema version `2` is
    actually introduced.
 
+## 2026-04-30 Smoke And E2E Test Layer Slice
+
+Files added or updated:
+
+- `package.json`
+- `scripts/smoke.mjs`
+- `scripts/e2e.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/REPOSITORY_CONVENTIONS.md`
+
+Purpose:
+
+- Split verification scripts into explicit layers:
+  - `npm run test:unit` for deterministic unit-level Node tests.
+  - `npm run smoke` for broad CLI smoke coverage.
+  - `npm run e2e` for full runtime behavior with actual workspace file effects.
+- Extend smoke coverage to render `identity-report` in JSON and text modes.
+- Add E2E coverage that runs inspection, the agent loop, compact result
+  generation, and `identity-report`, then verifies actual Helm file changes and
+  report contracts.
+- Update `npm run verify` to execute lint, unit, smoke, and E2E layers.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 235/235 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Continue adding provider-specific checklist branches only when native output
+   examples provide precise identity boundaries.
+2. Keep new E2E cases focused on user-visible behavior and avoid duplicating
+   unit-level domain assertions.
+
 ## 2026-04-30 Identity Report Suggested Command Slice
 
 Files added or updated:
@@ -2603,5 +2644,6 @@ Use these before handing off or committing:
 npm run test
 npm run lint
 npm run smoke
+npm run e2e
 git diff --check
 ```
