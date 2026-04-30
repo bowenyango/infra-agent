@@ -124,7 +124,9 @@ Current behavior is intentionally runtime-foundation oriented:
   inspired by Claude Code's query harness design. It exposes action kind,
   terminal status, execution status, tool count, changed-file count, validation
   issue count, and approval signal count without exposing full runtime
-  snapshots.
+  snapshots. It also includes `harness.toolTrace`, a budgeted list of recent
+  deterministic tool summaries plus an omitted count, so downstream agents can
+  inspect execution evidence without loading raw tool output.
   The compact validation payload includes `identityConflicts`, a low-noise
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity

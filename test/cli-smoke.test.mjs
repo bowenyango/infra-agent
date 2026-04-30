@@ -4801,6 +4801,11 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.turnTrace[0]?.terminal, false);
     assert.equal(compact.harness.turnTrace[0]?.executionStatus, 'completed');
     assert.ok((compact.harness.turnTrace[0]?.executedToolCount ?? 0) > 0);
+    assert.equal(compact.harness.toolTrace.maxEntries, 8);
+    assert.equal(compact.harness.toolTrace.entries.length, Math.min(result.runtime.toolSummaries.length, 8));
+    assert.equal(compact.harness.toolTrace.omittedCount, Math.max(0, result.runtime.toolSummaries.length - 8));
+    assert.ok(compact.harness.toolTrace.entries.some(entry => entry.actionKind === 'inspect-target-files'));
+    assert.ok(compact.harness.toolTrace.entries.every(entry => entry.toolName.length > 0));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

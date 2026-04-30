@@ -27,7 +27,8 @@ guessing infrastructure conventions from generic IaC knowledge.
 4. Prefer `--json` when another agent will consume the result. This returns the
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. Read `harness.turnTrace` for the bounded
-   action flow before asking for raw logs. For replacement or
+   action flow and `harness.toolTrace` for budgeted recent tool summaries before
+   asking for raw logs. For replacement or
    duplicate-provider failures, read `validation.identityConflicts` before raw
    stderr or long guidance strings; it can include Terraform `resourceAddress`
    and Pulumi `resourceName` locators, `riskCategory` triage grouping, and

@@ -276,7 +276,8 @@ Status on 2026-04-28:
   tests.
 - Claude Code harness design notes are persisted in
   `docs/CLAUDE_CODE_AGENT_PATTERNS.md`; compact agent output includes
-  `harness.turnTrace` for low-noise per-turn handoff.
+  `harness.turnTrace` and `harness.toolTrace` for low-noise per-turn and
+  tool-summary handoff.
 
 ### Step 3: Add Syntax Validators
 

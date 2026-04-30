@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `33f0679` Add Claude Code inspired harness trace
   - `e3b4b8a` Test LLM planner mode config
   - `40cc136` Test LLM planner transport contract
   - `05cc8d6` Feed identity conflicts into planner prompts
@@ -2808,6 +2809,39 @@ Purpose:
 - Keep the trace bounded and low-noise: action kind/family, confidence,
   terminal flag, execution status, tool count, changed-file count, validation
   issue count, approval signal count, stop signal, and clarification signal.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 239/239 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Compact Harness Tool Trace Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Extend compact `infra-agent.agent-result` harness output with
+  `harness.toolTrace`.
+- Keep tool handoff budgeted to the latest deterministic tool summaries instead
+  of exposing raw tool payloads or complete runtime observations.
+- Include `maxEntries`, `omittedCount`, and compact per-tool fields:
+  turn index, action kind, tool name, safety, and summary.
+- Document that downstream agents should inspect `harness.toolTrace` before
+  asking for raw logs.
 
 Known validation:
 

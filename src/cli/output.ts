@@ -58,6 +58,14 @@ interface CompactTurnTraceEntry {
   approvalSignalCount: number;
 }
 
+interface CompactToolTraceEntry {
+  turnIndex: number;
+  actionKind: string;
+  toolName: string;
+  safety: string;
+  summary: string;
+}
+
 export interface IdentityConflictIncident {
   engine: ValidationIdentityConflictSummary['engine'];
   issueKind: ValidationIdentityConflictSummary['issueKind'];
@@ -107,6 +115,11 @@ export interface CompactAgentRunResult {
   harness: {
     maxTurns: number;
     turnTrace: CompactTurnTraceEntry[];
+    toolTrace: {
+      maxEntries: number;
+      omittedCount: number;
+      entries: CompactToolTraceEntry[];
+    };
   };
   validation: {
     status: string;
@@ -424,6 +437,8 @@ function isTerminalTurnAction(kind: string): boolean {
   return kind === 'stop' || kind === 'ask-for-clarification';
 }
 
+const COMPACT_TOOL_TRACE_LIMIT = 8;
+
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
   return state.turns.slice(0, 10).map(turn => ({
     index: turn.index,
@@ -444,6 +459,23 @@ function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] 
 
 function getAgentMaxTurns(state: AgentRunState): number {
   return (state as AgentRunState & { config?: { maxTurns?: number } }).config?.maxTurns ?? state.turns.length;
+}
+
+function collectCompactToolTrace(state: AgentRunState): CompactAgentRunResult['harness']['toolTrace'] {
+  const summaries = state.runtime.toolSummaries ?? [];
+  const entries = summaries.slice(-COMPACT_TOOL_TRACE_LIMIT).map(summary => ({
+    turnIndex: summary.turnIndex,
+    actionKind: summary.actionKind,
+    toolName: summary.toolName,
+    safety: summary.safety,
+    summary: summary.summary
+  }));
+
+  return {
+    maxEntries: COMPACT_TOOL_TRACE_LIMIT,
+    omittedCount: Math.max(0, summaries.length - entries.length),
+    entries
+  };
 }
 
 function collectValidationIdentityConflicts(state: AgentRunState): ValidationIdentityConflictSummary[] {
@@ -960,7 +992,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     suggestedCommands: summarizeSuggestedCommands(state),
     harness: {
       maxTurns: getAgentMaxTurns(state),
-      turnTrace: collectCompactTurnTrace(state)
+      turnTrace: collectCompactTurnTrace(state),
+      toolTrace: collectCompactToolTrace(state)
     },
     validation: {
       status: summarizeValidationStatus(state),

@@ -45,6 +45,8 @@ durable design reference for infra-agent development.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
   runtime snapshots, and raw tool output.
+- `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
+  deterministic tool summaries and an omitted count, not full tool outputs.
 - `validation.identityConflicts`, `runtimeIdentityConflicts`, and
   `identity-report` are blocker-specific handoff surfaces. They must remain
   review-only until a separate remediation planner and approval model exists.
