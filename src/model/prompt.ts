@@ -42,8 +42,9 @@ function summarizeIdentityConflicts(runtime: AgentRuntimeState): object[] {
 function summarizeApprovalSignals(runtime: AgentRuntimeState): object[] {
   return runtime.approvalSignals.map(signal => ({
     kind: signal.kind,
-    path: signal.path,
-    risk: signal.risk,
+    path: signal.kind === 'write-approval-required' ? signal.path : null,
+    risk: signal.kind === 'write-approval-required' ? signal.risk : null,
+    toolCategory: signal.kind === 'tool-category-approval-required' ? signal.toolCategory : null,
     message: signal.message
   }));
 }

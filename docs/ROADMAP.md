@@ -287,6 +287,9 @@ Status on 2026-04-28:
 - Tool summaries now carry explicit permission categories, and compact harness
   output aggregates workspace mutations, native CLI calls, and stack/state
   mutation-risk tools.
+- Workspace approval policy can now require explicit approval for tool
+  categories, with `--approve-tool-category` used to resume gated native
+  operations.
 
 ### Step 3: Add Syntax Validators
 

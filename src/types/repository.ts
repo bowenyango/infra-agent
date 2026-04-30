@@ -1,6 +1,7 @@
 import type { EditPlanKind, FileWriteMode, FileWriteRisk } from './edit-plan.ts';
 import type { ConfigSemanticsSummary } from './config-semantics.ts';
 import type { ResolvedKnowledgeCacheRoot } from './knowledge.ts';
+import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
 
 export type RepoProfileId = 'generic' | 'scrawlr-infra-apps' | 'scrawlr-infra-cloud';
 export type InfraDomainId = 'helm' | 'pulumi' | 'terraform';
@@ -47,6 +48,7 @@ export interface WorkspaceAgentConfig {
   };
   approvalPolicy?: {
     requiredWriteRisks?: FileWriteRisk[];
+    requiredToolCategories?: ToolPermissionCategory[];
     pathRules?: WorkspaceApprovalPathRule[];
   };
   validation?: {
@@ -58,10 +60,12 @@ export interface WorkspaceAgentConfig {
 export interface RunApprovalScope {
   approvedWritePaths: string[];
   approvedWriteRisks: FileWriteRisk[];
+  approvedToolCategories: ToolPermissionCategory[];
 }
 
 export interface ResolvedApprovalPolicy {
   requiredWriteRisks: FileWriteRisk[];
+  requiredToolCategories: ToolPermissionCategory[];
   pathRules: WorkspaceApprovalPathRule[];
   sources: string[];
 }

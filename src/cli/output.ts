@@ -79,6 +79,14 @@ interface CompactToolTraceEntry {
   summary: string;
 }
 
+interface CompactApprovalSignal {
+  kind: ApprovalSignal['kind'];
+  message: string;
+  path: string | null;
+  risk: string | null;
+  toolCategory: string | null;
+}
+
 export interface IdentityConflictIncident {
   engine: ValidationIdentityConflictSummary['engine'];
   issueKind: ValidationIdentityConflictSummary['issueKind'];
@@ -146,7 +154,8 @@ export interface CompactAgentRunResult {
   };
   approval: {
     requiredWriteRisks: string[];
-    signals: Pick<ApprovalSignal, 'kind' | 'path' | 'risk' | 'message'>[];
+    requiredToolCategories: string[];
+    signals: CompactApprovalSignal[];
   };
   knowledgeCache: WorkspaceInspection['knowledgeCache'];
   knowledgeContext: RetrievedContextBudgetSummary;
@@ -515,6 +524,24 @@ function collectToolPermissionAggregate(state: AgentRunState): ToolPermissionAgg
   );
 }
 
+function compactApprovalSignal(signal: ApprovalSignal): CompactApprovalSignal {
+  return {
+    kind: signal.kind,
+    message: signal.message,
+    path: signal.kind === 'write-approval-required' ? signal.path : null,
+    risk: signal.kind === 'write-approval-required' ? signal.risk : null,
+    toolCategory: signal.kind === 'tool-category-approval-required' ? signal.toolCategory : null
+  };
+}
+
+function formatApprovalSignal(signal: ApprovalSignal): string {
+  if (signal.kind === 'write-approval-required') {
+    return `${signal.risk}-risk write at ${signal.path}`;
+  }
+
+  return `tool category ${signal.toolCategory}`;
+}
+
 function collectValidationIdentityConflicts(state: AgentRunState): ValidationIdentityConflictSummary[] {
   return collectRuntimeIdentityConflicts(state.runtime.validationIssues);
 }
@@ -776,7 +803,7 @@ function summarizeOpenConcern(state: AgentRunState): string {
   switch (state.outcome) {
     case 'approval-required':
       if (topApprovalSignal) {
-        return `Approval required for ${topApprovalSignal.risk}-risk write at ${topApprovalSignal.path}.`;
+        return `Approval required for ${formatApprovalSignal(topApprovalSignal)}.`;
       }
 
       return 'Approval is required before the agent can continue.';
@@ -810,7 +837,7 @@ function summarizeReviewFocus(state: AgentRunState): string {
   const topValidationIssue = state.runtime.validationIssues[0];
 
   if (state.outcome === 'approval-required') {
-    return 'Review the scoped high-risk write before granting approval.';
+    return 'Review the scoped write or native operation before granting approval.';
   }
 
   if (primaryDomain === 'helm') {
@@ -936,7 +963,7 @@ function summarizeNextOperatorStep(state: AgentRunState): string {
         : `Run ${reviewCommand} and review the bounded change before merging or handing off the update.`;
     case 'approval-required':
       if (topApprovalSignal) {
-        return `Decide whether to approve the ${topApprovalSignal.risk}-risk write for ${topApprovalSignal.path} before continuing.`;
+        return `Decide whether to approve ${formatApprovalSignal(topApprovalSignal)} before continuing.`;
       }
 
       return 'Decide whether to approve the pending scoped write before continuing.';
@@ -1074,12 +1101,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     },
     approval: {
       requiredWriteRisks: [...state.preflight.effectiveApprovalPolicy.requiredWriteRisks],
-      signals: state.runtime.approvalSignals.slice(0, 5).map(signal => ({
-        kind: signal.kind,
-        path: signal.path,
-        risk: signal.risk,
-        message: signal.message
-      }))
+      requiredToolCategories: [...state.preflight.effectiveApprovalPolicy.requiredToolCategories],
+      signals: state.runtime.approvalSignals.slice(0, 5).map(compactApprovalSignal)
     },
     knowledgeCache: state.preflight.inspection.knowledgeCache,
     knowledgeContext: budgetRetrievedContext(
@@ -1210,7 +1233,15 @@ export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
   lines.push(`Requested service: ${state.requestedService ?? 'undetected'}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path} (score=${topTarget.score})` : 'undetected'}`);
   lines.push(`Validation readiness: ${unavailableValidators.length === 0 ? 'all configured validators available' : `missing ${unavailableValidators.join(', ')}`}`);
-  lines.push(`Approval posture: ${state.effectiveApprovalPolicy.requiredWriteRisks.length > 0 ? `writes with risk ${state.effectiveApprovalPolicy.requiredWriteRisks.join(', ')} require approval` : 'no approval rules active'}`);
+  const approvalRules = [
+    state.effectiveApprovalPolicy.requiredWriteRisks.length > 0
+      ? `writes with risk ${state.effectiveApprovalPolicy.requiredWriteRisks.join(', ')} require approval`
+      : null,
+    state.effectiveApprovalPolicy.requiredToolCategories.length > 0
+      ? `tool categories ${state.effectiveApprovalPolicy.requiredToolCategories.join(', ')} require approval`
+      : null
+  ].filter((rule): rule is string => Boolean(rule));
+  lines.push(`Approval posture: ${approvalRules.length > 0 ? approvalRules.join('; ') : 'no approval rules active'}`);
 
   if (state.blockers[0]) {
     lines.push(`Top blocker: ${state.blockers[0]}`);
@@ -1268,8 +1299,8 @@ export function summarizeRecommendedNextSteps(state: AgentRunState): string[] {
       steps.push('Review the bounded file changes and keep the validated output as the proposed infra update.');
       return steps;
     case 'approval-required':
-      steps.push('Approve the flagged write risk or write path before asking the agent to continue.');
-      steps.push('Use --approve-write-risk and optionally --approve-write-path to continue the same task with explicit approval.');
+      steps.push('Approve the flagged write risk, write path, or tool category before asking the agent to continue.');
+      steps.push('Use --approve-write-risk with optional --approve-write-path, or --approve-tool-category, to continue the same task with explicit approval.');
       return steps;
     case 'clarification-required':
       if (lastTurn?.decision.action.payload?.questions?.length) {
@@ -1315,6 +1346,12 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   switch (state.outcome) {
     case 'approval-required':
       if (topApprovalSignal) {
+        if (topApprovalSignal.kind === 'tool-category-approval-required') {
+          return [
+            `${base} agent ${taskFlag} ${workspaceFlag} --approve-tool-category ${topApprovalSignal.toolCategory}`
+          ];
+        }
+
         return [
           `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${topApprovalSignal.risk} --approve-write-path ${shellQuote(topApprovalSignal.path)}`
         ];
@@ -1592,11 +1629,17 @@ export function printRunPreflight(state: RunPreflightState): void {
   process.stdout.write(
     `approved write paths: ${state.approval.approvedWritePaths.length > 0 ? state.approval.approvedWritePaths.join(', ') : 'none'}\n`
   );
+  process.stdout.write(
+    `approved tool categories: ${state.approval.approvedToolCategories.length > 0 ? state.approval.approvedToolCategories.join(', ') : 'none'}\n`
+  );
   process.stdout.write('\n');
 
   printHeader('Effective Approval Policy');
   process.stdout.write(
     `required write risks: ${state.effectiveApprovalPolicy.requiredWriteRisks.length > 0 ? state.effectiveApprovalPolicy.requiredWriteRisks.join(', ') : 'none'}\n`
+  );
+  process.stdout.write(
+    `required tool categories: ${state.effectiveApprovalPolicy.requiredToolCategories.length > 0 ? state.effectiveApprovalPolicy.requiredToolCategories.join(', ') : 'none'}\n`
   );
   printList(
     state.effectiveApprovalPolicy.pathRules.map(
@@ -1831,7 +1874,7 @@ export function printAgentRunState(state: AgentRunState): void {
   process.stdout.write('\n');
   printHeader('Approval Signals');
   printList(
-    state.runtime.approvalSignals.map(signal => `${signal.kind} ${signal.path} [risk=${signal.risk}]: ${signal.message}`),
+    state.runtime.approvalSignals.map(signal => `${signal.kind} ${formatApprovalSignal(signal)}: ${signal.message}`),
     'No approval signals recorded.'
   );
 

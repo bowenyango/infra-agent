@@ -26,6 +26,9 @@ guessing infrastructure conventions from generic IaC knowledge.
 
    Use `--context-packet-limit <n>` or `--context-token-budget <n>` when the
    caller needs a stricter retrieved-doc context budget.
+   If the result pauses on a tool-category approval, rerun with
+   `--approve-tool-category <category>` only after the user approves that native
+   operation category.
 
 4. Prefer `--json` when another agent will consume the result. This returns the
    compact `infra-agent.agent-result` payload; reserve `--json-full` for

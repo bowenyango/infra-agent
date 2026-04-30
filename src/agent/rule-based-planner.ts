@@ -398,10 +398,10 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           confidence: 'high',
           action: {
             kind: 'ask-for-clarification',
-            summary: 'Approve high-risk rewrite operations before applying changes.',
-            rationale: 'The current edit plan includes one or more high-risk full-file rewrites that should be explicitly approved before execution.',
+            summary: 'Approve gated operations before applying changes.',
+            rationale: 'The current edit plan includes one or more writes or native operations that workspace policy requires explicit approval for before execution.',
             payload: {
-              questions: runtime.approvalSignals.map(signal => `${signal.message} Proceed with this rewrite?`),
+              questions: runtime.approvalSignals.map(signal => `${signal.message} Proceed with this operation?`),
               clarificationKind: 'approval-required',
               actionFamily: actionFamilyForClarification(input, 'approval-required')
             }

@@ -3126,13 +3126,16 @@ test('workspace config overrides validation plan entries', async () => {
 test('buildRunPreflight records explicit approval scope', async () => {
   const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
     approvedWriteRisks: ['high'],
-    approvedWritePaths: ['charts/payments-api']
+    approvedWritePaths: ['charts/payments-api'],
+    approvedToolCategories: ['native-stack-config-write']
   });
 
   assert.deepEqual(preflight.approval.approvedWriteRisks, ['high']);
   assert.deepEqual(preflight.approval.approvedWritePaths, ['charts/payments-api']);
+  assert.deepEqual(preflight.approval.approvedToolCategories, ['native-stack-config-write']);
   assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write risks')));
   assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for write paths')));
+  assert.ok(preflight.assumptions.some(assumption => assumption.includes('Explicit approval granted for tool categories')));
 });
 
 test('summarizePreflightSnapshot highlights primary target and top ambiguity', async () => {
@@ -4268,7 +4271,7 @@ test('rule-based planner asks for clarification before high-risk rewrite edits',
   });
 
   assert.equal(decision.action.kind, 'ask-for-clarification');
-  assert.match(decision.action.summary, /high-risk rewrite/i);
+  assert.match(decision.action.summary, /gated operations/i);
   assert.equal(decision.action.payload?.clarificationKind, 'approval-required');
 });
 
@@ -4438,6 +4441,104 @@ test('scrawlr infra-cloud profile applies default medium-risk approval globally'
   assert.equal(signals.length, 1);
   assert.equal(signals[0]?.path, 'networking/Pulumi.non-prod.yaml');
   assert.equal(signals[0]?.risk, 'medium');
+});
+
+test('collectApprovalSignals applies tool category approval rules for native stack config writes', async () => {
+  const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      inspection: {
+        ...preflight.inspection,
+        config: {
+          approvalPolicy: {
+            requiredWriteRisks: [],
+            requiredToolCategories: ['native-stack-config-write']
+          }
+        }
+      }
+    },
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'pulumi-stack-config',
+      summary: 'Synthetic native stack config write.',
+      rationale: 'Tool category approval policy test.',
+      pulumiConfigOperations: [
+        {
+          projectRoot: 'infra/payments-api',
+          stackName: 'dev',
+          key: 'payments-api:imageTag',
+          value: '1.2.3'
+        }
+      ],
+      writes: [
+        {
+          path: 'infra/payments-api/Pulumi.dev.yaml',
+          content: 'config:\n  payments-api:imageTag: 1.2.3\n',
+          reason: 'Synthetic Pulumi config write.'
+        }
+      ]
+    }
+  });
+
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.kind, 'tool-category-approval-required');
+  assert.equal(signals[0]?.toolCategory, 'native-stack-config-write');
+});
+
+test('explicit approval scope can suppress tool category approval signals', async () => {
+  const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace', {
+    approvedToolCategories: ['native-stack-config-write']
+  });
+  const signals = collectApprovalSignals({
+    task: preflight.task,
+    preflight: {
+      ...preflight,
+      inspection: {
+        ...preflight.inspection,
+        config: {
+          approvalPolicy: {
+            requiredWriteRisks: [],
+            requiredToolCategories: ['native-stack-config-write']
+          }
+        }
+      }
+    },
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: {
+      kind: 'pulumi-stack-config',
+      summary: 'Synthetic native stack config write.',
+      rationale: 'Tool category approval policy test.',
+      pulumiConfigOperations: [
+        {
+          projectRoot: 'infra/payments-api',
+          stackName: 'dev',
+          key: 'payments-api:imageTag',
+          value: '1.2.3'
+        }
+      ],
+      writes: [
+        {
+          path: 'infra/payments-api/Pulumi.dev.yaml',
+          content: 'config:\n  payments-api:imageTag: 1.2.3\n',
+          reason: 'Synthetic Pulumi config write.'
+        }
+      ]
+    }
+  });
+
+  assert.equal(signals.length, 0);
 });
 
 test('collectApprovalSignals suppresses matching explicit approval grants only for the approved path scope', async () => {
@@ -4873,6 +4974,8 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
     '2',
     '--context-token-budget',
     '500',
+    '--approve-tool-category',
+    'native-stack-config-write',
     '--json'
   ]);
 
@@ -4883,6 +4986,7 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
   assert.equal(parsed.maxTurns, 1);
   assert.equal(parsed.contextPacketLimit, 2);
   assert.equal(parsed.contextTokenBudget, 500);
+  assert.deepEqual(parsed.approvedToolCategories, ['native-stack-config-write']);
   assert.equal(parsed.json, true);
   assert.equal(parsed.jsonFull, false);
 });
@@ -5914,7 +6018,7 @@ test('summarizeRecommendedNextSteps suggests approval continuation for approval-
     ]
   });
 
-  assert.ok(steps.some(step => /approve the flagged write risk or write path/i.test(step)));
+  assert.ok(steps.some(step => /approve the flagged write risk, write path, or tool category/i.test(step)));
   assert.ok(steps.some(step => /--approve-write-risk/i.test(step)));
 });
 
@@ -6672,7 +6776,7 @@ test('summarizeResultCard includes approval-required posture', async () => {
 
   assert.ok(summary.some(line => /Run posture: paused pending explicit approval for a scoped high-risk change/i.test(line)));
   assert.ok(summary.some(line => /Open concern: Approval required for high-risk write at charts\/payments-api\/templates\/deployment\.yaml/i.test(line)));
-  assert.ok(summary.some(line => /Next operator step: Decide whether to approve the high-risk write for charts\/payments-api\/templates\/deployment\.yaml before continuing\./i.test(line)));
+  assert.ok(summary.some(line => /Next operator step: Decide whether to approve high-risk write at charts\/payments-api\/templates\/deployment\.yaml before continuing\./i.test(line)));
 });
 
 test('summarizeResultCard includes clarification concern from the planner question', async () => {

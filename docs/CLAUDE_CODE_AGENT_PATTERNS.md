@@ -51,6 +51,9 @@ durable design reference for infra-agent development.
   reads/writes, native CLI validation, native CLI writes, and stack config
   mutation-risk tools. Downstream agents should reason from these categories
   before asking for raw command output.
+- Tool-category approval is a harness gate. Keep it explicit in workspace
+  policy and run approval scope, and resume with `--approve-tool-category`
+  instead of treating native operations as ordinary file writes.
 - `retrievedContextBudget` and compact `knowledgeContext` summaries are the
   context-compaction boundary for official docs, schemas, and examples. They
   should report packet/token budgets and omissions without exposing raw cached

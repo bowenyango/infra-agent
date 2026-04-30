@@ -4,7 +4,7 @@ import type { ValidationCommandOutput } from './tools.ts';
 import type { ConfigSemanticsSummary } from './config-semantics.ts';
 import type { RetrievedContextPacket } from './knowledge.ts';
 import type { QueryLoopContextBudgetConfig } from '../query-config.ts';
-import type { ToolPermissionSummary } from '../agent/tool-permissions.ts';
+import type { ToolPermissionCategory, ToolPermissionSummary } from '../agent/tool-permissions.ts';
 export type AgentActionKind =
   | 'ask-for-clarification'
   | 'inspect-target-files'
@@ -137,12 +137,18 @@ export interface ValidationIssue {
   };
 }
 
-export interface ApprovalSignal {
-  kind: 'write-approval-required';
-  path: string;
-  risk: FileWriteRisk;
-  message: string;
-}
+export type ApprovalSignal =
+  | {
+      kind: 'write-approval-required';
+      path: string;
+      risk: FileWriteRisk;
+      message: string;
+    }
+  | {
+      kind: 'tool-category-approval-required';
+      toolCategory: ToolPermissionCategory;
+      message: string;
+    };
 
 export interface AgentPlanningInput {
   runtime: AgentRuntimeState;

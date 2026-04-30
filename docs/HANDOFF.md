@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `5d44d1e` Summarize tool permission categories
   - `b59add1` Expose context budget query config
   - `5d112ca` Budget retrieved context handoff
   - `0a56d76` Add compact harness tool trace
@@ -2969,6 +2970,48 @@ Known validation:
 - `npm run verify`: passed.
 - `npm run lint`: passed.
 - `npm run test:unit`: 240/240 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Tool Category Approval Gate Slice
+
+Files added or updated:
+
+- `src/types/repository.ts`
+- `src/types/agent.ts`
+- `src/domain/workspace-policy.ts`
+- `src/agent/collect-approval-signals.ts`
+- `src/agent/build-run-preflight.ts`
+- `src/agent/rule-based-planner.ts`
+- `src/model/prompt.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add workspace approval policy support for required tool permission
+  categories, for example `native-stack-config-write`.
+- Add run approval scope support for `approvedToolCategories`.
+- Add CLI support for `--approve-tool-category <category>`.
+- Emit `tool-category-approval-required` signals when an edit plan includes a
+  configured approval-required native operation category.
+- Keep defaults compatible: no tool category requires approval unless workspace
+  config requests it.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 242/242 passed.
 - `npm run smoke`: passed.
 - `npm run e2e`: passed.
 - `git diff --check`: passed.

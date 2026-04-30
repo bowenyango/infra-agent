@@ -143,6 +143,9 @@ Current implemented source:
 - `harness.toolPermissionSummary` aggregates permission categories such as
   workspace mutations, native CLI calls, and stack/state mutation-risk tools.
   Use it before recommending any follow-up that may mutate state or stacks.
+- Workspace approval policy can require tool-category approval. When compact
+  output reports `tool-category-approval-required`, use
+  `--approve-tool-category <category>` only after explicit user approval.
 - Planner prompts include `retrievedContextBudget` and only budgeted retrieved
   context packets. Compact `agent --json` exposes `knowledgeContext` with
   packet counts, token estimates, and omitted reasons so downstream agents can

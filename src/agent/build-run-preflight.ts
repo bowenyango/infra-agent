@@ -174,6 +174,10 @@ export async function buildRunPreflight(
     assumptions.push(`Explicit approval granted for write paths: ${normalizedApprovalScope.approvedWritePaths.join(', ')}.`);
   }
 
+  if (normalizedApprovalScope.approvedToolCategories.length > 0) {
+    assumptions.push(`Explicit approval granted for tool categories: ${normalizedApprovalScope.approvedToolCategories.join(', ')}.`);
+  }
+
   if (requestedDomains.length > 1) {
     assumptions.push(`Task currently references multiple infrastructure domains (${requestedDomains.join(', ')}). Clarify the primary domain before editing if the change should be scoped to a single system.`);
   }
@@ -244,6 +248,10 @@ export async function buildRunPreflight(
 
   if (effectiveApprovalPolicy.requiredWriteRisks.length > 0) {
     nextActions.push(`Respect workspace approval policy for write risks: ${effectiveApprovalPolicy.requiredWriteRisks.join(', ')}.`);
+  }
+
+  if (effectiveApprovalPolicy.requiredToolCategories.length > 0) {
+    nextActions.push(`Respect workspace approval policy for tool categories: ${effectiveApprovalPolicy.requiredToolCategories.join(', ')}.`);
   }
 
   return {

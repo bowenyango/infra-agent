@@ -7,6 +7,7 @@ import type {
 } from '../types/repository.ts';
 import type { FileWritePlan } from '../types/edit-plan.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
+import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
 
 function normalizePolicyPath(path: string): string {
   return path.replace(/^\.\/+/, '').replace(/\/+$/, '');
@@ -39,6 +40,10 @@ function getDefaultApprovalRequiredWriteRisks(profileId: RepoProfileId): FileWri
     default:
       return ['high'];
   }
+}
+
+function getDefaultApprovalRequiredToolCategories(_profileId: RepoProfileId): ToolPermissionCategory[] {
+  return [];
 }
 
 function getDefaultApprovalPolicySources(profileId: RepoProfileId): string[] {
@@ -106,6 +111,18 @@ export function getApprovalRequiredWriteRisks(
   return [...configuredRisks];
 }
 
+export function getApprovalRequiredToolCategories(
+  config: WorkspaceAgentConfig | null,
+  profileId: RepoProfileId = 'generic'
+): ToolPermissionCategory[] {
+  const configuredCategories = config?.approvalPolicy?.requiredToolCategories;
+  if (configuredCategories === undefined) {
+    return getDefaultApprovalRequiredToolCategories(profileId);
+  }
+
+  return [...configuredCategories];
+}
+
 export function getApprovalPathRules(
   config: WorkspaceAgentConfig | null,
   profileId: RepoProfileId = 'generic'
@@ -128,6 +145,7 @@ export function resolveEffectiveApprovalPolicy(
   profileId: RepoProfileId = 'generic'
 ): ResolvedApprovalPolicy {
   const requiredWriteRisks = getApprovalRequiredWriteRisks(config, profileId);
+  const requiredToolCategories = getApprovalRequiredToolCategories(config, profileId);
   const pathRules = getApprovalPathRules(config, profileId);
   const sources =
     config?.approvalPolicy === undefined
@@ -136,6 +154,7 @@ export function resolveEffectiveApprovalPolicy(
 
   return {
     requiredWriteRisks,
+    requiredToolCategories,
     pathRules,
     sources
   };
@@ -178,7 +197,8 @@ export function isApprovalRequiredForWrite(
 export function normalizeApprovalScope(scope: Partial<RunApprovalScope> | null | undefined): RunApprovalScope {
   return {
     approvedWritePaths: (scope?.approvedWritePaths ?? []).map(normalizePolicyPath),
-    approvedWriteRisks: [...(scope?.approvedWriteRisks ?? [])]
+    approvedWriteRisks: [...(scope?.approvedWriteRisks ?? [])],
+    approvedToolCategories: [...(scope?.approvedToolCategories ?? [])]
   };
 }
 
@@ -203,4 +223,19 @@ export function isWriteCoveredByApproval(write: FileWritePlan, approval: RunAppr
   }
 
   return isPathCoveredByApproval(write.path, approval);
+}
+
+export function isApprovalRequiredForToolCategory(
+  category: ToolPermissionCategory,
+  config: WorkspaceAgentConfig | null,
+  profileId: RepoProfileId = 'generic'
+): boolean {
+  return getApprovalRequiredToolCategories(config, profileId).includes(category);
+}
+
+export function isToolCategoryCoveredByApproval(
+  category: ToolPermissionCategory,
+  approval: RunApprovalScope
+): boolean {
+  return approval.approvedToolCategories.includes(category);
 }

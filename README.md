@@ -67,8 +67,8 @@ The current repository includes a minimal TypeScript CLI skeleton with seven com
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
 - `infra-agent identity-report <agent-result.json> [--json]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
-- `infra-agent run "<task>" [--workspace <path>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]`
+- `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
 Current behavior is intentionally runtime-foundation oriented:
 
@@ -149,7 +149,11 @@ Current behavior is intentionally runtime-foundation oriented:
   When a run is blocked by runtime exclusive-identity conflicts, suggested
   commands include an `agent --json > agent-result.json` export followed by
   `identity-report agent-result.json --json`.
-- `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
+- `agent` can resume past approval-required pauses by rerunning with explicit
+  approval flags such as `--approve-write-risk high` with optional
+  `--approve-write-path charts/payments-api`, or
+  `--approve-tool-category native-stack-config-write` for workspace-configured
+  native operation approvals.
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront
   `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, Route53

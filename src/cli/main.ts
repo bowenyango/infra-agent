@@ -9,6 +9,7 @@ import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 import type { InfraDomainId } from '../types/repository.ts';
+import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
@@ -35,6 +36,7 @@ export interface ParsedArgs {
   planner: PlannerMode;
   approvedWritePaths: string[];
   approvedWriteRisks: FileWriteRisk[];
+  approvedToolCategories: ToolPermissionCategory[];
   maxTurns: number | null;
   contextPacketLimit: number | null;
   contextTokenBudget: number | null;
@@ -56,8 +58,8 @@ function printUsage(): void {
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
-      '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
+      '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
     ].join('\n')
   );
@@ -66,6 +68,18 @@ function printUsage(): void {
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
   exit(1);
+}
+
+function isToolPermissionCategory(value: string | undefined): value is ToolPermissionCategory {
+  return value === 'workspace-read'
+    || value === 'workspace-write'
+    || value === 'local-validation'
+    || value === 'native-cli-read'
+    || value === 'native-cli-validation'
+    || value === 'native-cli-write'
+    || value === 'native-stack-config-write'
+    || value === 'approval-required'
+    || value === 'unknown';
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -80,6 +94,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
+      approvedToolCategories: [],
       maxTurns: null,
       contextPacketLimit: null,
       contextTokenBudget: null,
@@ -109,6 +124,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
+      approvedToolCategories: [],
       maxTurns: null,
       contextPacketLimit: null,
       contextTokenBudget: null,
@@ -186,6 +202,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
+      approvedToolCategories: [],
       maxTurns: null,
       contextPacketLimit: null,
       contextTokenBudget: null,
@@ -221,6 +238,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
+      approvedToolCategories: [],
       maxTurns: null,
       contextPacketLimit: null,
       contextTokenBudget: null,
@@ -299,6 +317,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
+      approvedToolCategories: [],
       maxTurns: null,
       contextPacketLimit: null,
       contextTokenBudget: null,
@@ -318,6 +337,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let contextTokenBudget: number | null = null;
     const approvedWritePaths: string[] = [];
     const approvedWriteRisks: FileWriteRisk[] = [];
+    const approvedToolCategories: ToolPermissionCategory[] = [];
     const taskArgs: string[] = [];
 
     for (let index = 0; index < cleanArgs.length; index += 1) {
@@ -403,6 +423,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--approve-tool-category') {
+        const categoryValue = cleanArgs[index + 1];
+        if (!isToolPermissionCategory(categoryValue)) {
+          fail('Missing or invalid value for --approve-tool-category.');
+        }
+
+        approvedToolCategories.push(categoryValue);
+        index += 1;
+        continue;
+      }
+
       taskArgs.push(arg);
     }
 
@@ -421,6 +452,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       planner,
       approvedWritePaths,
       approvedWriteRisks,
+      approvedToolCategories,
       maxTurns,
       contextPacketLimit,
       contextTokenBudget,
@@ -532,7 +564,8 @@ async function main(): Promise<void> {
   if (parsed.command === 'agent') {
     const agentRunState = await runSingleStep(parsed.task, parsed.workspace, undefined, parsed.planner, {
       approvedWritePaths: parsed.approvedWritePaths,
-      approvedWriteRisks: parsed.approvedWriteRisks
+      approvedWriteRisks: parsed.approvedWriteRisks,
+      approvedToolCategories: parsed.approvedToolCategories
     }, {
       maxTurns: parsed.maxTurns ?? undefined,
       retrievedContextBudget: {
@@ -552,7 +585,8 @@ async function main(): Promise<void> {
 
   const preflight = await buildRunPreflight(parsed.task, parsed.workspace, {
     approvedWritePaths: parsed.approvedWritePaths,
-    approvedWriteRisks: parsed.approvedWriteRisks
+    approvedWriteRisks: parsed.approvedWriteRisks,
+    approvedToolCategories: parsed.approvedToolCategories
   });
   if (parsed.json) {
     process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
