@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `f0ccb17` Handle all-protocol security rule identity
   - `7423955` Classify security runtime conflicts
   - `2039f49` Add VPC security group rule identity conflicts
   - `15fe5a9` Add security rule identity conflicts
@@ -2014,6 +2015,46 @@ Known validation:
 
 - `npm run lint`: passed.
 - `npm run test`: 223/223 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime validation families only from representative provider CLI
+   outputs with clear identity boundaries.
+2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 Listener Rule Runtime Conflict Classifier Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `src/types/agent.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Extend runtime validation classification for Pulumi provider-exclusive
+  ordering failures to AWS load balancer listener rule priority conflicts.
+- Classify `PriorityInUse` outputs with listener-rule context as
+  `conflictFamily=aws-lb-listener-rule`.
+- Extract listener ARNs and listener rule priorities when parseable from CLI
+  output.
+- Add family-specific guidance that keeps aliases, import, state repair, free
+  priority selection, and delete-before-create sequencing behind native
+  preview/state review and explicit approval.
+- Keep the issue kind stable as `pulumi-create-before-delete-conflict`.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 224/224 passed.
 - `npm run smoke`: passed.
 - `git diff --check`: passed.
 

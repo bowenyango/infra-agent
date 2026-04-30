@@ -110,6 +110,8 @@ export interface ValidationIssue {
     conflictFamily?: string;
     duplicateIdentity?: string;
     dnsNames?: string;
+    listenerArns?: string;
+    listenerRulePriorities?: string;
     missingConfigKey?: string;
     missingVariableName?: string;
     providerName?: string;

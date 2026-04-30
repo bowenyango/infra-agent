@@ -119,10 +119,11 @@ Current behavior is intentionally runtime-foundation oriented:
 - Runtime validation issue classification recognizes Pulumi provider
   exclusive-identity failures including CloudFront `CNAMEAlreadyExists`, API
   Gateway domain `ConflictException`, and Route53 `InvalidChangeBatch` record
-  conflicts, security group rule `InvalidPermission.Duplicate`, and IAM OIDC
-  provider `EntityAlreadyExists`, and reports them as non-repairable ordering
-  blockers that require preview/state review before aliases,
-  `deleteBeforeReplace`, import, or state repair.
+  conflicts, load balancer listener rule `PriorityInUse`, security group rule
+  `InvalidPermission.Duplicate`, and IAM OIDC provider `EntityAlreadyExists`,
+  and reports them as non-repairable ordering blockers that require
+  preview/state review before aliases, `deleteBeforeReplace`, import, or state
+  repair.
 - `inspect` resolves the knowledge-cache root used for future docs/schema
   context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;
   otherwise `infra-agent.config.json` may set a workspace-relative

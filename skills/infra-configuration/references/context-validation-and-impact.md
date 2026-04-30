@@ -142,6 +142,8 @@ Current implemented source:
   Security group rule `InvalidPermission.Duplicate` and IAM OIDC provider
   `EntityAlreadyExists` failures are classified the same way with rule peer,
   security group, or OIDC URL metadata when parseable.
+  Load balancer listener rule `PriorityInUse` failures are classified the same
+  way with listener ARN and priority metadata when parseable.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

@@ -301,6 +301,8 @@ function summarizeValidationFindings(state: AgentRunState): string {
 
     const identity = topIssue.metadata?.dnsNames
       || topIssue.metadata?.oidcProviderUrls
+      || topIssue.metadata?.listenerRulePriorities
+      || topIssue.metadata?.listenerArns
       || topIssue.metadata?.securityGroupRulePeers
       || topIssue.metadata?.securityGroupIds
       || topIssue.metadata?.duplicateIdentity;

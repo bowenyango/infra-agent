@@ -6,6 +6,8 @@ interface PulumiCreateBeforeDeleteConflictFacts {
   conflictFamily: string;
   duplicateIdentity: string | null;
   dnsNames: string[];
+  listenerArns: string[];
+  listenerRulePriorities: string[];
   oidcProviderUrls: string[];
   providerName: string | null;
   recordTypes: string[];
@@ -102,6 +104,19 @@ function extractRecordTypes(output: string): string[] {
   return uniqueMatches(output, /\btype=['"`]?([A-Z][A-Z0-9_]*)['"`]?/gi).slice(0, 8);
 }
 
+function extractListenerArns(output: string): string[] {
+  return uniqueMatches(output, /\b(arn:aws[a-z-]*:elasticloadbalancing:[^,\s'")]+)/gi)
+    .map(arn => arn.replace(/[.:]+$/g, ''))
+    .slice(0, 8);
+}
+
+function extractListenerRulePriorities(output: string): string[] {
+  return [...new Set([
+    ...uniqueMatches(output, /\bpriority\s+['"`]?(\d{1,5})['"`]?/gi),
+    ...uniqueMatches(output, /\bPriority\s+['"`](\d{1,5})['"`]/g)
+  ])].slice(0, 8);
+}
+
 function extractSecurityGroupIds(output: string): string[] {
   return uniqueMatches(output, /\b(sg-[0-9a-f]+)\b/gi).slice(0, 8);
 }
@@ -133,7 +148,7 @@ function extractOidcProviderUrls(output: string): string[] {
 }
 
 function conflictCodeFromOutput(output: string, resourceType: string | null): string | null {
-  const directConflictCode = output.match(/\b(RouteAlreadyExists|BucketAlreadyExists|BucketAlreadyOwnedByYou|EntityAlreadyExists|ResourceAlreadyExistsException|RepositoryAlreadyExistsException|QueueAlreadyExists|TopicAlreadyExists|DBInstanceAlreadyExists|TableAlreadyExistsException|AlreadyExistsException|InvalidGroup\.Duplicate|InvalidPermission\.Duplicate|CNAMEAlreadyExists)\b/i)?.[1];
+  const directConflictCode = output.match(/\b(RouteAlreadyExists|BucketAlreadyExists|BucketAlreadyOwnedByYou|EntityAlreadyExists|ResourceAlreadyExistsException|RepositoryAlreadyExistsException|QueueAlreadyExists|TopicAlreadyExists|DBInstanceAlreadyExists|TableAlreadyExistsException|AlreadyExistsException|InvalidGroup\.Duplicate|InvalidPermission\.Duplicate|PriorityInUse|CNAMEAlreadyExists)\b/i)?.[1];
   if (directConflictCode) {
     return directConflictCode;
   }
@@ -172,6 +187,10 @@ function conflictFamilyFromFacts(params: {
     return 'aws-security-group-rule';
   }
 
+  if (params.conflictCode === 'PriorityInUse' && /listener.?rule|ListenerRule|priority/i.test(params.resourceType ?? params.output)) {
+    return 'aws-lb-listener-rule';
+  }
+
   if (params.conflictCode === 'EntityAlreadyExists' && /open.?id.?connect|oidc|oidc-provider|OpenIdConnectProvider/i.test(params.resourceType ?? params.output)) {
     return 'aws-iam-oidc-provider';
   }
@@ -205,6 +224,8 @@ function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCre
     }),
     duplicateIdentity: extractDuplicateIdentity(output),
     dnsNames: extractDnsNames(output),
+    listenerArns: extractListenerArns(output),
+    listenerRulePriorities: extractListenerRulePriorities(output),
     oidcProviderUrls: extractOidcProviderUrls(output),
     providerName,
     recordTypes: extractRecordTypes(output),
@@ -242,6 +263,12 @@ function buildPulumiCreateBeforeDeleteConflictGuidance(facts: PulumiCreateBefore
     const groupText = facts.securityGroupIds.length > 0 ? ` in security group(s) ${facts.securityGroupIds.join(', ')}` : '';
     const peerText = facts.securityGroupRulePeers.length > 0 ? ` for peer(s) ${facts.securityGroupRulePeers.join(', ')}` : '';
     return `Pulumi attempted to create a security group rule${groupText}${peerText} before the existing duplicate permission was deleted or adopted, and the provider returned ${facts.conflictCode}. Review the preview for matching direction, protocol, port range, security group, and peer. Use aliases/import/state repair for logical adoption or renames, avoid mixing inline, legacy, and VPC-style rule managers for the same group, or explicitly sequence delete-before-create after approval.`;
+  }
+
+  if (facts.conflictFamily === 'aws-lb-listener-rule') {
+    const listenerText = facts.listenerArns.length > 0 ? ` on listener(s) ${facts.listenerArns.join(', ')}` : '';
+    const priorityText = facts.listenerRulePriorities.length > 0 ? ` for priority ${facts.listenerRulePriorities.join(', ')}` : '';
+    return `Pulumi attempted to create a load balancer listener rule${listenerText}${priorityText} before the existing rule priority was moved or removed, and the provider returned ${facts.conflictCode}. Review the preview for matching listenerArn and priority. Use aliases/import/state repair for logical adoption or renames, choose a free priority for coexistence, or explicitly sequence old rule removal before creating the replacement after approval.`;
   }
 
   if (facts.conflictFamily === 'aws-iam-oidc-provider') {
@@ -353,6 +380,8 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
             conflictFamily: createBeforeDeleteConflictFacts.conflictFamily,
             duplicateIdentity: createBeforeDeleteConflictFacts.duplicateIdentity ?? undefined,
             dnsNames: createBeforeDeleteConflictFacts.dnsNames.join(','),
+            listenerArns: createBeforeDeleteConflictFacts.listenerArns.join(','),
+            listenerRulePriorities: createBeforeDeleteConflictFacts.listenerRulePriorities.join(','),
             oidcProviderUrls: createBeforeDeleteConflictFacts.oidcProviderUrls.join(','),
             providerName: createBeforeDeleteConflictFacts.providerName ?? undefined,
             recordTypes: createBeforeDeleteConflictFacts.recordTypes.join(','),

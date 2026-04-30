@@ -7653,6 +7653,31 @@ test('classifyValidationIssues marks Pulumi security group duplicate permission 
   assert.match(issues[0]?.guidance ?? '', /inline, legacy, and VPC-style rule managers/);
 });
 
+test('classifyValidationIssues marks Pulumi listener rule priority conflicts', () => {
+  const listenerArn = 'arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/api/50dc6c495c0c9188/f2f7dc8efc522ab2';
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/edge --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:lb/listenerRule:ListenerRule (api-https):',
+        `error: api error PriorityInUse: Priority '100' is currently in use on listener ${listenerArn}: provider=aws@7.23.0`
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'PriorityInUse');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-lb-listener-rule');
+  assert.equal(issues[0]?.metadata?.listenerArns, listenerArn);
+  assert.equal(issues[0]?.metadata?.listenerRulePriorities, '100');
+  assert.match(issues[0]?.guidance ?? '', /load balancer listener rule/);
+  assert.match(issues[0]?.guidance ?? '', /listenerArn and priority/);
+  assert.match(issues[0]?.guidance ?? '', /choose a free priority/);
+});
+
 test('classifyValidationIssues marks Pulumi IAM OIDC provider duplicate conflicts', () => {
   const issues = classifyValidationIssues([
     {
