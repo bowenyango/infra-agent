@@ -428,6 +428,36 @@ function formatIdentityConflictFields(identity: Record<string, string>): string 
   return entries.map(([key, value]) => `${key}=${value}`).join(', ');
 }
 
+function buildIdentityConflictSpecificReviewStep(metadata: ValidationIssue['metadata']): string {
+  switch (metadata?.conflictFamily) {
+    case 'aws-route':
+      return 'Confirm route table ID, destination CIDR/prefix, and the old/new route target before deciding rename, import, or delete-before-create sequencing.';
+    case 'aws-lb-listener-rule':
+      return 'Confirm listener ARN and priority match the existing listener rule; choose a free priority when the old and new rules must coexist.';
+    case 'aws-security-group-rule':
+    case 'aws-vpc-security-group-rule':
+      return 'Confirm direction, protocol, port range, security group ID, and peer; duplicate security permissions cannot coexist in the provider API.';
+    case 'aws-cloudfront-alias':
+      return 'Confirm alternate domain names, certificate coverage, distribution ownership, and DNS cutover before alias transfer or import.';
+    case 'aws-api-gateway-domain-name':
+      return 'Confirm custom domain ownership, certificate mapping, and base path mappings before import, replacement, or manual sequencing.';
+    case 'aws-route53-record':
+      return 'Confirm record name, type, hosted zone ownership, and whether overwrite/import or DNS cutover is the intended remediation.';
+    case 'aws-iam-oidc-provider':
+      return 'Confirm OIDC provider URL and account ownership before import, delete, or recreate sequencing.';
+    case 'aws-s3-bucket':
+      return 'Confirm physical bucket name, account ownership, region expectations, and retention/data policies before import, delete, or recreate.';
+    case 'aws-named-resource':
+      return 'Confirm the physical resource name, owning account/region, and service ownership before import, delete, or recreate sequencing.';
+    case 'kubernetes-namespaced-object':
+      return 'Confirm API kind, metadata.name, metadata.namespace, and owning stack/release before alias, import, delete, or recreate sequencing.';
+    case 'kubernetes-namespace':
+      return 'Confirm namespace name and cluster ownership before import, delete, or recreate sequencing.';
+    default:
+      return 'Confirm the matched provider-exclusive identity belongs to the intended resource, module, stack, and environment.';
+  }
+}
+
 function buildIdentityConflictReviewSteps(
   engine: ValidationIdentityConflictSummary['engine'],
   issue: ValidationIssue
@@ -444,7 +474,7 @@ function buildIdentityConflictReviewSteps(
     locator
       ? `Review ${engineLabel} locator ${locator} against existing state/stack ownership.`
       : `Review the native ${engineLabel} state/preview output to find the resource that owns the ${label} identity.`,
-    `Confirm ${label} identity (${identity}) belongs to the intended resource, module, stack, and environment.`,
+    `${buildIdentityConflictSpecificReviewStep(issue.metadata)} Matched identity: ${identity}.`,
     engine === 'terraform'
       ? 'If this is a logical rename, prefer a reviewed moved block or terraform state mv mapping before retrying plan.'
       : 'If this is a logical rename, prefer a reviewed Pulumi alias, import, or state repair before retrying preview.',

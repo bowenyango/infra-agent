@@ -6181,6 +6181,7 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.equal(compact.validation.identityConflicts[0]?.identity.listenerRulePriorities, '100');
   assert.equal(compact.validation.identityConflicts[0]?.reviewSteps.length, 5);
   assert.match(compact.validation.identityConflicts[0]?.reviewSteps[0] ?? '', /aws_lb_listener_rule\.api/);
+  assert.match(compact.validation.identityConflicts[0]?.reviewSteps[1] ?? '', /listener ARN and priority/i);
   assert.match(compact.validation.identityConflicts[0]?.reviewSteps[2] ?? '', /moved block|terraform state mv/i);
   assert.match(compact.validation.identityConflicts[0]?.suggestedAction ?? '', /listener priority/i);
 });

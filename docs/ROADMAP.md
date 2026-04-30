@@ -405,7 +405,10 @@ Status on 2026-04-28:
   candidates without reparsing raw stderr.
   Compact identity conflicts include review-only checklist steps for logical
   rename vs real replacement triage before moved-block, alias, import/state
-  repair, or sequencing decisions.
+  repair, or sequencing decisions. Checklist steps can include provider-family
+  identity checks such as route table plus destination, listener plus priority,
+  security group permission peers, DNS/domain ownership, OIDC URLs, physical
+  AWS names, and Kubernetes name/namespace ownership.
   Kubernetes `AlreadyExists` failures can also include parsed object names and
   namespaces for agent-to-agent handoff. AWS named-resource failures such as
   ECR repository or IAM role duplicates can include parsed physical names as

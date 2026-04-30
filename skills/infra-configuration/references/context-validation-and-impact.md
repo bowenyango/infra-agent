@@ -180,8 +180,11 @@ Current implemented source:
   source command without requiring raw stderr parsing.
 - `validation.identityConflicts[].reviewSteps` is a compact review checklist for
   downstream agents. It should guide logical rename vs real replacement triage
-  and native plan/preview reruns, but it must remain read-only until explicit
-  approval covers any state, stack, import, alias, or sequencing change.
+  and native plan/preview reruns. Provider-family checks can call out route
+  table/destination, listener priority, security permission peer, DNS/domain
+  ownership, OIDC URL, physical AWS name, or Kubernetes name/namespace
+  ownership. The checklist must remain read-only until explicit approval covers
+  any state, stack, import, alias, or sequencing change.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`
