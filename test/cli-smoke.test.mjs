@@ -4765,6 +4765,16 @@ test('runSingleStep records deterministic tool execution summaries', async () =>
     assert.ok(result.runtime.toolSummaries.some(summary => summary.summary.includes('Loaded Helm values for charts/payments-api')));
     assert.ok(result.runtime.toolSummaries.some(summary => summary.summary.includes('Previewed diff for charts/payments-api/values.yaml')));
     assert.ok(result.runtime.toolSummaries.every(summary => typeof summary.turnIndex === 'number'));
+    assert.ok(result.runtime.toolSummaries.some(summary =>
+      summary.toolName === 'helm_show_values'
+      && summary.permission.category === 'native-cli-read'
+      && summary.permission.externalCommand
+    ));
+    assert.ok(result.runtime.toolSummaries.some(summary =>
+      summary.toolName === 'append_file'
+      && summary.permission.category === 'workspace-write'
+      && summary.permission.mutatesWorkspace
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -4837,6 +4847,8 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.toolTrace.omittedCount, Math.max(0, result.runtime.toolSummaries.length - 8));
     assert.ok(compact.harness.toolTrace.entries.some(entry => entry.actionKind === 'inspect-target-files'));
     assert.ok(compact.harness.toolTrace.entries.every(entry => entry.toolName.length > 0));
+    assert.equal(compact.harness.toolPermissionSummary.totalToolCount, result.runtime.toolSummaries.length);
+    assert.ok(compact.harness.toolPermissionSummary.externalCommandToolCount > 0);
     assert.equal(compact.knowledgeContext.totalPacketCount, result.runtime.retrievedContext.length);
     assert.equal(
       compact.knowledgeContext.includedPacketCount,
@@ -6247,6 +6259,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Review command: .*pulumi preview .*infra\/payments-api.*--stack dev/i.test(line)));
   assert.ok(summary.some(line => /Next operator step: Run .*pulumi preview .*infra\/payments-api.*--stack dev.*review the bounded change before merging or handing off the update\./i.test(line)));
   assert.ok(summary.some(line => /Tool trace: t0:Set Pulumi config payments-api:imageTag in infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
+  assert.ok(summary.some(line => /Permission posture: 1 tool\(s\); 1 workspace mutation\(s\); 1 native command\(s\); 1 stack\/state mutation-risk tool\(s\)/i.test(line)));
   assert.ok(summary.some(line => /Changed files: infra\/payments-api\/Pulumi\.dev\.yaml/i.test(line)));
   assert.ok(summary.some(line => /Native CLI operations: Pulumi CLI/i.test(line)));
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));

@@ -4,6 +4,7 @@ import type { ValidationCommandOutput } from './tools.ts';
 import type { ConfigSemanticsSummary } from './config-semantics.ts';
 import type { RetrievedContextPacket } from './knowledge.ts';
 import type { QueryLoopContextBudgetConfig } from '../query-config.ts';
+import type { ToolPermissionSummary } from '../agent/tool-permissions.ts';
 export type AgentActionKind =
   | 'ask-for-clarification'
   | 'inspect-target-files'
@@ -86,6 +87,7 @@ export interface ToolExecutionSummary {
   actionKind: AgentActionKind;
   toolName: string;
   safety: ToolSafety;
+  permission: ToolPermissionSummary;
   summary: string;
 }
 

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `b59add1` Expose context budget query config
   - `5d112ca` Budget retrieved context handoff
   - `0a56d76` Add compact harness tool trace
   - `33f0679` Add Claude Code inspired harness trace
@@ -2922,6 +2923,46 @@ Purpose:
   `--context-token-budget <n>` for LLM planner experiments and downstream
   agent control.
 - Keep defaults unchanged unless a caller explicitly overrides the budget.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 240/240 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Tool Permission Summary Slice
+
+Files added or updated:
+
+- `src/agent/tool-permissions.ts`
+- `src/types/agent.ts`
+- `src/query.ts`
+- `src/model/prompt.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add explicit permission categories for tool results: workspace read/write,
+  local validation, native CLI read/validation/write, native stack config
+  write, and approval-required.
+- Attach `permission` metadata to deterministic `ToolExecutionSummary` records.
+- Add `toolPermissionSummary` to planner prompts so LLM decisions can see
+  workspace mutation, native command, and stack/state mutation-risk counts.
+- Extend compact `harness.toolTrace` entries with permission fields and add
+  `harness.toolPermissionSummary` for downstream agents.
+- Keep this as a structured observation layer; it does not yet change execution
+  gates or approval policy behavior.
 
 Known validation:
 

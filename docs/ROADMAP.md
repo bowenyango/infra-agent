@@ -284,6 +284,9 @@ Status on 2026-04-28:
 - Context packet and token budgets are explicit query harness config and can be
   adjusted from the CLI with `--context-packet-limit` and
   `--context-token-budget`.
+- Tool summaries now carry explicit permission categories, and compact harness
+  output aggregates workspace mutations, native CLI calls, and stack/state
+  mutation-risk tools.
 
 ### Step 3: Add Syntax Validators
 

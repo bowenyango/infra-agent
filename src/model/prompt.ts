@@ -2,6 +2,7 @@ import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentS
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 import { collectRuntimeIdentityConflicts } from '../agent/identity-conflicts.ts';
 import { budgetRetrievedContext } from '../knowledge/context-budget.ts';
+import { aggregateToolPermissions, classifyToolPermission } from '../agent/tool-permissions.ts';
 
 function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
   return runtime.validationResults.slice(-6).map(result => {
@@ -49,6 +50,14 @@ function summarizeApprovalSignals(runtime: AgentRuntimeState): object[] {
 
 function summarizeObservations(runtime: AgentRuntimeState): string[] {
   return runtime.observations.slice(-12).map(result => `${result.toolName} (${result.safety})`);
+}
+
+function summarizeToolPermissions(runtime: AgentRuntimeState): object {
+  return aggregateToolPermissions(
+    (runtime.toolSummaries ?? []).map(summary =>
+      summary.permission ?? classifyToolPermission(summary.toolName, summary.safety)
+    )
+  );
 }
 
 function summarizeEditPlan(runtime: AgentRuntimeState): object | null {
@@ -152,6 +161,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       blockers: runtime.preflight.blockers,
       nextActions: runtime.preflight.nextActions,
       observationSummary: summarizeObservations(runtime),
+      toolPermissionSummary: summarizeToolPermissions(runtime),
       appliedWrites: runtime.appliedWrites.map(write => ({
         path: write.path,
         reason: write.reason

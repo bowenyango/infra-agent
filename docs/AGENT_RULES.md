@@ -143,6 +143,7 @@
 - LLM planner client tests must use injected transports or mocked fetchers. Do not make unit, smoke, or E2E tests depend on live LLM providers or external network availability.
 - Test LLM planner mode and environment selection through explicit environment maps. Avoid mutating `process.env` in tests unless a behavior specifically requires process-level integration.
 - Follow `docs/CLAUDE_CODE_AGENT_PATTERNS.md` when evolving the harness: prefer compact structured turn traces, tool summaries, and explicit permission/validation state over raw logs or full runtime snapshots in agent-facing output.
+- Tool summaries must preserve permission categories for workspace mutation, native CLI execution, and stack/state mutation-risk tools. Do not collapse these into generic "tool ran" prose.
 - Planner prompts must pass retrieved official-doc/schema context through the context budget helper. Do not inject full cached documents or unbounded excerpts into LLM prompts.
 - Treat retrieved context packet/token budgets as query harness configuration. Prefer `--context-packet-limit` and `--context-token-budget` for experiments instead of changing budget constants ad hoc.
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.

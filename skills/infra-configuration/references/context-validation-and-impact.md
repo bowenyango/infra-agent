@@ -140,6 +140,9 @@ Current implemented source:
 - Compact `agent --json` also includes `harness.toolTrace`, a bounded list of
   recent deterministic tool summaries with `omittedCount`. Prefer it over full
   tool result payloads when deciding what happened in the run.
+- `harness.toolPermissionSummary` aggregates permission categories such as
+  workspace mutations, native CLI calls, and stack/state mutation-risk tools.
+  Use it before recommending any follow-up that may mutate state or stacks.
 - Planner prompts include `retrievedContextBudget` and only budgeted retrieved
   context packets. Compact `agent --json` exposes `knowledgeContext` with
   packet counts, token estimates, and omitted reasons so downstream agents can

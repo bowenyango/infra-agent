@@ -47,6 +47,10 @@ durable design reference for infra-agent development.
   runtime snapshots, and raw tool output.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
   deterministic tool summaries and an omitted count, not full tool outputs.
+- Tool summaries should carry explicit permission categories such as workspace
+  reads/writes, native CLI validation, native CLI writes, and stack config
+  mutation-risk tools. Downstream agents should reason from these categories
+  before asking for raw command output.
 - `retrievedContextBudget` and compact `knowledgeContext` summaries are the
   context-compaction boundary for official docs, schemas, and examples. They
   should report packet/token budgets and omissions without exposing raw cached

@@ -15,6 +15,7 @@ import type { RetrievedContextPacket } from './types/knowledge.ts';
 import { retrieveTerraformProviderSchemaContextPackets } from './domain/terraform-provider-schema.ts';
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
 import { retrieveHelmChartContextPackets } from './domain/helm-chart-context.ts';
+import { classifyToolPermission } from './agent/tool-permissions.ts';
 import type {
   DiffPreviewOutput,
   DirectoryListingOutput,
@@ -70,7 +71,8 @@ function summarizeExecutedTool(params: {
     turnIndex,
     actionKind,
     toolName: toolResult.toolName,
-    safety: toolResult.safety
+    safety: toolResult.safety,
+    permission: classifyToolPermission(toolResult.toolName, toolResult.safety)
   };
 
   switch (toolResult.toolName) {

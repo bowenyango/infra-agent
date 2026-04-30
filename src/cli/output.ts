@@ -1,4 +1,5 @@
 import type { AgentRunState } from '../agent/run-single-step.ts';
+import type { ToolSafety } from '../Tool.ts';
 import type { ApprovalSignal, ValidationIssue } from '../types/agent.ts';
 import type {
   DomainCapabilitySummary,
@@ -30,6 +31,12 @@ import {
 } from '../agent/identity-conflicts.ts';
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
+import {
+  aggregateToolPermissions,
+  classifyToolPermission,
+  type ToolPermissionAggregate,
+  type ToolPermissionSummary
+} from '../agent/tool-permissions.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
@@ -64,6 +71,11 @@ interface CompactToolTraceEntry {
   actionKind: string;
   toolName: string;
   safety: string;
+  permissionCategory: string;
+  mutatesWorkspace: boolean;
+  mutatesExternalState: boolean;
+  externalCommand: boolean;
+  approvalRequired: boolean;
   summary: string;
 }
 
@@ -121,6 +133,7 @@ export interface CompactAgentRunResult {
       omittedCount: number;
       entries: CompactToolTraceEntry[];
     };
+    toolPermissionSummary: ToolPermissionAggregate;
   };
   validation: {
     status: string;
@@ -463,21 +476,43 @@ function getAgentMaxTurns(state: AgentRunState): number {
   return (state as AgentRunState & { config?: { maxTurns?: number } }).config?.maxTurns ?? state.turns.length;
 }
 
+function getToolPermissionSummary(summary: {
+  toolName: string;
+  safety: ToolSafety;
+  permission?: ToolPermissionSummary;
+}): ToolPermissionSummary {
+  return summary.permission ?? classifyToolPermission(summary.toolName, summary.safety);
+}
+
 function collectCompactToolTrace(state: AgentRunState): CompactAgentRunResult['harness']['toolTrace'] {
   const summaries = state.runtime.toolSummaries ?? [];
-  const entries = summaries.slice(-COMPACT_TOOL_TRACE_LIMIT).map(summary => ({
-    turnIndex: summary.turnIndex,
-    actionKind: summary.actionKind,
-    toolName: summary.toolName,
-    safety: summary.safety,
-    summary: summary.summary
-  }));
+  const entries = summaries.slice(-COMPACT_TOOL_TRACE_LIMIT).map(summary => {
+    const permission = getToolPermissionSummary(summary);
+    return {
+      turnIndex: summary.turnIndex,
+      actionKind: summary.actionKind,
+      toolName: summary.toolName,
+      safety: summary.safety,
+      permissionCategory: permission.category,
+      mutatesWorkspace: permission.mutatesWorkspace,
+      mutatesExternalState: permission.mutatesExternalState,
+      externalCommand: permission.externalCommand,
+      approvalRequired: permission.approvalRequired,
+      summary: summary.summary
+    };
+  });
 
   return {
     maxEntries: COMPACT_TOOL_TRACE_LIMIT,
     omittedCount: Math.max(0, summaries.length - entries.length),
     entries
   };
+}
+
+function collectToolPermissionAggregate(state: AgentRunState): ToolPermissionAggregate {
+  return aggregateToolPermissions(
+    (state.runtime.toolSummaries ?? []).map(summary => getToolPermissionSummary(summary))
+  );
 }
 
 function collectValidationIdentityConflicts(state: AgentRunState): ValidationIdentityConflictSummary[] {
@@ -936,6 +971,29 @@ function summarizeToolTrace(state: AgentRunState): string {
   return `${latest.join(' | ')}${omitted > 0 ? ` (+${omitted} earlier)` : ''}`;
 }
 
+function summarizePermissionPosture(state: AgentRunState): string {
+  const aggregate = collectToolPermissionAggregate(state);
+  if (aggregate.totalToolCount === 0) {
+    return 'no tools executed';
+  }
+
+  const parts = [
+    `${aggregate.totalToolCount} tool(s)`,
+    `${aggregate.workspaceMutationToolCount} workspace mutation(s)`,
+    `${aggregate.externalCommandToolCount} native command(s)`
+  ];
+
+  if (aggregate.externalStateMutationToolCount > 0) {
+    parts.push(`${aggregate.externalStateMutationToolCount} stack/state mutation-risk tool(s)`);
+  }
+
+  if (aggregate.approvalRequiredToolCount > 0) {
+    parts.push(`${aggregate.approvalRequiredToolCount} approval-gated tool(s)`);
+  }
+
+  return parts.join('; ');
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -949,6 +1007,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Review command: ${summarizeReviewCommand(state)}`);
   lines.push(`Next operator step: ${summarizeNextOperatorStep(state)}`);
   lines.push(`Tool trace: ${summarizeToolTrace(state)}`);
+  lines.push(`Permission posture: ${summarizePermissionPosture(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
@@ -995,7 +1054,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     harness: {
       maxTurns: getAgentMaxTurns(state),
       turnTrace: collectCompactTurnTrace(state),
-      toolTrace: collectCompactToolTrace(state)
+      toolTrace: collectCompactToolTrace(state),
+      toolPermissionSummary: collectToolPermissionAggregate(state)
     },
     validation: {
       status: summarizeValidationStatus(state),

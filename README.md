@@ -129,7 +129,9 @@ Current behavior is intentionally runtime-foundation oriented:
   issue count, and approval signal count without exposing full runtime
   snapshots. It also includes `harness.toolTrace`, a budgeted list of recent
   deterministic tool summaries plus an omitted count, so downstream agents can
-  inspect execution evidence without loading raw tool output.
+  inspect execution evidence and permission categories without loading raw tool
+  output. `harness.toolPermissionSummary` aggregates workspace mutations,
+  native CLI calls, and stack/state mutation-risk tools.
   Retrieved official-doc/schema context is budgeted before planner handoff, and
   compact results expose `knowledgeContext` with packet/token counts and
   omitted-context reasons instead of raw excerpts.
