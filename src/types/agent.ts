@@ -113,6 +113,8 @@ export interface ValidationIssue {
     conflictSuggestedAction?: string;
     duplicateIdentity?: string;
     dnsNames?: string;
+    kubernetesNames?: string;
+    kubernetesNamespaces?: string;
     listenerArns?: string;
     listenerRulePriorities?: string;
     missingConfigKey?: string;

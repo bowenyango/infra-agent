@@ -7638,6 +7638,32 @@ test('classifyValidationIssues uses shared specs for Terraform bucket identity c
   assert.match(issues[0]?.guidance ?? '', /moved blocks/);
 });
 
+test('classifyValidationIssues extracts Terraform Kubernetes object identity conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/apps apply -auto-approve',
+      exitCode: 1,
+      stdout: '',
+      stderr: [
+        'Error: services "payments-api" already exists',
+        '',
+        '  with kubernetes_service.api,',
+        '  on service.tf line 4, in resource "kubernetes_service" "api":'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'terraform-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'AlreadyExists');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'kubernetes-namespaced-object');
+  assert.equal(issues[0]?.metadata?.conflictLabel, 'Kubernetes namespaced object');
+  assert.equal(issues[0]?.metadata?.resourceType, 'kubernetes_service');
+  assert.equal(issues[0]?.metadata?.kubernetesNames, 'payments-api');
+  assert.match(issues[0]?.guidance ?? '', /metadata\.name, and metadata\.namespace/);
+  assert.match(issues[0]?.guidance ?? '', /Kubernetes object named payments-api/);
+});
+
 test('classifyValidationIssues marks missing Pulumi config as pulumi-missing-config', () => {
   const issues = classifyValidationIssues([
     {
@@ -7702,6 +7728,31 @@ test('classifyValidationIssues marks generic Pulumi already-exists conflicts', (
   assert.match(issues[0]?.guidance ?? '', /same provider identity/i);
   assert.match(issues[0]?.guidance ?? '', /Provider rule:/);
   assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/i);
+});
+
+test('classifyValidationIssues extracts Pulumi Kubernetes object identity conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/apps --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'kubernetes:core/v1:Service (payments-api):',
+        'error: resource default/payments-api was not successfully created by the Kubernetes API server : services "payments-api" already exists'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'AlreadyExists');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'kubernetes-namespaced-object');
+  assert.equal(issues[0]?.metadata?.conflictLabel, 'Kubernetes namespaced object');
+  assert.equal(issues[0]?.metadata?.resourceType, 'kubernetes:core/v1:Service');
+  assert.equal(issues[0]?.metadata?.kubernetesNames, 'payments-api');
+  assert.equal(issues[0]?.metadata?.kubernetesNamespaces, 'default');
+  assert.match(issues[0]?.guidance ?? '', /namespace\(s\) default/);
+  assert.match(issues[0]?.guidance ?? '', /aliases\/import\/state repair/);
 });
 
 test('classifyValidationIssues marks Pulumi CloudFront alias conflicts', () => {

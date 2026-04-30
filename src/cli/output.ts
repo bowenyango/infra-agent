@@ -314,6 +314,8 @@ function summarizeValidationFindings(state: AgentRunState): string {
     }
 
     const identity = topIssue.metadata?.dnsNames
+      || topIssue.metadata?.kubernetesNames
+      || topIssue.metadata?.kubernetesNamespaces
       || topIssue.metadata?.oidcProviderUrls
       || topIssue.metadata?.listenerRulePriorities
       || topIssue.metadata?.listenerArns
@@ -391,6 +393,8 @@ function collectIdentityConflictMetadata(metadata: ValidationIssue['metadata']):
   const identityKeys: Array<keyof NonNullable<ValidationIssue['metadata']>> = [
     'duplicateIdentity',
     'dnsNames',
+    'kubernetesNames',
+    'kubernetesNamespaces',
     'listenerArns',
     'listenerRulePriorities',
     'oidcProviderUrls',

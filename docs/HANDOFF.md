@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `7c423cf` Expose identity conflicts in compact JSON
   - `c9d5a04` Use exclusive specs for runtime conflicts
   - `fe3d114` Classify Terraform runtime identity conflicts
   - `81c051f` Classify listener rule priority conflicts
@@ -2198,6 +2199,51 @@ Recommended next implementation slice:
    if human users need it; for now `validation.identityConflicts` is the
    machine-readable handoff surface.
 3. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 Kubernetes Runtime Identity Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `src/types/agent.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Extract Kubernetes object names and namespaces from Pulumi and Terraform
+  runtime `AlreadyExists` failures when native CLI output exposes strings such
+  as `services "payments-api" already exists` or
+  `resource default/payments-api`.
+- Preserve parsed `kubernetesNames` and `kubernetesNamespaces` metadata on
+  runtime exclusive-identity validation issues and compact
+  `validation.identityConflicts` output.
+- Add family-specific guidance for `kubernetes-namespaced-object` and
+  `kubernetes-namespace` conflicts that points users to API kind,
+  `metadata.name`, and `metadata.namespace` review before aliases/import/state
+  repair or delete-before-create sequencing.
+- Cover Terraform `kubernetes_service` and Pulumi `kubernetes:core/v1:Service`
+  duplicate object outputs in regression tests.
+- Preserve review-only behavior: do not delete, replace, import, or mutate
+  cluster/state automatically.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 230/230 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime validation examples only from representative provider CLI
+   outputs with clear identity boundaries.
+2. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands
 

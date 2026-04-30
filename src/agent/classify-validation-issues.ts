@@ -12,6 +12,8 @@ interface RuntimeExclusiveIdentityConflictFacts {
   exclusiveIdentityLabel: string | null;
   exclusiveIdentitySuggestedAction: string | null;
   dnsNames: string[];
+  kubernetesNames: string[];
+  kubernetesNamespaces: string[];
   listenerArns: string[];
   listenerRulePriorities: string[];
   oidcProviderUrls: string[];
@@ -135,6 +137,30 @@ function extractDnsNames(output: string): string[] {
 
   return [...new Set(matches)]
     .filter(value => !/amazonaws\.com\.?$/i.test(value))
+    .slice(0, 8);
+}
+
+function extractKubernetesNames(output: string): string[] {
+  const matches = [
+    ...uniqueMatches(output, /\b(?:services?|deployments?|configmaps?|secrets?|ingresses?|namespaces?)\s+["'`]([^"'`]+)["'`]\s+already exists/gi),
+    ...uniqueMatches(output, /\b(?:resource|object)\s+[A-Za-z0-9_.-]+\/([A-Za-z0-9_.-]+)\b/gi),
+    ...uniqueMatches(output, /\bmetadata\.name\s*[:=]\s*["'`]?([A-Za-z0-9_.-]+)["'`]?/gi)
+  ];
+
+  return [...new Set(matches)]
+    .filter(value => value.length > 0)
+    .slice(0, 8);
+}
+
+function extractKubernetesNamespaces(output: string): string[] {
+  const matches = [
+    ...uniqueMatches(output, /\b(?:resource|object)\s+([A-Za-z0-9_.-]+)\/[A-Za-z0-9_.-]+\b/gi),
+    ...uniqueMatches(output, /\bmetadata\.namespace\s*[:=]\s*["'`]?([A-Za-z0-9_.-]+)["'`]?/gi),
+    ...uniqueMatches(output, /\bnamespace\s+["'`]([^"'`]+)["'`]/gi)
+  ];
+
+  return [...new Set(matches)]
+    .filter(value => value.length > 0)
     .slice(0, 8);
 }
 
@@ -277,6 +303,8 @@ function extractRuntimeExclusiveIdentityConflictFacts(
     exclusiveIdentityLabel: exclusiveIdentitySpec?.label ?? null,
     exclusiveIdentitySuggestedAction: exclusiveIdentitySpec?.suggestedAction ?? null,
     dnsNames: extractDnsNames(output),
+    kubernetesNames: extractKubernetesNames(output),
+    kubernetesNamespaces: extractKubernetesNamespaces(output),
     listenerArns: extractListenerArns(output),
     listenerRulePriorities: extractListenerRulePriorities(output),
     oidcProviderUrls: extractOidcProviderUrls(output),
@@ -360,6 +388,12 @@ function buildRuntimeExclusiveIdentityConflictGuidance(facts: RuntimeExclusiveId
     return `${engine} attempted to create an IAM OIDC provider${providerText} before the existing provider was adopted, moved, or removed, and the provider returned ${facts.conflictCode}. IAM OIDC provider URLs are account-unique; review role trust policies that reference the provider, ${oidcRepairText(facts.engine)}, and sequence replacement only after approval.`;
   }
 
+  if (facts.conflictFamily === 'kubernetes-namespaced-object' || facts.conflictFamily === 'kubernetes-namespace') {
+    const nameText = facts.kubernetesNames.length > 0 ? ` named ${facts.kubernetesNames.join(', ')}` : '';
+    const namespaceText = facts.kubernetesNamespaces.length > 0 ? ` in namespace(s) ${facts.kubernetesNamespaces.join(', ')}` : '';
+    return `${engine} attempted to create a Kubernetes object${nameText}${namespaceText} before the existing object was adopted, renamed, or removed, and the provider returned ${facts.conflictCode}. Review the plan/preview for matching API kind, metadata.name, and metadata.namespace. ${adoptionRepairText(facts.engine)}, or explicitly sequence delete-before-create after approval when temporary object removal is acceptable.`;
+  }
+
   const labelText = facts.exclusiveIdentityLabel ? ` ${facts.exclusiveIdentityLabel}` : resourceText;
   const suggestedActionText = facts.exclusiveIdentitySuggestedAction ? ` Provider rule: ${facts.exclusiveIdentitySuggestedAction}` : '';
   return `${engine} attempted to create an exclusive${labelText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the plan/preview for delete/create or replacement pairs with the same provider identity: if this is a logical rename, ${logicalIdentityRepair}; if the resource must be replaced, ${replacementSequencing}; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.${suggestedActionText}`;
@@ -375,6 +409,8 @@ function buildRuntimeExclusiveIdentityConflictMetadata(
     conflictSuggestedAction: facts.exclusiveIdentitySuggestedAction ?? undefined,
     duplicateIdentity: facts.duplicateIdentity ?? undefined,
     dnsNames: facts.dnsNames.join(','),
+    kubernetesNames: facts.kubernetesNames.join(','),
+    kubernetesNamespaces: facts.kubernetesNamespaces.join(','),
     listenerArns: facts.listenerArns.join(','),
     listenerRulePriorities: facts.listenerRulePriorities.join(','),
     oidcProviderUrls: facts.oidcProviderUrls.join(','),

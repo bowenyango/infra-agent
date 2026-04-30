@@ -132,6 +132,8 @@ Current behavior is intentionally runtime-foundation oriented:
   specs used by graph impact analysis, so generic bucket, named-resource, and
   Kubernetes duplicate failures can carry the same family labels and suggested
   action metadata without injecting large provider docs into the prompt.
+  Kubernetes `AlreadyExists` failures also expose parsed object names and
+  namespaces when the CLI output includes them.
 - `inspect` resolves the knowledge-cache root used for future docs/schema
   context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;
   otherwise `infra-agent.config.json` may set a workspace-relative

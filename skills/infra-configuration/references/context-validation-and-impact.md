@@ -158,6 +158,11 @@ Current implemented source:
   because these compact fields are usually enough to explain bucket, named
   resource, Kubernetes object, security rule, DNS, listener, and OIDC identity
   conflicts without loading broad provider docs.
+- Kubernetes `AlreadyExists` runtime failures may also include
+  `kubernetesNames` and `kubernetesNamespaces` metadata parsed from native CLI
+  output such as `services "payments-api" already exists` or
+  `resource default/payments-api`. Use these fields as identity context, not as
+  approval to delete or replace an existing cluster object.
 - Compact `agent --json` output also exposes these blockers through
   `validation.identityConflicts`. Prefer that array for agent-to-agent handoff:
   it includes the engine, issue kind, conflict code/family/label, resource type,
