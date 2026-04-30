@@ -5108,6 +5108,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
     'bin/',
     'src/',
     'skills/',
+    'AGENTS.md',
     'README.md',
     'docs/AGENT_RULES.md',
     'docs/CLAUDE_CODE_AGENT_PATTERNS.md',

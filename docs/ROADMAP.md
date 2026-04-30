@@ -300,8 +300,9 @@ Status on 2026-04-28:
   pauses, clarification pauses, no-safe-action exits, repair-budget exhaustion,
   fatal errors, and `run` preflight blockers for downstream agent control flow.
 - Package metadata now exposes the `infra-agent` bin and a narrow installable
-  surface containing `bin`, `src`, `skills`, README, and selected durable docs,
-  while excluding fixtures, tests, and handoff history from packed installs.
+  surface containing `bin`, `src`, `skills`, `AGENTS.md`, README, and selected
+  durable docs, while excluding fixtures, tests, and handoff history from
+  packed installs.
 - The installable bin wrapper now preserves the caller working directory, and
   `infra-agent --version` provides a cheap installation self-check.
 - `infra-agent doctor [workspace]` now provides a read-only readiness report for

@@ -247,8 +247,8 @@ npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json
 ```
 
 The package surface is intentionally narrow: `bin/`, `src/`, `skills/`,
-`README.md`, and selected durable docs. Test fixtures, smoke scripts, and
-handoff history are excluded from the installable package.
+`AGENTS.md`, `README.md`, and selected durable docs. Test fixtures, smoke
+scripts, and handoff history are excluded from the installable package.
 
 LLM planner environment variables:
 

@@ -157,7 +157,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   let this replace approval continuation commands when an approval gate is the
   active blocker.
 - Treat CLI exit codes as part of the agent-facing contract: `0` means success, `1` means fatal CLI/runtime failure, `2` means validation blocked, `3` means approval required, `4` means clarification required, `5` means no safe action, `6` means repair budget exhausted, and `7` means `run` preflight blockers.
-- Keep the installable npm package surface narrow. Include the CLI entrypoint, TypeScript runtime sources, skills, README, and durable docs; exclude fixtures, tests, smoke scripts, and handoff history from `package.json.files`.
+- Keep the installable npm package surface narrow. Include the CLI entrypoint,
+  TypeScript runtime sources, skills, `AGENTS.md`, README, and durable docs;
+  exclude fixtures, tests, smoke scripts, and handoff history from
+  `package.json.files`.
 - The installed `bin/infra-agent.js` wrapper must preserve the caller working directory so default workspace resolution points at the user's repository, not the package root.
 - Keep `infra-agent --version` available as a cheap installation and routing check for downstream agents.
 - Keep `infra-agent doctor [workspace] --json` read-only. Use it for package, Node engine, LLM planner configuration, workspace inspection, validation plan, and external validator readiness checks before deeper agent runs. Never expose API keys or secrets in doctor output.

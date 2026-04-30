@@ -3283,6 +3283,34 @@ Known validation:
 - `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Installable Agent Standards Surface Slice
+
+Files added or updated:
+
+- `package.json`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+
+Purpose:
+
+- Include root `AGENTS.md` in `package.json.files` so installed packages carry
+  the same future-agent development entrypoint as the source repository.
+- Keep the package surface narrow and continue excluding fixtures, tests, smoke
+  scripts, and handoff history from packed installs.
+- Update package metadata tests and package-surface docs so `AGENTS.md`
+  inclusion is explicit and regression-tested.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 247/247 passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed and included `AGENTS.md`.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:
