@@ -13,6 +13,8 @@ import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { classifyValidationIssues } from '../src/agent/classify-validation-issues.ts';
 import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { LLMModelClient } from '../src/model/LLMModelClient.ts';
+import { createModelClient } from '../src/model/create-model-client.ts';
+import { resolveLLMClientConfig } from '../src/model/config.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
@@ -5419,6 +5421,54 @@ test('LLMModelClient sends compact planner prompt and parses bounded decisions',
   assert.equal(decision.confidence, 'high');
   assert.equal(decision.action.kind, 'stop');
   assert.equal(decision.action.payload?.stopReason, 'validation-blocked');
+});
+
+test('LLM planner config resolves explicit env maps without mutating process env', () => {
+  assert.equal(resolveLLMClientConfig({}), null);
+
+  const config = resolveLLMClientConfig({
+    OPENAI_API_KEY: ' openai-key ',
+    OPENAI_BASE_URL: 'https://openai-compatible.example.test/v1/',
+    INFRA_AGENT_OPENAI_API_KEY: ' infra-agent-key ',
+    INFRA_AGENT_OPENAI_BASE_URL: 'https://infra-agent.example.test/v1/',
+    INFRA_AGENT_MODEL: ' test-model '
+  });
+
+  assert.equal(config?.apiKey, 'infra-agent-key');
+  assert.equal(config?.baseUrl, 'https://infra-agent.example.test/v1');
+  assert.equal(config?.model, 'test-model');
+
+  const fallbackConfig = resolveLLMClientConfig({
+    OPENAI_API_KEY: 'openai-key'
+  });
+
+  assert.equal(fallbackConfig?.apiKey, 'openai-key');
+  assert.equal(fallbackConfig?.baseUrl, 'https://api.openai.com/v1');
+  assert.equal(fallbackConfig?.model, 'gpt-5-mini');
+});
+
+test('createModelClient selects planner clients from explicit env maps', () => {
+  const ruleBased = createModelClient('rule-based', {
+    INFRA_AGENT_OPENAI_API_KEY: 'ignored-key'
+  });
+  const fallback = createModelClient('auto', {});
+  const llmAuto = createModelClient('auto', {
+    INFRA_AGENT_OPENAI_API_KEY: 'test-api-key',
+    INFRA_AGENT_MODEL: 'test-model'
+  });
+  const llmExplicit = createModelClient('llm', {
+    INFRA_AGENT_OPENAI_API_KEY: 'test-api-key',
+    INFRA_AGENT_MODEL: 'explicit-model'
+  });
+
+  assert.equal(ruleBased.name, 'rule-based-model-client');
+  assert.equal(fallback.name, 'rule-based-fallback');
+  assert.equal(llmAuto.name, 'llm-model-client:test-model');
+  assert.equal(llmExplicit.name, 'llm-model-client:explicit-model');
+  assert.throws(
+    () => createModelClient('llm', {}),
+    /no API key was configured/
+  );
 });
 
 test('planner user prompt includes focused config semantics', async () => {

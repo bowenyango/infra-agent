@@ -185,6 +185,8 @@ LLM planner environment variables:
 - `INFRA_AGENT_MODEL` default `gpt-5-mini`
 - `INFRA_AGENT_OPENAI_BASE_URL` or `OPENAI_BASE_URL` default `https://api.openai.com/v1`
 
+When both names are present, `INFRA_AGENT_*` values take precedence.
+
 Development verification commands:
 
 - `npm run lint`

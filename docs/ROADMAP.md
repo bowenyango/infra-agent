@@ -271,6 +271,9 @@ Status on 2026-04-28:
   category and review context without parsing raw provider stderr.
 - LLM client request/response contracts are testable with injected transports,
   keeping planner tests deterministic and independent of live LLM providers.
+- LLM planner mode selection and environment precedence are testable with
+  explicit environment maps, avoiding process-wide environment mutation in unit
+  tests.
 
 ### Step 3: Add Syntax Validators
 

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `40cc136` Test LLM planner transport contract
   - `05cc8d6` Feed identity conflicts into planner prompts
   - `f67f470` Categorize identity conflict reports
   - `d720fc7` Add smoke and e2e verification layers
@@ -2742,6 +2743,40 @@ Known validation:
 - `npm run verify`: passed.
 - `npm run lint`: passed.
 - `npm run test:unit`: 237/237 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 LLM Planner Mode Config Slice
+
+Files added or updated:
+
+- `src/model/config.ts`
+- `src/model/create-model-client.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+
+Purpose:
+
+- Make LLM config resolution accept an explicit environment map while preserving
+  `process.env` as the default runtime source.
+- Make planner client selection accept the same explicit environment map, so
+  `auto`, `llm`, and `rule-based` mode behavior can be tested without mutating
+  global process state.
+- Add regression tests for `INFRA_AGENT_*` precedence over generic `OPENAI_*`,
+  default base URL/model selection, `auto` fallback to rule-based mode, explicit
+  LLM selection, and the missing-key error for `--planner llm`.
+- Persist the rule that LLM environment selection tests should use explicit env
+  maps instead of process-wide mutation.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 239/239 passed.
 - `npm run smoke`: passed.
 - `npm run e2e`: passed.
 - `git diff --check`: passed.
