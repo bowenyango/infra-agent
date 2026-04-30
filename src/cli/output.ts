@@ -654,6 +654,30 @@ function collectCompactReadiness(state: AgentRunState): CompactReadinessSummary 
   };
 }
 
+function summarizeReadinessPosture(state: AgentRunState): string {
+  const readiness = collectCompactReadiness(state);
+  const attentionChecks = readiness.checks
+    .filter(check => check.status !== 'pass')
+    .map(check => check.name);
+  const attention = attentionChecks.length > 0
+    ? `; attention: ${attentionChecks.join(', ')}`
+    : '';
+
+  return `${readiness.status} (${readiness.passCount} pass, ${readiness.warnCount} warn, ${readiness.failCount} fail)${attention}`;
+}
+
+function prefixReadinessSuggestedCommands(state: AgentRunState, commands: string[]): string[] {
+  const readiness = collectCompactReadiness(state);
+  if (readiness.status === 'pass') {
+    return commands;
+  }
+
+  return [
+    readiness.doctorCommand,
+    ...commands.filter(command => command !== readiness.doctorCommand)
+  ];
+}
+
 function formatApprovalSignal(signal: ApprovalSignal): string {
   if (signal.kind === 'write-approval-required') {
     return `${signal.risk}-risk write at ${signal.path}`;
@@ -1146,6 +1170,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
 
   lines.push(`Run posture: ${summarizeRunPosture(state)}`);
+  lines.push(`Readiness: ${summarizeReadinessPosture(state)}`);
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
@@ -1480,35 +1505,44 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
       return [`${base} agent ${taskFlag} ${workspaceFlag}`];
     case 'clarification-required':
       if (primaryDomain === 'terraform') {
-        return [rerunCommand, ...domainNativeCommands, domainInspectCommand, domainValidateCommand];
+        return prefixReadinessSuggestedCommands(
+          state,
+          [rerunCommand, ...domainNativeCommands, domainInspectCommand, domainValidateCommand]
+        );
       }
       if (primaryDomain === 'pulumi' || primaryDomain === 'helm') {
-        return [domainInspectCommand, ...domainNativeCommands, rerunCommand, domainValidateCommand];
+        return prefixReadinessSuggestedCommands(
+          state,
+          [domainInspectCommand, ...domainNativeCommands, rerunCommand, domainValidateCommand]
+        );
       }
-      return [
+      return prefixReadinessSuggestedCommands(state, [
         rerunCommand,
         domainInspectCommand
-      ];
+      ]);
     case 'validation-blocked':
     case 'repair-budget-exhausted':
       if (primaryDomain === 'terraform' || primaryDomain === 'pulumi' || primaryDomain === 'helm') {
-        return [...identityReportCommands, ...domainNativeCommands, domainValidateCommand, domainInspectCommand, rerunCommand];
+        return prefixReadinessSuggestedCommands(
+          state,
+          [...identityReportCommands, ...domainNativeCommands, domainValidateCommand, domainInspectCommand, rerunCommand]
+        );
       }
-      return [
+      return prefixReadinessSuggestedCommands(state, [
         ...identityReportCommands,
         domainInspectCommand,
         rerunCommand
-      ];
+      ]);
     case 'completed':
-      return [
+      return prefixReadinessSuggestedCommands(state, [
         ...(reviewCommand !== 'undetected' ? [reviewCommand] : []),
         agentJsonCommand
-      ];
+      ]);
     case 'no-safe-action':
     default:
-      return [
+      return prefixReadinessSuggestedCommands(state, [
         rerunCommand
-      ];
+      ]);
   }
 }
 

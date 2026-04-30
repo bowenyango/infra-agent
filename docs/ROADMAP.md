@@ -291,6 +291,8 @@ Status on 2026-04-28:
   planner mode, workspace blocker status, selected validation plan status, and
   only validators required by that selected plan, plus a `doctorCommand` for
   the fuller read-only package/Node/tool report.
+- Result cards now include compact readiness posture, and suggested commands
+  prepend the read-only `doctorCommand` whenever readiness is warn or fail.
 - Workspace approval policy can now require explicit approval for tool
   categories, with `--approve-tool-category` used to resume gated native
   operations.

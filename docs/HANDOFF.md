@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `410b0d8` Add root agent development standards
   - `14f9ff4` Add compact agent readiness summary
   - `faf0506` Report LLM planner readiness in doctor
   - `73326cf` Add CLI doctor readiness report
@@ -3236,6 +3237,41 @@ Purpose:
   project rule.
 - Document that future agents and contributors must read `AGENTS.md` before
   changing files.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 247/247 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Readiness Action Surface Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Surface compact readiness posture in result cards so human operators and
+  downstream agents can see whether planner, workspace, selected validation
+  plan, and selected validators are pass/warn/fail without digging into raw
+  compact JSON.
+- Prepend the read-only `doctorCommand` to suggested commands when readiness is
+  warn or fail, while preserving approval-continuation commands as the active
+  approval gate path.
+- Keep the action surface targeted and secret-safe. Fallback planner warnings
+  identify only the planner mode and do not expose API keys or request headers.
 
 Known validation:
 

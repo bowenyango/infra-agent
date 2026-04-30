@@ -147,7 +147,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `readiness` summarizes the planner mode, workspace blockers, selected
   validation plan, and only the validators required by that selected plan. It
   also includes a `doctorCommand` for a fuller read-only package/Node/tool
-  readiness report when another agent needs it.
+  readiness report when another agent needs it. Result cards include the same
+  readiness posture, and suggested commands surface the read-only doctor command
+  first when readiness has warnings or failures.
   Retrieved official-doc/schema context is budgeted before planner handoff, and
   compact results expose `knowledgeContext` with packet/token counts and
   omitted-context reasons instead of raw excerpts.

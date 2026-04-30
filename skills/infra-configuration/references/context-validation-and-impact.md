@@ -27,7 +27,9 @@ message is enough.
 - Read `readiness` first for planner mode, workspace blocker status, selected
   validation plan status, and validators required by that selected plan. Use
   its `doctorCommand` only when a fuller package, Node, planner, workspace, and
-  tool readiness report is needed.
+  tool readiness report is needed. When readiness is warn or fail, suggested
+  commands should include that read-only doctor command before other diagnostic
+  reruns, except for active approval-continuation commands.
 - Use `--json-full` only for debugging because it includes the complete runtime
   state and can carry more context than another agent should need.
 - Process exit codes are part of the handoff contract for automation: `0`

@@ -4962,6 +4962,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       compact.knowledgeContext.packets.filter(packet => packet.included).length
     );
     assert.equal(compact.readiness.status, 'pass');
+    assert.ok(compact.resultCard.some(line => /Readiness: pass/i.test(line)));
     assert.match(compact.readiness.doctorCommand, / doctor /);
     assert.ok(compact.readiness.checks.some(check =>
       check.name === 'planner'
@@ -4980,6 +4981,8 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       modelName: 'rule-based-fallback'
     });
     assert.equal(fallbackCompact.readiness.status, 'warn');
+    assert.ok(fallbackCompact.resultCard.some(line => /Readiness: warn.*planner/i.test(line)));
+    assert.match(fallbackCompact.suggestedCommands[0] ?? '', / doctor .*--json/);
     assert.ok(fallbackCompact.readiness.checks.some(check =>
       check.name === 'planner'
       && check.status === 'warn'
