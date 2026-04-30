@@ -385,7 +385,9 @@ Status on 2026-04-28:
   buckets, selected named AWS resources, legacy and VPC-style AWS security
   group rules, IAM OIDC providers, AWS load balancing listener priorities,
   CloudFront aliases, API Gateway custom domains, Route53 records including ACM
-  validation CNAMEs, and Kubernetes objects.
+  validation CNAMEs, and Kubernetes objects. VPC-style security group rule
+  ports are protocol-gated identity fields: graph matching permits omitted
+  ports for all-protocol or `icmpv6` rules but keeps TCP/UDP rules conservative.
 - Runtime validation issue classification now recognizes Pulumi
   `AlreadyExists`/duplicate-name failures plus DNS/domain conflicts such as
   CloudFront `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, and

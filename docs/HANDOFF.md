@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `7423955` Classify security runtime conflicts
   - `2039f49` Add VPC security group rule identity conflicts
   - `15fe5a9` Add security rule identity conflicts
   - `b4d511a` Classify Pulumi DNS identity conflicts
@@ -1980,13 +1981,47 @@ Known validation:
 
 Recommended next implementation slice:
 
-1. Consider provider-schema-assisted conditional identity matching for
-   all-protocol VPC security group rules where `fromPort`/`toPort` are omitted,
-   but keep the current graph rule conservative until exact plan shapes are
-   observed.
-2. Add more runtime validation families only from representative provider CLI
+1. Add more runtime validation families only from representative provider CLI
    outputs with clear identity boundaries.
-3. Keep topology viewer work behind graph/schema contract stability.
+2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 Conditional Security Rule Identity Slice
+
+Files added or updated:
+
+- `src/impact/exclusive-identity.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `omitWhen` support to shared exclusive identity groups. This lets a
+  required identity group be omitted only when a controlling identity value has
+  an approved value and both compared resources omit the group value.
+- Apply `omitWhen` only to VPC-style security group rule `fromPort` and
+  `toPort` groups when `ipProtocol` is `-1` or `icmpv6`.
+- Preserve conservative behavior for TCP/UDP rules: if ports are missing, the
+  graph does not claim a complete exclusive identity match.
+- Cover Terraform and Pulumi all-protocol VPC security group rule conflicts
+  without port fields, plus a Terraform negative test for TCP rules missing
+  ports.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 223/223 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime validation families only from representative provider CLI
+   outputs with clear identity boundaries.
+2. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands
 

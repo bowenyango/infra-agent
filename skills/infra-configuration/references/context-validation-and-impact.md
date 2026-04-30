@@ -260,6 +260,10 @@ Current graph foundation:
   `cidrIpv4`, `cidrIpv6`, `prefixListId`, or `referencedSecurityGroupId`
   combined as one peer identity. Keep these separate from legacy
   `aws_security_group_rule` source-list semantics.
+- VPC-style security group rule `fromPort` and `toPort` identity groups may be
+  omitted only when both sides omit the value and both sides use `ipProtocol`
+  `-1` or `icmpv6`. Do not treat ports as generally optional for TCP/UDP
+  rules.
 - Replacement reason specs are also shared between Terraform and Pulumi impact
   analysis. Add path rules for known immutable or exclusive-identity fields
   before adding one-off graph logic.

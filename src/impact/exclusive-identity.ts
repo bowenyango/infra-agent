@@ -2,6 +2,10 @@ export interface ExclusiveIdentityGroup {
   key: string;
   paths: string[];
   combine?: boolean;
+  omitWhen?: {
+    key: string;
+    values: string[];
+  };
   optional?: boolean;
   match?: 'exact' | 'overlap';
 }
@@ -126,8 +130,8 @@ export const EXCLUSIVE_IDENTITY_SPECS: ExclusiveIdentitySpec[] = [
     identityGroups: [
       { key: 'securityGroupId', paths: ['securityGroupId', 'security_group_id'] },
       { key: 'ipProtocol', paths: ['ipProtocol', 'ip_protocol'] },
-      { key: 'fromPort', paths: ['fromPort', 'from_port'] },
-      { key: 'toPort', paths: ['toPort', 'to_port'] },
+      { key: 'fromPort', paths: ['fromPort', 'from_port'], omitWhen: { key: 'ipProtocol', values: ['-1', 'icmpv6'] } },
+      { key: 'toPort', paths: ['toPort', 'to_port'], omitWhen: { key: 'ipProtocol', values: ['-1', 'icmpv6'] } },
       {
         key: 'peer',
         paths: ['cidrIpv4', 'cidr_ipv4', 'cidrIpv6', 'cidr_ipv6', 'prefixListId', 'prefix_list_id', 'referencedSecurityGroupId', 'referenced_security_group_id'],
@@ -384,6 +388,21 @@ function exclusiveIdentityValuesMatch(group: ExclusiveIdentityGroup, left: strin
   return left.split('|').some(value => rightValues.has(value));
 }
 
+function canOmitExclusiveIdentityGroup(
+  group: ExclusiveIdentityGroup,
+  left: Record<string, string>,
+  right: Record<string, string>
+): boolean {
+  if (!group.omitWhen || left[group.key] || right[group.key]) {
+    return false;
+  }
+
+  const leftControlValue = left[group.omitWhen.key]?.toLowerCase();
+  const rightControlValue = right[group.omitWhen.key]?.toLowerCase();
+  const omitValues = new Set(group.omitWhen.values.map(value => value.toLowerCase()));
+  return Boolean(leftControlValue && rightControlValue && leftControlValue === rightControlValue && omitValues.has(leftControlValue));
+}
+
 export function hasCompleteExclusiveIdentityMatch(
   spec: ExclusiveIdentitySpec,
   left: Record<string, string>,
@@ -392,6 +411,10 @@ export function hasCompleteExclusiveIdentityMatch(
   for (const group of spec.identityGroups) {
     const leftValue = left[group.key];
     const rightValue = right[group.key];
+
+    if (canOmitExclusiveIdentityGroup(group, left, right)) {
+      continue;
+    }
 
     if (group.optional) {
       if (leftValue && rightValue && !exclusiveIdentityValuesMatch(group, leftValue, rightValue)) {
