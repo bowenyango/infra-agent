@@ -6,6 +6,9 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `14f9ff4` Add compact agent readiness summary
+  - `faf0506` Report LLM planner readiness in doctor
+  - `73326cf` Add CLI doctor readiness report
   - `0e1bb25` Add installable CLI version check
   - `bd69518` Narrow installable package surface
   - `57cff10` Add agent outcome exit codes
@@ -3209,6 +3212,40 @@ Known validation:
 - `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
 - `git diff --check`: passed.
 - Manual CLI check: `node --experimental-strip-types src/cli/main.ts agent "add ingress to payments-api dev chart" --workspace fixtures/sample-workspace --planner rule-based --max-turns 1 --json` returned the expected no-safe-action exit code `5` and compact readiness with `planner`, `workspace`, `validation-plan`, and `validator:helm` checks only.
+
+## 2026-04-30 Root Agent Development Standards Slice
+
+Files added or updated:
+
+- `AGENTS.md`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add repository-root `AGENTS.md` as the mandatory entrypoint for future agents
+  working on `infra-agent`.
+- Define strict project standards for required reading order, product
+  boundaries, safety rules, standard workflow, engineering quality, context
+  discipline, infrastructure-domain behavior, validation, testing, CLI
+  contracts, documentation, Git discipline, dependency policy, and definition
+  of done.
+- Keep detailed domain-specific rules in `docs/AGENT_RULES.md`, with
+  `AGENTS.md` delegating to existing durable docs instead of duplicating every
+  project rule.
+- Document that future agents and contributors must read `AGENTS.md` before
+  changing files.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 247/247 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed.
 
 ## Current Verification Commands
 

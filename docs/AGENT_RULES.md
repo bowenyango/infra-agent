@@ -1,5 +1,8 @@
 # Agent Rules
 
+Repository-root `AGENTS.md` is the mandatory entrypoint for future agents. This
+file contains the detailed domain rules that `AGENTS.md` delegates to.
+
 ## 1. General Principles
 
 - Generate code and configuration that meet industrial-grade engineering standards.

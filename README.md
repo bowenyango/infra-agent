@@ -35,6 +35,13 @@ The first version will not attempt to be:
 - a deployment operator
 - a remote execution system
 
+## Development Standards
+
+Future agents and contributors must read the repository-root `AGENTS.md`
+before making changes. It defines the required workflow, safety boundaries,
+validation policy, context discipline, documentation rules, and commit
+expectations for this project.
+
 ## Core Design Direction
 
 The agent will follow a tool-driven loop rather than a prompt-only workflow.
