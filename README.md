@@ -124,7 +124,8 @@ Current behavior is intentionally runtime-foundation oriented:
   read-only `infra-agent.identity-conflict-report` for human operators or other
   agents. It consumes `validation.identityConflicts`; it does not rerun
   Terraform, Pulumi, Helm, or any repair command. The input must be compact
-  `infra-agent.agent-result` JSON, not full debug output or graph JSON.
+  `infra-agent.agent-result` JSON with `schemaVersion: 1`, not full debug
+  output or graph JSON.
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront

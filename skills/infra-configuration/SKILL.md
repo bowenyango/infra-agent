@@ -34,6 +34,7 @@ guessing infrastructure conventions from generic IaC knowledge.
    Use `infra-agent identity-report <agent-result.json>` when you need a
    focused read-only incident report from an existing compact result; do not
    pass graph JSON, full debug state, native plan/preview JSON, or raw logs.
+   The input must be compact `infra-agent.agent-result` schema version 1.
 5. If the result asks for approval, do not work around it. Ask the user or rerun
    with the requested approval flags only when the user has approved that scope.
 6. If validation fails, use the structured failure and suggested next action

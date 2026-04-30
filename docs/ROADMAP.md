@@ -257,7 +257,8 @@ Status on 2026-04-28:
 - `agent --json-full` remains available for full debug state output.
 - `identity-report <agent-result.json>` can render compact identity conflict
   data into `infra-agent.identity-conflict-report` without rerunning validators
-  or native IaC commands.
+  or native IaC commands. The renderer validates compact result
+  `schemaVersion=1` before reading `validation.identityConflicts`.
 - The compact payload includes outcome, target, changed files, result-card
   lines, next steps, suggested commands, validation issue summaries, semantic
   blockers, exclusive-identity conflict summaries, approval signals, and the

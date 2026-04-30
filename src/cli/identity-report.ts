@@ -16,6 +16,10 @@ function parseCompactAgentRunResult(value: unknown): CompactAgentRunResult {
     throw new Error('identity-report input must be a compact infra-agent.agent-result JSON payload.');
   }
 
+  if (value.schemaVersion !== 1) {
+    throw new Error('identity-report input must use compact agent result schemaVersion 1.');
+  }
+
   if (!isRecord(value.validation) || !Array.isArray(value.validation.identityConflicts)) {
     throw new Error('identity-report input must include validation.identityConflicts array.');
   }

@@ -142,7 +142,7 @@
 - Planner prompts may include cached retrieved-context packets. Keep these compact and targeted; do not inject whole official docs into the prompt.
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
 - Use `infra-agent identity-report <agent-result.json>` when a human operator or downstream agent needs a focused runtime exclusive-identity incident report from an existing compact result. This command is read-only and must not rerun validators or mutate state.
-- `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
+- `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `schemaVersion=1` and `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
 - Use `infra-agent graph --json` as the topology handoff surface. Treat it as inspection-derived structure until plan/preview impact data is explicitly attached.
 - Use `infra-agent graph --terraform-plan <plan.json> --target <terraform-root> --json` to attach Terraform plan actions without executing Terraform. Treat replacement and rename guidance as advisory until reviewed against state.
 - Use `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project> --json` to attach Pulumi preview actions without executing Pulumi.

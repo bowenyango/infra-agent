@@ -190,8 +190,8 @@ Current implemented source:
   agent or human operator needs only the incident summary and checklist. Each
   incident carries `mutationAllowed=false`; the report is triage context, not a
   remediation approval. The input must be compact `infra-agent.agent-result`
-  JSON with `validation.identityConflicts`, not graph JSON, full debug state, or
-  native plan/preview output.
+  JSON with `schemaVersion=1` and `validation.identityConflicts`, not graph
+  JSON, full debug state, or native plan/preview output.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

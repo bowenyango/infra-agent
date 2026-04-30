@@ -66,6 +66,7 @@ export interface IdentityConflictIncidentReport {
   kind: 'infra-agent.identity-conflict-report';
   schemaVersion: 1;
   sourceKind: CompactAgentRunResult['kind'];
+  sourceSchemaVersion: CompactAgentRunResult['schemaVersion'];
   sourceTask: string;
   workspaceRoot: string;
   outcome: CompactAgentRunResult['outcome'];
@@ -588,6 +589,7 @@ export function buildIdentityConflictIncidentReport(
     kind: 'infra-agent.identity-conflict-report',
     schemaVersion: 1,
     sourceKind: result.kind,
+    sourceSchemaVersion: result.schemaVersion,
     sourceTask: result.task,
     workspaceRoot: result.workspaceRoot,
     outcome: result.outcome,
@@ -1813,6 +1815,7 @@ export function printAgentRunState(state: AgentRunState): void {
 
 export function printIdentityConflictIncidentReport(report: IdentityConflictIncidentReport): void {
   printHeader('Identity Conflict Incident Report');
+  process.stdout.write(`source schema: ${report.sourceKind}@${report.sourceSchemaVersion}\n`);
   process.stdout.write(`source task: ${report.sourceTask}\n`);
   process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
   process.stdout.write(`outcome: ${report.outcome}\n`);

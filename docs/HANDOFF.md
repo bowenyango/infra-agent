@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `84bc3c9` Validate identity report inputs
   - `363ef24` Cover identity report file loading
   - `aa0d0f2` Add identity conflict incident reports
   - `7cb7098` Refine identity conflict review steps
@@ -2519,6 +2520,43 @@ Recommended next implementation slice:
    examples provide precise identity boundaries.
 2. Consider adding a schema-version compatibility check if compact result
    schema version `2` is introduced later.
+
+## 2026-04-30 Identity Report Schema Version Slice
+
+Files added or updated:
+
+- `src/cli/identity-report.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Require compact `infra-agent.agent-result` `schemaVersion=1` before rendering
+  an identity conflict incident report.
+- Expose `sourceSchemaVersion` in `infra-agent.identity-conflict-report` so
+  downstream agents can confirm which compact result schema was consumed.
+- Reject future compact result schema versions explicitly instead of silently
+  assuming compatibility.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 235/235 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Continue adding provider-specific checklist branches only when native output
+   examples provide precise identity boundaries.
+2. Add schema-version branching only when compact result schema version `2` is
+   actually introduced.
 
 ## Current Verification Commands
 

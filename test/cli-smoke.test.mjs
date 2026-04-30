@@ -4921,6 +4921,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
   try {
     await writeFile(inputPath, JSON.stringify({
       kind: 'infra-agent.agent-result',
+      schemaVersion: 1,
       task: 'update terraform listener priority',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
@@ -4950,6 +4951,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
 
     const report = await loadIdentityConflictIncidentReport(inputPath);
     assert.equal(report.kind, 'infra-agent.identity-conflict-report');
+    assert.equal(report.sourceSchemaVersion, 1);
     assert.equal(report.incidentCount, 1);
     assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
     assert.equal(report.incidents[0]?.mutationAllowed, false);
@@ -4977,12 +4979,26 @@ test('identity-report loader rejects non-compact result inputs', async () => {
 
     await writeFile(inputPath, JSON.stringify({
       kind: 'infra-agent.agent-result',
+      schemaVersion: 1,
       validation: {}
     }), 'utf8');
 
     await assert.rejects(
       loadIdentityConflictIncidentReport(inputPath),
       /validation\.identityConflicts array/
+    );
+
+    await writeFile(inputPath, JSON.stringify({
+      kind: 'infra-agent.agent-result',
+      schemaVersion: 2,
+      validation: {
+        identityConflicts: []
+      }
+    }), 'utf8');
+
+    await assert.rejects(
+      loadIdentityConflictIncidentReport(inputPath),
+      /schemaVersion 1/
     );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
