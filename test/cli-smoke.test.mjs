@@ -33,6 +33,7 @@ import {
   summarizeSuggestedCommands
 } from '../src/cli/output.ts';
 import { parseArgs, readPackageVersion } from '../src/cli/main.ts';
+import { buildDoctorReport } from '../src/cli/doctor.ts';
 import {
   exitCodeForAgentOutcome,
   exitCodeForRunPreflight,
@@ -5018,6 +5019,25 @@ test('CLI version command reads package metadata', async () => {
   assert.equal(parsedLong.command, 'version');
   assert.equal(parsedCommand.command, 'version');
   assert.equal(await readPackageVersion(), packageJson.version);
+});
+
+test('doctor command reports install and workspace readiness', async () => {
+  const parsed = parseArgs(['doctor', 'fixtures/sample-workspace', '--json']);
+  const report = await buildDoctorReport('fixtures/sample-workspace');
+
+  assert.equal(parsed.command, 'doctor');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.json, true);
+  assert.equal(report.kind, 'infra-agent.doctor');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.version, await readPackageVersion());
+  assert.ok(report.workspaceRoot.endsWith('fixtures/sample-workspace'));
+  assert.ok(report.checks.some(check => check.name === 'package' && check.status === 'pass'));
+  assert.ok(report.checks.some(check => check.name === 'node' && check.status === 'pass'));
+  assert.ok(report.checks.some(check => check.name === 'workspace' && check.status === 'pass'));
+  assert.ok(report.checks.some(check => check.name === 'validation-plan'));
+  assert.ok(report.checks.some(check => check.name === 'validator:helm'));
+  assert.equal(report.summary.failCount, report.checks.filter(check => check.status === 'fail').length);
 });
 
 test('CLI exit codes map agent outcomes for downstream agents', async () => {

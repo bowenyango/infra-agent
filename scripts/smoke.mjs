@@ -9,6 +9,7 @@ import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { buildWorkspaceInfraGraph } from '../src/impact/workspace-graph.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { exitCodeForRunPreflight, INFRA_AGENT_EXIT_CODES } from '../src/cli/exit-codes.ts';
+import { buildDoctorReport } from '../src/cli/doctor.ts';
 
 async function smokeInspect(workspacePath) {
   const inspection = await inspectWorkspace(workspacePath);
@@ -84,6 +85,9 @@ async function main() {
     await cp(resolve('fixtures/terraform-format-repair-workspace'), terraformRepairWorkspaceRoot, { recursive: true });
 
     await smokeInspect('fixtures/sample-workspace');
+    const doctorReport = await buildDoctorReport('fixtures/sample-workspace');
+    assert.equal(doctorReport.kind, 'infra-agent.doctor');
+    assert.equal(doctorReport.summary.failCount, 0);
     await smokeGraph('fixtures/sample-workspace');
     await smokeValidate('fixtures/sample-workspace');
     await smokeInspect('fixtures/scrawlr-infra-apps-workspace');

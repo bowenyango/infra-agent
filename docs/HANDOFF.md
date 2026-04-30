@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `0e1bb25` Add installable CLI version check
   - `bd69518` Narrow installable package surface
   - `57cff10` Add agent outcome exit codes
   - `1c103c0` Gate tool categories with approval policy
@@ -3122,6 +3123,48 @@ Known validation:
 - `git diff --check`: passed.
 - Manual CLI check: `node --experimental-strip-types src/cli/main.ts --version` returned `infra-agent 0.1.0`.
 - Manual installed-bin cwd check: `node /home/heathen/github/infra-agent/bin/infra-agent.js --version` from `/tmp` returned `infra-agent 0.1.0`.
+
+## 2026-04-30 Doctor Readiness Command Slice
+
+Files added or updated:
+
+- `src/cli/doctor.ts`
+- `src/cli/package-metadata.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `src/validators/preflight.ts`
+- `scripts/smoke.mjs`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `infra-agent doctor [workspace] [--json]` as a read-only readiness report
+  for package metadata, Node engine, workspace inspection, validation plan, and
+  Helm/Pulumi/Terraform executable availability.
+- Return a compact structured payload with kind `infra-agent.doctor` and
+  `schemaVersion=1` for downstream agents.
+- Treat missing external IaC CLIs as warnings, not fatal errors, because the
+  workspace may not need every domain.
+- Move package metadata reading into a small shared CLI module so `--version`
+  and `doctor` use the same source.
+- Reuse validator availability checks from validation preflight.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 246/246 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed.
+- Manual CLI check: `node --experimental-strip-types src/cli/main.ts doctor fixtures/sample-workspace --json` returned `infra-agent.doctor` schema version `1` with zero failed checks.
 
 ## Current Verification Commands
 

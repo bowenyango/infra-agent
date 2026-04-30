@@ -63,6 +63,7 @@ If validation fails, the agent should continue iterating until the failure is re
 The current repository includes a minimal TypeScript CLI skeleton with these commands:
 
 - `infra-agent --version`
+- `infra-agent doctor [workspace] [--json]`
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
@@ -73,6 +74,8 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 
 Current behavior is intentionally runtime-foundation oriented:
 
+- `doctor` reports package, Node engine, workspace inspection, validation plan,
+  and Helm/Pulumi/Terraform executable readiness without mutating the workspace
 - `inspect` detects Helm charts, Pulumi projects, and Terraform roots
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
@@ -220,6 +223,7 @@ npm install
 npm link
 infra-agent --help
 infra-agent --version
+infra-agent doctor .
 ```
 
 For package-shape validation without writing to the user npm cache:

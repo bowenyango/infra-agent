@@ -21,7 +21,7 @@ function resolveExecutablePath(commandName: 'helm' | 'pulumi' | 'terraform'): st
   return resolvedPath.length > 0 ? resolvedPath : null;
 }
 
-function buildValidatorAvailability(): ValidatorAvailability[] {
+export function buildValidatorAvailability(): ValidatorAvailability[] {
   return ['helm', 'pulumi', 'terraform'].map(name => {
     const resolvedPath = resolveExecutablePath(name);
     return {

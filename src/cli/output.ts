@@ -38,6 +38,7 @@ import {
   type ToolPermissionSummary
 } from '../agent/tool-permissions.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
+import type { DoctorReport } from './doctor.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
 
@@ -187,6 +188,20 @@ function printList(items: string[], fallback: string): void {
 
 function formatDomainCapability(domain: DomainCapabilitySummary): string {
   return `${domain.label}: ${domain.detectedTargets} target(s); tasks=${domain.supportedTaskKinds.join(', ')}; edits=${domain.boundedEditKinds.join(', ')}; validators=${domain.validatorCommands.join(', ')}`;
+}
+
+export function printDoctorReport(report: DoctorReport): void {
+  printHeader('Doctor');
+  process.stdout.write(`version: ${report.version}\n`);
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`node: ${report.node.current}${report.node.required ? ` (required ${report.node.required})` : ''}\n`);
+  process.stdout.write(`status: ${report.summary.status} (${report.summary.passCount} pass, ${report.summary.warnCount} warn, ${report.summary.failCount} fail)\n\n`);
+
+  printHeader('Checks');
+  printList(
+    report.checks.map(check => `${check.status} ${check.name}: ${check.message}${check.detail ? ` (${check.detail})` : ''}`),
+    'No doctor checks recorded.'
+  );
 }
 
 function domainLabelToId(label: string): string {

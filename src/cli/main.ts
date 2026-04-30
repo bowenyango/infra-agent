@@ -1,6 +1,6 @@
 import { cwd, exit } from 'node:process';
 import { readFile } from 'node:fs/promises';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
@@ -15,10 +15,12 @@ import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
 import { loadIdentityConflictIncidentReport } from './identity-report.ts';
+import { buildDoctorReport } from './doctor.ts';
 import {
   buildCompactAgentRunResult,
   printIdentityConflictIncidentReport,
   printAgentRunState,
+  printDoctorReport,
   printInfraGraph,
   printInspection,
   printKnowledgePrefetchResult,
@@ -26,9 +28,12 @@ import {
   printValidationPreflight
 } from './output.ts';
 import { exitCodeForAgentOutcome, exitCodeForRunPreflight } from './exit-codes.ts';
+import { readPackageVersion } from './package-metadata.ts';
+
+export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'identity-report' | 'version' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'identity-report' | 'doctor' | 'version' | 'help';
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -55,6 +60,7 @@ function printUsage(): void {
       '',
       'Usage:',
       '  infra-agent --version',
+      '  infra-agent doctor [workspace] [--json]',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
@@ -70,13 +76,6 @@ function printUsage(): void {
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
   exit(1);
-}
-
-export async function readPackageVersion(): Promise<string> {
-  const currentFilePath = fileURLToPath(import.meta.url);
-  const packageJsonPath = resolve(dirname(currentFilePath), '../..', 'package.json');
-  const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8')) as { version?: unknown };
-  return typeof packageJson.version === 'string' ? packageJson.version : 'unknown';
 }
 
 function isToolPermissionCategory(value: string | undefined): value is ToolPermissionCategory {
@@ -150,6 +149,42 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: commandName,
       task: null,
       workspace,
+      inputPath: null,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains: [],
+      targetPaths: [],
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
+    };
+  }
+
+  if (commandName === 'doctor') {
+    const positionalArgs: string[] = [];
+    for (const arg of cleanArgs) {
+      if (arg.startsWith('--')) {
+        fail(`Unknown doctor option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('doctor accepts at most one workspace path.');
+    }
+
+    return {
+      command: 'doctor',
+      task: null,
+      workspace: positionalArgs[0] ?? cwd(),
       inputPath: null,
       json,
       jsonFull,
@@ -509,6 +544,18 @@ async function main(): Promise<void> {
 
   if (parsed.command === 'version') {
     process.stdout.write(`infra-agent ${await readPackageVersion()}\n`);
+    return;
+  }
+
+  if (parsed.command === 'doctor') {
+    const report = await buildDoctorReport(parsed.workspace);
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      printDoctorReport(report);
+    }
+
+    process.exitCode = report.summary.status === 'fail' ? 1 : 0;
     return;
   }
 
