@@ -293,6 +293,9 @@ Status on 2026-04-28:
 - CLI exit codes now distinguish completed runs, validation blockers, approval
   pauses, clarification pauses, no-safe-action exits, repair-budget exhaustion,
   fatal errors, and `run` preflight blockers for downstream agent control flow.
+- Package metadata now exposes the `infra-agent` bin and a narrow installable
+  surface containing `bin`, `src`, `skills`, README, and selected durable docs,
+  while excluding fixtures, tests, and handoff history from packed installs.
 
 ### Step 3: Add Syntax Validators
 

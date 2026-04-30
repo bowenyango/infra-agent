@@ -2,11 +2,20 @@
   "name": "infra-agent",
   "version": "0.1.0",
   "private": true,
-  "description": "TypeScript CLI agent for inspecting and preparing Pulumi and Helm configuration workspaces.",
+  "description": "TypeScript CLI agent for inspecting and preparing Terraform, Pulumi, and Helm configuration workspaces.",
   "type": "module",
   "bin": {
     "infra-agent": "./bin/infra-agent.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "skills/",
+    "README.md",
+    "docs/AGENT_RULES.md",
+    "docs/CLAUDE_CODE_AGENT_PATTERNS.md",
+    "docs/ROADMAP.md"
+  ],
   "scripts": {
     "dev": "node --experimental-strip-types ./src/cli/main.ts",
     "agent": "node --experimental-strip-types ./src/cli/main.ts agent",

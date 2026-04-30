@@ -5026,6 +5026,25 @@ test('CLI exit codes map agent outcomes for downstream agents', async () => {
   assert.equal(exitCodeForRunPreflight(readyPreflight), INFRA_AGENT_EXIT_CODES.success);
 });
 
+test('package metadata exposes only the installable CLI and skill surface', async () => {
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+
+  assert.equal(packageJson.bin?.['infra-agent'], './bin/infra-agent.js');
+  assert.equal(packageJson.engines?.node, '>=24.0.0');
+  assert.deepEqual(packageJson.files, [
+    'bin/',
+    'src/',
+    'skills/',
+    'README.md',
+    'docs/AGENT_RULES.md',
+    'docs/CLAUDE_CODE_AGENT_PATTERNS.md',
+    'docs/ROADMAP.md'
+  ]);
+  assert.ok(!packageJson.files.includes('fixtures/'));
+  assert.ok(!packageJson.files.includes('test/'));
+  assert.ok(!packageJson.files.includes('docs/HANDOFF.md'));
+});
+
 test('prefetch CLI args accept bounded source selection flags', () => {
   const parsed = parseArgs([
     'prefetch',

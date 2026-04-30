@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `57cff10` Add agent outcome exit codes
   - `1c103c0` Gate tool categories with approval policy
   - `5d44d1e` Summarize tool permission categories
   - `b59add1` Expose context budget query config
@@ -3053,6 +3054,38 @@ Known validation:
 - `npm run e2e`: passed.
 - `git diff --check`: passed.
 - Manual CLI check: `node --experimental-strip-types src/cli/main.ts run "add ingress to payments-api dev chart" --workspace fixtures/restricted-workspace --json` returned exit code `7` and still emitted JSON.
+
+## 2026-04-30 Installable Package Surface Slice
+
+Files added or updated:
+
+- `package.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `test/cli-smoke.test.mjs`
+
+Purpose:
+
+- Update the package description to cover Terraform, Pulumi, and Helm.
+- Add a narrow `package.json.files` allowlist for installable CLI packaging.
+- Include `bin/`, `src/`, `skills/`, README, and selected durable docs.
+- Exclude fixtures, tests, smoke scripts, and handoff history from packed
+  installs.
+- Document local `npm link` usage and package dry-run verification.
+- Add unit coverage for package metadata and file-surface constraints.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 244/244 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed; packed surface includes 100 entries and excludes fixtures, tests, smoke scripts, and handoff history.
+- `git diff --check`: passed.
 
 ## Current Verification Commands
 

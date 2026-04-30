@@ -209,6 +209,27 @@ CLI exit codes for downstream agents:
 - `6`: `agent` exhausted the repair budget
 - `7`: `run` preflight found blockers
 
+## Installation
+
+`infra-agent` currently runs directly from the TypeScript sources with Node
+24's type stripping support. From a local checkout:
+
+```sh
+npm install
+npm link
+infra-agent --help
+```
+
+For package-shape validation without writing to the user npm cache:
+
+```sh
+npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json
+```
+
+The package surface is intentionally narrow: `bin/`, `src/`, `skills/`,
+`README.md`, and selected durable docs. Test fixtures, smoke scripts, and
+handoff history are excluded from the installable package.
+
 LLM planner environment variables:
 
 - `INFRA_AGENT_OPENAI_API_KEY` or `OPENAI_API_KEY`

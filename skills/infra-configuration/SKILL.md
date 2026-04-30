@@ -9,6 +9,11 @@ Use `infra-agent` as the specialist harness for infrastructure configuration
 tasks. The skill exists to keep other agents from loading an entire repo or
 guessing infrastructure conventions from generic IaC knowledge.
 
+If the CLI is installed from a local checkout, use `npm link` from the
+`infra-agent` repository and then call `infra-agent` from the target workspace.
+The installable package intentionally includes only the CLI runtime, skills,
+README, and durable docs.
+
 ## Workflow
 
 1. Identify the workspace root.
