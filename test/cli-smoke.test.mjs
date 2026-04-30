@@ -12,6 +12,7 @@ import { selectValidationCommands } from '../src/agent/select-validation-command
 import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { classifyValidationIssues } from '../src/agent/classify-validation-issues.ts';
 import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
+import { LLMModelClient } from '../src/model/LLMModelClient.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
@@ -5336,6 +5337,88 @@ test('planner user prompt includes runtime identity conflict summaries', async (
   assert.equal(parsed.runtimeIdentityConflicts[0]?.identity.listenerRulePriorities, '100');
   assert.match(parsed.runtimeIdentityConflicts[0]?.reviewSteps[1] ?? '', /listener ARN and priority/i);
   assert.equal(parsed.runtimeIdentityConflicts[0]?.message, undefined);
+});
+
+test('LLMModelClient sends compact planner prompt and parses bounded decisions', async () => {
+  const preflight = await buildRunPreflight('review terraform listener rule conflict', 'fixtures/terraform-workspace');
+  let capturedUrl = '';
+  let capturedInit;
+  const client = new LLMModelClient(
+    {
+      apiKey: 'test-api-key',
+      baseUrl: 'https://llm.example.test/v1',
+      model: 'test-planner-model'
+    },
+    async (url, init) => {
+      capturedUrl = String(url);
+      capturedInit = init;
+
+      return new Response(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                confidence: 'high',
+                action: {
+                  kind: 'stop',
+                  summary: 'Blocked by exclusive identity conflict.',
+                  rationale: 'The provider reported an exclusive identity conflict that requires review.',
+                  payload: {
+                    stopReason: 'validation-blocked'
+                  }
+                }
+              })
+            }
+          }
+        ]
+      }));
+    }
+  );
+
+  const decision = await client.decideNextAction({
+    task: preflight.task,
+    preflight,
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [
+      {
+        kind: 'terraform-create-before-delete-conflict',
+        repairable: false,
+        sourceCommand: 'terraform plan',
+        message: 'Listener rule priority already exists.',
+        metadata: {
+          conflictCode: 'PriorityInUse',
+          conflictFamily: 'aws-lb-listener-rule',
+          conflictLabel: 'AWS Load Balancer Listener Rule',
+          listenerArns: 'arn:aws:elasticloadbalancing:us-west-2:123456789012:listener/app/api/abc/def',
+          listenerRulePriorities: '100',
+          resourceAddress: 'aws_lb_listener_rule.api',
+          resourceType: 'aws_lb_listener_rule'
+        }
+      }
+    ],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+
+  assert.equal(capturedUrl, 'https://llm.example.test/v1/chat/completions');
+  assert.equal(capturedInit?.method, 'POST');
+  assert.equal(capturedInit?.headers?.authorization, 'Bearer test-api-key');
+  const body = JSON.parse(String(capturedInit?.body));
+  assert.equal(body.model, 'test-planner-model');
+  assert.equal(body.response_format.type, 'json_object');
+  assert.match(body.messages[0]?.content ?? '', /Return exactly one JSON object/);
+  const userPrompt = JSON.parse(body.messages[1]?.content ?? '{}');
+  assert.equal(userPrompt.runtimeIdentityConflicts[0]?.riskCategory, 'create-before-delete-ordering');
+  assert.equal(userPrompt.runtimeIdentityConflicts[0]?.resourceAddress, 'aws_lb_listener_rule.api');
+  assert.equal(userPrompt.runtimeIdentityConflicts[0]?.identity.listenerRulePriorities, '100');
+  assert.match(userPrompt.runtimeIdentityConflicts[0]?.reviewSteps[1] ?? '', /listener ARN and priority/i);
+  assert.equal(decision.confidence, 'high');
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'validation-blocked');
 });
 
 test('planner user prompt includes focused config semantics', async () => {

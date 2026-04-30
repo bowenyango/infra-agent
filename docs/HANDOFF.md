@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `05cc8d6` Feed identity conflicts into planner prompts
   - `f67f470` Categorize identity conflict reports
   - `d720fc7` Add smoke and e2e verification layers
   - `65eab57` Suggest identity report handoff commands
@@ -2709,6 +2710,38 @@ Known validation:
 - `npm run verify`: passed.
 - `npm run lint`: passed.
 - `npm run test:unit`: 236/236 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 LLM Planner Transport Contract Slice
+
+Files added or updated:
+
+- `src/model/LLMModelClient.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+
+Purpose:
+
+- Add an injectable fetch transport to `LLMModelClient` so planner request and
+  response contracts can be tested without live network or provider access.
+- Add a no-network regression test that verifies the LLM planner request uses
+  the configured base URL, model, bearer token, JSON response format, system
+  prompt, and compact user prompt with `runtimeIdentityConflicts`.
+- Verify that the mocked LLM response still passes through the bounded decision
+  parser and returns a supported `validation-blocked` stop action.
+- Persist the rule that LLM planner tests must use injected transports or
+  mocked fetchers, not live LLM providers.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 237/237 passed.
 - `npm run smoke`: passed.
 - `npm run e2e`: passed.
 - `git diff --check`: passed.

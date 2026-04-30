@@ -12,17 +12,21 @@ interface ChatCompletionsResponse {
   }>;
 }
 
+type FetchTransport = typeof fetch;
+
 export class LLMModelClient implements ModelClient {
   readonly name: string;
   private readonly config: LLMClientConfig;
+  private readonly fetchTransport: FetchTransport;
 
-  constructor(config: LLMClientConfig) {
+  constructor(config: LLMClientConfig, fetchTransport: FetchTransport = fetch) {
     this.config = config;
+    this.fetchTransport = fetchTransport;
     this.name = `llm-model-client:${config.model}`;
   }
 
   async decideNextAction(runtime: AgentRuntimeState): Promise<AgentDecision> {
-    const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
+    const response = await this.fetchTransport(`${this.config.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

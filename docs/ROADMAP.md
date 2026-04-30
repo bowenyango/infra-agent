@@ -269,6 +269,8 @@ Status on 2026-04-28:
 - Planner prompts now include compact `runtimeIdentityConflicts` derived from
   runtime validation issues, so LLM decisions can see exclusive-identity risk
   category and review context without parsing raw provider stderr.
+- LLM client request/response contracts are testable with injected transports,
+  keeping planner tests deterministic and independent of live LLM providers.
 
 ### Step 3: Add Syntax Validators
 

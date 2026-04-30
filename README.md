@@ -193,6 +193,8 @@ Development verification commands:
 - `npm run e2e`
 - `npm run verify`
 
+LLM planner tests use injected transports and do not call live providers.
+
 The current agent runtime now supports several bounded real slices:
 
 - inspect the highest-confidence Helm, Pulumi, and Terraform targets
