@@ -8,6 +8,7 @@ import { runSingleStep } from '../src/agent/run-single-step.ts';
 import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { buildWorkspaceInfraGraph } from '../src/impact/workspace-graph.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
+import { exitCodeForRunPreflight, INFRA_AGENT_EXIT_CODES } from '../src/cli/exit-codes.ts';
 
 async function smokeInspect(workspacePath) {
   const inspection = await inspectWorkspace(workspacePath);
@@ -93,6 +94,7 @@ async function main() {
     await smokeValidate('fixtures/configured-workspace');
     const restrictedPreflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/restricted-workspace');
     assert.ok(restrictedPreflight.blockers.length > 0);
+    assert.equal(exitCodeForRunPreflight(restrictedPreflight), INFRA_AGENT_EXIT_CODES.preflightBlocked);
 
     const identityResultPath = join(tempRoot, 'identity-agent-result.json');
     await writeIdentityConflictFixture(identityResultPath);

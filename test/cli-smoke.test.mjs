@@ -33,6 +33,11 @@ import {
   summarizeSuggestedCommands
 } from '../src/cli/output.ts';
 import { parseArgs } from '../src/cli/main.ts';
+import {
+  exitCodeForAgentOutcome,
+  exitCodeForRunPreflight,
+  INFRA_AGENT_EXIT_CODES
+} from '../src/cli/exit-codes.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
@@ -5003,6 +5008,22 @@ test('agent CLI args accept --json-full for full debug state output', () => {
   assert.equal(parsed.command, 'agent');
   assert.equal(parsed.json, true);
   assert.equal(parsed.jsonFull, true);
+});
+
+test('CLI exit codes map agent outcomes for downstream agents', async () => {
+  assert.equal(exitCodeForAgentOutcome('completed'), INFRA_AGENT_EXIT_CODES.success);
+  assert.equal(exitCodeForAgentOutcome('validation-blocked'), INFRA_AGENT_EXIT_CODES.validationBlocked);
+  assert.equal(exitCodeForAgentOutcome('approval-required'), INFRA_AGENT_EXIT_CODES.approvalRequired);
+  assert.equal(exitCodeForAgentOutcome('clarification-required'), INFRA_AGENT_EXIT_CODES.clarificationRequired);
+  assert.equal(exitCodeForAgentOutcome('no-safe-action'), INFRA_AGENT_EXIT_CODES.noSafeAction);
+  assert.equal(exitCodeForAgentOutcome('repair-budget-exhausted'), INFRA_AGENT_EXIT_CODES.repairBudgetExhausted);
+
+  const blockedPreflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/restricted-workspace');
+  const readyPreflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+
+  assert.ok(blockedPreflight.blockers.length > 0);
+  assert.equal(exitCodeForRunPreflight(blockedPreflight), INFRA_AGENT_EXIT_CODES.preflightBlocked);
+  assert.equal(exitCodeForRunPreflight(readyPreflight), INFRA_AGENT_EXIT_CODES.success);
 });
 
 test('prefetch CLI args accept bounded source selection flags', () => {

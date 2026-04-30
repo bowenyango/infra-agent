@@ -148,6 +148,7 @@
 - Planner prompts must pass retrieved official-doc/schema context through the context budget helper. Do not inject full cached documents or unbounded excerpts into LLM prompts.
 - Treat retrieved context packet/token budgets as query harness configuration. Prefer `--context-packet-limit` and `--context-token-budget` for experiments instead of changing budget constants ad hoc.
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
+- Treat CLI exit codes as part of the agent-facing contract: `0` means success, `1` means fatal CLI/runtime failure, `2` means validation blocked, `3` means approval required, `4` means clarification required, `5` means no safe action, `6` means repair budget exhausted, and `7` means `run` preflight blockers.
 - Use `infra-agent identity-report <agent-result.json>` when a human operator or downstream agent needs a focused runtime exclusive-identity incident report from an existing compact result. This command is read-only and must not rerun validators or mutate state.
 - `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `schemaVersion=1` and `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
 - When `suggestedCommands` includes an `agent --json > agent-result.json` export followed by `identity-report agent-result.json --json`, treat that as a read-only reporting handoff for exclusive-identity triage, not as approval to rerun apply/update or mutate state.

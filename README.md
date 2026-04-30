@@ -198,6 +198,17 @@ Current behavior is intentionally runtime-foundation oriented:
   cache selection without fetching non-document URLs such as `file://` or
   `oci://`.
 
+CLI exit codes for downstream agents:
+
+- `0`: command completed successfully
+- `1`: fatal CLI or runtime error
+- `2`: `agent` stopped with validation blockers
+- `3`: `agent` stopped for required approval
+- `4`: `agent` stopped for clarification
+- `5`: `agent` exhausted the current loop without a safe terminal action
+- `6`: `agent` exhausted the repair budget
+- `7`: `run` preflight found blockers
+
 LLM planner environment variables:
 
 - `INFRA_AGENT_OPENAI_API_KEY` or `OPENAI_API_KEY`

@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `1c103c0` Gate tool categories with approval policy
   - `5d44d1e` Summarize tool permission categories
   - `b59add1` Expose context budget query config
   - `5d112ca` Budget retrieved context handoff
@@ -3015,6 +3016,43 @@ Known validation:
 - `npm run smoke`: passed.
 - `npm run e2e`: passed.
 - `git diff --check`: passed.
+
+## 2026-04-30 CLI Outcome Exit Codes Slice
+
+Files added or updated:
+
+- `src/cli/exit-codes.ts`
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `scripts/smoke.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add a stable CLI exit-code contract for downstream agents and shell
+  automation.
+- Keep `0` for successful commands and `1` for fatal CLI/runtime failures.
+- Return agent-specific nonzero codes for validation blockers, approval pauses,
+  clarification pauses, no-safe-action exits, and repair-budget exhaustion.
+- Return a preflight-blocked code for `run` when blockers are detected.
+- Keep structured JSON output available even when the process exits with a
+  business-state nonzero code.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 243/243 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+- Manual CLI check: `node --experimental-strip-types src/cli/main.ts run "add ingress to payments-api dev chart" --workspace fixtures/restricted-workspace --json` returned exit code `7` and still emitted JSON.
 
 ## Current Verification Commands
 

@@ -290,6 +290,9 @@ Status on 2026-04-28:
 - Workspace approval policy can now require explicit approval for tool
   categories, with `--approve-tool-category` used to resume gated native
   operations.
+- CLI exit codes now distinguish completed runs, validation blockers, approval
+  pauses, clarification pauses, no-safe-action exits, repair-budget exhaustion,
+  fatal errors, and `run` preflight blockers for downstream agent control flow.
 
 ### Step 3: Add Syntax Validators
 

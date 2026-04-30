@@ -25,6 +25,7 @@ import {
   printRunPreflight,
   printValidationPreflight
 } from './output.ts';
+import { exitCodeForAgentOutcome, exitCodeForRunPreflight } from './exit-codes.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'identity-report' | 'help';
@@ -576,10 +577,12 @@ async function main(): Promise<void> {
     if (parsed.json) {
       const payload = parsed.jsonFull ? agentRunState : buildCompactAgentRunResult(agentRunState);
       process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+      process.exitCode = exitCodeForAgentOutcome(agentRunState.outcome);
       return;
     }
 
     printAgentRunState(agentRunState);
+    process.exitCode = exitCodeForAgentOutcome(agentRunState.outcome);
     return;
   }
 
@@ -590,10 +593,12 @@ async function main(): Promise<void> {
   });
   if (parsed.json) {
     process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
+    process.exitCode = exitCodeForRunPreflight(preflight);
     return;
   }
 
   printRunPreflight(preflight);
+  process.exitCode = exitCodeForRunPreflight(preflight);
 }
 
 if (fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '')) {

@@ -23,6 +23,10 @@ message is enough.
   `infra-agent.agent-result`.
 - Use `--json-full` only for debugging because it includes the complete runtime
   state and can carry more context than another agent should need.
+- Process exit codes are part of the handoff contract for automation: `0`
+  success, `1` fatal error, `2` validation blocked, `3` approval required, `4`
+  clarification required, `5` no safe action, `6` repair budget exhausted, and
+  `7` `run` preflight blockers.
 
 ## Official Docs Strategy
 

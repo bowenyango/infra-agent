@@ -51,6 +51,10 @@ guessing infrastructure conventions from generic IaC knowledge.
    If `suggestedCommands` includes an `agent --json > agent-result.json` export
    followed by `identity-report agent-result.json --json`, use it as a
    read-only reporting path.
+   Also treat the process exit code as control-flow metadata: `0` succeeded,
+   `2` validation-blocked, `3` approval-required, `4` clarification-required,
+   `5` no-safe-action, `6` repair-budget-exhausted, and `7` `run` preflight
+   blockers. `1` remains fatal CLI/runtime failure.
 5. If the result asks for approval, do not work around it. Ask the user or rerun
    with the requested approval flags only when the user has approved that scope.
 6. If validation fails, use the structured failure and suggested next action

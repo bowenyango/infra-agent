@@ -42,6 +42,10 @@ durable design reference for infra-agent development.
   there instead of spreading control-flow decisions through CLI output code.
 - Compact `agent --json` output is the primary agent-to-agent handoff. Add
   small structured sections there before adding prose-only output.
+- CLI exit codes are part of the harness contract for automation. Keep
+  completed, validation-blocked, approval-required, clarification-required,
+  no-safe-action, and repair-budget-exhausted outcomes distinguishable without
+  requiring downstream agents to parse prose.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
   runtime snapshots, and raw tool output.
