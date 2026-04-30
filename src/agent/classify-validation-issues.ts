@@ -1,10 +1,13 @@
 import type { ValidationCommandOutput } from '../types/tools.ts';
 import type { ValidationIssue } from '../types/agent.ts';
 
-interface PulumiCreateBeforeDeleteConflictFacts {
+type RuntimeIaCEngine = 'pulumi' | 'terraform';
+
+interface RuntimeExclusiveIdentityConflictFacts {
   conflictCode: string;
   conflictFamily: string;
   duplicateIdentity: string | null;
+  engine: RuntimeIaCEngine;
   dnsNames: string[];
   listenerArns: string[];
   listenerRulePriorities: string[];
@@ -80,6 +83,38 @@ function uniqueMatches(output: string, pattern: RegExp): string[] {
 function extractPulumiResourceType(output: string): string | null {
   const match = output.match(/(?:^|\n)\s*([A-Za-z0-9_./-]+:[A-Za-z0-9_./-]+(?::[A-Za-z0-9_./-]+)?)\s+\([^)]+\):/);
   return match?.[1]?.trim() ?? null;
+}
+
+function extractTerraformAddressResourceType(address: string): string | null {
+  const parts = address.split('.');
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    if (parts[index] === 'module') {
+      index += 1;
+      continue;
+    }
+
+    if (parts[index] === 'data') {
+      return parts[index + 1]?.replace(/\[.*$/, '') ?? null;
+    }
+
+    return parts[index]?.replace(/\[.*$/, '') ?? null;
+  }
+
+  return null;
+}
+
+function extractTerraformResourceType(output: string): string | null {
+  const resourceBlockMatch = output.match(/\bin resource\s+"([^"]+)"\s+"[^"]+"/i);
+  if (resourceBlockMatch?.[1]) {
+    return resourceBlockMatch[1].trim();
+  }
+
+  const addressMatch = output.match(/\bwith\s+([^,\s]+),?/i);
+  if (!addressMatch?.[1]) {
+    return null;
+  }
+
+  return extractTerraformAddressResourceType(addressMatch[1].trim());
 }
 
 function extractDuplicateIdentity(output: string): string | null {
@@ -202,8 +237,13 @@ function conflictFamilyFromFacts(params: {
   return 'exclusive-identity';
 }
 
-function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCreateBeforeDeleteConflictFacts | null {
-  const resourceType = extractPulumiResourceType(output);
+function extractRuntimeExclusiveIdentityConflictFacts(
+  output: string,
+  engine: RuntimeIaCEngine
+): RuntimeExclusiveIdentityConflictFacts | null {
+  const resourceType = engine === 'pulumi'
+    ? extractPulumiResourceType(output)
+    : extractTerraformResourceType(output);
   const conflictCode = conflictCodeFromOutput(output, resourceType);
 
   if (!conflictCode) {
@@ -223,6 +263,7 @@ function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCre
       routeTableIds
     }),
     duplicateIdentity: extractDuplicateIdentity(output),
+    engine,
     dnsNames: extractDnsNames(output),
     listenerArns: extractListenerArns(output),
     listenerRulePriorities: extractListenerRulePriorities(output),
@@ -237,46 +278,98 @@ function extractPulumiCreateBeforeDeleteConflictFacts(output: string): PulumiCre
   };
 }
 
-function buildPulumiCreateBeforeDeleteConflictGuidance(facts: PulumiCreateBeforeDeleteConflictFacts): string {
+function runtimeEngineLabel(engine: RuntimeIaCEngine): string {
+  return engine === 'terraform' ? 'Terraform' : 'Pulumi';
+}
+
+function logicalIdentityRepairText(engine: RuntimeIaCEngine): string {
+  return engine === 'terraform'
+    ? 'use moved blocks, reviewed terraform state mv, import, or state repair for logical adoption or renames'
+    : 'use aliases/import/state repair for logical adoption or renames';
+}
+
+function adoptionRepairText(engine: RuntimeIaCEngine): string {
+  return engine === 'terraform'
+    ? 'Use moved blocks, reviewed terraform state mv, import, or state repair for logical adoption or renames'
+    : 'Use aliases/import/state repair for logical adoption or renames';
+}
+
+function oidcRepairText(engine: RuntimeIaCEngine): string {
+  return engine === 'terraform'
+    ? 'use import/state repair, moved blocks, or reviewed terraform state mv for logical adoption/renames'
+    : 'use import/state repair or aliases for logical adoption/renames';
+}
+
+function replacementSequencingText(engine: RuntimeIaCEngine): string {
+  return engine === 'terraform'
+    ? 'review lifecycle create_before_destroy and explicitly sequence delete-before-create replacement after approval'
+    : 'use deleteBeforeReplace or manually sequence the replacement with accepted downtime';
+}
+
+function buildRuntimeExclusiveIdentityConflictGuidance(facts: RuntimeExclusiveIdentityConflictFacts): string {
+  const engine = runtimeEngineLabel(facts.engine);
   const routeTableText = facts.routeTableIds.length > 0 ? ` in route table(s) ${facts.routeTableIds.join(', ')}` : '';
   const destinationText = facts.routeDestinations.length > 0 ? ` for destination(s) ${facts.routeDestinations.join(', ')}` : '';
   const resourceText = facts.resourceType ? ` ${facts.resourceType}` : '';
   const identityText = facts.duplicateIdentity ? ` for identity ${facts.duplicateIdentity}` : '';
+  const logicalIdentityRepair = logicalIdentityRepairText(facts.engine);
+  const replacementSequencing = replacementSequencingText(facts.engine);
 
   if (facts.conflictFamily === 'aws-cloudfront-alias') {
     const aliasText = facts.dnsNames.length > 0 ? ` (${facts.dnsNames.join(', ')})` : '';
-    return `Pulumi attempted to create a CloudFront distribution alias/CNAME${aliasText} before the existing distribution released it, and the provider returned ${facts.conflictCode}. Review the preview for delete/create or delete-replaced/create-replacement pairs that share aliases; use aliases or state moves for logical renames, or explicitly remove/move the old alias before creating the replacement distribution. Run refresh/import/state repair only with explicit approval.`;
+    return `${engine} attempted to create a CloudFront distribution alias/CNAME${aliasText} before the existing distribution released it, and the provider returned ${facts.conflictCode}. Review the plan/preview for delete/create or replacement pairs that share aliases; use aliases, moved blocks, or state moves for logical renames, or explicitly remove/move the old alias before creating the replacement distribution. Run refresh/import/state repair only with explicit approval.`;
   }
 
   if (facts.conflictFamily === 'aws-api-gateway-domain-name') {
     const domainText = facts.dnsNames.length > 0 ? ` (${facts.dnsNames.join(', ')})` : identityText;
-    return `Pulumi attempted to create an API Gateway custom domain${domainText} before deleting or moving the existing domain, and the provider returned ${facts.conflictCode}. Review the preview for matching domainName identity: use Pulumi aliases for logical renames, deleteBeforeReplace or manual sequencing for true replacements with accepted downtime, and state/import repair only with explicit approval.`;
+    return `${engine} attempted to create an API Gateway custom domain${domainText} before deleting or moving the existing domain, and the provider returned ${facts.conflictCode}. Review the plan/preview for matching domainName identity: ${logicalIdentityRepair}, ${replacementSequencing} for true replacements, and state/import repair only with explicit approval.`;
   }
 
   if (facts.conflictFamily === 'aws-route53-record') {
     const dnsText = facts.dnsNames.length > 0 ? ` ${facts.dnsNames.join(', ')}` : '';
     const typeText = facts.recordTypes.length > 0 ? ` type(s) ${facts.recordTypes.join(', ')}` : '';
-    return `Pulumi attempted to create a Route53 record set${dnsText}${typeText} that conflicts with an existing record, and the provider returned ${facts.conflictCode}. This is common for ACM validation CNAMEs and logical record moves. Review the preview for matching hosted zone, name, type, and set identifier; prefer import/state repair for logical moves, use allowOverwrite only after DNS ownership review, or explicitly sequence delete-before-create after approval.`;
+    return `${engine} attempted to create a Route53 record set${dnsText}${typeText} that conflicts with an existing record, and the provider returned ${facts.conflictCode}. This is common for ACM validation CNAMEs and logical record moves. Review the plan/preview for matching hosted zone, name, type, and set identifier; prefer import/state repair for logical moves, use allowOverwrite only after DNS ownership review, or explicitly sequence delete-before-create after approval.`;
   }
 
   if (facts.conflictFamily === 'aws-security-group-rule') {
     const groupText = facts.securityGroupIds.length > 0 ? ` in security group(s) ${facts.securityGroupIds.join(', ')}` : '';
     const peerText = facts.securityGroupRulePeers.length > 0 ? ` for peer(s) ${facts.securityGroupRulePeers.join(', ')}` : '';
-    return `Pulumi attempted to create a security group rule${groupText}${peerText} before the existing duplicate permission was deleted or adopted, and the provider returned ${facts.conflictCode}. Review the preview for matching direction, protocol, port range, security group, and peer. Use aliases/import/state repair for logical adoption or renames, avoid mixing inline, legacy, and VPC-style rule managers for the same group, or explicitly sequence delete-before-create after approval.`;
+    return `${engine} attempted to create a security group rule${groupText}${peerText} before the existing duplicate permission was deleted or adopted, and the provider returned ${facts.conflictCode}. Review the plan/preview for matching direction, protocol, port range, security group, and peer. ${adoptionRepairText(facts.engine)}, avoid mixing inline, legacy, and VPC-style rule managers for the same group, or explicitly sequence delete-before-create after approval.`;
   }
 
   if (facts.conflictFamily === 'aws-lb-listener-rule') {
     const listenerText = facts.listenerArns.length > 0 ? ` on listener(s) ${facts.listenerArns.join(', ')}` : '';
     const priorityText = facts.listenerRulePriorities.length > 0 ? ` for priority ${facts.listenerRulePriorities.join(', ')}` : '';
-    return `Pulumi attempted to create a load balancer listener rule${listenerText}${priorityText} before the existing rule priority was moved or removed, and the provider returned ${facts.conflictCode}. Review the preview for matching listenerArn and priority. Use aliases/import/state repair for logical adoption or renames, choose a free priority for coexistence, or explicitly sequence old rule removal before creating the replacement after approval.`;
+    return `${engine} attempted to create a load balancer listener rule${listenerText}${priorityText} before the existing rule priority was moved or removed, and the provider returned ${facts.conflictCode}. Review the plan/preview for matching listenerArn and priority. ${adoptionRepairText(facts.engine)}, choose a free priority for coexistence, or explicitly sequence old rule removal before creating the replacement after approval.`;
   }
 
   if (facts.conflictFamily === 'aws-iam-oidc-provider') {
     const providerText = facts.oidcProviderUrls.length > 0 ? ` (${facts.oidcProviderUrls.join(', ')})` : identityText;
-    return `Pulumi attempted to create an IAM OIDC provider${providerText} before the existing provider was adopted, moved, or removed, and the provider returned ${facts.conflictCode}. IAM OIDC provider URLs are account-unique; review role trust policies that reference the provider, use import/state repair or aliases for logical adoption/renames, and sequence replacement only after approval.`;
+    return `${engine} attempted to create an IAM OIDC provider${providerText} before the existing provider was adopted, moved, or removed, and the provider returned ${facts.conflictCode}. IAM OIDC provider URLs are account-unique; review role trust policies that reference the provider, ${oidcRepairText(facts.engine)}, and sequence replacement only after approval.`;
   }
 
-  return `Pulumi attempted to create an exclusive${resourceText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the preview for delete/create or delete-replaced/create-replacement pairs with the same provider identity: if this is a logical rename, add Pulumi aliases from the old URNs; if the resource must be replaced, set deleteBeforeReplace or manually sequence the replacement with accepted downtime; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
+  return `${engine} attempted to create an exclusive${resourceText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the plan/preview for delete/create or replacement pairs with the same provider identity: if this is a logical rename, ${logicalIdentityRepair}; if the resource must be replaced, ${replacementSequencing}; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
+}
+
+function buildRuntimeExclusiveIdentityConflictMetadata(
+  facts: RuntimeExclusiveIdentityConflictFacts
+): NonNullable<ValidationIssue['metadata']> {
+  return {
+    conflictCode: facts.conflictCode,
+    conflictFamily: facts.conflictFamily,
+    duplicateIdentity: facts.duplicateIdentity ?? undefined,
+    dnsNames: facts.dnsNames.join(','),
+    listenerArns: facts.listenerArns.join(','),
+    listenerRulePriorities: facts.listenerRulePriorities.join(','),
+    oidcProviderUrls: facts.oidcProviderUrls.join(','),
+    providerName: facts.providerName ?? undefined,
+    recordTypes: facts.recordTypes.join(','),
+    resourceType: facts.resourceType ?? undefined,
+    routeDestinations: facts.routeDestinations.join(','),
+    routeTableIds: facts.routeTableIds.join(','),
+    securityGroupIds: facts.securityGroupIds.join(','),
+    securityGroupRulePeers: facts.securityGroupRulePeers.join(',')
+  };
 }
 
 function buildHelmValidationGuidance(kind: 'service-port' | 'ingress-values'): string {
@@ -363,34 +456,34 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
       continue;
     }
 
+    if (/terraform\b.*(?:plan|apply)/i.test(result.command)) {
+      const createBeforeDeleteConflictFacts = extractRuntimeExclusiveIdentityConflictFacts(combinedOutput, 'terraform');
+
+      if (createBeforeDeleteConflictFacts) {
+        issues.push(buildIssue(result, {
+          kind: 'terraform-create-before-delete-conflict',
+          repairable: false,
+          message: combinedOutput.trim().slice(0, 400) || 'Terraform failed because a resource with the same provider identity already exists.',
+          guidance: buildRuntimeExclusiveIdentityConflictGuidance(createBeforeDeleteConflictFacts),
+          metadata: buildRuntimeExclusiveIdentityConflictMetadata(createBeforeDeleteConflictFacts)
+        }));
+        continue;
+      }
+    }
+
     if (/pulumi\b.*(?:preview|up|update)/i.test(result.command)) {
       const missingConfigMatch =
         combinedOutput.match(/missing required configuration (?:key|variable)[^"'`]*["'`]([^"'`]+)["'`]/i)
         ?? combinedOutput.match(/configuration[^"'`]*["'`]([^"'`]+)["'`][^"'`]*is required/i);
-      const createBeforeDeleteConflictFacts = extractPulumiCreateBeforeDeleteConflictFacts(combinedOutput);
+      const createBeforeDeleteConflictFacts = extractRuntimeExclusiveIdentityConflictFacts(combinedOutput, 'pulumi');
 
       if (createBeforeDeleteConflictFacts) {
         issues.push(buildIssue(result, {
           kind: 'pulumi-create-before-delete-conflict',
           repairable: false,
           message: combinedOutput.trim().slice(0, 400) || 'Pulumi failed because a resource with the same provider identity already exists.',
-          guidance: buildPulumiCreateBeforeDeleteConflictGuidance(createBeforeDeleteConflictFacts),
-          metadata: {
-            conflictCode: createBeforeDeleteConflictFacts.conflictCode,
-            conflictFamily: createBeforeDeleteConflictFacts.conflictFamily,
-            duplicateIdentity: createBeforeDeleteConflictFacts.duplicateIdentity ?? undefined,
-            dnsNames: createBeforeDeleteConflictFacts.dnsNames.join(','),
-            listenerArns: createBeforeDeleteConflictFacts.listenerArns.join(','),
-            listenerRulePriorities: createBeforeDeleteConflictFacts.listenerRulePriorities.join(','),
-            oidcProviderUrls: createBeforeDeleteConflictFacts.oidcProviderUrls.join(','),
-            providerName: createBeforeDeleteConflictFacts.providerName ?? undefined,
-            recordTypes: createBeforeDeleteConflictFacts.recordTypes.join(','),
-            resourceType: createBeforeDeleteConflictFacts.resourceType ?? undefined,
-            routeDestinations: createBeforeDeleteConflictFacts.routeDestinations.join(','),
-            routeTableIds: createBeforeDeleteConflictFacts.routeTableIds.join(','),
-            securityGroupIds: createBeforeDeleteConflictFacts.securityGroupIds.join(','),
-            securityGroupRulePeers: createBeforeDeleteConflictFacts.securityGroupRulePeers.join(',')
-          }
+          guidance: buildRuntimeExclusiveIdentityConflictGuidance(createBeforeDeleteConflictFacts),
+          metadata: buildRuntimeExclusiveIdentityConflictMetadata(createBeforeDeleteConflictFacts)
         }));
         continue;
       }

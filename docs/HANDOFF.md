@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `81c051f` Classify listener rule priority conflicts
   - `f0ccb17` Handle all-protocol security rule identity
   - `7423955` Classify security runtime conflicts
   - `2039f49` Add VPC security group rule identity conflicts
@@ -2055,6 +2056,51 @@ Known validation:
 
 - `npm run lint`: passed.
 - `npm run test`: 224/224 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime validation families only from representative provider CLI
+   outputs with clear identity boundaries.
+2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 Terraform Runtime Conflict Classifier Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `src/types/agent.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `terraform-create-before-delete-conflict` as the Terraform-side runtime
+  validation issue for provider-exclusive identity collisions found in captured
+  Terraform plan/apply failure output.
+- Reuse the shared runtime extraction path for conflict code, conflict family,
+  DNS names, listener ARN/priority, route table/destination, security rule
+  peers, OIDC provider URLs, provider name, and duplicate identity metadata.
+- Extract Terraform resource types from `with ...` addresses or `resource`
+  block snippets so guidance can distinguish resource families without loading
+  large context.
+- Keep Terraform runtime conflict guidance review-only: moved blocks,
+  reviewed `terraform state mv`, import/state repair, lifecycle
+  `create_before_destroy` review, or explicit delete-before-create sequencing
+  after approval. This classifier does not authorize running apply.
+- Extend result-card summaries and review focus so downstream agents see
+  Terraform exclusive identity blockers without scanning raw stderr.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 227/227 passed.
 - `npm run smoke`: passed.
 - `git diff --check`: passed.
 

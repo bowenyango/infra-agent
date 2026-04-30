@@ -6119,6 +6119,50 @@ test('summarizeResultCard includes Pulumi security duplicate validation findings
   assert.ok(summary.some(line => /Validation findings: Pulumi create-before-delete conflict: provider returned InvalidPermission\.Duplicate for 10\.0\.0\.0\/16\./i.test(line)));
 });
 
+test('summarizeResultCard includes Terraform exclusive identity validation findings', async () => {
+  const preflight = await buildRunPreflight('update terraform edge listener rule priority', 'fixtures/terraform-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'terraform -chdir=terraform/payments-api plan',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'error: api error PriorityInUse: Priority \'100\' is currently in use'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'terraform-create-before-delete-conflict',
+          repairable: false,
+          sourceCommand: 'terraform -chdir=terraform/payments-api plan',
+          message: 'api error PriorityInUse',
+          guidance: 'Review Terraform moved blocks, import/state repair, and lifecycle ordering before retrying.',
+          metadata: {
+            conflictCode: 'PriorityInUse',
+            conflictFamily: 'aws-lb-listener-rule',
+            listenerRulePriorities: '100'
+          }
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(summary.some(line => /Validation findings: Terraform create-before-delete conflict: provider returned PriorityInUse for 100\./i.test(line)));
+  assert.ok(summary.some(line => /Review focus: Review Terraform moved blocks, import\/state repair needs, lifecycle ordering, and the matched provider identity before retrying\./i.test(line)));
+});
+
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {
   const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
   const summary = summarizeResultCard({
@@ -7497,6 +7541,61 @@ test('classifyValidationIssues provides actionable guidance for missing required
   assert.equal(issues[0]?.repairable, true);
   assert.equal(issues[0]?.metadata?.missingVariableName, 'image_tag');
   assert.match(issues[0]?.guidance ?? '', /add the missing required argument through an existing tfvars file or declared variable path/i);
+});
+
+test('classifyValidationIssues marks Terraform AWS route identity conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/network apply -auto-approve',
+      exitCode: 1,
+      stdout: '',
+      stderr: [
+        'Error: creating Route in Route Table (rtb-0102177ec9e1ab465): operation error EC2: CreateRoute, https response error StatusCode: 400, api error RouteAlreadyExists: Route in Route Table (rtb-0102177ec9e1ab465) with destination (10.0.0.0/16) already exists',
+        '',
+        '  with module.network.aws_route.private[0],',
+        '  on routes.tf line 12, in resource "aws_route" "private":'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'terraform-create-before-delete-conflict');
+  assert.equal(issues[0]?.repairable, false);
+  assert.equal(issues[0]?.metadata?.conflictCode, 'RouteAlreadyExists');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-route');
+  assert.equal(issues[0]?.metadata?.resourceType, 'aws_route');
+  assert.equal(issues[0]?.metadata?.routeTableIds, 'rtb-0102177ec9e1ab465');
+  assert.equal(issues[0]?.metadata?.routeDestinations, '10.0.0.0/16');
+  assert.match(issues[0]?.guidance ?? '', /Terraform attempted to create/i);
+  assert.match(issues[0]?.guidance ?? '', /moved blocks/i);
+  assert.match(issues[0]?.guidance ?? '', /create_before_destroy/i);
+});
+
+test('classifyValidationIssues marks Terraform listener rule priority conflicts', () => {
+  const listenerArn = 'arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/api/50dc6c495c0c9188/f2f7dc8efc522ab2';
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/edge plan',
+      exitCode: 1,
+      stdout: '',
+      stderr: [
+        'Error: creating ELBv2 Listener Rule: operation error Elastic Load Balancing v2: CreateRule, https response error StatusCode: 400, api error PriorityInUse: Priority \'100\' is currently in use on listener ' + listenerArn,
+        '',
+        '  with aws_lb_listener_rule.api,',
+        '  on listeners.tf line 31, in resource "aws_lb_listener_rule" "api":'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'terraform-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'PriorityInUse');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-lb-listener-rule');
+  assert.equal(issues[0]?.metadata?.resourceType, 'aws_lb_listener_rule');
+  assert.equal(issues[0]?.metadata?.listenerArns, listenerArn);
+  assert.equal(issues[0]?.metadata?.listenerRulePriorities, '100');
+  assert.match(issues[0]?.guidance ?? '', /listenerArn and priority/);
+  assert.match(issues[0]?.guidance ?? '', /choose a free priority/);
 });
 
 test('classifyValidationIssues marks missing Pulumi config as pulumi-missing-config', () => {

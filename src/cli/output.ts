@@ -292,11 +292,12 @@ function summarizeValidationFindings(state: AgentRunState): string {
       : 'Pulumi preview is blocked by a missing required config value.';
   }
 
-  if (topIssue?.kind === 'pulumi-create-before-delete-conflict') {
+  if (topIssue?.kind === 'pulumi-create-before-delete-conflict' || topIssue?.kind === 'terraform-create-before-delete-conflict') {
+    const engine = topIssue.kind === 'terraform-create-before-delete-conflict' ? 'Terraform' : 'Pulumi';
     const routeTables = topIssue.metadata?.routeTableIds;
     const destinations = topIssue.metadata?.routeDestinations;
     if (routeTables || destinations) {
-      return `Pulumi create-before-delete conflict: AWS route already exists${routeTables ? ` in ${routeTables}` : ''}${destinations ? ` for ${destinations}` : ''}.`;
+      return `${engine} create-before-delete conflict: AWS route already exists${routeTables ? ` in ${routeTables}` : ''}${destinations ? ` for ${destinations}` : ''}.`;
     }
 
     const identity = topIssue.metadata?.dnsNames
@@ -307,7 +308,7 @@ function summarizeValidationFindings(state: AgentRunState): string {
       || topIssue.metadata?.securityGroupIds
       || topIssue.metadata?.duplicateIdentity;
     const conflictCode = topIssue.metadata?.conflictCode;
-    return `Pulumi create-before-delete conflict: provider returned ${conflictCode ?? 'an exclusive identity error'}${identity ? ` for ${identity}` : ''}.`;
+    return `${engine} create-before-delete conflict: provider returned ${conflictCode ?? 'an exclusive identity error'}${identity ? ` for ${identity}` : ''}.`;
   }
 
   if (topIssue?.kind === 'pulumi-preview-failure') {
@@ -605,13 +606,17 @@ function summarizeReviewFocus(state: AgentRunState): string {
     }
 
     if (topValidationIssue?.kind === 'pulumi-create-before-delete-conflict') {
-      return 'Review Pulumi route aliases, deleteBeforeReplace options, and the failed route table/destination pairs before retrying update.';
+      return 'Review Pulumi aliases, deleteBeforeReplace options, import/state repair needs, and the matched provider identity before retrying update.';
     }
 
     return 'Review the selected Pulumi stack file, config keys, and preview output.';
   }
 
   if (primaryDomain === 'terraform') {
+    if (topValidationIssue?.kind === 'terraform-create-before-delete-conflict') {
+      return 'Review Terraform moved blocks, import/state repair needs, lifecycle ordering, and the matched provider identity before retrying.';
+    }
+
     if (topValidationIssue?.kind === 'terraform-validate-failure') {
       return 'Review the target tfvars file and the Terraform module inputs referenced by validate.';
     }

@@ -388,14 +388,14 @@ Status on 2026-04-28:
   validation CNAMEs, and Kubernetes objects. VPC-style security group rule
   ports are protocol-gated identity fields: graph matching permits omitted
   ports for all-protocol or `icmpv6` rules but keeps TCP/UDP rules conservative.
-- Runtime validation issue classification now recognizes Pulumi
+- Runtime validation issue classification now recognizes Pulumi and Terraform
   `AlreadyExists`/duplicate-name failures plus DNS/domain conflicts such as
   CloudFront `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, and
   Route53 `InvalidChangeBatch`, plus load balancer listener rule
   `PriorityInUse`, security group rule `InvalidPermission.Duplicate`, and IAM
   OIDC provider `EntityAlreadyExists`, then produces guidance for aliases,
-  `deleteBeforeReplace`, manually sequenced replacement, or explicit
-  state/import repair review.
+  Terraform moved blocks, `deleteBeforeReplace`, lifecycle sequencing, manually
+  sequenced replacement, or explicit state/import repair review.
 - Terraform roots can now ingest an optional local
   `.infra-agent/terraform-provider-schema.json` or
   `.infra-agent/terraform-providers-schema.json` export from

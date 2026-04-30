@@ -94,6 +94,7 @@ export type ValidationIssueKind =
   | 'pulumi-create-before-delete-conflict'
   | 'pulumi-missing-config'
   | 'pulumi-preview-failure'
+  | 'terraform-create-before-delete-conflict'
   | 'terraform-formatting-required'
   | 'terraform-validate-failure'
   | 'yaml-syntax-failure'

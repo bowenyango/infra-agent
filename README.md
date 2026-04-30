@@ -116,14 +116,15 @@ Current behavior is intentionally runtime-foundation oriented:
 - `agent --json` emits a compact `infra-agent.agent-result` payload for other
   agents; use `--json-full` only when debugging the complete runtime state
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
-- Runtime validation issue classification recognizes Pulumi provider
-  exclusive-identity failures including CloudFront `CNAMEAlreadyExists`, API
-  Gateway domain `ConflictException`, and Route53 `InvalidChangeBatch` record
-  conflicts, load balancer listener rule `PriorityInUse`, security group rule
-  `InvalidPermission.Duplicate`, and IAM OIDC provider `EntityAlreadyExists`,
-  and reports them as non-repairable ordering blockers that require
-  preview/state review before aliases, `deleteBeforeReplace`, import, or state
-  repair.
+- Runtime validation issue classification recognizes Pulumi and Terraform
+  provider exclusive-identity failures including CloudFront
+  `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, Route53
+  `InvalidChangeBatch` record conflicts, load balancer listener rule
+  `PriorityInUse`, security group rule `InvalidPermission.Duplicate`, and IAM
+  OIDC provider `EntityAlreadyExists`, and reports them as non-repairable
+  ordering blockers that require plan/preview/state review before aliases,
+  Terraform moved blocks, `deleteBeforeReplace`, lifecycle sequencing, import,
+  or state repair.
 - `inspect` resolves the knowledge-cache root used for future docs/schema
   context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;
   otherwise `infra-agent.config.json` may set a workspace-relative

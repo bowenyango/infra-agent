@@ -144,6 +144,14 @@ Current implemented source:
   security group, or OIDC URL metadata when parseable.
   Load balancer listener rule `PriorityInUse` failures are classified the same
   way with listener ARN and priority metadata when parseable.
+- Terraform plan/apply failure output is classified as
+  `terraform-create-before-delete-conflict` when it exposes the same
+  provider-exclusive identities. The classifier extracts Terraform resource
+  types from `with ...` addresses or `resource` blocks, then emits route,
+  listener, DNS, security rule, OIDC, and duplicate identity metadata when
+  parseable. Treat this as a blocker for review of moved blocks, import/state
+  repair, lifecycle `create_before_destroy`, or explicit delete-before-create
+  sequencing; do not run apply as part of this skill.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`
