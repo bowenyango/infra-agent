@@ -42,6 +42,7 @@ interface ValidationIdentityConflictSummary {
   resourceName: string | null;
   resourceType: string | null;
   identity: Record<string, string>;
+  reviewSteps: string[];
   suggestedAction: string | null;
   sourceCommand: string;
 }
@@ -418,6 +419,42 @@ function collectIdentityConflictMetadata(metadata: ValidationIssue['metadata']):
   return identity;
 }
 
+function formatIdentityConflictFields(identity: Record<string, string>): string {
+  const entries = Object.entries(identity);
+  if (entries.length === 0) {
+    return 'matched provider identity';
+  }
+
+  return entries.map(([key, value]) => `${key}=${value}`).join(', ');
+}
+
+function buildIdentityConflictReviewSteps(
+  engine: ValidationIdentityConflictSummary['engine'],
+  issue: ValidationIssue
+): string[] {
+  const identity = formatIdentityConflictFields(collectIdentityConflictMetadata(issue.metadata));
+  const label = issue.metadata?.conflictLabel ?? issue.metadata?.conflictFamily ?? 'provider-exclusive identity';
+  const locator = engine === 'terraform'
+    ? issue.metadata?.resourceAddress
+    : issue.metadata?.resourceName;
+  const engineLabel = engine === 'terraform' ? 'Terraform' : 'Pulumi';
+  const nativeReviewCommand = engine === 'terraform' ? 'terraform plan' : 'pulumi preview';
+
+  return [
+    locator
+      ? `Review ${engineLabel} locator ${locator} against existing state/stack ownership.`
+      : `Review the native ${engineLabel} state/preview output to find the resource that owns the ${label} identity.`,
+    `Confirm ${label} identity (${identity}) belongs to the intended resource, module, stack, and environment.`,
+    engine === 'terraform'
+      ? 'If this is a logical rename, prefer a reviewed moved block or terraform state mv mapping before retrying plan.'
+      : 'If this is a logical rename, prefer a reviewed Pulumi alias, import, or state repair before retrying preview.',
+    engine === 'terraform'
+      ? 'If this is a real replacement, remove create-before-destroy pressure or sequence delete/import/state repair with explicit approval.'
+      : 'If this is a real replacement, use deleteBeforeReplace or manual sequencing only after downtime and ownership review.',
+    `Rerun ${nativeReviewCommand} and keep apply/update blocked until the exclusive identity conflict is gone.`
+  ];
+}
+
 function collectValidationIdentityConflicts(state: AgentRunState): ValidationIdentityConflictSummary[] {
   return state.runtime.validationIssues
     .flatMap(issue => {
@@ -436,11 +473,26 @@ function collectValidationIdentityConflicts(state: AgentRunState): ValidationIde
         resourceName: issue.metadata?.resourceName ?? null,
         resourceType: issue.metadata?.resourceType ?? null,
         identity: collectIdentityConflictMetadata(issue.metadata),
+        reviewSteps: buildIdentityConflictReviewSteps(engine, issue),
         suggestedAction: issue.metadata?.conflictSuggestedAction ?? null,
         sourceCommand: issue.sourceCommand
       }];
     })
     .slice(0, 5);
+}
+
+function summarizeIdentityConflictReview(state: AgentRunState): string {
+  const [conflict] = collectValidationIdentityConflicts(state);
+  if (!conflict) {
+    return 'none';
+  }
+
+  const engineLabel = conflict.engine === 'terraform' ? 'Terraform' : 'Pulumi';
+  const locator = conflict.engine === 'terraform' ? conflict.resourceAddress : conflict.resourceName;
+  const locatorSummary = locator ? `locator ${locator}` : 'locator unavailable';
+  const identity = formatIdentityConflictFields(conflict.identity);
+
+  return `${engineLabel} ${locatorSummary}; identity ${identity}; classify logical rename vs real replacement before state, alias, import, or sequencing changes.`;
 }
 
 function summarizeValidationDerivedSemanticBlockers(state: AgentRunState): string {
@@ -843,6 +895,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
+  lines.push(`Identity review: ${summarizeIdentityConflictReview(state)}`);
   lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);
   lines.push(`Review command: ${summarizeReviewCommand(state)}`);
   lines.push(`Next operator step: ${summarizeNextOperatorStep(state)}`);

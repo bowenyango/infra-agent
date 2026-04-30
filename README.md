@@ -118,7 +118,7 @@ Current behavior is intentionally runtime-foundation oriented:
   The compact validation payload includes `identityConflicts`, a low-noise
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity
-  fields, source command, and suggested review action.
+  fields, review checklist, source command, and suggested review action.
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront

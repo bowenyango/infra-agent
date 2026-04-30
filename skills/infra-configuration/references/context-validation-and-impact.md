@@ -178,6 +178,10 @@ Current implemented source:
   it includes the engine, issue kind, conflict code/family/label, resource type,
   IaC locator fields, parsed identity fields, suggested review action, and
   source command without requiring raw stderr parsing.
+- `validation.identityConflicts[].reviewSteps` is a compact review checklist for
+  downstream agents. It should guide logical rename vs real replacement triage
+  and native plan/preview reruns, but it must remain read-only until explicit
+  approval covers any state, stack, import, alias, or sequencing change.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

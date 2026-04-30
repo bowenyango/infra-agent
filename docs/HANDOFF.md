@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `c07b81b` Expose runtime resource locators
   - `6337819` Extract AWS named runtime identities
   - `8f84a55` Extract Kubernetes runtime identities
   - `7c423cf` Expose identity conflicts in compact JSON
@@ -2329,6 +2330,46 @@ Recommended next implementation slice:
 2. Consider a dedicated remediation planner that consumes
    `validation.identityConflicts` and emits review checklists, while keeping
    state mutations behind explicit approval.
+
+## 2026-04-30 Identity Conflict Review Checklist Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `validation.identityConflicts[].reviewSteps` to compact agent JSON so
+  downstream agents can follow a short checklist without parsing raw stderr or
+  long guidance strings.
+- Add an `Identity review` line to result cards that summarizes the engine,
+  locator, matched provider identity, and the required logical rename vs real
+  replacement triage.
+- Keep checklist language review-only: it can mention moved blocks, Pulumi
+  aliases, import/state repair, `deleteBeforeReplace`, and sequencing, but it
+  must not authorize state or stack mutation.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 232/232 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add provider-specific checklist refinements when representative native CLI
+   output proves a safer branch, such as DNS ownership transfer or Kubernetes
+   namespace/name ownership review.
+2. Consider a read-only command that renders `validation.identityConflicts` as
+   a standalone incident report for other agents and human operators.
 
 ## Current Verification Commands
 

@@ -403,6 +403,9 @@ Status on 2026-04-28:
   Runtime conflicts can also preserve Terraform `resourceAddress` and Pulumi
   `resourceName` locators so downstream agents can present concrete review
   candidates without reparsing raw stderr.
+  Compact identity conflicts include review-only checklist steps for logical
+  rename vs real replacement triage before moved-block, alias, import/state
+  repair, or sequencing decisions.
   Kubernetes `AlreadyExists` failures can also include parsed object names and
   namespaces for agent-to-agent handoff. AWS named-resource failures such as
   ECR repository or IAM role duplicates can include parsed physical names as

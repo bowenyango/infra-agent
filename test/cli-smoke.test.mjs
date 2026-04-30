@@ -6167,6 +6167,7 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
 
   assert.ok(summary.some(line => /Validation findings: Terraform create-before-delete conflict: provider returned PriorityInUse for 100\./i.test(line)));
   assert.ok(summary.some(line => /Review focus: Review Terraform moved blocks, import\/state repair needs, lifecycle ordering, and the matched provider identity before retrying\./i.test(line)));
+  assert.ok(summary.some(line => /Identity review: Terraform locator aws_lb_listener_rule\.api; identity listenerRulePriorities=100; classify logical rename vs real replacement/i.test(line)));
 
   const compact = buildCompactAgentRunResult(state);
   assert.equal(compact.validation.identityConflicts.length, 1);
@@ -6178,6 +6179,9 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.equal(compact.validation.identityConflicts[0]?.resourceName, null);
   assert.equal(compact.validation.identityConflicts[0]?.resourceType, 'aws_lb_listener_rule');
   assert.equal(compact.validation.identityConflicts[0]?.identity.listenerRulePriorities, '100');
+  assert.equal(compact.validation.identityConflicts[0]?.reviewSteps.length, 5);
+  assert.match(compact.validation.identityConflicts[0]?.reviewSteps[0] ?? '', /aws_lb_listener_rule\.api/);
+  assert.match(compact.validation.identityConflicts[0]?.reviewSteps[2] ?? '', /moved block|terraform state mv/i);
   assert.match(compact.validation.identityConflicts[0]?.suggestedAction ?? '', /listener priority/i);
 });
 
