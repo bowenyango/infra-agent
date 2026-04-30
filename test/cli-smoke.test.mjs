@@ -7638,6 +7638,32 @@ test('classifyValidationIssues uses shared specs for Terraform bucket identity c
   assert.match(issues[0]?.guidance ?? '', /moved blocks/);
 });
 
+test('classifyValidationIssues extracts Terraform AWS named resource identities', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/services apply -auto-approve',
+      exitCode: 1,
+      stdout: '',
+      stderr: [
+        'Error: creating ECR Repository (payments-api): operation error ECR: CreateRepository, https response error StatusCode: 400, api error RepositoryAlreadyExistsException: The repository with name \'payments-api\' already exists in the registry with id \'123456789012\'',
+        '',
+        '  with aws_ecr_repository.api,',
+        '  on ecr.tf line 2, in resource "aws_ecr_repository" "api":'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'terraform-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'RepositoryAlreadyExistsException');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-named-resource');
+  assert.equal(issues[0]?.metadata?.conflictLabel, 'AWS named resource');
+  assert.equal(issues[0]?.metadata?.resourceType, 'aws_ecr_repository');
+  assert.equal(issues[0]?.metadata?.duplicateIdentity, 'payments-api');
+  assert.match(issues[0]?.guidance ?? '', /AWS named resource/);
+  assert.match(issues[0]?.guidance ?? '', /Provider rule:/);
+});
+
 test('classifyValidationIssues extracts Terraform Kubernetes object identity conflicts', () => {
   const issues = classifyValidationIssues([
     {
@@ -7753,6 +7779,30 @@ test('classifyValidationIssues extracts Pulumi Kubernetes object identity confli
   assert.equal(issues[0]?.metadata?.kubernetesNamespaces, 'default');
   assert.match(issues[0]?.guidance ?? '', /namespace\(s\) default/);
   assert.match(issues[0]?.guidance ?? '', /aliases\/import\/state repair/);
+});
+
+test('classifyValidationIssues extracts Pulumi AWS named resource identities', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'pulumi up --cwd infra/identity --stack prod --yes',
+      exitCode: 255,
+      stdout: '',
+      stderr: [
+        'aws:iam/role:Role (api-role):',
+        'error: api error EntityAlreadyExists: Role with name prod-api already exists: provider=aws@7.23.0'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'EntityAlreadyExists');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-named-resource');
+  assert.equal(issues[0]?.metadata?.conflictLabel, 'AWS named resource');
+  assert.equal(issues[0]?.metadata?.resourceType, 'aws:iam/role:Role');
+  assert.equal(issues[0]?.metadata?.duplicateIdentity, 'prod-api');
+  assert.match(issues[0]?.guidance ?? '', /identity prod-api/);
+  assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/);
 });
 
 test('classifyValidationIssues marks Pulumi CloudFront alias conflicts', () => {

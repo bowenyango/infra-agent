@@ -123,7 +123,10 @@ function extractTerraformResourceType(output: string): string | null {
 }
 
 function extractDuplicateIdentity(output: string): string | null {
-  return output.match(/\b(?:name|bucket|repository|queue|topic|function|role|group|user|domain name|CNAME|alias)\s+["'`]([^"'`]+)["'`][^.\n]*already exists/i)?.[1]?.trim()
+  return output.match(/\b(?:repository|role|policy|queue|topic|function|log group|table|group|user|bucket)\s+(?:with\s+)?name\s+["'`]([^"'`]+)["'`][^.\n]*already exists/i)?.[1]?.trim()
+    ?? output.match(/\b(?:repository|role|policy|queue|topic|function|log group|table|group|user|bucket)\s+(?:with\s+)?name\s+([A-Za-z0-9._:/+=,@-]+)\s+(?:already exists|exists)\b/i)?.[1]?.trim()
+    ?? output.match(/\bcreating\s+(?:ECR Repository|S3 Bucket|IAM Role|IAM Policy|CloudWatch Logs Log Group|SQS Queue|SNS Topic|DynamoDB Table|Lambda Function|RDS DB Instance|DB Instance|Load Balancer|Target Group)\s+\(([^)]+)\):/i)?.[1]?.trim()
+    ?? output.match(/\b(?:name|bucket|repository|queue|topic|function|role|group|user|domain name|CNAME|alias)\s+["'`]([^"'`]+)["'`][^.\n]*already exists/i)?.[1]?.trim()
     ?? output.match(/\bname=['"`]([^'"`]+)['"`]/i)?.[1]?.trim()
     ?? output.match(/\b([A-Za-z0-9._:/-]+)\s+already exists\b/i)?.[1]?.trim()
     ?? null;

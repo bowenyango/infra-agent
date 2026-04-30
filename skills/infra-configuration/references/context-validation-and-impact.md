@@ -163,6 +163,12 @@ Current implemented source:
   output such as `services "payments-api" already exists` or
   `resource default/payments-api`. Use these fields as identity context, not as
   approval to delete or replace an existing cluster object.
+- AWS named-resource runtime failures may include `duplicateIdentity` parsed
+  from provider messages such as `repository with name ... already exists`,
+  `Role with name ... already exists`, or safe Terraform
+  `creating <resource> (<name>)` context. Use that field to explain the
+  physical identity before suggesting moved blocks, aliases, import, or
+  sequencing.
 - Compact `agent --json` output also exposes these blockers through
   `validation.identityConflicts`. Prefer that array for agent-to-agent handoff:
   it includes the engine, issue kind, conflict code/family/label, resource type,

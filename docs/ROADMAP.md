@@ -401,7 +401,9 @@ Status on 2026-04-28:
   the shared graph exclusive identity spec table and emits spec-backed
   `conflictFamily`, `conflictLabel`, and `conflictSuggestedAction` metadata.
   Kubernetes `AlreadyExists` failures can also include parsed object names and
-  namespaces for agent-to-agent handoff.
+  namespaces for agent-to-agent handoff. AWS named-resource failures such as
+  ECR repository or IAM role duplicates can include parsed physical names as
+  `duplicateIdentity`.
 - Terraform roots can now ingest an optional local
   `.infra-agent/terraform-provider-schema.json` or
   `.infra-agent/terraform-providers-schema.json` export from

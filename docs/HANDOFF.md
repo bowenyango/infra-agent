@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `8f84a55` Extract Kubernetes runtime identities
   - `7c423cf` Expose identity conflicts in compact JSON
   - `c9d5a04` Use exclusive specs for runtime conflicts
   - `fe3d114` Classify Terraform runtime identity conflicts
@@ -2236,6 +2237,46 @@ Known validation:
 
 - `npm run lint`: passed.
 - `npm run test`: 230/230 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime validation examples only from representative provider CLI
+   outputs with clear identity boundaries.
+2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 AWS Named Resource Runtime Identity Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Improve runtime `duplicateIdentity` extraction for common AWS named-resource
+  provider errors such as ECR repository duplicates and IAM role duplicates.
+- Parse identities from provider messages like
+  `repository with name 'payments-api' already exists`,
+  `Role with name prod-api already exists`, and safe Terraform
+  `creating <named resource> (<name>)` context.
+- Preserve spec-backed `aws-named-resource` conflict metadata while giving
+  compact `validation.identityConflicts` a concrete physical name.
+- Cover Terraform `aws_ecr_repository` and Pulumi `aws:iam/role:Role`
+  duplicate outputs in regression tests.
+- Preserve review-only behavior: parsed names do not authorize import, state
+  move, replacement, or apply/update operations.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 232/232 passed.
 - `npm run smoke`: passed.
 - `git diff --check`: passed.
 
