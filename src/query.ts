@@ -10,7 +10,7 @@ import type { AgentActionKind, AgentDecisionExecution, AgentRuntimeState, FileWr
 import type { RunPreflightState, TerraformRootSummary } from './types/repository.ts';
 import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
-import type { QueryLoopConfig } from './query-config.ts';
+import type { QueryLoopConfig, QueryLoopConfigOverrides } from './query-config.ts';
 import type { RetrievedContextPacket } from './types/knowledge.ts';
 import { retrieveTerraformProviderSchemaContextPackets } from './domain/terraform-provider-schema.ts';
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
@@ -330,12 +330,17 @@ async function retrieveInitialContext(preflight: RunPreflightState): Promise<Ret
   return packets.slice(0, 5);
 }
 
-async function buildInitialRuntime(task: string, preflight: RunPreflightState): Promise<AgentRuntimeState> {
+async function buildInitialRuntime(
+  task: string,
+  preflight: RunPreflightState,
+  config: QueryLoopConfig
+): Promise<AgentRuntimeState> {
   return {
     task,
     preflight,
     configSemantics: [...preflight.inspection.configSemantics],
     retrievedContext: await retrieveInitialContext(preflight),
+    retrievedContextBudget: config.retrievedContextBudget,
     observations: [],
     toolSummaries: [],
     appliedWrites: [],
@@ -403,12 +408,12 @@ export async function runQueryLoop(
   workspacePath: string,
   modelClient?: ModelClient,
   approvalScope?: Partial<RunApprovalScope>,
-  config?: Partial<QueryLoopConfig>
+  config?: QueryLoopConfigOverrides
 ): Promise<QueryLoopResult> {
   const effectiveModelClient = modelClient ?? new RuleBasedModelClient();
   const queryConfig = resolveQueryLoopConfig(config);
   const preflight = await buildRunPreflight(task, workspacePath, approvalScope);
-  let runtime = await buildInitialRuntime(task, preflight);
+  let runtime = await buildInitialRuntime(task, preflight, queryConfig);
   const turns: QueryTurn[] = [];
 
   for (let turnIndex = 0; turnIndex < queryConfig.maxTurns; turnIndex += 1) {

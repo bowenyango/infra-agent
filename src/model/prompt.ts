@@ -139,7 +139,7 @@ export function buildPlannerSystemPrompt(): string {
 }
 
 export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
-  const retrievedContext = budgetRetrievedContext(runtime.retrievedContext);
+  const retrievedContext = budgetRetrievedContext(runtime.retrievedContext, runtime.retrievedContextBudget);
 
   return JSON.stringify(
     {

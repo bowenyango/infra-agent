@@ -24,6 +24,9 @@ guessing infrastructure conventions from generic IaC knowledge.
    infra-agent agent "<task>" --workspace <workspace>
    ```
 
+   Use `--context-packet-limit <n>` or `--context-token-budget <n>` when the
+   caller needs a stricter retrieved-doc context budget.
+
 4. Prefer `--json` when another agent will consume the result. This returns the
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. Read `harness.turnTrace` for the bounded

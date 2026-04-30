@@ -4772,8 +4772,31 @@ test('runSingleStep records deterministic tool execution summaries', async () =>
 
 test('resolveQueryLoopConfig keeps bounded defaults and normalizes overrides', () => {
   assert.equal(resolveQueryLoopConfig().maxTurns, 6);
+  assert.equal(resolveQueryLoopConfig().retrievedContextBudget.maxPackets, 5);
+  assert.equal(resolveQueryLoopConfig().retrievedContextBudget.maxTokens, 1000);
   assert.equal(resolveQueryLoopConfig({ maxTurns: 2.8 }).maxTurns, 2);
   assert.equal(resolveQueryLoopConfig({ maxTurns: 0 }).maxTurns, 1);
+  assert.equal(resolveQueryLoopConfig({
+    retrievedContextBudget: {
+      maxPackets: 2.8,
+      maxTokens: 0,
+      maxExcerptChars: 240.8
+    }
+  }).retrievedContextBudget.maxPackets, 2);
+  assert.equal(resolveQueryLoopConfig({
+    retrievedContextBudget: {
+      maxPackets: 2.8,
+      maxTokens: 0,
+      maxExcerptChars: 240.8
+    }
+  }).retrievedContextBudget.maxTokens, 1);
+  assert.equal(resolveQueryLoopConfig({
+    retrievedContextBudget: {
+      maxPackets: 2.8,
+      maxTokens: 0,
+      maxExcerptChars: 240.8
+    }
+  }).retrievedContextBudget.maxExcerptChars, 240);
 });
 
 test('runSingleStep respects the configured maximum turn count', async () => {
@@ -4788,7 +4811,13 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       undefined,
       'rule-based',
       undefined,
-      { maxTurns: 1 }
+      {
+        maxTurns: 1,
+        retrievedContextBudget: {
+          maxPackets: 2,
+          maxTokens: 500
+        }
+      }
     );
 
     assert.equal(result.turns.length, 1);
@@ -4796,6 +4825,8 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.ok(result.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files'));
     const compact = buildCompactAgentRunResult(result);
     assert.equal(compact.harness.maxTurns, 1);
+    assert.equal(compact.knowledgeContext.maxPackets, 2);
+    assert.equal(compact.knowledgeContext.maxTokens, 500);
     assert.equal(compact.harness.turnTrace.length, 1);
     assert.equal(compact.harness.turnTrace[0]?.actionKind, 'inspect-target-files');
     assert.equal(compact.harness.turnTrace[0]?.terminal, false);
@@ -4826,6 +4857,10 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
     'rule-based',
     '--max-turns',
     '1',
+    '--context-packet-limit',
+    '2',
+    '--context-token-budget',
+    '500',
     '--json'
   ]);
 
@@ -4834,6 +4869,8 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
   assert.equal(parsed.workspace, 'fixtures/sample-workspace');
   assert.equal(parsed.planner, 'rule-based');
   assert.equal(parsed.maxTurns, 1);
+  assert.equal(parsed.contextPacketLimit, 2);
+  assert.equal(parsed.contextTokenBudget, 500);
   assert.equal(parsed.json, true);
   assert.equal(parsed.jsonFull, false);
 });

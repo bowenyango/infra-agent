@@ -1022,7 +1022,10 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       }))
     },
     knowledgeCache: state.preflight.inspection.knowledgeCache,
-    knowledgeContext: budgetRetrievedContext(state.runtime.retrievedContext).budget
+    knowledgeContext: budgetRetrievedContext(
+      state.runtime.retrievedContext,
+      state.runtime.retrievedContextBudget
+    ).budget
   };
 }
 

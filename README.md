@@ -68,7 +68,7 @@ The current repository includes a minimal TypeScript CLI skeleton with seven com
 - `infra-agent identity-report <agent-result.json> [--json]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent run "<task>" [--workspace <path>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]`
 
 Current behavior is intentionally runtime-foundation oriented:
 
@@ -118,6 +118,9 @@ Current behavior is intentionally runtime-foundation oriented:
   risk category, locator, identity fields, and review steps without passing
   long stderr logs as the primary planning context.
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
+- `agent` exposes `--context-packet-limit <n>` and
+  `--context-token-budget <n>` to keep retrieved official-doc/schema context
+  budgets explicit for LLM planner runs and downstream handoff.
 - `agent --json` emits a compact `infra-agent.agent-result` payload for other
   agents; use `--json-full` only when debugging the complete runtime state.
   The compact payload includes `harness.turnTrace`, a bounded per-turn trace

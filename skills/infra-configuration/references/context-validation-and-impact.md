@@ -144,6 +144,8 @@ Current implemented source:
   context packets. Compact `agent --json` exposes `knowledgeContext` with
   packet counts, token estimates, and omitted reasons so downstream agents can
   avoid loading raw cached docs unless necessary.
+- `agent --context-packet-limit <n>` and `agent --context-token-budget <n>`
+  override retrieved context budgets for a run without changing cache contents.
 - Pulumi `AlreadyExists` or duplicate-name failures are classified as
   create-before-delete ordering conflicts when they occur during Pulumi
   preview/up/update. AWS Route failures can also expose route table and

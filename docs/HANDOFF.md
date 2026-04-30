@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `5d112ca` Budget retrieved context handoff
   - `0a56d76` Add compact harness tool trace
   - `33f0679` Add Claude Code inspired harness trace
   - `e3b4b8a` Test LLM planner mode config
@@ -2881,6 +2882,46 @@ Purpose:
   downstream agents.
 - Persist the rule that planner prompts must not inject full cached docs or
   unbounded excerpts.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 240/240 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Explicit Context Budget Config Slice
+
+Files added or updated:
+
+- `src/query-config.ts`
+- `src/types/agent.ts`
+- `src/query.ts`
+- `src/agent/run-single-step.ts`
+- `src/model/prompt.ts`
+- `src/cli/output.ts`
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Promote retrieved context packet/token budgets into explicit
+  `QueryLoopConfig` alongside `maxTurns`.
+- Store the resolved retrieved context budget on runtime state so prompt
+  compaction and compact JSON handoff use the same harness config.
+- Add CLI overrides `--context-packet-limit <n>` and
+  `--context-token-budget <n>` for LLM planner experiments and downstream
+  agent control.
+- Keep defaults unchanged unless a caller explicitly overrides the budget.
 
 Known validation:
 

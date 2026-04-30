@@ -281,6 +281,9 @@ Status on 2026-04-28:
 - Retrieved official-doc/schema context is compacted through a shared budget
   helper before planner handoff, and compact output now reports
   `knowledgeContext` packet/token budget metadata.
+- Context packet and token budgets are explicit query harness config and can be
+  adjusted from the CLI with `--context-packet-limit` and
+  `--context-token-budget`.
 
 ### Step 3: Add Syntax Validators
 

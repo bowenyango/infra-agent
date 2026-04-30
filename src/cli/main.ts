@@ -36,6 +36,8 @@ export interface ParsedArgs {
   approvedWritePaths: string[];
   approvedWriteRisks: FileWriteRisk[];
   maxTurns: number | null;
+  contextPacketLimit: number | null;
+  contextTokenBudget: number | null;
   domains: InfraDomainId[];
   targetPaths: string[];
   maxSources: number | null;
@@ -54,7 +56,7 @@ function printUsage(): void {
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--json]',
       ''
     ].join('\n')
@@ -79,6 +81,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       approvedWritePaths: [],
       approvedWriteRisks: [],
       maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
       domains: [],
       targetPaths: [],
       maxSources: null,
@@ -106,6 +110,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       approvedWritePaths: [],
       approvedWriteRisks: [],
       maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
       domains: [],
       targetPaths: [],
       maxSources: null,
@@ -181,6 +187,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       approvedWritePaths: [],
       approvedWriteRisks: [],
       maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
       domains: [],
       targetPaths,
       maxSources: null,
@@ -214,6 +222,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       approvedWritePaths: [],
       approvedWriteRisks: [],
       maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
       domains: [],
       targetPaths: [],
       maxSources: null,
@@ -290,6 +300,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       approvedWritePaths: [],
       approvedWriteRisks: [],
       maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
       domains,
       targetPaths,
       maxSources,
@@ -302,6 +314,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let workspace = cwd();
     let planner: PlannerMode = 'auto';
     let maxTurns: number | null = null;
+    let contextPacketLimit: number | null = null;
+    let contextTokenBudget: number | null = null;
     const approvedWritePaths: string[] = [];
     const approvedWriteRisks: FileWriteRisk[] = [];
     const taskArgs: string[] = [];
@@ -339,6 +353,30 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         maxTurns = parsedMaxTurns;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--context-packet-limit') {
+        const packetLimitValue = cleanArgs[index + 1];
+        const parsedPacketLimit = Number(packetLimitValue);
+        if (!packetLimitValue || !Number.isInteger(parsedPacketLimit) || parsedPacketLimit < 1) {
+          fail('Missing or invalid value for --context-packet-limit. Expected a positive integer.');
+        }
+
+        contextPacketLimit = parsedPacketLimit;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--context-token-budget') {
+        const tokenBudgetValue = cleanArgs[index + 1];
+        const parsedTokenBudget = Number(tokenBudgetValue);
+        if (!tokenBudgetValue || !Number.isInteger(parsedTokenBudget) || parsedTokenBudget < 1) {
+          fail('Missing or invalid value for --context-token-budget. Expected a positive integer.');
+        }
+
+        contextTokenBudget = parsedTokenBudget;
         index += 1;
         continue;
       }
@@ -384,6 +422,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       approvedWritePaths,
       approvedWriteRisks,
       maxTurns,
+      contextPacketLimit,
+      contextTokenBudget,
       domains: [],
       targetPaths: [],
       maxSources: null,
@@ -494,7 +534,11 @@ async function main(): Promise<void> {
       approvedWritePaths: parsed.approvedWritePaths,
       approvedWriteRisks: parsed.approvedWriteRisks
     }, {
-      maxTurns: parsed.maxTurns ?? undefined
+      maxTurns: parsed.maxTurns ?? undefined,
+      retrievedContextBudget: {
+        maxPackets: parsed.contextPacketLimit ?? undefined,
+        maxTokens: parsed.contextTokenBudget ?? undefined
+      }
     });
     if (parsed.json) {
       const payload = parsed.jsonFull ? agentRunState : buildCompactAgentRunResult(agentRunState);

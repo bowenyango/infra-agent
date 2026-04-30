@@ -3,6 +3,7 @@ import type { ToolResult, ToolSafety } from '../Tool.ts';
 import type { ValidationCommandOutput } from './tools.ts';
 import type { ConfigSemanticsSummary } from './config-semantics.ts';
 import type { RetrievedContextPacket } from './knowledge.ts';
+import type { QueryLoopContextBudgetConfig } from '../query-config.ts';
 export type AgentActionKind =
   | 'ask-for-clarification'
   | 'inspect-target-files'
@@ -155,6 +156,7 @@ export interface AgentRuntimeState {
   preflight: RunPreflightState;
   configSemantics?: ConfigSemanticsSummary[];
   retrievedContext: RetrievedContextPacket[];
+  retrievedContextBudget?: QueryLoopContextBudgetConfig;
   observations: ToolResult<unknown>[];
   toolSummaries: ToolExecutionSummary[];
   appliedWrites: FileWritePlan[];
