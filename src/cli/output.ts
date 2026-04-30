@@ -23,6 +23,13 @@ import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
 
+type IdentityConflictRiskCategory =
+  | 'create-before-delete-ordering'
+  | 'dns-or-domain-ownership'
+  | 'exclusive-identity-review'
+  | 'kubernetes-object-ownership'
+  | 'physical-name-ownership';
+
 interface ValidationDerivedSemanticBlocker {
   targetKind: string;
   targetPath: string;
@@ -42,6 +49,7 @@ interface ValidationIdentityConflictSummary {
   resourceName: string | null;
   resourceType: string | null;
   identity: Record<string, string>;
+  riskCategory: IdentityConflictRiskCategory;
   reviewSteps: string[];
   suggestedAction: string | null;
   sourceCommand: string;
@@ -56,6 +64,7 @@ export interface IdentityConflictIncident {
   resourceLocator: string | null;
   resourceType: string | null;
   identity: Record<string, string>;
+  riskCategory: IdentityConflictRiskCategory;
   reviewSteps: string[];
   suggestedAction: string | null;
   sourceCommand: string;
@@ -456,6 +465,46 @@ function formatIdentityConflictFields(identity: Record<string, string>): string 
   return entries.map(([key, value]) => `${key}=${value}`).join(', ');
 }
 
+function isIdentityConflictRiskCategory(value: string | null | undefined): value is IdentityConflictRiskCategory {
+  return value === 'create-before-delete-ordering'
+    || value === 'dns-or-domain-ownership'
+    || value === 'exclusive-identity-review'
+    || value === 'kubernetes-object-ownership'
+    || value === 'physical-name-ownership';
+}
+
+function categorizeIdentityConflict(conflictFamily: string | null | undefined): IdentityConflictRiskCategory {
+  switch (conflictFamily) {
+    case 'aws-cloudfront-alias':
+    case 'aws-api-gateway-domain-name':
+    case 'aws-route53-record':
+      return 'dns-or-domain-ownership';
+    case 'aws-route':
+    case 'aws-lb-listener-rule':
+    case 'aws-security-group-rule':
+    case 'aws-vpc-security-group-rule':
+      return 'create-before-delete-ordering';
+    case 'aws-iam-oidc-provider':
+    case 'aws-s3-bucket':
+    case 'aws-named-resource':
+      return 'physical-name-ownership';
+    case 'kubernetes-namespaced-object':
+    case 'kubernetes-namespace':
+      return 'kubernetes-object-ownership';
+    default:
+      return 'exclusive-identity-review';
+  }
+}
+
+function normalizeIdentityConflictRiskCategory(
+  riskCategory: string | null | undefined,
+  conflictFamily: string | null | undefined
+): IdentityConflictRiskCategory {
+  return isIdentityConflictRiskCategory(riskCategory)
+    ? riskCategory
+    : categorizeIdentityConflict(conflictFamily);
+}
+
 function buildIdentityConflictSpecificReviewStep(metadata: ValidationIssue['metadata']): string {
   switch (metadata?.conflictFamily) {
     case 'aws-route':
@@ -531,6 +580,7 @@ function collectValidationIdentityConflicts(state: AgentRunState): ValidationIde
         resourceName: issue.metadata?.resourceName ?? null,
         resourceType: issue.metadata?.resourceType ?? null,
         identity: collectIdentityConflictMetadata(issue.metadata),
+        riskCategory: categorizeIdentityConflict(issue.metadata?.conflictFamily),
         reviewSteps: buildIdentityConflictReviewSteps(engine, issue),
         suggestedAction: issue.metadata?.conflictSuggestedAction ?? null,
         sourceCommand: issue.sourceCommand
@@ -563,8 +613,9 @@ function summarizeIdentityConflictIncident(conflict: ValidationIdentityConflictS
   const locator = identityConflictResourceLocator(conflict);
   const locatorSummary = locator ? ` at ${locator}` : '';
   const identity = formatIdentityConflictFields(conflict.identity);
+  const riskCategory = normalizeIdentityConflictRiskCategory(conflict.riskCategory, conflict.conflictFamily);
 
-  return `${engineLabel} ${label}${locatorSummary}: ${identity}.`;
+  return `${engineLabel} ${label}${locatorSummary}: ${identity} [${riskCategory}].`;
 }
 
 export function buildIdentityConflictIncidentReport(
@@ -579,6 +630,7 @@ export function buildIdentityConflictIncidentReport(
     resourceLocator: identityConflictResourceLocator(conflict),
     resourceType: conflict.resourceType,
     identity: conflict.identity,
+    riskCategory: normalizeIdentityConflictRiskCategory(conflict.riskCategory, conflict.conflictFamily),
     reviewSteps: conflict.reviewSteps,
     suggestedAction: conflict.suggestedAction,
     sourceCommand: conflict.sourceCommand,
@@ -1847,6 +1899,7 @@ export function printIdentityConflictIncidentReport(report: IdentityConflictInci
     process.stdout.write(`conflict: ${incident.conflictCode ?? 'unknown'} (${incident.conflictLabel ?? incident.conflictFamily ?? 'unknown family'})\n`);
     process.stdout.write(`resource: ${incident.resourceLocator ?? 'unknown locator'}${incident.resourceType ? ` type=${incident.resourceType}` : ''}\n`);
     process.stdout.write(`identity: ${formatIdentityConflictFields(incident.identity)}\n`);
+    process.stdout.write(`risk category: ${incident.riskCategory}\n`);
     process.stdout.write('mutation allowed: no\n');
     process.stdout.write(`source command: ${incident.sourceCommand}\n`);
     if (incident.suggestedAction) {

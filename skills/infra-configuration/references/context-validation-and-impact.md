@@ -176,8 +176,13 @@ Current implemented source:
 - Compact `agent --json` output also exposes these blockers through
   `validation.identityConflicts`. Prefer that array for agent-to-agent handoff:
   it includes the engine, issue kind, conflict code/family/label, resource type,
-  IaC locator fields, parsed identity fields, suggested review action, and
-  source command without requiring raw stderr parsing.
+  IaC locator fields, parsed identity fields, `riskCategory`, suggested review
+  action, and source command without requiring raw stderr parsing.
+- `validation.identityConflicts[].riskCategory` groups incidents for triage.
+  Treat `create-before-delete-ordering`, `dns-or-domain-ownership`,
+  `physical-name-ownership`, `kubernetes-object-ownership`, and
+  `exclusive-identity-review` as review queues, not as proof that a moved block,
+  alias, import, state move, deletion, or replacement is safe.
 - `validation.identityConflicts[].reviewSteps` is a compact review checklist for
   downstream agents. It should guide logical rename vs real replacement triage
   and native plan/preview reruns. Provider-family checks can call out route

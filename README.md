@@ -119,7 +119,8 @@ Current behavior is intentionally runtime-foundation oriented:
   The compact validation payload includes `identityConflicts`, a low-noise
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity
-  fields, review checklist, source command, and suggested review action.
+  fields, risk category, review checklist, source command, and suggested
+  review action.
 - `identity-report` renders an existing compact `agent --json` result into a
   read-only `infra-agent.identity-conflict-report` for human operators or other
   agents. It consumes `validation.identityConflicts`; it does not rerun

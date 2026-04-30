@@ -29,8 +29,8 @@ guessing infrastructure conventions from generic IaC knowledge.
    debugging the whole runtime state. For replacement or duplicate-provider
    failures, read `validation.identityConflicts` before raw stderr or long
    guidance strings; it can include Terraform `resourceAddress` and Pulumi
-   `resourceName` locators plus `reviewSteps` for rename vs replacement
-   triage.
+   `resourceName` locators, `riskCategory` triage grouping, and `reviewSteps`
+   for rename vs replacement triage.
    Use `infra-agent identity-report <agent-result.json>` when you need a
    focused read-only incident report from an existing compact result; do not
    pass graph JSON, full debug state, native plan/preview JSON, or raw logs.

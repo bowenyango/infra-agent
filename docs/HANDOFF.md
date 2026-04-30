@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `d720fc7` Add smoke and e2e verification layers
   - `65eab57` Suggest identity report handoff commands
   - `453048a` Check identity report schema versions
   - `84bc3c9` Validate identity report inputs
@@ -2583,6 +2584,43 @@ Purpose:
   generation, and `identity-report`, then verifies actual Helm file changes and
   report contracts.
 - Update `npm run verify` to execute lint, unit, smoke, and E2E layers.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 235/235 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
+## 2026-04-30 Identity Conflict Risk Category Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `riskCategory` to compact `validation.identityConflicts` and
+  `infra-agent.identity-conflict-report` incidents so downstream agents can
+  route exclusive-identity blockers without parsing prose.
+- Group known families into review queues such as
+  `create-before-delete-ordering`, `dns-or-domain-ownership`,
+  `physical-name-ownership`, `kubernetes-object-ownership`, and
+  `exclusive-identity-review`.
+- Keep the category review-only. It explains the kind of risk but does not
+  authorize moved blocks, aliases, imports, state moves, deletions, stack
+  mutations, or sequencing changes.
+- Preserve compatibility for older compact JSON files by deriving
+  `riskCategory` from `conflictFamily` when the field is absent.
 
 Known validation:
 

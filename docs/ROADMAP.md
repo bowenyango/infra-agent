@@ -264,8 +264,8 @@ Status on 2026-04-28:
   report.
 - The compact payload includes outcome, target, changed files, result-card
   lines, next steps, suggested commands, validation issue summaries, semantic
-  blockers, exclusive-identity conflict summaries, approval signals, and the
-  resolved knowledge-cache root.
+  blockers, exclusive-identity conflict summaries with triage risk categories,
+  approval signals, and the resolved knowledge-cache root.
 
 ### Step 3: Add Syntax Validators
 

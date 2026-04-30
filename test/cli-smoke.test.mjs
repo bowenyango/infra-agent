@@ -4954,6 +4954,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
     assert.equal(report.sourceSchemaVersion, 1);
     assert.equal(report.incidentCount, 1);
     assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
+    assert.equal(report.incidents[0]?.riskCategory, 'create-before-delete-ordering');
     assert.equal(report.incidents[0]?.mutationAllowed, false);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -6285,6 +6286,7 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.equal(compact.validation.identityConflicts[0]?.resourceName, null);
   assert.equal(compact.validation.identityConflicts[0]?.resourceType, 'aws_lb_listener_rule');
   assert.equal(compact.validation.identityConflicts[0]?.identity.listenerRulePriorities, '100');
+  assert.equal(compact.validation.identityConflicts[0]?.riskCategory, 'create-before-delete-ordering');
   assert.equal(compact.validation.identityConflicts[0]?.reviewSteps.length, 5);
   assert.match(compact.validation.identityConflicts[0]?.reviewSteps[0] ?? '', /aws_lb_listener_rule\.api/);
   assert.match(compact.validation.identityConflicts[0]?.reviewSteps[1] ?? '', /listener ARN and priority/i);
@@ -6296,6 +6298,7 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.equal(report.incidentCount, 1);
   assert.match(report.summary[0] ?? '', /Terraform AWS Load Balancer Listener Rule at aws_lb_listener_rule\.api/);
   assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
+  assert.equal(report.incidents[0]?.riskCategory, 'create-before-delete-ordering');
   assert.equal(report.incidents[0]?.mutationAllowed, false);
   assert.ok(compact.suggestedCommands.some(command => /agent .*--json > "agent-result\.json"/.test(command)));
   assert.ok(compact.suggestedCommands.some(command => /identity-report "agent-result\.json" --json/.test(command)));
