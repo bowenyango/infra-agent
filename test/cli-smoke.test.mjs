@@ -6297,6 +6297,8 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.match(report.summary[0] ?? '', /Terraform AWS Load Balancer Listener Rule at aws_lb_listener_rule\.api/);
   assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
   assert.equal(report.incidents[0]?.mutationAllowed, false);
+  assert.ok(compact.suggestedCommands.some(command => /agent .*--json > "agent-result\.json"/.test(command)));
+  assert.ok(compact.suggestedCommands.some(command => /identity-report "agent-result\.json" --json/.test(command)));
 });
 
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {

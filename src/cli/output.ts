@@ -1173,6 +1173,18 @@ function summarizeDomainSuggestedCommands(state: AgentRunState): string[] {
   return [];
 }
 
+function summarizeIdentityReportSuggestedCommands(state: AgentRunState, agentJsonCommand: string, base: string): string[] {
+  if (collectValidationIdentityConflicts(state).length === 0) {
+    return [];
+  }
+
+  const resultPath = 'agent-result.json';
+  return [
+    `${agentJsonCommand} > ${shellQuote(resultPath)}`,
+    `${base} identity-report ${shellQuote(resultPath)} --json`
+  ];
+}
+
 export function summarizePreflightSnapshot(state: RunPreflightState): string[] {
   const lines: string[] = [];
   const unavailableValidators = state.validation.validators.filter(validator => !validator.available).map(validator => validator.name);
@@ -1285,6 +1297,7 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   const rerunCommand = `${base} run ${taskFlag} ${workspaceFlag}`;
   const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag} --json`;
   const domainNativeCommands = summarizeDomainSuggestedCommands(state);
+  const identityReportCommands = summarizeIdentityReportSuggestedCommands(state, agentJsonCommand, base);
   const reviewCommand = summarizeReviewCommand(state);
 
   switch (state.outcome) {
@@ -1309,9 +1322,10 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
     case 'validation-blocked':
     case 'repair-budget-exhausted':
       if (primaryDomain === 'terraform' || primaryDomain === 'pulumi' || primaryDomain === 'helm') {
-        return [...domainNativeCommands, domainValidateCommand, domainInspectCommand, rerunCommand];
+        return [...identityReportCommands, ...domainNativeCommands, domainValidateCommand, domainInspectCommand, rerunCommand];
       }
       return [
+        ...identityReportCommands,
         domainInspectCommand,
         rerunCommand
       ];

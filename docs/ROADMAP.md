@@ -259,6 +259,9 @@ Status on 2026-04-28:
   data into `infra-agent.identity-conflict-report` without rerunning validators
   or native IaC commands. The renderer validates compact result
   `schemaVersion=1` before reading `validation.identityConflicts`.
+  Validation-blocked runs with runtime exclusive-identity conflicts now include
+  suggested commands to export compact JSON and render the focused incident
+  report.
 - The compact payload includes outcome, target, changed files, result-card
   lines, next steps, suggested commands, validation issue summaries, semantic
   blockers, exclusive-identity conflict summaries, approval signals, and the

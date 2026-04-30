@@ -192,6 +192,10 @@ Current implemented source:
   remediation approval. The input must be compact `infra-agent.agent-result`
   JSON with `schemaVersion=1` and `validation.identityConflicts`, not graph
   JSON, full debug state, or native plan/preview output.
+- Runtime exclusive-identity blockers may add suggested commands that export
+  compact agent JSON to `agent-result.json` and render it through
+  `identity-report`. Treat this as a read-only handoff path for incident
+  reporting.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`
