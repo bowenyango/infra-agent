@@ -296,6 +296,8 @@ Status on 2026-04-28:
 - Package metadata now exposes the `infra-agent` bin and a narrow installable
   surface containing `bin`, `src`, `skills`, README, and selected durable docs,
   while excluding fixtures, tests, and handoff history from packed installs.
+- The installable bin wrapper now preserves the caller working directory, and
+  `infra-agent --version` provides a cheap installation self-check.
 
 ### Step 3: Add Syntax Validators
 

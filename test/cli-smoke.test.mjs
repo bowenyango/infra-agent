@@ -32,7 +32,7 @@ import {
   summarizeResultCard,
   summarizeSuggestedCommands
 } from '../src/cli/output.ts';
-import { parseArgs } from '../src/cli/main.ts';
+import { parseArgs, readPackageVersion } from '../src/cli/main.ts';
 import {
   exitCodeForAgentOutcome,
   exitCodeForRunPreflight,
@@ -5010,6 +5010,16 @@ test('agent CLI args accept --json-full for full debug state output', () => {
   assert.equal(parsed.jsonFull, true);
 });
 
+test('CLI version command reads package metadata', async () => {
+  const parsedLong = parseArgs(['--version']);
+  const parsedCommand = parseArgs(['version']);
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+
+  assert.equal(parsedLong.command, 'version');
+  assert.equal(parsedCommand.command, 'version');
+  assert.equal(await readPackageVersion(), packageJson.version);
+});
+
 test('CLI exit codes map agent outcomes for downstream agents', async () => {
   assert.equal(exitCodeForAgentOutcome('completed'), INFRA_AGENT_EXIT_CODES.success);
   assert.equal(exitCodeForAgentOutcome('validation-blocked'), INFRA_AGENT_EXIT_CODES.validationBlocked);
@@ -5028,6 +5038,7 @@ test('CLI exit codes map agent outcomes for downstream agents', async () => {
 
 test('package metadata exposes only the installable CLI and skill surface', async () => {
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+  const binContent = await readFile('bin/infra-agent.js', 'utf8');
 
   assert.equal(packageJson.bin?.['infra-agent'], './bin/infra-agent.js');
   assert.equal(packageJson.engines?.node, '>=24.0.0');
@@ -5043,6 +5054,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.ok(!packageJson.files.includes('fixtures/'));
   assert.ok(!packageJson.files.includes('test/'));
   assert.ok(!packageJson.files.includes('docs/HANDOFF.md'));
+  assert.match(binContent, /cwd:\s*process\.cwd\(\)/);
+  assert.doesNotMatch(binContent, /cwd:\s*projectRoot/);
 });
 
 test('prefetch CLI args accept bounded source selection flags', () => {

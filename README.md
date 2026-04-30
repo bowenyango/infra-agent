@@ -60,8 +60,9 @@ If validation fails, the agent should continue iterating until the failure is re
 
 ## Current CLI Surface
 
-The current repository includes a minimal TypeScript CLI skeleton with seven commands:
+The current repository includes a minimal TypeScript CLI skeleton with these commands:
 
+- `infra-agent --version`
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
@@ -218,6 +219,7 @@ CLI exit codes for downstream agents:
 npm install
 npm link
 infra-agent --help
+infra-agent --version
 ```
 
 For package-shape validation without writing to the user npm cache:

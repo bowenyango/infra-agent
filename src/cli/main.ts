@@ -1,6 +1,6 @@
 import { cwd, exit } from 'node:process';
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
@@ -28,7 +28,7 @@ import {
 import { exitCodeForAgentOutcome, exitCodeForRunPreflight } from './exit-codes.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'identity-report' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'identity-report' | 'version' | 'help';
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -54,6 +54,7 @@ function printUsage(): void {
       'infra-agent',
       '',
       'Usage:',
+      '  infra-agent --version',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
@@ -71,6 +72,13 @@ function fail(message: string): never {
   exit(1);
 }
 
+export async function readPackageVersion(): Promise<string> {
+  const currentFilePath = fileURLToPath(import.meta.url);
+  const packageJsonPath = resolve(dirname(currentFilePath), '../..', 'package.json');
+  const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8')) as { version?: unknown };
+  return typeof packageJson.version === 'string' ? packageJson.version : 'unknown';
+}
+
 function isToolPermissionCategory(value: string | undefined): value is ToolPermissionCategory {
   return value === 'workspace-read'
     || value === 'workspace-write'
@@ -84,6 +92,29 @@ function isToolPermissionCategory(value: string | undefined): value is ToolPermi
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
+  if (argv.length === 1 && (argv[0] === '--version' || argv[0] === '-v' || argv[0] === 'version')) {
+    return {
+      command: 'version',
+      task: null,
+      workspace: cwd(),
+      inputPath: null,
+      json: false,
+      jsonFull: false,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains: [],
+      targetPaths: [],
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
+    };
+  }
+
   if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) {
     return {
       command: 'help',
@@ -473,6 +504,11 @@ async function main(): Promise<void> {
 
   if (parsed.command === 'help') {
     printUsage();
+    return;
+  }
+
+  if (parsed.command === 'version') {
+    process.stdout.write(`infra-agent ${await readPackageVersion()}\n`);
     return;
   }
 

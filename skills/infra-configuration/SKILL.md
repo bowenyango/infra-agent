@@ -12,7 +12,8 @@ guessing infrastructure conventions from generic IaC knowledge.
 If the CLI is installed from a local checkout, use `npm link` from the
 `infra-agent` repository and then call `infra-agent` from the target workspace.
 The installable package intentionally includes only the CLI runtime, skills,
-README, and durable docs.
+README, and durable docs. Use `infra-agent --version` as a cheap installation
+check before running repository-specific commands.
 
 ## Workflow
 

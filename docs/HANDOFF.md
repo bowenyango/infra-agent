@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `bd69518` Narrow installable package surface
   - `57cff10` Add agent outcome exit codes
   - `1c103c0` Gate tool categories with approval policy
   - `5d44d1e` Summarize tool permission categories
@@ -3086,6 +3087,41 @@ Known validation:
 - `npm run e2e`: passed.
 - `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed; packed surface includes 100 entries and excludes fixtures, tests, smoke scripts, and handoff history.
 - `git diff --check`: passed.
+
+## 2026-04-30 Installable CLI Version Slice
+
+Files added or updated:
+
+- `bin/infra-agent.js`
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Purpose:
+
+- Add `infra-agent --version`, `infra-agent -v`, and `infra-agent version`
+  parsing as a cheap installation self-check.
+- Read the CLI version from package metadata relative to the installed source,
+  not from the caller workspace.
+- Fix the installed bin wrapper to preserve the caller working directory so
+  default workspace resolution targets the user's repo instead of package root.
+- Cover package version reading and bin cwd preservation in unit tests.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 245/245 passed.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed.
+- Manual CLI check: `node --experimental-strip-types src/cli/main.ts --version` returned `infra-agent 0.1.0`.
+- Manual installed-bin cwd check: `node /home/heathen/github/infra-agent/bin/infra-agent.js --version` from `/tmp` returned `infra-agent 0.1.0`.
 
 ## Current Verification Commands
 

@@ -150,6 +150,8 @@
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
 - Treat CLI exit codes as part of the agent-facing contract: `0` means success, `1` means fatal CLI/runtime failure, `2` means validation blocked, `3` means approval required, `4` means clarification required, `5` means no safe action, `6` means repair budget exhausted, and `7` means `run` preflight blockers.
 - Keep the installable npm package surface narrow. Include the CLI entrypoint, TypeScript runtime sources, skills, README, and durable docs; exclude fixtures, tests, smoke scripts, and handoff history from `package.json.files`.
+- The installed `bin/infra-agent.js` wrapper must preserve the caller working directory so default workspace resolution points at the user's repository, not the package root.
+- Keep `infra-agent --version` available as a cheap installation and routing check for downstream agents.
 - Use `infra-agent identity-report <agent-result.json>` when a human operator or downstream agent needs a focused runtime exclusive-identity incident report from an existing compact result. This command is read-only and must not rerun validators or mutate state.
 - `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `schemaVersion=1` and `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
 - When `suggestedCommands` includes an `agent --json > agent-result.json` export followed by `identity-report agent-result.json --json`, treat that as a read-only reporting handoff for exclusive-identity triage, not as approval to rerun apply/update or mutate state.

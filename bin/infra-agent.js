@@ -10,7 +10,7 @@ const cliEntry = resolve(projectRoot, 'src/cli/main.ts');
 
 const result = spawnSync(process.execPath, ['--experimental-strip-types', cliEntry, ...process.argv.slice(2)], {
   stdio: 'inherit',
-  cwd: projectRoot
+  cwd: process.cwd()
 });
 
 if (result.error) {
