@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `6337819` Extract AWS named runtime identities
   - `8f84a55` Extract Kubernetes runtime identities
   - `7c423cf` Expose identity conflicts in compact JSON
   - `c9d5a04` Use exclusive specs for runtime conflicts
@@ -2285,6 +2286,49 @@ Recommended next implementation slice:
 1. Add more runtime validation examples only from representative provider CLI
    outputs with clear identity boundaries.
 2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 Runtime Resource Locator Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `src/cli/output.ts`
+- `src/types/agent.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Extract Terraform `resourceAddress` values from native diagnostics such as
+  `with module.network.aws_route.private[0],` for runtime exclusive-identity
+  blockers.
+- Extract Pulumi logical `resourceName` values from diagnostics such as
+  `aws:iam/role:Role (api-role):` for the same blocker family.
+- Expose the locators in `ValidationIssue.metadata` and compact
+  `validation.identityConflicts` so downstream agents can present concrete
+  moved-block, alias, import, state-repair, or sequencing review candidates
+  without reparsing raw stderr.
+- Preserve review-only behavior: locators identify candidates but do not
+  authorize state or stack mutation.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 232/232 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime conflict fixtures only from representative provider CLI
+   outputs with clear identity and locator boundaries.
+2. Consider a dedicated remediation planner that consumes
+   `validation.identityConflicts` and emits review checklists, while keeping
+   state mutations behind explicit approval.
 
 ## Current Verification Commands
 

@@ -19,6 +19,8 @@ interface RuntimeExclusiveIdentityConflictFacts {
   oidcProviderUrls: string[];
   providerName: string | null;
   recordTypes: string[];
+  resourceAddress: string | null;
+  resourceName: string | null;
   resourceType: string | null;
   routeDestinations: string[];
   routeTableIds: string[];
@@ -90,6 +92,16 @@ function extractPulumiResourceType(output: string): string | null {
   return match?.[1]?.trim() ?? null;
 }
 
+function extractPulumiResourceName(output: string): string | null {
+  const match = output.match(/(?:^|\n)\s*[A-Za-z0-9_./-]+:[A-Za-z0-9_./-]+(?::[A-Za-z0-9_./-]+)?\s+\(([^)]+)\):/);
+  return match?.[1]?.trim() ?? null;
+}
+
+function extractTerraformResourceAddress(output: string): string | null {
+  const match = output.match(/(?:^|\n)\s*with\s+([^,\s]+),/i);
+  return match?.[1]?.trim() ?? null;
+}
+
 function extractTerraformAddressResourceType(address: string): string | null {
   const parts = address.split('.');
   for (let index = 0; index < parts.length - 1; index += 1) {
@@ -114,12 +126,12 @@ function extractTerraformResourceType(output: string): string | null {
     return resourceBlockMatch[1].trim();
   }
 
-  const addressMatch = output.match(/\bwith\s+([^,\s]+),?/i);
-  if (!addressMatch?.[1]) {
+  const resourceAddress = extractTerraformResourceAddress(output);
+  if (!resourceAddress) {
     return null;
   }
 
-  return extractTerraformAddressResourceType(addressMatch[1].trim());
+  return extractTerraformAddressResourceType(resourceAddress);
 }
 
 function extractDuplicateIdentity(output: string): string | null {
@@ -291,6 +303,8 @@ function extractRuntimeExclusiveIdentityConflictFacts(
   const routeTableIds = uniqueMatches(output, /Route Table \((rtb-[^)]+)\)/gi);
   const routeDestinations = uniqueMatches(output, /destination \(([^)]+)\)/gi);
   const providerName = output.match(/\bprovider=([^\s]+)/i)?.[1]?.trim() ?? null;
+  const resourceAddress = engine === 'terraform' ? extractTerraformResourceAddress(output) : null;
+  const resourceName = engine === 'pulumi' ? extractPulumiResourceName(output) : null;
 
   return {
     conflictCode,
@@ -313,6 +327,8 @@ function extractRuntimeExclusiveIdentityConflictFacts(
     oidcProviderUrls: extractOidcProviderUrls(output),
     providerName,
     recordTypes: extractRecordTypes(output),
+    resourceAddress,
+    resourceName,
     resourceType,
     routeDestinations,
     routeTableIds,
@@ -419,6 +435,8 @@ function buildRuntimeExclusiveIdentityConflictMetadata(
     oidcProviderUrls: facts.oidcProviderUrls.join(','),
     providerName: facts.providerName ?? undefined,
     recordTypes: facts.recordTypes.join(','),
+    resourceAddress: facts.resourceAddress ?? undefined,
+    resourceName: facts.resourceName ?? undefined,
     resourceType: facts.resourceType ?? undefined,
     routeDestinations: facts.routeDestinations.join(','),
     routeTableIds: facts.routeTableIds.join(','),

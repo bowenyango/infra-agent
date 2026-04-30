@@ -117,8 +117,8 @@ Current behavior is intentionally runtime-foundation oriented:
   agents; use `--json-full` only when debugging the complete runtime state.
   The compact validation payload includes `identityConflicts`, a low-noise
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
-  with engine, conflict family, identity fields, source command, and suggested
-  review action.
+  with engine, conflict family, IaC resource locator when parseable, identity
+  fields, source command, and suggested review action.
 - `agent` can resume past approval-required pauses by rerunning with explicit approval flags such as `--approve-write-risk high` and an optional `--approve-write-path charts/payments-api`
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront
@@ -136,6 +136,10 @@ Current behavior is intentionally runtime-foundation oriented:
   namespaces when the CLI output includes them.
   Common AWS named-resource failures, such as ECR repositories and IAM roles
   that already exist, expose the parsed physical name as `duplicateIdentity`.
+  Terraform runtime conflicts can also expose `resourceAddress`, and Pulumi
+  runtime conflicts can expose `resourceName`, so downstream agents have a
+  precise review candidate before considering moved blocks, aliases, import, or
+  state repair.
 - `inspect` resolves the knowledge-cache root used for future docs/schema
   context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;
   otherwise `infra-agent.config.json` may set a workspace-relative

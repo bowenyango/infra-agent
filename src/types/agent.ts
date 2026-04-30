@@ -121,6 +121,8 @@ export interface ValidationIssue {
     missingVariableName?: string;
     providerName?: string;
     recordTypes?: string;
+    resourceAddress?: string;
+    resourceName?: string;
     resourceType?: string;
     oidcProviderUrls?: string;
     routeDestinations?: string;

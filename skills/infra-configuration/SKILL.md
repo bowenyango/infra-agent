@@ -28,7 +28,8 @@ guessing infrastructure conventions from generic IaC knowledge.
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. For replacement or duplicate-provider
    failures, read `validation.identityConflicts` before raw stderr or long
-   guidance strings.
+   guidance strings; it can include Terraform `resourceAddress` and Pulumi
+   `resourceName` locators for review.
 5. If the result asks for approval, do not work around it. Ask the user or rerun
    with the requested approval flags only when the user has approved that scope.
 6. If validation fails, use the structured failure and suggested next action

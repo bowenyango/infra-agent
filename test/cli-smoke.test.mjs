@@ -6151,6 +6151,8 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
             conflictFamily: 'aws-lb-listener-rule',
             conflictLabel: 'AWS Load Balancer Listener Rule',
             conflictSuggestedAction: 'Use an IaC-native rename mapping for logical renames, or explicitly sequence/delete the old rule before creating a new rule with the same listener priority.',
+            resourceAddress: 'aws_lb_listener_rule.api',
+            resourceType: 'aws_lb_listener_rule',
             listenerRulePriorities: '100'
           }
         }
@@ -6172,6 +6174,9 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.equal(compact.validation.identityConflicts[0]?.conflictCode, 'PriorityInUse');
   assert.equal(compact.validation.identityConflicts[0]?.conflictFamily, 'aws-lb-listener-rule');
   assert.equal(compact.validation.identityConflicts[0]?.conflictLabel, 'AWS Load Balancer Listener Rule');
+  assert.equal(compact.validation.identityConflicts[0]?.resourceAddress, 'aws_lb_listener_rule.api');
+  assert.equal(compact.validation.identityConflicts[0]?.resourceName, null);
+  assert.equal(compact.validation.identityConflicts[0]?.resourceType, 'aws_lb_listener_rule');
   assert.equal(compact.validation.identityConflicts[0]?.identity.listenerRulePriorities, '100');
   assert.match(compact.validation.identityConflicts[0]?.suggestedAction ?? '', /listener priority/i);
 });
@@ -7577,6 +7582,7 @@ test('classifyValidationIssues marks Terraform AWS route identity conflicts', ()
   assert.equal(issues[0]?.metadata?.conflictCode, 'RouteAlreadyExists');
   assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-route');
   assert.equal(issues[0]?.metadata?.resourceType, 'aws_route');
+  assert.equal(issues[0]?.metadata?.resourceAddress, 'module.network.aws_route.private[0]');
   assert.equal(issues[0]?.metadata?.routeTableIds, 'rtb-0102177ec9e1ab465');
   assert.equal(issues[0]?.metadata?.routeDestinations, '10.0.0.0/16');
   assert.match(issues[0]?.guidance ?? '', /Terraform attempted to create/i);
@@ -7659,6 +7665,7 @@ test('classifyValidationIssues extracts Terraform AWS named resource identities'
   assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-named-resource');
   assert.equal(issues[0]?.metadata?.conflictLabel, 'AWS named resource');
   assert.equal(issues[0]?.metadata?.resourceType, 'aws_ecr_repository');
+  assert.equal(issues[0]?.metadata?.resourceAddress, 'aws_ecr_repository.api');
   assert.equal(issues[0]?.metadata?.duplicateIdentity, 'payments-api');
   assert.match(issues[0]?.guidance ?? '', /AWS named resource/);
   assert.match(issues[0]?.guidance ?? '', /Provider rule:/);
@@ -7800,6 +7807,7 @@ test('classifyValidationIssues extracts Pulumi AWS named resource identities', (
   assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-named-resource');
   assert.equal(issues[0]?.metadata?.conflictLabel, 'AWS named resource');
   assert.equal(issues[0]?.metadata?.resourceType, 'aws:iam/role:Role');
+  assert.equal(issues[0]?.metadata?.resourceName, 'api-role');
   assert.equal(issues[0]?.metadata?.duplicateIdentity, 'prod-api');
   assert.match(issues[0]?.guidance ?? '', /identity prod-api/);
   assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/);

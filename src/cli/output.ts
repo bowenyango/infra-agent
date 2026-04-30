@@ -38,6 +38,8 @@ interface ValidationIdentityConflictSummary {
   conflictCode: string | null;
   conflictFamily: string | null;
   conflictLabel: string | null;
+  resourceAddress: string | null;
+  resourceName: string | null;
   resourceType: string | null;
   identity: Record<string, string>;
   suggestedAction: string | null;
@@ -430,6 +432,8 @@ function collectValidationIdentityConflicts(state: AgentRunState): ValidationIde
         conflictCode: issue.metadata?.conflictCode ?? null,
         conflictFamily: issue.metadata?.conflictFamily ?? null,
         conflictLabel: issue.metadata?.conflictLabel ?? null,
+        resourceAddress: issue.metadata?.resourceAddress ?? null,
+        resourceName: issue.metadata?.resourceName ?? null,
         resourceType: issue.metadata?.resourceType ?? null,
         identity: collectIdentityConflictMetadata(issue.metadata),
         suggestedAction: issue.metadata?.conflictSuggestedAction ?? null,

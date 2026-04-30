@@ -400,6 +400,9 @@ Status on 2026-04-28:
   runtime classifier can parse a Pulumi or Terraform resource type, it reuses
   the shared graph exclusive identity spec table and emits spec-backed
   `conflictFamily`, `conflictLabel`, and `conflictSuggestedAction` metadata.
+  Runtime conflicts can also preserve Terraform `resourceAddress` and Pulumi
+  `resourceName` locators so downstream agents can present concrete review
+  candidates without reparsing raw stderr.
   Kubernetes `AlreadyExists` failures can also include parsed object names and
   namespaces for agent-to-agent handoff. AWS named-resource failures such as
   ECR repository or IAM role duplicates can include parsed physical names as
