@@ -6,6 +6,7 @@ This document captures current development state for future Codex sessions.
 
 - Branch: `agent-1`
 - Recent completed commits:
+  - `fe3d114` Classify Terraform runtime identity conflicts
   - `81c051f` Classify listener rule priority conflicts
   - `f0ccb17` Handle all-protocol security rule identity
   - `7423955` Classify security runtime conflicts
@@ -2109,6 +2110,52 @@ Recommended next implementation slice:
 1. Add more runtime validation families only from representative provider CLI
    outputs with clear identity boundaries.
 2. Keep topology viewer work behind graph/schema contract stability.
+
+## 2026-04-30 Spec-Backed Runtime Conflict Slice
+
+Files added or updated:
+
+- `src/agent/classify-validation-issues.ts`
+- `src/types/agent.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Make Pulumi and Terraform runtime exclusive-identity classification reuse the
+  shared graph `ExclusiveIdentitySpec` table whenever a resource type is
+  parseable.
+- Emit spec-backed `conflictFamily`, `conflictLabel`, and
+  `conflictSuggestedAction` metadata so downstream agents can explain bucket,
+  named-resource, Kubernetes object, DNS, listener, security rule, and OIDC
+  conflicts without loading broad provider docs.
+- Keep family-specific guidance for routes, DNS/domain resources, listener
+  rules, security rules, and OIDC providers while letting generic fallback
+  guidance include the provider rule from the shared spec.
+- Cover Terraform S3 bucket duplicate failures and Pulumi S3 bucket duplicate
+  failures in regression tests.
+- Preserve review-only behavior: spec-backed suggestions do not authorize
+  `terraform apply`, Pulumi updates, state mutation, or downtime.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test`: 228/228 passed.
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
+Recommended next implementation slice:
+
+1. Add more runtime validation examples only from representative provider CLI
+   outputs with clear identity boundaries.
+2. Consider adding a compact machine-readable conflict explanation block to
+   `agent --json` only if downstream agents need more than current validation
+   issue metadata.
+3. Keep topology viewer work behind graph/schema contract stability.
 
 ## Current Verification Commands
 

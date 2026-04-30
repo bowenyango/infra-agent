@@ -124,7 +124,10 @@ Current behavior is intentionally runtime-foundation oriented:
   OIDC provider `EntityAlreadyExists`, and reports them as non-repairable
   ordering blockers that require plan/preview/state review before aliases,
   Terraform moved blocks, `deleteBeforeReplace`, lifecycle sequencing, import,
-  or state repair.
+  or state repair. Runtime classification reuses the shared exclusive identity
+  specs used by graph impact analysis, so generic bucket, named-resource, and
+  Kubernetes duplicate failures can carry the same family labels and suggested
+  action metadata without injecting large provider docs into the prompt.
 - `inspect` resolves the knowledge-cache root used for future docs/schema
   context. `INFRA_AGENT_KNOWLEDGE_CACHE` is the explicit user override;
   otherwise `infra-agent.config.json` may set a workspace-relative

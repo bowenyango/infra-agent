@@ -7598,6 +7598,33 @@ test('classifyValidationIssues marks Terraform listener rule priority conflicts'
   assert.match(issues[0]?.guidance ?? '', /choose a free priority/);
 });
 
+test('classifyValidationIssues uses shared specs for Terraform bucket identity conflicts', () => {
+  const issues = classifyValidationIssues([
+    {
+      command: 'terraform -chdir=terraform/storage apply -auto-approve',
+      exitCode: 1,
+      stdout: '',
+      stderr: [
+        'Error: creating S3 Bucket (prod-artifacts): operation error S3: CreateBucket, https response error StatusCode: 409, api error BucketAlreadyOwnedByYou: Your previous request to create the named bucket succeeded and you already own it.',
+        '',
+        '  with aws_s3_bucket.artifacts,',
+        '  on buckets.tf line 3, in resource "aws_s3_bucket" "artifacts":'
+      ].join('\n')
+    }
+  ]);
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'terraform-create-before-delete-conflict');
+  assert.equal(issues[0]?.metadata?.conflictCode, 'BucketAlreadyOwnedByYou');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-s3-bucket');
+  assert.equal(issues[0]?.metadata?.conflictLabel, 'AWS S3 Bucket');
+  assert.equal(issues[0]?.metadata?.resourceType, 'aws_s3_bucket');
+  assert.match(issues[0]?.metadata?.conflictSuggestedAction ?? '', /physical bucket/i);
+  assert.match(issues[0]?.guidance ?? '', /AWS S3 Bucket/);
+  assert.match(issues[0]?.guidance ?? '', /Provider rule:/);
+  assert.match(issues[0]?.guidance ?? '', /moved blocks/);
+});
+
 test('classifyValidationIssues marks missing Pulumi config as pulumi-missing-config', () => {
   const issues = classifyValidationIssues([
     {
@@ -7656,8 +7683,11 @@ test('classifyValidationIssues marks generic Pulumi already-exists conflicts', (
   assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
   assert.equal(issues[0]?.repairable, false);
   assert.equal(issues[0]?.metadata?.conflictCode, 'BucketAlreadyExists');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-s3-bucket');
+  assert.equal(issues[0]?.metadata?.conflictLabel, 'AWS S3 Bucket');
   assert.equal(issues[0]?.metadata?.resourceType, 'aws:s3:Bucket');
   assert.match(issues[0]?.guidance ?? '', /same provider identity/i);
+  assert.match(issues[0]?.guidance ?? '', /Provider rule:/);
   assert.match(issues[0]?.guidance ?? '', /deleteBeforeReplace/i);
 });
 
@@ -7745,7 +7775,7 @@ test('classifyValidationIssues marks Pulumi security group duplicate permission 
   assert.equal(issues.length, 1);
   assert.equal(issues[0]?.kind, 'pulumi-create-before-delete-conflict');
   assert.equal(issues[0]?.metadata?.conflictCode, 'InvalidPermission.Duplicate');
-  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-security-group-rule');
+  assert.equal(issues[0]?.metadata?.conflictFamily, 'aws-vpc-security-group-rule');
   assert.equal(issues[0]?.metadata?.securityGroupRulePeers, '10.0.0.0/16');
   assert.match(issues[0]?.guidance ?? '', /security group rule/);
   assert.match(issues[0]?.guidance ?? '', /direction, protocol, port range, security group, and peer/);

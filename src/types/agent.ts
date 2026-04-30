@@ -109,6 +109,8 @@ export interface ValidationIssue {
   metadata?: {
     conflictCode?: string;
     conflictFamily?: string;
+    conflictLabel?: string;
+    conflictSuggestedAction?: string;
     duplicateIdentity?: string;
     dnsNames?: string;
     listenerArns?: string;

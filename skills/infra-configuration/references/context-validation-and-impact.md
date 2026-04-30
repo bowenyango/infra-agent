@@ -152,6 +152,12 @@ Current implemented source:
   parseable. Treat this as a blocker for review of moved blocks, import/state
   repair, lifecycle `create_before_destroy`, or explicit delete-before-create
   sequencing; do not run apply as part of this skill.
+- Runtime exclusive-identity classification reuses the graph exclusive identity
+  specs when the resource type is parseable. Downstream agents should preserve
+  `conflictFamily`, `conflictLabel`, and `conflictSuggestedAction` metadata
+  because these compact fields are usually enough to explain bucket, named
+  resource, Kubernetes object, security rule, DNS, listener, and OIDC identity
+  conflicts without loading broad provider docs.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`

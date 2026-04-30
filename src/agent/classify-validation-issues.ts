@@ -1,5 +1,6 @@
 import type { ValidationCommandOutput } from '../types/tools.ts';
 import type { ValidationIssue } from '../types/agent.ts';
+import { findExclusiveIdentitySpec, type ExclusiveIdentitySpec } from '../impact/exclusive-identity.ts';
 
 type RuntimeIaCEngine = 'pulumi' | 'terraform';
 
@@ -8,6 +9,8 @@ interface RuntimeExclusiveIdentityConflictFacts {
   conflictFamily: string;
   duplicateIdentity: string | null;
   engine: RuntimeIaCEngine;
+  exclusiveIdentityLabel: string | null;
+  exclusiveIdentitySuggestedAction: string | null;
   dnsNames: string[];
   listenerArns: string[];
   listenerRulePriorities: string[];
@@ -202,12 +205,17 @@ function conflictCodeFromOutput(output: string, resourceType: string | null): st
 
 function conflictFamilyFromFacts(params: {
   conflictCode: string;
+  exclusiveIdentitySpec: ExclusiveIdentitySpec | null;
   output: string;
   resourceType: string | null;
   routeTableIds: string[];
 }): string {
   if (params.routeTableIds.length > 0 || params.conflictCode === 'RouteAlreadyExists') {
     return 'aws-route';
+  }
+
+  if (params.exclusiveIdentitySpec) {
+    return params.exclusiveIdentitySpec.id;
   }
 
   if (params.conflictCode === 'CNAMEAlreadyExists') {
@@ -245,6 +253,7 @@ function extractRuntimeExclusiveIdentityConflictFacts(
     ? extractPulumiResourceType(output)
     : extractTerraformResourceType(output);
   const conflictCode = conflictCodeFromOutput(output, resourceType);
+  const exclusiveIdentitySpec = findExclusiveIdentitySpec(resourceType, engine);
 
   if (!conflictCode) {
     return null;
@@ -258,12 +267,15 @@ function extractRuntimeExclusiveIdentityConflictFacts(
     conflictCode,
     conflictFamily: conflictFamilyFromFacts({
       conflictCode,
+      exclusiveIdentitySpec,
       output,
       resourceType,
       routeTableIds
     }),
     duplicateIdentity: extractDuplicateIdentity(output),
     engine,
+    exclusiveIdentityLabel: exclusiveIdentitySpec?.label ?? null,
+    exclusiveIdentitySuggestedAction: exclusiveIdentitySpec?.suggestedAction ?? null,
     dnsNames: extractDnsNames(output),
     listenerArns: extractListenerArns(output),
     listenerRulePriorities: extractListenerRulePriorities(output),
@@ -331,7 +343,7 @@ function buildRuntimeExclusiveIdentityConflictGuidance(facts: RuntimeExclusiveId
     return `${engine} attempted to create a Route53 record set${dnsText}${typeText} that conflicts with an existing record, and the provider returned ${facts.conflictCode}. This is common for ACM validation CNAMEs and logical record moves. Review the plan/preview for matching hosted zone, name, type, and set identifier; prefer import/state repair for logical moves, use allowOverwrite only after DNS ownership review, or explicitly sequence delete-before-create after approval.`;
   }
 
-  if (facts.conflictFamily === 'aws-security-group-rule') {
+  if (facts.conflictFamily === 'aws-security-group-rule' || facts.conflictFamily === 'aws-vpc-security-group-rule') {
     const groupText = facts.securityGroupIds.length > 0 ? ` in security group(s) ${facts.securityGroupIds.join(', ')}` : '';
     const peerText = facts.securityGroupRulePeers.length > 0 ? ` for peer(s) ${facts.securityGroupRulePeers.join(', ')}` : '';
     return `${engine} attempted to create a security group rule${groupText}${peerText} before the existing duplicate permission was deleted or adopted, and the provider returned ${facts.conflictCode}. Review the plan/preview for matching direction, protocol, port range, security group, and peer. ${adoptionRepairText(facts.engine)}, avoid mixing inline, legacy, and VPC-style rule managers for the same group, or explicitly sequence delete-before-create after approval.`;
@@ -348,7 +360,9 @@ function buildRuntimeExclusiveIdentityConflictGuidance(facts: RuntimeExclusiveId
     return `${engine} attempted to create an IAM OIDC provider${providerText} before the existing provider was adopted, moved, or removed, and the provider returned ${facts.conflictCode}. IAM OIDC provider URLs are account-unique; review role trust policies that reference the provider, ${oidcRepairText(facts.engine)}, and sequence replacement only after approval.`;
   }
 
-  return `${engine} attempted to create an exclusive${resourceText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the plan/preview for delete/create or replacement pairs with the same provider identity: if this is a logical rename, ${logicalIdentityRepair}; if the resource must be replaced, ${replacementSequencing}; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.`;
+  const labelText = facts.exclusiveIdentityLabel ? ` ${facts.exclusiveIdentityLabel}` : resourceText;
+  const suggestedActionText = facts.exclusiveIdentitySuggestedAction ? ` Provider rule: ${facts.exclusiveIdentitySuggestedAction}` : '';
+  return `${engine} attempted to create an exclusive${labelText} resource${routeTableText}${destinationText}${identityText} before deleting the existing object, and the provider returned ${facts.conflictCode}. Review the plan/preview for delete/create or replacement pairs with the same provider identity: if this is a logical rename, ${logicalIdentityRepair}; if the resource must be replaced, ${replacementSequencing}; if the failed update already changed cloud or state, run refresh/import/state repair only with explicit approval.${suggestedActionText}`;
 }
 
 function buildRuntimeExclusiveIdentityConflictMetadata(
@@ -357,6 +371,8 @@ function buildRuntimeExclusiveIdentityConflictMetadata(
   return {
     conflictCode: facts.conflictCode,
     conflictFamily: facts.conflictFamily,
+    conflictLabel: facts.exclusiveIdentityLabel ?? undefined,
+    conflictSuggestedAction: facts.exclusiveIdentitySuggestedAction ?? undefined,
     duplicateIdentity: facts.duplicateIdentity ?? undefined,
     dnsNames: facts.dnsNames.join(','),
     listenerArns: facts.listenerArns.join(','),
