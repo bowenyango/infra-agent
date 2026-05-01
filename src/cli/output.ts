@@ -42,6 +42,7 @@ import type { InfraGraph } from '../types/infra-graph.ts';
 import type { DoctorReport } from './doctor.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
+type GraphImpactSummary = NonNullable<InfraGraph['summary']['impact']>;
 
 interface ValidationDerivedSemanticBlocker {
   targetKind: string;
@@ -1704,9 +1705,9 @@ function formatReplacementCascade(edge: InfraGraph['edges'][number]): string {
 }
 
 function inferFallbackGraphImpactRisk(
-  impact: Pick<NonNullable<InfraGraph['summary']['impact']>, 'createBeforeDeleteConflicts' | 'dependencyEdges' | 'plannedChanges' | 'possibleRenames' | 'replacementCascades'>,
+  impact: Pick<GraphImpactSummary, 'createBeforeDeleteConflicts' | 'dependencyEdges' | 'plannedChanges' | 'possibleRenames' | 'replacementCascades'>,
   changesByAction: InfraGraph['summary']['changesByAction']
-): Pick<NonNullable<InfraGraph['summary']['impact']>, 'riskLevel' | 'primaryConcern'> {
+): Pick<GraphImpactSummary, 'riskLevel' | 'primaryConcern'> {
   if (impact.createBeforeDeleteConflicts > 0) {
     return {
       riskLevel: 'high',
@@ -1748,6 +1749,48 @@ function inferFallbackGraphImpactRisk(
   };
 }
 
+function isGraphImpactRiskLevel(value: unknown): value is GraphImpactSummary['riskLevel'] {
+  return value === 'none' || value === 'low' || value === 'medium' || value === 'high';
+}
+
+function isGraphImpactPrimaryConcern(value: unknown): value is GraphImpactSummary['primaryConcern'] {
+  return value === 'none'
+    || value === 'planned-changes'
+    || value === 'possible-renames'
+    || value === 'replacements'
+    || value === 'replacement-cascades'
+    || value === 'create-before-delete-conflicts';
+}
+
+function impactCount(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeGraphImpactSummary(
+  graph: InfraGraph,
+  fallbackImpactCounts: Pick<GraphImpactSummary, 'createBeforeDeleteConflicts' | 'dependencyEdges' | 'plannedChanges' | 'possibleRenames' | 'replacementCascades'>
+): GraphImpactSummary {
+  const existing = graph.summary.impact as Partial<GraphImpactSummary> | undefined;
+  const counts = {
+    dependencyEdges: impactCount(existing?.dependencyEdges, fallbackImpactCounts.dependencyEdges),
+    createBeforeDeleteConflicts: impactCount(existing?.createBeforeDeleteConflicts, fallbackImpactCounts.createBeforeDeleteConflicts),
+    plannedChanges: impactCount(existing?.plannedChanges, fallbackImpactCounts.plannedChanges),
+    possibleRenames: impactCount(existing?.possibleRenames, fallbackImpactCounts.possibleRenames),
+    replacementCascades: impactCount(existing?.replacementCascades, fallbackImpactCounts.replacementCascades)
+  };
+  const inferredRisk = inferFallbackGraphImpactRisk(counts, graph.summary.changesByAction);
+
+  return {
+    ...counts,
+    primaryConcern: isGraphImpactPrimaryConcern(existing?.primaryConcern)
+      ? existing.primaryConcern
+      : inferredRisk.primaryConcern,
+    riskLevel: isGraphImpactRiskLevel(existing?.riskLevel)
+      ? existing.riskLevel
+      : inferredRisk.riskLevel
+  };
+}
+
 export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   const fallbackImpactCounts = {
     dependencyEdges: graph.edges.filter(edge => edge.kind === 'depends-on').length,
@@ -1756,10 +1799,7 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
     possibleRenames: graph.edges.filter(edge => edge.kind === 'possible-rename').length,
     replacementCascades: graph.edges.filter(edge => edge.kind === 'replacement-cascade').length
   };
-  const impact = graph.summary.impact ?? {
-    ...fallbackImpactCounts,
-    ...inferFallbackGraphImpactRisk(fallbackImpactCounts, graph.summary.changesByAction)
-  };
+  const impact = normalizeGraphImpactSummary(graph, fallbackImpactCounts);
   const possibleRenames = graph.edges.filter(edge => edge.kind === 'possible-rename');
   const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
   const createBeforeDeleteConflicts = graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');

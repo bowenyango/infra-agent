@@ -3412,6 +3412,32 @@ Known validation:
 - `npm run test:unit`: 247/247 passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Legacy Graph Impact Text Compatibility Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Keep human `Impact` text output compatible with older graph JSON payloads
+  that have `summary.impact` counters but do not yet include `riskLevel` or
+  `primaryConcern`.
+- Normalize partial impact summaries at print time and infer missing posture
+  from existing counts plus `changesByAction`, preventing `undefined` from
+  leaking into operator or downstream-agent output.
+- Add a focused regression test using a legacy-style impact payload with a
+  replacement action.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 248/248 passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

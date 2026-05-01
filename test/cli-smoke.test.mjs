@@ -416,6 +416,31 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
 });
 
+test('infra graph impact text infers risk posture for legacy impact summaries', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const graph = buildWorkspaceInfraGraph(inspection);
+  const legacyGraph = {
+    ...graph,
+    summary: {
+      ...graph.summary,
+      changesByAction: {
+        replace: 1
+      },
+      impact: {
+        dependencyEdges: 0,
+        createBeforeDeleteConflicts: 0,
+        plannedChanges: 1,
+        possibleRenames: 0,
+        replacementCascades: 0
+      }
+    }
+  };
+  const impactLines = summarizeInfraGraphImpact(legacyGraph);
+
+  assert.match(impactLines[0] ?? '', /risk=medium, primary concern=replacements/);
+  assert.doesNotMatch(impactLines[0] ?? '', /undefined/);
+});
+
 test('Terraform plan impact attaches resource change nodes to the infra graph', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
   const graph = buildWorkspaceInfraGraph(inspection);
