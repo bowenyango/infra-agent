@@ -3500,6 +3500,44 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Review Steps Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add compact `summary.impact.reviewSteps` to graph JSON so downstream agents
+  get a review-only checklist alongside `riskLevel`, `primaryConcern`, and
+  `recommendedAction`.
+- Keep review steps posture-specific: create-before-delete conflicts emphasize
+  logical rename vs true replacement triage, IaC-native rename mappings,
+  aliases/imports, state repair review, and explicit sequencing only after
+  approval.
+- Preserve legacy graph compatibility by inferring missing review steps during
+  text output normalization.
+- Surface the review steps in the human `Impact` section without authorizing
+  Terraform state moves, Pulumi stack mutation, imports, aliases, DNS changes,
+  deletion, or apply/update operations.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 248/248 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

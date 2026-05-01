@@ -88,6 +88,7 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
       primaryConcern: impactPosture.primaryConcern,
       recommendedAction: impactPosture.recommendedAction,
       replacementCascades,
+      reviewSteps: impactPosture.reviewSteps,
       riskLevel: impactPosture.riskLevel
     }
   };

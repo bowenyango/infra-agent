@@ -74,6 +74,7 @@ export interface InfraGraphSummary {
     primaryConcern: InfraGraphImpactPrimaryConcern;
     recommendedAction: InfraGraphImpactRecommendedAction;
     replacementCascades: number;
+    reviewSteps: string[];
     riskLevel: InfraGraphImpactRiskLevel;
   };
 }

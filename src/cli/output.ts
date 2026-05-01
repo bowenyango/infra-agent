@@ -42,7 +42,8 @@ import {
   inferInfraGraphImpactPosture,
   isInfraGraphImpactPrimaryConcern,
   isInfraGraphImpactRecommendedAction,
-  isInfraGraphImpactRiskLevel
+  isInfraGraphImpactRiskLevel,
+  normalizeInfraGraphImpactReviewSteps
 } from '../impact/graph-impact-summary.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
 import type { DoctorReport } from './doctor.ts';
@@ -1739,6 +1740,7 @@ function normalizeGraphImpactSummary(
     recommendedAction: isInfraGraphImpactRecommendedAction(existing?.recommendedAction)
       ? existing.recommendedAction
       : inferredPosture.recommendedAction,
+    reviewSteps: normalizeInfraGraphImpactReviewSteps(existing?.reviewSteps, inferredPosture.reviewSteps),
     riskLevel: isInfraGraphImpactRiskLevel(existing?.riskLevel)
       ? existing.riskLevel
       : inferredPosture.riskLevel
@@ -1760,6 +1762,8 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   const lines = [
     `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
   ];
+
+  lines.push(...impact.reviewSteps.map(step => `review step: ${step}`));
 
   lines.push(...possibleRenames.slice(0, 5).map(edge => `possible rename: ${formatPossibleRename(edge)}`));
   if (possibleRenames.length > 5) {

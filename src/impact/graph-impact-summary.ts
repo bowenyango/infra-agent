@@ -17,6 +17,7 @@ export interface InfraGraphImpactPosture {
   riskLevel: InfraGraphImpactRiskLevel;
   primaryConcern: InfraGraphImpactPrimaryConcern;
   recommendedAction: InfraGraphImpactRecommendedAction;
+  reviewSteps: string[];
 }
 
 export function inferInfraGraphImpactPosture(params: InfraGraphImpactPostureInput): InfraGraphImpactPosture {
@@ -24,7 +25,12 @@ export function inferInfraGraphImpactPosture(params: InfraGraphImpactPostureInpu
     return {
       riskLevel: 'high',
       primaryConcern: 'create-before-delete-conflicts',
-      recommendedAction: 'review-create-before-delete-conflicts'
+      recommendedAction: 'review-create-before-delete-conflicts',
+      reviewSteps: [
+        'Confirm whether each delete/create pair is a logical rename or a true provider identity replacement.',
+        'For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports before any update.',
+        'For true replacements, plan explicit delete-before-create or manual sequencing only after downtime and ownership review.'
+      ]
     };
   }
 
@@ -32,7 +38,11 @@ export function inferInfraGraphImpactPosture(params: InfraGraphImpactPostureInpu
     return {
       riskLevel: 'medium',
       primaryConcern: 'replacement-cascades',
-      recommendedAction: 'review-replacement-cascades'
+      recommendedAction: 'review-replacement-cascades',
+      reviewSteps: [
+        'Review upstream replacement reasons before approving dependent changes.',
+        'Check each replacement-cascade edge for downstream blast radius and required sequencing.'
+      ]
     };
   }
 
@@ -40,7 +50,11 @@ export function inferInfraGraphImpactPosture(params: InfraGraphImpactPostureInpu
     return {
       riskLevel: 'medium',
       primaryConcern: 'replacements',
-      recommendedAction: 'review-replacements'
+      recommendedAction: 'review-replacements',
+      reviewSteps: [
+        'Review replacement reason metadata and native plan/preview output for each replace action.',
+        'Confirm whether any replacement is a logical rename before considering moved blocks, aliases, imports, or state repair.'
+      ]
     };
   }
 
@@ -48,7 +62,11 @@ export function inferInfraGraphImpactPosture(params: InfraGraphImpactPostureInpu
     return {
       riskLevel: 'medium',
       primaryConcern: 'possible-renames',
-      recommendedAction: 'review-possible-renames'
+      recommendedAction: 'review-possible-renames',
+      reviewSteps: [
+        'Review possible-rename edges and matching identity keys before treating delete/create as a rename.',
+        'Use moved blocks, aliases, imports, or state moves only after human-reviewed address mapping and approval.'
+      ]
     };
   }
 
@@ -56,14 +74,18 @@ export function inferInfraGraphImpactPosture(params: InfraGraphImpactPostureInpu
     return {
       riskLevel: 'low',
       primaryConcern: 'planned-changes',
-      recommendedAction: 'review-planned-changes'
+      recommendedAction: 'review-planned-changes',
+      reviewSteps: [
+        'Review planned-change edges and native plan/preview output before applying outside infra-agent.'
+      ]
     };
   }
 
   return {
     riskLevel: 'none',
     primaryConcern: 'none',
-    recommendedAction: 'none'
+    recommendedAction: 'none',
+    reviewSteps: []
   };
 }
 
@@ -87,4 +109,13 @@ export function isInfraGraphImpactRecommendedAction(value: unknown): value is In
     || value === 'review-replacements'
     || value === 'review-replacement-cascades'
     || value === 'review-create-before-delete-conflicts';
+}
+
+export function normalizeInfraGraphImpactReviewSteps(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const steps = value.filter((step): step is string => typeof step === 'string' && step.length > 0);
+  return steps.length > 0 || fallback.length === 0 ? steps : fallback;
 }

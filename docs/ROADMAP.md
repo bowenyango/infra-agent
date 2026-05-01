@@ -422,9 +422,9 @@ Status on 2026-04-28:
 - Graph summaries now include `edgesByKind` and compact `summary.impact`
   counters for planned changes, dependency edges, possible renames, and
   replacement cascades, plus create-before-delete conflict warnings. The impact
-  summary also includes `riskLevel`, `primaryConcern`, and
-  `recommendedAction` for machine-readable handoff. Text graph output includes
-  an `Impact` section with the most relevant rename, cascade, and
+  summary also includes `riskLevel`, `primaryConcern`, `recommendedAction`,
+  and review-only `reviewSteps` for machine-readable handoff. Text graph output
+  includes an `Impact` section with the most relevant rename, cascade, and
   ordering-conflict edges.
 - Added a stable graph snapshot helper and cross-domain impact fixture covering
   Terraform and Pulumi planned changes, unchanged dependency context,
