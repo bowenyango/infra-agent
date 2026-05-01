@@ -177,8 +177,8 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - When handing graph output to another agent, prefer compact `summary.impact`
   fields, especially `riskLevel`, `primaryConcern`, `recommendedAction`, and
   review-only `reviewSteps`, plus prioritized `reviewTargets`,
-  `mutationAllowed=false`, and the `Impact` text section before pasting full
-  `nodes` and `edges`.
+  `omittedReviewTargets`, `mutationAllowed=false`, and the `Impact` text
+  section before pasting full `nodes` and `edges`.
 - Treat graph nodes with `metadata.role=dependency-context` as relationship context only. They explain unchanged upstream resources needed by `depends-on` edges and must not be counted as planned changes unless a `planned-change` edge and `metadata.action` are also present.
 - Treat graph replacement reason metadata such as `replacementReasons`, `replacementReasonCategories`, and `dependencyReplacementReasons` as advisory provider/schema context. Use it to explain why a replacement or cascade is likely, but confirm with native plan/preview output and state before recommending state mutation or downtime.
 - Treat graph `possible-rename` edges as review candidates only, even when confidence is high. Use `score`, `matchingIdentityKeys`, and `reason` metadata to explain the candidate, but do not execute `terraform state mv`, write moved blocks, or mutate Pulumi state without explicit user approval and a human-reviewed address mapping.

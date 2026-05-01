@@ -10,6 +10,7 @@ import type { WorkspaceInspection } from '../types/repository.ts';
 import {
   INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
   buildInfraGraphImpactReviewTargets,
+  countInfraGraphImpactReviewTargets,
   inferInfraGraphImpactPosture
 } from './graph-impact-summary.ts';
 
@@ -69,6 +70,7 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
   const possibleRenames = edgesByKind['possible-rename'] ?? 0;
   const replacementCascades = edgesByKind['replacement-cascade'] ?? 0;
   const createBeforeDeleteConflicts = edgesByKind['create-before-delete-conflict'] ?? 0;
+  const reviewTargets = buildInfraGraphImpactReviewTargets(edges);
   const impactPosture = inferInfraGraphImpactPosture({
     createBeforeDeleteConflicts,
     dependencyEdges,
@@ -88,13 +90,14 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
       dependencyEdges,
       createBeforeDeleteConflicts,
       mutationAllowed: INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
+      omittedReviewTargets: Math.max(0, countInfraGraphImpactReviewTargets(edges) - reviewTargets.length),
       plannedChanges,
       possibleRenames,
       primaryConcern: impactPosture.primaryConcern,
       recommendedAction: impactPosture.recommendedAction,
       replacementCascades,
       reviewSteps: impactPosture.reviewSteps,
-      reviewTargets: buildInfraGraphImpactReviewTargets(edges),
+      reviewTargets,
       riskLevel: impactPosture.riskLevel
     }
   };

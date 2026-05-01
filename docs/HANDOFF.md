@@ -3610,6 +3610,40 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Omitted Review Targets Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `summary.impact.omittedReviewTargets` so downstream agents can tell when
+  compact `reviewTargets` were capped and more review edges exist.
+- Keep the cap at five targets, but expose the omitted count in graph JSON and
+  human `Impact` text output.
+- Preserve valid omitted counts from legacy or compact payloads when full graph
+  edges are unavailable.
+- Add a focused regression test with seven review-target candidate edges,
+  proving five are surfaced and two are reported as omitted.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 249/249 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

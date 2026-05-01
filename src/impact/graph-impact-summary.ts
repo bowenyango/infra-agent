@@ -87,6 +87,10 @@ export function buildInfraGraphImpactReviewTargets(edges: InfraGraphEdge[], limi
     .slice(0, limit);
 }
 
+export function countInfraGraphImpactReviewTargets(edges: InfraGraphEdge[]): number {
+  return edges.filter(edge => isReviewTargetKind(edge.kind)).length;
+}
+
 function normalizeOptionalTargetString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

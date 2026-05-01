@@ -41,6 +41,7 @@ import {
 import {
   INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
   buildInfraGraphImpactReviewTargets,
+  countInfraGraphImpactReviewTargets,
   inferInfraGraphImpactPosture,
   isInfraGraphImpactPrimaryConcern,
   isInfraGraphImpactRecommendedAction,
@@ -1735,10 +1736,12 @@ function normalizeGraphImpactSummary(
     replacementActions: graph.summary.changesByAction?.replace ?? 0
   });
   const inferredReviewTargets = buildInfraGraphImpactReviewTargets(graph.edges);
+  const inferredOmittedReviewTargets = Math.max(0, countInfraGraphImpactReviewTargets(graph.edges) - inferredReviewTargets.length);
 
   return {
     ...counts,
     mutationAllowed: INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
+    omittedReviewTargets: impactCount(existing?.omittedReviewTargets, inferredOmittedReviewTargets),
     primaryConcern: isInfraGraphImpactPrimaryConcern(existing?.primaryConcern)
       ? existing.primaryConcern
       : inferredPosture.primaryConcern,
@@ -1766,7 +1769,7 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
   const createBeforeDeleteConflicts = graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
   const lines = [
-    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, mutation allowed=${impact.mutationAllowed}, review targets=${impact.reviewTargets.length}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
+    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, mutation allowed=${impact.mutationAllowed}, review targets=${impact.reviewTargets.length}, omitted review targets=${impact.omittedReviewTargets}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
   ];
 
   lines.push(...impact.reviewSteps.map(step => `review step: ${step}`));

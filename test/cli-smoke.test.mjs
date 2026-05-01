@@ -382,6 +382,7 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   assert.equal(graph.summary.edgesByKind['has-schema'], 1);
   assert.equal(graph.summary.impact?.plannedChanges, 0);
   assert.equal(graph.summary.impact?.mutationAllowed, false);
+  assert.equal(graph.summary.impact?.omittedReviewTargets, 0);
   assert.equal(graph.summary.impact?.riskLevel, 'none');
   assert.equal(graph.summary.impact?.primaryConcern, 'none');
   assert.equal(graph.summary.impact?.recommendedAction, 'none');
@@ -417,6 +418,7 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.replacementCascades, 2);
   assert.equal(snapshot.summary.impact?.createBeforeDeleteConflicts, 2);
   assert.equal(snapshot.summary.impact?.mutationAllowed, false);
+  assert.equal(snapshot.summary.impact?.omittedReviewTargets, 0);
   assert.equal(snapshot.summary.impact?.riskLevel, 'high');
   assert.equal(snapshot.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
   assert.equal(snapshot.summary.impact?.recommendedAction, 'review-create-before-delete-conflicts');
@@ -424,6 +426,35 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.reviewTargets.length, 5);
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.kind, 'create-before-delete-conflict');
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.matchingIdentityKeys, 'metadata.name,metadata.namespace');
+});
+
+test('infra graph impact records omitted review target count when compact targets are capped', () => {
+  const edges = Array.from({ length: 7 }, (_, index) => ({
+    id: `create-before-delete-conflict:test-${index}`,
+    from: `terraform-resource:old-${index}`,
+    to: `terraform-resource:new-${index}`,
+    kind: 'create-before-delete-conflict',
+    confidence: 'high',
+    source: 'terraform-plan',
+    metadata: {
+      reason: `exclusive identity conflict ${index}`,
+      exclusiveIdentityValues: `name=resource-${index}`,
+      matchingExclusiveIdentityKeys: 'name'
+    }
+  }));
+  const graph = {
+    kind: 'infra-agent.infra-graph',
+    schemaVersion: 1,
+    workspaceRoot: '<workspace>',
+    nodes: [],
+    edges,
+    summary: summarizeInfraGraph([], edges)
+  };
+  const impactLines = summarizeInfraGraphImpact(graph);
+
+  assert.equal(graph.summary.impact?.reviewTargets.length, 5);
+  assert.equal(graph.summary.impact?.omittedReviewTargets, 2);
+  assert.match(impactLines[0] ?? '', /review targets=5, omitted review targets=2/);
 });
 
 test('infra graph impact text infers risk posture for legacy impact summaries', async () => {
@@ -440,6 +471,7 @@ test('infra graph impact text infers risk posture for legacy impact summaries', 
         dependencyEdges: 0,
         createBeforeDeleteConflicts: 0,
         mutationAllowed: true,
+        omittedReviewTargets: 3,
         plannedChanges: 1,
         possibleRenames: 0,
         replacementCascades: 0
@@ -450,7 +482,7 @@ test('infra graph impact text infers risk posture for legacy impact summaries', 
 
   assert.match(impactLines[0] ?? '', /risk=medium, primary concern=replacements, recommended action=review-replacements/);
   assert.match(impactLines[0] ?? '', /mutation allowed=false/);
-  assert.match(impactLines[0] ?? '', /review targets=0/);
+  assert.match(impactLines[0] ?? '', /review targets=0, omitted review targets=3/);
   assert.ok(impactLines.some(line => line.includes('review step: Confirm whether any replacement is a logical rename')));
   assert.doesNotMatch(impactLines[0] ?? '', /undefined/);
 });
@@ -662,6 +694,7 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   assert.match(String(conflictEdges[0]?.metadata?.reason), /create-before-destroy replacement can fail with BucketAlreadyExists/i);
   assert.equal(impactedGraph.summary.impact?.createBeforeDeleteConflicts, 1);
   assert.equal(impactedGraph.summary.impact?.mutationAllowed, false);
+  assert.equal(impactedGraph.summary.impact?.omittedReviewTargets, 0);
   assert.equal(impactedGraph.summary.impact?.riskLevel, 'high');
   assert.equal(impactedGraph.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
   assert.equal(impactedGraph.summary.impact?.recommendedAction, 'review-create-before-delete-conflicts');
@@ -669,7 +702,7 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.kind, 'create-before-delete-conflict');
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.identity, 'bucket=payments-artifacts');
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
-    line.includes('risk=high, primary concern=create-before-delete-conflicts, recommended action=review-create-before-delete-conflicts, mutation allowed=false, review targets=1')
+    line.includes('risk=high, primary concern=create-before-delete-conflicts, recommended action=review-create-before-delete-conflicts, mutation allowed=false, review targets=1, omitted review targets=0')
   ));
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('review step: For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports')
@@ -1146,6 +1179,7 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   assert.equal(impactedGraph.summary.edgesByKind['depends-on'], 1);
   assert.equal(impactedGraph.summary.impact?.replacementCascades, 1);
   assert.equal(impactedGraph.summary.impact?.mutationAllowed, false);
+  assert.equal(impactedGraph.summary.impact?.omittedReviewTargets, 0);
   assert.equal(impactedGraph.summary.impact?.riskLevel, 'medium');
   assert.equal(impactedGraph.summary.impact?.primaryConcern, 'replacement-cascades');
   assert.equal(impactedGraph.summary.impact?.recommendedAction, 'review-replacement-cascades');

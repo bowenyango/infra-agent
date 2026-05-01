@@ -87,6 +87,7 @@ export interface InfraGraphSummary {
     dependencyEdges: number;
     createBeforeDeleteConflicts: number;
     mutationAllowed: boolean;
+    omittedReviewTargets: number;
     plannedChanges: number;
     possibleRenames: number;
     primaryConcern: InfraGraphImpactPrimaryConcern;

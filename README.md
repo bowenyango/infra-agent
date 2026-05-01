@@ -105,10 +105,10 @@ Current behavior is intentionally runtime-foundation oriented:
   domains, Route53 records including ACM validation CNAMEs, and Kubernetes
   objects. Graph JSON includes compact `summary.impact` counts plus
   `riskLevel`, `primaryConcern`, `recommendedAction`, review-only
-  `reviewSteps`, prioritized `reviewTargets`, and `mutationAllowed=false`, and
-  the text output includes an `Impact` section for quick handoff. VPC-style
-  security group rule matching keeps TCP/UDP ports required but permits omitted
-  ports for
+  `reviewSteps`, prioritized `reviewTargets`, `omittedReviewTargets`, and
+  `mutationAllowed=false`, and the text output includes an `Impact` section for
+  quick handoff. VPC-style security group rule matching keeps TCP/UDP ports
+  required but permits omitted ports for
   all-protocol and ICMPv6 rules. A stable graph snapshot fixture now covers the
   cross-domain impact contract before any topology viewer work starts
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
