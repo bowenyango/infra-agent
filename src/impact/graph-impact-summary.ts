@@ -14,6 +14,8 @@ import type {
 export const INFRA_GRAPH_IMPACT_MUTATION_ALLOWED = false;
 const REVIEW_TARGET_LIMIT = 5;
 
+type InfraGraphImpactReviewTargetDraft = Omit<InfraGraphImpactReviewTarget, 'priority'>;
+
 const REVIEW_TARGET_KIND_PRIORITY: Record<InfraGraphImpactReviewTargetKind, number> = {
   'create-before-delete-conflict': 0,
   'replacement-cascade': 1,
@@ -143,7 +145,27 @@ function metadataString(edge: InfraGraphEdge, key: string): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTarget | null {
+function finalizeReviewTargets(targets: InfraGraphImpactReviewTargetDraft[]): InfraGraphImpactReviewTarget[] {
+  return targets.map((target, index) => ({
+    edgeId: target.edgeId,
+    kind: target.kind,
+    priority: index + 1,
+    from: target.from,
+    to: target.to,
+    confidence: target.confidence,
+    source: target.source,
+    mutationAllowed: target.mutationAllowed,
+    recommendedAction: target.recommendedAction,
+    riskCategory: target.riskCategory,
+    reviewSteps: target.reviewSteps,
+    ...(target.reason ? { reason: target.reason } : {}),
+    ...(target.identity ? { identity: target.identity } : {}),
+    ...(target.matchingIdentityKeys ? { matchingIdentityKeys: target.matchingIdentityKeys } : {}),
+    ...(target.replacementReasons ? { replacementReasons: target.replacementReasons } : {})
+  }));
+}
+
+function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTargetDraft | null {
   if (!isReviewTargetKind(edge.kind)) {
     return null;
   }
@@ -174,7 +196,7 @@ function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTarget |
 }
 
 export function buildInfraGraphImpactReviewTargets(edges: InfraGraphEdge[], limit = REVIEW_TARGET_LIMIT): InfraGraphImpactReviewTarget[] {
-  return edges
+  const targets = edges
     .filter((edge): edge is InfraGraphEdge & { kind: InfraGraphImpactReviewTargetKind } => isReviewTargetKind(edge.kind))
     .sort((left, right) =>
       REVIEW_TARGET_KIND_PRIORITY[left.kind] - REVIEW_TARGET_KIND_PRIORITY[right.kind]
@@ -182,8 +204,9 @@ export function buildInfraGraphImpactReviewTargets(edges: InfraGraphEdge[], limi
       || left.id.localeCompare(right.id)
     )
     .map(buildReviewTarget)
-    .filter((target): target is InfraGraphImpactReviewTarget => target !== null)
+    .filter((target): target is InfraGraphImpactReviewTargetDraft => target !== null)
     .slice(0, limit);
+  return finalizeReviewTargets(targets);
 }
 
 export function countInfraGraphImpactReviewTargets(edges: InfraGraphEdge[]): number {
@@ -194,7 +217,7 @@ function normalizeOptionalTargetString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-function normalizeReviewTarget(value: unknown): InfraGraphImpactReviewTarget | null {
+function normalizeReviewTarget(value: unknown): InfraGraphImpactReviewTargetDraft | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
@@ -244,9 +267,9 @@ export function normalizeInfraGraphImpactReviewTargets(value: unknown, fallback:
 
   const targets = value
     .map(normalizeReviewTarget)
-    .filter((target): target is InfraGraphImpactReviewTarget => target !== null)
+    .filter((target): target is InfraGraphImpactReviewTargetDraft => target !== null)
     .slice(0, REVIEW_TARGET_LIMIT);
-  return targets.length > 0 || fallback.length === 0 ? targets : fallback;
+  return targets.length > 0 || fallback.length === 0 ? finalizeReviewTargets(targets) : fallback;
 }
 
 export interface InfraGraphImpactPostureInput {

@@ -424,7 +424,7 @@ Status on 2026-04-28:
   replacement cascades, plus create-before-delete conflict warnings. The impact
   summary also includes `riskLevel`, `primaryConcern`, `recommendedAction`,
   review-only `reviewSteps`, prioritized `reviewTargets` with per-target
-  `mutationAllowed=false`, `recommendedAction`, `riskCategory`, and
+  `priority`, `mutationAllowed=false`, `recommendedAction`, `riskCategory`, and
   `reviewSteps`, plus summary-level `omittedReviewTargets` and
   `mutationAllowed=false` for machine-readable handoff. Text graph output
   includes an `Impact` section with the most relevant rename, cascade, and

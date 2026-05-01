@@ -57,6 +57,7 @@ export type InfraGraphImpactReviewTargetRiskCategory =
 export interface InfraGraphImpactReviewTarget {
   edgeId: string;
   kind: InfraGraphImpactReviewTargetKind;
+  priority: number;
   from: string;
   to: string;
   confidence: InfraGraphConfidence;

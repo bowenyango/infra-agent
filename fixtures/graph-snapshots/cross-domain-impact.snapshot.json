@@ -556,6 +556,7 @@
         {
           "edgeId": "create-before-delete-conflict:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
           "kind": "create-before-delete-conflict",
+          "priority": 1,
           "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
           "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
           "confidence": "high",
@@ -575,6 +576,7 @@
         {
           "edgeId": "create-before-delete-conflict:terraform-resource:aws_route.peer->terraform-resource:aws_route.peer",
           "kind": "create-before-delete-conflict",
+          "priority": 2,
           "from": "terraform-resource:aws_route.peer",
           "to": "terraform-resource:aws_route.peer",
           "confidence": "high",
@@ -594,6 +596,7 @@
         {
           "edgeId": "replacement-cascade:pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
           "kind": "replacement-cascade",
+          "priority": 3,
           "from": "pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
           "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
           "confidence": "medium",
@@ -612,6 +615,7 @@
         {
           "edgeId": "replacement-cascade:terraform-resource:aws_s3_bucket.artifacts->terraform-resource:aws_lambda_function.api",
           "kind": "replacement-cascade",
+          "priority": 4,
           "from": "terraform-resource:aws_s3_bucket.artifacts",
           "to": "terraform-resource:aws_lambda_function.api",
           "confidence": "medium",
@@ -630,6 +634,7 @@
         {
           "edgeId": "possible-rename:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
           "kind": "possible-rename",
+          "priority": 5,
           "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
           "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
           "confidence": "high",
