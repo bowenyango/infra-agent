@@ -38,6 +38,12 @@ import {
   type ToolPermissionAggregate,
   type ToolPermissionSummary
 } from '../agent/tool-permissions.ts';
+import {
+  inferInfraGraphImpactPosture,
+  isInfraGraphImpactPrimaryConcern,
+  isInfraGraphImpactRecommendedAction,
+  isInfraGraphImpactRiskLevel
+} from '../impact/graph-impact-summary.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
 import type { DoctorReport } from './doctor.ts';
 
@@ -1704,79 +1710,6 @@ function formatReplacementCascade(edge: InfraGraph['edges'][number]): string {
   return `${compactGraphRef(edge.from)} -> ${compactGraphRef(edge.to)} [${edge.confidence}] ${dependencyAction} -> ${dependentAction}${replacementReasons}`;
 }
 
-function inferFallbackGraphImpactRisk(
-  impact: Pick<GraphImpactSummary, 'createBeforeDeleteConflicts' | 'dependencyEdges' | 'plannedChanges' | 'possibleRenames' | 'replacementCascades'>,
-  changesByAction: InfraGraph['summary']['changesByAction']
-): Pick<GraphImpactSummary, 'riskLevel' | 'primaryConcern' | 'recommendedAction'> {
-  if (impact.createBeforeDeleteConflicts > 0) {
-    return {
-      riskLevel: 'high',
-      primaryConcern: 'create-before-delete-conflicts',
-      recommendedAction: 'review-create-before-delete-conflicts'
-    };
-  }
-
-  if (impact.replacementCascades > 0) {
-    return {
-      riskLevel: 'medium',
-      primaryConcern: 'replacement-cascades',
-      recommendedAction: 'review-replacement-cascades'
-    };
-  }
-
-  if ((changesByAction?.replace ?? 0) > 0) {
-    return {
-      riskLevel: 'medium',
-      primaryConcern: 'replacements',
-      recommendedAction: 'review-replacements'
-    };
-  }
-
-  if (impact.possibleRenames > 0) {
-    return {
-      riskLevel: 'medium',
-      primaryConcern: 'possible-renames',
-      recommendedAction: 'review-possible-renames'
-    };
-  }
-
-  if (impact.plannedChanges > 0 || impact.dependencyEdges > 0) {
-    return {
-      riskLevel: 'low',
-      primaryConcern: 'planned-changes',
-      recommendedAction: 'review-planned-changes'
-    };
-  }
-
-  return {
-    riskLevel: 'none',
-    primaryConcern: 'none',
-    recommendedAction: 'none'
-  };
-}
-
-function isGraphImpactRiskLevel(value: unknown): value is GraphImpactSummary['riskLevel'] {
-  return value === 'none' || value === 'low' || value === 'medium' || value === 'high';
-}
-
-function isGraphImpactPrimaryConcern(value: unknown): value is GraphImpactSummary['primaryConcern'] {
-  return value === 'none'
-    || value === 'planned-changes'
-    || value === 'possible-renames'
-    || value === 'replacements'
-    || value === 'replacement-cascades'
-    || value === 'create-before-delete-conflicts';
-}
-
-function isGraphImpactRecommendedAction(value: unknown): value is GraphImpactSummary['recommendedAction'] {
-  return value === 'none'
-    || value === 'review-planned-changes'
-    || value === 'review-possible-renames'
-    || value === 'review-replacements'
-    || value === 'review-replacement-cascades'
-    || value === 'review-create-before-delete-conflicts';
-}
-
 function impactCount(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
@@ -1793,19 +1726,22 @@ function normalizeGraphImpactSummary(
     possibleRenames: impactCount(existing?.possibleRenames, fallbackImpactCounts.possibleRenames),
     replacementCascades: impactCount(existing?.replacementCascades, fallbackImpactCounts.replacementCascades)
   };
-  const inferredRisk = inferFallbackGraphImpactRisk(counts, graph.summary.changesByAction);
+  const inferredPosture = inferInfraGraphImpactPosture({
+    ...counts,
+    replacementActions: graph.summary.changesByAction?.replace ?? 0
+  });
 
   return {
     ...counts,
-    primaryConcern: isGraphImpactPrimaryConcern(existing?.primaryConcern)
+    primaryConcern: isInfraGraphImpactPrimaryConcern(existing?.primaryConcern)
       ? existing.primaryConcern
-      : inferredRisk.primaryConcern,
-    recommendedAction: isGraphImpactRecommendedAction(existing?.recommendedAction)
+      : inferredPosture.primaryConcern,
+    recommendedAction: isInfraGraphImpactRecommendedAction(existing?.recommendedAction)
       ? existing.recommendedAction
-      : inferredRisk.recommendedAction,
-    riskLevel: isGraphImpactRiskLevel(existing?.riskLevel)
+      : inferredPosture.recommendedAction,
+    riskLevel: isInfraGraphImpactRiskLevel(existing?.riskLevel)
       ? existing.riskLevel
-      : inferredRisk.riskLevel
+      : inferredPosture.riskLevel
   };
 }
 

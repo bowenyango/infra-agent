@@ -3474,6 +3474,32 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Shared Graph Impact Posture Slice
+
+Files added or updated:
+
+- `src/impact/graph-impact-summary.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Centralize graph impact posture inference so graph construction and legacy
+  text-output normalization use the same `riskLevel`, `primaryConcern`, and
+  `recommendedAction` mapping.
+- Centralize enum guards for legacy or partial graph summaries before printing
+  human `Impact` output.
+- Remove duplicate create-before-delete, cascade, replacement, possible-rename,
+  and planned-change posture logic from the CLI output layer.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 248/248 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:
