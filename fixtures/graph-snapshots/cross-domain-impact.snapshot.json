@@ -540,6 +540,7 @@
     "impact": {
       "createBeforeDeleteConflicts": 2,
       "dependencyEdges": 4,
+      "mutationAllowed": false,
       "plannedChanges": 7,
       "possibleRenames": 1,
       "primaryConcern": "create-before-delete-conflicts",

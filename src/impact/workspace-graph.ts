@@ -7,7 +7,7 @@ import type {
   InfraGraphNodeKind
 } from '../types/infra-graph.ts';
 import type { WorkspaceInspection } from '../types/repository.ts';
-import { inferInfraGraphImpactPosture } from './graph-impact-summary.ts';
+import { INFRA_GRAPH_IMPACT_MUTATION_ALLOWED, inferInfraGraphImpactPosture } from './graph-impact-summary.ts';
 
 function graphId(prefix: string, path: string): string {
   return `${prefix}:${path}`;
@@ -83,6 +83,7 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
     impact: {
       dependencyEdges,
       createBeforeDeleteConflicts,
+      mutationAllowed: INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
       plannedChanges,
       possibleRenames,
       primaryConcern: impactPosture.primaryConcern,

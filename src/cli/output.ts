@@ -39,6 +39,7 @@ import {
   type ToolPermissionSummary
 } from '../agent/tool-permissions.ts';
 import {
+  INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
   inferInfraGraphImpactPosture,
   isInfraGraphImpactPrimaryConcern,
   isInfraGraphImpactRecommendedAction,
@@ -1734,6 +1735,7 @@ function normalizeGraphImpactSummary(
 
   return {
     ...counts,
+    mutationAllowed: INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
     primaryConcern: isInfraGraphImpactPrimaryConcern(existing?.primaryConcern)
       ? existing.primaryConcern
       : inferredPosture.primaryConcern,
@@ -1760,7 +1762,7 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
   const createBeforeDeleteConflicts = graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
   const lines = [
-    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
+    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, mutation allowed=${impact.mutationAllowed}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
   ];
 
   lines.push(...impact.reviewSteps.map(step => `review step: ${step}`));

@@ -4,6 +4,8 @@ import type {
   InfraGraphImpactRiskLevel
 } from '../types/infra-graph.ts';
 
+export const INFRA_GRAPH_IMPACT_MUTATION_ALLOWED = false;
+
 export interface InfraGraphImpactPostureInput {
   createBeforeDeleteConflicts: number;
   dependencyEdges: number;

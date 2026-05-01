@@ -3538,6 +3538,42 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Mutation Guard Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `summary.impact.mutationAllowed=false` to graph JSON as an explicit
+  machine-readable safety guard for downstream agents.
+- Force graph impact text normalization to emit `mutation allowed=false`, even
+  when a legacy or external graph payload contains a different value.
+- Keep graph output aligned with the read-only impact-analysis contract: it can
+  explain renames, replacements, cascades, and create-before-delete conflicts,
+  but it does not authorize Terraform state moves, Pulumi stack mutation,
+  imports, aliases, DNS changes, deletion, apply, or update operations.
+- Update the stable graph snapshot and docs because this is an intentional
+  graph contract change.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 248/248 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

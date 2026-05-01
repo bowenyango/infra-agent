@@ -381,6 +381,7 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   assert.equal(graph.summary.nodesByKind['workspace'], 1);
   assert.equal(graph.summary.edgesByKind['has-schema'], 1);
   assert.equal(graph.summary.impact?.plannedChanges, 0);
+  assert.equal(graph.summary.impact?.mutationAllowed, false);
   assert.equal(graph.summary.impact?.riskLevel, 'none');
   assert.equal(graph.summary.impact?.primaryConcern, 'none');
   assert.equal(graph.summary.impact?.recommendedAction, 'none');
@@ -414,6 +415,7 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.possibleRenames, 1);
   assert.equal(snapshot.summary.impact?.replacementCascades, 2);
   assert.equal(snapshot.summary.impact?.createBeforeDeleteConflicts, 2);
+  assert.equal(snapshot.summary.impact?.mutationAllowed, false);
   assert.equal(snapshot.summary.impact?.riskLevel, 'high');
   assert.equal(snapshot.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
   assert.equal(snapshot.summary.impact?.recommendedAction, 'review-create-before-delete-conflicts');
@@ -433,6 +435,7 @@ test('infra graph impact text infers risk posture for legacy impact summaries', 
       impact: {
         dependencyEdges: 0,
         createBeforeDeleteConflicts: 0,
+        mutationAllowed: true,
         plannedChanges: 1,
         possibleRenames: 0,
         replacementCascades: 0
@@ -442,6 +445,7 @@ test('infra graph impact text infers risk posture for legacy impact summaries', 
   const impactLines = summarizeInfraGraphImpact(legacyGraph);
 
   assert.match(impactLines[0] ?? '', /risk=medium, primary concern=replacements, recommended action=review-replacements/);
+  assert.match(impactLines[0] ?? '', /mutation allowed=false/);
   assert.ok(impactLines.some(line => line.includes('review step: Confirm whether any replacement is a logical rename')));
   assert.doesNotMatch(impactLines[0] ?? '', /undefined/);
 });
@@ -652,12 +656,13 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'bucket=payments-artifacts');
   assert.match(String(conflictEdges[0]?.metadata?.reason), /create-before-destroy replacement can fail with BucketAlreadyExists/i);
   assert.equal(impactedGraph.summary.impact?.createBeforeDeleteConflicts, 1);
+  assert.equal(impactedGraph.summary.impact?.mutationAllowed, false);
   assert.equal(impactedGraph.summary.impact?.riskLevel, 'high');
   assert.equal(impactedGraph.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
   assert.equal(impactedGraph.summary.impact?.recommendedAction, 'review-create-before-delete-conflicts');
   assert.ok(impactedGraph.summary.impact?.reviewSteps.some(step => step.includes('delete/create pair')));
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
-    line.includes('risk=high, primary concern=create-before-delete-conflicts, recommended action=review-create-before-delete-conflicts')
+    line.includes('risk=high, primary concern=create-before-delete-conflicts, recommended action=review-create-before-delete-conflicts, mutation allowed=false')
   ));
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('review step: For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports')
@@ -1133,6 +1138,7 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   assert.match(String(cascadeEdge.metadata?.dependencyReplacementReasons), /bucket: AWS S3 Bucket/);
   assert.equal(impactedGraph.summary.edgesByKind['depends-on'], 1);
   assert.equal(impactedGraph.summary.impact?.replacementCascades, 1);
+  assert.equal(impactedGraph.summary.impact?.mutationAllowed, false);
   assert.equal(impactedGraph.summary.impact?.riskLevel, 'medium');
   assert.equal(impactedGraph.summary.impact?.primaryConcern, 'replacement-cascades');
   assert.equal(impactedGraph.summary.impact?.recommendedAction, 'review-replacement-cascades');
@@ -1534,6 +1540,7 @@ test('Pulumi preview impact marks AWS route create-before-delete replacement con
   assert.equal(conflictEdges[0]?.metadata?.destinationValue, '10.0.0.0/16');
   assert.match(String(conflictEdges[0]?.metadata?.reason), /RouteAlreadyExists/i);
   assert.equal(impactedGraph.summary.impact?.createBeforeDeleteConflicts, 1);
+  assert.equal(impactedGraph.summary.impact?.mutationAllowed, false);
   assert.ok(impactedGraph.summary.impact?.reviewSteps.some(step => step.includes('manual sequencing')));
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('create-before-delete conflict: pulumi:aws:ec2/route:Route::old-peer-route -> pulumi:aws:ec2/route:Route::new-peer-route [high]')
