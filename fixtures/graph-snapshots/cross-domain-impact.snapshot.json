@@ -561,6 +561,11 @@
           "confidence": "high",
           "source": "pulumi-preview",
           "recommendedAction": "review-create-before-delete-conflicts",
+          "reviewSteps": [
+            "Confirm whether this from/to pair is a logical rename or a true provider identity replacement.",
+            "For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports for this exact pair.",
+            "For true replacements, require explicit delete-before-create or manual sequencing approval before any apply/update outside infra-agent."
+          ],
           "reason": "Kubernetes namespaced object resources are exclusive by metadata.name, metadata.namespace; Pulumi create-before-delete ordering can fail with AlreadyExists.",
           "identity": "metadata.name=payments-api,metadata.namespace=default",
           "matchingIdentityKeys": "metadata.name,metadata.namespace"
@@ -573,6 +578,11 @@
           "confidence": "high",
           "source": "terraform-plan",
           "recommendedAction": "review-create-before-delete-conflicts",
+          "reviewSteps": [
+            "Confirm whether this from/to pair is a logical rename or a true provider identity replacement.",
+            "For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports for this exact pair.",
+            "For true replacements, require explicit delete-before-create or manual sequencing approval before any apply/update outside infra-agent."
+          ],
           "reason": "AWS Route resources are exclusive by routeTableId, destination; Terraform create-before-destroy replacement can fail with RouteAlreadyExists.",
           "identity": "routeTableId=rtb-123,destination=10.0.0.0/16",
           "matchingIdentityKeys": "routeTableId,destination"
@@ -585,6 +595,11 @@
           "confidence": "medium",
           "source": "pulumi-preview",
           "recommendedAction": "review-replacement-cascades",
+          "reviewSteps": [
+            "Review the upstream replacement reason metadata before accepting this dependent change.",
+            "Confirm whether the dependent change is required or only cascading from the upstream replacement.",
+            "Check native plan/preview output for sequencing and blast radius before any apply/update outside infra-agent."
+          ],
           "reason": "urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api depends on urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api; upstream replace may explain downstream update",
           "replacementReasons": "name: AWS Security Group: security group name participates in the physical identity inside a VPC"
         },
@@ -596,6 +611,11 @@
           "confidence": "medium",
           "source": "terraform-plan",
           "recommendedAction": "review-replacement-cascades",
+          "reviewSteps": [
+            "Review the upstream replacement reason metadata before accepting this dependent change.",
+            "Confirm whether the dependent change is required or only cascading from the upstream replacement.",
+            "Check native plan/preview output for sequencing and blast radius before any apply/update outside infra-agent."
+          ],
           "reason": "aws_lambda_function.api depends on aws_s3_bucket.artifacts; upstream replace may explain downstream update",
           "replacementReasons": "bucket: AWS S3 Bucket: bucket is the globally unique physical bucket name"
         },
@@ -607,6 +627,11 @@
           "confidence": "high",
           "source": "pulumi-preview",
           "recommendedAction": "review-possible-renames",
+          "reviewSteps": [
+            "Compare the from/to logical addresses with matching identity keys before treating this as a rename.",
+            "Confirm provider identity fields did not change in native plan/preview/state output.",
+            "Use moved blocks, aliases, imports, or state moves only after human-reviewed address mapping and approval."
+          ],
           "reason": "same Pulumi resource type; matching identity fields: metadata.name, metadata.namespace; score 1.00",
           "matchingIdentityKeys": "metadata.name,metadata.namespace"
         }

@@ -54,6 +54,7 @@ export interface InfraGraphImpactReviewTarget {
   confidence: InfraGraphConfidence;
   source: InfraGraphSource;
   recommendedAction: InfraGraphImpactReviewTargetRecommendedAction;
+  reviewSteps: string[];
   reason?: string;
   identity?: string;
   matchingIdentityKeys?: string;

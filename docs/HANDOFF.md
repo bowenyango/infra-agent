@@ -3677,6 +3677,39 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Review Target Steps Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add per-target `reviewSteps` to compact
+  `summary.impact.reviewTargets[]` entries.
+- Keep the checklist derived centrally from the target kind so each compact
+  review target can guide create-before-delete, replacement-cascade, or
+  possible-rename triage without requiring full edge-list context.
+- Preserve legacy graph compatibility by inferring missing per-target
+  `recommendedAction` and `reviewSteps` during review target normalization.
+- Update the stable graph snapshot and durable agent guidance because this is
+  an intentional graph JSON contract change.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 250/250 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

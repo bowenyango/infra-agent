@@ -281,8 +281,8 @@ Current graph foundation:
   `reviewSteps`, prioritized `reviewTargets`, and `omittedReviewTargets`, with
   `mutationAllowed=false`, so downstream agents can route high-risk ordering
   conflicts without reimplementing graph heuristics. Each compact review target
-  also carries a per-target `recommendedAction`; prefer it when deciding the
-  next review queue before loading complete edge lists.
+  also carries per-target `recommendedAction` and `reviewSteps`; prefer them
+  when deciding the next review queue before loading complete edge lists.
 - Base graph nodes and containment/configuration edges are derived from
   workspace inspection facts; plan/preview impact data is attached only when
   explicitly supplied.

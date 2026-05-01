@@ -106,7 +106,7 @@ Current behavior is intentionally runtime-foundation oriented:
   objects. Graph JSON includes compact `summary.impact` counts plus
   `riskLevel`, `primaryConcern`, `recommendedAction`, review-only
   `reviewSteps`, prioritized `reviewTargets` with per-target
-  `recommendedAction`, `omittedReviewTargets`, and
+  `recommendedAction` and `reviewSteps`, `omittedReviewTargets`, and
   `mutationAllowed=false`, and the text output includes an `Impact` section for
   quick handoff. VPC-style security group rule matching keeps TCP/UDP ports
   required but permits omitted ports for

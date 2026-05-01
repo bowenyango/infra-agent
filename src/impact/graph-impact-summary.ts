@@ -39,6 +39,30 @@ function reviewTargetRecommendedAction(
   return 'review-possible-renames';
 }
 
+function reviewTargetReviewSteps(kind: InfraGraphImpactReviewTargetKind): string[] {
+  if (kind === 'create-before-delete-conflict') {
+    return [
+      'Confirm whether this from/to pair is a logical rename or a true provider identity replacement.',
+      'For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports for this exact pair.',
+      'For true replacements, require explicit delete-before-create or manual sequencing approval before any apply/update outside infra-agent.'
+    ];
+  }
+
+  if (kind === 'replacement-cascade') {
+    return [
+      'Review the upstream replacement reason metadata before accepting this dependent change.',
+      'Confirm whether the dependent change is required or only cascading from the upstream replacement.',
+      'Check native plan/preview output for sequencing and blast radius before any apply/update outside infra-agent.'
+    ];
+  }
+
+  return [
+    'Compare the from/to logical addresses with matching identity keys before treating this as a rename.',
+    'Confirm provider identity fields did not change in native plan/preview/state output.',
+    'Use moved blocks, aliases, imports, or state moves only after human-reviewed address mapping and approval.'
+  ];
+}
+
 function isGraphConfidence(value: unknown): value is InfraGraphConfidence {
   return value === 'low' || value === 'medium' || value === 'high';
 }
@@ -83,6 +107,7 @@ function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTarget |
     confidence: edge.confidence,
     source: edge.source,
     recommendedAction: reviewTargetRecommendedAction(edge.kind),
+    reviewSteps: reviewTargetReviewSteps(edge.kind),
     ...(reason ? { reason } : {}),
     ...(identity ? { identity } : {}),
     ...(matchingIdentityKeys ? { matchingIdentityKeys } : {}),
@@ -141,6 +166,7 @@ function normalizeReviewTarget(value: unknown): InfraGraphImpactReviewTarget | n
     confidence: target.confidence,
     source: target.source,
     recommendedAction: reviewTargetRecommendedAction(target.kind),
+    reviewSteps: reviewTargetReviewSteps(target.kind),
     ...(reason ? { reason } : {}),
     ...(identity ? { identity } : {}),
     ...(matchingIdentityKeys ? { matchingIdentityKeys } : {}),
