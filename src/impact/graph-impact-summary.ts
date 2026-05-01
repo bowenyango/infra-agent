@@ -5,6 +5,7 @@ import type {
   InfraGraphImpactRecommendedAction,
   InfraGraphImpactReviewTarget,
   InfraGraphImpactReviewTargetKind,
+  InfraGraphImpactReviewTargetRecommendedAction,
   InfraGraphImpactRiskLevel,
   InfraGraphSource
 } from '../types/infra-graph.ts';
@@ -22,6 +23,20 @@ function isReviewTargetKind(value: unknown): value is InfraGraphImpactReviewTarg
   return value === 'create-before-delete-conflict'
     || value === 'replacement-cascade'
     || value === 'possible-rename';
+}
+
+function reviewTargetRecommendedAction(
+  kind: InfraGraphImpactReviewTargetKind
+): InfraGraphImpactReviewTargetRecommendedAction {
+  if (kind === 'create-before-delete-conflict') {
+    return 'review-create-before-delete-conflicts';
+  }
+
+  if (kind === 'replacement-cascade') {
+    return 'review-replacement-cascades';
+  }
+
+  return 'review-possible-renames';
 }
 
 function isGraphConfidence(value: unknown): value is InfraGraphConfidence {
@@ -67,6 +82,7 @@ function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTarget |
     to: edge.to,
     confidence: edge.confidence,
     source: edge.source,
+    recommendedAction: reviewTargetRecommendedAction(edge.kind),
     ...(reason ? { reason } : {}),
     ...(identity ? { identity } : {}),
     ...(matchingIdentityKeys ? { matchingIdentityKeys } : {}),
@@ -124,6 +140,7 @@ function normalizeReviewTarget(value: unknown): InfraGraphImpactReviewTarget | n
     to: target.to,
     confidence: target.confidence,
     source: target.source,
+    recommendedAction: reviewTargetRecommendedAction(target.kind),
     ...(reason ? { reason } : {}),
     ...(identity ? { identity } : {}),
     ...(matchingIdentityKeys ? { matchingIdentityKeys } : {}),

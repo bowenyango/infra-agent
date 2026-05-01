@@ -278,10 +278,11 @@ Current graph foundation:
   planned changes, dependency edges, possible renames, and replacement
   cascades, plus create-before-delete conflict warnings. `summary.impact` also
   includes `riskLevel`, `primaryConcern`, `recommendedAction`, and review-only
-  `reviewSteps`, prioritized `reviewTargets`, `omittedReviewTargets`, with
+  `reviewSteps`, prioritized `reviewTargets`, and `omittedReviewTargets`, with
   `mutationAllowed=false`, so downstream agents can route high-risk ordering
-  conflicts without reimplementing graph heuristics. Prefer these compact
-  fields for agent-to-agent handoff before loading complete edge lists.
+  conflicts without reimplementing graph heuristics. Each compact review target
+  also carries a per-target `recommendedAction`; prefer it when deciding the
+  next review queue before loading complete edge lists.
 - Base graph nodes and containment/configuration edges are derived from
   workspace inspection facts; plan/preview impact data is attached only when
   explicitly supplied.

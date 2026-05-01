@@ -41,6 +41,10 @@ export type InfraGraphImpactReviewTargetKind =
   | 'create-before-delete-conflict'
   | 'possible-rename'
   | 'replacement-cascade';
+export type InfraGraphImpactReviewTargetRecommendedAction =
+  | 'review-create-before-delete-conflicts'
+  | 'review-possible-renames'
+  | 'review-replacement-cascades';
 
 export interface InfraGraphImpactReviewTarget {
   edgeId: string;
@@ -49,6 +53,7 @@ export interface InfraGraphImpactReviewTarget {
   to: string;
   confidence: InfraGraphConfidence;
   source: InfraGraphSource;
+  recommendedAction: InfraGraphImpactReviewTargetRecommendedAction;
   reason?: string;
   identity?: string;
   matchingIdentityKeys?: string;

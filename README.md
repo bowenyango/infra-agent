@@ -105,7 +105,8 @@ Current behavior is intentionally runtime-foundation oriented:
   domains, Route53 records including ACM validation CNAMEs, and Kubernetes
   objects. Graph JSON includes compact `summary.impact` counts plus
   `riskLevel`, `primaryConcern`, `recommendedAction`, review-only
-  `reviewSteps`, prioritized `reviewTargets`, `omittedReviewTargets`, and
+  `reviewSteps`, prioritized `reviewTargets` with per-target
+  `recommendedAction`, `omittedReviewTargets`, and
   `mutationAllowed=false`, and the text output includes an `Impact` section for
   quick handoff. VPC-style security group rule matching keeps TCP/UDP ports
   required but permits omitted ports for
