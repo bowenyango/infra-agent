@@ -427,11 +427,15 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.reviewTargets.length, 5);
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.kind, 'create-before-delete-conflict');
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-create-before-delete-conflicts');
+  assert.equal(snapshot.summary.impact?.reviewTargets[0]?.riskCategory, 'kubernetes-object-ownership');
   assert.ok(snapshot.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('exact pair')));
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.matchingIdentityKeys, 'metadata.name,metadata.namespace');
+  assert.equal(snapshot.summary.impact?.reviewTargets[1]?.riskCategory, 'create-before-delete-ordering');
   assert.equal(snapshot.summary.impact?.reviewTargets[2]?.recommendedAction, 'review-replacement-cascades');
+  assert.equal(snapshot.summary.impact?.reviewTargets[2]?.riskCategory, 'replacement-cascade-review');
   assert.ok(snapshot.summary.impact?.reviewTargets[2]?.reviewSteps.some(step => step.includes('dependent change')));
   assert.equal(snapshot.summary.impact?.reviewTargets[4]?.recommendedAction, 'review-possible-renames');
+  assert.equal(snapshot.summary.impact?.reviewTargets[4]?.riskCategory, 'possible-rename-review');
   assert.ok(snapshot.summary.impact?.reviewTargets[4]?.reviewSteps.some(step => step.includes('matching identity keys')));
 });
 
@@ -462,6 +466,7 @@ test('infra graph impact records omitted review target count when compact target
   assert.equal(graph.summary.impact?.reviewTargets.length, 5);
   assert.equal(graph.summary.impact?.omittedReviewTargets, 2);
   assert.equal(graph.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-create-before-delete-conflicts');
+  assert.equal(graph.summary.impact?.reviewTargets[0]?.riskCategory, 'create-before-delete-ordering');
   assert.ok(graph.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('manual sequencing approval')));
   assert.match(impactLines[0] ?? '', /review targets=5, omitted review targets=2/);
 });
@@ -481,6 +486,7 @@ test('infra graph review target normalization infers per-target legacy guidance'
 
   assert.equal(targets.length, 1);
   assert.equal(targets[0]?.recommendedAction, 'review-possible-renames');
+  assert.equal(targets[0]?.riskCategory, 'possible-rename-review');
   assert.ok(targets[0]?.reviewSteps.some(step => step.includes('matching identity keys')));
 });
 
@@ -728,6 +734,7 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   assert.ok(impactedGraph.summary.impact?.reviewSteps.some(step => step.includes('delete/create pair')));
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.kind, 'create-before-delete-conflict');
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-create-before-delete-conflicts');
+  assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.riskCategory, 'physical-name-ownership');
   assert.ok(impactedGraph.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('logical rename')));
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.identity, 'bucket=payments-artifacts');
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
@@ -1215,6 +1222,7 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   assert.ok(impactedGraph.summary.impact?.reviewSteps.some(step => step.includes('downstream blast radius')));
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.kind, 'replacement-cascade');
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-replacement-cascades');
+  assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.riskCategory, 'replacement-cascade-review');
   assert.ok(impactedGraph.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('blast radius')));
   assert.match(String(impactedGraph.summary.impact?.reviewTargets[0]?.replacementReasons), /bucket: AWS S3 Bucket/);
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
@@ -1618,6 +1626,7 @@ test('Pulumi preview impact marks AWS route create-before-delete replacement con
   assert.ok(impactedGraph.summary.impact?.reviewSteps.some(step => step.includes('manual sequencing')));
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.kind, 'create-before-delete-conflict');
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-create-before-delete-conflicts');
+  assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.riskCategory, 'create-before-delete-ordering');
   assert.ok(impactedGraph.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('delete-before-create')));
   assert.equal(impactedGraph.summary.impact?.reviewTargets[0]?.identity, 'routeTableId=rtb-0102177ec9e1ab465,destination=10.0.0.0/16');
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>

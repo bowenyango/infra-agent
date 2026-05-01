@@ -561,6 +561,7 @@
           "confidence": "high",
           "source": "pulumi-preview",
           "recommendedAction": "review-create-before-delete-conflicts",
+          "riskCategory": "kubernetes-object-ownership",
           "reviewSteps": [
             "Confirm whether this from/to pair is a logical rename or a true provider identity replacement.",
             "For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports for this exact pair.",
@@ -578,6 +579,7 @@
           "confidence": "high",
           "source": "terraform-plan",
           "recommendedAction": "review-create-before-delete-conflicts",
+          "riskCategory": "create-before-delete-ordering",
           "reviewSteps": [
             "Confirm whether this from/to pair is a logical rename or a true provider identity replacement.",
             "For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports for this exact pair.",
@@ -595,6 +597,7 @@
           "confidence": "medium",
           "source": "pulumi-preview",
           "recommendedAction": "review-replacement-cascades",
+          "riskCategory": "replacement-cascade-review",
           "reviewSteps": [
             "Review the upstream replacement reason metadata before accepting this dependent change.",
             "Confirm whether the dependent change is required or only cascading from the upstream replacement.",
@@ -611,6 +614,7 @@
           "confidence": "medium",
           "source": "terraform-plan",
           "recommendedAction": "review-replacement-cascades",
+          "riskCategory": "replacement-cascade-review",
           "reviewSteps": [
             "Review the upstream replacement reason metadata before accepting this dependent change.",
             "Confirm whether the dependent change is required or only cascading from the upstream replacement.",
@@ -627,6 +631,7 @@
           "confidence": "high",
           "source": "pulumi-preview",
           "recommendedAction": "review-possible-renames",
+          "riskCategory": "possible-rename-review",
           "reviewSteps": [
             "Compare the from/to logical addresses with matching identity keys before treating this as a rename.",
             "Confirm provider identity fields did not change in native plan/preview/state output.",

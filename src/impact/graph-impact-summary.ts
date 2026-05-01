@@ -6,6 +6,7 @@ import type {
   InfraGraphImpactReviewTarget,
   InfraGraphImpactReviewTargetKind,
   InfraGraphImpactReviewTargetRecommendedAction,
+  InfraGraphImpactReviewTargetRiskCategory,
   InfraGraphImpactRiskLevel,
   InfraGraphSource
 } from '../types/infra-graph.ts';
@@ -37,6 +38,60 @@ function reviewTargetRecommendedAction(
   }
 
   return 'review-possible-renames';
+}
+
+function isReviewTargetRiskCategory(value: unknown): value is InfraGraphImpactReviewTargetRiskCategory {
+  return value === 'create-before-delete-ordering'
+    || value === 'dns-or-domain-ownership'
+    || value === 'exclusive-identity-review'
+    || value === 'kubernetes-object-ownership'
+    || value === 'physical-name-ownership'
+    || value === 'possible-rename-review'
+    || value === 'replacement-cascade-review';
+}
+
+function exclusiveIdentityRiskCategory(
+  exclusiveIdentitySpec: string | undefined
+): InfraGraphImpactReviewTargetRiskCategory {
+  if (!exclusiveIdentitySpec) {
+    return 'create-before-delete-ordering';
+  }
+
+  switch (exclusiveIdentitySpec) {
+    case 'aws-cloudfront-alias':
+    case 'aws-api-gateway-domain-name':
+    case 'aws-route53-record':
+      return 'dns-or-domain-ownership';
+    case 'aws-iam-oidc-provider':
+    case 'aws-named-resource':
+    case 'aws-s3-bucket':
+      return 'physical-name-ownership';
+    case 'kubernetes-namespaced-object':
+    case 'kubernetes-namespace':
+      return 'kubernetes-object-ownership';
+    case 'aws-lb-listener-rule':
+    case 'aws-route':
+    case 'aws-security-group-rule':
+    case 'aws-vpc-security-group-rule':
+      return 'create-before-delete-ordering';
+    default:
+      return 'exclusive-identity-review';
+  }
+}
+
+function reviewTargetRiskCategory(
+  kind: InfraGraphImpactReviewTargetKind,
+  exclusiveIdentitySpec?: string
+): InfraGraphImpactReviewTargetRiskCategory {
+  if (kind === 'replacement-cascade') {
+    return 'replacement-cascade-review';
+  }
+
+  if (kind === 'possible-rename') {
+    return 'possible-rename-review';
+  }
+
+  return exclusiveIdentityRiskCategory(exclusiveIdentitySpec);
 }
 
 function reviewTargetReviewSteps(kind: InfraGraphImpactReviewTargetKind): string[] {
@@ -94,6 +149,7 @@ function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTarget |
   }
 
   const reason = metadataString(edge, 'reason');
+  const exclusiveIdentitySpec = metadataString(edge, 'exclusiveIdentitySpec');
   const identity = metadataString(edge, 'exclusiveIdentityValues');
   const matchingIdentityKeys = metadataString(edge, 'matchingIdentityKeys')
     ?? metadataString(edge, 'matchingExclusiveIdentityKeys');
@@ -107,6 +163,7 @@ function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTarget |
     confidence: edge.confidence,
     source: edge.source,
     recommendedAction: reviewTargetRecommendedAction(edge.kind),
+    riskCategory: reviewTargetRiskCategory(edge.kind, exclusiveIdentitySpec),
     reviewSteps: reviewTargetReviewSteps(edge.kind),
     ...(reason ? { reason } : {}),
     ...(identity ? { identity } : {}),
@@ -157,6 +214,9 @@ function normalizeReviewTarget(value: unknown): InfraGraphImpactReviewTarget | n
   const identity = normalizeOptionalTargetString(target.identity);
   const matchingIdentityKeys = normalizeOptionalTargetString(target.matchingIdentityKeys);
   const replacementReasons = normalizeOptionalTargetString(target.replacementReasons);
+  const riskCategory = isReviewTargetRiskCategory(target.riskCategory)
+    ? target.riskCategory
+    : reviewTargetRiskCategory(target.kind);
 
   return {
     edgeId: target.edgeId,
@@ -166,6 +226,7 @@ function normalizeReviewTarget(value: unknown): InfraGraphImpactReviewTarget | n
     confidence: target.confidence,
     source: target.source,
     recommendedAction: reviewTargetRecommendedAction(target.kind),
+    riskCategory,
     reviewSteps: reviewTargetReviewSteps(target.kind),
     ...(reason ? { reason } : {}),
     ...(identity ? { identity } : {}),

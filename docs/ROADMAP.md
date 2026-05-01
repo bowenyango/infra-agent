@@ -424,10 +424,10 @@ Status on 2026-04-28:
   replacement cascades, plus create-before-delete conflict warnings. The impact
   summary also includes `riskLevel`, `primaryConcern`, `recommendedAction`,
   review-only `reviewSteps`, prioritized `reviewTargets` with per-target
-  `recommendedAction` and `reviewSteps`, `omittedReviewTargets`, and
-  `mutationAllowed=false` for machine-readable handoff. Text graph output
-  includes an `Impact` section with the most relevant rename, cascade, and
-  ordering-conflict edges.
+  `recommendedAction`, `riskCategory`, and `reviewSteps`,
+  `omittedReviewTargets`, and `mutationAllowed=false` for machine-readable
+  handoff. Text graph output includes an `Impact` section with the most
+  relevant rename, cascade, and ordering-conflict edges.
 - Added a stable graph snapshot helper and cross-domain impact fixture covering
   Terraform and Pulumi planned changes, unchanged dependency context,
   dependency edges, replacement cascades, possible renames,

@@ -3710,6 +3710,41 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Review Target Risk Categories Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add per-target `riskCategory` to compact
+  `summary.impact.reviewTargets[]` entries.
+- Categorize create-before-delete targets into review queues using
+  exclusive-identity metadata when available: DNS/domain ownership,
+  Kubernetes object ownership, physical-name ownership, generic ordering, or
+  exclusive-identity review.
+- Categorize non-exclusive target kinds as `replacement-cascade-review` or
+  `possible-rename-review` so downstream agents can route compact graph
+  targets without duplicating kind/family heuristics.
+- Preserve legacy graph compatibility by inferring missing `riskCategory`
+  during review target normalization.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 250/250 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

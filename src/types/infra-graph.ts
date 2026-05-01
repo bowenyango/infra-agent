@@ -45,6 +45,14 @@ export type InfraGraphImpactReviewTargetRecommendedAction =
   | 'review-create-before-delete-conflicts'
   | 'review-possible-renames'
   | 'review-replacement-cascades';
+export type InfraGraphImpactReviewTargetRiskCategory =
+  | 'create-before-delete-ordering'
+  | 'dns-or-domain-ownership'
+  | 'exclusive-identity-review'
+  | 'kubernetes-object-ownership'
+  | 'physical-name-ownership'
+  | 'possible-rename-review'
+  | 'replacement-cascade-review';
 
 export interface InfraGraphImpactReviewTarget {
   edgeId: string;
@@ -54,6 +62,7 @@ export interface InfraGraphImpactReviewTarget {
   confidence: InfraGraphConfidence;
   source: InfraGraphSource;
   recommendedAction: InfraGraphImpactReviewTargetRecommendedAction;
+  riskCategory: InfraGraphImpactReviewTargetRiskCategory;
   reviewSteps: string[];
   reason?: string;
   identity?: string;
