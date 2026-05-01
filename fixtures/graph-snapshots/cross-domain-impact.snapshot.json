@@ -542,7 +542,9 @@
       "dependencyEdges": 4,
       "plannedChanges": 7,
       "possibleRenames": 1,
-      "replacementCascades": 2
+      "primaryConcern": "create-before-delete-conflicts",
+      "replacementCascades": 2,
+      "riskLevel": "high"
     }
   }
 }

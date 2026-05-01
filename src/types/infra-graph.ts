@@ -22,6 +22,14 @@ export type InfraGraphEdgeKind =
 export type InfraGraphConfidence = 'low' | 'medium' | 'high';
 export type InfraGraphSource = 'workspace-inspection' | 'terraform-plan' | 'pulumi-preview';
 export type InfraGraphChangeAction = 'create' | 'update' | 'delete' | 'replace' | 'read' | 'no-op';
+export type InfraGraphImpactRiskLevel = 'none' | 'low' | 'medium' | 'high';
+export type InfraGraphImpactPrimaryConcern =
+  | 'none'
+  | 'planned-changes'
+  | 'possible-renames'
+  | 'replacements'
+  | 'replacement-cascades'
+  | 'create-before-delete-conflicts';
 
 export interface InfraGraphNode {
   id: string;
@@ -56,7 +64,9 @@ export interface InfraGraphSummary {
     createBeforeDeleteConflicts: number;
     plannedChanges: number;
     possibleRenames: number;
+    primaryConcern: InfraGraphImpactPrimaryConcern;
     replacementCascades: number;
+    riskLevel: InfraGraphImpactRiskLevel;
   };
 }
 

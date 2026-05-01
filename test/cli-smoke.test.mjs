@@ -381,6 +381,8 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   assert.equal(graph.summary.nodesByKind['workspace'], 1);
   assert.equal(graph.summary.edgesByKind['has-schema'], 1);
   assert.equal(graph.summary.impact?.plannedChanges, 0);
+  assert.equal(graph.summary.impact?.riskLevel, 'none');
+  assert.equal(graph.summary.impact?.primaryConcern, 'none');
   assert.equal(graph.summary.nodeCount, graph.nodes.length);
   assert.equal(graph.summary.edgeCount, graph.edges.length);
 });
@@ -410,6 +412,8 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.possibleRenames, 1);
   assert.equal(snapshot.summary.impact?.replacementCascades, 2);
   assert.equal(snapshot.summary.impact?.createBeforeDeleteConflicts, 2);
+  assert.equal(snapshot.summary.impact?.riskLevel, 'high');
+  assert.equal(snapshot.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
 });
 
 test('Terraform plan impact attaches resource change nodes to the infra graph', async () => {
@@ -618,6 +622,11 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   assert.equal(conflictEdges[0]?.metadata?.exclusiveIdentityValues, 'bucket=payments-artifacts');
   assert.match(String(conflictEdges[0]?.metadata?.reason), /create-before-destroy replacement can fail with BucketAlreadyExists/i);
   assert.equal(impactedGraph.summary.impact?.createBeforeDeleteConflicts, 1);
+  assert.equal(impactedGraph.summary.impact?.riskLevel, 'high');
+  assert.equal(impactedGraph.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
+  assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
+    line.includes('risk=high, primary concern=create-before-delete-conflicts')
+  ));
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('create-before-delete conflict: aws_s3_bucket.artifacts -> aws_s3_bucket.artifacts [high]')
   ));
@@ -1089,6 +1098,8 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   assert.match(String(cascadeEdge.metadata?.dependencyReplacementReasons), /bucket: AWS S3 Bucket/);
   assert.equal(impactedGraph.summary.edgesByKind['depends-on'], 1);
   assert.equal(impactedGraph.summary.impact?.replacementCascades, 1);
+  assert.equal(impactedGraph.summary.impact?.riskLevel, 'medium');
+  assert.equal(impactedGraph.summary.impact?.primaryConcern, 'replacement-cascades');
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('replacement cascade: aws_s3_bucket.artifacts -> aws_lambda_function.api [high] replace -> replace')
   ));

@@ -3377,6 +3377,41 @@ Known validation:
   passed and included the skill reference file.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Risk Summary Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add machine-readable `summary.impact.riskLevel` and
+  `summary.impact.primaryConcern` to graph output so downstream agents can
+  route high-risk impact cases without reimplementing graph heuristics.
+- Keep the posture conservative: create-before-delete conflicts are high risk,
+  replacement cascades and replacements are medium risk, ordinary planned
+  changes or dependency-only impact are low risk, and empty impact is none.
+- Surface the same posture in the human `Impact` text summary while preserving
+  existing edge details for possible renames, cascades, and ordering conflicts.
+- Update the stable cross-domain graph snapshot because this is an intentional
+  graph contract change.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 247/247 passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

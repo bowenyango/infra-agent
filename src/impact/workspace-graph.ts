@@ -1,4 +1,13 @@
-import type { InfraGraph, InfraGraphChangeAction, InfraGraphEdge, InfraGraphEdgeKind, InfraGraphNode, InfraGraphNodeKind } from '../types/infra-graph.ts';
+import type {
+  InfraGraph,
+  InfraGraphChangeAction,
+  InfraGraphEdge,
+  InfraGraphEdgeKind,
+  InfraGraphImpactPrimaryConcern,
+  InfraGraphImpactRiskLevel,
+  InfraGraphNode,
+  InfraGraphNodeKind
+} from '../types/infra-graph.ts';
 import type { WorkspaceInspection } from '../types/repository.ts';
 
 function graphId(prefix: string, path: string): string {
@@ -35,6 +44,55 @@ function isGraphChangeAction(value: unknown): value is InfraGraphChangeAction {
     || value === 'no-op';
 }
 
+function inferImpactRisk(params: {
+  createBeforeDeleteConflicts: number;
+  dependencyEdges: number;
+  plannedChanges: number;
+  possibleRenames: number;
+  replacementActions: number;
+  replacementCascades: number;
+}): { riskLevel: InfraGraphImpactRiskLevel; primaryConcern: InfraGraphImpactPrimaryConcern } {
+  if (params.createBeforeDeleteConflicts > 0) {
+    return {
+      riskLevel: 'high',
+      primaryConcern: 'create-before-delete-conflicts'
+    };
+  }
+
+  if (params.replacementCascades > 0) {
+    return {
+      riskLevel: 'medium',
+      primaryConcern: 'replacement-cascades'
+    };
+  }
+
+  if (params.replacementActions > 0) {
+    return {
+      riskLevel: 'medium',
+      primaryConcern: 'replacements'
+    };
+  }
+
+  if (params.possibleRenames > 0) {
+    return {
+      riskLevel: 'medium',
+      primaryConcern: 'possible-renames'
+    };
+  }
+
+  if (params.plannedChanges > 0 || params.dependencyEdges > 0) {
+    return {
+      riskLevel: 'low',
+      primaryConcern: 'planned-changes'
+    };
+  }
+
+  return {
+    riskLevel: 'none',
+    primaryConcern: 'none'
+  };
+}
+
 export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEdge[]): InfraGraph['summary'] {
   const nodesByKind: Partial<Record<InfraGraphNodeKind, number>> = {};
   const edgesByKind: Partial<Record<InfraGraphEdgeKind, number>> = {};
@@ -52,6 +110,20 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
     edgesByKind[edge.kind] = (edgesByKind[edge.kind] ?? 0) + 1;
   }
 
+  const plannedChanges = edgesByKind['planned-change'] ?? 0;
+  const dependencyEdges = edgesByKind['depends-on'] ?? 0;
+  const possibleRenames = edgesByKind['possible-rename'] ?? 0;
+  const replacementCascades = edgesByKind['replacement-cascade'] ?? 0;
+  const createBeforeDeleteConflicts = edgesByKind['create-before-delete-conflict'] ?? 0;
+  const impactRisk = inferImpactRisk({
+    createBeforeDeleteConflicts,
+    dependencyEdges,
+    plannedChanges,
+    possibleRenames,
+    replacementActions: changesByAction.replace ?? 0,
+    replacementCascades
+  });
+
   return {
     nodeCount: nodes.length,
     edgeCount: edges.length,
@@ -59,11 +131,13 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
     edgesByKind,
     changesByAction: Object.keys(changesByAction).length > 0 ? changesByAction : undefined,
     impact: {
-      dependencyEdges: edgesByKind['depends-on'] ?? 0,
-      createBeforeDeleteConflicts: edgesByKind['create-before-delete-conflict'] ?? 0,
-      plannedChanges: edgesByKind['planned-change'] ?? 0,
-      possibleRenames: edgesByKind['possible-rename'] ?? 0,
-      replacementCascades: edgesByKind['replacement-cascade'] ?? 0
+      dependencyEdges,
+      createBeforeDeleteConflicts,
+      plannedChanges,
+      possibleRenames,
+      primaryConcern: impactRisk.primaryConcern,
+      replacementCascades,
+      riskLevel: impactRisk.riskLevel
     }
   };
 }

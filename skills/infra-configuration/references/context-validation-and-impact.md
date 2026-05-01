@@ -276,8 +276,11 @@ Current graph foundation:
 - `infra-agent graph --json` emits kind `infra-agent.infra-graph`.
 - Graph JSON includes `summary.edgesByKind` and `summary.impact` counters for
   planned changes, dependency edges, possible renames, and replacement
-  cascades, plus create-before-delete conflict warnings. Prefer these compact
-  fields for agent-to-agent handoff before loading complete edge lists.
+  cascades, plus create-before-delete conflict warnings. `summary.impact` also
+  includes `riskLevel` and `primaryConcern` so downstream agents can route
+  high-risk ordering conflicts without reimplementing graph heuristics. Prefer
+  these compact fields for agent-to-agent handoff before loading complete edge
+  lists.
 - Base graph nodes and containment/configuration edges are derived from
   workspace inspection facts; plan/preview impact data is attached only when
   explicitly supplied.

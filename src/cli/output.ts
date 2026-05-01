@@ -1703,19 +1703,68 @@ function formatReplacementCascade(edge: InfraGraph['edges'][number]): string {
   return `${compactGraphRef(edge.from)} -> ${compactGraphRef(edge.to)} [${edge.confidence}] ${dependencyAction} -> ${dependentAction}${replacementReasons}`;
 }
 
+function inferFallbackGraphImpactRisk(
+  impact: Pick<NonNullable<InfraGraph['summary']['impact']>, 'createBeforeDeleteConflicts' | 'dependencyEdges' | 'plannedChanges' | 'possibleRenames' | 'replacementCascades'>,
+  changesByAction: InfraGraph['summary']['changesByAction']
+): Pick<NonNullable<InfraGraph['summary']['impact']>, 'riskLevel' | 'primaryConcern'> {
+  if (impact.createBeforeDeleteConflicts > 0) {
+    return {
+      riskLevel: 'high',
+      primaryConcern: 'create-before-delete-conflicts'
+    };
+  }
+
+  if (impact.replacementCascades > 0) {
+    return {
+      riskLevel: 'medium',
+      primaryConcern: 'replacement-cascades'
+    };
+  }
+
+  if ((changesByAction?.replace ?? 0) > 0) {
+    return {
+      riskLevel: 'medium',
+      primaryConcern: 'replacements'
+    };
+  }
+
+  if (impact.possibleRenames > 0) {
+    return {
+      riskLevel: 'medium',
+      primaryConcern: 'possible-renames'
+    };
+  }
+
+  if (impact.plannedChanges > 0 || impact.dependencyEdges > 0) {
+    return {
+      riskLevel: 'low',
+      primaryConcern: 'planned-changes'
+    };
+  }
+
+  return {
+    riskLevel: 'none',
+    primaryConcern: 'none'
+  };
+}
+
 export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
-  const impact = graph.summary.impact ?? {
+  const fallbackImpactCounts = {
     dependencyEdges: graph.edges.filter(edge => edge.kind === 'depends-on').length,
     createBeforeDeleteConflicts: graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict').length,
     plannedChanges: graph.edges.filter(edge => edge.kind === 'planned-change').length,
     possibleRenames: graph.edges.filter(edge => edge.kind === 'possible-rename').length,
     replacementCascades: graph.edges.filter(edge => edge.kind === 'replacement-cascade').length
   };
+  const impact = graph.summary.impact ?? {
+    ...fallbackImpactCounts,
+    ...inferFallbackGraphImpactRisk(fallbackImpactCounts, graph.summary.changesByAction)
+  };
   const possibleRenames = graph.edges.filter(edge => edge.kind === 'possible-rename');
   const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
   const createBeforeDeleteConflicts = graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
   const lines = [
-    `planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
+    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
   ];
 
   lines.push(...possibleRenames.slice(0, 5).map(edge => `possible rename: ${formatPossibleRename(edge)}`));
