@@ -37,6 +37,23 @@ export type InfraGraphImpactRecommendedAction =
   | 'review-replacements'
   | 'review-replacement-cascades'
   | 'review-create-before-delete-conflicts';
+export type InfraGraphImpactReviewTargetKind =
+  | 'create-before-delete-conflict'
+  | 'possible-rename'
+  | 'replacement-cascade';
+
+export interface InfraGraphImpactReviewTarget {
+  edgeId: string;
+  kind: InfraGraphImpactReviewTargetKind;
+  from: string;
+  to: string;
+  confidence: InfraGraphConfidence;
+  source: InfraGraphSource;
+  reason?: string;
+  identity?: string;
+  matchingIdentityKeys?: string;
+  replacementReasons?: string;
+}
 
 export interface InfraGraphNode {
   id: string;
@@ -76,6 +93,7 @@ export interface InfraGraphSummary {
     recommendedAction: InfraGraphImpactRecommendedAction;
     replacementCascades: number;
     reviewSteps: string[];
+    reviewTargets: InfraGraphImpactReviewTarget[];
     riskLevel: InfraGraphImpactRiskLevel;
   };
 }

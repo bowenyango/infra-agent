@@ -551,6 +551,60 @@
         "For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports before any update.",
         "For true replacements, plan explicit delete-before-create or manual sequencing only after downtime and ownership review."
       ],
+      "reviewTargets": [
+        {
+          "edgeId": "create-before-delete-conflict:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+          "kind": "create-before-delete-conflict",
+          "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
+          "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+          "confidence": "high",
+          "source": "pulumi-preview",
+          "reason": "Kubernetes namespaced object resources are exclusive by metadata.name, metadata.namespace; Pulumi create-before-delete ordering can fail with AlreadyExists.",
+          "identity": "metadata.name=payments-api,metadata.namespace=default",
+          "matchingIdentityKeys": "metadata.name,metadata.namespace"
+        },
+        {
+          "edgeId": "create-before-delete-conflict:terraform-resource:aws_route.peer->terraform-resource:aws_route.peer",
+          "kind": "create-before-delete-conflict",
+          "from": "terraform-resource:aws_route.peer",
+          "to": "terraform-resource:aws_route.peer",
+          "confidence": "high",
+          "source": "terraform-plan",
+          "reason": "AWS Route resources are exclusive by routeTableId, destination; Terraform create-before-destroy replacement can fail with RouteAlreadyExists.",
+          "identity": "routeTableId=rtb-123,destination=10.0.0.0/16",
+          "matchingIdentityKeys": "routeTableId,destination"
+        },
+        {
+          "edgeId": "replacement-cascade:pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+          "kind": "replacement-cascade",
+          "from": "pulumi-resource:urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api",
+          "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
+          "confidence": "medium",
+          "source": "pulumi-preview",
+          "reason": "urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api depends on urn:pulumi:dev::payments-api::aws:ec2/securityGroup:SecurityGroup::api; upstream replace may explain downstream update",
+          "replacementReasons": "name: AWS Security Group: security group name participates in the physical identity inside a VPC"
+        },
+        {
+          "edgeId": "replacement-cascade:terraform-resource:aws_s3_bucket.artifacts->terraform-resource:aws_lambda_function.api",
+          "kind": "replacement-cascade",
+          "from": "terraform-resource:aws_s3_bucket.artifacts",
+          "to": "terraform-resource:aws_lambda_function.api",
+          "confidence": "medium",
+          "source": "terraform-plan",
+          "reason": "aws_lambda_function.api depends on aws_s3_bucket.artifacts; upstream replace may explain downstream update",
+          "replacementReasons": "bucket: AWS S3 Bucket: bucket is the globally unique physical bucket name"
+        },
+        {
+          "edgeId": "possible-rename:pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api->pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+          "kind": "possible-rename",
+          "from": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::old-api",
+          "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
+          "confidence": "high",
+          "source": "pulumi-preview",
+          "reason": "same Pulumi resource type; matching identity fields: metadata.name, metadata.namespace; score 1.00",
+          "matchingIdentityKeys": "metadata.name,metadata.namespace"
+        }
+      ],
       "riskLevel": "high"
     }
   }

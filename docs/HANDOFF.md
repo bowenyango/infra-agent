@@ -3574,6 +3574,42 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Review Targets Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add compact `summary.impact.reviewTargets` so downstream agents can see the
+  highest-priority review edges without loading complete graph `nodes` and
+  `edges`.
+- Prioritize at most five targets in this order: create-before-delete
+  conflicts, replacement cascades, and possible renames.
+- Preserve compact evidence for each target: edge id, kind, from/to, confidence,
+  source, reason, exclusive identity, matching identity keys, and replacement
+  reason snippets when available.
+- Include the review-target count in human `Impact` text output while keeping
+  graph output read-only and `mutationAllowed=false`.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 248/248 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:
