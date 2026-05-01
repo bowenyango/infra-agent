@@ -30,6 +30,13 @@ export type InfraGraphImpactPrimaryConcern =
   | 'replacements'
   | 'replacement-cascades'
   | 'create-before-delete-conflicts';
+export type InfraGraphImpactRecommendedAction =
+  | 'none'
+  | 'review-planned-changes'
+  | 'review-possible-renames'
+  | 'review-replacements'
+  | 'review-replacement-cascades'
+  | 'review-create-before-delete-conflicts';
 
 export interface InfraGraphNode {
   id: string;
@@ -65,6 +72,7 @@ export interface InfraGraphSummary {
     plannedChanges: number;
     possibleRenames: number;
     primaryConcern: InfraGraphImpactPrimaryConcern;
+    recommendedAction: InfraGraphImpactRecommendedAction;
     replacementCascades: number;
     riskLevel: InfraGraphImpactRiskLevel;
   };

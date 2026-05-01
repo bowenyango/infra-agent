@@ -4,6 +4,7 @@ import type {
   InfraGraphEdge,
   InfraGraphEdgeKind,
   InfraGraphImpactPrimaryConcern,
+  InfraGraphImpactRecommendedAction,
   InfraGraphImpactRiskLevel,
   InfraGraphNode,
   InfraGraphNodeKind
@@ -51,45 +52,55 @@ function inferImpactRisk(params: {
   possibleRenames: number;
   replacementActions: number;
   replacementCascades: number;
-}): { riskLevel: InfraGraphImpactRiskLevel; primaryConcern: InfraGraphImpactPrimaryConcern } {
+}): {
+  riskLevel: InfraGraphImpactRiskLevel;
+  primaryConcern: InfraGraphImpactPrimaryConcern;
+  recommendedAction: InfraGraphImpactRecommendedAction;
+} {
   if (params.createBeforeDeleteConflicts > 0) {
     return {
       riskLevel: 'high',
-      primaryConcern: 'create-before-delete-conflicts'
+      primaryConcern: 'create-before-delete-conflicts',
+      recommendedAction: 'review-create-before-delete-conflicts'
     };
   }
 
   if (params.replacementCascades > 0) {
     return {
       riskLevel: 'medium',
-      primaryConcern: 'replacement-cascades'
+      primaryConcern: 'replacement-cascades',
+      recommendedAction: 'review-replacement-cascades'
     };
   }
 
   if (params.replacementActions > 0) {
     return {
       riskLevel: 'medium',
-      primaryConcern: 'replacements'
+      primaryConcern: 'replacements',
+      recommendedAction: 'review-replacements'
     };
   }
 
   if (params.possibleRenames > 0) {
     return {
       riskLevel: 'medium',
-      primaryConcern: 'possible-renames'
+      primaryConcern: 'possible-renames',
+      recommendedAction: 'review-possible-renames'
     };
   }
 
   if (params.plannedChanges > 0 || params.dependencyEdges > 0) {
     return {
       riskLevel: 'low',
-      primaryConcern: 'planned-changes'
+      primaryConcern: 'planned-changes',
+      recommendedAction: 'review-planned-changes'
     };
   }
 
   return {
     riskLevel: 'none',
-    primaryConcern: 'none'
+    primaryConcern: 'none',
+    recommendedAction: 'none'
   };
 }
 
@@ -136,6 +147,7 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
       plannedChanges,
       possibleRenames,
       primaryConcern: impactRisk.primaryConcern,
+      recommendedAction: impactRisk.recommendedAction,
       replacementCascades,
       riskLevel: impactRisk.riskLevel
     }

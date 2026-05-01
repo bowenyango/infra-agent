@@ -383,6 +383,7 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   assert.equal(graph.summary.impact?.plannedChanges, 0);
   assert.equal(graph.summary.impact?.riskLevel, 'none');
   assert.equal(graph.summary.impact?.primaryConcern, 'none');
+  assert.equal(graph.summary.impact?.recommendedAction, 'none');
   assert.equal(graph.summary.nodeCount, graph.nodes.length);
   assert.equal(graph.summary.edgeCount, graph.edges.length);
 });
@@ -414,6 +415,7 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.createBeforeDeleteConflicts, 2);
   assert.equal(snapshot.summary.impact?.riskLevel, 'high');
   assert.equal(snapshot.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
+  assert.equal(snapshot.summary.impact?.recommendedAction, 'review-create-before-delete-conflicts');
 });
 
 test('infra graph impact text infers risk posture for legacy impact summaries', async () => {
@@ -437,7 +439,7 @@ test('infra graph impact text infers risk posture for legacy impact summaries', 
   };
   const impactLines = summarizeInfraGraphImpact(legacyGraph);
 
-  assert.match(impactLines[0] ?? '', /risk=medium, primary concern=replacements/);
+  assert.match(impactLines[0] ?? '', /risk=medium, primary concern=replacements, recommended action=review-replacements/);
   assert.doesNotMatch(impactLines[0] ?? '', /undefined/);
 });
 
@@ -649,8 +651,9 @@ test('Terraform plan impact marks exclusive identity create-before-destroy confl
   assert.equal(impactedGraph.summary.impact?.createBeforeDeleteConflicts, 1);
   assert.equal(impactedGraph.summary.impact?.riskLevel, 'high');
   assert.equal(impactedGraph.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
+  assert.equal(impactedGraph.summary.impact?.recommendedAction, 'review-create-before-delete-conflicts');
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
-    line.includes('risk=high, primary concern=create-before-delete-conflicts')
+    line.includes('risk=high, primary concern=create-before-delete-conflicts, recommended action=review-create-before-delete-conflicts')
   ));
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('create-before-delete conflict: aws_s3_bucket.artifacts -> aws_s3_bucket.artifacts [high]')
@@ -1125,6 +1128,7 @@ test('Terraform plan impact marks dependency edges and replacement cascades', as
   assert.equal(impactedGraph.summary.impact?.replacementCascades, 1);
   assert.equal(impactedGraph.summary.impact?.riskLevel, 'medium');
   assert.equal(impactedGraph.summary.impact?.primaryConcern, 'replacement-cascades');
+  assert.equal(impactedGraph.summary.impact?.recommendedAction, 'review-replacement-cascades');
   assert.ok(summarizeInfraGraphImpact(impactedGraph).some(line =>
     line.includes('replacement cascade: aws_s3_bucket.artifacts -> aws_lambda_function.api [high] replace -> replace')
   ));

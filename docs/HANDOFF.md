@@ -3438,6 +3438,42 @@ Known validation:
 - `npm run test:unit`: 248/248 passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Graph Impact Recommended Action Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `summary.impact.recommendedAction` as a compact review-only routing hint
+  for downstream agents.
+- Map high-risk create-before-delete conflicts to
+  `review-create-before-delete-conflicts`, cascades to
+  `review-replacement-cascades`, replacements to `review-replacements`,
+  possible renames to `review-possible-renames`, ordinary changes to
+  `review-planned-changes`, and empty impact to `none`.
+- Include the recommended action in text `Impact` output and legacy impact
+  summary normalization.
+- Update the graph snapshot and docs because this is an intentional graph
+  contract change.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 248/248 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

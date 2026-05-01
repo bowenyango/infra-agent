@@ -543,6 +543,7 @@
       "plannedChanges": 7,
       "possibleRenames": 1,
       "primaryConcern": "create-before-delete-conflicts",
+      "recommendedAction": "review-create-before-delete-conflicts",
       "replacementCascades": 2,
       "riskLevel": "high"
     }

@@ -1707,45 +1707,51 @@ function formatReplacementCascade(edge: InfraGraph['edges'][number]): string {
 function inferFallbackGraphImpactRisk(
   impact: Pick<GraphImpactSummary, 'createBeforeDeleteConflicts' | 'dependencyEdges' | 'plannedChanges' | 'possibleRenames' | 'replacementCascades'>,
   changesByAction: InfraGraph['summary']['changesByAction']
-): Pick<GraphImpactSummary, 'riskLevel' | 'primaryConcern'> {
+): Pick<GraphImpactSummary, 'riskLevel' | 'primaryConcern' | 'recommendedAction'> {
   if (impact.createBeforeDeleteConflicts > 0) {
     return {
       riskLevel: 'high',
-      primaryConcern: 'create-before-delete-conflicts'
+      primaryConcern: 'create-before-delete-conflicts',
+      recommendedAction: 'review-create-before-delete-conflicts'
     };
   }
 
   if (impact.replacementCascades > 0) {
     return {
       riskLevel: 'medium',
-      primaryConcern: 'replacement-cascades'
+      primaryConcern: 'replacement-cascades',
+      recommendedAction: 'review-replacement-cascades'
     };
   }
 
   if ((changesByAction?.replace ?? 0) > 0) {
     return {
       riskLevel: 'medium',
-      primaryConcern: 'replacements'
+      primaryConcern: 'replacements',
+      recommendedAction: 'review-replacements'
     };
   }
 
   if (impact.possibleRenames > 0) {
     return {
       riskLevel: 'medium',
-      primaryConcern: 'possible-renames'
+      primaryConcern: 'possible-renames',
+      recommendedAction: 'review-possible-renames'
     };
   }
 
   if (impact.plannedChanges > 0 || impact.dependencyEdges > 0) {
     return {
       riskLevel: 'low',
-      primaryConcern: 'planned-changes'
+      primaryConcern: 'planned-changes',
+      recommendedAction: 'review-planned-changes'
     };
   }
 
   return {
     riskLevel: 'none',
-    primaryConcern: 'none'
+    primaryConcern: 'none',
+    recommendedAction: 'none'
   };
 }
 
@@ -1760,6 +1766,15 @@ function isGraphImpactPrimaryConcern(value: unknown): value is GraphImpactSummar
     || value === 'replacements'
     || value === 'replacement-cascades'
     || value === 'create-before-delete-conflicts';
+}
+
+function isGraphImpactRecommendedAction(value: unknown): value is GraphImpactSummary['recommendedAction'] {
+  return value === 'none'
+    || value === 'review-planned-changes'
+    || value === 'review-possible-renames'
+    || value === 'review-replacements'
+    || value === 'review-replacement-cascades'
+    || value === 'review-create-before-delete-conflicts';
 }
 
 function impactCount(value: unknown, fallback: number): number {
@@ -1785,6 +1800,9 @@ function normalizeGraphImpactSummary(
     primaryConcern: isGraphImpactPrimaryConcern(existing?.primaryConcern)
       ? existing.primaryConcern
       : inferredRisk.primaryConcern,
+    recommendedAction: isGraphImpactRecommendedAction(existing?.recommendedAction)
+      ? existing.recommendedAction
+      : inferredRisk.recommendedAction,
     riskLevel: isGraphImpactRiskLevel(existing?.riskLevel)
       ? existing.riskLevel
       : inferredRisk.riskLevel
@@ -1804,7 +1822,7 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
   const createBeforeDeleteConflicts = graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
   const lines = [
-    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
+    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
   ];
 
   lines.push(...possibleRenames.slice(0, 5).map(edge => `possible rename: ${formatPossibleRename(edge)}`));

@@ -104,10 +104,10 @@ Current behavior is intentionally runtime-foundation oriented:
   balancing listener priorities, CloudFront aliases, API Gateway custom
   domains, Route53 records including ACM validation CNAMEs, and Kubernetes
   objects. Graph JSON includes compact `summary.impact` counts plus
-  `riskLevel` and `primaryConcern`, and the text output includes an `Impact`
-  section for quick handoff. VPC-style security group rule matching keeps
-  TCP/UDP ports required but permits omitted ports for all-protocol and ICMPv6
-  rules. A stable graph snapshot fixture now covers the
+  `riskLevel`, `primaryConcern`, and `recommendedAction`, and the text output
+  includes an `Impact` section for quick handoff. VPC-style security group rule
+  matching keeps TCP/UDP ports required but permits omitted ports for
+  all-protocol and ICMPv6 rules. A stable graph snapshot fixture now covers the
   cross-domain impact contract before any topology viewer work starts
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
