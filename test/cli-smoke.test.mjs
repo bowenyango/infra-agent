@@ -426,6 +426,7 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.ok(snapshot.summary.impact?.reviewSteps.some(step => step.includes('logical rename')));
   assert.equal(snapshot.summary.impact?.reviewTargets.length, 5);
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.kind, 'create-before-delete-conflict');
+  assert.equal(snapshot.summary.impact?.reviewTargets[0]?.mutationAllowed, false);
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-create-before-delete-conflicts');
   assert.equal(snapshot.summary.impact?.reviewTargets[0]?.riskCategory, 'kubernetes-object-ownership');
   assert.ok(snapshot.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('exact pair')));
@@ -465,6 +466,7 @@ test('infra graph impact records omitted review target count when compact target
 
   assert.equal(graph.summary.impact?.reviewTargets.length, 5);
   assert.equal(graph.summary.impact?.omittedReviewTargets, 2);
+  assert.equal(graph.summary.impact?.reviewTargets[0]?.mutationAllowed, false);
   assert.equal(graph.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-create-before-delete-conflicts');
   assert.equal(graph.summary.impact?.reviewTargets[0]?.riskCategory, 'create-before-delete-ordering');
   assert.ok(graph.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('manual sequencing approval')));
@@ -480,11 +482,13 @@ test('infra graph review target normalization infers per-target legacy guidance'
       to: 'terraform-resource:new',
       confidence: 'medium',
       source: 'terraform-plan',
+      mutationAllowed: true,
       matchingIdentityKeys: 'name'
     }
   ], []);
 
   assert.equal(targets.length, 1);
+  assert.equal(targets[0]?.mutationAllowed, false);
   assert.equal(targets[0]?.recommendedAction, 'review-possible-renames');
   assert.equal(targets[0]?.riskCategory, 'possible-rename-review');
   assert.ok(targets[0]?.reviewSteps.some(step => step.includes('matching identity keys')));

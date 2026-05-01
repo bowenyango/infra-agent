@@ -61,6 +61,7 @@ export interface InfraGraphImpactReviewTarget {
   to: string;
   confidence: InfraGraphConfidence;
   source: InfraGraphSource;
+  mutationAllowed: false;
   recommendedAction: InfraGraphImpactReviewTargetRecommendedAction;
   riskCategory: InfraGraphImpactReviewTargetRiskCategory;
   reviewSteps: string[];

@@ -560,6 +560,7 @@
           "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
           "confidence": "high",
           "source": "pulumi-preview",
+          "mutationAllowed": false,
           "recommendedAction": "review-create-before-delete-conflicts",
           "riskCategory": "kubernetes-object-ownership",
           "reviewSteps": [
@@ -578,6 +579,7 @@
           "to": "terraform-resource:aws_route.peer",
           "confidence": "high",
           "source": "terraform-plan",
+          "mutationAllowed": false,
           "recommendedAction": "review-create-before-delete-conflicts",
           "riskCategory": "create-before-delete-ordering",
           "reviewSteps": [
@@ -596,6 +598,7 @@
           "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:apps/v1:Deployment::payments-api",
           "confidence": "medium",
           "source": "pulumi-preview",
+          "mutationAllowed": false,
           "recommendedAction": "review-replacement-cascades",
           "riskCategory": "replacement-cascade-review",
           "reviewSteps": [
@@ -613,6 +616,7 @@
           "to": "terraform-resource:aws_lambda_function.api",
           "confidence": "medium",
           "source": "terraform-plan",
+          "mutationAllowed": false,
           "recommendedAction": "review-replacement-cascades",
           "riskCategory": "replacement-cascade-review",
           "reviewSteps": [
@@ -630,6 +634,7 @@
           "to": "pulumi-resource:urn:pulumi:dev::payments-api::kubernetes:core/v1:Service::new-api",
           "confidence": "high",
           "source": "pulumi-preview",
+          "mutationAllowed": false,
           "recommendedAction": "review-possible-renames",
           "riskCategory": "possible-rename-review",
           "reviewSteps": [

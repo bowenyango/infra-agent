@@ -3745,6 +3745,39 @@ Known validation:
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-01 Graph Impact Review Target Mutation Guard Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add per-target `mutationAllowed=false` to compact
+  `summary.impact.reviewTargets[]` entries.
+- Keep every compact review target self-contained as review-only context, so a
+  downstream agent that extracts a single target cannot treat
+  `recommendedAction`, `riskCategory`, or `reviewSteps` as mutation approval.
+- Force legacy review target normalization to emit `mutationAllowed=false`,
+  even if an external or older payload contains a different value.
+- Update the stable graph snapshot and durable agent guidance because this is
+  an intentional graph JSON contract change.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run test:unit`: 250/250 passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:
