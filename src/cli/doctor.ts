@@ -81,6 +81,7 @@ const REQUIRED_AGENT_SURFACE_PATHS = [
   'bin/infra-agent.js',
   'src/cli/main.ts',
   'skills/infra-configuration/SKILL.md',
+  'skills/infra-configuration/references/context-validation-and-impact.md',
   'AGENTS.md',
   'README.md',
   'docs/AGENT_RULES.md',

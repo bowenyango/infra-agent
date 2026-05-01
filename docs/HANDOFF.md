@@ -3347,6 +3347,36 @@ Known validation:
   passed.
 - `git diff --check`: passed.
 
+## 2026-04-30 Doctor Skill Reference Surface Slice
+
+Files added or updated:
+
+- `src/cli/doctor.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extend the read-only doctor `agent-surface` check to verify
+  `skills/infra-configuration/references/context-validation-and-impact.md`, not
+  only the top-level skill file.
+- Keep the installed skill surface self-contained for downstream agents that
+  load the deeper context, validation, replacement-impact, and graph guidance
+  referenced by `skills/infra-configuration/SKILL.md`.
+- Regression-test the exact reference path in the doctor report so package or
+  install changes cannot silently drop the skill's durable reference material.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: 247/247 passed.
+- `node --experimental-strip-types src/cli/main.ts doctor fixtures/sample-workspace --json`:
+  passed and emitted the skill reference path in `agent-surface.detail`.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed and included the skill reference file.
+- `git diff --check`: passed.
+
 ## Current Verification Commands
 
 Use these before handing off or committing:

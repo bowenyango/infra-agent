@@ -5065,6 +5065,7 @@ test('doctor command reports install and workspace readiness', async () => {
       && check.status === 'pass'
       && /AGENTS\.md/.test(check.detail ?? '')
       && /skills\//.test(check.detail ?? '')
+      && /context-validation-and-impact\.md/.test(check.detail ?? '')
   ));
   assert.ok(report.checks.some(check => check.name === 'node' && check.status === 'pass'));
   assert.ok(report.checks.some(check => check.name === 'planner' && check.status === 'warn' && check.detail === 'rule-based-fallback'));
