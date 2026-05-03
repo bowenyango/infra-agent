@@ -5048,10 +5048,13 @@ test('runSingleStep records deterministic tool execution summaries', async () =>
 
 test('resolveQueryLoopConfig keeps bounded defaults and normalizes overrides', () => {
   assert.equal(resolveQueryLoopConfig().maxTurns, 6);
+  assert.equal(resolveQueryLoopConfig().maxRepairAttempts, 2);
   assert.equal(resolveQueryLoopConfig().retrievedContextBudget.maxPackets, 5);
   assert.equal(resolveQueryLoopConfig().retrievedContextBudget.maxTokens, 1000);
   assert.equal(resolveQueryLoopConfig({ maxTurns: 2.8 }).maxTurns, 2);
   assert.equal(resolveQueryLoopConfig({ maxTurns: 0 }).maxTurns, 1);
+  assert.equal(resolveQueryLoopConfig({ maxRepairAttempts: 3.8 }).maxRepairAttempts, 3);
+  assert.equal(resolveQueryLoopConfig({ maxRepairAttempts: -1 }).maxRepairAttempts, 0);
   assert.equal(resolveQueryLoopConfig({
     retrievedContextBudget: {
       maxPackets: 2.8,
@@ -5073,6 +5076,32 @@ test('resolveQueryLoopConfig keeps bounded defaults and normalizes overrides', (
       maxExcerptChars: 240.8
     }
   }).retrievedContextBudget.maxExcerptChars, 240);
+});
+
+test('runSingleStep respects configured zero repair attempts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-repair-budget-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/repair-workspace'), workspaceRoot, { recursive: true });
+    const result = await runSingleStep(
+      'add ingress to payments-api dev chart',
+      workspaceRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      {
+        maxRepairAttempts: 0
+      }
+    );
+
+    assert.equal(result.config.maxRepairAttempts, 0);
+    assert.equal(result.runtime.maxRepairAttempts, 0);
+    assert.equal(result.runtime.repairAttempts, 0);
+    assert.equal(result.outcome, 'repair-budget-exhausted');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('runSingleStep respects the configured maximum turn count', async () => {
@@ -5167,6 +5196,8 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
     'rule-based',
     '--max-turns',
     '1',
+    '--max-repair-attempts',
+    '0',
     '--context-packet-limit',
     '2',
     '--context-token-budget',
@@ -5181,6 +5212,7 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
   assert.equal(parsed.workspace, 'fixtures/sample-workspace');
   assert.equal(parsed.planner, 'rule-based');
   assert.equal(parsed.maxTurns, 1);
+  assert.equal(parsed.maxRepairAttempts, 0);
   assert.equal(parsed.contextPacketLimit, 2);
   assert.equal(parsed.contextTokenBudget, 500);
   assert.deepEqual(parsed.approvedToolCategories, ['native-stack-config-write']);
@@ -5921,6 +5953,8 @@ test('LLMModelClient sends compact planner prompt and parses bounded decisions',
   assert.equal(userPrompt.runtimeIdentityConflicts[0]?.resourceAddress, 'aws_lb_listener_rule.api');
   assert.equal(userPrompt.runtimeIdentityConflicts[0]?.identity.listenerRulePriorities, '100');
   assert.match(userPrompt.runtimeIdentityConflicts[0]?.reviewSteps[1] ?? '', /listener ARN and priority/i);
+  assert.equal(userPrompt.repairBudget.attemptsUsed, 0);
+  assert.equal(userPrompt.repairBudget.maxAttempts, undefined);
   assert.equal(decision.confidence, 'high');
   assert.equal(decision.action.kind, 'stop');
   assert.equal(decision.action.payload?.stopReason, 'validation-blocked');

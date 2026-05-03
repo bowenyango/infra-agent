@@ -3949,3 +3949,33 @@ Known validation:
 - `npm run test:unit`: passed.
 - `npm run lint`: passed by Worker C during implementation.
 - `git diff --check`: passed.
+
+## 2026-05-03 Configurable Repair Budget Slice
+
+Files added or updated:
+
+- `src/query-config.ts`
+- `src/types/agent.ts`
+- `src/query.ts`
+- `src/agent/rule-based-planner.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `src/model/prompt.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Move the bounded repair budget from hard-coded planner checks into
+  `QueryLoopConfig.maxRepairAttempts`.
+- Add `agent --max-repair-attempts <n>` for explicit bounded-loop experiments.
+- Preserve the default repair budget of `2`, while allowing `0` to disable
+  automatic repair attempts and produce `repair-budget-exhausted` when a
+  repairable validation failure is encountered.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

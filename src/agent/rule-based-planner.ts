@@ -3,11 +3,16 @@ import type { AgentDecision, AgentPlanningInput } from '../types/agent.ts';
 import { selectValidationCommands } from './select-validation-commands.ts';
 import type { AgentActionFamily, AgentClarificationKind, AgentStopReason } from '../types/agent.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
+import { DEFAULT_QUERY_LOOP_CONFIG } from '../query-config.ts';
 
 function toTopTargetPaths(input: AgentPlanningInput): string[] {
   return input.runtime.preflight.targetCandidates
     .slice(0, 3)
     .map(candidate => candidate.path);
+}
+
+function getMaxRepairAttempts(input: AgentPlanningInput): number {
+  return input.runtime.maxRepairAttempts ?? DEFAULT_QUERY_LOOP_CONFIG.maxRepairAttempts;
 }
 
 function buildTerraformCandidateSummary(input: AgentPlanningInput): string[] {
@@ -424,7 +429,9 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (hasValidationFailures && terraformFormattingIssue && runtime.repairAttempts < 2 && topTerraformTarget) {
+    const maxRepairAttempts = getMaxRepairAttempts(input);
+
+    if (hasValidationFailures && terraformFormattingIssue && runtime.repairAttempts < maxRepairAttempts && topTerraformTarget) {
       return {
         confidence: 'high',
         action: {
@@ -439,7 +446,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
-    if (hasValidationFailures && hasRepairableValidationIssues && editPlan && editPlan.writes.length > 0 && runtime.repairAttempts < 2) {
+    if (hasValidationFailures && hasRepairableValidationIssues && editPlan && editPlan.writes.length > 0 && runtime.repairAttempts < maxRepairAttempts) {
       return {
         confidence: 'high',
         action: {
@@ -488,7 +495,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
 
     if (hasValidationFailures) {
       const unrepairableIssue = runtime.validationIssues.find(issue => !issue.repairable);
-      const repairBudgetExhausted = hasRepairableValidationIssues && runtime.repairAttempts >= 2;
+      const repairBudgetExhausted = hasRepairableValidationIssues && runtime.repairAttempts >= maxRepairAttempts;
       return {
         confidence: 'medium',
         action: {

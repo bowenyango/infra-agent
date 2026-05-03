@@ -546,6 +546,7 @@ function getAgentQueryConfig(state: AgentRunState): AgentRunState['config'] {
 
   return {
     maxTurns: getAgentMaxTurns(state),
+    maxRepairAttempts: state.runtime.maxRepairAttempts ?? DEFAULT_QUERY_LOOP_CONFIG.maxRepairAttempts,
     retrievedContextBudget: state.runtime.retrievedContextBudget ?? DEFAULT_QUERY_LOOP_CONFIG.retrievedContextBudget
   };
 }

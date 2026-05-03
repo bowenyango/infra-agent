@@ -170,6 +170,10 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       validationResults: summarizeValidationResults(runtime),
       validationIssues: summarizeValidationIssues(runtime),
       runtimeIdentityConflicts: summarizeIdentityConflicts(runtime),
+      repairBudget: {
+        attemptsUsed: runtime.repairAttempts,
+        maxAttempts: runtime.maxRepairAttempts
+      },
       approvalSignals: summarizeApprovalSignals(runtime),
       lastEditPlan: summarizeEditPlan(runtime),
       configSemantics: summarizeConfigSemantics(runtime),

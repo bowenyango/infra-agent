@@ -350,6 +350,7 @@ async function buildInitialRuntime(
     validationIssues: [],
     approvalSignals: [],
     repairAttempts: 0,
+    maxRepairAttempts: config.maxRepairAttempts,
     lastEditPlan: null
   };
 }

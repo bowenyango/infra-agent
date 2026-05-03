@@ -157,6 +157,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   let this replace approval continuation commands when an approval gate is the
   active blocker.
 - Treat CLI exit codes as part of the agent-facing contract: `0` means success, `1` means fatal CLI/runtime failure, `2` means validation blocked, `3` means approval required, `4` means clarification required, `5` means no safe action, `6` means repair budget exhausted, and `7` means `run` preflight blockers.
+- Keep the bounded repair budget in `QueryLoopConfig`. Use
+  `--max-repair-attempts <n>` for experiments instead of hard-coding retry
+  counts in planners; `0` means no automatic repair loop.
 - Keep the installable npm package surface narrow. Include the CLI entrypoint,
   TypeScript runtime sources, skills, `AGENTS.md`, README, and durable docs;
   exclude fixtures, tests, smoke scripts, and handoff history from

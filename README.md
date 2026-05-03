@@ -77,7 +77,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent identity-report <agent-result.json> [--json]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
 Current behavior is intentionally runtime-foundation oriented:
 
@@ -145,6 +145,10 @@ Current behavior is intentionally runtime-foundation oriented:
   risk category, locator, identity fields, and review steps without passing
   long stderr logs as the primary planning context.
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
+- `agent` exposes `--max-repair-attempts <n>` to keep the validation repair
+  loop budget explicit. The default is `2`; `0` disables automatic repair
+  attempts and converts repairable validation failures into
+  `repair-budget-exhausted` stops.
 - `agent` exposes `--context-packet-limit <n>` and
   `--context-token-budget <n>` to keep retrieved official-doc/schema context
   budgets explicit for LLM planner runs and downstream handoff.

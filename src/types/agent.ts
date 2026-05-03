@@ -175,5 +175,6 @@ export interface AgentRuntimeState {
   validationIssues: ValidationIssue[];
   approvalSignals: ApprovalSignal[];
   repairAttempts: number;
+  maxRepairAttempts?: number;
   lastEditPlan: EditPlan | null;
 }

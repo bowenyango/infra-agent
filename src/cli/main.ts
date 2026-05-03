@@ -44,6 +44,7 @@ export interface ParsedArgs {
   approvedWriteRisks: FileWriteRisk[];
   approvedToolCategories: ToolPermissionCategory[];
   maxTurns: number | null;
+  maxRepairAttempts?: number | null;
   contextPacketLimit: number | null;
   contextTokenBudget: number | null;
   domains: InfraDomainId[];
@@ -66,7 +67,7 @@ function printUsage(): void {
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
     ].join('\n')
@@ -400,6 +401,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let workspace = cwd();
     let planner: PlannerMode = 'auto';
     let maxTurns: number | null = null;
+    let maxRepairAttempts: number | null = null;
     let contextPacketLimit: number | null = null;
     let contextTokenBudget: number | null = null;
     const approvedWritePaths: string[] = [];
@@ -440,6 +442,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         maxTurns = parsedMaxTurns;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--max-repair-attempts') {
+        const maxRepairAttemptsValue = cleanArgs[index + 1];
+        const parsedMaxRepairAttempts = Number(maxRepairAttemptsValue);
+        if (!maxRepairAttemptsValue || !Number.isInteger(parsedMaxRepairAttempts) || parsedMaxRepairAttempts < 0) {
+          fail('Missing or invalid value for --max-repair-attempts. Expected a non-negative integer.');
+        }
+
+        maxRepairAttempts = parsedMaxRepairAttempts;
         index += 1;
         continue;
       }
@@ -521,6 +535,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       approvedWriteRisks,
       approvedToolCategories,
       maxTurns,
+      maxRepairAttempts,
       contextPacketLimit,
       contextTokenBudget,
       domains: [],
@@ -652,6 +667,7 @@ async function main(): Promise<void> {
       approvedToolCategories: parsed.approvedToolCategories
     }, {
       maxTurns: parsed.maxTurns ?? undefined,
+      maxRepairAttempts: parsed.maxRepairAttempts ?? undefined,
       retrievedContextBudget: {
         maxPackets: parsed.contextPacketLimit ?? undefined,
         maxTokens: parsed.contextTokenBudget ?? undefined
