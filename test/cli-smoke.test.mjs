@@ -5831,6 +5831,8 @@ test('planner system prompt documents explicit stop reasons', () => {
 
   assert.match(prompt, /Allowed stop payload\.stopReason values:/);
   assert.match(prompt, /Allowed ask-for-clarification payload\.clarificationKind values:/);
+  assert.match(prompt, /Allowed optional payload\.actionFamily metadata values:/);
+  assert.match(prompt, /payload\.actionFamily is optional metadata only/);
   assert.match(prompt, /repair-budget-exhausted/);
   assert.match(prompt, /validation-succeeded/);
   assert.match(prompt, /runtimeIdentityConflicts/);
@@ -6280,6 +6282,7 @@ test('parsePlannerDecision accepts supported stopReason values', async () => {
 
   assert.equal(decision.action.kind, 'stop');
   assert.equal(decision.action.payload?.stopReason, 'validation-succeeded');
+  assert.equal(decision.action.payload?.actionFamily, 'validation-complete');
 });
 
 test('parsePlannerDecision accepts supported clarificationKind values', async () => {
@@ -6312,6 +6315,102 @@ test('parsePlannerDecision accepts supported clarificationKind values', async ()
 
   assert.equal(decision.action.kind, 'ask-for-clarification');
   assert.equal(decision.action.payload?.clarificationKind, 'approval-required');
+  assert.equal(decision.action.payload?.actionFamily, 'approval-clarification');
+});
+
+test('parsePlannerDecision preserves supported actionFamily metadata', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'high',
+      action: {
+        kind: 'validate-targets',
+        summary: 'Run validation',
+        rationale: 'The LLM copied a supported metadata family.',
+        payload: {
+          actionFamily: 'helm-validation',
+          commands: selectValidationCommands(runtime)
+        }
+      }
+    }),
+    runtime
+  );
+
+  assert.equal(decision.action.payload?.actionFamily, 'helm-validation');
+});
+
+test('parsePlannerDecision normalizes unsupported actionFamily metadata', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'medium',
+      action: {
+        kind: 'validate-targets',
+        summary: 'Run validation',
+        rationale: 'The LLM provided unsupported metadata.',
+        payload: {
+          actionFamily: 'pulumi-up-now',
+          commands: selectValidationCommands(runtime)
+        }
+      }
+    }),
+    runtime
+  );
+
+  assert.equal(decision.action.payload?.actionFamily, 'terraform-validation');
+});
+
+test('parsePlannerDecision derives stop actionFamily from stopReason when omitted', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'medium',
+      action: {
+        kind: 'stop',
+        summary: 'Repair budget exhausted',
+        rationale: 'The bounded repair budget has been consumed.',
+        payload: {
+          stopReason: 'repair-budget-exhausted'
+        }
+      }
+    }),
+    {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 2,
+      maxRepairAttempts: 2,
+      lastEditPlan: null
+    }
+  );
+
+  assert.equal(decision.action.payload?.actionFamily, 'repair-budget-exhausted');
 });
 
 test('parsePlannerDecision clamps validate-targets commands to the selected validation plan', async () => {

@@ -4002,3 +4002,30 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 LLM Action Family Metadata Slice
+
+Files added or updated:
+
+- `src/model/decision-parser.ts`
+- `src/model/prompt.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Normalize parsed LLM `payload.actionFamily` as trace metadata rather than
+  execution authority.
+- Preserve supported action-family values when the model provides them, and
+  derive deterministic fallback values from the parsed action kind, requested
+  domain, clarification kind, stop reason, or edit-plan kind when missing or
+  unsupported.
+- Document the optional action-family metadata values in the planner system
+  prompt so downstream LLM planner output can align with compact turn traces.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

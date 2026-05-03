@@ -1,4 +1,4 @@
-import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
+import type { AgentActionFamily, AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 import { collectRuntimeIdentityConflicts } from '../agent/identity-conflicts.ts';
 import { budgetRetrievedContext } from '../knowledge/context-budget.ts';
@@ -116,6 +116,28 @@ export function buildPlannerSystemPrompt(): string {
     'workspace-policy',
     'general'
   ];
+  const allowedActionFamilies: AgentActionFamily[] = [
+    'runtime-clarification',
+    'approval-clarification',
+    'helm-clarification',
+    'pulumi-clarification',
+    'terraform-clarification',
+    'helm-inspection',
+    'pulumi-inspection',
+    'terraform-inspection',
+    'runtime-inspection',
+    'helm-bounded-edit',
+    'pulumi-bounded-edit',
+    'terraform-bounded-edit',
+    'helm-validation',
+    'pulumi-validation',
+    'terraform-validation',
+    'terraform-repair',
+    'validation-complete',
+    'validation-blocked',
+    'repair-budget-exhausted',
+    'runtime-stop'
+  ];
 
   return [
     'You are the planning runtime for infra-agent.',
@@ -124,6 +146,7 @@ export function buildPlannerSystemPrompt(): string {
     `Allowed action.kind values: ${allowedActionKinds.join(', ')}`,
     `Allowed ask-for-clarification payload.clarificationKind values: ${allowedClarificationKinds.join(', ')}`,
     `Allowed stop payload.stopReason values: ${allowedStopReasons.join(', ')}`,
+    `Allowed optional payload.actionFamily metadata values: ${allowedActionFamilies.join(', ')}`,
     'Rules:',
     '- Prefer inspect-target-files before apply-edit-plan when file context is missing.',
     '- Prefer apply-edit-plan only when runtime.lastEditPlan is present and writes are available.',
@@ -138,6 +161,7 @@ export function buildPlannerSystemPrompt(): string {
     '- For validate-targets, copy commands from the relevant entry in runtime.preflight.validation.plan.',
     '- For repair-terraform-formatting, set payload.rootPath to the selected Terraform root path from runtime.preflight.targetCandidates.',
     '- For stop, always include payload.stopReason.',
+    '- payload.actionFamily is optional metadata only; use one of the allowed values or omit it.',
     '- Use stopReason=validation-succeeded only when non-YAML target validation results are present and all exit codes are 0.',
     '- Use stopReason=repair-budget-exhausted only when validationIssues are repairable but the bounded repair budget is already exhausted.',
     '- Use stopReason=validation-blocked when validation failed and no bounded repair is available.',

@@ -139,6 +139,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - LLM planner target-path payloads are clamped to known target candidates for
   inspection and Terraform formatting repair, so invented paths cannot expand
   the selected workspace scope.
+- LLM planner `payload.actionFamily` values are normalized as metadata. Safe
+  supported values are preserved, and missing or unsupported values fall back to
+  deterministic runtime, domain, validation, repair, or stop families.
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - LLM planner prompts include compact `runtimeIdentityConflicts` when native
   validation reports provider-exclusive identity blockers. These entries carry

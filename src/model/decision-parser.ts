@@ -1,5 +1,6 @@
 import type {
   AgentAction,
+  AgentActionFamily,
   AgentActionKind,
   AgentClarificationKind,
   AgentDecision,
@@ -20,6 +21,33 @@ function extractJsonObject(content: string): string {
 
 function isActionKind(value: string): value is AgentActionKind {
   return ['ask-for-clarification', 'inspect-target-files', 'apply-edit-plan', 'repair-terraform-formatting', 'validate-targets', 'stop'].includes(value);
+}
+
+const AGENT_ACTION_FAMILIES: AgentActionFamily[] = [
+  'runtime-clarification',
+  'approval-clarification',
+  'helm-clarification',
+  'pulumi-clarification',
+  'terraform-clarification',
+  'helm-inspection',
+  'pulumi-inspection',
+  'terraform-inspection',
+  'runtime-inspection',
+  'helm-bounded-edit',
+  'pulumi-bounded-edit',
+  'terraform-bounded-edit',
+  'helm-validation',
+  'pulumi-validation',
+  'terraform-validation',
+  'terraform-repair',
+  'validation-complete',
+  'validation-blocked',
+  'repair-budget-exhausted',
+  'runtime-stop'
+];
+
+function isActionFamily(value: string): value is AgentActionFamily {
+  return AGENT_ACTION_FAMILIES.includes(value as AgentActionFamily);
 }
 
 function isStopReason(value: string): value is AgentStopReason {
@@ -87,13 +115,139 @@ function buildTerraformFormattingRootPath(runtime: AgentRuntimeState, rawRootPat
     : topTerraformTarget?.path;
 }
 
+function buildClarificationActionFamily(runtime: AgentRuntimeState, clarificationKind?: AgentClarificationKind): AgentActionFamily {
+  if (clarificationKind === 'approval-required') {
+    return 'approval-clarification';
+  }
+
+  const primaryDomain = runtime.preflight.requestedDomains[0];
+  if (primaryDomain === 'terraform') {
+    return 'terraform-clarification';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return 'pulumi-clarification';
+  }
+
+  if (primaryDomain === 'helm') {
+    return 'helm-clarification';
+  }
+
+  return 'runtime-clarification';
+}
+
+function buildInspectionActionFamily(runtime: AgentRuntimeState): AgentActionFamily {
+  const primaryDomain = runtime.preflight.requestedDomains[0];
+  if (primaryDomain === 'terraform') {
+    return 'terraform-inspection';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return 'pulumi-inspection';
+  }
+
+  if (primaryDomain === 'helm') {
+    return 'helm-inspection';
+  }
+
+  return 'runtime-inspection';
+}
+
+function buildValidationActionFamily(runtime: AgentRuntimeState): AgentActionFamily {
+  const primaryDomain = runtime.preflight.requestedDomains[0];
+  if (primaryDomain === 'terraform') {
+    return 'terraform-validation';
+  }
+
+  if (primaryDomain === 'pulumi') {
+    return 'pulumi-validation';
+  }
+
+  if (primaryDomain === 'helm') {
+    return 'helm-validation';
+  }
+
+  return 'runtime-stop';
+}
+
+function buildEditPlanActionFamily(runtime: AgentRuntimeState): AgentActionFamily {
+  const editPlanKind = runtime.lastEditPlan?.kind ?? '';
+  if (editPlanKind.startsWith('terraform-')) {
+    return 'terraform-bounded-edit';
+  }
+
+  if (editPlanKind.startsWith('pulumi-')) {
+    return 'pulumi-bounded-edit';
+  }
+
+  return 'helm-bounded-edit';
+}
+
+function buildStopActionFamily(stopReason?: AgentStopReason): AgentActionFamily {
+  switch (stopReason) {
+    case 'validation-succeeded':
+      return 'validation-complete';
+    case 'validation-blocked':
+      return 'validation-blocked';
+    case 'repair-budget-exhausted':
+      return 'repair-budget-exhausted';
+    case 'no-safe-action':
+    default:
+      return 'runtime-stop';
+  }
+}
+
+function buildFallbackActionFamily(
+  actionKind: AgentActionKind,
+  runtime: AgentRuntimeState,
+  payload: AgentAction['payload']
+): AgentActionFamily {
+  switch (actionKind) {
+    case 'ask-for-clarification':
+      return buildClarificationActionFamily(runtime, payload?.clarificationKind);
+    case 'inspect-target-files':
+      return buildInspectionActionFamily(runtime);
+    case 'apply-edit-plan':
+      return buildEditPlanActionFamily(runtime);
+    case 'repair-terraform-formatting':
+      return 'terraform-repair';
+    case 'validate-targets':
+      return buildValidationActionFamily(runtime);
+    case 'stop':
+    default:
+      return buildStopActionFamily(payload?.stopReason);
+  }
+}
+
+function normalizeActionFamily(
+  actionKind: AgentActionKind,
+  runtime: AgentRuntimeState,
+  rawActionFamily: unknown,
+  payload: AgentAction['payload']
+): AgentActionFamily {
+  const actionFamily = typeof rawActionFamily === 'string' ? rawActionFamily.trim() : '';
+  return isActionFamily(actionFamily) ? actionFamily : buildFallbackActionFamily(actionKind, runtime, payload);
+}
+
+function withActionFamily(
+  actionKind: AgentActionKind,
+  runtime: AgentRuntimeState,
+  rawActionFamily: unknown,
+  payload: AgentAction['payload']
+): AgentAction['payload'] {
+  return {
+    ...payload,
+    actionFamily: normalizeActionFamily(actionKind, runtime, rawActionFamily, payload)
+  };
+}
+
 function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, payload: unknown): AgentAction['payload'] {
   const rawPayload = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : {};
 
   if (actionKind === 'inspect-target-files') {
-    return {
+    return withActionFamily(actionKind, runtime, rawPayload.actionFamily, {
       targetPaths: buildInspectableTargetPaths(runtime, rawPayload.targetPaths)
-    };
+    });
   }
 
   if (actionKind === 'ask-for-clarification') {
@@ -108,22 +262,22 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
       normalizedClarificationKind = kindValue;
     }
 
-    return {
+    return withActionFamily(actionKind, runtime, rawPayload.actionFamily, {
       questions: toStringArray(rawPayload.questions) ?? ['Which service and environment should the agent modify?'],
       clarificationKind: normalizedClarificationKind
-    };
+    });
   }
 
   if (actionKind === 'validate-targets') {
-    return {
+    return withActionFamily(actionKind, runtime, rawPayload.actionFamily, {
       commands: buildValidationCommands(runtime, rawPayload.commands)
-    };
+    });
   }
 
   if (actionKind === 'repair-terraform-formatting') {
-    return {
+    return withActionFamily(actionKind, runtime, rawPayload.actionFamily, {
       rootPath: buildTerraformFormattingRootPath(runtime, rawPayload.rootPath)
-    };
+    });
   }
 
   if (actionKind === 'apply-edit-plan') {
@@ -131,10 +285,10 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
       throw new Error('LLM planner requested apply-edit-plan without runtime.lastEditPlan.');
     }
 
-    return {
+    return withActionFamily(actionKind, runtime, rawPayload.actionFamily, {
       editPlan: runtime.lastEditPlan,
       writes: runtime.lastEditPlan.writes
-    };
+    });
   }
 
   if (actionKind === 'stop') {
@@ -143,9 +297,9 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
       throw new Error(`LLM planner response included unsupported stop reason "${stopReason}".`);
     }
 
-    return {
+    return withActionFamily(actionKind, runtime, rawPayload.actionFamily, {
       stopReason
-    };
+    });
   }
 
   return undefined;
