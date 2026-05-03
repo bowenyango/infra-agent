@@ -4125,3 +4125,27 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Selected Validation Plan Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `validation.selectedPlan` entries to `infra-agent.agent-result`
+  output so downstream agents can see the intended domain-focused validators.
+- Include target kind, target path, command list, command count, executed count,
+  failed count, and selected validator availability.
+- Keep intended validation separate from executed validation output and avoid
+  listing unrelated workspace validators.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

@@ -191,6 +191,15 @@ export interface CompactAgentRunResult {
   validation: {
     status: string;
     findings: string;
+    selectedPlan: Array<{
+      kind: ValidationPlanEntry['kind'];
+      target: string;
+      commandCount: number;
+      commands: string[];
+      executedCommandCount: number;
+      failedCommandCount: number;
+      validatorAvailable: boolean;
+    }>;
     semanticBlockers: ValidationDerivedSemanticBlocker[];
     identityConflicts: ValidationIdentityConflictSummary[];
     targetCommandCount: number;
@@ -614,6 +623,27 @@ function collectToolPermissionAggregate(state: AgentRunState): ToolPermissionAgg
   return aggregateToolPermissions(
     (state.runtime.toolSummaries ?? []).map(summary => getToolPermissionSummary(summary))
   );
+}
+
+function collectSelectedValidationPlan(state: AgentRunState): CompactAgentRunResult['validation']['selectedPlan'] {
+  const validatorsByName = new Map(state.preflight.validation.validators.map(validator => [validator.name, validator]));
+  const validationResultsByCommand = new Map(state.runtime.validationResults.map(result => [result.command, result]));
+
+  return selectValidationPlanEntries(state.runtime).map(entry => {
+    const executedResults = entry.commands
+      .map(command => validationResultsByCommand.get(command))
+      .filter((result): result is ValidationCommandOutput => Boolean(result));
+
+    return {
+      kind: entry.kind,
+      target: entry.target,
+      commandCount: entry.commands.length,
+      commands: [...entry.commands],
+      executedCommandCount: executedResults.length,
+      failedCommandCount: executedResults.filter(result => result.exitCode !== 0).length,
+      validatorAvailable: validatorsByName.get(entry.kind)?.available ?? false
+    };
+  });
 }
 
 function compactApprovalSignal(signal: ApprovalSignal): CompactApprovalSignal {
@@ -1310,6 +1340,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     validation: {
       status: summarizeValidationStatus(state),
       findings: summarizeValidationFindings(state),
+      selectedPlan: collectSelectedValidationPlan(state),
       semanticBlockers: collectValidationDerivedSemanticBlockers(state).slice(0, 5),
       identityConflicts: collectValidationIdentityConflicts(state),
       targetCommandCount: targetValidationCount,

@@ -5164,6 +5164,13 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.ok(compact.harness.toolTrace.entries.every(entry => entry.toolName.length > 0));
     assert.equal(compact.harness.toolPermissionSummary.totalToolCount, result.runtime.toolSummaries.length);
     assert.ok(compact.harness.toolPermissionSummary.externalCommandToolCount > 0);
+    assert.ok(compact.validation.selectedPlan.length > 0);
+    assert.ok(compact.validation.selectedPlan.every(entry => entry.kind === 'helm'));
+    assert.ok(compact.validation.selectedPlan.every(entry => entry.target === 'charts/payments-api'));
+    assert.ok(compact.validation.selectedPlan.every(entry => entry.commandCount === entry.commands.length));
+    assert.ok(compact.validation.selectedPlan.every(entry => entry.executedCommandCount === 0));
+    assert.ok(compact.validation.selectedPlan.every(entry => entry.failedCommandCount === 0));
+    assert.ok(compact.validation.selectedPlan.every(entry => typeof entry.validatorAvailable === 'boolean'));
     assert.equal(compact.knowledgeContext.totalPacketCount, result.runtime.retrievedContext.length);
     assert.equal(
       compact.knowledgeContext.includedPacketCount,

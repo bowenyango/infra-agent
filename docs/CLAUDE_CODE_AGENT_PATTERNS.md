@@ -46,6 +46,10 @@ durable design reference for infra-agent development.
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without
   requiring downstream agents to parse prose.
+- `validation.selectedPlan` is the compact intended-validation surface. It
+  should mirror the domain-focused validation plan, not every validator
+  discovered in the workspace, and should stay separate from executed
+  validation command output.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
   runtime snapshots, and raw tool output.
