@@ -4029,3 +4029,26 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Turn Execution Reason Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `executionReason` to compact `harness.turnTrace` entries so downstream
+  agents can see why a turn skipped execution without loading full turn state.
+- Preserve `null` for completed turns or legacy turns without an execution
+  reason.
+- Keep the new field reporting-only; it does not affect planner decisions,
+  tool execution, validation commands, or write behavior.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

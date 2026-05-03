@@ -73,6 +73,7 @@ interface CompactTurnTraceEntry {
   summary: string;
   terminal: boolean;
   executionStatus: string | null;
+  executionReason: string | null;
   executedToolCount: number;
   stopReason: string | null;
   clarificationKind: string | null;
@@ -526,6 +527,7 @@ function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] 
     summary: turn.decision.action.summary,
     terminal: isTerminalTurnAction(turn.decision.action.kind),
     executionStatus: turn.execution?.status ?? null,
+    executionReason: turn.execution?.reason ?? null,
     executedToolCount: turn.execution?.executedTools.length ?? 0,
     stopReason: turn.decision.action.payload?.stopReason ?? null,
     clarificationKind: turn.decision.action.payload?.clarificationKind ?? null,

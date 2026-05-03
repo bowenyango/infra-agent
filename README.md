@@ -161,8 +161,9 @@ Current behavior is intentionally runtime-foundation oriented:
   the turn, repair-attempt, and retrieved-context budgets used for the run, plus
   `harness.turnTrace`, a bounded per-turn trace inspired by Claude Code's query
   harness design. It exposes action kind, terminal status, execution status,
-  tool count, changed-file count, validation issue count, and approval signal
-  count without exposing full runtime snapshots. The companion
+  execution skip reason, tool count, changed-file count, validation issue
+  count, and approval signal count without exposing full runtime snapshots. The
+  companion
   `harness.turnTraceLimit` and `harness.turnTraceOmittedCount` fields make the
   trace budget explicit for downstream handoff. It also includes
   `harness.toolTrace`, a budgeted list of recent deterministic tool summaries

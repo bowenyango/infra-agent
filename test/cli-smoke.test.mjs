@@ -5145,6 +5145,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.turnTrace[0]?.actionKind, 'inspect-target-files');
     assert.equal(compact.harness.turnTrace[0]?.terminal, false);
     assert.equal(compact.harness.turnTrace[0]?.executionStatus, 'completed');
+    assert.equal(compact.harness.turnTrace[0]?.executionReason, null);
     assert.ok((compact.harness.turnTrace[0]?.executedToolCount ?? 0) > 0);
     assert.equal(compact.harness.toolTrace.maxEntries, 8);
     assert.equal(compact.harness.toolTrace.entries.length, Math.min(result.runtime.toolSummaries.length, 8));
@@ -5188,6 +5189,56 @@ test('runSingleStep respects the configured maximum turn count', async () => {
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('buildCompactAgentRunResult exposes skipped turn execution reasons', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'no-safe-action',
+    preflight,
+    runtime,
+    turns: [
+      {
+        index: 0,
+        decision: {
+          confidence: 'low',
+          action: {
+            kind: 'validate-targets',
+            summary: 'Validation skipped',
+            rationale: 'No command payload was available.',
+            payload: {
+              commands: [],
+              actionFamily: 'helm-validation'
+            }
+          }
+        },
+        execution: {
+          status: 'skipped',
+          executedTools: [],
+          reason: 'No validation commands were present in the decision payload.'
+        },
+        runtimeSnapshot: runtime
+      }
+    ]
+  });
+
+  assert.equal(compact.harness.turnTrace[0]?.executionStatus, 'skipped');
+  assert.equal(
+    compact.harness.turnTrace[0]?.executionReason,
+    'No validation commands were present in the decision payload.'
+  );
 });
 
 test('agent CLI args accept --max-turns for bounded loop control', () => {
