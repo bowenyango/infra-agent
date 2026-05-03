@@ -5099,6 +5099,9 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.ok(result.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files'));
     const compact = buildCompactAgentRunResult(result);
     assert.equal(compact.harness.maxTurns, 1);
+    assert.equal(compact.harness.queryConfig.maxTurns, 1);
+    assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxPackets, 2);
+    assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxTokens, 500);
     assert.equal(compact.knowledgeContext.maxPackets, 2);
     assert.equal(compact.knowledgeContext.maxTokens, 500);
     assert.equal(compact.harness.turnTrace.length, 1);

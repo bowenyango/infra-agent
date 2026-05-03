@@ -140,15 +140,17 @@ Current behavior is intentionally runtime-foundation oriented:
   budgets explicit for LLM planner runs and downstream handoff.
 - `agent --json` emits a compact `infra-agent.agent-result` payload for other
   agents; use `--json-full` only when debugging the complete runtime state.
-  The compact payload includes `harness.turnTrace`, a bounded per-turn trace
-  inspired by Claude Code's query harness design. It exposes action kind,
-  terminal status, execution status, tool count, changed-file count, validation
-  issue count, and approval signal count without exposing full runtime
-  snapshots. It also includes `harness.toolTrace`, a budgeted list of recent
-  deterministic tool summaries plus an omitted count, so downstream agents can
-  inspect execution evidence and permission categories without loading raw tool
-  output. `harness.toolPermissionSummary` aggregates workspace mutations,
-  native CLI calls, and stack/state mutation-risk tools.
+  The compact payload includes `harness.queryConfig`, an immutable snapshot of
+  the turn and retrieved-context budgets used for the run, plus
+  `harness.turnTrace`, a bounded per-turn trace inspired by Claude Code's query
+  harness design. It exposes action kind, terminal status, execution status,
+  tool count, changed-file count, validation issue count, and approval signal
+  count without exposing full runtime snapshots. It also includes
+  `harness.toolTrace`, a budgeted list of recent deterministic tool summaries
+  plus an omitted count, so downstream agents can inspect execution evidence
+  and permission categories without loading raw tool output.
+  `harness.toolPermissionSummary` aggregates workspace mutations, native CLI
+  calls, and stack/state mutation-risk tools.
   `readiness` summarizes the planner mode, workspace blockers, selected
   validation plan, and only the validators required by that selected plan. It
   also includes a `doctorCommand` for a fuller read-only package/Node/tool

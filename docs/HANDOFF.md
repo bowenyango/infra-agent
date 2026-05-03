@@ -3823,3 +3823,28 @@ npm run smoke
 npm run e2e
 git diff --check
 ```
+
+## 2026-05-03 Compact Harness Query Config Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.queryConfig` to compact `infra-agent.agent-result` output so
+  downstream agents can read the immutable query-loop turn and retrieved-context
+  budgets directly from the handoff payload.
+- Keep the existing `harness.maxTurns` field for compatibility while exposing
+  the full retrieved-context budget under the harness contract.
+- Document the compact output contract in the README because this is an
+  intentional agent-facing JSON addition inspired by Claude Code query config
+  snapshotting.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

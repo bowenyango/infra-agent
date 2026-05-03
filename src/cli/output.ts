@@ -1,5 +1,6 @@
 import type { AgentRunState } from '../agent/run-single-step.ts';
 import type { ToolSafety } from '../Tool.ts';
+import { DEFAULT_QUERY_LOOP_CONFIG } from '../query-config.ts';
 import type { ApprovalSignal, ValidationIssue } from '../types/agent.ts';
 import type {
   DomainCapabilitySummary,
@@ -165,6 +166,10 @@ export interface CompactAgentRunResult {
   suggestedCommands: string[];
   harness: {
     maxTurns: number;
+    queryConfig: {
+      maxTurns: number;
+      retrievedContextBudget: AgentRunState['config']['retrievedContextBudget'];
+    };
     turnTrace: CompactTurnTraceEntry[];
     toolTrace: {
       maxEntries: number;
@@ -528,6 +533,18 @@ function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] 
 
 function getAgentMaxTurns(state: AgentRunState): number {
   return (state as AgentRunState & { config?: { maxTurns?: number } }).config?.maxTurns ?? state.turns.length;
+}
+
+function getAgentQueryConfig(state: AgentRunState): AgentRunState['config'] {
+  const config = (state as AgentRunState & { config?: AgentRunState['config'] }).config;
+  if (config) {
+    return config;
+  }
+
+  return {
+    maxTurns: getAgentMaxTurns(state),
+    retrievedContextBudget: state.runtime.retrievedContextBudget ?? DEFAULT_QUERY_LOOP_CONFIG.retrievedContextBudget
+  };
 }
 
 function getToolPermissionSummary(summary: {
@@ -1210,6 +1227,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
   const changedFiles = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
   const targetValidationCount = getTargetValidationResults(state).length;
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
+  const queryConfig = getAgentQueryConfig(state);
 
   return {
     kind: 'infra-agent.agent-result',
@@ -1237,6 +1255,10 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     suggestedCommands: summarizeSuggestedCommands(state),
     harness: {
       maxTurns: getAgentMaxTurns(state),
+      queryConfig: {
+        maxTurns: queryConfig.maxTurns,
+        retrievedContextBudget: queryConfig.retrievedContextBudget
+      },
       turnTrace: collectCompactTurnTrace(state),
       toolTrace: collectCompactToolTrace(state),
       toolPermissionSummary: collectToolPermissionAggregate(state)
