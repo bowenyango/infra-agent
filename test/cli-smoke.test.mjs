@@ -39,6 +39,7 @@ import {
   exitCodeForRunPreflight,
   INFRA_AGENT_EXIT_CODES
 } from '../src/cli/exit-codes.ts';
+import { parseCompactAgentRunResult } from '../src/cli/agent-result-contract.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
@@ -5470,6 +5471,61 @@ test('identity-report CLI args accept compact result input path', () => {
   assert.equal(parsed.json, true);
 });
 
+test('compact agent result contract validates shallow handoff shape', () => {
+  const validResult = {
+    kind: 'infra-agent.agent-result',
+    schemaVersion: 1,
+    outcome: 'validation-blocked',
+    validation: {
+      identityConflicts: [
+        {
+          engine: 'terraform',
+          issueKind: 'terraform-create-before-delete-conflict',
+          reviewSteps: []
+        }
+      ]
+    },
+    harness: {
+      turnTrace: [],
+      toolTrace: {
+        entries: []
+      }
+    },
+    readiness: {
+      checks: []
+    }
+  };
+
+  assert.equal(parseCompactAgentRunResult(validResult).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, kind: 'infra-agent.infra-graph' }),
+    /compact infra-agent\.agent-result/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, schemaVersion: 2 }),
+    /schemaVersion 1/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, outcome: 'unexpected' }),
+    /supported outcome/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, validation: {} }),
+    /validation\.identityConflicts array/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        toolTrace: {
+          entries: {}
+        }
+      }
+    }),
+    /harness\.toolTrace\.entries/
+  );
+});
+
 test('identity-report loader renders compact conflict reports from a JSON file', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-identity-report-'));
   const inputPath = join(tempRoot, 'agent-result.json');
@@ -5537,6 +5593,7 @@ test('identity-report loader rejects non-compact result inputs', async () => {
     await writeFile(inputPath, JSON.stringify({
       kind: 'infra-agent.agent-result',
       schemaVersion: 1,
+      outcome: 'validation-blocked',
       validation: {}
     }), 'utf8');
 

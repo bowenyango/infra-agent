@@ -151,6 +151,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Planner prompts must pass retrieved official-doc/schema context through the context budget helper. Do not inject full cached documents or unbounded excerpts into LLM prompts.
 - Treat retrieved context packet/token budgets as query harness configuration. Prefer `--context-packet-limit` and `--context-token-budget` for experiments instead of changing budget constants ad hoc.
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
+- Compact `infra-agent.agent-result` consumers must validate the shallow
+  handoff contract before deriving secondary reports. Check `kind`,
+  `schemaVersion`, known `outcome`, compact trace array shape, readiness check
+  array shape when present, and `validation.identityConflicts` before treating
+  the payload as an agent result.
 - Keep compact `agent --json` readiness targeted: include planner mode, workspace blocker status, selected validation-plan status, and validators required by that selected plan, plus a `doctorCommand` for fuller read-only checks. Do not include API keys or unrelated validator noise.
 - Surface readiness posture in result cards, and include the read-only
   `doctorCommand` in suggested commands when readiness is warn or fail. Do not

@@ -4099,3 +4099,29 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Agent Result Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `src/cli/identity-report.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extract shallow compact `infra-agent.agent-result` parsing into a reusable
+  CLI contract module instead of keeping it private to `identity-report`.
+- Validate `kind`, `schemaVersion`, known outcome, compact trace array shapes,
+  readiness check shape, and `validation.identityConflicts` before deriving
+  downstream reports.
+- Keep the parser dependency-free and defensive rather than introducing a broad
+  JSON Schema dependency.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
