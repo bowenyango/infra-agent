@@ -172,6 +172,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   mutation, and Kubernetes mutation commands before spawning them. Remove the
   unsafe command from workspace config or planner output instead of asking the
   tool to run it.
+- LLM planner `validate-targets` payloads must be treated as suggestions, not
+  authority. Parser code must clamp validation commands to the selected
+  validation plan and fall back to selected plan commands when a model invents
+  unrelated or unsafe commands.
 - Use `infra-agent identity-report <agent-result.json>` when a human operator or downstream agent needs a focused runtime exclusive-identity incident report from an existing compact result. This command is read-only and must not rerun validators or mutate state.
 - `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `schemaVersion=1` and `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
 - When `suggestedCommands` includes an `agent --json > agent-result.json` export followed by `identity-report agent-result.json --json`, treat that as a read-only reporting handoff for exclusive-identity triage, not as approval to rerun apply/update or mutate state.

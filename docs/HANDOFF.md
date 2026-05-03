@@ -3900,3 +3900,27 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 LLM Validation Command Clamp Slice
+
+Files added or updated:
+
+- `src/model/decision-parser.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Clamp parsed LLM `validate-targets` payloads to commands already present in
+  the selected validation plan.
+- Drop invented commands such as `terraform apply`, unrelated Helm/Pulumi
+  commands, or other non-selected commands before execution.
+- Fall back to the selected validation commands when every model-provided
+  command is invalid for the current runtime.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

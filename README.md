@@ -133,6 +133,9 @@ Current behavior is intentionally runtime-foundation oriented:
   mutation, and Kubernetes mutation commands before spawning a shell command.
   Blocked commands are surfaced as `unsafe-validation-command` validation
   issues, not executed as best-effort validation.
+- LLM planner `validate-targets` decisions are clamped to commands already in
+  the selected validation plan, so invented commands are ignored before tool
+  execution.
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - LLM planner prompts include compact `runtimeIdentityConflicts` when native
   validation reports provider-exclusive identity blockers. These entries carry

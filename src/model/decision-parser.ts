@@ -6,6 +6,7 @@ import type {
   AgentRuntimeState,
   AgentStopReason
 } from '../types/agent.ts';
+import { selectValidationCommands } from '../agent/select-validation-commands.ts';
 
 function extractJsonObject(content: string): string {
   const start = content.indexOf('{');
@@ -47,7 +48,15 @@ function toStringArray(value: unknown): string[] | undefined {
 }
 
 function buildDefaultValidationCommands(runtime: AgentRuntimeState): string[] {
-  return runtime.preflight.validation.plan.flatMap(entry => entry.commands).slice(0, 6);
+  return selectValidationCommands(runtime);
+}
+
+function buildValidationCommands(runtime: AgentRuntimeState, rawCommands: unknown): string[] {
+  const allowedCommands = new Set(buildDefaultValidationCommands(runtime));
+  const requestedCommands = toStringArray(rawCommands);
+  const filteredCommands = requestedCommands?.filter(command => allowedCommands.has(command)) ?? [];
+
+  return filteredCommands.length > 0 ? filteredCommands : Array.from(allowedCommands);
 }
 
 function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, payload: unknown): AgentAction['payload'] {
@@ -79,7 +88,7 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
 
   if (actionKind === 'validate-targets') {
     return {
-      commands: toStringArray(rawPayload.commands) ?? buildDefaultValidationCommands(runtime)
+      commands: buildValidationCommands(runtime, rawPayload.commands)
     };
   }
 

@@ -6276,6 +6276,78 @@ test('parsePlannerDecision accepts supported clarificationKind values', async ()
   assert.equal(decision.action.payload?.clarificationKind, 'approval-required');
 });
 
+test('parsePlannerDecision clamps validate-targets commands to the selected validation plan', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'high',
+      action: {
+        kind: 'validate-targets',
+        summary: 'Run validation',
+        rationale: 'The LLM mixed a safe command with unsafe invented commands.',
+        payload: {
+          commands: [
+            'terraform -chdir=terraform/payments-api apply -auto-approve',
+            'helm template charts/payments-api',
+            'terraform -chdir=terraform/payments-api validate'
+          ]
+        }
+      }
+    }),
+    runtime
+  );
+
+  assert.deepEqual(decision.action.payload?.commands, [
+    'terraform -chdir=terraform/payments-api validate'
+  ]);
+});
+
+test('parsePlannerDecision falls back to selected validation commands when all LLM commands are invented', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'medium',
+      action: {
+        kind: 'validate-targets',
+        summary: 'Run validation',
+        rationale: 'The LLM did not copy commands from the selected plan.',
+        payload: {
+          commands: [
+            'pulumi up --cwd infra/payments-api --stack dev --yes',
+            'terraform -chdir=terraform/payments-api apply -auto-approve'
+          ]
+        }
+      }
+    }),
+    runtime
+  );
+
+  assert.deepEqual(decision.action.payload?.commands, selectValidationCommands(runtime));
+  assert.ok(decision.action.payload?.commands?.every(command => /^helm (?:lint|template) charts\/payments-api$/.test(command)));
+});
+
 test('runSingleStep returns approval-required outcome for approval clarification turns', async () => {
   const approvalModel = {
     name: 'approval-test-model',
