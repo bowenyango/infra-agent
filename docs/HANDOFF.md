@@ -3979,3 +3979,26 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Repair Budget Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Include `maxRepairAttempts` in compact `harness.queryConfig` so the compact
+  handoff payload carries the same immutable repair budget as full run state.
+- Report repair attempts as `used/max` in result cards, agent snapshots, and
+  human CLI output.
+- Preserve the existing compact output fallback behavior for synthetic tests
+  or legacy callers that do not attach a full `config` object to run state.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

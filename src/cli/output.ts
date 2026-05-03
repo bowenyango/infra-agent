@@ -168,6 +168,7 @@ export interface CompactAgentRunResult {
     maxTurns: number;
     queryConfig: {
       maxTurns: number;
+      maxRepairAttempts: number;
       retrievedContextBudget: AgentRunState['config']['retrievedContextBudget'];
     };
     turnTraceLimit: number;
@@ -538,6 +539,12 @@ function getAgentMaxTurns(state: AgentRunState): number {
   return (state as AgentRunState & { config?: { maxTurns?: number } }).config?.maxTurns ?? state.turns.length;
 }
 
+function getAgentMaxRepairAttempts(state: AgentRunState): number {
+  return (state as AgentRunState & { config?: { maxRepairAttempts?: number } }).config?.maxRepairAttempts
+    ?? state.runtime.maxRepairAttempts
+    ?? DEFAULT_QUERY_LOOP_CONFIG.maxRepairAttempts;
+}
+
 function getAgentQueryConfig(state: AgentRunState): AgentRunState['config'] {
   const config = (state as AgentRunState & { config?: AgentRunState['config'] }).config;
   if (config) {
@@ -546,7 +553,7 @@ function getAgentQueryConfig(state: AgentRunState): AgentRunState['config'] {
 
   return {
     maxTurns: getAgentMaxTurns(state),
-    maxRepairAttempts: state.runtime.maxRepairAttempts ?? DEFAULT_QUERY_LOOP_CONFIG.maxRepairAttempts,
+    maxRepairAttempts: getAgentMaxRepairAttempts(state),
     retrievedContextBudget: state.runtime.retrievedContextBudget ?? DEFAULT_QUERY_LOOP_CONFIG.retrievedContextBudget
   };
 }
@@ -1221,7 +1228,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Validators executed: ${targetValidationCount} command(s) across ${summarizeValidatorFamilies(state)}${yamlGuardCount > 0 ? `; ${yamlGuardCount} YAML syntax guard(s)` : ''}`);
   lines.push(`Validation findings: ${summarizeValidationFindings(state)}`);
   lines.push(`Semantic blockers: ${summarizeValidationDerivedSemanticBlockers(state)}`);
-  lines.push(`Repair activity: ${state.runtime.repairAttempts > 0 ? `${state.runtime.repairAttempts} bounded repair attempt(s)` : 'none'}`);
+  lines.push(`Repair activity: ${state.runtime.repairAttempts}/${getAgentMaxRepairAttempts(state)} bounded repair attempt(s) used`);
 
   return lines;
 }
@@ -1261,6 +1268,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       maxTurns: getAgentMaxTurns(state),
       queryConfig: {
         maxTurns: queryConfig.maxTurns,
+        maxRepairAttempts: queryConfig.maxRepairAttempts,
         retrievedContextBudget: queryConfig.retrievedContextBudget
       },
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
@@ -1600,7 +1608,7 @@ export function summarizeAgentSnapshot(state: AgentRunState): string[] {
   lines.push(`Active bounded path: ${summarizeBoundedPath(state)}`);
   lines.push(`Primary target: ${topTarget ? `${topTarget.kind} ${topTarget.path}` : 'undetected'}`);
   lines.push(`Tool trace: ${summarizeToolTrace(state)}`);
-  lines.push(`Repair attempts: ${state.runtime.repairAttempts}`);
+  lines.push(`Repair attempts: ${state.runtime.repairAttempts}/${getAgentMaxRepairAttempts(state)}`);
   lines.push(`Validation status: ${summarizeValidationStatus(state)}`);
   lines.push(`Approval signals: ${state.runtime.approvalSignals.length}`);
 
@@ -1958,7 +1966,7 @@ export function printAgentRunState(state: AgentRunState): void {
   process.stdout.write(`planning model: ${state.modelName}\n`);
   process.stdout.write(`outcome: ${state.outcome}\n`);
   process.stdout.write(`turn count: ${state.turns.length}\n`);
-  process.stdout.write(`repair attempts: ${state.runtime.repairAttempts}\n`);
+  process.stdout.write(`repair attempts: ${state.runtime.repairAttempts}/${getAgentMaxRepairAttempts(state)}\n`);
   process.stdout.write('\n');
   printHeader('Result Summary');
   printList(summarizeResultCard(state), 'No result summary available.');

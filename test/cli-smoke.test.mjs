@@ -5099,6 +5099,9 @@ test('runSingleStep respects configured zero repair attempts', async () => {
     assert.equal(result.runtime.maxRepairAttempts, 0);
     assert.equal(result.runtime.repairAttempts, 0);
     assert.equal(result.outcome, 'repair-budget-exhausted');
+    const compact = buildCompactAgentRunResult(result);
+    assert.equal(compact.harness.queryConfig.maxRepairAttempts, 0);
+    assert.ok(compact.resultCard.some(line => /Repair activity: 0\/0 bounded repair attempt\(s\) used/i.test(line)));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -5131,6 +5134,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     const compact = buildCompactAgentRunResult(result);
     assert.equal(compact.harness.maxTurns, 1);
     assert.equal(compact.harness.queryConfig.maxTurns, 1);
+    assert.equal(compact.harness.queryConfig.maxRepairAttempts, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxPackets, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxTokens, 500);
     assert.equal(compact.harness.turnTraceLimit, 10);
@@ -6755,6 +6759,7 @@ test('summarizeAgentSnapshot highlights validation failure and approval count', 
   assert.ok(snapshot.some(line => /Primary domain: Terraform/i.test(line)));
   assert.ok(snapshot.some(line => /Active bounded path: Terraform -> validation/i.test(line)));
   assert.ok(snapshot.some(line => /Primary target: terraform-root terraform\/payments-api/i.test(line)));
+  assert.ok(snapshot.some(line => /Repair attempts: 0\/2/i.test(line)));
   assert.ok(snapshot.some(line => /Validation status: failed/i.test(line)));
   assert.ok(snapshot.some(line => /Top validation issue: terraform-validate-failure/i.test(line)));
 });
@@ -6926,7 +6931,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
   assert.ok(summary.some(line => /Validators executed: 1 command\(s\) across Pulumi/i.test(line)));
   assert.ok(summary.some(line => /Validation findings: none/i.test(line)));
-  assert.ok(summary.some(line => /Repair activity: 1 bounded repair attempt/i.test(line)));
+  assert.ok(summary.some(line => /Repair activity: 1\/2 bounded repair attempt\(s\) used/i.test(line)));
 });
 
 test('summarizeResultCard includes Helm CLI usage when helm_show_values is executed', async () => {
