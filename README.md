@@ -184,6 +184,8 @@ Current behavior is intentionally runtime-foundation oriented:
   report. `validation.selectedPlan` mirrors the selected validation targets and
   commands, including executed and failed command counts, so downstream agents
   can tell what validation was intended before raw tool output is requested.
+  `validation.commands` carries a budgeted list of recent executed validation
+  commands with pass/fail status and short stdout/stderr previews.
   readiness report when another agent needs it. Result cards include the same
   readiness posture, and suggested commands surface the read-only doctor command
   first when readiness has warnings or failures.

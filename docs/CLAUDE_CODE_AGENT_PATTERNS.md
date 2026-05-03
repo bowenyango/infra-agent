@@ -50,6 +50,9 @@ durable design reference for infra-agent development.
   should mirror the domain-focused validation plan, not every validator
   discovered in the workspace, and should stay separate from executed
   validation command output.
+- `validation.commands` is the compact executed-validation surface. It should
+  keep command status and short previews under a fixed budget instead of
+  passing raw native CLI logs through ordinary handoff payloads.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
   runtime snapshots, and raw tool output.

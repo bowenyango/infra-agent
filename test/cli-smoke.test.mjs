@@ -5258,6 +5258,56 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
   );
 });
 
+test('buildCompactAgentRunResult includes budgeted validation command summaries', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const longStdout = 'x'.repeat(420);
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [
+      {
+        command: 'infra-agent yaml-parse terraform/payments-api/dev.auto.tfvars',
+        exitCode: 0,
+        stdout: 'YAML ok',
+        stderr: ''
+      },
+      {
+        command: 'terraform -chdir=terraform/payments-api validate',
+        exitCode: 1,
+        stdout: longStdout,
+        stderr: 'Error: Missing required argument'
+      },
+      {
+        command: 'terraform -chdir=terraform/payments-api apply -auto-approve',
+        exitCode: 1,
+        stdout: '',
+        stderr: 'infra-agent blocked unsafe validation command: Terraform apply is not validation [terraform-apply]'
+      }
+    ],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime,
+    turns: []
+  });
+
+  assert.equal(compact.validation.commands.maxEntries, 8);
+  assert.equal(compact.validation.commands.omittedCount, 0);
+  assert.equal(compact.validation.commands.entries[0]?.kind, 'yaml-guard');
+  assert.equal(compact.validation.commands.entries[1]?.status, 'failed');
+  assert.equal(compact.validation.commands.entries[1]?.stdoutPreview.length, 303);
+  assert.equal(compact.validation.commands.entries[2]?.unsafeBlocked, true);
+  assert.equal(Object.hasOwn(compact, 'runtime'), false);
+});
+
 test('agent CLI args accept --max-turns for bounded loop control', () => {
   const parsed = parseArgs([
     'agent',

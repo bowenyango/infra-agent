@@ -4149,3 +4149,28 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Validation Command Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add budgeted `validation.commands` entries to compact agent results so
+  downstream agents can see recent validation execution status without
+  requesting `--json-full`.
+- Include command, exit code, pass/fail status, YAML-guard vs target-validation
+  kind, short stdout/stderr previews, and unsafe-command blocker flags.
+- Cap validation command summaries at eight entries and trim output previews to
+  300 characters plus an omission marker.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

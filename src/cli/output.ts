@@ -204,6 +204,19 @@ export interface CompactAgentRunResult {
     identityConflicts: ValidationIdentityConflictSummary[];
     targetCommandCount: number;
     yamlGuardCount: number;
+    commands: {
+      maxEntries: number;
+      omittedCount: number;
+      entries: Array<{
+        command: string;
+        exitCode: number;
+        status: 'passed' | 'failed';
+        kind: 'yaml-guard' | 'target-validation';
+        stdoutPreview: string;
+        stderrPreview: string;
+        unsafeBlocked: boolean;
+      }>;
+    };
     issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
   };
   approval: {
@@ -532,6 +545,8 @@ function isTerminalTurnAction(kind: string): boolean {
 
 const COMPACT_TOOL_TRACE_LIMIT = 8;
 const COMPACT_TURN_TRACE_LIMIT = 10;
+const COMPACT_VALIDATION_COMMAND_LIMIT = 8;
+const COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS = 300;
 
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
   return state.turns.slice(0, COMPACT_TURN_TRACE_LIMIT).map(turn => ({
@@ -644,6 +659,33 @@ function collectSelectedValidationPlan(state: AgentRunState): CompactAgentRunRes
       validatorAvailable: validatorsByName.get(entry.kind)?.available ?? false
     };
   });
+}
+
+function compactOutputPreview(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS)}...`;
+}
+
+function collectValidationCommandSummaries(state: AgentRunState): CompactAgentRunResult['validation']['commands'] {
+  const entries = state.runtime.validationResults.slice(-COMPACT_VALIDATION_COMMAND_LIMIT).map(result => ({
+    command: result.command,
+    exitCode: result.exitCode,
+    status: result.exitCode === 0 ? 'passed' as const : 'failed' as const,
+    kind: isYamlSyntaxValidationCommand(result.command) ? 'yaml-guard' as const : 'target-validation' as const,
+    stdoutPreview: compactOutputPreview(result.stdout),
+    stderrPreview: compactOutputPreview(result.stderr),
+    unsafeBlocked: /infra-agent blocked unsafe validation command:/i.test(`${result.stdout}\n${result.stderr}`)
+  }));
+
+  return {
+    maxEntries: COMPACT_VALIDATION_COMMAND_LIMIT,
+    omittedCount: Math.max(0, state.runtime.validationResults.length - entries.length),
+    entries
+  };
 }
 
 function compactApprovalSignal(signal: ApprovalSignal): CompactApprovalSignal {
@@ -1345,6 +1387,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       identityConflicts: collectValidationIdentityConflicts(state),
       targetCommandCount: targetValidationCount,
       yamlGuardCount,
+      commands: collectValidationCommandSummaries(state),
       issues: state.runtime.validationIssues.slice(0, 5).map(issue => ({
         kind: issue.kind,
         repairable: issue.repairable,
