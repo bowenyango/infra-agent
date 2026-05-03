@@ -145,7 +145,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `harness.turnTrace`, a bounded per-turn trace inspired by Claude Code's query
   harness design. It exposes action kind, terminal status, execution status,
   tool count, changed-file count, validation issue count, and approval signal
-  count without exposing full runtime snapshots. It also includes
+  count without exposing full runtime snapshots. The companion
+  `harness.turnTraceLimit` and `harness.turnTraceOmittedCount` fields make the
+  trace budget explicit for downstream handoff. It also includes
   `harness.toolTrace`, a budgeted list of recent deterministic tool summaries
   plus an omitted count, so downstream agents can inspect execution evidence
   and permission categories without loading raw tool output.

@@ -3848,3 +3848,26 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Turn Trace Budget Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.turnTraceLimit` and `harness.turnTraceOmittedCount` to compact
+  `infra-agent.agent-result` output while preserving the existing
+  `harness.turnTrace` array.
+- Make the compact turn-trace budget explicit so downstream agents can tell
+  whether the handoff trace is complete or capped.
+- Document the fields alongside the compact turn-trace contract.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

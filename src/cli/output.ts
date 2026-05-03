@@ -170,6 +170,8 @@ export interface CompactAgentRunResult {
       maxTurns: number;
       retrievedContextBudget: AgentRunState['config']['retrievedContextBudget'];
     };
+    turnTraceLimit: number;
+    turnTraceOmittedCount: number;
     turnTrace: CompactTurnTraceEntry[];
     toolTrace: {
       maxEntries: number;
@@ -512,9 +514,10 @@ function isTerminalTurnAction(kind: string): boolean {
 }
 
 const COMPACT_TOOL_TRACE_LIMIT = 8;
+const COMPACT_TURN_TRACE_LIMIT = 10;
 
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
-  return state.turns.slice(0, 10).map(turn => ({
+  return state.turns.slice(0, COMPACT_TURN_TRACE_LIMIT).map(turn => ({
     index: turn.index,
     actionKind: turn.decision.action.kind,
     actionFamily: turn.decision.action.payload?.actionFamily ?? null,
@@ -1259,6 +1262,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         maxTurns: queryConfig.maxTurns,
         retrievedContextBudget: queryConfig.retrievedContextBudget
       },
+      turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
+      turnTraceOmittedCount: Math.max(0, state.turns.length - COMPACT_TURN_TRACE_LIMIT),
       turnTrace: collectCompactTurnTrace(state),
       toolTrace: collectCompactToolTrace(state),
       toolPermissionSummary: collectToolPermissionAggregate(state)

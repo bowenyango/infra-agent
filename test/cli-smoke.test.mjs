@@ -5102,6 +5102,8 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.queryConfig.maxTurns, 1);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxPackets, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxTokens, 500);
+    assert.equal(compact.harness.turnTraceLimit, 10);
+    assert.equal(compact.harness.turnTraceOmittedCount, 0);
     assert.equal(compact.knowledgeContext.maxPackets, 2);
     assert.equal(compact.knowledgeContext.maxTokens, 500);
     assert.equal(compact.harness.turnTrace.length, 1);
