@@ -5101,6 +5101,8 @@ test('runSingleStep respects configured zero repair attempts', async () => {
     assert.equal(result.outcome, 'repair-budget-exhausted');
     const compact = buildCompactAgentRunResult(result);
     assert.equal(compact.harness.queryConfig.maxRepairAttempts, 0);
+    assert.equal(compact.harness.loopBudget.exhausted, false);
+    assert.ok(compact.harness.loopBudget.turnsRemaining > 0);
     assert.ok(compact.resultCard.some(line => /Repair activity: 0\/0 bounded repair attempt\(s\) used/i.test(line)));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -5137,6 +5139,13 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.queryConfig.maxRepairAttempts, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxPackets, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxTokens, 500);
+    assert.deepEqual(compact.harness.loopBudget, {
+      turnsUsed: 1,
+      maxTurns: 1,
+      turnsRemaining: 0,
+      exhausted: true
+    });
+    assert.ok(compact.resultCard.some(line => /Turn budget: 1\/1 turn\(s\) used; exhausted/i.test(line)));
     assert.equal(compact.harness.turnTraceLimit, 10);
     assert.equal(compact.harness.turnTraceOmittedCount, 0);
     assert.equal(compact.knowledgeContext.maxPackets, 2);

@@ -4052,3 +4052,27 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Loop Budget Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `harness.loopBudget` with turns used, max turns, remaining turns,
+  and an exhausted flag.
+- Surface the same turn-budget status in result cards so humans and downstream
+  agents can distinguish terminal stops from max-turn exhaustion.
+- Keep this as a reporting-only contract change; it does not alter the query
+  loop, planner decisions, validation commands, repair behavior, or tool
+  execution.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

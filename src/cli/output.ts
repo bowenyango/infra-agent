@@ -172,6 +172,12 @@ export interface CompactAgentRunResult {
       maxRepairAttempts: number;
       retrievedContextBudget: AgentRunState['config']['retrievedContextBudget'];
     };
+    loopBudget: {
+      turnsUsed: number;
+      maxTurns: number;
+      turnsRemaining: number;
+      exhausted: boolean;
+    };
     turnTraceLimit: number;
     turnTraceOmittedCount: number;
     turnTrace: CompactTurnTraceEntry[];
@@ -539,6 +545,17 @@ function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] 
 
 function getAgentMaxTurns(state: AgentRunState): number {
   return (state as AgentRunState & { config?: { maxTurns?: number } }).config?.maxTurns ?? state.turns.length;
+}
+
+function collectLoopBudget(state: AgentRunState): CompactAgentRunResult['harness']['loopBudget'] {
+  const maxTurns = getAgentMaxTurns(state);
+  const turnsUsed = state.turns.length;
+  return {
+    turnsUsed,
+    maxTurns,
+    turnsRemaining: Math.max(0, maxTurns - turnsUsed),
+    exhausted: turnsUsed >= maxTurns && state.outcome === 'no-safe-action'
+  };
 }
 
 function getAgentMaxRepairAttempts(state: AgentRunState): number {
@@ -1173,6 +1190,15 @@ function summarizeNextOperatorStep(state: AgentRunState): string {
   }
 }
 
+function summarizeTurnBudget(state: AgentRunState): string {
+  const budget = collectLoopBudget(state);
+  if (budget.exhausted) {
+    return `${budget.turnsUsed}/${budget.maxTurns} turn(s) used; exhausted`;
+  }
+
+  return `${budget.turnsUsed}/${budget.maxTurns} turn(s) used; ${budget.turnsRemaining} remaining`;
+}
+
 function summarizeToolTrace(state: AgentRunState): string {
   const summaries = state.runtime.toolSummaries ?? [];
   if (summaries.length === 0) {
@@ -1230,6 +1256,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Validators executed: ${targetValidationCount} command(s) across ${summarizeValidatorFamilies(state)}${yamlGuardCount > 0 ? `; ${yamlGuardCount} YAML syntax guard(s)` : ''}`);
   lines.push(`Validation findings: ${summarizeValidationFindings(state)}`);
   lines.push(`Semantic blockers: ${summarizeValidationDerivedSemanticBlockers(state)}`);
+  lines.push(`Turn budget: ${summarizeTurnBudget(state)}`);
   lines.push(`Repair activity: ${state.runtime.repairAttempts}/${getAgentMaxRepairAttempts(state)} bounded repair attempt(s) used`);
 
   return lines;
@@ -1273,6 +1300,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         maxRepairAttempts: queryConfig.maxRepairAttempts,
         retrievedContextBudget: queryConfig.retrievedContextBudget
       },
+      loopBudget: collectLoopBudget(state),
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
       turnTraceOmittedCount: Math.max(0, state.turns.length - COMPACT_TURN_TRACE_LIMIT),
       turnTrace: collectCompactTurnTrace(state),

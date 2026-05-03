@@ -163,10 +163,11 @@ Current behavior is intentionally runtime-foundation oriented:
   harness design. It exposes action kind, terminal status, execution status,
   execution skip reason, tool count, changed-file count, validation issue
   count, and approval signal count without exposing full runtime snapshots. The
-  companion
-  `harness.turnTraceLimit` and `harness.turnTraceOmittedCount` fields make the
-  trace budget explicit for downstream handoff. It also includes
-  `harness.toolTrace`, a budgeted list of recent deterministic tool summaries
+  companion `harness.turnTraceLimit` and `harness.turnTraceOmittedCount`
+  fields make the trace budget explicit for downstream handoff.
+  `harness.loopBudget` reports turns used, max turns, remaining turns, and
+  whether the loop stopped because the turn budget was exhausted.
+  `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
   plus an omitted count, so downstream agents can inspect execution evidence
   and permission categories without loading raw tool output.
   `harness.toolPermissionSummary` aggregates workspace mutations, native CLI
