@@ -3871,3 +3871,32 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Unsafe Validation Command Guard Slice
+
+Files added or updated:
+
+- `src/validators/command-safety.ts`
+- `src/tools/ValidateTargetsTool/ValidateTargetsTool.ts`
+- `src/types/agent.ts`
+- `src/agent/classify-validation-issues.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a validation command safety guard that blocks deploy/apply, Terraform
+  state/import mutation, Pulumi update/import/refresh/state mutation, Helm
+  release mutation, and Kubernetes mutation commands before spawning a shell.
+- Surface blocked commands as structured `unsafe-validation-command` issues
+  with the original command and reason metadata.
+- Preserve the existing safe validation command surface, including Terraform
+  `fmt -check`/`validate`, Helm `lint`/`template`, and Pulumi `preview` with
+  the local stack initialization wrapper.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

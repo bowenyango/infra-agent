@@ -469,6 +469,21 @@ export function classifyValidationIssues(results: ValidationCommandOutput[]): Va
     const combinedOutput = `${result.stdout}\n${result.stderr}`;
     const yamlPath = extractYamlValidationPath(result.command);
 
+    if (/infra-agent blocked unsafe validation command:/i.test(combinedOutput)) {
+      const reasonMatch = combinedOutput.match(/infra-agent blocked unsafe validation command:\s*(.+?)(?:\s*\[[^\]]+\])?\s*$/i);
+      issues.push(buildIssue(result, {
+        kind: 'unsafe-validation-command',
+        repairable: false,
+        message: combinedOutput.trim().slice(0, 400) || 'Validation command was blocked because it is unsafe.',
+        guidance: 'Remove deploy, apply, state mutation, or cluster mutation commands from the validation plan. Use read-only validation commands such as helm lint/template, pulumi preview, terraform fmt -check, or terraform validate.',
+        metadata: {
+          unsafeCommand: result.command,
+          unsafeReason: reasonMatch?.[1]?.trim()
+        }
+      }));
+      continue;
+    }
+
     if (yamlPath) {
       const parserMatch = combinedOutput.match(/\b(parser|using):\s*([A-Za-z0-9:_-]+)/i);
       issues.push(buildIssue(result, {

@@ -43,6 +43,8 @@ import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.t
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
+import { ValidateTargetsTool } from '../src/tools/ValidateTargetsTool/ValidateTargetsTool.ts';
+import { classifyUnsafeValidationCommand } from '../src/validators/command-safety.ts';
 import { resolveEffectiveApprovalPolicy } from '../src/domain/workspace-policy.ts';
 import { resolveEffectiveEditPolicy } from '../src/domain/edit-policy.ts';
 import { inferRequestedDomains } from '../src/domain/domain-focus.ts';
@@ -5690,6 +5692,52 @@ test('apply-edit-plan execution blocks writes disallowed by workspace mode polic
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('validation command safety allows read-only validators and blocks mutation commands', () => {
+  assert.equal(classifyUnsafeValidationCommand('terraform -chdir=terraform/payments-api fmt -check -recursive'), null);
+  assert.equal(classifyUnsafeValidationCommand('terraform -chdir=terraform/payments-api validate'), null);
+  assert.equal(classifyUnsafeValidationCommand('helm lint charts/payments-api'), null);
+  assert.equal(classifyUnsafeValidationCommand('helm template charts/payments-api'), null);
+  assert.equal(
+    classifyUnsafeValidationCommand('PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive'),
+    null
+  );
+  assert.equal(
+    classifyUnsafeValidationCommand(
+      'mkdir -p .pulumi-home .pulumi-state && (PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi stack init dev --cwd infra/payments-api --non-interactive >/dev/null 2>&1 || true) && PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive'
+    ),
+    null
+  );
+
+  assert.match(classifyUnsafeValidationCommand('terraform -chdir=terraform/payments-api apply -auto-approve')?.reason ?? '', /not validation/i);
+  assert.match(classifyUnsafeValidationCommand('pulumi up --cwd infra/payments-api --stack prod --yes')?.reason ?? '', /deployment/i);
+  assert.match(classifyUnsafeValidationCommand('helm upgrade payments-api charts/payments-api')?.reason ?? '', /deployment/i);
+  assert.match(classifyUnsafeValidationCommand('kubectl delete deployment payments-api')?.reason ?? '', /cluster state/i);
+});
+
+test('validate_targets blocks unsafe validation commands before execution', async () => {
+  const result = await executeTool(ValidateTargetsTool, {
+    commands: [
+      'terraform -chdir=terraform/payments-api apply -auto-approve'
+    ]
+  }, {
+    workspaceRoot: resolve('fixtures/sample-workspace'),
+    workspaceConfig: null
+  });
+
+  assert.equal(result.output.results.length, 1);
+  assert.equal(result.output.results[0]?.exitCode, 1);
+  assert.match(result.output.results[0]?.stderr ?? '', /blocked unsafe validation command/i);
+  assert.match(result.output.results[0]?.stderr ?? '', /Terraform apply and destroy/i);
+
+  const issues = classifyValidationIssues(result.output.results);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'unsafe-validation-command');
+  assert.equal(issues[0]?.repairable, false);
+  assert.equal(issues[0]?.metadata?.unsafeCommand, 'terraform -chdir=terraform/payments-api apply -auto-approve');
+  assert.match(issues[0]?.metadata?.unsafeReason ?? '', /Terraform apply and destroy/i);
+  assert.match(issues[0]?.guidance ?? '', /Remove deploy, apply, state mutation/i);
 });
 
 test('classifyValidationIssues marks ingress.enabled failures as repairable', () => {

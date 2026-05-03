@@ -129,6 +129,10 @@ Current behavior is intentionally runtime-foundation oriented:
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
+- `validate_targets` refuses deploy, apply, state mutation, Helm release
+  mutation, and Kubernetes mutation commands before spawning a shell command.
+  Blocked commands are surfaced as `unsafe-validation-command` validation
+  issues, not executed as best-effort validation.
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - LLM planner prompts include compact `runtimeIdentityConflicts` when native
   validation reports provider-exclusive identity blockers. These entries carry

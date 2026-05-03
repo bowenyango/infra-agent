@@ -100,6 +100,7 @@ export type ValidationIssueKind =
   | 'terraform-create-before-delete-conflict'
   | 'terraform-formatting-required'
   | 'terraform-validate-failure'
+  | 'unsafe-validation-command'
   | 'yaml-syntax-failure'
   | 'unknown-validation-failure';
 
@@ -132,6 +133,8 @@ export interface ValidationIssue {
     routeTableIds?: string;
     securityGroupIds?: string;
     securityGroupRulePeers?: string;
+    unsafeCommand?: string;
+    unsafeReason?: string;
     yamlPath?: string;
     yamlParser?: string;
   };

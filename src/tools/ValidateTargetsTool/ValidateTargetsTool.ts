@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import type { Tool } from '../../Tool.ts';
 import type { ValidationRunOutput } from '../../types/tools.ts';
+import { classifyUnsafeValidationCommand } from '../../validators/command-safety.ts';
 import { getPreferredShell } from '../../utils/shell.ts';
 
 export interface ValidateTargetsInput {
@@ -14,6 +15,16 @@ export const ValidateTargetsTool: Tool<ValidateTargetsInput, ValidationRunOutput
   async execute(input, context) {
     const shell = getPreferredShell();
     const results = input.commands.map(command => {
+      const unsafe = classifyUnsafeValidationCommand(command);
+      if (unsafe) {
+        return {
+          command,
+          exitCode: 1,
+          stdout: '',
+          stderr: `infra-agent blocked unsafe validation command: ${unsafe.reason} [${unsafe.matchedPattern}]`
+        };
+      }
+
       const result = spawnSync(shell, ['-lc', command], {
         cwd: context.workspaceRoot,
         encoding: 'utf8'
