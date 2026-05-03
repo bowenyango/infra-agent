@@ -59,12 +59,40 @@ function buildValidationCommands(runtime: AgentRuntimeState, rawCommands: unknow
   return filteredCommands.length > 0 ? filteredCommands : Array.from(allowedCommands);
 }
 
+function buildDefaultTargetPaths(runtime: AgentRuntimeState): string[] {
+  return runtime.preflight.targetCandidates.slice(0, 3).map(candidate => candidate.path);
+}
+
+function buildInspectableTargetPaths(runtime: AgentRuntimeState, rawTargetPaths: unknown): string[] {
+  const fallbackTargetPaths = buildDefaultTargetPaths(runtime);
+  const requestedTargetPaths = toStringArray(rawTargetPaths);
+  if (!requestedTargetPaths) {
+    return fallbackTargetPaths;
+  }
+
+  const candidatePaths = new Set(runtime.preflight.targetCandidates.map(candidate => candidate.path));
+  const filteredTargetPaths = requestedTargetPaths.filter(targetPath => candidatePaths.has(targetPath));
+  return filteredTargetPaths.length > 0 ? filteredTargetPaths : fallbackTargetPaths;
+}
+
+function buildTerraformFormattingRootPath(runtime: AgentRuntimeState, rawRootPath: unknown): string | undefined {
+  const topTerraformTarget = runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
+  const requestedRootPath = typeof rawRootPath === 'string' ? rawRootPath.trim() : '';
+  if (requestedRootPath.length === 0) {
+    return topTerraformTarget?.path;
+  }
+
+  return runtime.preflight.targetCandidates.some(candidate => candidate.kind === 'terraform-root' && candidate.path === requestedRootPath)
+    ? requestedRootPath
+    : topTerraformTarget?.path;
+}
+
 function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, payload: unknown): AgentAction['payload'] {
   const rawPayload = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : {};
 
   if (actionKind === 'inspect-target-files') {
     return {
-      targetPaths: toStringArray(rawPayload.targetPaths) ?? runtime.preflight.targetCandidates.slice(0, 3).map(candidate => candidate.path)
+      targetPaths: buildInspectableTargetPaths(runtime, rawPayload.targetPaths)
     };
   }
 
@@ -93,11 +121,8 @@ function buildPayload(actionKind: AgentActionKind, runtime: AgentRuntimeState, p
   }
 
   if (actionKind === 'repair-terraform-formatting') {
-    const topTerraformTarget = runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
     return {
-      rootPath: typeof rawPayload.rootPath === 'string' && rawPayload.rootPath.trim().length > 0
-        ? rawPayload.rootPath.trim()
-        : topTerraformTarget?.path
+      rootPath: buildTerraformFormattingRootPath(runtime, rawPayload.rootPath)
     };
   }
 

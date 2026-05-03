@@ -136,6 +136,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - LLM planner `validate-targets` decisions are clamped to commands already in
   the selected validation plan, so invented commands are ignored before tool
   execution.
+- LLM planner target-path payloads are clamped to known target candidates for
+  inspection and Terraform formatting repair, so invented paths cannot expand
+  the selected workspace scope.
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
 - LLM planner prompts include compact `runtimeIdentityConflicts` when native
   validation reports provider-exclusive identity blockers. These entries carry

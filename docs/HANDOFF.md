@@ -3924,3 +3924,28 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 LLM Target Path Clamp Slice
+
+Files added or updated:
+
+- `src/model/decision-parser.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Clamp parsed LLM `inspect-target-files.targetPaths` to paths already present
+  in `runtime.preflight.targetCandidates`.
+- Fall back to the existing top target-candidate paths when every
+  model-provided inspection path is invalid.
+- Clamp parsed LLM `repair-terraform-formatting.rootPath` to known Terraform
+  root candidates, falling back to the top Terraform root on invalid input.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `npm run lint`: passed by Worker C during implementation.
+- `git diff --check`: passed.

@@ -6348,6 +6348,124 @@ test('parsePlannerDecision falls back to selected validation commands when all L
   assert.ok(decision.action.payload?.commands?.every(command => /^helm (?:lint|template) charts\/payments-api$/.test(command)));
 });
 
+test('parsePlannerDecision clamps inspect target paths to known target candidates', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'high',
+      action: {
+        kind: 'inspect-target-files',
+        summary: 'Inspect targets',
+        rationale: 'The LLM mixed valid and invalid target paths.',
+        payload: {
+          targetPaths: [
+            '../secrets',
+            'charts/payments-api',
+            '/tmp/unrelated'
+          ]
+        }
+      }
+    }),
+    runtime
+  );
+
+  assert.deepEqual(decision.action.payload?.targetPaths, ['charts/payments-api']);
+});
+
+test('parsePlannerDecision falls back to known inspect targets when all LLM target paths are invalid', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const decision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'medium',
+      action: {
+        kind: 'inspect-target-files',
+        summary: 'Inspect targets',
+        rationale: 'The LLM invented target paths.',
+        payload: {
+          targetPaths: [
+            '../secrets',
+            '/tmp/unrelated'
+          ]
+        }
+      }
+    }),
+    runtime
+  );
+
+  assert.deepEqual(
+    decision.action.payload?.targetPaths,
+    preflight.targetCandidates.slice(0, 3).map(candidate => candidate.path)
+  );
+});
+
+test('parsePlannerDecision clamps Terraform formatting root path to Terraform candidates', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const invalidDecision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'medium',
+      action: {
+        kind: 'repair-terraform-formatting',
+        summary: 'Repair formatting',
+        rationale: 'The LLM proposed an unrelated path.',
+        payload: {
+          rootPath: '../terraform'
+        }
+      }
+    }),
+    runtime
+  );
+  const validDecision = parsePlannerDecision(
+    JSON.stringify({
+      confidence: 'high',
+      action: {
+        kind: 'repair-terraform-formatting',
+        summary: 'Repair formatting',
+        rationale: 'The LLM copied the selected Terraform root.',
+        payload: {
+          rootPath: 'terraform/payments-api'
+        }
+      }
+    }),
+    runtime
+  );
+
+  assert.equal(invalidDecision.action.payload?.rootPath, 'terraform/payments-api');
+  assert.equal(validDecision.action.payload?.rootPath, 'terraform/payments-api');
+});
+
 test('runSingleStep returns approval-required outcome for approval clarification turns', async () => {
   const approvalModel = {
     name: 'approval-test-model',
