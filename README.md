@@ -170,6 +170,9 @@ Current behavior is intentionally runtime-foundation oriented:
   fields make the trace budget explicit for downstream handoff.
   `harness.loopBudget` reports turns used, max turns, remaining turns, and
   whether the loop stopped because the turn budget was exhausted.
+  `harness.stateSummary` reports runtime counts for observations, tools,
+  writes, validation results/issues, approvals, retrieved context, and semantic
+  facts without exposing the full runtime state.
   `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
   plus an omitted count, so downstream agents can inspect execution evidence
   and permission categories without loading raw tool output.

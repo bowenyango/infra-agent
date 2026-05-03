@@ -56,6 +56,10 @@ durable design reference for infra-agent development.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
   runtime snapshots, and raw tool output.
+- `harness.stateSummary` is the compact runtime-state boundary. It may expose
+  counts for observations, tool summaries, writes, validation, approvals,
+  retrieved context, and semantic facts, but it must not expose raw runtime
+  arrays or file contents.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
   deterministic tool summaries and an omitted count, not full tool outputs.
 - Tool summaries should carry explicit permission categories such as workspace

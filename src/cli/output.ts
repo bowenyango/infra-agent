@@ -178,6 +178,16 @@ export interface CompactAgentRunResult {
       turnsRemaining: number;
       exhausted: boolean;
     };
+    stateSummary: {
+      observationCount: number;
+      toolSummaryCount: number;
+      appliedWriteCount: number;
+      validationResultCount: number;
+      validationIssueCount: number;
+      approvalSignalCount: number;
+      retrievedContextCount: number;
+      semanticFactCount: number;
+    };
     turnTraceLimit: number;
     turnTraceOmittedCount: number;
     turnTrace: CompactTurnTraceEntry[];
@@ -579,6 +589,19 @@ function collectLoopBudget(state: AgentRunState): CompactAgentRunResult['harness
     maxTurns,
     turnsRemaining: Math.max(0, maxTurns - turnsUsed),
     exhausted: turnsUsed >= maxTurns && state.outcome === 'no-safe-action'
+  };
+}
+
+function collectRuntimeStateSummary(state: AgentRunState): CompactAgentRunResult['harness']['stateSummary'] {
+  return {
+    observationCount: state.runtime.observations?.length ?? 0,
+    toolSummaryCount: state.runtime.toolSummaries?.length ?? 0,
+    appliedWriteCount: state.runtime.appliedWrites?.length ?? 0,
+    validationResultCount: state.runtime.validationResults?.length ?? 0,
+    validationIssueCount: state.runtime.validationIssues?.length ?? 0,
+    approvalSignalCount: state.runtime.approvalSignals?.length ?? 0,
+    retrievedContextCount: state.runtime.retrievedContext?.length ?? 0,
+    semanticFactCount: getRuntimeConfigSemantics(state.runtime).reduce((count, summary) => count + summary.facts.length, 0)
   };
 }
 
@@ -1373,6 +1396,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         retrievedContextBudget: queryConfig.retrievedContextBudget
       },
       loopBudget: collectLoopBudget(state),
+      stateSummary: collectRuntimeStateSummary(state),
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
       turnTraceOmittedCount: Math.max(0, state.turns.length - COMPACT_TURN_TRACE_LIMIT),
       turnTrace: collectCompactTurnTrace(state),

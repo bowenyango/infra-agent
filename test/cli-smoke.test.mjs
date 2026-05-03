@@ -5164,6 +5164,14 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.ok(compact.harness.toolTrace.entries.every(entry => entry.toolName.length > 0));
     assert.equal(compact.harness.toolPermissionSummary.totalToolCount, result.runtime.toolSummaries.length);
     assert.ok(compact.harness.toolPermissionSummary.externalCommandToolCount > 0);
+    assert.equal(compact.harness.stateSummary.observationCount, result.runtime.observations.length);
+    assert.equal(compact.harness.stateSummary.toolSummaryCount, result.runtime.toolSummaries.length);
+    assert.equal(compact.harness.stateSummary.appliedWriteCount, result.runtime.appliedWrites.length);
+    assert.equal(compact.harness.stateSummary.validationResultCount, result.runtime.validationResults.length);
+    assert.equal(compact.harness.stateSummary.validationIssueCount, result.runtime.validationIssues.length);
+    assert.equal(compact.harness.stateSummary.approvalSignalCount, result.runtime.approvalSignals.length);
+    assert.equal(compact.harness.stateSummary.retrievedContextCount, result.runtime.retrievedContext.length);
+    assert.ok(compact.harness.stateSummary.semanticFactCount > 0);
     assert.ok(compact.validation.selectedPlan.length > 0);
     assert.ok(compact.validation.selectedPlan.every(entry => entry.kind === 'helm'));
     assert.ok(compact.validation.selectedPlan.every(entry => entry.target === 'charts/payments-api'));
@@ -5190,6 +5198,8 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     ));
     assert.ok(!compact.readiness.checks.some(check => check.name === 'validator:pulumi'));
     assert.ok(!compact.readiness.checks.some(check => check.name === 'validator:terraform'));
+    assert.equal(Object.hasOwn(compact, 'runtime'), false);
+    assert.equal(Object.hasOwn(compact, 'preflight'), false);
 
     const fallbackCompact = buildCompactAgentRunResult({
       ...result,

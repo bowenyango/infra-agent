@@ -4174,3 +4174,28 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Runtime State Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.stateSummary` to compact agent results with counts for
+  observations, tool summaries, applied writes, validation results/issues,
+  approval signals, retrieved context packets, and semantic facts.
+- Give downstream agents enough lifecycle shape to triage a run without loading
+  full runtime arrays or raw file contents.
+- Preserve compact output omissions of full `runtime`, `turns`, and `preflight`
+  state.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
