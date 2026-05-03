@@ -17,27 +17,29 @@ export type AgentClarificationKind =
   | 'target-ambiguity'
   | 'workspace-policy'
   | 'general';
-export type AgentActionFamily =
-  | 'runtime-clarification'
-  | 'approval-clarification'
-  | 'helm-clarification'
-  | 'pulumi-clarification'
-  | 'terraform-clarification'
-  | 'helm-inspection'
-  | 'pulumi-inspection'
-  | 'terraform-inspection'
-  | 'runtime-inspection'
-  | 'helm-bounded-edit'
-  | 'pulumi-bounded-edit'
-  | 'terraform-bounded-edit'
-  | 'helm-validation'
-  | 'pulumi-validation'
-  | 'terraform-validation'
-  | 'terraform-repair'
-  | 'validation-complete'
-  | 'validation-blocked'
-  | 'repair-budget-exhausted'
-  | 'runtime-stop';
+export const AGENT_ACTION_FAMILIES = [
+  'runtime-clarification',
+  'approval-clarification',
+  'helm-clarification',
+  'pulumi-clarification',
+  'terraform-clarification',
+  'helm-inspection',
+  'pulumi-inspection',
+  'terraform-inspection',
+  'runtime-inspection',
+  'helm-bounded-edit',
+  'pulumi-bounded-edit',
+  'terraform-bounded-edit',
+  'helm-validation',
+  'pulumi-validation',
+  'terraform-validation',
+  'terraform-repair',
+  'validation-complete',
+  'validation-blocked',
+  'repair-budget-exhausted',
+  'runtime-stop'
+] as const;
+export type AgentActionFamily = typeof AGENT_ACTION_FAMILIES[number];
 export type AgentStopReason =
   | 'validation-succeeded'
   | 'validation-blocked'

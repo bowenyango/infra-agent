@@ -7,6 +7,7 @@ import type {
   AgentRuntimeState,
   AgentStopReason
 } from '../types/agent.ts';
+import { AGENT_ACTION_FAMILIES } from '../types/agent.ts';
 import { selectValidationCommands } from '../agent/select-validation-commands.ts';
 
 function extractJsonObject(content: string): string {
@@ -22,29 +23,6 @@ function extractJsonObject(content: string): string {
 function isActionKind(value: string): value is AgentActionKind {
   return ['ask-for-clarification', 'inspect-target-files', 'apply-edit-plan', 'repair-terraform-formatting', 'validate-targets', 'stop'].includes(value);
 }
-
-const AGENT_ACTION_FAMILIES: AgentActionFamily[] = [
-  'runtime-clarification',
-  'approval-clarification',
-  'helm-clarification',
-  'pulumi-clarification',
-  'terraform-clarification',
-  'helm-inspection',
-  'pulumi-inspection',
-  'terraform-inspection',
-  'runtime-inspection',
-  'helm-bounded-edit',
-  'pulumi-bounded-edit',
-  'terraform-bounded-edit',
-  'helm-validation',
-  'pulumi-validation',
-  'terraform-validation',
-  'terraform-repair',
-  'validation-complete',
-  'validation-blocked',
-  'repair-budget-exhausted',
-  'runtime-stop'
-];
 
 function isActionFamily(value: string): value is AgentActionFamily {
   return AGENT_ACTION_FAMILIES.includes(value as AgentActionFamily);

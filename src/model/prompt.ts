@@ -1,4 +1,5 @@
-import type { AgentActionFamily, AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
+import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
+import { AGENT_ACTION_FAMILIES } from '../types/agent.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
 import { collectRuntimeIdentityConflicts } from '../agent/identity-conflicts.ts';
 import { budgetRetrievedContext } from '../knowledge/context-budget.ts';
@@ -116,28 +117,6 @@ export function buildPlannerSystemPrompt(): string {
     'workspace-policy',
     'general'
   ];
-  const allowedActionFamilies: AgentActionFamily[] = [
-    'runtime-clarification',
-    'approval-clarification',
-    'helm-clarification',
-    'pulumi-clarification',
-    'terraform-clarification',
-    'helm-inspection',
-    'pulumi-inspection',
-    'terraform-inspection',
-    'runtime-inspection',
-    'helm-bounded-edit',
-    'pulumi-bounded-edit',
-    'terraform-bounded-edit',
-    'helm-validation',
-    'pulumi-validation',
-    'terraform-validation',
-    'terraform-repair',
-    'validation-complete',
-    'validation-blocked',
-    'repair-budget-exhausted',
-    'runtime-stop'
-  ];
 
   return [
     'You are the planning runtime for infra-agent.',
@@ -146,7 +125,7 @@ export function buildPlannerSystemPrompt(): string {
     `Allowed action.kind values: ${allowedActionKinds.join(', ')}`,
     `Allowed ask-for-clarification payload.clarificationKind values: ${allowedClarificationKinds.join(', ')}`,
     `Allowed stop payload.stopReason values: ${allowedStopReasons.join(', ')}`,
-    `Allowed optional payload.actionFamily metadata values: ${allowedActionFamilies.join(', ')}`,
+    `Allowed optional payload.actionFamily metadata values: ${AGENT_ACTION_FAMILIES.join(', ')}`,
     'Rules:',
     '- Prefer inspect-target-files before apply-edit-plan when file context is missing.',
     '- Prefer apply-edit-plan only when runtime.lastEditPlan is present and writes are available.',

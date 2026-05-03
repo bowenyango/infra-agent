@@ -4076,3 +4076,26 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Shared Action Family Constants Slice
+
+Files added or updated:
+
+- `src/types/agent.ts`
+- `src/model/decision-parser.ts`
+- `src/model/prompt.ts`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Move allowed `AgentActionFamily` values into the shared agent type module so
+  the parser and planner prompt use the same source of truth.
+- Preserve the existing `AgentActionFamily` union by deriving it from the
+  exported constant tuple.
+- Avoid drift between LLM action-family metadata validation and the system
+  prompt's allowed metadata list.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
