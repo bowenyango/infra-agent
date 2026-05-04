@@ -121,6 +121,9 @@ durable design reference for infra-agent development.
 - `impact-report` should carry source provenance for graph summaries so
   downstream agents can separate workspace-inspection facts from attached
   Terraform plan or Pulumi preview impact data without rerunning native tools.
+- `summary.sourceProvenance` should be the graph-level source boundary; derived
+  reports may mirror it, but should not recompute conflicting provenance unless
+  consuming legacy graphs.
 - LLM and official-doc features must remain testable with injected transports,
   explicit env maps, and cache-first retrieval. Unit/smoke/E2E tests must not
   depend on live provider access.

@@ -392,6 +392,17 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   ));
   assert.equal(graph.summary.nodesByKind['workspace'], 1);
   assert.equal(graph.summary.edgesByKind['has-schema'], 1);
+  assert.equal(graph.summary.sourceProvenance?.hasWorkspaceInspection, true);
+  assert.equal(graph.summary.sourceProvenance?.hasTerraformPlan, false);
+  assert.equal(graph.summary.sourceProvenance?.hasPulumiPreview, false);
+  assert.deepEqual(graph.summary.sourceProvenance?.sources, [
+    {
+      source: 'workspace-inspection',
+      nodeCount: graph.nodes.length,
+      edgeCount: graph.edges.length,
+      totalCount: graph.nodes.length + graph.edges.length
+    }
+  ]);
   assert.equal(graph.summary.impact?.plannedChanges, 0);
   assert.equal(graph.summary.impact?.mutationAllowed, false);
   assert.equal(graph.summary.impact?.omittedReviewTargets, 0);
@@ -436,6 +447,14 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.replacementCascades, 2);
   assert.equal(snapshot.summary.impact?.createBeforeDeleteConflicts, 2);
   assert.equal(snapshot.summary.impact?.mutationAllowed, false);
+  assert.equal(snapshot.summary.sourceProvenance?.hasWorkspaceInspection, true);
+  assert.equal(snapshot.summary.sourceProvenance?.hasTerraformPlan, true);
+  assert.equal(snapshot.summary.sourceProvenance?.hasPulumiPreview, true);
+  assert.deepEqual(snapshot.summary.sourceProvenance?.sources.map(source => source.source), [
+    'pulumi-preview',
+    'terraform-plan',
+    'workspace-inspection'
+  ]);
   assert.equal(snapshot.summary.impact?.omittedReviewTargets, 0);
   assert.deepEqual(snapshot.summary.impact?.reviewTargetBudget, {
     maxTargets: 5,

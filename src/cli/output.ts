@@ -2594,6 +2594,9 @@ export function printInfraGraph(graph: InfraGraph): void {
   process.stdout.write(`edges: ${graph.summary.edgeCount}\n`);
   process.stdout.write(`node kinds: ${formatGraphCounts(graph.summary.nodesByKind)}\n`);
   process.stdout.write(`edge kinds: ${formatGraphCounts(graph.summary.edgesByKind)}\n\n`);
+  if (graph.summary.sourceProvenance) {
+    process.stdout.write(`sources: ${graph.summary.sourceProvenance.sources.map(source => `${source.source}=${source.nodeCount} nodes/${source.edgeCount} edges`).join(', ') || 'none'}\n\n`);
+  }
   if (graph.summary.changesByAction) {
     process.stdout.write(`changes: ${formatGraphCounts(graph.summary.changesByAction)}\n\n`);
   }

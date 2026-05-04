@@ -99,6 +99,7 @@ export interface InfraGraphSummary {
   edgeCount: number;
   nodesByKind: Partial<Record<InfraGraphNodeKind, number>>;
   edgesByKind: Partial<Record<InfraGraphEdgeKind, number>>;
+  sourceProvenance?: InfraGraphSourceProvenance;
   changesByAction?: Partial<Record<InfraGraphChangeAction, number>>;
   impact?: {
     dependencyEdges: number;
@@ -120,6 +121,18 @@ export interface InfraGraphSummary {
     reviewTargets: InfraGraphImpactReviewTarget[];
     riskLevel: InfraGraphImpactRiskLevel;
   };
+}
+
+export interface InfraGraphSourceProvenance {
+  sources: Array<{
+    source: InfraGraphSource;
+    nodeCount: number;
+    edgeCount: number;
+    totalCount: number;
+  }>;
+  hasWorkspaceInspection: boolean;
+  hasTerraformPlan: boolean;
+  hasPulumiPreview: boolean;
 }
 
 export interface InfraGraph {

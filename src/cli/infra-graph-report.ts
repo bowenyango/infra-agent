@@ -4,6 +4,7 @@ import { cwd } from 'node:process';
 import type { InfraGraph, InfraGraphImpactReviewTarget } from '../types/infra-graph.ts';
 import { summarizeInfraGraphImpact } from './output.ts';
 import { parseInfraGraphResult } from './infra-graph-contract.ts';
+import { collectInfraGraphSourceProvenance } from '../impact/graph-source-provenance.ts';
 
 export interface InfraGraphImpactReport {
   kind: 'infra-agent.infra-graph-impact-report';
@@ -22,17 +23,7 @@ export interface InfraGraphImpactReport {
     replacementCascades: number;
     createBeforeDeleteConflicts: number;
   };
-  sourceProvenance: {
-    sources: Array<{
-      source: string;
-      nodeCount: number;
-      edgeCount: number;
-      totalCount: number;
-    }>;
-    hasWorkspaceInspection: boolean;
-    hasTerraformPlan: boolean;
-    hasPulumiPreview: boolean;
-  };
+  sourceProvenance: NonNullable<InfraGraph['summary']['sourceProvenance']>;
   reviewTargetCount: number;
   omittedReviewTargetCount: number;
   summary: string[];
@@ -69,38 +60,6 @@ function countEdges(graph: InfraGraph, kind: string): number {
   return graph.edges.filter(edge => edge.kind === kind).length;
 }
 
-function collectSourceProvenance(graph: InfraGraph): InfraGraphImpactReport['sourceProvenance'] {
-  const sourceCounts = new Map<string, { nodeCount: number; edgeCount: number }>();
-
-  for (const node of graph.nodes) {
-    const counts = sourceCounts.get(node.source) ?? { nodeCount: 0, edgeCount: 0 };
-    counts.nodeCount += 1;
-    sourceCounts.set(node.source, counts);
-  }
-
-  for (const edge of graph.edges) {
-    const counts = sourceCounts.get(edge.source) ?? { nodeCount: 0, edgeCount: 0 };
-    counts.edgeCount += 1;
-    sourceCounts.set(edge.source, counts);
-  }
-
-  const sources = Array.from(sourceCounts.entries())
-    .map(([source, counts]) => ({
-      source,
-      nodeCount: counts.nodeCount,
-      edgeCount: counts.edgeCount,
-      totalCount: counts.nodeCount + counts.edgeCount
-    }))
-    .sort((left, right) => right.totalCount - left.totalCount || left.source.localeCompare(right.source));
-
-  return {
-    sources,
-    hasWorkspaceInspection: sourceCounts.has('workspace-inspection'),
-    hasTerraformPlan: sourceCounts.has('terraform-plan'),
-    hasPulumiPreview: sourceCounts.has('pulumi-preview')
-  };
-}
-
 export function buildInfraGraphImpactReport(graph: InfraGraph): InfraGraphImpactReport {
   const impact = graph.summary.impact;
   const reviewTargets = impact?.reviewTargets ?? [];
@@ -122,7 +81,7 @@ export function buildInfraGraphImpactReport(graph: InfraGraph): InfraGraphImpact
       replacementCascades: impact?.replacementCascades ?? countEdges(graph, 'replacement-cascade'),
       createBeforeDeleteConflicts: impact?.createBeforeDeleteConflicts ?? countEdges(graph, 'create-before-delete-conflict')
     },
-    sourceProvenance: collectSourceProvenance(graph),
+    sourceProvenance: graph.summary.sourceProvenance ?? collectInfraGraphSourceProvenance(graph.nodes, graph.edges),
     reviewTargetCount: reviewTargets.length,
     omittedReviewTargetCount: impact?.omittedReviewTargets ?? 0,
     summary: summarizeInfraGraphImpact(graph),

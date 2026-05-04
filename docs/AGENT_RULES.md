@@ -206,6 +206,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `schemaVersion=1` and `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
 - When `suggestedCommands` includes an `agent --json > agent-result.json` export followed by `identity-report agent-result.json --json`, treat that as a read-only reporting handoff for exclusive-identity triage, not as approval to rerun apply/update or mutate state.
 - Use `infra-agent graph --json` as the topology handoff surface. Treat it as inspection-derived structure until plan/preview impact data is explicitly attached.
+- Use `summary.sourceProvenance` to distinguish workspace-inspection graph facts
+  from attached Terraform plan or Pulumi preview impact data. Do not infer that
+  workspace-inspection-only graphs contain native plan/preview changes.
 - When consuming saved graph JSON, parse it as compact `infra-agent.infra-graph`
   schema version 1 before trusting impact fields. Reject graph payloads where
   root `mutationAllowed`, `summary.impact.mutationAllowed`, or any impact review

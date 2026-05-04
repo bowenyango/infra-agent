@@ -103,8 +103,9 @@ Current behavior is intentionally runtime-foundation oriented:
   legacy and VPC-style AWS security group rules, IAM OIDC providers, AWS load
   balancing listener priorities, CloudFront aliases, API Gateway custom
   domains, Route53 records including ACM validation CNAMEs, and Kubernetes
-  objects. Graph JSON includes compact `summary.impact` counts plus
-  `riskLevel`, `primaryConcern`, `recommendedAction`, review-only
+  objects. Graph JSON includes compact source provenance counts under
+  `summary.sourceProvenance` plus `summary.impact` counts, `riskLevel`,
+  `primaryConcern`, `recommendedAction`, review-only
   `reviewSteps`, prioritized `reviewTargets` with per-target
   `priority`, `mutationAllowed=false`, `recommendedAction`, `riskCategory`, and
   `reviewSteps`, plus root and summary-level `mutationAllowed=false`,

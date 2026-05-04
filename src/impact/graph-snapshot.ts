@@ -62,6 +62,7 @@ function stabilizeSummary(summary: InfraGraph['summary']): InfraGraph['summary']
     edgeCount: summary.edgeCount,
     nodesByKind: sortCountMap(summary.nodesByKind) ?? {},
     edgesByKind: sortCountMap(summary.edgesByKind) ?? {},
+    ...(summary.sourceProvenance ? { sourceProvenance: summary.sourceProvenance } : {}),
     ...(changesByAction ? { changesByAction } : {}),
     ...(impact ? { impact } : {})
   };

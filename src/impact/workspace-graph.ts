@@ -14,6 +14,7 @@ import {
   countInfraGraphImpactReviewTargets,
   inferInfraGraphImpactPosture
 } from './graph-impact-summary.ts';
+import { collectInfraGraphSourceProvenance } from './graph-source-provenance.ts';
 
 function graphId(prefix: string, path: string): string {
   return `${prefix}:${path}`;
@@ -87,6 +88,7 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
     edgeCount: edges.length,
     nodesByKind,
     edgesByKind,
+    sourceProvenance: collectInfraGraphSourceProvenance(nodes, edges),
     changesByAction: Object.keys(changesByAction).length > 0 ? changesByAction : undefined,
     impact: {
       dependencyEdges,

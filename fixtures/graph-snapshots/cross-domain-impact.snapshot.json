@@ -532,6 +532,31 @@
       "possible-rename": 1,
       "replacement-cascade": 2
     },
+    "sourceProvenance": {
+      "sources": [
+        {
+          "source": "pulumi-preview",
+          "nodeCount": 5,
+          "edgeCount": 9,
+          "totalCount": 14
+        },
+        {
+          "source": "terraform-plan",
+          "nodeCount": 4,
+          "edgeCount": 7,
+          "totalCount": 11
+        },
+        {
+          "source": "workspace-inspection",
+          "nodeCount": 3,
+          "edgeCount": 2,
+          "totalCount": 5
+        }
+      ],
+      "hasWorkspaceInspection": true,
+      "hasTerraformPlan": true,
+      "hasPulumiPreview": true
+    },
     "changesByAction": {
       "create": 1,
       "delete": 1,

@@ -4064,6 +4064,37 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Graph Source Provenance Summary Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-source-provenance.ts`
+- `src/impact/workspace-graph.ts`
+- `src/impact/graph-snapshot.ts`
+- `src/cli/infra-graph-report.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add graph-level `summary.sourceProvenance` with source node/edge counts and
+  workspace/Terraform/Pulumi source flags.
+- Reuse the same provenance collector for `impact-report` so derived reports
+  mirror graph-level provenance when available.
+- Render source provenance in human graph output and protect it in the stable
+  graph snapshot.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:
