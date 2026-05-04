@@ -393,6 +393,12 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   assert.equal(graph.summary.impact?.plannedChanges, 0);
   assert.equal(graph.summary.impact?.mutationAllowed, false);
   assert.equal(graph.summary.impact?.omittedReviewTargets, 0);
+  assert.deepEqual(graph.summary.impact?.reviewTargetBudget, {
+    maxTargets: 5,
+    totalTargets: 0,
+    includedTargets: 0,
+    omittedTargets: 0
+  });
   assert.equal(graph.summary.impact?.riskLevel, 'none');
   assert.equal(graph.summary.impact?.primaryConcern, 'none');
   assert.equal(graph.summary.impact?.recommendedAction, 'none');
@@ -429,6 +435,12 @@ test('infra graph stable snapshot covers cross-domain impact contract', async ()
   assert.equal(snapshot.summary.impact?.createBeforeDeleteConflicts, 2);
   assert.equal(snapshot.summary.impact?.mutationAllowed, false);
   assert.equal(snapshot.summary.impact?.omittedReviewTargets, 0);
+  assert.deepEqual(snapshot.summary.impact?.reviewTargetBudget, {
+    maxTargets: 5,
+    totalTargets: 5,
+    includedTargets: 5,
+    omittedTargets: 0
+  });
   assert.equal(snapshot.summary.impact?.riskLevel, 'high');
   assert.equal(snapshot.summary.impact?.primaryConcern, 'create-before-delete-conflicts');
   assert.equal(snapshot.summary.impact?.recommendedAction, 'review-create-before-delete-conflicts');
@@ -479,12 +491,18 @@ test('infra graph impact records omitted review target count when compact target
 
   assert.equal(graph.summary.impact?.reviewTargets.length, 5);
   assert.equal(graph.summary.impact?.omittedReviewTargets, 2);
+  assert.deepEqual(graph.summary.impact?.reviewTargetBudget, {
+    maxTargets: 5,
+    totalTargets: 7,
+    includedTargets: 5,
+    omittedTargets: 2
+  });
   assert.equal(graph.summary.impact?.reviewTargets[0]?.priority, 1);
   assert.equal(graph.summary.impact?.reviewTargets[0]?.mutationAllowed, false);
   assert.equal(graph.summary.impact?.reviewTargets[0]?.recommendedAction, 'review-create-before-delete-conflicts');
   assert.equal(graph.summary.impact?.reviewTargets[0]?.riskCategory, 'create-before-delete-ordering');
   assert.ok(graph.summary.impact?.reviewTargets[0]?.reviewSteps.some(step => step.includes('manual sequencing approval')));
-  assert.match(impactLines[0] ?? '', /review targets=5, omitted review targets=2/);
+  assert.match(impactLines[0] ?? '', /review targets=5, omitted review targets=2, review target budget=5\/7 included max=5/);
 });
 
 test('infra graph review target normalization infers per-target legacy guidance', () => {

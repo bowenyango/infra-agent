@@ -9,6 +9,7 @@ import type {
 import type { WorkspaceInspection } from '../types/repository.ts';
 import {
   INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
+  INFRA_GRAPH_IMPACT_REVIEW_TARGET_LIMIT,
   buildInfraGraphImpactReviewTargets,
   countInfraGraphImpactReviewTargets,
   inferInfraGraphImpactPosture
@@ -71,6 +72,7 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
   const replacementCascades = edgesByKind['replacement-cascade'] ?? 0;
   const createBeforeDeleteConflicts = edgesByKind['create-before-delete-conflict'] ?? 0;
   const reviewTargets = buildInfraGraphImpactReviewTargets(edges);
+  const totalReviewTargets = countInfraGraphImpactReviewTargets(edges);
   const impactPosture = inferInfraGraphImpactPosture({
     createBeforeDeleteConflicts,
     dependencyEdges,
@@ -90,7 +92,13 @@ export function summarizeInfraGraph(nodes: InfraGraphNode[], edges: InfraGraphEd
       dependencyEdges,
       createBeforeDeleteConflicts,
       mutationAllowed: INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
-      omittedReviewTargets: Math.max(0, countInfraGraphImpactReviewTargets(edges) - reviewTargets.length),
+      omittedReviewTargets: Math.max(0, totalReviewTargets - reviewTargets.length),
+      reviewTargetBudget: {
+        maxTargets: INFRA_GRAPH_IMPACT_REVIEW_TARGET_LIMIT,
+        totalTargets: totalReviewTargets,
+        includedTargets: reviewTargets.length,
+        omittedTargets: Math.max(0, totalReviewTargets - reviewTargets.length)
+      },
       plannedChanges,
       possibleRenames,
       primaryConcern: impactPosture.primaryConcern,

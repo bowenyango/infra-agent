@@ -55,6 +55,12 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
       throw new Error('infra graph input summary.impact.mutationAllowed must be false when impact is present.');
     }
 
+    if (isRecord(impact.reviewTargetBudget)) {
+      for (const field of ['maxTargets', 'totalTargets', 'includedTargets', 'omittedTargets']) {
+        assertNumberField(impact.reviewTargetBudget, field, 'summary.impact.reviewTargetBudget');
+      }
+    }
+
     if ('reviewTargets' in impact && !Array.isArray(impact.reviewTargets)) {
       throw new Error('infra graph input summary.impact.reviewTargets must be an array when present.');
     }

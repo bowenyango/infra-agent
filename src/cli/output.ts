@@ -49,6 +49,7 @@ import {
 } from '../agent/tool-permissions.ts';
 import {
   INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
+  INFRA_GRAPH_IMPACT_REVIEW_TARGET_LIMIT,
   buildInfraGraphImpactReviewTargets,
   countInfraGraphImpactReviewTargets,
   inferInfraGraphImpactPosture,
@@ -2517,12 +2518,22 @@ function normalizeGraphImpactSummary(
     replacementActions: graph.summary.changesByAction?.replace ?? 0
   });
   const inferredReviewTargets = buildInfraGraphImpactReviewTargets(graph.edges);
-  const inferredOmittedReviewTargets = Math.max(0, countInfraGraphImpactReviewTargets(graph.edges) - inferredReviewTargets.length);
+  const inferredTotalReviewTargets = countInfraGraphImpactReviewTargets(graph.edges);
+  const inferredOmittedReviewTargets = Math.max(0, inferredTotalReviewTargets - inferredReviewTargets.length);
+  const existingBudget = existing?.reviewTargetBudget;
+  const reviewTargets = normalizeInfraGraphImpactReviewTargets(existing?.reviewTargets, inferredReviewTargets);
+  const omittedReviewTargets = impactCount(existing?.omittedReviewTargets, inferredOmittedReviewTargets);
 
   return {
     ...counts,
     mutationAllowed: INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
-    omittedReviewTargets: impactCount(existing?.omittedReviewTargets, inferredOmittedReviewTargets),
+    omittedReviewTargets,
+    reviewTargetBudget: {
+      maxTargets: impactCount(existingBudget?.maxTargets, INFRA_GRAPH_IMPACT_REVIEW_TARGET_LIMIT),
+      totalTargets: impactCount(existingBudget?.totalTargets, inferredTotalReviewTargets),
+      includedTargets: impactCount(existingBudget?.includedTargets, reviewTargets.length),
+      omittedTargets: impactCount(existingBudget?.omittedTargets, omittedReviewTargets)
+    },
     primaryConcern: isInfraGraphImpactPrimaryConcern(existing?.primaryConcern)
       ? existing.primaryConcern
       : inferredPosture.primaryConcern,
@@ -2530,7 +2541,7 @@ function normalizeGraphImpactSummary(
       ? existing.recommendedAction
       : inferredPosture.recommendedAction,
     reviewSteps: normalizeInfraGraphImpactReviewSteps(existing?.reviewSteps, inferredPosture.reviewSteps),
-    reviewTargets: normalizeInfraGraphImpactReviewTargets(existing?.reviewTargets, inferredReviewTargets),
+    reviewTargets,
     riskLevel: isInfraGraphImpactRiskLevel(existing?.riskLevel)
       ? existing.riskLevel
       : inferredPosture.riskLevel
@@ -2550,7 +2561,7 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
   const replacementCascades = graph.edges.filter(edge => edge.kind === 'replacement-cascade');
   const createBeforeDeleteConflicts = graph.edges.filter(edge => edge.kind === 'create-before-delete-conflict');
   const lines = [
-    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, mutation allowed=${impact.mutationAllowed}, review targets=${impact.reviewTargets.length}, omitted review targets=${impact.omittedReviewTargets}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
+    `risk=${impact.riskLevel}, primary concern=${impact.primaryConcern}, recommended action=${impact.recommendedAction}, mutation allowed=${impact.mutationAllowed}, review targets=${impact.reviewTargets.length}, omitted review targets=${impact.omittedReviewTargets}, review target budget=${impact.reviewTargetBudget.includedTargets}/${impact.reviewTargetBudget.totalTargets} included max=${impact.reviewTargetBudget.maxTargets}, planned changes=${impact.plannedChanges}, dependencies=${impact.dependencyEdges}, possible renames=${impact.possibleRenames}, replacement cascades=${impact.replacementCascades}, create-before-delete conflicts=${impact.createBeforeDeleteConflicts}`
   ];
 
   lines.push(...impact.reviewSteps.map(step => `review step: ${step}`));

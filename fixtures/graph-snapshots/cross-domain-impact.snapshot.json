@@ -547,6 +547,12 @@
       "primaryConcern": "create-before-delete-conflicts",
       "recommendedAction": "review-create-before-delete-conflicts",
       "replacementCascades": 2,
+      "reviewTargetBudget": {
+        "includedTargets": 5,
+        "maxTargets": 5,
+        "omittedTargets": 0,
+        "totalTargets": 5
+      },
       "reviewSteps": [
         "Confirm whether each delete/create pair is a logical rename or a true provider identity replacement.",
         "For logical renames, review Terraform moved blocks/state moves or Pulumi aliases/imports before any update.",

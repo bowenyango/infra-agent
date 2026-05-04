@@ -105,6 +105,12 @@ export interface InfraGraphSummary {
     createBeforeDeleteConflicts: number;
     mutationAllowed: boolean;
     omittedReviewTargets: number;
+    reviewTargetBudget: {
+      maxTargets: number;
+      totalTargets: number;
+      includedTargets: number;
+      omittedTargets: number;
+    };
     plannedChanges: number;
     possibleRenames: number;
     primaryConcern: InfraGraphImpactPrimaryConcern;

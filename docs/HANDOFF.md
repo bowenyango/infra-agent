@@ -4007,6 +4007,35 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Graph Review Target Budget Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/graph-impact-summary.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/output.ts`
+- `src/cli/infra-graph-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `summary.impact.reviewTargetBudget` with max, total, included, and
+  omitted review-target counts.
+- Preserve legacy `omittedReviewTargets` while making the review-target sample
+  budget explicit for graph handoffs and `Impact` text.
+- Extend the graph contract parser to validate review-target budget count fields
+  when present.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

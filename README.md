@@ -107,7 +107,8 @@ Current behavior is intentionally runtime-foundation oriented:
   `riskLevel`, `primaryConcern`, `recommendedAction`, review-only
   `reviewSteps`, prioritized `reviewTargets` with per-target
   `priority`, `mutationAllowed=false`, `recommendedAction`, `riskCategory`, and
-  `reviewSteps`, plus summary-level `omittedReviewTargets` and
+  `reviewSteps`, plus summary-level `reviewTargetBudget`,
+  `omittedReviewTargets`, and
   `mutationAllowed=false`, and the text output includes an `Impact` section for
   quick handoff. VPC-style security group rule matching keeps TCP/UDP ports
   required but permits omitted ports for

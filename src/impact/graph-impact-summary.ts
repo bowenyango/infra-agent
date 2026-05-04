@@ -12,7 +12,7 @@ import type {
 } from '../types/infra-graph.ts';
 
 export const INFRA_GRAPH_IMPACT_MUTATION_ALLOWED = false;
-const REVIEW_TARGET_LIMIT = 5;
+export const INFRA_GRAPH_IMPACT_REVIEW_TARGET_LIMIT = 5;
 
 type InfraGraphImpactReviewTargetDraft = Omit<InfraGraphImpactReviewTarget, 'priority'>;
 
@@ -195,7 +195,7 @@ function buildReviewTarget(edge: InfraGraphEdge): InfraGraphImpactReviewTargetDr
   };
 }
 
-export function buildInfraGraphImpactReviewTargets(edges: InfraGraphEdge[], limit = REVIEW_TARGET_LIMIT): InfraGraphImpactReviewTarget[] {
+export function buildInfraGraphImpactReviewTargets(edges: InfraGraphEdge[], limit = INFRA_GRAPH_IMPACT_REVIEW_TARGET_LIMIT): InfraGraphImpactReviewTarget[] {
   const targets = edges
     .filter((edge): edge is InfraGraphEdge & { kind: InfraGraphImpactReviewTargetKind } => isReviewTargetKind(edge.kind))
     .sort((left, right) =>
@@ -268,7 +268,7 @@ export function normalizeInfraGraphImpactReviewTargets(value: unknown, fallback:
   const targets = value
     .map(normalizeReviewTarget)
     .filter((target): target is InfraGraphImpactReviewTargetDraft => target !== null)
-    .slice(0, REVIEW_TARGET_LIMIT);
+    .slice(0, INFRA_GRAPH_IMPACT_REVIEW_TARGET_LIMIT);
   return targets.length > 0 || fallback.length === 0 ? finalizeReviewTargets(targets) : fallback;
 }
 
