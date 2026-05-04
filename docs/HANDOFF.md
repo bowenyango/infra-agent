@@ -86,6 +86,28 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Compact Handoff Durable Sections Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Tighten `parseCompactAgentRunResult` validation for
+  `handoffCheckpoint.durableSections`.
+- Require compact handoff recovery section names to include `root`, `harness`,
+  `validation`, `approval`, `knowledge`, `readiness`, and `result-card`.
+- Preserve supported-section validation while rejecting duplicate durable
+  section entries and missing required recovery sections.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "handoffCheckpoint.durableSections|compact agent result contract" test/cli-smoke.test.mjs`: passed with 1 test.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Compact Validation Commands Metadata Slice
 
 Files added or updated:

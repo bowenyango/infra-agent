@@ -515,11 +515,19 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input handoffCheckpoint.durableSections must be an array.');
   }
 
-  if (
-    value.handoffCheckpoint.durableSections.length === 0
-    || value.handoffCheckpoint.durableSections.some(section => !isKnownHandoffCheckpointDurableSection(section))
-  ) {
+  const durableSections = value.handoffCheckpoint.durableSections;
+  if (durableSections.some(section => !isKnownHandoffCheckpointDurableSection(section))) {
     throw new Error('compact result input handoffCheckpoint.durableSections must use supported section names.');
+  }
+
+  if (new Set(durableSections).size !== durableSections.length) {
+    throw new Error('compact result input handoffCheckpoint.durableSections must not include duplicate section names.');
+  }
+
+  for (const requiredSection of HANDOFF_CHECKPOINT_DURABLE_SECTIONS) {
+    if (!durableSections.includes(requiredSection)) {
+      throw new Error('compact result input handoffCheckpoint.durableSections must include all required recovery section names.');
+    }
   }
 
   if (!isKnownAgentResultOutcome(value.outcome)) {

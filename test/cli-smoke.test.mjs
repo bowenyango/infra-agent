@@ -8783,6 +8783,29 @@ test('compact agent result contract validates shallow handoff shape and validati
     /handoffCheckpoint\.durableSections/
   );
   assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        durableSections: validResult.handoffCheckpoint.durableSections.filter(section => section !== 'approval')
+      }
+    }),
+    /handoffCheckpoint\.durableSections must include all required recovery section names/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        durableSections: [
+          ...validResult.handoffCheckpoint.durableSections,
+          'root'
+        ]
+      }
+    }),
+    /handoffCheckpoint\.durableSections must not include duplicate section names/
+  );
+  assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, outcome: 'unexpected' }),
     /supported outcome/
   );
