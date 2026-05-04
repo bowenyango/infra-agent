@@ -6445,7 +6445,8 @@ test('compact agent result contract validates shallow handoff shape', () => {
       turnTraceBudget: {
         totalCount: 0,
         includedCount: 0,
-        omittedCount: 0
+        omittedCount: 0,
+        preservedWindow: 'head'
       },
       stateSummary: {
         validationIssueCount: 1
@@ -6460,6 +6461,13 @@ test('compact agent result contract validates shallow handoff shape', () => {
         totalCount: 0,
         includedCount: 0,
         omittedCount: 0,
+        eventCounts: {
+          'query-started': 0,
+          decision: 0,
+          'tool-execution': 0,
+          'approval-gate': 0,
+          terminal: 0
+        },
         events: []
       },
       plannerHandoff: {
@@ -6560,6 +6568,31 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        turnTraceBudget: {
+          ...validResult.harness.turnTraceBudget,
+          preservedWindow: 'tail'
+        }
+      }
+    }),
+    /harness\.turnTraceBudget\.preservedWindow/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        turnTraceBudget: {
+          totalCount: 2,
+          includedCount: 1,
+          omittedCount: 0
+        }
+      }
+    }),
+    /harness\.turnTraceBudget counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
         lifecycleEvents: {
           events: {}
         }
@@ -6578,6 +6611,73 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.lifecycleEvents\.totalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        lifecycleEvents: {
+          totalCount: 1,
+          includedCount: 1,
+          omittedCount: 0,
+          events: [
+            {
+              event: 'unexpected'
+            }
+          ]
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.events\[0\]\.event/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        lifecycleEvents: {
+          totalCount: 1,
+          includedCount: 1,
+          omittedCount: 0,
+          events: []
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.includedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        lifecycleEvents: {
+          totalCount: 2,
+          includedCount: 1,
+          omittedCount: 0,
+          events: [
+            {
+              event: 'terminal'
+            }
+          ]
+        }
+      }
+    }),
+    /harness\.lifecycleEvents counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        lifecycleEvents: {
+          totalCount: 0,
+          includedCount: 0,
+          omittedCount: 0,
+          eventCounts: {
+            unexpected: 1
+          },
+          events: []
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.eventCounts/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

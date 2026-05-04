@@ -4120,6 +4120,32 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Strict Lifecycle Contract Parser Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Harden compact `infra-agent.agent-result` parsing for lifecycle handoff data.
+- Reject unsupported `harness.lifecycleEvents.events[].event` values,
+  unsupported `harness.lifecycleEvents.eventCounts` keys, non-numeric event
+  counts, and lifecycle total/included/omitted inconsistencies.
+- Reject unsupported `harness.turnTraceBudget.preservedWindow` values and
+  inconsistent turn-trace budget counts before downstream reports trust the
+  compact payload.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

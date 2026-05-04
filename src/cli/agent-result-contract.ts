@@ -18,6 +18,14 @@ const PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS = [
   'rerun-with-larger-turn-budget',
   'inspect-readiness-or-targeting'
 ] as const;
+const LIFECYCLE_EVENT_NAMES = [
+  'query-started',
+  'decision',
+  'tool-execution',
+  'approval-gate',
+  'terminal'
+] as const;
+const TURN_TRACE_PRESERVED_WINDOWS = ['head'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -37,8 +45,29 @@ function isKnownPlannerHandoffNextControlAction(value: unknown): boolean {
     && PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS.includes(value as typeof PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS[number]);
 }
 
+function isKnownLifecycleEventName(value: unknown): boolean {
+  return typeof value === 'string'
+    && LIFECYCLE_EVENT_NAMES.includes(value as typeof LIFECYCLE_EVENT_NAMES[number]);
+}
+
+function isKnownTurnTracePreservedWindow(value: unknown): boolean {
+  return typeof value === 'string'
+    && TURN_TRACE_PRESERVED_WINDOWS.includes(value as typeof TURN_TRACE_PRESERVED_WINDOWS[number]);
+}
+
 function isNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+function hasNumericCountSet(record: Record<string, unknown>): boolean {
+  return isNumber(record.totalCount) && isNumber(record.includedCount) && isNumber(record.omittedCount);
+}
+
+function hasConsistentCountSet(record: Record<string, unknown>): boolean {
+  return typeof record.totalCount === 'number'
+    && typeof record.includedCount === 'number'
+    && typeof record.omittedCount === 'number'
+    && record.includedCount + record.omittedCount === record.totalCount;
 }
 
 export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResult {
@@ -64,6 +93,20 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         if (field in value.harness.turnTraceBudget && !isNumber(value.harness.turnTraceBudget[field])) {
           throw new Error(`compact result input harness.turnTraceBudget.${field} must be a number when present.`);
         }
+      }
+
+      if (
+        'preservedWindow' in value.harness.turnTraceBudget
+        && !isKnownTurnTracePreservedWindow(value.harness.turnTraceBudget.preservedWindow)
+      ) {
+        throw new Error('compact result input harness.turnTraceBudget.preservedWindow must be supported when present.');
+      }
+
+      if (
+        hasNumericCountSet(value.harness.turnTraceBudget)
+        && !hasConsistentCountSet(value.harness.turnTraceBudget)
+      ) {
+        throw new Error('compact result input harness.turnTraceBudget counts must be consistent when present.');
       }
     }
 
@@ -112,6 +155,37 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         if (field in value.harness.lifecycleEvents && !isNumber(value.harness.lifecycleEvents[field])) {
           throw new Error(`compact result input harness.lifecycleEvents.${field} must be a number when present.`);
         }
+      }
+
+      if (Array.isArray(value.harness.lifecycleEvents.events)) {
+        for (let index = 0; index < value.harness.lifecycleEvents.events.length; index += 1) {
+          const event = value.harness.lifecycleEvents.events[index];
+          if (!isRecord(event) || !isKnownLifecycleEventName(event.event)) {
+            throw new Error(`compact result input harness.lifecycleEvents.events[${index}].event must be supported.`);
+          }
+        }
+
+        if (
+          isNumber(value.harness.lifecycleEvents.includedCount)
+          && value.harness.lifecycleEvents.includedCount !== value.harness.lifecycleEvents.events.length
+        ) {
+          throw new Error('compact result input harness.lifecycleEvents.includedCount must match events length when present.');
+        }
+      }
+
+      if (isRecord(value.harness.lifecycleEvents.eventCounts)) {
+        for (const [eventName, count] of Object.entries(value.harness.lifecycleEvents.eventCounts)) {
+          if (!isKnownLifecycleEventName(eventName) || !isNumber(count)) {
+            throw new Error('compact result input harness.lifecycleEvents.eventCounts must use supported numeric event counts.');
+          }
+        }
+      }
+
+      if (
+        hasNumericCountSet(value.harness.lifecycleEvents)
+        && !hasConsistentCountSet(value.harness.lifecycleEvents)
+      ) {
+        throw new Error('compact result input harness.lifecycleEvents counts must be consistent when present.');
       }
     }
 

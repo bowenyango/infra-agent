@@ -70,7 +70,9 @@ durable design reference for infra-agent development.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
   runtime snapshots, and raw tool output. `harness.turnTraceBudget` should make
-  the preserved window and omitted turn count explicit.
+  the preserved window and omitted turn count explicit; downstream parsers
+  should reject unsupported preserved-window values and inconsistent budget
+  totals.
 - `harness.repairBudget` is the compact bounded-repair surface. It should
   report attempts used, max attempts, remaining attempts, and exhaustion
   without requiring downstream agents to parse result-card prose.
@@ -88,7 +90,9 @@ durable design reference for infra-agent development.
 - `harness.lifecycleEvents` is the budgeted query lifecycle surface. It should
   expose query start, decisions, tool execution, approval gates, and terminal
   outcome plus total/included/omitted and event-kind counts without timestamps,
-  full prompts, raw decisions, or raw tool output.
+  full prompts, raw decisions, or raw tool output. Parsers should reject
+  unknown event names, non-numeric event counts, and inconsistent included or
+  omitted totals so agent-to-agent handoff remains deterministic.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
   deterministic tool summaries plus total/included/omitted and permission
   category counts, not full tool outputs.
