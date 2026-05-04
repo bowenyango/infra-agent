@@ -173,6 +173,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   root `turnsUsed` consistency, remaining-turn arithmetic, and exhausted-state
   consistency before a downstream agent uses the result to decide whether to
   rerun or resume.
+- Treat compact repair budget as the same contract family. Validate
+  non-negative repair attempt integers, `maxAttempts` alignment with
+  `harness.queryConfig.maxRepairAttempts`, remaining-attempt arithmetic, and
+  exhausted-state consistency before a downstream agent decides to retry or
+  hand off manual repair.
 - Keep compact `agent --json` readiness targeted: include planner mode, workspace blocker status, selected validation-plan status, and validators required by that selected plan, plus a `doctorCommand` for fuller read-only checks. Do not include API keys or unrelated validator noise.
 - Surface readiness posture in result cards, and include the read-only
   `doctorCommand` in suggested commands when readiness is warn or fail. Do not

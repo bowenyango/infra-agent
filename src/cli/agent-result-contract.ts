@@ -269,6 +269,55 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.loopBudget.exhausted must match remaining turn budget.');
     }
 
+    if (!isRecord(value.harness.repairBudget)) {
+      throw new Error('compact result input harness.repairBudget must be an object.');
+    }
+
+    assertIntegerField(
+      value.harness.repairBudget,
+      'attemptsUsed',
+      'harness.repairBudget',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+    assertIntegerField(
+      value.harness.repairBudget,
+      'maxAttempts',
+      'harness.repairBudget',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+    assertIntegerField(
+      value.harness.repairBudget,
+      'attemptsRemaining',
+      'harness.repairBudget',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+
+    if (typeof value.harness.repairBudget.exhausted !== 'boolean') {
+      throw new Error('compact result input harness.repairBudget.exhausted must be a boolean.');
+    }
+
+    const queryConfigMaxRepairAttempts = value.harness.queryConfig.maxRepairAttempts as number;
+    const repairBudgetAttemptsUsed = value.harness.repairBudget.attemptsUsed as number;
+    const repairBudgetMaxAttempts = value.harness.repairBudget.maxAttempts as number;
+    const repairBudgetAttemptsRemaining = value.harness.repairBudget.attemptsRemaining as number;
+    const repairBudgetExhausted = value.harness.repairBudget.exhausted as boolean;
+
+    if (repairBudgetMaxAttempts !== queryConfigMaxRepairAttempts) {
+      throw new Error('compact result input harness.repairBudget.maxAttempts must match harness.queryConfig.maxRepairAttempts.');
+    }
+
+    const expectedRepairAttemptsRemaining = Math.max(0, repairBudgetMaxAttempts - repairBudgetAttemptsUsed);
+    if (repairBudgetAttemptsRemaining !== expectedRepairAttemptsRemaining) {
+      throw new Error('compact result input harness.repairBudget.attemptsRemaining must match maxAttempts minus attemptsUsed.');
+    }
+
+    if (repairBudgetExhausted !== (repairBudgetAttemptsRemaining === 0)) {
+      throw new Error('compact result input harness.repairBudget.exhausted must match remaining repair budget.');
+    }
+
     if ('turnTrace' in value.harness && !Array.isArray(value.harness.turnTrace)) {
       throw new Error('compact result input harness.turnTrace must be an array when present.');
     }

@@ -6620,6 +6620,12 @@ test('compact agent result contract validates shallow handoff shape', () => {
         turnsRemaining: 5,
         exhausted: false
       },
+      repairBudget: {
+        attemptsUsed: 0,
+        maxAttempts: 2,
+        attemptsRemaining: 2,
+        exhausted: false
+      },
       turnTrace: [],
       turnTraceBudget: {
         totalCount: 0,
@@ -6783,6 +6789,45 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.loopBudget\.exhausted/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        repairBudget: {
+          ...validResult.harness.repairBudget,
+          maxAttempts: 3
+        }
+      }
+    }),
+    /harness\.repairBudget\.maxAttempts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        repairBudget: {
+          ...validResult.harness.repairBudget,
+          attemptsRemaining: 1
+        }
+      }
+    }),
+    /harness\.repairBudget\.attemptsRemaining/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        repairBudget: {
+          ...validResult.harness.repairBudget,
+          exhausted: true
+        }
+      }
+    }),
+    /harness\.repairBudget\.exhausted/
   );
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, validation: {} }),

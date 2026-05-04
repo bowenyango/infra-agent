@@ -4347,6 +4347,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Repair Budget Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.repairBudget` attempts used, max attempts,
+  remaining attempts, and exhausted-state consistency.
+- Validate that `harness.repairBudget.maxAttempts` matches
+  `harness.queryConfig.maxRepairAttempts` so downstream agents can distinguish
+  retryable validation from manual-repair handoff.
+- Keep this as contract parsing only; no runtime output shape changes.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

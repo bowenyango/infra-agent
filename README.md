@@ -179,7 +179,8 @@ Current behavior is intentionally runtime-foundation oriented:
   consumers validate that it matches root `turnsUsed` and the query max-turns
   budget.
   `harness.repairBudget` reports bounded repair attempts used, max attempts,
-  remaining attempts, and whether the repair loop is exhausted.
+  remaining attempts, and whether the repair loop is exhausted; compact
+  consumers validate that it matches `harness.queryConfig.maxRepairAttempts`.
   `harness.stateSummary` reports runtime counts for observations, tools,
   writes, validation results/issues, approvals, retrieved context, and semantic
   facts without exposing the full runtime state.
