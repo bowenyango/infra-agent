@@ -3875,6 +3875,33 @@ Known validation:
 - `npm run test:unit` passed with 272 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Identity Conflict Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `validation.identityConflictSummary` with total, included,
+  omitted, max-entry, engine, and risk-category counts for runtime
+  exclusive-identity blockers.
+- Keep `validation.identityConflicts` as the capped detail sample while giving
+  downstream agents an authoritative count surface before identity triage.
+- Keep the summary explicitly read-only with `mutationAllowed=false` and add
+  optional contract validation when parsing compact result JSON.
+
+Known validation:
+
+- `npm run test:unit` passed with 273 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

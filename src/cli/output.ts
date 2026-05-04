@@ -65,6 +65,16 @@ import type { InfraGraphImpactReport } from './infra-graph-report.ts';
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
 type GraphImpactSummary = NonNullable<InfraGraph['summary']['impact']>;
 
+interface ValidationIdentityConflictAggregateSummary {
+  totalCount: number;
+  includedCount: number;
+  maxEntries: number;
+  omittedCount: number;
+  mutationAllowed: false;
+  byEngine: Record<ValidationIdentityConflictSummary['engine'], number>;
+  byRiskCategory: Record<IdentityConflictRiskCategory, number>;
+}
+
 interface ValidationDerivedSemanticBlocker {
   targetKind: string;
   targetPath: string;
@@ -262,6 +272,7 @@ export interface CompactAgentRunResult {
       validatorAvailable: boolean;
     }>;
     semanticBlockers: ValidationDerivedSemanticBlocker[];
+    identityConflictSummary: ValidationIdentityConflictAggregateSummary;
     identityConflicts: ValidationIdentityConflictSummary[];
     targetCommandCount: number;
     yamlGuardCount: number;
@@ -662,6 +673,7 @@ function isTerminalTurnAction(kind: string): boolean {
 
 const COMPACT_TOOL_TRACE_LIMIT = 8;
 const COMPACT_TURN_TRACE_LIMIT = 10;
+const COMPACT_IDENTITY_CONFLICT_LIMIT = 5;
 const COMPACT_VALIDATION_COMMAND_LIMIT = 8;
 const COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT = 5;
 const COMPACT_VALIDATION_ISSUE_GROUP_LIMIT = 8;
@@ -1155,7 +1167,43 @@ function formatApprovalSignal(signal: ApprovalSignal): string {
 }
 
 function collectValidationIdentityConflicts(state: AgentRunState): ValidationIdentityConflictSummary[] {
-  return collectRuntimeIdentityConflicts(state.runtime.validationIssues);
+  return collectRuntimeIdentityConflicts(state.runtime.validationIssues, COMPACT_IDENTITY_CONFLICT_LIMIT);
+}
+
+function collectValidationIdentityConflictSummary(
+  state: AgentRunState,
+  includedConflicts = collectValidationIdentityConflicts(state)
+): ValidationIdentityConflictAggregateSummary {
+  const allConflicts = collectRuntimeIdentityConflicts(
+    state.runtime.validationIssues,
+    state.runtime.validationIssues.length
+  );
+  const byEngine: ValidationIdentityConflictAggregateSummary['byEngine'] = {
+    pulumi: 0,
+    terraform: 0
+  };
+  const byRiskCategory: ValidationIdentityConflictAggregateSummary['byRiskCategory'] = {
+    'create-before-delete-ordering': 0,
+    'dns-or-domain-ownership': 0,
+    'exclusive-identity-review': 0,
+    'kubernetes-object-ownership': 0,
+    'physical-name-ownership': 0
+  };
+
+  for (const conflict of allConflicts) {
+    byEngine[conflict.engine] += 1;
+    byRiskCategory[normalizeIdentityConflictRiskCategory(conflict.riskCategory, conflict.conflictFamily)] += 1;
+  }
+
+  return {
+    totalCount: allConflicts.length,
+    includedCount: includedConflicts.length,
+    maxEntries: COMPACT_IDENTITY_CONFLICT_LIMIT,
+    omittedCount: Math.max(0, allConflicts.length - includedConflicts.length),
+    mutationAllowed: false,
+    byEngine,
+    byRiskCategory
+  };
 }
 
 function summarizeIdentityConflictReview(state: AgentRunState): string {
@@ -1699,6 +1747,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
   const targetValidationCount = getTargetValidationResults(state).length;
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
   const queryConfig = getAgentQueryConfig(state);
+  const identityConflicts = collectValidationIdentityConflicts(state);
 
   return {
     kind: 'infra-agent.agent-result',
@@ -1746,7 +1795,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       findings: summarizeValidationFindings(state),
       selectedPlan: collectSelectedValidationPlan(state),
       semanticBlockers: collectValidationDerivedSemanticBlockers(state).slice(0, 5),
-      identityConflicts: collectValidationIdentityConflicts(state),
+      identityConflictSummary: collectValidationIdentityConflictSummary(state, identityConflicts),
+      identityConflicts,
       targetCommandCount: targetValidationCount,
       yamlGuardCount,
       commands: collectValidationCommandSummaries(state),

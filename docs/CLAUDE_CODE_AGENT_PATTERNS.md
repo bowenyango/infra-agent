@@ -107,6 +107,9 @@ durable design reference for infra-agent development.
 - `validation.identityConflicts`, `runtimeIdentityConflicts`, and
   `identity-report` are blocker-specific handoff surfaces. They must remain
   review-only until a separate remediation planner and approval model exists.
+- `validation.identityConflictSummary` should carry total/included/omitted and
+  grouped counts because detail arrays are budgeted handoff samples, not
+  exhaustive incident inventories.
 - `impact-report` should carry source provenance for graph summaries so
   downstream agents can separate workspace-inspection facts from attached
   Terraform plan or Pulumi preview impact data without rerunning native tools.

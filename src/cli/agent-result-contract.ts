@@ -105,6 +105,21 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input must include validation.identityConflicts array.');
   }
 
+  if (isRecord(value.validation.identityConflictSummary)) {
+    for (const field of ['totalCount', 'includedCount', 'maxEntries', 'omittedCount']) {
+      if (field in value.validation.identityConflictSummary && !isNumber(value.validation.identityConflictSummary[field])) {
+        throw new Error(`compact result input validation.identityConflictSummary.${field} must be a number when present.`);
+      }
+    }
+
+    if (
+      'mutationAllowed' in value.validation.identityConflictSummary
+      && value.validation.identityConflictSummary.mutationAllowed !== false
+    ) {
+      throw new Error('compact result input validation.identityConflictSummary.mutationAllowed must be false when present.');
+    }
+  }
+
   if (isRecord(value.validation.commands) && 'entries' in value.validation.commands && !Array.isArray(value.validation.commands.entries)) {
     throw new Error('compact result input validation.commands.entries must be an array when present.');
   }

@@ -6281,6 +6281,13 @@ test('compact agent result contract validates shallow handoff shape', () => {
       safetyBlockers: {
         entries: []
       },
+      identityConflictSummary: {
+        totalCount: 1,
+        includedCount: 1,
+        maxEntries: 5,
+        omittedCount: 0,
+        mutationAllowed: false
+      },
       identityConflicts: [
         {
           engine: 'terraform',
@@ -6330,6 +6337,32 @@ test('compact agent result contract validates shallow handoff shape', () => {
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, validation: {} }),
     /validation\.identityConflicts array/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          totalCount: '1'
+        }
+      }
+    }),
+    /identityConflictSummary\.totalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          mutationAllowed: true
+        }
+      }
+    }),
+    /identityConflictSummary\.mutationAllowed/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -8312,6 +8345,8 @@ test('summarizeResultCard includes Pulumi validation findings for missing config
   assert.equal(compact.outcome, 'validation-blocked');
   assert.equal(compact.validation.semanticBlockers[0]?.path, 'config.payments-api:imageTag');
   assert.equal(compact.validation.semanticBlockers[0]?.sourceKind, 'pulumi-preview');
+  assert.equal(compact.validation.identityConflictSummary.totalCount, 0);
+  assert.equal(compact.validation.identityConflictSummary.mutationAllowed, false);
   assert.equal(compact.validation.identityConflicts.length, 0);
   assert.equal(compact.validation.issues[0]?.kind, 'pulumi-missing-config');
   assert.ok(compact.suggestedCommands.some(command => /validate/i.test(command)));
@@ -8412,6 +8447,12 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.ok(summary.some(line => /Identity review: Terraform locator aws_lb_listener_rule\.api; identity listenerRulePriorities=100; classify logical rename vs real replacement/i.test(line)));
 
   const compact = buildCompactAgentRunResult(state);
+  assert.equal(compact.validation.identityConflictSummary.totalCount, 1);
+  assert.equal(compact.validation.identityConflictSummary.includedCount, 1);
+  assert.equal(compact.validation.identityConflictSummary.omittedCount, 0);
+  assert.equal(compact.validation.identityConflictSummary.byEngine.terraform, 1);
+  assert.equal(compact.validation.identityConflictSummary.byRiskCategory['create-before-delete-ordering'], 1);
+  assert.equal(compact.validation.identityConflictSummary.mutationAllowed, false);
   assert.equal(compact.validation.identityConflicts.length, 1);
   assert.equal(compact.validation.identityConflicts[0]?.engine, 'terraform');
   assert.equal(compact.validation.identityConflicts[0]?.conflictCode, 'PriorityInUse');
@@ -8437,6 +8478,66 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
   assert.equal(report.incidents[0]?.mutationAllowed, false);
   assert.ok(compact.suggestedCommands.some(command => /agent .*--json > "agent-result\.json"/.test(command)));
   assert.ok(compact.suggestedCommands.some(command => /identity-report "agent-result\.json" --json/.test(command)));
+});
+
+test('compact agent result summarizes omitted identity conflict details', async () => {
+  const preflight = await buildRunPreflight('update terraform edge listener rule priority', 'fixtures/terraform-workspace');
+  const conflictFamilies = [
+    'aws-lb-listener-rule',
+    'aws-s3-bucket',
+    'aws-cloudfront-alias',
+    'aws-lb-listener-rule',
+    'aws-s3-bucket',
+    'aws-cloudfront-alias',
+    'aws-lb-listener-rule'
+  ];
+  const state = {
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: conflictFamilies.map((conflictFamily, index) => ({
+        kind: 'terraform-create-before-delete-conflict',
+        repairable: false,
+        sourceCommand: 'terraform -chdir=terraform/payments-api plan',
+        message: `identity conflict ${index}`,
+        guidance: 'Review ownership before retrying.',
+        metadata: {
+          conflictCode: `Conflict${index}`,
+          conflictFamily,
+          conflictLabel: `Conflict ${index}`,
+          resourceAddress: `aws_test_resource.example_${index}`,
+          resourceType: 'aws_test_resource',
+          duplicateIdentity: `resource-${index}`,
+          listenerRulePriorities: conflictFamily === 'aws-lb-listener-rule' ? `${100 + index}` : undefined,
+          dnsNames: conflictFamily === 'aws-cloudfront-alias' ? `api-${index}.example.com` : undefined
+        }
+      })),
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  };
+
+  const compact = buildCompactAgentRunResult(state);
+
+  assert.equal(compact.validation.identityConflicts.length, 5);
+  assert.equal(compact.validation.identityConflictSummary.totalCount, 7);
+  assert.equal(compact.validation.identityConflictSummary.includedCount, 5);
+  assert.equal(compact.validation.identityConflictSummary.maxEntries, 5);
+  assert.equal(compact.validation.identityConflictSummary.omittedCount, 2);
+  assert.equal(compact.validation.identityConflictSummary.byEngine.terraform, 7);
+  assert.equal(compact.validation.identityConflictSummary.byEngine.pulumi, 0);
+  assert.equal(compact.validation.identityConflictSummary.byRiskCategory['create-before-delete-ordering'], 3);
+  assert.equal(compact.validation.identityConflictSummary.byRiskCategory['physical-name-ownership'], 2);
+  assert.equal(compact.validation.identityConflictSummary.byRiskCategory['dns-or-domain-ownership'], 2);
+  assert.equal(compact.validation.identityConflictSummary.mutationAllowed, false);
 });
 
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {

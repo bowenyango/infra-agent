@@ -217,7 +217,9 @@ Current behavior is intentionally runtime-foundation oriented:
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity
   fields, risk category, review checklist, source command, and suggested
-  review action.
+  review action. `validation.identityConflictSummary` carries total, included,
+  omitted, engine, and risk-category counts so downstream agents do not treat
+  the capped `identityConflicts` detail list as exhaustive.
 - `identity-report` renders an existing compact `agent --json` result into a
   read-only `infra-agent.identity-conflict-report` for human operators or other
   agents. It consumes `validation.identityConflicts`; it does not rerun
