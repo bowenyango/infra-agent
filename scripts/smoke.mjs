@@ -54,6 +54,7 @@ async function writeIdentityConflictFixture(path) {
           identity: {
             listenerRulePriorities: '100'
           },
+          riskCategory: 'create-before-delete-ordering',
           reviewSteps: [
             'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.'
           ],

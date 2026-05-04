@@ -60,6 +60,7 @@ async function main() {
             identity: {
               listenerRulePriorities: '100'
             },
+            riskCategory: 'create-before-delete-ordering',
             reviewSteps: [
               'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.',
               'Confirm listener ARN and priority match the existing listener rule.'

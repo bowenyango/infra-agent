@@ -4278,6 +4278,28 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Smoke Fixture Identity Risk Category Slice
+
+Files added or updated:
+
+- `scripts/smoke.mjs`
+- `scripts/e2e.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Align smoke and e2e compact identity-conflict fixtures with the strict compact
+  result parser.
+- Add required `riskCategory` to fixture identity conflicts so
+  `identity-report` contract validation exercises current schema expectations.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `npm run smoke` passed.
+- `npm run e2e` passed.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:
