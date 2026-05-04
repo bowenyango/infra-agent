@@ -43,15 +43,23 @@ configured, but it must not expose API keys.
 4. Prefer `--json` when another agent will consume the result. This returns the
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. Read `harness.turnTrace` for the bounded
-   action flow and `harness.toolTrace` for budgeted recent tool summaries before
-   asking for raw logs. Read `harness.toolPermissionSummary` to separate
-   workspace writes, native CLI calls, and stack/state mutation-risk tools. Read
+   action flow, `harness.plannerHandoff` for the active blocker and next control
+   action, and `harness.toolTrace` for budgeted recent tool summaries before
+   asking for raw logs. Read `harness.repairBudget` before starting another
+   repair attempt. Read `harness.toolPermissionSummary` to separate workspace
+   writes, native CLI calls, and stack/state mutation-risk tools. Read
    `readiness` for planner mode, workspace blocker status, selected validation
    plan status, and validator availability required by that selected plan before
    asking for a full doctor report. If readiness is warn or fail, run the
    suggested read-only `doctorCommand` before asking for more raw logs. Read
    `knowledgeContext` to see which retrieved docs or schemas were included or
-   omitted by context budget. For replacement or duplicate-provider failures,
+   omitted by context budget; the human result card mirrors that packet, token,
+   and omission posture without exposing raw excerpts. Read
+   `validation.selectedPlan` for intended domain validators,
+   `validation.commands` for executed validation command summaries,
+   `validation.issueSummary` for grouped blocker posture, and
+   `validation.issueDetails` before assuming the sampled `validation.issues`
+   array is complete. For replacement or duplicate-provider failures,
    read `validation.identityConflicts` before raw stderr or long guidance
    strings; it can include Terraform `resourceAddress` and Pulumi
    `resourceName` locators, `riskCategory` triage grouping, and `reviewSteps`
@@ -70,7 +78,8 @@ configured, but it must not expose API keys.
    `5` no-safe-action, `6` repair-budget-exhausted, and `7` `run` preflight
    blockers. `1` remains fatal CLI/runtime failure.
 5. If the result asks for approval, do not work around it. Ask the user or rerun
-   with the requested approval flags only when the user has approved that scope.
+   with the requested approval flags from `approval.resume` only when the user
+   has approved that scope.
 6. If validation fails, use the structured failure and suggested next action
    before making any manual change.
 7. Never run `terraform apply`, `pulumi up`, or deployment commands as part of

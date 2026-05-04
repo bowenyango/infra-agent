@@ -3849,6 +3849,30 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Infra Skill Compact Handoff Alignment Slice
+
+Files added or updated:
+
+- `skills/infra-configuration/SKILL.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Align the packaged infra configuration skill with the current compact
+  `infra-agent.agent-result` handoff surface.
+- Tell downstream agents to read `harness.plannerHandoff`,
+  `harness.repairBudget`, `validation.selectedPlan`, `validation.commands`,
+  `validation.issueSummary`, `validation.issueDetails`, `approval.resume`, and
+  `knowledgeContext` before asking for raw logs or full runtime state.
+- Add package-surface coverage so the shipped skill continues to mention the
+  compact handoff fields other agents need.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Compact Validation Issue Details Slice
 
 Files added or updated:

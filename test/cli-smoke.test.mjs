@@ -5579,6 +5579,7 @@ test('CLI exit codes map agent outcomes for downstream agents', async () => {
 test('package metadata exposes only the installable CLI and skill surface', async () => {
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
   const binContent = await readFile('bin/infra-agent.js', 'utf8');
+  const infraSkillContent = await readFile('skills/infra-configuration/SKILL.md', 'utf8');
 
   assert.equal(packageJson.bin?.['infra-agent'], './bin/infra-agent.js');
   assert.equal(packageJson.engines?.node, '>=24.0.0');
@@ -5597,6 +5598,14 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.ok(!packageJson.files.includes('docs/HANDOFF.md'));
   assert.match(binContent, /cwd:\s*process\.cwd\(\)/);
   assert.doesNotMatch(binContent, /cwd:\s*projectRoot/);
+  assert.match(infraSkillContent, /harness\.plannerHandoff/);
+  assert.match(infraSkillContent, /harness\.repairBudget/);
+  assert.match(infraSkillContent, /validation\.selectedPlan/);
+  assert.match(infraSkillContent, /validation\.commands/);
+  assert.match(infraSkillContent, /validation\.issueSummary/);
+  assert.match(infraSkillContent, /validation\.issueDetails/);
+  assert.match(infraSkillContent, /approval\.resume/);
+  assert.match(infraSkillContent, /knowledgeContext/);
 });
 
 test('prefetch CLI args accept bounded source selection flags', () => {
