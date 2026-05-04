@@ -3895,6 +3895,30 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Compact Contract Hardening Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Harden shallow compact `infra-agent.agent-result` validation for newer
+  handoff blocks.
+- Validate `harness.stateSummary` count values, `validation.commands.entries`,
+  `validation.issueSummary.groups`, and `approval.resume.continuationRequired`
+  when those compact blocks are present.
+- Keep the parser dependency-free and shallow, preserving compact result
+  validation without introducing JSON Schema.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-03 Compact Turn Trace Budget Slice
 
 Files added or updated:

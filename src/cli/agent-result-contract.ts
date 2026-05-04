@@ -37,6 +37,10 @@ function isKnownPlannerHandoffNextControlAction(value: unknown): boolean {
     && PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS.includes(value as typeof PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS[number]);
 }
 
+function isNumber(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResult {
   if (!isRecord(value) || value.kind !== 'infra-agent.agent-result') {
     throw new Error('compact result input must be a compact infra-agent.agent-result JSON payload.');
@@ -53,6 +57,22 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   if (isRecord(value.harness)) {
     if ('turnTrace' in value.harness && !Array.isArray(value.harness.turnTrace)) {
       throw new Error('compact result input harness.turnTrace must be an array when present.');
+    }
+
+    if (isRecord(value.harness.stateSummary)) {
+      const countKeys = [
+        'observationCount',
+        'toolSummaryCount',
+        'appliedWriteCount',
+        'validationResultCount',
+        'validationIssueCount',
+        'approvalSignalCount',
+        'retrievedContextCount',
+        'semanticFactCount'
+      ];
+      if (countKeys.some(key => key in value.harness.stateSummary && !isNumber(value.harness.stateSummary[key]))) {
+        throw new Error('compact result input harness.stateSummary counts must be numbers when present.');
+      }
     }
 
     if (
@@ -85,6 +105,18 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input must include validation.identityConflicts array.');
   }
 
+  if (isRecord(value.validation.commands) && 'entries' in value.validation.commands && !Array.isArray(value.validation.commands.entries)) {
+    throw new Error('compact result input validation.commands.entries must be an array when present.');
+  }
+
+  if (
+    isRecord(value.validation.issueSummary)
+    && 'groups' in value.validation.issueSummary
+    && !Array.isArray(value.validation.issueSummary.groups)
+  ) {
+    throw new Error('compact result input validation.issueSummary.groups must be an array when present.');
+  }
+
   for (let index = 0; index < value.validation.identityConflicts.length; index += 1) {
     const conflict = value.validation.identityConflicts[index];
     if (!isRecord(conflict)) {
@@ -98,6 +130,15 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     if (!Array.isArray(conflict.reviewSteps)) {
       throw new Error(`compact result conflict at index ${index} must include reviewSteps array.`);
     }
+  }
+
+  if (
+    isRecord(value.approval)
+    && isRecord(value.approval.resume)
+    && 'continuationRequired' in value.approval.resume
+    && typeof value.approval.resume.continuationRequired !== 'boolean'
+  ) {
+    throw new Error('compact result input approval.resume.continuationRequired must be a boolean when present.');
   }
 
   return value as unknown as CompactAgentRunResult;

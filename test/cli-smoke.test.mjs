@@ -5678,6 +5678,12 @@ test('compact agent result contract validates shallow handoff shape', () => {
     schemaVersion: 1,
     outcome: 'validation-blocked',
     validation: {
+      commands: {
+        entries: []
+      },
+      issueSummary: {
+        groups: []
+      },
       identityConflicts: [
         {
           engine: 'terraform',
@@ -5688,6 +5694,9 @@ test('compact agent result contract validates shallow handoff shape', () => {
     },
     harness: {
       turnTrace: [],
+      stateSummary: {
+        validationIssueCount: 1
+      },
       toolTrace: {
         entries: []
       },
@@ -5700,6 +5709,11 @@ test('compact agent result contract validates shallow handoff shape', () => {
     },
     readiness: {
       checks: []
+    },
+    approval: {
+      resume: {
+        continuationRequired: false
+      }
     }
   };
 
@@ -5735,6 +5749,17 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        stateSummary: {
+          validationIssueCount: '1'
+        }
+      }
+    }),
+    /harness\.stateSummary/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
         plannerHandoff: {
           activeBlocker: {
             kind: 'unexpected'
@@ -5758,6 +5783,41 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /plannerHandoff\.nextControlAction/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        identityConflicts: [],
+        commands: {
+          entries: {}
+        }
+      }
+    }),
+    /validation\.commands\.entries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        identityConflicts: [],
+        issueSummary: {
+          groups: {}
+        }
+      }
+    }),
+    /validation\.issueSummary\.groups/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        resume: {
+          continuationRequired: 'yes'
+        }
+      }
+    }),
+    /approval\.resume\.continuationRequired/
   );
 });
 

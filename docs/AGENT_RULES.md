@@ -157,8 +157,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Compact `infra-agent.agent-result` consumers must validate the shallow
   handoff contract before deriving secondary reports. Check `kind`,
   `schemaVersion`, known `outcome`, compact trace array shape, readiness check
-  array shape when present, and `validation.identityConflicts` before treating
-  the payload as an agent result.
+  array shape when present, `harness.stateSummary` counts,
+  `validation.commands`, `validation.issueSummary`, `approval.resume`, and
+  `validation.identityConflicts` before treating the payload as an agent
+  result.
 - Keep compact `agent --json` readiness targeted: include planner mode, workspace blocker status, selected validation-plan status, and validators required by that selected plan, plus a `doctorCommand` for fuller read-only checks. Do not include API keys or unrelated validator noise.
 - Surface readiness posture in result cards, and include the read-only
   `doctorCommand` in suggested commands when readiness is warn or fail. Do not
