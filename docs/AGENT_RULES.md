@@ -168,6 +168,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   Validate supported lifecycle event names, numeric event counts, total =
   included + omitted invariants, and the supported `turnTraceBudget`
   `preservedWindow` value before deriving secondary reports.
+- Validate compact `harness.turnTrace` entries before deriving follow-up work:
+  supported action/family/stop/clarification/status enums, string summaries,
+  boolean terminal flags, non-negative count fields, stop-reason coherence, and
+  clarification-kind coherence. Also validate that trace length, first/last
+  included indexes, `turnTraceLimit`, and `turnTraceOmittedCount` agree with
+  `harness.turnTraceBudget`.
 - Treat compact query and loop budgets as contract data. Validate positive
   max-turn and retrieved-context budget integers, non-negative repair attempts,
   root `turnsUsed` consistency, remaining-turn arithmetic, and exhausted-state

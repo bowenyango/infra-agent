@@ -1,5 +1,27 @@
 import type { CompactAgentRunResult } from './output.ts';
-import { AGENT_RUN_OUTCOMES } from '../types/agent.ts';
+import { AGENT_ACTION_FAMILIES, AGENT_RUN_OUTCOMES } from '../types/agent.ts';
+const AGENT_ACTION_KINDS = [
+  'ask-for-clarification',
+  'inspect-target-files',
+  'apply-edit-plan',
+  'repair-terraform-formatting',
+  'validate-targets',
+  'stop'
+] as const;
+const AGENT_CONFIDENCE_LEVELS = ['low', 'medium', 'high'] as const;
+const AGENT_DECISION_EXECUTION_STATUSES = ['completed', 'skipped'] as const;
+const AGENT_STOP_REASONS = [
+  'validation-succeeded',
+  'validation-blocked',
+  'repair-budget-exhausted',
+  'no-safe-action'
+] as const;
+const AGENT_CLARIFICATION_KINDS = [
+  'approval-required',
+  'target-ambiguity',
+  'workspace-policy',
+  'general'
+] as const;
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
   'none',
   'approval',
@@ -41,6 +63,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isKnownAgentResultOutcome(value: unknown): boolean {
   return typeof value === 'string' && AGENT_RUN_OUTCOMES.includes(value as typeof AGENT_RUN_OUTCOMES[number]);
+}
+
+function isKnownAgentActionKind(value: unknown): boolean {
+  return typeof value === 'string' && AGENT_ACTION_KINDS.includes(value as typeof AGENT_ACTION_KINDS[number]);
+}
+
+function isKnownAgentActionFamily(value: unknown): boolean {
+  return typeof value === 'string' && AGENT_ACTION_FAMILIES.includes(value as typeof AGENT_ACTION_FAMILIES[number]);
+}
+
+function isKnownAgentConfidence(value: unknown): boolean {
+  return typeof value === 'string' && AGENT_CONFIDENCE_LEVELS.includes(value as typeof AGENT_CONFIDENCE_LEVELS[number]);
+}
+
+function isKnownAgentDecisionExecutionStatus(value: unknown): boolean {
+  return typeof value === 'string'
+    && AGENT_DECISION_EXECUTION_STATUSES.includes(value as typeof AGENT_DECISION_EXECUTION_STATUSES[number]);
+}
+
+function isKnownAgentStopReason(value: unknown): boolean {
+  return typeof value === 'string' && AGENT_STOP_REASONS.includes(value as typeof AGENT_STOP_REASONS[number]);
+}
+
+function isKnownAgentClarificationKind(value: unknown): boolean {
+  return typeof value === 'string'
+    && AGENT_CLARIFICATION_KINDS.includes(value as typeof AGENT_CLARIFICATION_KINDS[number]);
 }
 
 function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
@@ -322,10 +370,89 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.turnTrace must be an array when present.');
     }
 
+    if (Array.isArray(value.harness.turnTrace)) {
+      for (let index = 0; index < value.harness.turnTrace.length; index += 1) {
+        const entry = value.harness.turnTrace[index];
+        const entryPath = `harness.turnTrace[${index}]`;
+
+        if (!isRecord(entry)) {
+          throw new Error(`compact result input ${entryPath} must be an object.`);
+        }
+
+        assertIntegerField(entry, 'index', entryPath, isNonNegativeInteger, 'a non-negative integer');
+
+        if (!isKnownAgentActionKind(entry.actionKind)) {
+          throw new Error(`compact result input ${entryPath}.actionKind must be supported.`);
+        }
+
+        if (entry.actionFamily !== null && !isKnownAgentActionFamily(entry.actionFamily)) {
+          throw new Error(`compact result input ${entryPath}.actionFamily must be supported or null.`);
+        }
+
+        if (!isKnownAgentConfidence(entry.confidence)) {
+          throw new Error(`compact result input ${entryPath}.confidence must be supported.`);
+        }
+
+        if (typeof entry.summary !== 'string') {
+          throw new Error(`compact result input ${entryPath}.summary must be a string.`);
+        }
+
+        if (typeof entry.terminal !== 'boolean') {
+          throw new Error(`compact result input ${entryPath}.terminal must be a boolean.`);
+        }
+
+        if (entry.executionStatus !== null && !isKnownAgentDecisionExecutionStatus(entry.executionStatus)) {
+          throw new Error(`compact result input ${entryPath}.executionStatus must be supported or null.`);
+        }
+
+        if (!isStringOrNull(entry.executionReason)) {
+          throw new Error(`compact result input ${entryPath}.executionReason must be string or null.`);
+        }
+
+        for (const field of ['executedToolCount', 'changedFileCount', 'validationIssueCount', 'approvalSignalCount']) {
+          assertIntegerField(entry, field, entryPath, isNonNegativeInteger, 'a non-negative integer');
+        }
+
+        if (entry.stopReason !== null && !isKnownAgentStopReason(entry.stopReason)) {
+          throw new Error(`compact result input ${entryPath}.stopReason must be supported or null.`);
+        }
+
+        if (entry.clarificationKind !== null && !isKnownAgentClarificationKind(entry.clarificationKind)) {
+          throw new Error(`compact result input ${entryPath}.clarificationKind must be supported or null.`);
+        }
+
+        if (entry.actionKind === 'stop' && entry.stopReason === null) {
+          throw new Error(`compact result input ${entryPath}.stopReason is required for stop actions.`);
+        }
+
+        if (entry.actionKind !== 'stop' && entry.stopReason !== null) {
+          throw new Error(`compact result input ${entryPath}.stopReason must be null unless actionKind is stop.`);
+        }
+
+        if (entry.actionKind === 'ask-for-clarification' && entry.clarificationKind === null) {
+          throw new Error(`compact result input ${entryPath}.clarificationKind is required for clarification actions.`);
+        }
+
+        if (entry.actionKind !== 'ask-for-clarification' && entry.clarificationKind !== null) {
+          throw new Error(`compact result input ${entryPath}.clarificationKind must be null unless actionKind asks for clarification.`);
+        }
+      }
+    }
+
     if (isRecord(value.harness.turnTraceBudget)) {
-      for (const field of ['totalCount', 'includedCount', 'omittedCount']) {
-        if (field in value.harness.turnTraceBudget && !isNumber(value.harness.turnTraceBudget[field])) {
-          throw new Error(`compact result input harness.turnTraceBudget.${field} must be a number when present.`);
+      for (const field of ['maxEntries', 'totalCount', 'includedCount', 'omittedCount']) {
+        if (field in value.harness.turnTraceBudget && !isNonNegativeInteger(value.harness.turnTraceBudget[field])) {
+          throw new Error(`compact result input harness.turnTraceBudget.${field} must be a non-negative integer when present.`);
+        }
+      }
+
+      for (const field of ['firstIncludedTurnIndex', 'lastIncludedTurnIndex']) {
+        if (
+          field in value.harness.turnTraceBudget
+          && value.harness.turnTraceBudget[field] !== null
+          && !isNonNegativeInteger(value.harness.turnTraceBudget[field])
+        ) {
+          throw new Error(`compact result input harness.turnTraceBudget.${field} must be a non-negative integer or null when present.`);
         }
       }
 
@@ -341,6 +468,72 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         && !hasConsistentCountSet(value.harness.turnTraceBudget)
       ) {
         throw new Error('compact result input harness.turnTraceBudget counts must be consistent when present.');
+      }
+
+      if (
+        isNonNegativeInteger(value.harness.turnTraceBudget.includedCount)
+        && isNonNegativeInteger(value.harness.turnTraceBudget.maxEntries)
+        && (value.harness.turnTraceBudget.includedCount as number) > (value.harness.turnTraceBudget.maxEntries as number)
+      ) {
+        throw new Error('compact result input harness.turnTraceBudget.includedCount must not exceed maxEntries.');
+      }
+    }
+
+    if ('turnTraceLimit' in value.harness && !isNonNegativeInteger(value.harness.turnTraceLimit)) {
+      throw new Error('compact result input harness.turnTraceLimit must be a non-negative integer when present.');
+    }
+
+    if ('turnTraceOmittedCount' in value.harness && !isNonNegativeInteger(value.harness.turnTraceOmittedCount)) {
+      throw new Error('compact result input harness.turnTraceOmittedCount must be a non-negative integer when present.');
+    }
+
+    if (Array.isArray(value.harness.turnTrace) && isRecord(value.harness.turnTraceBudget)) {
+      const turnTrace = value.harness.turnTrace;
+
+      if (
+        isNonNegativeInteger(value.harness.turnTraceBudget.includedCount)
+        && value.harness.turnTraceBudget.includedCount !== turnTrace.length
+      ) {
+        throw new Error('compact result input harness.turnTraceBudget.includedCount must match turnTrace length when present.');
+      }
+
+      if (
+        isNonNegativeInteger(value.harness.turnTraceLimit)
+        && isNonNegativeInteger(value.harness.turnTraceBudget.maxEntries)
+        && value.harness.turnTraceLimit !== value.harness.turnTraceBudget.maxEntries
+      ) {
+        throw new Error('compact result input harness.turnTraceLimit must match harness.turnTraceBudget.maxEntries.');
+      }
+
+      if (
+        isNonNegativeInteger(value.harness.turnTraceOmittedCount)
+        && isNonNegativeInteger(value.harness.turnTraceBudget.omittedCount)
+        && value.harness.turnTraceOmittedCount !== value.harness.turnTraceBudget.omittedCount
+      ) {
+        throw new Error('compact result input harness.turnTraceOmittedCount must match harness.turnTraceBudget.omittedCount.');
+      }
+
+      if (
+        turnTrace.length === 0
+        && (
+          value.harness.turnTraceBudget.firstIncludedTurnIndex !== null
+          || value.harness.turnTraceBudget.lastIncludedTurnIndex !== null
+        )
+      ) {
+        throw new Error('compact result input harness.turnTraceBudget included turn indexes must be null when turnTrace is empty.');
+      }
+
+      if (turnTrace.length > 0) {
+        const firstTurnIndex = (turnTrace[0] as Record<string, unknown>).index;
+        const lastTurnIndex = (turnTrace[turnTrace.length - 1] as Record<string, unknown>).index;
+
+        if (value.harness.turnTraceBudget.firstIncludedTurnIndex !== firstTurnIndex) {
+          throw new Error('compact result input harness.turnTraceBudget.firstIncludedTurnIndex must match first turnTrace entry.');
+        }
+
+        if (value.harness.turnTraceBudget.lastIncludedTurnIndex !== lastTurnIndex) {
+          throw new Error('compact result input harness.turnTraceBudget.lastIncludedTurnIndex must match last turnTrace entry.');
+        }
       }
     }
 

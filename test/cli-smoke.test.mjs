@@ -6626,13 +6626,35 @@ test('compact agent result contract validates shallow handoff shape', () => {
         attemptsRemaining: 2,
         exhausted: false
       },
-      turnTrace: [],
       turnTraceBudget: {
-        totalCount: 0,
-        includedCount: 0,
+        maxEntries: 5,
+        totalCount: 1,
+        includedCount: 1,
         omittedCount: 0,
+        firstIncludedTurnIndex: 0,
+        lastIncludedTurnIndex: 0,
         preservedWindow: 'head'
       },
+      turnTraceLimit: 5,
+      turnTraceOmittedCount: 0,
+      turnTrace: [
+        {
+          index: 0,
+          actionKind: 'stop',
+          actionFamily: 'validation-blocked',
+          confidence: 'high',
+          summary: 'Validation blocked by an exclusive identity conflict.',
+          terminal: true,
+          executionStatus: null,
+          executionReason: null,
+          executedToolCount: 0,
+          stopReason: 'validation-blocked',
+          clarificationKind: null,
+          changedFileCount: 0,
+          validationIssueCount: 1,
+          approvalSignalCount: 0
+        }
+      ],
       stateSummary: {
         validationIssueCount: 1
       },
@@ -6982,6 +7004,84 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.turnTraceBudget counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        turnTrace: [
+          {
+            ...validResult.harness.turnTrace[0],
+            actionKind: 'unexpected'
+          }
+        ]
+      }
+    }),
+    /harness\.turnTrace\[0\]\.actionKind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        turnTrace: [
+          {
+            ...validResult.harness.turnTrace[0],
+            executedToolCount: -1
+          }
+        ]
+      }
+    }),
+    /harness\.turnTrace\[0\]\.executedToolCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        turnTraceBudget: {
+          ...validResult.harness.turnTraceBudget,
+          totalCount: 1,
+          includedCount: 0,
+          omittedCount: 1
+        }
+      }
+    }),
+    /harness\.turnTraceBudget\.includedCount must match turnTrace length/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        turnTraceLimit: 4
+      }
+    }),
+    /harness\.turnTraceLimit/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        turnTraceOmittedCount: 1
+      }
+    }),
+    /harness\.turnTraceOmittedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        turnTraceBudget: {
+          ...validResult.harness.turnTraceBudget,
+          firstIncludedTurnIndex: 1
+        }
+      }
+    }),
+    /harness\.turnTraceBudget\.firstIncludedTurnIndex/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

@@ -173,7 +173,9 @@ Current behavior is intentionally runtime-foundation oriented:
   count, and approval signal count without exposing full runtime snapshots. The
   companion `harness.turnTraceBudget`, `harness.turnTraceLimit`, and
   `harness.turnTraceOmittedCount` fields make the trace window and omitted
-  count explicit for downstream handoff.
+  count explicit for downstream handoff. Compact consumers validate turn-trace
+  entry enums, count fields, included-index links, and budget/legacy count
+  consistency.
   `harness.loopBudget` reports turns used, max turns, remaining turns, and
   whether the loop stopped because the turn budget was exhausted; compact
   consumers validate that it matches root `turnsUsed` and the query max-turns

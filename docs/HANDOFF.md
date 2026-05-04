@@ -4371,6 +4371,32 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Turn Trace Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.turnTrace` entry objects with supported
+  action/family/status/stop/clarification enums, string summaries, boolean
+  terminal flags, and non-negative count fields.
+- Validate stop-reason and clarification-kind coherence for turn trace entries.
+- Validate turn-trace budget links: included count matches entry count,
+  first/last included indexes match entries, and legacy
+  `turnTraceLimit`/`turnTraceOmittedCount` match `turnTraceBudget`.
+- Keep this as contract parsing only; no runtime output shape changes.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:
