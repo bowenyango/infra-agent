@@ -4253,6 +4253,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Infra Skill Handoff Contract Alignment Slice
+
+Files added or updated:
+
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Align the bundled infra-configuration skill with the latest compact
+  handoff contract surfaces.
+- Document `harness.turnTraceBudget`, `harness.lifecycleEvents`,
+  `validation.identityConflictSummary`, planner
+  `runtimeIdentityConflictSummary`, identity-report contract validation,
+  graph `summary.sourceProvenance`, and graph impact `reviewTargetBudget`.
+- Extend the package-surface smoke test so skill content must keep mentioning
+  these handoff fields.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

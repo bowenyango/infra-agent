@@ -150,6 +150,10 @@ Current implemented source:
   action family, terminal status, execution status, tool count, changed-file
   count, validation issue count, and approval signal count without full runtime
   snapshots.
+- `harness.turnTraceBudget` and `harness.lifecycleEvents` describe the preserved
+  turn/lifecycle windows with total, included, omitted, and event-kind counts.
+  Treat these as contract fields; unsupported lifecycle event names or
+  inconsistent counts should block secondary reports.
 - Compact `agent --json` also includes `harness.toolTrace`, a bounded list of
   recent deterministic tool summaries with `omittedCount`. Prefer it over full
   tool result payloads when deciding what happened in the run.
@@ -211,6 +215,10 @@ Current implemented source:
   it includes the engine, issue kind, conflict code/family/label, resource type,
   IaC locator fields, parsed identity fields, `riskCategory`, suggested review
   action, and source command without requiring raw stderr parsing.
+- `validation.identityConflictSummary` is the authoritative count surface for
+  runtime exclusive-identity blockers. Check total, included, omitted, engine,
+  and risk-category counts before treating the sampled conflict array as
+  exhaustive.
 - `validation.identityConflicts[].riskCategory` groups incidents for triage.
   Treat `create-before-delete-ordering`, `dns-or-domain-ownership`,
   `physical-name-ownership`, `kubernetes-object-ownership`, and
@@ -229,16 +237,19 @@ Current implemented source:
   incident carries `mutationAllowed=false`; the report is triage context, not a
   remediation approval. The input must be compact `infra-agent.agent-result`
   JSON with `schemaVersion=1` and `validation.identityConflicts`, not graph
-  JSON, full debug state, or native plan/preview output.
+  JSON, full debug state, or native plan/preview output. The report output is
+  contract-checked for source schema, incident count consistency, engine/risk
+  grouped counts, string-valued identities, and `mutationAllowed=false`.
 - Runtime exclusive-identity blockers may add suggested commands that export
   compact agent JSON to `agent-result.json` and render it through
   `identity-report`. Treat this as a read-only handoff path for incident
   reporting.
-- Planner prompts expose the same runtime blockers as `runtimeIdentityConflicts`
-  so an LLM planner can use `riskCategory`, locators, parsed identity, and
-  review steps without reading raw provider stderr. This field is still
-  review-only blocker context and must not authorize state, stack, DNS,
-  Kubernetes ownership, deletion, or sequencing changes.
+- Planner prompts expose the same runtime blockers as
+  `runtimeIdentityConflictSummary` plus sampled `runtimeIdentityConflicts` so
+  an LLM planner can see capped counts, `riskCategory`, locators, parsed
+  identity, and review steps without reading raw provider stderr. These fields
+  are still review-only blocker context and must not authorize state, stack,
+  DNS, Kubernetes ownership, deletion, or sequencing changes.
 - Terraform tfvars edit plans use extracted `type-constraint` facts when
   rendering scalar values.
 - Result cards expose validation-derived Pulumi preview `required-field`
@@ -278,12 +289,20 @@ Current graph foundation:
   planned changes, dependency edges, possible renames, and replacement
   cascades, plus create-before-delete conflict warnings. `summary.impact` also
   includes `riskLevel`, `primaryConcern`, `recommendedAction`, and review-only
-  `reviewSteps`, prioritized `reviewTargets`, and `omittedReviewTargets`, with
-  `mutationAllowed=false`, so downstream agents can route high-risk ordering
-  conflicts without reimplementing graph heuristics. Each compact review target
-  also carries per-target `priority`, `mutationAllowed=false`,
-  `recommendedAction`, `riskCategory`, and `reviewSteps`; prefer them when
-  deciding the next review queue before loading complete edge lists.
+  `reviewSteps`, prioritized `reviewTargets`, `reviewTargetBudget`, and
+  `omittedReviewTargets`, with `mutationAllowed=false`, so downstream agents can
+  route high-risk ordering conflicts without reimplementing graph heuristics.
+  Each compact review target also carries per-target `priority`,
+  `mutationAllowed=false`, `recommendedAction`, `riskCategory`, and
+  `reviewSteps`; prefer them when deciding the next review queue before loading
+  complete edge lists.
+- Graph JSON includes `summary.sourceProvenance` so downstream agents can tell
+  whether nodes/edges came from workspace inspection, Terraform plan JSON,
+  Pulumi preview JSON, or a mix of sources.
+- Use `infra-agent impact-report <graph.json> --json` when another agent only
+  needs blast-radius context. The derived report preserves source provenance,
+  impact counts, capped review-target budgets, omitted review targets, and
+  `mutationAllowed=false` without requiring raw graph traversal.
 - Base graph nodes and containment/configuration edges are derived from
   workspace inspection facts; plan/preview impact data is attached only when
   explicitly supplied.

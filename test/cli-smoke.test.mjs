@@ -6024,11 +6024,17 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.doesNotMatch(binContent, /cwd:\s*projectRoot/);
   assert.match(infraSkillContent, /harness\.plannerHandoff/);
   assert.match(infraSkillContent, /harness\.repairBudget/);
+  assert.match(infraSkillContent, /harness\.turnTraceBudget/);
+  assert.match(infraSkillContent, /harness\.lifecycleEvents/);
   assert.match(infraSkillContent, /validation\.selectedPlan/);
   assert.match(infraSkillContent, /validation\.commands/);
   assert.match(infraSkillContent, /validation\.issueSummary/);
   assert.match(infraSkillContent, /validation\.issueDetails/);
   assert.match(infraSkillContent, /validation\.safetyBlockers/);
+  assert.match(infraSkillContent, /validation\.identityConflictSummary/);
+  assert.match(infraSkillContent, /runtimeIdentityConflictSummary/);
+  assert.match(infraSkillContent, /summary\.sourceProvenance/);
+  assert.match(infraSkillContent, /reviewTargetBudget/);
   assert.match(infraSkillContent, /approval\.resume/);
   assert.match(infraSkillContent, /knowledgeContext/);
 });

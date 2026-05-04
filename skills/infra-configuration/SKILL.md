@@ -44,10 +44,12 @@ configured, but it must not expose API keys.
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. Read `harness.turnTrace` for the bounded
    action flow, `harness.plannerHandoff` for the active blocker and next control
-   action, and `harness.toolTrace` for budgeted recent tool summaries before
-   asking for raw logs. Read `harness.repairBudget` before starting another
-   repair attempt. Read `harness.toolPermissionSummary` to separate workspace
-   writes, native CLI calls, and stack/state mutation-risk tools. Read
+   action, `harness.turnTraceBudget` and `harness.lifecycleEvents` for capped
+   lifecycle window/count metadata, and `harness.toolTrace` for budgeted recent
+   tool summaries before asking for raw logs. Read `harness.repairBudget`
+   before starting another repair attempt. Read `harness.toolPermissionSummary`
+   to separate workspace writes, native CLI calls, and stack/state mutation-risk
+   tools. Read
    `readiness` for planner mode, workspace blocker status, selected validation
    plan status, and validator availability required by that selected plan before
    asking for a full doctor report. If readiness is warn or fail, run the
@@ -62,19 +64,28 @@ configured, but it must not expose API keys.
    array is complete. Read `validation.safetyBlockers` first when unsafe
    validation commands or YAML syntax gates are present. For replacement or
    duplicate-provider failures,
-   read `validation.identityConflicts` before raw stderr or long guidance
-   strings; it can include Terraform `resourceAddress` and Pulumi
+   read `validation.identityConflictSummary` and
+   `validation.identityConflicts` before raw stderr or long guidance strings.
+   The summary is the authoritative total/included/omitted count surface; the
+   conflict array is a capped sample with Terraform `resourceAddress` and Pulumi
    `resourceName` locators, `riskCategory` triage grouping, and `reviewSteps`
    for rename vs replacement triage.
    Use `infra-agent identity-report <agent-result.json>` when you need a
    focused read-only incident report from an existing compact result; do not
    pass graph JSON, full debug state, native plan/preview JSON, or raw logs.
    The input must be compact `infra-agent.agent-result` schema version 1.
-   LLM planner prompts may include the same blockers as
+   The generated `infra-agent.identity-conflict-report` is also contract-checked
+   for count consistency and `mutationAllowed=false`. LLM planner prompts may
+   include the same blockers as `runtimeIdentityConflictSummary` and
    `runtimeIdentityConflicts`; treat those fields as read-only triage context.
    If `suggestedCommands` includes an `agent --json > agent-result.json` export
    followed by `identity-report agent-result.json --json`, use it as a
    read-only reporting path.
+   Use `infra-agent impact-report <graph.json> --json` for a read-only graph
+   impact handoff. Prefer `summary.sourceProvenance`,
+   `summary.impact.reviewTargetBudget`, omitted review target counts, and
+   `mutationAllowed=false` over raw graph traversal when deciding what another
+   agent should inspect next.
    Also treat the process exit code as control-flow metadata: `0` succeeded,
    `2` validation-blocked, `3` approval-required, `4` clarification-required,
    `5` no-safe-action, `6` repair-budget-exhausted, and `7` `run` preflight
