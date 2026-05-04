@@ -6176,6 +6176,17 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           maxEntries: 5,
           omittedCount: 0
         },
+        issues: [
+          {
+            kind: 'terraform-create-before-delete-conflict',
+            repairable: false,
+            message: 'Listener rule priority is already in use.',
+            guidance: 'Review Terraform listener rule ownership before changing the priority.',
+            metadata: {
+              listenerRulePriorities: '100'
+            }
+          }
+        ],
         safetyBlockers: {
           maxEntries: 5,
           omittedCount: 0,
@@ -6643,6 +6654,17 @@ test('compact agent result contract validates shallow handoff shape', () => {
         maxEntries: 5,
         omittedCount: 0
       },
+      issues: [
+        {
+          kind: 'terraform-create-before-delete-conflict',
+          repairable: false,
+          message: 'Listener rule priority is already in use.',
+          guidance: 'Review Terraform listener rule ownership before changing the priority.',
+          metadata: {
+            listenerRulePriorities: '100'
+          }
+        }
+      ],
       safetyBlockers: {
         maxEntries: 5,
         omittedCount: 0,
@@ -7316,6 +7338,138 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /validation\.issueDetails\.omittedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issues: {}
+      }
+    }),
+    /validation\.issues array/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueDetails: {
+          ...validResult.validation.issueDetails,
+          maxEntries: 0
+        }
+      }
+    }),
+    /validation\.issues length/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          omittedIssueCount: 1
+        },
+        issueDetails: {
+          ...validResult.validation.issueDetails,
+          omittedCount: 1
+        }
+      }
+    }),
+    /validation\.issues length plus omitted count/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issues: [
+          {
+            ...validResult.validation.issues[0],
+            kind: 'unexpected'
+          }
+        ]
+      }
+    }),
+    /validation\.issues\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issues: [
+          {
+            ...validResult.validation.issues[0],
+            repairable: 'no'
+          }
+        ]
+      }
+    }),
+    /validation\.issues\[0\]\.repairable/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issues: [
+          {
+            ...validResult.validation.issues[0],
+            message: ''
+          }
+        ]
+      }
+    }),
+    /validation\.issues\[0\]\.message/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issues: [
+          {
+            ...validResult.validation.issues[0],
+            guidance: 1
+          }
+        ]
+      }
+    }),
+    /validation\.issues\[0\]\.guidance/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issues: [
+          {
+            ...validResult.validation.issues[0],
+            metadata: {
+              listenerRulePriorities: 100
+            }
+          }
+        ]
+      }
+    }),
+    /validation\.issues\[0\]\.metadata\.listenerRulePriorities/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issues: [
+          {
+            ...validResult.validation.issues[0],
+            repairable: true
+          }
+        ]
+      }
+    }),
+    /validation\.issues repairable count/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -8434,7 +8588,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
         selectedPlan: [],
         issueSummary: {
           totalCount: 3,
-          omittedIssueCount: 0,
+          omittedIssueCount: 2,
           repairableCount: 0,
           nonRepairableCount: 3,
           maxGroups: 8,
@@ -8458,8 +8612,19 @@ test('identity-report loader renders compact conflict reports from a JSON file',
         },
         issueDetails: {
           maxEntries: 5,
-          omittedCount: 0
+          omittedCount: 2
         },
+        issues: [
+          {
+            kind: 'terraform-create-before-delete-conflict',
+            repairable: false,
+            message: 'Terraform listener priority is already in use.',
+            guidance: 'Review Terraform listener rule ownership before changing the priority.',
+            metadata: {
+              listenerRulePriorities: '100'
+            }
+          }
+        ],
         safetyBlockers: {
           maxEntries: 5,
           omittedCount: 0,

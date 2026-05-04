@@ -4668,6 +4668,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Sampled Issue Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `validation.issues` as the capped validation issue detail
+  sample.
+- Validate sampled issue entry kind, repairability, message, optional guidance,
+  and string-valued metadata.
+- Validate issue sample length, omitted-count arithmetic, and full-sample
+  agreement with `validation.issueSummary` when no issues are omitted.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

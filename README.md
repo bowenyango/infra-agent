@@ -244,6 +244,10 @@ Current behavior is intentionally runtime-foundation oriented:
   blocker budget fields, supported blocker kinds, non-empty source command and
   message strings, string-or-null unsafe/YAML metadata, repairability booleans,
   and `mutationPrevented=true`.
+  `validation.issues` carries a capped sample of validation issue details.
+  Compact consumers validate sampled issue entry kind, repairability, message,
+  optional guidance and metadata, issue-detail budget limits, omitted-count
+  arithmetic, and full-sample agreement with `validation.issueSummary`.
   `approval.resume` carries a structured continuation command, active approval
   scope, and signal count for approval-required runs so downstream agents do
   not need to scrape prose before asking for explicit user approval. Compact

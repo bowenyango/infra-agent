@@ -1421,6 +1421,87 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input validation.issueDetails.omittedCount must match validation.issueSummary.omittedIssueCount.');
   }
 
+  if (!Array.isArray(value.validation.issues)) {
+    throw new Error('compact result input must include validation.issues array.');
+  }
+
+  const sampledIssueOmittedCount = value.validation.issueDetails.omittedCount as number;
+  if (value.validation.issues.length > (value.validation.issueDetails.maxEntries as number)) {
+    throw new Error('compact result input validation.issues length must not exceed validation.issueDetails.maxEntries.');
+  }
+
+  if (value.validation.issues.length + sampledIssueOmittedCount !== issueSummaryTotalCount) {
+    throw new Error('compact result input validation.issues length plus omitted count must match validation.issueSummary.totalCount.');
+  }
+
+  let sampledRepairableCount = 0;
+  let sampledNonRepairableCount = 0;
+  const sampledIssueGroupCounts = new Map<string, number>();
+
+  for (let index = 0; index < value.validation.issues.length; index += 1) {
+    const issue = value.validation.issues[index];
+    const issuePath = `validation.issues[${index}]`;
+
+    if (!isRecord(issue)) {
+      throw new Error(`compact result input ${issuePath} must be an object.`);
+    }
+
+    if (!isKnownValidationIssueKind(issue.kind)) {
+      throw new Error(`compact result input ${issuePath}.kind must be supported.`);
+    }
+
+    if (typeof issue.repairable !== 'boolean') {
+      throw new Error(`compact result input ${issuePath}.repairable must be a boolean.`);
+    }
+
+    if (typeof issue.message !== 'string' || issue.message.length === 0) {
+      throw new Error(`compact result input ${issuePath}.message must be a non-empty string.`);
+    }
+
+    if ('guidance' in issue && !isStringOrNull(issue.guidance)) {
+      throw new Error(`compact result input ${issuePath}.guidance must be string or null when present.`);
+    }
+
+    if ('metadata' in issue) {
+      if (!isRecord(issue.metadata)) {
+        throw new Error(`compact result input ${issuePath}.metadata must be an object when present.`);
+      }
+
+      for (const [key, metadataValue] of Object.entries(issue.metadata)) {
+        if (typeof metadataValue !== 'string') {
+          throw new Error(`compact result input ${issuePath}.metadata.${key} must be a string.`);
+        }
+      }
+    }
+
+    if (issue.repairable) {
+      sampledRepairableCount += 1;
+    } else {
+      sampledNonRepairableCount += 1;
+    }
+
+    const issueGroupKey = `${issue.kind}:${issue.repairable}`;
+    sampledIssueGroupCounts.set(issueGroupKey, (sampledIssueGroupCounts.get(issueGroupKey) ?? 0) + 1);
+  }
+
+  if (sampledIssueOmittedCount === 0) {
+    if (sampledRepairableCount !== issueSummaryRepairableCount) {
+      throw new Error('compact result input validation.issues repairable count must match validation.issueSummary when no issues are omitted.');
+    }
+
+    if (sampledNonRepairableCount !== issueSummaryNonRepairableCount) {
+      throw new Error('compact result input validation.issues non-repairable count must match validation.issueSummary when no issues are omitted.');
+    }
+
+    for (let index = 0; index < value.validation.issueSummary.groups.length; index += 1) {
+      const group = value.validation.issueSummary.groups[index] as Record<string, unknown>;
+      const groupKey = `${group.kind}:${group.repairable}`;
+      if (sampledIssueGroupCounts.get(groupKey) !== group.count) {
+        throw new Error('compact result input validation.issues group counts must match validation.issueSummary.groups when no issues are omitted.');
+      }
+    }
+  }
+
   if (!isRecord(value.validation.safetyBlockers)) {
     throw new Error('compact result input must include validation.safetyBlockers object.');
   }
