@@ -3849,6 +3849,31 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Execution Approval Gate Slice
+
+Files added or updated:
+
+- `src/query.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add an execution-time approval gate before workspace mutation actions can
+  reach `executeDecision`.
+- Block `apply-edit-plan` when existing approval signals are active or the
+  decision payload itself contains writes/native stack config operations that
+  require approval.
+- Return an approval-required run with a skipped execution record and no tool
+  executions when a planner attempts to apply an unapproved high-risk edit.
+- Avoid counting skipped mutation attempts as successful repair attempts.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Planner Handoff Outcome Matrix Slice
 
 Files added or updated:

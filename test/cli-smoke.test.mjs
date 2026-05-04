@@ -5016,6 +5016,69 @@ test('runSingleStep preserves YAML syntax failures found during apply-edit-plan'
   }
 });
 
+test('runSingleStep gates unapproved edit execution even when the model asks to apply', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-approval-gate-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const valuesPath = join(workspaceRoot, 'charts/payments-api/values.yaml');
+    const existingValues = await readFile(valuesPath, 'utf8');
+    const write = {
+      path: 'charts/payments-api/values.yaml',
+      content: 'replicaCount: 99\n',
+      reason: 'Synthetic unapproved high-risk rewrite.',
+      mode: 'rewrite',
+      risk: 'high'
+    };
+    const bypassModel = {
+      name: 'approval-bypass-test-model',
+      async decideNextAction() {
+        return {
+          action: {
+            kind: 'apply-edit-plan',
+            summary: 'Attempt to bypass approval.',
+            rationale: 'Synthetic approval gate test.',
+            payload: {
+              actionFamily: 'helm-bounded-edit',
+              writes: [write],
+              editPlan: {
+                kind: 'helm-ingress',
+                summary: 'Synthetic high-risk rewrite.',
+                rationale: 'Exercise execution-time approval gate.',
+                writes: [write]
+              }
+            }
+          },
+          confidence: 'high'
+        };
+      }
+    };
+
+    const result = await runSingleStep(
+      'update payments-api chart deeply',
+      workspaceRoot,
+      bypassModel
+    );
+    const compact = buildCompactAgentRunResult(result);
+
+    assert.equal(result.outcome, 'approval-required');
+    assert.equal(result.turns.length, 1);
+    assert.equal(result.turns[0]?.decision.action.kind, 'apply-edit-plan');
+    assert.equal(result.turns[0]?.execution?.status, 'skipped');
+    assert.match(result.turns[0]?.execution?.reason ?? '', /Approval is required before executing this workspace mutation/);
+    assert.equal(result.turns[0]?.execution?.executedTools.length, 0);
+    assert.equal(result.runtime.appliedWrites.length, 0);
+    assert.equal(result.runtime.approvalSignals[0]?.kind, 'write-approval-required');
+    assert.equal(result.runtime.approvalSignals[0]?.path, 'charts/payments-api/values.yaml');
+    assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'approval');
+    assert.equal(compact.harness.plannerHandoff.nextControlAction, 'request-approval');
+    assert.equal(await readFile(valuesPath, 'utf8'), existingValues);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('runSingleStep records deterministic tool execution summaries', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-tool-summary-'));
   const workspaceRoot = join(tempRoot, 'workspace');

@@ -6,7 +6,16 @@ import { refreshRuntimeConfigSemantics } from './agent/config-semantics-state.ts
 import { collectApprovalSignals } from './agent/collect-approval-signals.ts';
 import { buildEditPlan } from './agent/build-edit-plan.ts';
 import { executeDecision } from './agent/execute-decision.ts';
-import type { AgentActionKind, AgentDecisionExecution, AgentRuntimeState, FileWritePlan, ToolExecutionSummary } from './types/agent.ts';
+import type {
+  AgentActionKind,
+  AgentDecision,
+  AgentDecisionExecution,
+  AgentRuntimeState,
+  AgentRunOutcome,
+  ApprovalSignal,
+  FileWritePlan,
+  ToolExecutionSummary
+} from './types/agent.ts';
 import type { RunPreflightState, TerraformRootSummary } from './types/repository.ts';
 import type { RunApprovalScope } from './types/repository.ts';
 import type { QueryLoopResult, QueryTurn } from './types/query.ts';
@@ -16,6 +25,12 @@ import { retrieveTerraformProviderSchemaContextPackets } from './domain/terrafor
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
 import { retrieveHelmChartContextPackets } from './domain/helm-chart-context.ts';
 import { classifyToolPermission } from './agent/tool-permissions.ts';
+import {
+  isApprovalRequiredForToolCategory,
+  isApprovalRequiredForWrite,
+  isToolCategoryCoveredByApproval,
+  isWriteCoveredByApproval
+} from './domain/workspace-policy.ts';
 import type {
   DiffPreviewOutput,
   DirectoryListingOutput,
@@ -31,8 +46,9 @@ import type {
 } from './types/tools.ts';
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
-import type { AgentRunOutcome } from './types/agent.ts';
 import type { HelmChartSummary } from './types/repository.ts';
+
+const APPROVAL_GATE_EXECUTION_REASON = 'Approval is required before executing this workspace mutation.';
 
 function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
   return {
@@ -365,6 +381,81 @@ function executionHasValidationFailure(execution: AgentDecisionExecution | null)
   }) ?? false;
 }
 
+function collectDecisionApprovalSignals(decision: AgentDecision, runtime: AgentRuntimeState): ApprovalSignal[] {
+  if (decision.action.kind !== 'apply-edit-plan') {
+    return [];
+  }
+
+  const writes = decision.action.payload?.writes ?? [];
+  const writeSignals = writes.flatMap(write => {
+    if (!isApprovalRequiredForWrite(write, runtime.preflight.inspection.config, runtime.preflight.profile.id)) {
+      return [];
+    }
+
+    if (isWriteCoveredByApproval(write, runtime.preflight.approval)) {
+      return [];
+    }
+
+    return [{
+      kind: 'write-approval-required',
+      path: write.path,
+      risk: write.risk,
+      message: `The planned ${write.mode ?? 'rewrite'} change at ${write.path} has risk=${write.risk}. Approval is required before applying this edit.`
+    } satisfies ApprovalSignal];
+  });
+
+  const toolCategorySignals = (decision.action.payload?.editPlan?.pulumiConfigOperations ?? []).length > 0
+    && isApprovalRequiredForToolCategory('native-stack-config-write', runtime.preflight.inspection.config, runtime.preflight.profile.id)
+    && !isToolCategoryCoveredByApproval('native-stack-config-write', runtime.preflight.approval)
+      ? [{
+          kind: 'tool-category-approval-required',
+          toolCategory: 'native-stack-config-write',
+          message: 'The planned edit uses native-stack-config-write, which is marked approval-required by workspace policy. Approval is required before executing this native operation.'
+        } satisfies ApprovalSignal]
+      : [];
+
+  return [...writeSignals, ...toolCategorySignals];
+}
+
+function buildApprovalGateExecution(
+  decision: AgentDecision,
+  runtime: AgentRuntimeState
+): { execution: AgentDecisionExecution; approvalSignals: ApprovalSignal[]; runtime: AgentRuntimeState } | null {
+  const decisionApprovalSignals = collectDecisionApprovalSignals(decision, runtime);
+  const approvalSignals = runtime.approvalSignals.length > 0
+    ? runtime.approvalSignals
+    : decisionApprovalSignals;
+
+  if (approvalSignals.length === 0) {
+    return null;
+  }
+
+  if (decision.action.kind !== 'apply-edit-plan' && decision.action.kind !== 'repair-terraform-formatting') {
+    return null;
+  }
+
+  return {
+    execution: {
+      status: 'skipped',
+      executedTools: [],
+      reason: APPROVAL_GATE_EXECUTION_REASON
+    },
+    approvalSignals,
+    runtime: {
+      ...runtime,
+      approvalSignals,
+      lastEditPlan: decision.action.kind === 'apply-edit-plan'
+        ? decision.action.payload?.editPlan ?? runtime.lastEditPlan
+        : runtime.lastEditPlan
+    }
+  };
+}
+
+function isApprovalGateTurn(turn: QueryTurn): boolean {
+  return turn.execution?.status === 'skipped'
+    && turn.execution.reason === APPROVAL_GATE_EXECUTION_REASON;
+}
+
 function shouldStopLoop(turn: QueryTurn): boolean {
   if (turn.decision.action.kind === 'stop') {
     return true;
@@ -381,6 +472,10 @@ function determineOutcome(turns: QueryTurn[]): AgentRunOutcome {
   const lastTurn = turns[turns.length - 1];
   if (!lastTurn) {
     return 'no-safe-action';
+  }
+
+  if (isApprovalGateTurn(lastTurn)) {
+    return 'approval-required';
   }
 
   if (lastTurn.decision.action.kind === 'ask-for-clarification') {
@@ -422,9 +517,13 @@ export async function runQueryLoop(
   for (let turnIndex = 0; turnIndex < queryConfig.maxTurns; turnIndex += 1) {
     const decision = await effectiveModelClient.decideNextAction(runtime);
     const hadValidationIssuesBeforeAction = runtime.validationIssues.length > 0;
-    const execution = await executeDecision(decision, preflight.workspaceRoot, preflight.inspection.config);
+    const approvalGate = buildApprovalGateExecution(decision, runtime);
+    const execution = approvalGate?.execution
+      ?? await executeDecision(decision, preflight.workspaceRoot, preflight.inspection.config);
 
-    if (execution) {
+    if (approvalGate) {
+      runtime = approvalGate.runtime;
+    } else if (execution) {
       runtime = applyExecutionToRuntime(runtime, execution, turnIndex, decision.action.kind);
     }
 
@@ -432,6 +531,7 @@ export async function runQueryLoop(
       (decision.action.kind === 'apply-edit-plan' || decision.action.kind === 'repair-terraform-formatting')
       && hadValidationIssuesBeforeAction
       && runtime.validationIssues.length > 0
+      && execution?.status === 'completed'
       && !executionHasValidationFailure(execution)
     ) {
       runtime = {
@@ -442,14 +542,16 @@ export async function runQueryLoop(
       };
     }
 
-    runtime = {
-      ...runtime,
-      lastEditPlan: buildEditPlan(runtime)
-    };
-    runtime = {
-      ...runtime,
-      approvalSignals: collectApprovalSignals(runtime)
-    };
+    if (!approvalGate) {
+      runtime = {
+        ...runtime,
+        lastEditPlan: buildEditPlan(runtime)
+      };
+      runtime = {
+        ...runtime,
+        approvalSignals: collectApprovalSignals(runtime)
+      };
+    }
 
     const turn: QueryTurn = {
       index: turnIndex,
@@ -460,7 +562,7 @@ export async function runQueryLoop(
 
     turns.push(turn);
 
-    if (shouldStopLoop(turn)) {
+    if (approvalGate || shouldStopLoop(turn)) {
       break;
     }
   }

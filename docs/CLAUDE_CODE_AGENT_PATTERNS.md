@@ -68,6 +68,10 @@ durable design reference for infra-agent development.
 - `harness.repairBudget` is the compact bounded-repair surface. It should
   report attempts used, max attempts, remaining attempts, and exhaustion
   without requiring downstream agents to parse result-card prose.
+- Execution must keep an approval gate immediately before workspace mutation
+  tools. A planner decision that asks to apply an edit while approval is active
+  or required must skip execution and return an approval-required handoff rather
+  than relying only on planner prompt compliance.
 - `harness.stateSummary` is the compact runtime-state boundary. It may expose
   counts for observations, tool summaries, writes, validation, approvals,
   retrieved context, and semantic facts, but it must not expose raw runtime
