@@ -3955,6 +3955,32 @@ Known validation:
 - `npm run test:unit` passed with 273 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Tool Trace Budget Metadata Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extend compact `harness.toolTrace` with total, included, omitted, first
+  included turn, latest turn, and permission-category count metadata.
+- Keep recent tool entries capped while giving downstream agents enough budget
+  metadata to avoid recomputing permissions from truncated entries.
+- Extend the compact result contract parser to validate tool trace count fields
+  when present.
+
+Known validation:
+
+- `npm run test:unit` passed with 273 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

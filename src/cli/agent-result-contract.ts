@@ -83,6 +83,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.toolTrace.entries must be an array when present.');
     }
 
+    if (isRecord(value.harness.toolTrace)) {
+      for (const field of ['totalCount', 'includedCount', 'omittedCount']) {
+        if (field in value.harness.toolTrace && !isNumber(value.harness.toolTrace[field])) {
+          throw new Error(`compact result input harness.toolTrace.${field} must be a number when present.`);
+        }
+      }
+    }
+
     if (
       isRecord(value.harness.lifecycleEvents)
       && 'events' in value.harness.lifecycleEvents

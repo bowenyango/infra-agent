@@ -182,8 +182,9 @@ Current behavior is intentionally runtime-foundation oriented:
   decisions, tool execution, approval gates, and terminal outcome. It keeps
   lifecycle routing explicit without timestamps or raw tool output.
   `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
-  plus an omitted count, so downstream agents can inspect execution evidence
-  and permission categories without loading raw tool output.
+  plus total, included, omitted, latest-turn, and permission-category counts, so
+  downstream agents can inspect execution evidence and permission posture
+  without loading raw tool output.
   `harness.toolPermissionSummary` aggregates workspace mutations, native CLI
   calls, and stack/state mutation-risk tools.
   Result cards, snapshots, and human output also report repair attempts as

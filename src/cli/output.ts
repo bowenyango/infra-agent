@@ -43,6 +43,7 @@ import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../k
 import {
   aggregateToolPermissions,
   classifyToolPermission,
+  type ToolPermissionCategory,
   type ToolPermissionAggregate,
   type ToolPermissionSummary
 } from '../agent/tool-permissions.ts';
@@ -275,7 +276,12 @@ export interface CompactAgentRunResult {
     turnTrace: CompactTurnTraceEntry[];
     toolTrace: {
       maxEntries: number;
+      totalCount: number;
+      includedCount: number;
       omittedCount: number;
+      firstIncludedTurnIndex: number | null;
+      latestTurnIndex: number | null;
+      permissionCategoryCounts: Partial<Record<ToolPermissionCategory, number>>;
       entries: CompactToolTraceEntry[];
     };
     toolPermissionSummary: ToolPermissionAggregate;
@@ -895,6 +901,7 @@ function getToolPermissionSummary(summary: {
 
 function collectCompactToolTrace(state: AgentRunState): CompactAgentRunResult['harness']['toolTrace'] {
   const summaries = state.runtime.toolSummaries ?? [];
+  const permissionCategoryCounts: Partial<Record<ToolPermissionCategory, number>> = {};
   const entries = summaries.slice(-COMPACT_TOOL_TRACE_LIMIT).map(summary => {
     const permission = getToolPermissionSummary(summary);
     return {
@@ -911,9 +918,19 @@ function collectCompactToolTrace(state: AgentRunState): CompactAgentRunResult['h
     };
   });
 
+  for (const summary of summaries) {
+    const permission = getToolPermissionSummary(summary);
+    permissionCategoryCounts[permission.category] = (permissionCategoryCounts[permission.category] ?? 0) + 1;
+  }
+
   return {
     maxEntries: COMPACT_TOOL_TRACE_LIMIT,
+    totalCount: summaries.length,
+    includedCount: entries.length,
     omittedCount: Math.max(0, summaries.length - entries.length),
+    firstIncludedTurnIndex: entries[0]?.turnIndex ?? null,
+    latestTurnIndex: summaries[summaries.length - 1]?.turnIndex ?? null,
+    permissionCategoryCounts,
     entries
   };
 }

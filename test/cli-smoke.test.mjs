@@ -5256,8 +5256,13 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.turnTrace[0]?.executionReason, null);
     assert.ok((compact.harness.turnTrace[0]?.executedToolCount ?? 0) > 0);
     assert.equal(compact.harness.toolTrace.maxEntries, 8);
+    assert.equal(compact.harness.toolTrace.totalCount, result.runtime.toolSummaries.length);
     assert.equal(compact.harness.toolTrace.entries.length, Math.min(result.runtime.toolSummaries.length, 8));
+    assert.equal(compact.harness.toolTrace.includedCount, compact.harness.toolTrace.entries.length);
     assert.equal(compact.harness.toolTrace.omittedCount, Math.max(0, result.runtime.toolSummaries.length - 8));
+    assert.equal(compact.harness.toolTrace.firstIncludedTurnIndex, compact.harness.toolTrace.entries[0]?.turnIndex ?? null);
+    assert.equal(compact.harness.toolTrace.latestTurnIndex, result.runtime.toolSummaries.at(-1)?.turnIndex ?? null);
+    assert.ok(Object.values(compact.harness.toolTrace.permissionCategoryCounts).reduce((total, count) => total + count, 0) >= compact.harness.toolTrace.includedCount);
     assert.ok(compact.harness.toolTrace.entries.some(entry => entry.actionKind === 'inspect-target-files'));
     assert.ok(compact.harness.toolTrace.entries.every(entry => entry.toolName.length > 0));
     assert.equal(compact.harness.toolPermissionSummary.totalToolCount, result.runtime.toolSummaries.length);
@@ -6323,6 +6328,9 @@ test('compact agent result contract validates shallow handoff shape', () => {
         validationIssueCount: 1
       },
       toolTrace: {
+        totalCount: 0,
+        includedCount: 0,
+        omittedCount: 0,
         entries: []
       },
       lifecycleEvents: {
@@ -6398,6 +6406,18 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.toolTrace\.entries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        toolTrace: {
+          totalCount: '0',
+          entries: []
+        }
+      }
+    }),
+    /harness\.toolTrace\.totalCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

@@ -88,7 +88,8 @@ durable design reference for infra-agent development.
   expose query start, decisions, tool execution, approval gates, and terminal
   outcome without timestamps, full prompts, raw decisions, or raw tool output.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
-  deterministic tool summaries and an omitted count, not full tool outputs.
+  deterministic tool summaries plus total/included/omitted and permission
+  category counts, not full tool outputs.
 - Tool summaries should carry explicit permission categories such as workspace
   reads/writes, native CLI validation, native CLI writes, and stack config
   mutation-risk tools. Downstream agents should reason from these categories
