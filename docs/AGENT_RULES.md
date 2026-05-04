@@ -147,6 +147,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Test LLM planner mode and environment selection through explicit environment maps. Avoid mutating `process.env` in tests unless a behavior specifically requires process-level integration.
 - Follow `docs/CLAUDE_CODE_AGENT_PATTERNS.md` when evolving the harness: prefer compact structured turn traces, tool summaries, and explicit permission/validation state over raw logs or full runtime snapshots in agent-facing output.
 - Tool summaries must preserve permission categories for workspace mutation, native CLI execution, and stack/state mutation-risk tools. Do not collapse these into generic "tool ran" prose.
+- Validate compact `harness.toolTrace` as permission provenance: supported
+  tool safety and permission categories, non-empty tool names, boolean
+  mutation/approval flags, non-negative budget counts, included-entry length,
+  first included turn index, and permission-category counts that sum to
+  `totalCount`.
 - Keep `harness.plannerHandoff` derived and compact. It may route by last
   action, active blocker, and next control action, but it must not include raw
   prompts, rationales, payloads, observations, or file contents.

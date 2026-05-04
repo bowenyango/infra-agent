@@ -4397,6 +4397,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Tool Trace Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.toolTrace` entry objects with supported action
+  kinds, tool safety values, permission categories, non-empty tool names,
+  string summaries, and boolean mutation/approval flags.
+- Validate tool trace budget counts, included-entry length, first included turn
+  index, and permission-category count totals.
+- Keep this as contract parsing only; no runtime output shape changes.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

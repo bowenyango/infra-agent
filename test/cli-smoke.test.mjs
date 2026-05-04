@@ -6659,10 +6659,29 @@ test('compact agent result contract validates shallow handoff shape', () => {
         validationIssueCount: 1
       },
       toolTrace: {
-        totalCount: 0,
-        includedCount: 0,
+        maxEntries: 5,
+        totalCount: 1,
+        includedCount: 1,
         omittedCount: 0,
-        entries: []
+        firstIncludedTurnIndex: 0,
+        latestTurnIndex: 0,
+        permissionCategoryCounts: {
+          'workspace-read': 1
+        },
+        entries: [
+          {
+            turnIndex: 0,
+            actionKind: 'inspect-target-files',
+            toolName: 'read_file',
+            safety: 'read_only',
+            permissionCategory: 'workspace-read',
+            mutatesWorkspace: false,
+            mutatesExternalState: false,
+            externalCommand: false,
+            approvalRequired: false,
+            summary: 'Read selected Terraform files.'
+          }
+        ]
       },
       lifecycleEvents: {
         totalCount: 0,
@@ -6965,6 +6984,71 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.toolTrace\.totalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          includedCount: 0,
+          omittedCount: 1
+        }
+      }
+    }),
+    /harness\.toolTrace\.includedCount must match entries length/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          entries: [
+            {
+              ...validResult.harness.toolTrace.entries[0],
+              permissionCategory: 'unexpected'
+            }
+          ]
+        }
+      }
+    }),
+    /harness\.toolTrace\.entries\[0\]\.permissionCategory/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          entries: [
+            {
+              ...validResult.harness.toolTrace.entries[0],
+              mutatesWorkspace: 'no'
+            }
+          ]
+        }
+      }
+    }),
+    /harness\.toolTrace\.entries\[0\]\.mutatesWorkspace/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          permissionCategoryCounts: {
+            'workspace-read': 2
+          }
+        }
+      }
+    }),
+    /harness\.toolTrace\.permissionCategoryCounts/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

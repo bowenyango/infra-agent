@@ -22,6 +22,18 @@ const AGENT_CLARIFICATION_KINDS = [
   'workspace-policy',
   'general'
 ] as const;
+const TOOL_SAFETIES = ['read_only', 'write_scoped', 'validate', 'approval_required'] as const;
+const TOOL_PERMISSION_CATEGORIES = [
+  'workspace-read',
+  'workspace-write',
+  'local-validation',
+  'native-cli-read',
+  'native-cli-validation',
+  'native-cli-write',
+  'native-stack-config-write',
+  'approval-required',
+  'unknown'
+] as const;
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
   'none',
   'approval',
@@ -89,6 +101,15 @@ function isKnownAgentStopReason(value: unknown): boolean {
 function isKnownAgentClarificationKind(value: unknown): boolean {
   return typeof value === 'string'
     && AGENT_CLARIFICATION_KINDS.includes(value as typeof AGENT_CLARIFICATION_KINDS[number]);
+}
+
+function isKnownToolSafety(value: unknown): boolean {
+  return typeof value === 'string' && TOOL_SAFETIES.includes(value as typeof TOOL_SAFETIES[number]);
+}
+
+function isKnownToolPermissionCategory(value: unknown): boolean {
+  return typeof value === 'string'
+    && TOOL_PERMISSION_CATEGORIES.includes(value as typeof TOOL_PERMISSION_CATEGORIES[number]);
 }
 
 function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
@@ -562,9 +583,111 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
 
     if (isRecord(value.harness.toolTrace)) {
-      for (const field of ['totalCount', 'includedCount', 'omittedCount']) {
-        if (field in value.harness.toolTrace && !isNumber(value.harness.toolTrace[field])) {
-          throw new Error(`compact result input harness.toolTrace.${field} must be a number when present.`);
+      for (const field of ['maxEntries', 'totalCount', 'includedCount', 'omittedCount']) {
+        if (field in value.harness.toolTrace && !isNonNegativeInteger(value.harness.toolTrace[field])) {
+          throw new Error(`compact result input harness.toolTrace.${field} must be a non-negative integer when present.`);
+        }
+      }
+
+      for (const field of ['firstIncludedTurnIndex', 'latestTurnIndex']) {
+        if (
+          field in value.harness.toolTrace
+          && value.harness.toolTrace[field] !== null
+          && !isNonNegativeInteger(value.harness.toolTrace[field])
+        ) {
+          throw new Error(`compact result input harness.toolTrace.${field} must be a non-negative integer or null when present.`);
+        }
+      }
+
+      if (
+        hasNumericCountSet(value.harness.toolTrace)
+        && !hasConsistentCountSet(value.harness.toolTrace)
+      ) {
+        throw new Error('compact result input harness.toolTrace counts must be consistent when present.');
+      }
+
+      if (
+        isNonNegativeInteger(value.harness.toolTrace.includedCount)
+        && isNonNegativeInteger(value.harness.toolTrace.maxEntries)
+        && (value.harness.toolTrace.includedCount as number) > (value.harness.toolTrace.maxEntries as number)
+      ) {
+        throw new Error('compact result input harness.toolTrace.includedCount must not exceed maxEntries.');
+      }
+
+      if (Array.isArray(value.harness.toolTrace.entries)) {
+        for (let index = 0; index < value.harness.toolTrace.entries.length; index += 1) {
+          const entry = value.harness.toolTrace.entries[index];
+          const entryPath = `harness.toolTrace.entries[${index}]`;
+
+          if (!isRecord(entry)) {
+            throw new Error(`compact result input ${entryPath} must be an object.`);
+          }
+
+          assertIntegerField(entry, 'turnIndex', entryPath, isNonNegativeInteger, 'a non-negative integer');
+
+          if (!isKnownAgentActionKind(entry.actionKind)) {
+            throw new Error(`compact result input ${entryPath}.actionKind must be supported.`);
+          }
+
+          if (typeof entry.toolName !== 'string' || entry.toolName.length === 0) {
+            throw new Error(`compact result input ${entryPath}.toolName must be a non-empty string.`);
+          }
+
+          if (!isKnownToolSafety(entry.safety)) {
+            throw new Error(`compact result input ${entryPath}.safety must be supported.`);
+          }
+
+          if (!isKnownToolPermissionCategory(entry.permissionCategory)) {
+            throw new Error(`compact result input ${entryPath}.permissionCategory must be supported.`);
+          }
+
+          for (const field of ['mutatesWorkspace', 'mutatesExternalState', 'externalCommand', 'approvalRequired']) {
+            if (typeof entry[field] !== 'boolean') {
+              throw new Error(`compact result input ${entryPath}.${field} must be a boolean.`);
+            }
+          }
+
+          if (typeof entry.summary !== 'string') {
+            throw new Error(`compact result input ${entryPath}.summary must be a string.`);
+          }
+        }
+
+        if (
+          isNonNegativeInteger(value.harness.toolTrace.includedCount)
+          && value.harness.toolTrace.includedCount !== value.harness.toolTrace.entries.length
+        ) {
+          throw new Error('compact result input harness.toolTrace.includedCount must match entries length when present.');
+        }
+
+        if (
+          value.harness.toolTrace.entries.length === 0
+          && value.harness.toolTrace.firstIncludedTurnIndex !== null
+        ) {
+          throw new Error('compact result input harness.toolTrace.firstIncludedTurnIndex must be null when entries are empty.');
+        }
+
+        if (value.harness.toolTrace.entries.length > 0) {
+          const firstToolTurnIndex = (value.harness.toolTrace.entries[0] as Record<string, unknown>).turnIndex;
+          if (value.harness.toolTrace.firstIncludedTurnIndex !== firstToolTurnIndex) {
+            throw new Error('compact result input harness.toolTrace.firstIncludedTurnIndex must match first entry turnIndex.');
+          }
+        }
+      }
+
+      if (isRecord(value.harness.toolTrace.permissionCategoryCounts)) {
+        let totalPermissionCategoryCount = 0;
+        for (const [category, count] of Object.entries(value.harness.toolTrace.permissionCategoryCounts)) {
+          if (!isKnownToolPermissionCategory(category) || !isNonNegativeInteger(count)) {
+            throw new Error('compact result input harness.toolTrace.permissionCategoryCounts must use supported non-negative integer counts.');
+          }
+          totalPermissionCategoryCount += count as number;
+        }
+
+        if (
+          isNonNegativeInteger(value.harness.toolTrace.totalCount)
+          && totalPermissionCategoryCount !== (value.harness.toolTrace.totalCount as number)
+        ) {
+          throw new Error('compact result input harness.toolTrace.permissionCategoryCounts must sum to totalCount when present.');
         }
       }
     }

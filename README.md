@@ -198,7 +198,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
   plus total, included, omitted, latest-turn, and permission-category counts, so
   downstream agents can inspect execution evidence and permission posture
-  without loading raw tool output.
+  without loading raw tool output. Compact consumers validate tool trace entry
+  shapes, supported safety and permission categories, boolean mutation flags,
+  entry counts, and permission-category totals.
   `harness.toolPermissionSummary` aggregates workspace mutations, native CLI
   calls, and stack/state mutation-risk tools.
   Result cards, snapshots, and human output also report repair attempts as
