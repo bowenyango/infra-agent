@@ -7708,6 +7708,27 @@ test('infra graph impact report contract validates read-only handoff shape', () 
   assert.throws(
     () => parseInfraGraphImpactReport({
       ...validReport,
+      riskLevel: 'critical'
+    }),
+    /root\.riskLevel.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      primaryConcern: 'ownership'
+    }),
+    /root\.primaryConcern.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      recommendedAction: 'apply'
+    }),
+    /root\.recommendedAction.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
       counts: {
         ...validReport.counts,
         plannedChanges: '1'
@@ -7718,12 +7739,75 @@ test('infra graph impact report contract validates read-only handoff shape', () 
   assert.throws(
     () => parseInfraGraphImpactReport({
       ...validReport,
+      counts: {
+        ...validReport.counts,
+        possibleRenames: -1
+      }
+    }),
+    /counts\.possibleRenames.*non-negative integer/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
       sourceProvenance: {
         ...validReport.sourceProvenance,
         hasTerraformPlan: 'yes'
       }
     }),
     /sourceProvenance\.hasTerraformPlan/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      sourceProvenance: {
+        ...validReport.sourceProvenance,
+        sources: [
+          {
+            ...validReport.sourceProvenance.sources[0],
+            source: 'terraform-state'
+          }
+        ]
+      }
+    }),
+    /sourceProvenance\.sources\[0\]\.source.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      sourceProvenance: {
+        ...validReport.sourceProvenance,
+        sources: [
+          validReport.sourceProvenance.sources[0],
+          validReport.sourceProvenance.sources[0]
+        ]
+      }
+    }),
+    /sourceProvenance\.sources\[1\]\.source.*unique/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      sourceProvenance: {
+        ...validReport.sourceProvenance,
+        sources: [
+          {
+            ...validReport.sourceProvenance.sources[0],
+            totalCount: 2
+          }
+        ]
+      }
+    }),
+    /sourceProvenance\.sources\[0\]\.totalCount.*nodeCount \+ edgeCount/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      sourceProvenance: {
+        ...validReport.sourceProvenance,
+        hasTerraformPlan: false
+      }
+    }),
+    /sourceProvenance\.hasTerraformPlan.*listed sources/
   );
   assert.throws(
     () => parseInfraGraphImpactReport({
@@ -7776,6 +7860,41 @@ test('infra graph impact report contract validates read-only handoff shape', () 
   assert.throws(
     () => parseInfraGraphImpactReport({
       ...validReport,
+      reviewTargetBudget: {
+        ...validReport.reviewTargetBudget,
+        includedTargets: 6,
+        totalTargets: 6
+      },
+      reviewTargetCount: 6,
+      reviewTargets: [
+        validReport.reviewTargets[0],
+        {
+          ...validReport.reviewTargets[0],
+          priority: 2
+        },
+        {
+          ...validReport.reviewTargets[0],
+          priority: 3
+        },
+        {
+          ...validReport.reviewTargets[0],
+          priority: 4
+        },
+        {
+          ...validReport.reviewTargets[0],
+          priority: 5
+        },
+        {
+          ...validReport.reviewTargets[0],
+          priority: 6
+        }
+      ]
+    }),
+    /includedTargets.*maxTargets/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
       reviewTargets: [
         {
           ...validReport.reviewTargets[0],
@@ -7784,6 +7903,114 @@ test('infra graph impact report contract validates read-only handoff shape', () 
       ]
     }),
     /reviewTargets\[0\]\.mutationAllowed/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          edgeId: 7
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.edgeId.*string/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          kind: 'planned-change'
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.kind.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          source: 'manual'
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.source.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          confidence: 'certain'
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.confidence.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          priority: 2
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.priority.*contiguous/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          recommendedAction: 'review-anything'
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.recommendedAction.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          riskCategory: 'unknown-risk'
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.riskCategory.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          reviewSteps: ['Inspect source identity.', 7]
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.reviewSteps\[1\].*string/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          identity: ['terraform-resource:new']
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.identity.*string when present/
   );
 });
 

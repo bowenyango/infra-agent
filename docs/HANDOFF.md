@@ -86,6 +86,30 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Infra Graph Impact Report Contract Consistency Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-report.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Harden `parseInfraGraphImpactReport` so secondary graph impact reports reject
+  malformed handoff data before downstream agents route on it.
+- Validate supported root impact posture enums, non-negative integer count
+  fields, source provenance labels/count arithmetic/unique entries/aggregate
+  source flags, review target budget consistency, and deep review target field
+  shapes.
+- Keep impact reports read-only by requiring root and per-target
+  `mutationAllowed=false`.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "impact report contract" test/cli-smoke.test.mjs`: passed with 1 test.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Impact Report Budget Slice
 
 Files added or updated:
