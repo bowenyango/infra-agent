@@ -189,6 +189,9 @@ Current behavior is intentionally runtime-foundation oriented:
   can tell what validation was intended before raw tool output is requested.
   `validation.commands` carries a budgeted list of recent executed validation
   commands with pass/fail status and short stdout/stderr previews.
+  `approval.resume` carries a structured continuation command, active approval
+  scope, and signal count for approval-required runs so downstream agents do
+  not need to scrape prose before asking for explicit user approval.
   readiness report when another agent needs it. Result cards include the same
   readiness posture, and suggested commands surface the read-only doctor command
   first when readiness has warnings or failures.
@@ -213,7 +216,9 @@ Current behavior is intentionally runtime-foundation oriented:
   approval flags such as `--approve-write-risk high` with optional
   `--approve-write-path charts/payments-api`, or
   `--approve-tool-category native-stack-config-write` for workspace-configured
-  native operation approvals.
+  native operation approvals. The compact `approval.resume` block reports the
+  same scoped continuation path; it is reporting only and does not bypass the
+  approval requirement.
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront
   `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, Route53

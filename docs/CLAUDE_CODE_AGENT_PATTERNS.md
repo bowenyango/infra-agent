@@ -69,6 +69,9 @@ durable design reference for infra-agent development.
 - Tool-category approval is a harness gate. Keep it explicit in workspace
   policy and run approval scope, and resume with `--approve-tool-category`
   instead of treating native operations as ordinary file writes.
+- `approval.resume` is the compact approval-continuation surface. It may report
+  the exact scoped command, write risks, write paths, tool categories, and
+  signal count, but it must not be interpreted as approval by itself.
 - `retrievedContextBudget` and compact `knowledgeContext` summaries are the
   context-compaction boundary for official docs, schemas, and examples. They
   should report packet/token budgets and omissions without exposing raw cached

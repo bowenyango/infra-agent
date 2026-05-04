@@ -233,6 +233,14 @@ export interface CompactAgentRunResult {
     requiredWriteRisks: string[];
     requiredToolCategories: string[];
     signals: CompactApprovalSignal[];
+    resume: {
+      continuationRequired: boolean;
+      command: string | null;
+      writeRisks: string[];
+      writePaths: string[];
+      toolCategories: string[];
+      signalCount: number;
+    };
   };
   knowledgeCache: WorkspaceInspection['knowledgeCache'];
   knowledgeContext: RetrievedContextBudgetSummary;
@@ -1423,7 +1431,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     approval: {
       requiredWriteRisks: [...state.preflight.effectiveApprovalPolicy.requiredWriteRisks],
       requiredToolCategories: [...state.preflight.effectiveApprovalPolicy.requiredToolCategories],
-      signals: state.runtime.approvalSignals.slice(0, 5).map(compactApprovalSignal)
+      signals: state.runtime.approvalSignals.slice(0, 5).map(compactApprovalSignal),
+      resume: collectApprovalResume(state)
     },
     knowledgeCache: state.preflight.inspection.knowledgeCache,
     knowledgeContext: budgetRetrievedContext(
@@ -1448,6 +1457,49 @@ function buildWorkspaceFlag(workspaceRoot: string): string {
 
 function buildTaskFlag(task: string): string {
   return shellQuote(task);
+}
+
+function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['approval']['resume'] {
+  const writeRisks = new Set<string>();
+  const writePaths = new Set<string>();
+  const toolCategories = new Set<string>();
+
+  for (const signal of state.runtime.approvalSignals) {
+    if (signal.kind === 'write-approval-required') {
+      writeRisks.add(signal.risk);
+      writePaths.add(signal.path);
+      continue;
+    }
+
+    if (signal.kind === 'tool-category-approval-required') {
+      toolCategories.add(signal.toolCategory);
+    }
+  }
+
+  const base = buildCliBaseCommand();
+  const taskFlag = buildTaskFlag(state.preflight.task);
+  const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
+  const topApprovalSignal = state.runtime.approvalSignals[0];
+  let command: string | null = null;
+
+  if (state.outcome === 'approval-required') {
+    if (topApprovalSignal?.kind === 'tool-category-approval-required') {
+      command = `${base} agent ${taskFlag} ${workspaceFlag} --approve-tool-category ${topApprovalSignal.toolCategory}`;
+    } else if (topApprovalSignal?.kind === 'write-approval-required') {
+      command = `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${topApprovalSignal.risk} --approve-write-path ${shellQuote(topApprovalSignal.path)}`;
+    } else {
+      command = `${base} agent ${taskFlag} ${workspaceFlag}`;
+    }
+  }
+
+  return {
+    continuationRequired: state.outcome === 'approval-required',
+    command,
+    writeRisks: Array.from(writeRisks),
+    writePaths: Array.from(writePaths),
+    toolCategories: Array.from(toolCategories),
+    signalCount: state.runtime.approvalSignals.length
+  };
 }
 
 function getPrimaryDomainTargetPath(state: AgentRunState, primaryDomain: string | null): string | null {

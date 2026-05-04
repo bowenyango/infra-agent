@@ -4199,3 +4199,28 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Structured Approval Resume Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `approval.resume` to `infra-agent.agent-result` output for
+  approval-required runs.
+- Report whether continuation is required, the scoped continuation command,
+  active write risks, write paths, tool categories, and approval signal count.
+- Keep the structure reporting-only so downstream agents preserve the explicit
+  user approval requirement before writes or native operations.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

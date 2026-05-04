@@ -161,6 +161,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `doctorCommand` in suggested commands when readiness is warn or fail. Do not
   let this replace approval continuation commands when an approval gate is the
   active blocker.
+- Treat compact `approval.resume` as a structured handoff for the existing
+  approval gate. It can show the scoped continuation command and active signal
+  scope, but it is not approval and must not authorize writes or native
+  operations without explicit user approval.
 - Treat CLI exit codes as part of the agent-facing contract: `0` means success, `1` means fatal CLI/runtime failure, `2` means validation blocked, `3` means approval required, `4` means clarification required, `5` means no safe action, `6` means repair budget exhausted, and `7` means `run` preflight blockers.
 - Keep the bounded repair budget in `QueryLoopConfig`. Use
   `--max-repair-attempts <n>` for experiments instead of hard-coding retry

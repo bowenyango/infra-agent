@@ -6868,7 +6868,7 @@ test('summarizeRecommendedNextSteps suggests approval continuation for approval-
 
 test('summarizeSuggestedCommands includes approval continuation flags for approval-required runs', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
-  const commands = summarizeSuggestedCommands({
+  const state = {
     modelName: 'test-model',
     outcome: 'approval-required',
     preflight,
@@ -6891,11 +6891,19 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
       lastEditPlan: null
     },
     turns: []
-  });
+  };
+  const commands = summarizeSuggestedCommands(state);
+  const compact = buildCompactAgentRunResult(state);
 
   assert.ok(commands[0]?.includes('agent'));
   assert.ok(commands[0]?.includes('--approve-write-risk high'));
   assert.ok(commands[0]?.includes('--approve-write-path "charts/payments-api/values.yaml"'));
+  assert.equal(compact.approval.resume.continuationRequired, true);
+  assert.equal(compact.approval.resume.signalCount, 1);
+  assert.equal(compact.approval.resume.command, commands[0]);
+  assert.deepEqual(compact.approval.resume.writeRisks, ['high']);
+  assert.deepEqual(compact.approval.resume.writePaths, ['charts/payments-api/values.yaml']);
+  assert.deepEqual(compact.approval.resume.toolCategories, []);
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
