@@ -4276,3 +4276,30 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Validation Issue Flags Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extend compact `validation.issueSummary` with `omittedIssueCount` so
+  downstream agents can tell when the sampled `validation.issues` array is not
+  complete.
+- Add coarse blocker flags for repairable issues, non-repairable issues,
+  unsafe validation commands, YAML syntax failures, and identity-conflict
+  issue kinds.
+- Keep the summary aggregate-only; raw validation output remains capped under
+  `validation.commands` and sampled issue messages remain capped under
+  `validation.issues`.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

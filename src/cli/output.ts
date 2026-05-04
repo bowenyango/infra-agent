@@ -258,6 +258,7 @@ export interface CompactAgentRunResult {
     };
     issueSummary: {
       totalCount: number;
+      omittedIssueCount: number;
       repairableCount: number;
       nonRepairableCount: number;
       maxGroups: number;
@@ -269,6 +270,13 @@ export interface CompactAgentRunResult {
         sourceCommandCount: number;
         blocking: boolean;
       }>;
+      flags: {
+        hasRepairableIssues: boolean;
+        hasNonRepairableIssues: boolean;
+        hasUnsafeValidationCommand: boolean;
+        hasYamlSyntaxFailure: boolean;
+        hasIdentityConflict: boolean;
+      };
     };
     issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
   };
@@ -607,6 +615,7 @@ function isTerminalTurnAction(kind: string): boolean {
 const COMPACT_TOOL_TRACE_LIMIT = 8;
 const COMPACT_TURN_TRACE_LIMIT = 10;
 const COMPACT_VALIDATION_COMMAND_LIMIT = 8;
+const COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT = 5;
 const COMPACT_VALIDATION_ISSUE_GROUP_LIMIT = 8;
 const COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS = 300;
 
@@ -818,6 +827,8 @@ function collectValidationCommandSummaries(state: AgentRunState): CompactAgentRu
 
 function collectValidationIssueSummary(state: AgentRunState): CompactAgentRunResult['validation']['issueSummary'] {
   const issues = state.runtime.validationIssues;
+  const repairableCount = issues.filter(issue => issue.repairable).length;
+  const nonRepairableCount = issues.length - repairableCount;
   const groups = new Map<string, {
     kind: ValidationIssue['kind'];
     repairable: boolean;
@@ -859,11 +870,22 @@ function collectValidationIssueSummary(state: AgentRunState): CompactAgentRunRes
 
   return {
     totalCount: issues.length,
-    repairableCount: issues.filter(issue => issue.repairable).length,
-    nonRepairableCount: issues.filter(issue => !issue.repairable).length,
+    omittedIssueCount: Math.max(0, issues.length - COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT),
+    repairableCount,
+    nonRepairableCount,
     maxGroups: COMPACT_VALIDATION_ISSUE_GROUP_LIMIT,
     omittedGroupCount: Math.max(0, orderedGroups.length - entries.length),
-    groups: entries
+    groups: entries,
+    flags: {
+      hasRepairableIssues: repairableCount > 0,
+      hasNonRepairableIssues: nonRepairableCount > 0,
+      hasUnsafeValidationCommand: issues.some(issue => issue.kind === 'unsafe-validation-command'),
+      hasYamlSyntaxFailure: issues.some(issue => issue.kind === 'yaml-syntax-failure'),
+      hasIdentityConflict: issues.some(issue =>
+        issue.kind === 'terraform-create-before-delete-conflict'
+        || issue.kind === 'pulumi-create-before-delete-conflict'
+      )
+    }
   };
 }
 
@@ -1570,7 +1592,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       yamlGuardCount,
       commands: collectValidationCommandSummaries(state),
       issueSummary: collectValidationIssueSummary(state),
-      issues: state.runtime.validationIssues.slice(0, 5).map(issue => ({
+      issues: state.runtime.validationIssues.slice(0, COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT).map(issue => ({
         kind: issue.kind,
         repairable: issue.repairable,
         message: issue.message,

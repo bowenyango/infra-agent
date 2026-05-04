@@ -193,7 +193,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `validation.commands` carries a budgeted list of recent executed validation
   commands with pass/fail status and short stdout/stderr previews.
   `validation.issueSummary` groups active validation blockers by issue kind and
-  repairability with counts, source-command counts, and omitted group totals.
+  repairability with counts, source-command counts, omitted issue/group totals,
+  and booleans for repairable, non-repairable, unsafe-command, YAML syntax, and
+  identity-conflict blockers.
   `approval.resume` carries a structured continuation command, active approval
   scope, and signal count for approval-required runs so downstream agents do
   not need to scrape prose before asking for explicit user approval.

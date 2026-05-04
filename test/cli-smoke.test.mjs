@@ -5414,6 +5414,7 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
   });
 
   assert.equal(compact.validation.issueSummary.totalCount, 10);
+  assert.equal(compact.validation.issueSummary.omittedIssueCount, 5);
   assert.equal(compact.validation.issueSummary.repairableCount, 6);
   assert.equal(compact.validation.issueSummary.nonRepairableCount, 4);
   assert.equal(compact.validation.issueSummary.maxGroups, 8);
@@ -5426,6 +5427,14 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
     sourceCommandCount: 2,
     blocking: true
   });
+  assert.deepEqual(compact.validation.issueSummary.flags, {
+    hasRepairableIssues: true,
+    hasNonRepairableIssues: true,
+    hasUnsafeValidationCommand: true,
+    hasYamlSyntaxFailure: true,
+    hasIdentityConflict: false
+  });
+  assert.equal(compact.validation.issues.length, 5);
   assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'validation');
   assert.equal(compact.harness.plannerHandoff.activeBlocker.validationIssueKind, 'terraform-validate-failure');
   assert.equal(compact.harness.plannerHandoff.nextControlAction, 'resolve-validation');
