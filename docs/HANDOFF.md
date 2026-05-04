@@ -3849,6 +3849,28 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Planner Handoff Outcome Matrix Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add matrix coverage for compact `harness.plannerHandoff` control routing by
+  final agent outcome.
+- Verify completed, approval-required, clarification-required,
+  validation-blocked, repair-budget-exhausted, no-safe-action, and
+  turn-budget cases map to stable active blocker and next-control-action values.
+- Assert validation and approval blocker details remain nullable and scoped to
+  the relevant blocker type.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Skill Compact Handoff Alignment Slice
 
 Files added or updated:

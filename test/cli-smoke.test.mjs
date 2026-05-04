@@ -5461,6 +5461,166 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
   assert.ok(resultCard.some(line => /Validation blockers: 10 issue\(s\); 6 repairable, 4 non-repairable; top terraform-validate-failure x2; omitted issues=5, groups=1/i.test(line)));
 });
 
+test('buildCompactAgentRunResult maps planner handoff controls by outcome', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const retrievedContextBudget = {
+    maxPackets: 5,
+    maxTokens: 1000,
+    maxExcerptChars: 600
+  };
+  const makeTurn = (actionKind = 'stop', payload = { stopReason: 'done' }) => ({
+    index: 0,
+    decision: {
+      action: {
+        kind: actionKind,
+        summary: `${actionKind} summary`,
+        payload
+      },
+      confidence: 0.9
+    },
+    execution: {
+      status: 'skipped',
+      reason: null,
+      executedTools: []
+    },
+    runtimeSnapshot: {
+      appliedWrites: [],
+      validationIssues: [],
+      approvalSignals: []
+    }
+  });
+  const makeState = ({
+    outcome,
+    runtime = {},
+    turns = [makeTurn()],
+    maxTurns = 6,
+    maxRepairAttempts = 2
+  }) => ({
+    modelName: 'test-model',
+    outcome,
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null,
+      retrievedContext: [],
+      retrievedContextBudget,
+      ...runtime
+    },
+    turns,
+    config: {
+      maxTurns,
+      maxRepairAttempts,
+      retrievedContextBudget
+    }
+  });
+  const cases = [
+    {
+      name: 'completed',
+      state: makeState({ outcome: 'completed' }),
+      activeBlockerKind: 'none',
+      nextControlAction: 'review-result'
+    },
+    {
+      name: 'approval-required',
+      state: makeState({
+        outcome: 'approval-required',
+        runtime: {
+          approvalSignals: [
+            {
+              kind: 'write-approval-required',
+              path: 'charts/payments-api/values.yaml',
+              risk: 'high',
+              message: 'Approval required.'
+            }
+          ]
+        }
+      }),
+      activeBlockerKind: 'approval',
+      nextControlAction: 'request-approval',
+      approvalSignalKind: 'write-approval-required'
+    },
+    {
+      name: 'clarification-required',
+      state: makeState({
+        outcome: 'clarification-required',
+        turns: [makeTurn('ask-for-clarification', {
+          actionFamily: 'helm-edit',
+          clarificationKind: 'target',
+          question: 'Which target should be changed?'
+        })]
+      }),
+      activeBlockerKind: 'clarification',
+      nextControlAction: 'answer-clarification'
+    },
+    {
+      name: 'validation-blocked',
+      state: makeState({
+        outcome: 'validation-blocked',
+        runtime: {
+          validationIssues: [
+            {
+              kind: 'terraform-validate-failure',
+              repairable: true,
+              sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+              message: 'Missing required argument.'
+            }
+          ]
+        }
+      }),
+      activeBlockerKind: 'validation',
+      nextControlAction: 'resolve-validation',
+      validationIssueKind: 'terraform-validate-failure'
+    },
+    {
+      name: 'repair-budget-exhausted',
+      state: makeState({
+        outcome: 'repair-budget-exhausted',
+        runtime: {
+          repairAttempts: 2
+        },
+        maxRepairAttempts: 2
+      }),
+      activeBlockerKind: 'repair-budget',
+      nextControlAction: 'manual-repair'
+    },
+    {
+      name: 'no-safe-action',
+      state: makeState({
+        outcome: 'no-safe-action',
+        turns: [makeTurn('inspect-target-files', { actionFamily: 'inspection' })],
+        maxTurns: 3
+      }),
+      activeBlockerKind: 'no-safe-action',
+      nextControlAction: 'inspect-readiness-or-targeting'
+    },
+    {
+      name: 'turn-budget',
+      state: makeState({
+        outcome: 'no-safe-action',
+        turns: [makeTurn('inspect-target-files', { actionFamily: 'inspection' })],
+        maxTurns: 1
+      }),
+      activeBlockerKind: 'turn-budget',
+      nextControlAction: 'rerun-with-larger-turn-budget'
+    }
+  ];
+
+  for (const entry of cases) {
+    const handoff = buildCompactAgentRunResult(entry.state).harness.plannerHandoff;
+    assert.equal(handoff.activeBlocker.kind, entry.activeBlockerKind, entry.name);
+    assert.equal(handoff.nextControlAction, entry.nextControlAction, entry.name);
+    assert.equal(handoff.activeBlocker.validationIssueKind, entry.validationIssueKind ?? null, entry.name);
+    assert.equal(handoff.activeBlocker.approvalSignalKind, entry.approvalSignalKind ?? null, entry.name);
+  }
+});
+
 test('agent CLI args accept --max-turns for bounded loop control', () => {
   const parsed = parseArgs([
     'agent',
