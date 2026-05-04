@@ -4692,6 +4692,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Knowledge Context Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `knowledgeContext` as the retrieved docs/schema budget
+  summary for downstream handoff.
+- Validate context budget limits, packet/omission count arithmetic, packet
+  summary shape, confidence values, omitted-reason coherence, and derived token
+  totals.
+- Reject raw context fields such as excerpts, facts, or source payloads in
+  compact packet summaries.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

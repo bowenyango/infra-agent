@@ -146,6 +146,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - LLM planner client tests must use injected transports or mocked fetchers. Do not make unit, smoke, or E2E tests depend on live LLM providers or external network availability.
 - Test LLM planner mode and environment selection through explicit environment maps. Avoid mutating `process.env` in tests unless a behavior specifically requires process-level integration.
 - Follow `docs/CLAUDE_CODE_AGENT_PATTERNS.md` when evolving the harness: prefer compact structured turn traces, tool summaries, and explicit permission/validation state over raw logs or full runtime snapshots in agent-facing output.
+- Validate compact `knowledgeContext` before using retrieved docs/schema
+  context in handoff: positive packet/token/excerpt budgets, non-negative
+  packet and token totals, included/omitted count arithmetic, omitted-reason
+  counts, packet summary shape, confidence enums, included/omitted reason
+  coherence, derived token totals, excerpt-char limits, and no raw excerpts,
+  facts, or source payloads.
 - Tool summaries must preserve permission categories for workspace mutation, native CLI execution, and stack/state mutation-risk tools. Do not collapse these into generic "tool ran" prose.
 - Validate compact `harness.toolTrace` as permission provenance: supported
   tool safety and permission categories, non-empty tool names, boolean

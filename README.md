@@ -259,7 +259,10 @@ Current behavior is intentionally runtime-foundation oriented:
   first when readiness has warnings or failures.
   Retrieved official-doc/schema context is budgeted before planner handoff, and
   compact results expose `knowledgeContext` with packet/token counts and
-  omitted-context reasons instead of raw excerpts.
+  omitted-context reasons instead of raw excerpts. Compact consumers validate
+  positive budget limits, packet/omission count arithmetic, packet summary
+  entry shape, omitted-reason coherence, derived token totals, excerpt-char
+  limits, and the absence of raw context fields.
   Report commands are covered through the real CLI entrypoint for
   `identity-report --json` and `impact-report --json` so downstream handoff
   paths exercise command parsing, file loading, contract parsing, and JSON

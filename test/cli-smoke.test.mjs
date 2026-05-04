@@ -6231,6 +6231,19 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
             sourceCommand: 'terraform -chdir=terraform/payments-api plan'
           }
         ]
+      },
+      knowledgeContext: {
+        maxPackets: 5,
+        maxTokens: 1000,
+        maxExcerptChars: 1200,
+        totalPacketCount: 0,
+        includedPacketCount: 0,
+        omittedPacketCount: 0,
+        includedTokenEstimate: 0,
+        omittedTokenEstimate: 0,
+        omittedByPacketLimit: 0,
+        omittedByTokenBudget: 0,
+        packets: []
       }
     }), 'utf8');
 
@@ -6892,6 +6905,44 @@ test('compact agent result contract validates shallow handoff shape', () => {
         toolCategories: [],
         signalCount: 0
       }
+    },
+    knowledgeContext: {
+      maxPackets: 2,
+      maxTokens: 50,
+      maxExcerptChars: 300,
+      totalPacketCount: 2,
+      includedPacketCount: 1,
+      omittedPacketCount: 1,
+      includedTokenEstimate: 40,
+      omittedTokenEstimate: 80,
+      omittedByPacketLimit: 0,
+      omittedByTokenBudget: 1,
+      packets: [
+        {
+          id: 'terraform-registry/aws-lb-listener-rule',
+          sourceKind: 'terraform-registry',
+          sourceName: 'aws_lb_listener_rule',
+          sourceVersion: '5.0.0',
+          confidence: 'high',
+          reason: 'Provider docs selected for the target.',
+          tokenEstimate: 40,
+          excerptChars: 120,
+          included: true,
+          omittedReason: null
+        },
+        {
+          id: 'terraform-registry/aws-lb-listener',
+          sourceKind: 'terraform-registry',
+          sourceName: 'aws_lb_listener',
+          sourceVersion: '5.0.0',
+          confidence: 'medium',
+          reason: 'Token budget omitted this packet.',
+          tokenEstimate: 80,
+          excerptChars: 200,
+          included: false,
+          omittedReason: 'token-budget'
+        }
+      ]
     }
   };
   const validSafetyBlocker = {
@@ -8571,6 +8622,158 @@ test('compact agent result contract validates shallow handoff shape', () => {
     }),
     /conflict at index 0.*mutationAllowed/
   );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: null
+    }),
+    /knowledgeContext object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        maxPackets: 0
+      }
+    }),
+    /knowledgeContext\.maxPackets/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        totalPacketCount: 3
+      }
+    }),
+    /knowledgeContext packet counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        omittedByTokenBudget: 0
+      }
+    }),
+    /knowledgeContext omitted counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        totalPacketCount: 3,
+        includedPacketCount: 3,
+        omittedPacketCount: 0,
+        omittedByTokenBudget: 0
+      }
+    }),
+    /knowledgeContext\.includedPacketCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        totalPacketCount: 3,
+        omittedPacketCount: 2,
+        omittedByPacketLimit: 1
+      }
+    }),
+    /knowledgeContext\.packets length/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        packets: [
+          {
+            ...validResult.knowledgeContext.packets[0],
+            confidence: 'certain'
+          },
+          validResult.knowledgeContext.packets[1]
+        ]
+      }
+    }),
+    /knowledgeContext\.packets\[0\]\.confidence/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        packets: [
+          {
+            ...validResult.knowledgeContext.packets[0],
+            excerptChars: 301
+          },
+          validResult.knowledgeContext.packets[1]
+        ]
+      }
+    }),
+    /knowledgeContext\.packets\[0\]\.excerptChars/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        packets: [
+          {
+            ...validResult.knowledgeContext.packets[0],
+            omittedReason: 'token-budget'
+          },
+          validResult.knowledgeContext.packets[1]
+        ]
+      }
+    }),
+    /knowledgeContext\.packets\[0\]\.omittedReason/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        packets: [
+          validResult.knowledgeContext.packets[0],
+          {
+            ...validResult.knowledgeContext.packets[1],
+            omittedReason: null
+          }
+        ]
+      }
+    }),
+    /knowledgeContext\.packets\[1\]\.omittedReason/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        packets: [
+          {
+            ...validResult.knowledgeContext.packets[0],
+            excerpt: 'raw context should not be in the summary'
+          },
+          validResult.knowledgeContext.packets[1]
+        ]
+      }
+    }),
+    /knowledgeContext\.packets\[0\].*raw context/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeContext: {
+        ...validResult.knowledgeContext,
+        includedTokenEstimate: 41
+      }
+    }),
+    /knowledgeContext\.includedTokenEstimate/
+  );
 });
 
 test('identity-report loader renders compact conflict reports from a JSON file', async () => {
@@ -8669,6 +8872,19 @@ test('identity-report loader renders compact conflict reports from a JSON file',
             sourceCommand: 'terraform -chdir=terraform/payments-api plan'
           }
         ]
+      },
+      knowledgeContext: {
+        maxPackets: 5,
+        maxTokens: 1000,
+        maxExcerptChars: 1200,
+        totalPacketCount: 0,
+        includedPacketCount: 0,
+        omittedPacketCount: 0,
+        includedTokenEstimate: 0,
+        omittedTokenEstimate: 0,
+        omittedByPacketLimit: 0,
+        omittedByTokenBudget: 0,
+        packets: []
       }
     }), 'utf8');
 

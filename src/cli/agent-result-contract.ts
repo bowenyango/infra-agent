@@ -88,6 +88,7 @@ const IDENTITY_CONFLICT_RISK_CATEGORIES = [
   'physical-name-ownership'
 ] as const;
 const IDENTITY_CONFLICT_ENGINES = ['pulumi', 'terraform'] as const;
+const RETRIEVED_CONTEXT_OMITTED_REASONS = ['packet-limit', 'token-budget'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -194,6 +195,11 @@ function isKnownIdentityConflictEngine(value: unknown): boolean {
 function isKnownIdentityConflictRiskCategory(value: unknown): boolean {
   return typeof value === 'string'
     && IDENTITY_CONFLICT_RISK_CATEGORIES.includes(value as typeof IDENTITY_CONFLICT_RISK_CATEGORIES[number]);
+}
+
+function isKnownRetrievedContextOmittedReason(value: unknown): boolean {
+  return typeof value === 'string'
+    && RETRIEVED_CONTEXT_OMITTED_REASONS.includes(value as typeof RETRIEVED_CONTEXT_OMITTED_REASONS[number]);
 }
 
 function isNumber(value: unknown): boolean {
@@ -1699,6 +1705,161 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input approval.resume.signalCount must cover included approval signals.');
       }
     }
+  }
+
+  if (!isRecord(value.knowledgeContext)) {
+    throw new Error('compact result input must include knowledgeContext object.');
+  }
+
+  for (const field of ['maxPackets', 'maxTokens', 'maxExcerptChars']) {
+    assertIntegerField(
+      value.knowledgeContext,
+      field,
+      'knowledgeContext',
+      isPositiveInteger,
+      'a positive integer'
+    );
+  }
+
+  for (const field of [
+    'totalPacketCount',
+    'includedPacketCount',
+    'omittedPacketCount',
+    'includedTokenEstimate',
+    'omittedTokenEstimate',
+    'omittedByPacketLimit',
+    'omittedByTokenBudget'
+  ]) {
+    assertIntegerField(
+      value.knowledgeContext,
+      field,
+      'knowledgeContext',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+  }
+
+  const knowledgeTotalPacketCount = value.knowledgeContext.totalPacketCount as number;
+  const knowledgeIncludedPacketCount = value.knowledgeContext.includedPacketCount as number;
+  const knowledgeOmittedPacketCount = value.knowledgeContext.omittedPacketCount as number;
+  const knowledgeOmittedByPacketLimit = value.knowledgeContext.omittedByPacketLimit as number;
+  const knowledgeOmittedByTokenBudget = value.knowledgeContext.omittedByTokenBudget as number;
+
+  if (knowledgeIncludedPacketCount + knowledgeOmittedPacketCount !== knowledgeTotalPacketCount) {
+    throw new Error('compact result input knowledgeContext packet counts must be consistent.');
+  }
+
+  if (knowledgeOmittedByPacketLimit + knowledgeOmittedByTokenBudget !== knowledgeOmittedPacketCount) {
+    throw new Error('compact result input knowledgeContext omitted counts must be consistent.');
+  }
+
+  if (knowledgeIncludedPacketCount > (value.knowledgeContext.maxPackets as number)) {
+    throw new Error('compact result input knowledgeContext.includedPacketCount must not exceed maxPackets.');
+  }
+
+  if (!Array.isArray(value.knowledgeContext.packets)) {
+    throw new Error('compact result input knowledgeContext.packets must be an array.');
+  }
+
+  if (value.knowledgeContext.packets.length !== knowledgeTotalPacketCount) {
+    throw new Error('compact result input knowledgeContext.packets length must match totalPacketCount.');
+  }
+
+  let derivedIncludedPacketCount = 0;
+  let derivedOmittedPacketCount = 0;
+  let derivedIncludedTokenEstimate = 0;
+  let derivedOmittedTokenEstimate = 0;
+  let derivedOmittedByPacketLimit = 0;
+  let derivedOmittedByTokenBudget = 0;
+
+  for (let index = 0; index < value.knowledgeContext.packets.length; index += 1) {
+    const packet = value.knowledgeContext.packets[index];
+    const packetPath = `knowledgeContext.packets[${index}]`;
+
+    if (!isRecord(packet)) {
+      throw new Error(`compact result input ${packetPath} must be an object.`);
+    }
+
+    if ('excerpt' in packet || 'facts' in packet || 'source' in packet) {
+      throw new Error(`compact result input ${packetPath} must not include raw context fields.`);
+    }
+
+    for (const field of ['id', 'sourceKind', 'reason']) {
+      if (typeof packet[field] !== 'string' || packet[field].length === 0) {
+        throw new Error(`compact result input ${packetPath}.${field} must be a non-empty string.`);
+      }
+    }
+
+    for (const field of ['sourceName', 'sourceVersion']) {
+      if (!isStringOrNull(packet[field])) {
+        throw new Error(`compact result input ${packetPath}.${field} must be string or null.`);
+      }
+    }
+
+    if (!isKnownAgentConfidence(packet.confidence)) {
+      throw new Error(`compact result input ${packetPath}.confidence must be supported.`);
+    }
+
+    assertIntegerField(packet, 'tokenEstimate', packetPath, isNonNegativeInteger, 'a non-negative integer');
+    assertIntegerField(packet, 'excerptChars', packetPath, isNonNegativeInteger, 'a non-negative integer');
+
+    if ((packet.excerptChars as number) > (value.knowledgeContext.maxExcerptChars as number)) {
+      throw new Error(`compact result input ${packetPath}.excerptChars must not exceed knowledgeContext.maxExcerptChars.`);
+    }
+
+    if (typeof packet.included !== 'boolean') {
+      throw new Error(`compact result input ${packetPath}.included must be a boolean.`);
+    }
+
+    if (packet.omittedReason !== null && !isKnownRetrievedContextOmittedReason(packet.omittedReason)) {
+      throw new Error(`compact result input ${packetPath}.omittedReason must be null or supported.`);
+    }
+
+    if (packet.included && packet.omittedReason !== null) {
+      throw new Error(`compact result input ${packetPath}.omittedReason must be null when included is true.`);
+    }
+
+    if (!packet.included && packet.omittedReason === null) {
+      throw new Error(`compact result input ${packetPath}.omittedReason is required when included is false.`);
+    }
+
+    if (packet.included) {
+      derivedIncludedPacketCount += 1;
+      derivedIncludedTokenEstimate += packet.tokenEstimate as number;
+    } else {
+      derivedOmittedPacketCount += 1;
+      derivedOmittedTokenEstimate += packet.tokenEstimate as number;
+      if (packet.omittedReason === 'packet-limit') {
+        derivedOmittedByPacketLimit += 1;
+      }
+      if (packet.omittedReason === 'token-budget') {
+        derivedOmittedByTokenBudget += 1;
+      }
+    }
+  }
+
+  if (derivedIncludedPacketCount !== knowledgeIncludedPacketCount) {
+    throw new Error('compact result input knowledgeContext.includedPacketCount must match packets.');
+  }
+
+  if (derivedOmittedPacketCount !== knowledgeOmittedPacketCount) {
+    throw new Error('compact result input knowledgeContext.omittedPacketCount must match packets.');
+  }
+
+  if (derivedIncludedTokenEstimate !== value.knowledgeContext.includedTokenEstimate) {
+    throw new Error('compact result input knowledgeContext.includedTokenEstimate must match included packets.');
+  }
+
+  if (derivedOmittedTokenEstimate !== value.knowledgeContext.omittedTokenEstimate) {
+    throw new Error('compact result input knowledgeContext.omittedTokenEstimate must match omitted packets.');
+  }
+
+  if (derivedOmittedByPacketLimit !== knowledgeOmittedByPacketLimit) {
+    throw new Error('compact result input knowledgeContext.omittedByPacketLimit must match packets.');
+  }
+
+  if (derivedOmittedByTokenBudget !== knowledgeOmittedByTokenBudget) {
+    throw new Error('compact result input knowledgeContext.omittedByTokenBudget must match packets.');
   }
 
   return value as unknown as CompactAgentRunResult;
