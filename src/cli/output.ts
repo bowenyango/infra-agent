@@ -1,7 +1,14 @@
 import type { AgentRunState } from '../agent/run-single-step.ts';
 import type { ToolSafety } from '../Tool.ts';
 import { DEFAULT_QUERY_LOOP_CONFIG } from '../query-config.ts';
-import type { ApprovalSignal, ValidationIssue } from '../types/agent.ts';
+import type {
+  AgentActionFamily,
+  AgentActionKind,
+  AgentClarificationKind,
+  AgentStopReason,
+  ApprovalSignal,
+  ValidationIssue
+} from '../types/agent.ts';
 import type {
   DomainCapabilitySummary,
   RunPreflightState,
@@ -187,6 +194,28 @@ export interface CompactAgentRunResult {
       approvalSignalCount: number;
       retrievedContextCount: number;
       semanticFactCount: number;
+    };
+    plannerHandoff: {
+      lastAction: {
+        kind: AgentActionKind | null;
+        family: AgentActionFamily | null;
+        stopReason: AgentStopReason | null;
+        clarificationKind: AgentClarificationKind | null;
+        executionStatus: 'completed' | 'skipped' | null;
+      };
+      activeBlocker: {
+        kind: 'none' | 'approval' | 'clarification' | 'validation' | 'repair-budget' | 'turn-budget' | 'no-safe-action';
+        validationIssueKind: ValidationIssue['kind'] | null;
+        approvalSignalKind: ApprovalSignal['kind'] | null;
+      };
+      nextControlAction:
+        | 'review-result'
+        | 'request-approval'
+        | 'answer-clarification'
+        | 'resolve-validation'
+        | 'manual-repair'
+        | 'rerun-with-larger-turn-budget'
+        | 'inspect-readiness-or-targeting';
     };
     turnTraceLimit: number;
     turnTraceOmittedCount: number;
@@ -625,6 +654,59 @@ function collectRuntimeStateSummary(state: AgentRunState): CompactAgentRunResult
     approvalSignalCount: state.runtime.approvalSignals?.length ?? 0,
     retrievedContextCount: state.runtime.retrievedContext?.length ?? 0,
     semanticFactCount: getRuntimeConfigSemantics(state.runtime).reduce((count, summary) => count + summary.facts.length, 0)
+  };
+}
+
+function collectPlannerHandoff(state: AgentRunState): CompactAgentRunResult['harness']['plannerHandoff'] {
+  const lastTurn = state.turns[state.turns.length - 1];
+  const loopBudget = collectLoopBudget(state);
+  const activeBlockerKind = (() => {
+    switch (state.outcome) {
+      case 'completed':
+        return 'none';
+      case 'approval-required':
+        return 'approval';
+      case 'clarification-required':
+        return 'clarification';
+      case 'validation-blocked':
+        return 'validation';
+      case 'repair-budget-exhausted':
+        return 'repair-budget';
+      case 'no-safe-action':
+        return loopBudget.exhausted ? 'turn-budget' : 'no-safe-action';
+    }
+  })();
+  const nextControlAction = (() => {
+    switch (state.outcome) {
+      case 'completed':
+        return 'review-result';
+      case 'approval-required':
+        return 'request-approval';
+      case 'clarification-required':
+        return 'answer-clarification';
+      case 'validation-blocked':
+        return 'resolve-validation';
+      case 'repair-budget-exhausted':
+        return 'manual-repair';
+      case 'no-safe-action':
+        return loopBudget.exhausted ? 'rerun-with-larger-turn-budget' : 'inspect-readiness-or-targeting';
+    }
+  })();
+
+  return {
+    lastAction: {
+      kind: lastTurn?.decision.action.kind ?? null,
+      family: lastTurn?.decision.action.payload?.actionFamily ?? null,
+      stopReason: lastTurn?.decision.action.payload?.stopReason ?? null,
+      clarificationKind: lastTurn?.decision.action.payload?.clarificationKind ?? null,
+      executionStatus: lastTurn?.execution?.status ?? null
+    },
+    activeBlocker: {
+      kind: activeBlockerKind,
+      validationIssueKind: state.runtime.validationIssues[0]?.kind ?? null,
+      approvalSignalKind: state.runtime.approvalSignals[0]?.kind ?? null
+    },
+    nextControlAction
   };
 }
 
@@ -1471,6 +1553,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       },
       loopBudget: collectLoopBudget(state),
       stateSummary: collectRuntimeStateSummary(state),
+      plannerHandoff: collectPlannerHandoff(state),
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
       turnTraceOmittedCount: Math.max(0, state.turns.length - COMPACT_TURN_TRACE_LIMIT),
       turnTrace: collectCompactTurnTrace(state),

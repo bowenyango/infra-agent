@@ -5146,6 +5146,10 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       turnsRemaining: 0,
       exhausted: true
     });
+    assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'turn-budget');
+    assert.equal(compact.harness.plannerHandoff.nextControlAction, 'rerun-with-larger-turn-budget');
+    assert.equal(compact.harness.plannerHandoff.lastAction.kind, 'inspect-target-files');
+    assert.equal(compact.harness.plannerHandoff.lastAction.executionStatus, 'completed');
     assert.ok(compact.resultCard.some(line => /Turn budget: 1\/1 turn\(s\) used; exhausted/i.test(line)));
     assert.equal(compact.harness.turnTraceLimit, 10);
     assert.equal(compact.harness.turnTraceOmittedCount, 0);
@@ -5266,6 +5270,15 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
     compact.harness.turnTrace[0]?.executionReason,
     'No validation commands were present in the decision payload.'
   );
+  assert.deepEqual(compact.harness.plannerHandoff.lastAction, {
+    kind: 'validate-targets',
+    family: 'helm-validation',
+    stopReason: null,
+    clarificationKind: null,
+    executionStatus: 'skipped'
+  });
+  assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'turn-budget');
+  assert.equal(compact.harness.plannerHandoff.nextControlAction, 'rerun-with-larger-turn-budget');
 });
 
 test('buildCompactAgentRunResult includes budgeted validation command summaries', async () => {
@@ -5413,6 +5426,9 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
     sourceCommandCount: 2,
     blocking: true
   });
+  assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'validation');
+  assert.equal(compact.harness.plannerHandoff.activeBlocker.validationIssueKind, 'terraform-validate-failure');
+  assert.equal(compact.harness.plannerHandoff.nextControlAction, 'resolve-validation');
 });
 
 test('agent CLI args accept --max-turns for bounded loop control', () => {
@@ -5653,6 +5669,12 @@ test('compact agent result contract validates shallow handoff shape', () => {
       turnTrace: [],
       toolTrace: {
         entries: []
+      },
+      plannerHandoff: {
+        activeBlocker: {
+          kind: 'validation'
+        },
+        nextControlAction: 'resolve-validation'
       }
     },
     readiness: {
@@ -5687,6 +5709,34 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.toolTrace\.entries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        plannerHandoff: {
+          activeBlocker: {
+            kind: 'unexpected'
+          },
+          nextControlAction: 'resolve-validation'
+        }
+      }
+    }),
+    /plannerHandoff\.activeBlocker\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        plannerHandoff: {
+          activeBlocker: {
+            kind: 'validation'
+          },
+          nextControlAction: 'unexpected'
+        }
+      }
+    }),
+    /plannerHandoff\.nextControlAction/
   );
 });
 
@@ -7001,6 +7051,11 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.deepEqual(compact.approval.resume.writeRisks, ['high']);
   assert.deepEqual(compact.approval.resume.writePaths, ['charts/payments-api/values.yaml']);
   assert.deepEqual(compact.approval.resume.toolCategories, []);
+  assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'approval');
+  assert.equal(compact.harness.plannerHandoff.activeBlocker.approvalSignalKind, 'write-approval-required');
+  assert.equal(compact.harness.plannerHandoff.nextControlAction, 'request-approval');
+  assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'payload'), false);
+  assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'runtime'), false);
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {

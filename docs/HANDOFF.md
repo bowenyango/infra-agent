@@ -4249,3 +4249,30 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Planner Handoff Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `harness.plannerHandoff` to `infra-agent.agent-result` output so
+  downstream agents can route completed, blocked, approval, clarification,
+  repair-budget, and turn-budget runs without loading raw runtime state.
+- Report only derived last-action metadata, active blocker kind, top validation
+  issue kind, top approval signal kind, and next control action.
+- Extend the compact result contract parser to reject unknown planner handoff
+  active-blocker and next-control-action values when the block is present.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

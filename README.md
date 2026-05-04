@@ -173,6 +173,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `harness.stateSummary` reports runtime counts for observations, tools,
   writes, validation results/issues, approvals, retrieved context, and semantic
   facts without exposing the full runtime state.
+  `harness.plannerHandoff` reports the last action, active blocker, and next
+  control action so another agent can route the run without reading raw
+  decisions, prompts, or runtime arrays.
   `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
   plus an omitted count, so downstream agents can inspect execution evidence
   and permission categories without loading raw tool output.

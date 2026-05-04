@@ -8,6 +8,24 @@ const AGENT_RESULT_OUTCOMES = [
   'repair-budget-exhausted',
   'no-safe-action'
 ] as const;
+const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
+  'none',
+  'approval',
+  'clarification',
+  'validation',
+  'repair-budget',
+  'turn-budget',
+  'no-safe-action'
+] as const;
+const PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS = [
+  'review-result',
+  'request-approval',
+  'answer-clarification',
+  'resolve-validation',
+  'manual-repair',
+  'rerun-with-larger-turn-budget',
+  'inspect-readiness-or-targeting'
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -15,6 +33,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isKnownAgentResultOutcome(value: unknown): boolean {
   return typeof value === 'string' && AGENT_RESULT_OUTCOMES.includes(value as typeof AGENT_RESULT_OUTCOMES[number]);
+}
+
+function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
+  return typeof value === 'string'
+    && PLANNER_HANDOFF_ACTIVE_BLOCKERS.includes(value as typeof PLANNER_HANDOFF_ACTIVE_BLOCKERS[number]);
+}
+
+function isKnownPlannerHandoffNextControlAction(value: unknown): boolean {
+  return typeof value === 'string'
+    && PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS.includes(value as typeof PLANNER_HANDOFF_NEXT_CONTROL_ACTIONS[number]);
 }
 
 export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResult {
@@ -41,6 +69,19 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       && !Array.isArray(value.harness.toolTrace.entries)
     ) {
       throw new Error('compact result input harness.toolTrace.entries must be an array when present.');
+    }
+
+    if (isRecord(value.harness.plannerHandoff)) {
+      if (
+        isRecord(value.harness.plannerHandoff.activeBlocker)
+        && !isKnownPlannerHandoffActiveBlocker(value.harness.plannerHandoff.activeBlocker.kind)
+      ) {
+        throw new Error('compact result input harness.plannerHandoff.activeBlocker.kind must be supported when present.');
+      }
+
+      if (!isKnownPlannerHandoffNextControlAction(value.harness.plannerHandoff.nextControlAction)) {
+        throw new Error('compact result input harness.plannerHandoff.nextControlAction must be supported when present.');
+      }
     }
   }
 
