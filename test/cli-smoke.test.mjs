@@ -5382,6 +5382,17 @@ test('runSingleStep respects the configured maximum turn count', async () => {
         rawPromptIncluded: false,
         rawKnowledgeExcerptIncluded: false
       },
+      summary: {
+        outcome: 'no-safe-action',
+        activeBlocker: 'turn-budget',
+        nextControlAction: 'rerun-with-larger-turn-budget',
+        readinessStatus: 'pass',
+        validationStatus: 'not run yet',
+        validationIssueCount: 0,
+        identityConflictCount: 0,
+        approvalContinuationRequired: false,
+        changedFileCount: 0
+      },
       durableSections: [
         'root',
         'harness',
@@ -6198,6 +6209,17 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           rawPromptIncluded: false,
           rawKnowledgeExcerptIncluded: false
         },
+        summary: {
+          outcome: 'validation-blocked',
+          activeBlocker: 'validation',
+          nextControlAction: 'resolve-validation',
+          readinessStatus: 'pass',
+          validationStatus: 'failed',
+          validationIssueCount: 1,
+          identityConflictCount: 1,
+          approvalContinuationRequired: false,
+          changedFileCount: 0
+        },
         durableSections: [
           'root',
           'harness',
@@ -6699,6 +6721,17 @@ test('compact agent result contract validates shallow handoff shape', () => {
         rawPromptIncluded: false,
         rawKnowledgeExcerptIncluded: false
       },
+      summary: {
+        outcome: 'validation-blocked',
+        activeBlocker: 'validation',
+        nextControlAction: 'resolve-validation',
+        readinessStatus: 'pass',
+        validationStatus: 'failed',
+        validationIssueCount: 1,
+        identityConflictCount: 1,
+        approvalContinuationRequired: false,
+        changedFileCount: 0
+      },
       durableSections: [
         'root',
         'harness',
@@ -7102,6 +7135,32 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /handoffCheckpoint\.exclusions\.rawRuntimeIncluded/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          activeBlocker: 'runtime'
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.activeBlocker/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          validationIssueCount: -1
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.validationIssueCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -9074,6 +9133,17 @@ test('identity-report loader renders compact conflict reports from a JSON file',
           rawPromptIncluded: false,
           rawKnowledgeExcerptIncluded: false
         },
+        summary: {
+          outcome: 'validation-blocked',
+          activeBlocker: 'validation',
+          nextControlAction: 'resolve-validation',
+          readinessStatus: 'pass',
+          validationStatus: 'failed',
+          validationIssueCount: 1,
+          identityConflictCount: 1,
+          approvalContinuationRequired: false,
+          changedFileCount: 0
+        },
         durableSections: [
           'root',
           'harness',
@@ -9422,6 +9492,17 @@ test('identity-report loader rejects non-compact result inputs', async () => {
           rawToolOutputIncluded: false,
           rawPromptIncluded: false,
           rawKnowledgeExcerptIncluded: false
+        },
+        summary: {
+          outcome: 'validation-blocked',
+          activeBlocker: 'validation',
+          nextControlAction: 'resolve-validation',
+          readinessStatus: 'pass',
+          validationStatus: 'failed',
+          validationIssueCount: 1,
+          identityConflictCount: 1,
+          approvalContinuationRequired: false,
+          changedFileCount: 0
         },
         durableSections: [
           'root',

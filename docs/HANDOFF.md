@@ -5715,3 +5715,29 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-04 Handoff Routing Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `scripts/compact-fixtures.mjs`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `handoffCheckpoint.summary` with the derived outcome, active blocker,
+  next control action, readiness status, validation status, validation issue
+  count, identity conflict count, approval-continuation flag, and changed file
+  count.
+- Validate the summary shape and supported routing enums in the compact result
+  parser.
+- Keep the summary derived from existing compact result sections; cross-field
+  consistency is intentionally handled in a later slice.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.

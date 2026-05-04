@@ -367,6 +367,44 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
+  if (!isRecord(value.handoffCheckpoint.summary)) {
+    throw new Error('compact result input handoffCheckpoint.summary must be an object.');
+  }
+
+  if (!isKnownAgentResultOutcome(value.handoffCheckpoint.summary.outcome)) {
+    throw new Error('compact result input handoffCheckpoint.summary.outcome must be supported.');
+  }
+
+  if (!isKnownPlannerHandoffActiveBlocker(value.handoffCheckpoint.summary.activeBlocker)) {
+    throw new Error('compact result input handoffCheckpoint.summary.activeBlocker must be supported.');
+  }
+
+  if (!isKnownPlannerHandoffNextControlAction(value.handoffCheckpoint.summary.nextControlAction)) {
+    throw new Error('compact result input handoffCheckpoint.summary.nextControlAction must be supported.');
+  }
+
+  if (!isKnownDoctorCheckStatus(value.handoffCheckpoint.summary.readinessStatus)) {
+    throw new Error('compact result input handoffCheckpoint.summary.readinessStatus must be supported.');
+  }
+
+  if (typeof value.handoffCheckpoint.summary.validationStatus !== 'string') {
+    throw new Error('compact result input handoffCheckpoint.summary.validationStatus must be a string.');
+  }
+
+  for (const field of ['validationIssueCount', 'identityConflictCount', 'changedFileCount']) {
+    assertIntegerField(
+      value.handoffCheckpoint.summary,
+      field,
+      'handoffCheckpoint.summary',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+  }
+
+  if (typeof value.handoffCheckpoint.summary.approvalContinuationRequired !== 'boolean') {
+    throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must be a boolean.');
+  }
+
   if (!Array.isArray(value.handoffCheckpoint.durableSections)) {
     throw new Error('compact result input handoffCheckpoint.durableSections must be an array.');
   }

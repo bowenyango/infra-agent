@@ -174,6 +174,17 @@ interface CompactHandoffCheckpoint {
     rawPromptIncluded: false;
     rawKnowledgeExcerptIncluded: false;
   };
+  summary: {
+    outcome: AgentRunState['outcome'];
+    activeBlocker: CompactAgentRunResult['harness']['plannerHandoff']['activeBlocker']['kind'];
+    nextControlAction: CompactAgentRunResult['harness']['plannerHandoff']['nextControlAction'];
+    readinessStatus: DoctorReport['summary']['status'];
+    validationStatus: string;
+    validationIssueCount: number;
+    identityConflictCount: number;
+    approvalContinuationRequired: boolean;
+    changedFileCount: number;
+  };
   durableSections: Array<
     | 'root'
     | 'harness'
@@ -1962,7 +1973,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     resultCard: summarizeResultCard(state),
     nextSteps: summarizeRecommendedNextSteps(state),
     suggestedCommands: summarizeSuggestedCommands(state),
-    handoffCheckpoint: collectHandoffCheckpoint(),
+    handoffCheckpoint: collectHandoffCheckpoint(state),
     harness: {
       maxTurns: getAgentMaxTurns(state),
       queryConfig: {
@@ -2021,7 +2032,11 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
   };
 }
 
-function collectHandoffCheckpoint(): CompactHandoffCheckpoint {
+function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoint {
+  const plannerHandoff = collectPlannerHandoff(state);
+  const readiness = collectCompactReadiness(state);
+  const identityConflictSummary = collectValidationIdentityConflictSummary(state);
+
   return {
     schemaVersion: 1,
     source: 'agent-result',
@@ -2035,6 +2050,17 @@ function collectHandoffCheckpoint(): CompactHandoffCheckpoint {
       rawToolOutputIncluded: false,
       rawPromptIncluded: false,
       rawKnowledgeExcerptIncluded: false
+    },
+    summary: {
+      outcome: state.outcome,
+      activeBlocker: plannerHandoff.activeBlocker.kind,
+      nextControlAction: plannerHandoff.nextControlAction,
+      readinessStatus: readiness.status,
+      validationStatus: summarizeValidationStatus(state),
+      validationIssueCount: state.runtime.validationIssues.length,
+      identityConflictCount: identityConflictSummary.totalCount,
+      approvalContinuationRequired: state.outcome === 'approval-required',
+      changedFileCount: new Set(state.runtime.appliedWrites.map(write => write.path)).size
     },
     durableSections: [
       'root',

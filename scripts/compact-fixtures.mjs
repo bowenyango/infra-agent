@@ -19,6 +19,17 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         rawPromptIncluded: false,
         rawKnowledgeExcerptIncluded: false
       },
+      summary: {
+        outcome: 'validation-blocked',
+        activeBlocker: 'validation',
+        nextControlAction: 'resolve-validation',
+        readinessStatus: 'pass',
+        validationStatus: 'failed',
+        validationIssueCount: 1,
+        identityConflictCount: 1,
+        approvalContinuationRequired: false,
+        changedFileCount: 0
+      },
       durableSections: [
         'root',
         'harness',
