@@ -86,6 +86,32 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Infra Graph Contract Review Target Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Deeply validate `summary.impact.reviewTargets` when present in
+  `infra-agent.infra-graph` inputs.
+- Require each target to carry supported review-target kind, source,
+  confidence, recommended action, and risk category values; string edge/from/to
+  fields; string-only review steps; optional string-only reason/identity fields;
+  and `mutationAllowed=false`.
+- Require priorities to be non-negative integers that are contiguous from 1 in
+  array order.
+- Require each target `edgeId` to reference an existing graph edge with a
+  review-target kind and matching kind/from/to/source/confidence fields.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "review target|infra graph contract" test/cli-smoke.test.mjs`: passed with 3 tests.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Contract Impact Summary Slice
 
 Files added or updated:

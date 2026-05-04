@@ -6500,13 +6500,13 @@ test('infra graph contract validates shallow impact handoff shape', () => {
     ],
     edges: [
       {
-        id: 'contains:workspace->terraform-root:infra',
+        id: 'edge-1',
         from: 'workspace',
         to: 'terraform-root:infra',
-        kind: 'contains',
-        confidence: 'high',
-        source: 'workspace-inspection',
-        label: 'workspace contains Terraform root'
+        kind: 'possible-rename',
+        confidence: 'medium',
+        source: 'terraform-plan',
+        label: 'possible Terraform address rename'
       }
     ],
     summary: {
@@ -6517,7 +6517,7 @@ test('infra graph contract validates shallow impact handoff shape', () => {
         'terraform-root': 1
       },
       edgesByKind: {
-        contains: 1
+        'possible-rename': 1
       },
       impact: {
         dependencyEdges: 0,
@@ -6525,7 +6525,7 @@ test('infra graph contract validates shallow impact handoff shape', () => {
         mutationAllowed: false,
         omittedReviewTargets: 0,
         plannedChanges: 0,
-        possibleRenames: 0,
+        possibleRenames: 1,
         primaryConcern: 'none',
         recommendedAction: 'none',
         replacementCascades: 0,
@@ -6541,8 +6541,8 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             edgeId: 'edge-1',
             kind: 'possible-rename',
             priority: 1,
-            from: 'terraform-resource:old',
-            to: 'terraform-resource:new',
+            from: 'workspace',
+            to: 'terraform-root:infra',
             confidence: 'medium',
             source: 'terraform-plan',
             mutationAllowed: false,
@@ -6630,14 +6630,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
           {
             source: 'workspace-inspection',
             nodeCount: 1,
-            edgeCount: 1,
-            totalCount: 2
+            edgeCount: 0,
+            totalCount: 1
           },
           {
             source: 'terraform-plan',
             nodeCount: 1,
-            edgeCount: 0,
-            totalCount: 1
+            edgeCount: 1,
+            totalCount: 2
           }
         ],
         hasWorkspaceInspection: true,
@@ -6649,14 +6649,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
     {
       source: 'workspace-inspection',
       nodeCount: 1,
-      edgeCount: 1,
-      totalCount: 2
+      edgeCount: 0,
+      totalCount: 1
     },
     {
       source: 'terraform-plan',
       nodeCount: 1,
-      edgeCount: 0,
-      totalCount: 1
+      edgeCount: 1,
+      totalCount: 2
     }
   ]);
   assert.throws(
@@ -6690,14 +6690,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             {
               source: 'workspace-inspection',
               nodeCount: 1,
-              edgeCount: 1,
-              totalCount: 2
+              edgeCount: 0,
+              totalCount: 1
             },
             {
               source: 'terraform-plan',
               nodeCount: 1,
-              edgeCount: 0,
-              totalCount: 1
+              edgeCount: 1,
+              totalCount: 2
             }
           ],
           hasWorkspaceInspection: true,
@@ -6718,14 +6718,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             {
               source: 'workspace-inspection',
               nodeCount: -1,
-              edgeCount: 1,
+              edgeCount: 0,
               totalCount: 0
             },
             {
               source: 'terraform-plan',
               nodeCount: 1,
-              edgeCount: 0,
-              totalCount: 1
+              edgeCount: 1,
+              totalCount: 2
             }
           ],
           hasWorkspaceInspection: true,
@@ -6746,14 +6746,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             {
               source: 'workspace-inspection',
               nodeCount: 1,
-              edgeCount: 1,
+              edgeCount: 0,
               totalCount: 3
             },
             {
               source: 'terraform-plan',
               nodeCount: 1,
-              edgeCount: 0,
-              totalCount: 1
+              edgeCount: 1,
+              totalCount: 2
             }
           ],
           hasWorkspaceInspection: true,
@@ -6774,14 +6774,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             {
               source: 'workspace-inspection',
               nodeCount: 1,
-              edgeCount: 0,
-              totalCount: 1
+              edgeCount: 1,
+              totalCount: 2
             },
             {
               source: 'terraform-plan',
               nodeCount: 1,
-              edgeCount: 0,
-              totalCount: 1
+              edgeCount: 1,
+              totalCount: 2
             }
           ],
           hasWorkspaceInspection: true,
@@ -6802,8 +6802,8 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             {
               source: 'workspace-inspection',
               nodeCount: 1,
-              edgeCount: 1,
-              totalCount: 2
+              edgeCount: 0,
+              totalCount: 1
             }
           ],
           hasWorkspaceInspection: true,
@@ -6824,14 +6824,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             {
               source: 'workspace-inspection',
               nodeCount: 1,
-              edgeCount: 1,
-              totalCount: 2
+              edgeCount: 0,
+              totalCount: 1
             },
             {
               source: 'terraform-plan',
               nodeCount: 1,
-              edgeCount: 0,
-              totalCount: 1
+              edgeCount: 1,
+              totalCount: 2
             }
           ],
           hasWorkspaceInspection: 'yes',
@@ -6852,14 +6852,14 @@ test('infra graph contract validates shallow impact handoff shape', () => {
             {
               source: 'workspace-inspection',
               nodeCount: 1,
-              edgeCount: 1,
-              totalCount: 2
+              edgeCount: 0,
+              totalCount: 1
             },
             {
               source: 'terraform-plan',
               nodeCount: 1,
-              edgeCount: 0,
-              totalCount: 1
+              edgeCount: 1,
+              totalCount: 2
             }
           ],
           hasWorkspaceInspection: true,
@@ -6962,7 +6962,7 @@ test('infra graph contract validates shallow impact handoff shape', () => {
         edgesByKind: {}
       }
     }),
-    /summary\.edgesByKind\.contains.*actual kind totals/
+    /summary\.edgesByKind\.possible-rename.*actual kind totals/
   );
   assert.throws(
     () => parseInfraGraphResult({
@@ -7316,6 +7316,186 @@ test('infra graph contract validates shallow impact handoff shape', () => {
       }
     }),
     /reviewTargets\[0\]\.mutationAllowed/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              edgeId: 42
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.edgeId.*string/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              kind: 'planned-change'
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.kind.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              priority: 2
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.priority.*contiguous/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              recommendedAction: 'review-replacements'
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.recommendedAction.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              riskCategory: 'manual-review'
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.riskCategory.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              reviewSteps: ['Confirm target.', false]
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.reviewSteps\[1\].*string/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              identity: ['workspace']
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.identity.*string when present/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              edgeId: 'missing-edge'
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.edgeId.*existing graph edge/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      edges: [
+        {
+          ...validGraph.edges[0],
+          kind: 'contains'
+        }
+      ],
+      summary: {
+        ...validGraph.summary,
+        edgesByKind: {
+          contains: 1
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.edgeId.*review-target graph edge/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              confidence: 'high'
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.confidence.*referenced graph edge/
   );
 });
 

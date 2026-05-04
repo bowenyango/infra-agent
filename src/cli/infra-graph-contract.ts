@@ -43,6 +43,25 @@ const SUPPORTED_IMPACT_RECOMMENDED_ACTIONS = new Set([
   'review-replacement-cascades',
   'review-create-before-delete-conflicts'
 ]);
+const SUPPORTED_IMPACT_REVIEW_TARGET_KINDS = new Set([
+  'create-before-delete-conflict',
+  'possible-rename',
+  'replacement-cascade'
+]);
+const SUPPORTED_IMPACT_REVIEW_TARGET_RECOMMENDED_ACTIONS = new Set([
+  'review-create-before-delete-conflicts',
+  'review-possible-renames',
+  'review-replacement-cascades'
+]);
+const SUPPORTED_IMPACT_REVIEW_TARGET_RISK_CATEGORIES = new Set([
+  'create-before-delete-ordering',
+  'dns-or-domain-ownership',
+  'exclusive-identity-review',
+  'kubernetes-object-ownership',
+  'physical-name-ownership',
+  'possible-rename-review',
+  'replacement-cascade-review'
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -241,7 +260,66 @@ function assertStringArrayField(record: Record<string, unknown>, field: string, 
   }
 }
 
-function assertImpactSummary(impact: Record<string, unknown>): void {
+function assertOptionalStringField(record: Record<string, unknown>, field: string, label: string): void {
+  if (field in record && typeof record[field] !== 'string') {
+    throw new Error(`infra graph input ${label}.${field} must be a string when present.`);
+  }
+}
+
+function assertImpactReviewTarget(
+  target: unknown,
+  index: number,
+  edgesById: Map<string, Record<string, unknown>>
+): void {
+  const label = `summary.impact.reviewTargets[${index}]`;
+  if (!isRecord(target)) {
+    throw new Error(`infra graph input ${label} must be an object.`);
+  }
+
+  assertStringField(target, 'edgeId', label);
+  assertStringField(target, 'from', label);
+  assertStringField(target, 'to', label);
+  assertSupportedField(target, 'kind', label, SUPPORTED_IMPACT_REVIEW_TARGET_KINDS);
+  assertSupportedField(target, 'source', label, SUPPORTED_SOURCES);
+  assertSupportedField(target, 'confidence', label, SUPPORTED_CONFIDENCES);
+  assertSupportedField(
+    target,
+    'recommendedAction',
+    label,
+    SUPPORTED_IMPACT_REVIEW_TARGET_RECOMMENDED_ACTIONS
+  );
+  assertSupportedField(target, 'riskCategory', label, SUPPORTED_IMPACT_REVIEW_TARGET_RISK_CATEGORIES);
+  assertNonNegativeInteger(target.priority, `${label}.priority`);
+  if (target.priority !== index + 1) {
+    throw new Error(`infra graph input ${label}.priority must be contiguous starting at 1 in array order.`);
+  }
+
+  if (target.mutationAllowed !== false) {
+    throw new Error(`infra graph input ${label}.mutationAllowed must be false.`);
+  }
+
+  assertStringArrayField(target, 'reviewSteps', label);
+  for (const field of ['reason', 'identity', 'matchingIdentityKeys', 'replacementReasons']) {
+    assertOptionalStringField(target, field, label);
+  }
+
+  const edge = edgesById.get(target.edgeId);
+  if (!edge) {
+    throw new Error(`infra graph input ${label}.edgeId must reference an existing graph edge.`);
+  }
+
+  if (!SUPPORTED_IMPACT_REVIEW_TARGET_KINDS.has(String(edge.kind))) {
+    throw new Error(`infra graph input ${label}.edgeId must reference a review-target graph edge.`);
+  }
+
+  for (const field of ['kind', 'from', 'to', 'source', 'confidence']) {
+    if (target[field] !== edge[field]) {
+      throw new Error(`infra graph input ${label}.${field} must match the referenced graph edge.`);
+    }
+  }
+}
+
+function assertImpactSummary(impact: Record<string, unknown>, edges: unknown[]): void {
   const label = 'summary.impact';
   for (const field of [
     'dependencyEdges',
@@ -301,15 +379,15 @@ function assertImpactSummary(impact: Record<string, unknown>): void {
       );
     }
 
-    for (let index = 0; index < impact.reviewTargets.length; index += 1) {
-      const target = impact.reviewTargets[index];
-      if (!isRecord(target)) {
-        throw new Error(`infra graph input summary.impact.reviewTargets[${index}] must be an object.`);
+    const edgesById = new Map<string, Record<string, unknown>>();
+    for (const edge of edges) {
+      if (isRecord(edge) && typeof edge.id === 'string') {
+        edgesById.set(edge.id, edge);
       }
+    }
 
-      if (target.mutationAllowed !== false) {
-        throw new Error(`infra graph input summary.impact.reviewTargets[${index}].mutationAllowed must be false.`);
-      }
+    for (let index = 0; index < impact.reviewTargets.length; index += 1) {
+      assertImpactReviewTarget(impact.reviewTargets[index], index, edgesById);
     }
   }
 }
@@ -404,7 +482,7 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
       throw new Error('infra graph input summary.impact must be an object when present.');
     }
 
-    assertImpactSummary(value.summary.impact);
+    assertImpactSummary(value.summary.impact, value.edges);
   }
 
   return value as unknown as InfraGraph;
