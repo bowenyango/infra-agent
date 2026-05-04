@@ -107,6 +107,9 @@ durable design reference for infra-agent development.
 - `validation.identityConflicts`, `runtimeIdentityConflicts`, and
   `identity-report` are blocker-specific handoff surfaces. They must remain
   review-only until a separate remediation planner and approval model exists.
+- `impact-report` should carry source provenance for graph summaries so
+  downstream agents can separate workspace-inspection facts from attached
+  Terraform plan or Pulumi preview impact data without rerunning native tools.
 - LLM and official-doc features must remain testable with injected transports,
   explicit env maps, and cache-first retrieval. Unit/smoke/E2E tests must not
   depend on live provider access.

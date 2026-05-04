@@ -6078,13 +6078,22 @@ test('infra graph impact report loader renders read-only graph impact summary', 
         kind: 'possible-rename',
         confidence: 'medium',
         source: 'terraform-plan'
+      },
+      {
+        id: 'contains:workspace->terraform-root:terraform/payments-api',
+        from: 'workspace',
+        to: 'terraform-root:terraform/payments-api',
+        kind: 'contains',
+        confidence: 'high',
+        source: 'workspace-inspection'
       }
     ],
     summary: {
       nodeCount: 0,
-      edgeCount: 1,
+      edgeCount: 2,
       nodesByKind: {},
       edgesByKind: {
+        'contains': 1,
         'possible-rename': 1
       },
       impact: {
@@ -6131,6 +6140,23 @@ test('infra graph impact report loader renders read-only graph impact summary', 
     assert.equal(report.primaryConcern, 'possible-renames');
     assert.equal(report.recommendedAction, 'review-possible-renames');
     assert.equal(report.counts.possibleRenames, 1);
+    assert.deepEqual(report.sourceProvenance.sources, [
+      {
+        source: 'terraform-plan',
+        nodeCount: 0,
+        edgeCount: 1,
+        totalCount: 1
+      },
+      {
+        source: 'workspace-inspection',
+        nodeCount: 0,
+        edgeCount: 1,
+        totalCount: 1
+      }
+    ]);
+    assert.equal(report.sourceProvenance.hasTerraformPlan, true);
+    assert.equal(report.sourceProvenance.hasPulumiPreview, false);
+    assert.equal(report.sourceProvenance.hasWorkspaceInspection, true);
     assert.equal(report.reviewTargetCount, 1);
     assert.equal(report.omittedReviewTargetCount, 2);
     assert.equal(report.reviewTargets[0]?.mutationAllowed, false);

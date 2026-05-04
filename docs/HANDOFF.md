@@ -3849,6 +3849,31 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Graph Impact Source Provenance Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-report.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `sourceProvenance` to `infra-agent.infra-graph-impact-report` so
+  downstream agents can distinguish workspace-inspection facts from Terraform
+  plan and Pulumi preview impact data.
+- Include source node/edge counts plus booleans for workspace inspection,
+  Terraform plan, and Pulumi preview provenance.
+- Render provenance in the human graph impact report output.
+
+Known validation:
+
+- `npm run test:unit` passed with 271 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Report CLI Slice
 
 Files added or updated:

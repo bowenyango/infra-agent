@@ -2693,6 +2693,18 @@ export function printInfraGraphImpactReport(report: InfraGraphImpactReport): voi
   process.stdout.write(`replacement cascades: ${report.counts.replacementCascades}\n`);
   process.stdout.write(`create-before-delete conflicts: ${report.counts.createBeforeDeleteConflicts}\n\n`);
 
+  printHeader('Source Provenance');
+  process.stdout.write(`workspace inspection: ${report.sourceProvenance.hasWorkspaceInspection ? 'yes' : 'no'}\n`);
+  process.stdout.write(`terraform plan: ${report.sourceProvenance.hasTerraformPlan ? 'yes' : 'no'}\n`);
+  process.stdout.write(`pulumi preview: ${report.sourceProvenance.hasPulumiPreview ? 'yes' : 'no'}\n`);
+  printList(
+    report.sourceProvenance.sources.map(source =>
+      `${source.source}: ${source.nodeCount} node(s), ${source.edgeCount} edge(s)`
+    ),
+    'No graph source provenance recorded.'
+  );
+  process.stdout.write('\n');
+
   printHeader('Summary');
   printList(report.summary, 'No graph impact detected.');
 

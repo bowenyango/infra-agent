@@ -230,7 +230,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - `impact-report` renders an existing `graph --json` result into a read-only
   `infra-agent.infra-graph-impact-report`. It consumes `infra-agent.infra-graph`
   JSON, validates schema version 1 and mutation-disallowed impact posture, and
-  does not rerun native validators or mutate state.
+  does not rerun native validators or mutate state. The report includes source
+  provenance so downstream agents can distinguish workspace-inspection facts
+  from Terraform plan or Pulumi preview impact data.
 - `agent` can resume past approval-required pauses by rerunning with explicit
   approval flags such as `--approve-write-risk high` with optional
   `--approve-write-path charts/payments-api`, or
