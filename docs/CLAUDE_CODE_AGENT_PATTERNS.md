@@ -56,6 +56,9 @@ durable design reference for infra-agent development.
 - `validation.issueSummary` is the compact blocker-shape surface. It should
   expose grouped kind/repairability counts, omitted issue/group counts, and
   coarse blocker flags before downstream agents inspect sampled issue messages.
+- Result cards should mirror validation blocker counts from
+  `validation.issueSummary` so human handoff can see repairable and
+  non-repairable blocker posture without parsing compact JSON first.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
   runtime snapshots, and raw tool output.

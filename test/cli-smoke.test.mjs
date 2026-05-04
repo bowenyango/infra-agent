@@ -5247,7 +5247,7 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
     repairAttempts: 0,
     lastEditPlan: null
   };
-  const compact = buildCompactAgentRunResult({
+  const state = {
     modelName: 'test-model',
     outcome: 'no-safe-action',
     preflight,
@@ -5275,7 +5275,8 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
         runtimeSnapshot: runtime
       }
     ]
-  });
+  };
+  const compact = buildCompactAgentRunResult(state);
 
   assert.equal(compact.harness.turnTrace[0]?.executionStatus, 'skipped');
   assert.equal(
@@ -5407,7 +5408,7 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
       message: 'Unknown validation failed.'
     }
   ];
-  const compact = buildCompactAgentRunResult({
+  const state = {
     modelName: 'test-model',
     outcome: 'validation-blocked',
     preflight,
@@ -5423,7 +5424,9 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
       lastEditPlan: null
     },
     turns: []
-  });
+  };
+  const compact = buildCompactAgentRunResult(state);
+  const resultCard = summarizeResultCard(state);
 
   assert.equal(compact.validation.issueSummary.totalCount, 10);
   assert.equal(compact.validation.issueSummary.omittedIssueCount, 5);
@@ -5450,6 +5453,7 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
   assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'validation');
   assert.equal(compact.harness.plannerHandoff.activeBlocker.validationIssueKind, 'terraform-validate-failure');
   assert.equal(compact.harness.plannerHandoff.nextControlAction, 'resolve-validation');
+  assert.ok(resultCard.some(line => /Validation blockers: 10 issue\(s\); 6 repairable, 4 non-repairable; top terraform-validate-failure x2; omitted issues=5, groups=1/i.test(line)));
 });
 
 test('agent CLI args accept --max-turns for bounded loop control', () => {
@@ -7455,6 +7459,7 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Native CLI findings: Pulumi config updated payments-api:imageTag on stack dev/i.test(line)));
   assert.ok(summary.some(line => /Validators executed: 1 command\(s\) across Pulumi/i.test(line)));
   assert.ok(summary.some(line => /Validation findings: none/i.test(line)));
+  assert.ok(summary.some(line => /Validation blockers: none/i.test(line)));
   assert.ok(summary.some(line => /Repair activity: 1\/2 bounded repair attempt\(s\) used/i.test(line)));
 });
 

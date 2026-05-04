@@ -593,6 +593,21 @@ function summarizeValidationFindings(state: AgentRunState): string {
   return 'none';
 }
 
+function summarizeValidationBlockers(state: AgentRunState): string {
+  const summary = collectValidationIssueSummary(state);
+  if (summary.totalCount === 0) {
+    return 'none';
+  }
+
+  const topGroup = summary.groups[0];
+  const topSummary = topGroup ? `; top ${topGroup.kind} x${topGroup.count}` : '';
+  const omittedSummary = summary.omittedIssueCount > 0 || summary.omittedGroupCount > 0
+    ? `; omitted issues=${summary.omittedIssueCount}, groups=${summary.omittedGroupCount}`
+    : '';
+
+  return `${summary.totalCount} issue(s); ${summary.repairableCount} repairable, ${summary.nonRepairableCount} non-repairable${topSummary}${omittedSummary}`;
+}
+
 function collectValidationDerivedSemanticBlockers(state: AgentRunState): ValidationDerivedSemanticBlocker[] {
   return getRuntimeConfigSemantics(state.runtime)
     .flatMap(summary => summary.facts.map(fact => ({
@@ -1566,6 +1581,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
   lines.push(`Validators executed: ${targetValidationCount} command(s) across ${summarizeValidatorFamilies(state)}${yamlGuardCount > 0 ? `; ${yamlGuardCount} YAML syntax guard(s)` : ''}`);
   lines.push(`Validation findings: ${summarizeValidationFindings(state)}`);
+  lines.push(`Validation blockers: ${summarizeValidationBlockers(state)}`);
   lines.push(`Semantic blockers: ${summarizeValidationDerivedSemanticBlockers(state)}`);
   lines.push(`Turn budget: ${summarizeTurnBudget(state)}`);
   lines.push(`Repair activity: ${state.runtime.repairAttempts}/${getAgentMaxRepairAttempts(state)} bounded repair attempt(s) used`);

@@ -186,7 +186,8 @@ Current behavior is intentionally runtime-foundation oriented:
   Result cards, snapshots, and human output also report repair attempts as
   `used/max` so downstream agents can distinguish unused repair capacity from
   an exhausted repair loop. Result cards also summarize retrieved knowledge
-  context packet inclusion, token estimate use, and omission reasons.
+  context packet inclusion, token estimate use, omission reasons, and validation
+  blocker counts from the compact issue summary.
   `readiness` summarizes the planner mode, workspace blockers, selected
   validation plan, and only the validators required by that selected plan. It
   also includes a `doctorCommand` for a fuller read-only package/Node/tool

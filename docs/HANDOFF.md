@@ -3919,6 +3919,31 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Result Card Validation Blocker Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a result-card `Validation blockers` line that mirrors
+  `validation.issueSummary`.
+- Report total validation issue count, repairable/non-repairable split, top
+  issue group, and omitted issue/group counts for human and downstream-agent
+  handoff.
+- Keep raw validator stdout/stderr out of the result card; detailed evidence
+  remains budgeted under compact validation command and issue fields.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-03 Compact Turn Trace Budget Slice
 
 Files added or updated:
