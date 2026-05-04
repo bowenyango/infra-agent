@@ -6542,7 +6542,25 @@ test('compact agent result contract validates shallow handoff shape', () => {
   const validResult = {
     kind: 'infra-agent.agent-result',
     schemaVersion: 1,
+    task: 'review terraform listener priority',
+    workspaceRoot: '/workspace',
     outcome: 'validation-blocked',
+    modelName: 'rule-based',
+    turnsUsed: 1,
+    profileId: 'generic',
+    requestedDomains: ['terraform'],
+    requestedEnvironment: null,
+    requestedService: null,
+    primaryTarget: {
+      kind: 'terraform-root',
+      name: 'payments-api',
+      path: 'terraform/payments-api',
+      score: 10
+    },
+    changedFiles: [],
+    resultCard: [],
+    nextSteps: [],
+    suggestedCommands: [],
     validation: {
       commands: {
         entries: []
@@ -6643,6 +6661,39 @@ test('compact agent result contract validates shallow handoff shape', () => {
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, outcome: 'unexpected' }),
     /supported outcome/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, task: 1 }),
+    /root\.task/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, workspaceRoot: null }),
+    /root\.workspaceRoot/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, turnsUsed: '1' }),
+    /root\.turnsUsed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, changedFiles: ['a.tf', 1] }),
+    /root\.changedFiles/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      requestedEnvironment: 1
+    }),
+    /root\.requestedEnvironment/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      primaryTarget: {
+        ...validResult.primaryTarget,
+        score: 'high'
+      }
+    }),
+    /root\.primaryTarget\.score/
   );
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, validation: {} }),
@@ -7334,6 +7385,8 @@ test('identity-report loader rejects non-compact result inputs', async () => {
     await writeFile(inputPath, JSON.stringify({
       kind: 'infra-agent.agent-result',
       schemaVersion: 1,
+      task: 'review terraform listener priority',
+      workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
       validation: {}
     }), 'utf8');

@@ -161,8 +161,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - `agent --json` emits a compact `infra-agent.agent-result` payload for other
   agents; use `--json-full` only when debugging the complete runtime state.
   Compact result consumers use a shared shallow contract parser that verifies
-  `kind`, `schemaVersion`, `outcome`, compact trace arrays, readiness checks,
-  and `validation.identityConflicts` before producing derived reports.
+  `kind`, `schemaVersion`, `outcome`, required root task/workspace metadata,
+  root string-array handoff fields, compact trace arrays, readiness checks, and
+  `validation.identityConflicts` before producing derived reports.
   The compact payload includes `harness.queryConfig`, an immutable snapshot of
   the turn, repair-attempt, and retrieved-context budgets used for the run, plus
   `harness.turnTrace`, a bounded per-turn trace inspired by Claude Code's query

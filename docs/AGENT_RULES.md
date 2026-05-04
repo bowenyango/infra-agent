@@ -156,7 +156,8 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Use compact `agent --json` output for agent-to-agent handoff; reserve `--json-full` for debugging complete runtime state.
 - Compact `infra-agent.agent-result` consumers must validate the shallow
   handoff contract before deriving secondary reports. Check `kind`,
-  `schemaVersion`, known `outcome`, compact trace array shape, readiness check
+  `schemaVersion`, known `outcome`, required root task/workspace metadata,
+  root string-array handoff fields, compact trace array shape, readiness check
   array shape when present, `harness.stateSummary` counts,
   `harness.turnTraceBudget`, `harness.lifecycleEvents`, `harness.toolTrace`
   budget counts, `validation.commands`, `validation.issueSummary`,

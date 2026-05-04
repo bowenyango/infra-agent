@@ -77,6 +77,14 @@ function isNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function isStringOrNull(value: unknown): boolean {
+  return typeof value === 'string' || value === null;
+}
+
+function isStringArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every(entry => typeof entry === 'string');
+}
+
 function hasNumericCountSet(record: Record<string, unknown>): boolean {
   return isNumber(record.totalCount) && isNumber(record.includedCount) && isNumber(record.omittedCount);
 }
@@ -123,6 +131,52 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
   if (!isKnownAgentResultOutcome(value.outcome)) {
     throw new Error('compact result input must include a supported outcome.');
+  }
+
+  if (typeof value.task !== 'string') {
+    throw new Error('compact result input root.task must be a string.');
+  }
+
+  if (typeof value.workspaceRoot !== 'string') {
+    throw new Error('compact result input root.workspaceRoot must be a string.');
+  }
+
+  for (const field of ['modelName', 'profileId']) {
+    if (field in value && typeof value[field] !== 'string') {
+      throw new Error(`compact result input root.${field} must be a string when present.`);
+    }
+  }
+
+  if ('turnsUsed' in value && !isNumber(value.turnsUsed)) {
+    throw new Error('compact result input root.turnsUsed must be a number when present.');
+  }
+
+  for (const field of ['requestedDomains', 'changedFiles', 'resultCard', 'nextSteps', 'suggestedCommands']) {
+    if (field in value && !isStringArray(value[field])) {
+      throw new Error(`compact result input root.${field} must be a string array when present.`);
+    }
+  }
+
+  for (const field of ['requestedEnvironment', 'requestedService']) {
+    if (field in value && !isStringOrNull(value[field])) {
+      throw new Error(`compact result input root.${field} must be string or null when present.`);
+    }
+  }
+
+  if (value.primaryTarget !== undefined && value.primaryTarget !== null) {
+    if (!isRecord(value.primaryTarget)) {
+      throw new Error('compact result input root.primaryTarget must be an object or null when present.');
+    }
+
+    for (const field of ['kind', 'name', 'path']) {
+      if (typeof value.primaryTarget[field] !== 'string') {
+        throw new Error(`compact result input root.primaryTarget.${field} must be a string when present.`);
+      }
+    }
+
+    if (!isNumber(value.primaryTarget.score)) {
+      throw new Error('compact result input root.primaryTarget.score must be a number when present.');
+    }
   }
 
   if (isRecord(value.harness)) {

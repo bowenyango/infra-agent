@@ -4300,6 +4300,30 @@ Known validation:
 - `npm run e2e` passed.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Root Metadata Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `infra-agent.agent-result` inputs to include root `task` and
+  `workspaceRoot` strings before downstream reports reuse them.
+- Validate optional root metadata fields such as `modelName`, `profileId`,
+  `turnsUsed`, requested environment/service, string-array handoff fields, and
+  `primaryTarget` shape when present.
+- Keep this as contract parsing only; no runtime output shape changes.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:
