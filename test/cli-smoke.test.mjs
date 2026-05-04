@@ -6615,6 +6615,255 @@ test('infra graph contract validates shallow impact handoff shape', () => {
       }
     }
   }).summary.nodesByKind['helm-chart'], 0);
+  assert.deepEqual(parseInfraGraphResult({
+    ...validGraph,
+    summary: {
+      ...validGraph.summary,
+      sourceProvenance: {
+        sources: [
+          {
+            source: 'workspace-inspection',
+            nodeCount: 1,
+            edgeCount: 1,
+            totalCount: 2
+          },
+          {
+            source: 'terraform-plan',
+            nodeCount: 1,
+            edgeCount: 0,
+            totalCount: 1
+          }
+        ],
+        hasWorkspaceInspection: true,
+        hasTerraformPlan: true,
+        hasPulumiPreview: false
+      }
+    }
+  }).summary.sourceProvenance.sources, [
+    {
+      source: 'workspace-inspection',
+      nodeCount: 1,
+      edgeCount: 1,
+      totalCount: 2
+    },
+    {
+      source: 'terraform-plan',
+      nodeCount: 1,
+      edgeCount: 0,
+      totalCount: 1
+    }
+  ]);
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: {},
+          hasWorkspaceInspection: true,
+          hasTerraformPlan: true,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.sources.*array/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: [
+            {
+              source: 'manual',
+              nodeCount: 0,
+              edgeCount: 0,
+              totalCount: 0
+            },
+            {
+              source: 'workspace-inspection',
+              nodeCount: 1,
+              edgeCount: 1,
+              totalCount: 2
+            },
+            {
+              source: 'terraform-plan',
+              nodeCount: 1,
+              edgeCount: 0,
+              totalCount: 1
+            }
+          ],
+          hasWorkspaceInspection: true,
+          hasTerraformPlan: true,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.sources\[0\]\.source.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: [
+            {
+              source: 'workspace-inspection',
+              nodeCount: -1,
+              edgeCount: 1,
+              totalCount: 0
+            },
+            {
+              source: 'terraform-plan',
+              nodeCount: 1,
+              edgeCount: 0,
+              totalCount: 1
+            }
+          ],
+          hasWorkspaceInspection: true,
+          hasTerraformPlan: true,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.sources\[0\]\.nodeCount.*non-negative integer/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: [
+            {
+              source: 'workspace-inspection',
+              nodeCount: 1,
+              edgeCount: 1,
+              totalCount: 3
+            },
+            {
+              source: 'terraform-plan',
+              nodeCount: 1,
+              edgeCount: 0,
+              totalCount: 1
+            }
+          ],
+          hasWorkspaceInspection: true,
+          hasTerraformPlan: true,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.sources\[0\]\.totalCount.*nodeCount \+ edgeCount/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: [
+            {
+              source: 'workspace-inspection',
+              nodeCount: 1,
+              edgeCount: 0,
+              totalCount: 1
+            },
+            {
+              source: 'terraform-plan',
+              nodeCount: 1,
+              edgeCount: 0,
+              totalCount: 1
+            }
+          ],
+          hasWorkspaceInspection: true,
+          hasTerraformPlan: true,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.sources\[0\]\.edgeCount.*actual edge source totals/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: [
+            {
+              source: 'workspace-inspection',
+              nodeCount: 1,
+              edgeCount: 1,
+              totalCount: 2
+            }
+          ],
+          hasWorkspaceInspection: true,
+          hasTerraformPlan: true,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.sources.*terraform-plan/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: [
+            {
+              source: 'workspace-inspection',
+              nodeCount: 1,
+              edgeCount: 1,
+              totalCount: 2
+            },
+            {
+              source: 'terraform-plan',
+              nodeCount: 1,
+              edgeCount: 0,
+              totalCount: 1
+            }
+          ],
+          hasWorkspaceInspection: 'yes',
+          hasTerraformPlan: true,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.hasWorkspaceInspection.*boolean/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        sourceProvenance: {
+          sources: [
+            {
+              source: 'workspace-inspection',
+              nodeCount: 1,
+              edgeCount: 1,
+              totalCount: 2
+            },
+            {
+              source: 'terraform-plan',
+              nodeCount: 1,
+              edgeCount: 0,
+              totalCount: 1
+            }
+          ],
+          hasWorkspaceInspection: true,
+          hasTerraformPlan: false,
+          hasPulumiPreview: false
+        }
+      }
+    }),
+    /summary\.sourceProvenance\.hasTerraformPlan.*actual node and edge sources/
+  );
   assert.throws(
     () => parseInfraGraphResult({
       ...validGraph,

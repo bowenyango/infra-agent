@@ -86,6 +86,28 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Infra Graph Contract Source Provenance Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate optional `summary.sourceProvenance` in `infra-agent.infra-graph`
+  inputs when present.
+- Require provenance source entries to use supported source labels, non-negative
+  integer node/edge/total counts, and `totalCount = nodeCount + edgeCount`.
+- Require provenance source counts and boolean source-presence flags to match
+  the actual node and edge `source` totals.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "sourceProvenance|infra graph contract" test/cli-smoke.test.mjs`: passed with 1 test.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Contract Kind Count Map Slice
 
 Files added or updated:

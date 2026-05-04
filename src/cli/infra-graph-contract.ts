@@ -41,7 +41,7 @@ function assertNumberField(record: Record<string, unknown>, field: string, label
   }
 }
 
-function assertNonNegativeInteger(value: unknown, label: string): void {
+function assertNonNegativeInteger(value: unknown, label: string): asserts value is number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     throw new Error(`infra graph input ${label} must be a non-negative integer.`);
   }
@@ -105,6 +105,108 @@ function assertSummaryKindCounts(
   for (const [kind, actualCount] of actualCounts.entries()) {
     if (value[kind] !== actualCount) {
       throw new Error(`infra graph input ${label}.${kind} must match actual ${itemField} totals.`);
+    }
+  }
+}
+
+function countItemsBySource(items: unknown[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    if (!isRecord(item) || typeof item.source !== 'string') {
+      continue;
+    }
+
+    counts.set(item.source, (counts.get(item.source) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function assertBooleanField(record: Record<string, unknown>, field: string, label: string): void {
+  if (typeof record[field] !== 'boolean') {
+    throw new Error(`infra graph input ${label}.${field} must be a boolean.`);
+  }
+}
+
+function assertSourceProvenance(
+  summary: Record<string, unknown>,
+  nodes: unknown[],
+  edges: unknown[]
+): void {
+  if (!('sourceProvenance' in summary)) {
+    return;
+  }
+
+  const label = 'summary.sourceProvenance';
+  const provenance = summary.sourceProvenance;
+  if (!isRecord(provenance)) {
+    throw new Error(`infra graph input ${label} must be an object when present.`);
+  }
+
+  if (!Array.isArray(provenance.sources)) {
+    throw new Error(`infra graph input ${label}.sources must be an array.`);
+  }
+
+  assertBooleanField(provenance, 'hasWorkspaceInspection', label);
+  assertBooleanField(provenance, 'hasTerraformPlan', label);
+  assertBooleanField(provenance, 'hasPulumiPreview', label);
+
+  const actualNodeCounts = countItemsBySource(nodes);
+  const actualEdgeCounts = countItemsBySource(edges);
+  const seenSources = new Set<string>();
+
+  for (let index = 0; index < provenance.sources.length; index += 1) {
+    const sourceEntry = provenance.sources[index];
+    const sourceLabel = `${label}.sources[${index}]`;
+    if (!isRecord(sourceEntry)) {
+      throw new Error(`infra graph input ${sourceLabel} must be an object.`);
+    }
+
+    assertSupportedField(sourceEntry, 'source', sourceLabel, SUPPORTED_SOURCES);
+    const source = sourceEntry.source as string;
+    if (seenSources.has(source)) {
+      throw new Error(`infra graph input ${sourceLabel}.source must not duplicate another source entry.`);
+    }
+    seenSources.add(source);
+
+    assertNonNegativeInteger(sourceEntry.nodeCount, `${sourceLabel}.nodeCount`);
+    assertNonNegativeInteger(sourceEntry.edgeCount, `${sourceLabel}.edgeCount`);
+    assertNonNegativeInteger(sourceEntry.totalCount, `${sourceLabel}.totalCount`);
+
+    if (sourceEntry.totalCount !== sourceEntry.nodeCount + sourceEntry.edgeCount) {
+      throw new Error(`infra graph input ${sourceLabel}.totalCount must equal nodeCount + edgeCount.`);
+    }
+
+    const actualNodeCount = actualNodeCounts.get(source) ?? 0;
+    const actualEdgeCount = actualEdgeCounts.get(source) ?? 0;
+    if (sourceEntry.nodeCount !== actualNodeCount) {
+      throw new Error(`infra graph input ${sourceLabel}.nodeCount must match actual node source totals.`);
+    }
+
+    if (sourceEntry.edgeCount !== actualEdgeCount) {
+      throw new Error(`infra graph input ${sourceLabel}.edgeCount must match actual edge source totals.`);
+    }
+  }
+
+  for (const source of SUPPORTED_SOURCES) {
+    const actualTotal = (actualNodeCounts.get(source) ?? 0) + (actualEdgeCounts.get(source) ?? 0);
+    if (actualTotal > 0 && !seenSources.has(source)) {
+      throw new Error(`infra graph input ${label}.sources must include source ${source}.`);
+    }
+  }
+
+  const expectedFlags = {
+    hasWorkspaceInspection: ((actualNodeCounts.get('workspace-inspection') ?? 0) +
+      (actualEdgeCounts.get('workspace-inspection') ?? 0)) > 0,
+    hasTerraformPlan: ((actualNodeCounts.get('terraform-plan') ?? 0) +
+      (actualEdgeCounts.get('terraform-plan') ?? 0)) > 0,
+    hasPulumiPreview: ((actualNodeCounts.get('pulumi-preview') ?? 0) +
+      (actualEdgeCounts.get('pulumi-preview') ?? 0)) > 0
+  };
+
+  for (const [field, expectedValue] of Object.entries(expectedFlags)) {
+    if (provenance[field] !== expectedValue) {
+      throw new Error(`infra graph input ${label}.${field} must match actual node and edge sources.`);
     }
   }
 }
@@ -184,6 +286,7 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
   assertNumberField(value.summary, 'edgeCount', 'summary');
   assertSummaryKindCounts(value.summary, 'nodesByKind', value.nodes, 'kind', SUPPORTED_NODE_KINDS);
   assertSummaryKindCounts(value.summary, 'edgesByKind', value.edges, 'kind', SUPPORTED_EDGE_KINDS);
+  assertSourceProvenance(value.summary, value.nodes, value.edges);
 
   if (value.summary.nodeCount !== value.nodes.length) {
     throw new Error('infra graph input summary.nodeCount must match nodes.length.');
