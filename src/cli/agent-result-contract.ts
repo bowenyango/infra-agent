@@ -77,6 +77,14 @@ function isNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function isNonNegativeInteger(value: unknown): boolean {
+  return isNumber(value) && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): boolean {
+  return isNumber(value) && Number.isInteger(value) && value > 0;
+}
+
 function isStringOrNull(value: unknown): boolean {
   return typeof value === 'string' || value === null;
 }
@@ -105,6 +113,18 @@ function assertNumericMap(
     if (!keyValidator(key) || !isNumber(value)) {
       throw new Error(`compact result input ${fieldName} must use supported numeric keys when present.`);
     }
+  }
+}
+
+function assertIntegerField(
+  record: Record<string, unknown>,
+  field: string,
+  fieldPath: string,
+  validator: (value: unknown) => boolean,
+  description: string
+): void {
+  if (!validator(record[field])) {
+    throw new Error(`compact result input ${fieldPath}.${field} must be ${description}.`);
   }
 }
 
@@ -180,6 +200,75 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   }
 
   if (isRecord(value.harness)) {
+    assertIntegerField(value.harness, 'maxTurns', 'harness', isPositiveInteger, 'a positive integer');
+
+    if (!isRecord(value.harness.queryConfig)) {
+      throw new Error('compact result input harness.queryConfig must be an object.');
+    }
+
+    assertIntegerField(value.harness.queryConfig, 'maxTurns', 'harness.queryConfig', isPositiveInteger, 'a positive integer');
+    assertIntegerField(
+      value.harness.queryConfig,
+      'maxRepairAttempts',
+      'harness.queryConfig',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+
+    if (!isRecord(value.harness.queryConfig.retrievedContextBudget)) {
+      throw new Error('compact result input harness.queryConfig.retrievedContextBudget must be an object.');
+    }
+
+    for (const field of ['maxPackets', 'maxTokens', 'maxExcerptChars', 'maxFacts']) {
+      assertIntegerField(
+        value.harness.queryConfig.retrievedContextBudget,
+        field,
+        'harness.queryConfig.retrievedContextBudget',
+        isPositiveInteger,
+        'a positive integer'
+      );
+    }
+
+    if (!isRecord(value.harness.loopBudget)) {
+      throw new Error('compact result input harness.loopBudget must be an object.');
+    }
+
+    assertIntegerField(value.harness.loopBudget, 'turnsUsed', 'harness.loopBudget', isNonNegativeInteger, 'a non-negative integer');
+    assertIntegerField(value.harness.loopBudget, 'maxTurns', 'harness.loopBudget', isPositiveInteger, 'a positive integer');
+    assertIntegerField(value.harness.loopBudget, 'turnsRemaining', 'harness.loopBudget', isNonNegativeInteger, 'a non-negative integer');
+
+    if (typeof value.harness.loopBudget.exhausted !== 'boolean') {
+      throw new Error('compact result input harness.loopBudget.exhausted must be a boolean.');
+    }
+
+    const harnessMaxTurns = value.harness.maxTurns as number;
+    const queryConfigMaxTurns = value.harness.queryConfig.maxTurns as number;
+    const loopBudgetTurnsUsed = value.harness.loopBudget.turnsUsed as number;
+    const loopBudgetMaxTurns = value.harness.loopBudget.maxTurns as number;
+    const loopBudgetTurnsRemaining = value.harness.loopBudget.turnsRemaining as number;
+    const loopBudgetExhausted = value.harness.loopBudget.exhausted as boolean;
+
+    if (harnessMaxTurns !== queryConfigMaxTurns) {
+      throw new Error('compact result input harness.maxTurns must match harness.queryConfig.maxTurns.');
+    }
+
+    if (loopBudgetMaxTurns !== harnessMaxTurns) {
+      throw new Error('compact result input harness.loopBudget.maxTurns must match harness.maxTurns.');
+    }
+
+    if (loopBudgetTurnsUsed !== value.turnsUsed) {
+      throw new Error('compact result input root.turnsUsed must match harness.loopBudget.turnsUsed.');
+    }
+
+    const expectedTurnsRemaining = Math.max(0, loopBudgetMaxTurns - loopBudgetTurnsUsed);
+    if (loopBudgetTurnsRemaining !== expectedTurnsRemaining) {
+      throw new Error('compact result input harness.loopBudget.turnsRemaining must match maxTurns minus turnsUsed.');
+    }
+
+    if (loopBudgetExhausted !== (loopBudgetTurnsRemaining === 0)) {
+      throw new Error('compact result input harness.loopBudget.exhausted must match remaining turn budget.');
+    }
+
     if ('turnTrace' in value.harness && !Array.isArray(value.harness.turnTrace)) {
       throw new Error('compact result input harness.turnTrace must be an array when present.');
     }

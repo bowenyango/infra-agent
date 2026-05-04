@@ -4324,6 +4324,29 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Harness Budget Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.maxTurns`, `harness.queryConfig`, and retrieved
+  context budget fields as integer contract data instead of loose metadata.
+- Validate compact `harness.loopBudget` turns used, max turns, remaining turns,
+  and exhausted-state consistency against root `turnsUsed` and query max-turns.
+- Keep this as contract parsing only; no runtime output shape changes.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

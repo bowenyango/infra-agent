@@ -6603,6 +6603,23 @@ test('compact agent result contract validates shallow handoff shape', () => {
       ]
     },
     harness: {
+      maxTurns: 6,
+      queryConfig: {
+        maxTurns: 6,
+        maxRepairAttempts: 2,
+        retrievedContextBudget: {
+          maxPackets: 4,
+          maxTokens: 1200,
+          maxExcerptChars: 3000,
+          maxFacts: 8
+        }
+      },
+      loopBudget: {
+        turnsUsed: 1,
+        maxTurns: 6,
+        turnsRemaining: 5,
+        exhausted: false
+      },
       turnTrace: [],
       turnTraceBudget: {
         totalCount: 0,
@@ -6694,6 +6711,78 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /root\.primaryTarget\.score/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        maxTurns: '6'
+      }
+    }),
+    /harness\.maxTurns/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      turnsUsed: 2
+    }),
+    /root\.turnsUsed must match harness\.loopBudget\.turnsUsed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        queryConfig: {
+          ...validResult.harness.queryConfig,
+          maxRepairAttempts: '2'
+        }
+      }
+    }),
+    /harness\.queryConfig\.maxRepairAttempts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        queryConfig: {
+          ...validResult.harness.queryConfig,
+          retrievedContextBudget: {
+            ...validResult.harness.queryConfig.retrievedContextBudget,
+            maxTokens: 0
+          }
+        }
+      }
+    }),
+    /harness\.queryConfig\.retrievedContextBudget\.maxTokens/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        loopBudget: {
+          ...validResult.harness.loopBudget,
+          turnsRemaining: 4
+        }
+      }
+    }),
+    /harness\.loopBudget\.turnsRemaining/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        loopBudget: {
+          ...validResult.harness.loopBudget,
+          exhausted: true
+        }
+      }
+    }),
+    /harness\.loopBudget\.exhausted/
   );
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, validation: {} }),
@@ -6789,6 +6878,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         toolTrace: {
           entries: {}
         }
@@ -6800,6 +6890,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         toolTrace: {
           totalCount: '0',
           entries: []
@@ -6812,6 +6903,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         turnTraceBudget: {
           totalCount: '0'
         }
@@ -6823,6 +6915,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         turnTraceBudget: {
           ...validResult.harness.turnTraceBudget,
           preservedWindow: 'tail'
@@ -6835,6 +6928,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         turnTraceBudget: {
           totalCount: 2,
           includedCount: 1,
@@ -6848,6 +6942,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         lifecycleEvents: {
           events: {}
         }
@@ -6859,6 +6954,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         lifecycleEvents: {
           totalCount: '0',
           events: []
@@ -6871,6 +6967,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         lifecycleEvents: {
           totalCount: 1,
           includedCount: 1,
@@ -6889,6 +6986,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         lifecycleEvents: {
           totalCount: 1,
           includedCount: 1,
@@ -6903,6 +7001,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         lifecycleEvents: {
           totalCount: 2,
           includedCount: 1,
@@ -6921,6 +7020,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         lifecycleEvents: {
           totalCount: 0,
           includedCount: 0,
@@ -6938,6 +7038,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         stateSummary: {
           validationIssueCount: '1'
         }
@@ -6949,6 +7050,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         plannerHandoff: {
           activeBlocker: {
             kind: 'unexpected'
@@ -6963,6 +7065,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       harness: {
+        ...validResult.harness,
         plannerHandoff: {
           activeBlocker: {
             kind: 'validation'

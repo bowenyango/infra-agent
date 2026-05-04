@@ -162,8 +162,9 @@ Current behavior is intentionally runtime-foundation oriented:
   agents; use `--json-full` only when debugging the complete runtime state.
   Compact result consumers use a shared shallow contract parser that verifies
   `kind`, `schemaVersion`, `outcome`, required root task/workspace metadata,
-  root string-array handoff fields, compact trace arrays, readiness checks, and
-  `validation.identityConflicts` before producing derived reports.
+  root string-array handoff fields, query/loop budget consistency, compact
+  trace arrays, readiness checks, and `validation.identityConflicts` before
+  producing derived reports.
   The compact payload includes `harness.queryConfig`, an immutable snapshot of
   the turn, repair-attempt, and retrieved-context budgets used for the run, plus
   `harness.turnTrace`, a bounded per-turn trace inspired by Claude Code's query
@@ -174,7 +175,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `harness.turnTraceOmittedCount` fields make the trace window and omitted
   count explicit for downstream handoff.
   `harness.loopBudget` reports turns used, max turns, remaining turns, and
-  whether the loop stopped because the turn budget was exhausted.
+  whether the loop stopped because the turn budget was exhausted; compact
+  consumers validate that it matches root `turnsUsed` and the query max-turns
+  budget.
   `harness.repairBudget` reports bounded repair attempts used, max attempts,
   remaining attempts, and whether the repair loop is exhausted.
   `harness.stateSummary` reports runtime counts for observations, tools,

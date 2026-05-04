@@ -158,15 +158,21 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   handoff contract before deriving secondary reports. Check `kind`,
   `schemaVersion`, known `outcome`, required root task/workspace metadata,
   root string-array handoff fields, compact trace array shape, readiness check
-  array shape when present, `harness.stateSummary` counts,
-  `harness.turnTraceBudget`, `harness.lifecycleEvents`, `harness.toolTrace`
-  budget counts, `validation.commands`, `validation.issueSummary`,
-  `approval.resume`, and `validation.identityConflicts` before treating the
-  payload as an agent result.
+  array shape when present, `harness.queryConfig`, `harness.loopBudget`,
+  `harness.stateSummary` counts, `harness.turnTraceBudget`,
+  `harness.lifecycleEvents`, `harness.toolTrace` budget counts,
+  `validation.commands`, `validation.issueSummary`, `approval.resume`, and
+  `validation.identityConflicts` before treating the payload as an agent
+  result.
 - Treat compact lifecycle and turn-trace budgets as contract data, not prose.
   Validate supported lifecycle event names, numeric event counts, total =
   included + omitted invariants, and the supported `turnTraceBudget`
   `preservedWindow` value before deriving secondary reports.
+- Treat compact query and loop budgets as contract data. Validate positive
+  max-turn and retrieved-context budget integers, non-negative repair attempts,
+  root `turnsUsed` consistency, remaining-turn arithmetic, and exhausted-state
+  consistency before a downstream agent uses the result to decide whether to
+  rerun or resume.
 - Keep compact `agent --json` readiness targeted: include planner mode, workspace blocker status, selected validation-plan status, and validators required by that selected plan, plus a `doctorCommand` for fuller read-only checks. Do not include API keys or unrelated validator noise.
 - Surface readiness posture in result cards, and include the read-only
   `doctorCommand` in suggested commands when readiness is warn or fail. Do not
