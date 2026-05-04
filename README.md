@@ -240,7 +240,10 @@ Current behavior is intentionally runtime-foundation oriented:
   group budget limits, flag/count consistency, and issue-details omitted-count
   alignment before deriving validation blocker reports.
   `validation.safetyBlockers` isolates unsafe validation command and YAML syntax
-  blockers with explicit mutation-prevented posture.
+  blockers with explicit mutation-prevented posture. Compact consumers validate
+  blocker budget fields, supported blocker kinds, non-empty source command and
+  message strings, string-or-null unsafe/YAML metadata, repairability booleans,
+  and `mutationPrevented=true`.
   `approval.resume` carries a structured continuation command, active approval
   scope, and signal count for approval-required runs so downstream agents do
   not need to scrape prose before asking for explicit user approval. Compact

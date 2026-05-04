@@ -252,6 +252,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   supported issue kinds, positive group counts/source-command counts, boolean
   flags, flag/count consistency, and issue-details omitted counts that match
   summary omitted issue counts.
+- Validate compact `validation.safetyBlockers` before treating validation as
+  mutation-safe: non-negative budget counts, entries bounded by `maxEntries`,
+  supported `unsafe-validation-command`/`yaml-syntax-failure` kinds, non-empty
+  source commands and messages, string-or-null unsafe/YAML metadata, boolean
+  repairability, and `mutationPrevented=true`.
 - LLM planner `validate-targets` payloads must be treated as suggestions, not
   authority. Parser code must clamp validation commands to the selected
   validation plan and fall back to selected plan commands when a model invents

@@ -38,6 +38,7 @@ const DOCTOR_CHECK_STATUSES = ['pass', 'warn', 'fail'] as const;
 const VALIDATION_COMMAND_STATUSES = ['passed', 'failed'] as const;
 const VALIDATION_COMMAND_KINDS = ['yaml-guard', 'target-validation'] as const;
 const VALIDATION_PLAN_KINDS = ['helm', 'pulumi', 'terraform'] as const;
+const VALIDATION_SAFETY_BLOCKER_KINDS = ['unsafe-validation-command', 'yaml-syntax-failure'] as const;
 const VALIDATION_ISSUE_KINDS = [
   'helm-missing-service-port',
   'helm-missing-ingress-values',
@@ -146,6 +147,11 @@ function isKnownValidationCommandKind(value: unknown): boolean {
 
 function isKnownValidationPlanKind(value: unknown): boolean {
   return typeof value === 'string' && VALIDATION_PLAN_KINDS.includes(value as typeof VALIDATION_PLAN_KINDS[number]);
+}
+
+function isKnownValidationSafetyBlockerKind(value: unknown): boolean {
+  return typeof value === 'string'
+    && VALIDATION_SAFETY_BLOCKER_KINDS.includes(value as typeof VALIDATION_SAFETY_BLOCKER_KINDS[number]);
 }
 
 function isKnownValidationIssueKind(value: unknown): boolean {
@@ -1415,12 +1421,65 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input validation.issueDetails.omittedCount must match validation.issueSummary.omittedIssueCount.');
   }
 
+  if (!isRecord(value.validation.safetyBlockers)) {
+    throw new Error('compact result input must include validation.safetyBlockers object.');
+  }
+
+  for (const field of ['maxEntries', 'omittedCount']) {
+    assertIntegerField(
+      value.validation.safetyBlockers,
+      field,
+      'validation.safetyBlockers',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+  }
+
+  if (!Array.isArray(value.validation.safetyBlockers.entries)) {
+    throw new Error('compact result input validation.safetyBlockers.entries must be an array.');
+  }
+
   if (
-    isRecord(value.validation.safetyBlockers)
-    && 'entries' in value.validation.safetyBlockers
-    && !Array.isArray(value.validation.safetyBlockers.entries)
+    value.validation.safetyBlockers.entries.length > (value.validation.safetyBlockers.maxEntries as number)
   ) {
-    throw new Error('compact result input validation.safetyBlockers.entries must be an array when present.');
+    throw new Error('compact result input validation.safetyBlockers.entries length must not exceed maxEntries.');
+  }
+
+  for (let index = 0; index < value.validation.safetyBlockers.entries.length; index += 1) {
+    const entry = value.validation.safetyBlockers.entries[index];
+    const entryPath = `validation.safetyBlockers.entries[${index}]`;
+
+    if (!isRecord(entry)) {
+      throw new Error(`compact result input ${entryPath} must be an object.`);
+    }
+
+    if (!isKnownValidationSafetyBlockerKind(entry.kind)) {
+      throw new Error(`compact result input ${entryPath}.kind must be supported.`);
+    }
+
+    for (const field of ['sourceCommand', 'message']) {
+      if (typeof entry[field] !== 'string' || entry[field].length === 0) {
+        throw new Error(`compact result input ${entryPath}.${field} must be a non-empty string.`);
+      }
+    }
+
+    if (!isStringOrNull(entry.guidance)) {
+      throw new Error(`compact result input ${entryPath}.guidance must be string or null.`);
+    }
+
+    if (typeof entry.repairable !== 'boolean') {
+      throw new Error(`compact result input ${entryPath}.repairable must be a boolean.`);
+    }
+
+    if (entry.mutationPrevented !== true) {
+      throw new Error(`compact result input ${entryPath}.mutationPrevented must be true.`);
+    }
+
+    for (const field of ['unsafeCommand', 'unsafeRuleId', 'unsafeReason', 'yamlPath', 'yamlParser']) {
+      if (!isStringOrNull(entry[field])) {
+        throw new Error(`compact result input ${entryPath}.${field} must be string or null.`);
+      }
+    }
   }
 
   for (let index = 0; index < value.validation.identityConflicts.length; index += 1) {

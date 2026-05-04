@@ -4643,6 +4643,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Safety Blocker Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `validation.safetyBlockers` before downstream agents treat
+  validation blocker posture as mutation-safe.
+- Validate safety-blocker budget fields, entry limits, supported unsafe/YAML
+  blocker kinds, source command/message strings, and string-or-null unsafe/YAML
+  metadata.
+- Require every safety blocker to carry boolean repairability and
+  `mutationPrevented=true`.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

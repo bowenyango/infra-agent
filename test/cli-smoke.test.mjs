@@ -6176,6 +6176,11 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           maxEntries: 5,
           omittedCount: 0
         },
+        safetyBlockers: {
+          maxEntries: 5,
+          omittedCount: 0,
+          entries: []
+        },
         identityConflictSummary: {
           totalCount: 1,
           includedCount: 1,
@@ -6639,6 +6644,8 @@ test('compact agent result contract validates shallow handoff shape', () => {
         omittedCount: 0
       },
       safetyBlockers: {
+        maxEntries: 5,
+        omittedCount: 0,
         entries: []
       },
       identityConflictSummary: {
@@ -6864,6 +6871,19 @@ test('compact agent result contract validates shallow handoff shape', () => {
         signalCount: 0
       }
     }
+  };
+  const validSafetyBlocker = {
+    kind: 'yaml-syntax-failure',
+    sourceCommand: 'yaml guard terraform/payments-api/dev.auto.tfvars',
+    message: 'YAML syntax validation failed.',
+    guidance: null,
+    repairable: false,
+    mutationPrevented: true,
+    unsafeCommand: null,
+    unsafeRuleId: null,
+    unsafeReason: null,
+    yamlPath: 'terraform/payments-api/dev.auto.tfvars',
+    yamlParser: 'yaml'
   };
 
   assert.equal(parseCompactAgentRunResult(validResult).kind, 'infra-agent.agent-result');
@@ -7296,6 +7316,128 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /validation\.issueDetails\.omittedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: null
+      }
+    }),
+    /validation\.safetyBlockers object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
+          maxEntries: -1
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.maxEntries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
+          entries: {}
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.entries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
+          maxEntries: 0,
+          entries: [validSafetyBlocker]
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.entries length/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
+          entries: [
+            {
+              ...validSafetyBlocker,
+              kind: 'terraform-create-before-delete-conflict'
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.entries\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
+          entries: [
+            {
+              ...validSafetyBlocker,
+              sourceCommand: ''
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.entries\[0\]\.sourceCommand/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
+          entries: [
+            {
+              ...validSafetyBlocker,
+              mutationPrevented: false
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.entries\[0\]\.mutationPrevented/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
+          entries: [
+            {
+              ...validSafetyBlocker,
+              unsafeRuleId: 1
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.entries\[0\]\.unsafeRuleId/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -8082,6 +8224,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
         ...validResult.validation,
         identityConflicts: [],
         safetyBlockers: {
+          ...validResult.validation.safetyBlockers,
           entries: {}
         }
       }
@@ -8316,6 +8459,11 @@ test('identity-report loader renders compact conflict reports from a JSON file',
         issueDetails: {
           maxEntries: 5,
           omittedCount: 0
+        },
+        safetyBlockers: {
+          maxEntries: 5,
+          omittedCount: 0,
+          entries: []
         },
         identityConflictSummary: {
           totalCount: 3,
