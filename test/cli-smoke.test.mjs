@@ -6231,6 +6231,7 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
         ]
       },
       validation: {
+        status: 'failed',
         selectedPlan: [],
         issueSummary: {
           totalCount: 1,
@@ -6743,6 +6744,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
       ]
     },
     validation: {
+      status: 'failed',
       targetCommandCount: 1,
       yamlGuardCount: 0,
       commands: {
@@ -7161,6 +7163,123 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /handoffCheckpoint\.summary\.validationIssueCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          outcome: 'completed'
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.outcome must match root\.outcome/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          changedFileCount: 1
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.changedFileCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          activeBlocker: 'approval'
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.activeBlocker must match harness\.plannerHandoff\.activeBlocker\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          nextControlAction: 'review-result'
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.nextControlAction must match harness\.plannerHandoff\.nextControlAction/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          readinessStatus: 'warn'
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.readinessStatus must match readiness\.status/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          validationStatus: 'passed'
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.validationStatus must match validation\.status/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          validationIssueCount: 0
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.validationIssueCount must match validation\.issueSummary\.totalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          identityConflictCount: 0
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.identityConflictCount must match validation\.identityConflictSummary\.totalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          approvalContinuationRequired: true
+        }
+      }
+    }),
+    /handoffCheckpoint\.summary\.approvalContinuationRequired must match approval\.resume\.continuationRequired/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -9139,8 +9258,8 @@ test('identity-report loader renders compact conflict reports from a JSON file',
           nextControlAction: 'resolve-validation',
           readinessStatus: 'pass',
           validationStatus: 'failed',
-          validationIssueCount: 1,
-          identityConflictCount: 1,
+          validationIssueCount: 3,
+          identityConflictCount: 3,
           approvalContinuationRequired: false,
           changedFileCount: 0
         },
@@ -9155,6 +9274,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
         ]
       },
       validation: {
+        status: 'failed',
         selectedPlan: [],
         issueSummary: {
           totalCount: 3,

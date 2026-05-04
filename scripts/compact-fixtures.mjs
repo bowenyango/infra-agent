@@ -41,6 +41,7 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
       ]
     },
     validation: {
+      status: 'failed',
       selectedPlan: [],
       issueSummary: {
         totalCount: 1,

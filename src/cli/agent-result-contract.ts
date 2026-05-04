@@ -420,6 +420,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input must include a supported outcome.');
   }
 
+  if (value.handoffCheckpoint.summary.outcome !== value.outcome) {
+    throw new Error('compact result input handoffCheckpoint.summary.outcome must match root.outcome.');
+  }
+
   if (typeof value.task !== 'string') {
     throw new Error('compact result input root.task must be a string.');
   }
@@ -442,6 +446,13 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     if (field in value && !isStringArray(value[field])) {
       throw new Error(`compact result input root.${field} must be a string array when present.`);
     }
+  }
+
+  if (
+    Array.isArray(value.changedFiles)
+    && value.handoffCheckpoint.summary.changedFileCount !== value.changedFiles.length
+  ) {
+    throw new Error('compact result input handoffCheckpoint.summary.changedFileCount must match root.changedFiles length.');
   }
 
   for (const field of ['requestedEnvironment', 'requestedService']) {
@@ -1162,6 +1173,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       if (value.harness.plannerHandoff.nextControlAction !== expectedNextControlAction) {
         throw new Error('compact result input harness.plannerHandoff.nextControlAction must match outcome.');
       }
+
+      if (value.handoffCheckpoint.summary.activeBlocker !== activeBlocker.kind) {
+        throw new Error('compact result input handoffCheckpoint.summary.activeBlocker must match harness.plannerHandoff.activeBlocker.kind.');
+      }
+
+      if (value.handoffCheckpoint.summary.nextControlAction !== value.harness.plannerHandoff.nextControlAction) {
+        throw new Error('compact result input handoffCheckpoint.summary.nextControlAction must match harness.plannerHandoff.nextControlAction.');
+      }
     }
   }
 
@@ -1227,10 +1246,22 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     if (value.readiness.status !== expectedReadinessStatus) {
       throw new Error('compact result input readiness.status must match check counts.');
     }
+
+    if (value.handoffCheckpoint.summary.readinessStatus !== value.readiness.status) {
+      throw new Error('compact result input handoffCheckpoint.summary.readinessStatus must match readiness.status.');
+    }
   }
 
   if (!isRecord(value.validation) || !Array.isArray(value.validation.identityConflicts)) {
     throw new Error('compact result input must include validation.identityConflicts array.');
+  }
+
+  if (typeof value.validation.status !== 'string') {
+    throw new Error('compact result input validation.status must be a string.');
+  }
+
+  if (value.handoffCheckpoint.summary.validationStatus !== value.validation.status) {
+    throw new Error('compact result input handoffCheckpoint.summary.validationStatus must match validation.status.');
   }
 
   if (!isRecord(value.validation.identityConflictSummary)) {
@@ -1801,6 +1832,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
+  if (value.handoffCheckpoint.summary.validationIssueCount !== value.validation.issueSummary.totalCount) {
+    throw new Error('compact result input handoffCheckpoint.summary.validationIssueCount must match validation.issueSummary.totalCount.');
+  }
+
+  if (value.handoffCheckpoint.summary.identityConflictCount !== value.validation.identityConflictSummary.totalCount) {
+    throw new Error('compact result input handoffCheckpoint.summary.identityConflictCount must match validation.identityConflictSummary.totalCount.');
+  }
+
   if (isRecord(value.approval)) {
     if ('requiredWriteRisks' in value.approval && !isArrayOf(value.approval.requiredWriteRisks, isKnownFileWriteRisk)) {
       throw new Error('compact result input approval.requiredWriteRisks must use supported write risks when present.');
@@ -1896,6 +1935,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         && (value.approval.resume.signalCount as number) < value.approval.signals.length
       ) {
         throw new Error('compact result input approval.resume.signalCount must cover included approval signals.');
+      }
+
+      if (value.handoffCheckpoint.summary.approvalContinuationRequired !== value.approval.resume.continuationRequired) {
+        throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must match approval.resume.continuationRequired.');
       }
     }
   }

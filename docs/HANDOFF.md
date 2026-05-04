@@ -5741,3 +5741,29 @@ Known validation:
 
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
+
+## 2026-05-04 Handoff Summary Consistency Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `scripts/compact-fixtures.mjs`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check `handoffCheckpoint.summary` against the root outcome and changed
+  file list.
+- Cross-check summary routing against `harness.plannerHandoff`, readiness
+  status against `readiness.status`, validation status/counts against
+  `validation.status`, `validation.issueSummary`, and
+  `validation.identityConflictSummary`.
+- Cross-check approval continuation against `approval.resume` so compact
+  handoffs cannot claim an approval continuation that the durable approval
+  section does not support.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.
