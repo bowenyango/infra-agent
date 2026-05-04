@@ -38,15 +38,24 @@ durable design reference for infra-agent development.
 
 ## Infra-Agent Mapping
 
+| Claude Code pattern | Infra-agent surface |
+| --- | --- |
+| Streamed compaction without raw tool output | Compact `agent --json` sections such as `harness.turnTrace`, `harness.toolTrace`, `validation.commands`, `validation.issues`, and `knowledgeContext` |
+| Preserved current task and routing state | Root task/workspace metadata, `harness.loopBudget`, `harness.repairBudget`, `harness.plannerHandoff`, and CLI exit codes |
+| Permission logging before tool execution | `harness.toolTrace.permissionCategoryCounts`, `harness.toolPermissionSummary`, approval signals, and `approval.resume` |
+| Restoring durable context after compaction | `readiness`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, and `knowledgeContext` |
+| Skill base-directory references | Packaged `skills/infra-configuration/SKILL.md` with optional detailed references under `skills/infra-configuration/references/` |
+
 - `runQueryLoop` is the current session-owned harness. Keep adding durable state
   there instead of spreading control-flow decisions through CLI output code.
 - Compact `agent --json` output is the primary agent-to-agent handoff. Add
   small structured sections there before adding prose-only output.
 - Compact handoff sections need parser-enforced contracts before downstream
   agents route on them. Root task/workspace metadata, query/loop/repair
-  budgets, turn/tool traces, readiness, validation commands, approval resume,
-  and planner handoff routing should reject malformed or inconsistent JSON
-  instead of relying on prose interpretation.
+  budgets, lifecycle/tool traces, permission summaries, readiness, validation
+  plan/command/issue/safety/identity surfaces, knowledge cache/context,
+  approval resume, and planner handoff routing should reject malformed or
+  inconsistent JSON instead of relying on prose interpretation.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without
@@ -69,6 +78,9 @@ durable design reference for infra-agent development.
   should isolate unsafe validation commands and YAML syntax gates, retain
   mutation-prevented posture, and avoid requiring agents to infer safety state
   from sampled issue prose.
+- `validation.issues` is a capped compatibility detail sample. It should stay
+  tied to `validation.issueDetails` and `validation.issueSummary` counts so
+  downstream agents know when more validation issue detail is omitted.
 - Result cards should mirror validation blocker counts from
   `validation.issueSummary` so human handoff can see repairable and
   non-repairable blocker posture without parsing compact JSON first.
@@ -106,6 +118,10 @@ durable design reference for infra-agent development.
   category counts, not full tool outputs. Contract parsers should validate
   entry shapes, supported permission categories, mutation/approval booleans,
   and budget/category-count consistency.
+- `harness.toolPermissionSummary` is the aggregate permission posture. It
+  should match `harness.toolTrace.permissionCategoryCounts` and keep workspace
+  mutation, external command, external state mutation, and approval-required
+  counts explicit.
 - Tool summaries should carry explicit permission categories such as workspace
   reads/writes, native CLI validation, native CLI writes, and stack config
   mutation-risk tools. Downstream agents should reason from these categories
@@ -116,10 +132,11 @@ durable design reference for infra-agent development.
 - `approval.resume` is the compact approval-continuation surface. It may report
   the exact scoped command, write risks, write paths, tool categories, and
   signal count, but it must not be interpreted as approval by itself.
-- `retrievedContextBudget` and compact `knowledgeContext` summaries are the
+- `knowledgeCache` and compact `knowledgeContext` summaries are the
   context-compaction boundary for official docs, schemas, and examples. They
-  should report packet/token budgets and omissions without exposing raw cached
-  documents in ordinary handoff payloads.
+  should report resolved cache source, packet/token budgets, token estimates,
+  and omissions without exposing raw cached documents in ordinary handoff
+  payloads.
 - Result cards should mirror the retrieved context budget posture with packet,
   token, and omission counts so human handoff does not require `--json-full`.
 - Query config owns context budget knobs. Keep packet/token overrides explicit

@@ -6004,6 +6004,10 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
   const binContent = await readFile('bin/infra-agent.js', 'utf8');
   const infraSkillContent = await readFile('skills/infra-configuration/SKILL.md', 'utf8');
+  const infraSkillReferenceContent = await readFile(
+    'skills/infra-configuration/references/context-validation-and-impact.md',
+    'utf8'
+  );
 
   assert.equal(packageJson.bin?.['infra-agent'], './bin/infra-agent.js');
   assert.equal(packageJson.engines?.node, '>=24.0.0');
@@ -6026,17 +6030,27 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /harness\.repairBudget/);
   assert.match(infraSkillContent, /harness\.turnTraceBudget/);
   assert.match(infraSkillContent, /harness\.lifecycleEvents/);
+  assert.match(infraSkillContent, /harness\.toolTrace/);
+  assert.match(infraSkillContent, /harness\.toolPermissionSummary/);
+  assert.match(infraSkillContent, /readiness/);
+  assert.match(infraSkillContent, /doctorCommand/);
   assert.match(infraSkillContent, /validation\.selectedPlan/);
   assert.match(infraSkillContent, /validation\.commands/);
   assert.match(infraSkillContent, /validation\.issueSummary/);
   assert.match(infraSkillContent, /validation\.issueDetails/);
+  assert.match(infraSkillContent, /validation\.issues/);
   assert.match(infraSkillContent, /validation\.safetyBlockers/);
   assert.match(infraSkillContent, /validation\.identityConflictSummary/);
   assert.match(infraSkillContent, /runtimeIdentityConflictSummary/);
   assert.match(infraSkillContent, /summary\.sourceProvenance/);
   assert.match(infraSkillContent, /reviewTargetBudget/);
   assert.match(infraSkillContent, /approval\.resume/);
+  assert.match(infraSkillContent, /knowledgeCache/);
   assert.match(infraSkillContent, /knowledgeContext/);
+  assert.match(infraSkillContent, /references\/context-validation-and-impact\.md/);
+  assert.match(infraSkillReferenceContent, /Compact Contract Checklist/);
+  assert.match(infraSkillReferenceContent, /validation\.identityConflictSummary/);
+  assert.match(infraSkillReferenceContent, /approval\.resume/);
 });
 
 test('prefetch CLI args accept bounded source selection flags', () => {

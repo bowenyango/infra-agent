@@ -44,9 +44,11 @@ configured, but it must not expose API keys.
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. Treat compact JSON as contract-checked
    handoff data: root task/workspace metadata, query/loop/repair budgets,
-   turn/tool trace entries, readiness checks, validation command summaries,
-   approval resume metadata, and planner handoff routing must be structurally
-   valid before another agent acts on them. Read `harness.turnTrace` for the
+   lifecycle/turn/tool trace entries, tool permission summaries, readiness
+   checks, validation plan/command/issue/safety/identity summaries, knowledge
+   cache/context summaries, approval resume metadata, and planner handoff
+   routing must be structurally valid before another agent acts on them. Read
+   `harness.stateSummary` for runtime counts and `harness.turnTrace` for the
    bounded action flow, `harness.plannerHandoff` for the active blocker and next
    control action, `harness.turnTraceBudget` and `harness.lifecycleEvents` for
    capped lifecycle window/count metadata, and `harness.toolTrace` for budgeted
@@ -58,15 +60,17 @@ configured, but it must not expose API keys.
    plan status, and validator availability required by that selected plan before
    asking for a full doctor report. If readiness is warn or fail, run the
    suggested read-only `doctorCommand` before asking for more raw logs. Read
-   `knowledgeContext` to see which retrieved docs or schemas were included or
-   omitted by context budget; the human result card mirrors that packet, token,
-   and omission posture without exposing raw excerpts. Read
+   `knowledgeCache` for the resolved cache root/source and `knowledgeContext`
+   to see which retrieved docs or schemas were included or omitted by context
+   budget; the human result card mirrors that packet, token, and omission
+   posture without exposing raw excerpts. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
    `validation.issueSummary` for grouped blocker posture, and
    `validation.issueDetails` before assuming the sampled `validation.issues`
-   array is complete. Read `validation.safetyBlockers` first when unsafe
-   validation commands or YAML syntax gates are present. For replacement or
+   array is complete; the sample plus omitted count must match the issue
+   summary. Read `validation.safetyBlockers` first when unsafe validation
+   commands or YAML syntax gates are present. For replacement or
    duplicate-provider failures,
    read `validation.identityConflictSummary` and
    `validation.identityConflicts` before raw stderr or long guidance strings.

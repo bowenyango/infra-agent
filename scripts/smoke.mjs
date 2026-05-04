@@ -10,6 +10,7 @@ import { buildWorkspaceInfraGraph } from '../src/impact/workspace-graph.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { exitCodeForRunPreflight, INFRA_AGENT_EXIT_CODES } from '../src/cli/exit-codes.ts';
 import { buildDoctorReport } from '../src/cli/doctor.ts';
+import { buildIdentityConflictAgentResultFixture } from './compact-fixtures.mjs';
 
 async function smokeInspect(workspacePath) {
   const inspection = await inspectWorkspace(workspacePath);
@@ -34,36 +35,7 @@ async function smokeGraph(workspacePath) {
 }
 
 async function writeIdentityConflictFixture(path) {
-  await writeFile(path, JSON.stringify({
-    kind: 'infra-agent.agent-result',
-    schemaVersion: 1,
-    task: 'update terraform listener priority',
-    workspaceRoot: '/workspace',
-    outcome: 'validation-blocked',
-    validation: {
-      identityConflicts: [
-        {
-          engine: 'terraform',
-          issueKind: 'terraform-create-before-delete-conflict',
-          conflictCode: 'PriorityInUse',
-          conflictFamily: 'aws-lb-listener-rule',
-          conflictLabel: 'AWS Load Balancer Listener Rule',
-          resourceAddress: 'aws_lb_listener_rule.api',
-          resourceName: null,
-          resourceType: 'aws_lb_listener_rule',
-          identity: {
-            listenerRulePriorities: '100'
-          },
-          riskCategory: 'create-before-delete-ordering',
-          reviewSteps: [
-            'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.'
-          ],
-          suggestedAction: 'Use an IaC-native rename mapping for logical renames.',
-          sourceCommand: 'terraform -chdir=terraform/payments-api plan'
-        }
-      ]
-    }
-  }), 'utf8');
+  await writeFile(path, JSON.stringify(buildIdentityConflictAgentResultFixture()), 'utf8');
 }
 
 async function main() {

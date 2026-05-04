@@ -16,6 +16,30 @@ A future product layer may sit on top of this runtime:
 
 - a local visualization server for inferred infrastructure topology
 
+## Current Compact Query Harness
+
+The current CLI surface is centered on a bounded query harness rather than a
+general worker swarm. `infra-agent agent --json` emits the compact
+`infra-agent.agent-result` handoff payload; `--json-full` is reserved for
+debugging the complete runtime state.
+
+The compact result preserves durable routing state:
+
+- root task, workspace, target, outcome, and exit-code posture
+- query, loop, repair, lifecycle, turn-trace, and planner-handoff metadata
+- tool trace and aggregate tool-permission posture
+- readiness status plus a read-only `doctorCommand`
+- selected validation plan, executed validation summaries, grouped issue
+  posture, capped issue samples, safety blockers, and identity conflict
+  aggregates
+- knowledge cache source and retrieved context budget summaries
+- approval resume metadata that records required scope but does not grant
+  approval
+
+Report commands are read-only transformations over saved handoff artifacts:
+`identity-report` consumes compact agent results, and `impact-report` consumes
+infra graph JSON. Neither command reruns validators or authorizes remediation.
+
 ## Runtime Shape
 
 The CLI runtime should be organized into five layers.

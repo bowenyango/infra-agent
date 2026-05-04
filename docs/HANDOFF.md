@@ -4765,6 +4765,42 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Contract Docs Alignment Slice
+
+Files added or updated:
+
+- `docs/ARCHITECTURE.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `scripts/compact-fixtures.mjs`
+- `scripts/smoke.mjs`
+- `scripts/e2e.mjs`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Align the architecture, Claude Code pattern mapping, packaged skill, and
+  detailed skill reference with the hardened compact `agent --json` handoff
+  contract.
+- Make `knowledgeCache`, `knowledgeContext`, tool permission summaries,
+  readiness doctor routing, validation issue samples, safety blockers, and
+  identity aggregate counts explicit in agent-facing documentation.
+- Extend package-surface tests so the installed skill continues to mention the
+  compact contract fields and detailed reference path.
+- Add a shared compact identity-conflict fixture for smoke and e2e report
+  checks so script coverage follows the current `identity-report` input
+  contract.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test:unit`: passed with 276 tests.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

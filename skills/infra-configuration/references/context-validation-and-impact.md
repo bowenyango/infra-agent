@@ -37,6 +37,27 @@ message is enough.
   clarification required, `5` no safe action, `6` repair budget exhausted, and
   `7` `run` preflight blockers.
 
+### Compact Contract Checklist
+
+Before routing another agent from compact JSON, prefer fields that are already
+contract-checked by the parser:
+
+- `harness.stateSummary`, `harness.lifecycleEvents`, `harness.turnTrace`, and
+  `harness.plannerHandoff` for current run state and next control action.
+- `harness.toolTrace` and `harness.toolPermissionSummary` for permission
+  posture before asking for raw tool output or native CLI reruns.
+- `readiness.doctorCommand` when readiness is warn or fail; this is read-only.
+- `knowledgeCache` and `knowledgeContext` for cache source, packet inclusion,
+  token estimates, and omitted context reasons without raw excerpts.
+- `validation.selectedPlan`, `validation.commands`,
+  `validation.issueSummary`, `validation.issueDetails`, `validation.issues`,
+  and `validation.safetyBlockers` for validation intent, execution, blocker
+  grouping, capped issue detail, and mutation-prevented safety gates.
+- `validation.identityConflictSummary` before
+  `validation.identityConflicts`; the summary is the authoritative total and
+  omission surface.
+- `approval.resume` only as approval-request metadata. It is not approval.
+
 ## Official Docs Strategy
 
 Use a hybrid cache:

@@ -6,6 +6,7 @@ import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
 import { runSingleStep } from '../src/agent/run-single-step.ts';
 import { buildCompactAgentRunResult } from '../src/cli/output.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
+import { buildIdentityConflictAgentResultFixture } from './compact-fixtures.mjs';
 
 async function main() {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-e2e-'));
@@ -40,37 +41,7 @@ async function main() {
     assert.match(ingressTemplateContent, /kind: Ingress/);
 
     const resultPath = join(tempRoot, 'agent-result.json');
-    await writeFile(resultPath, JSON.stringify({
-      kind: 'infra-agent.agent-result',
-      schemaVersion: 1,
-      task: 'update terraform listener priority',
-      workspaceRoot,
-      outcome: 'validation-blocked',
-      validation: {
-        identityConflicts: [
-          {
-            engine: 'terraform',
-            issueKind: 'terraform-create-before-delete-conflict',
-            conflictCode: 'PriorityInUse',
-            conflictFamily: 'aws-lb-listener-rule',
-            conflictLabel: 'AWS Load Balancer Listener Rule',
-            resourceAddress: 'aws_lb_listener_rule.api',
-            resourceName: null,
-            resourceType: 'aws_lb_listener_rule',
-            identity: {
-              listenerRulePriorities: '100'
-            },
-            riskCategory: 'create-before-delete-ordering',
-            reviewSteps: [
-              'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.',
-              'Confirm listener ARN and priority match the existing listener rule.'
-            ],
-            suggestedAction: 'Use an IaC-native rename mapping for logical renames.',
-            sourceCommand: 'terraform -chdir=terraform/payments-api plan'
-          }
-        ]
-      }
-    }), 'utf8');
+    await writeFile(resultPath, JSON.stringify(buildIdentityConflictAgentResultFixture(workspaceRoot)), 'utf8');
 
     const identityReport = await loadIdentityConflictIncidentReport(resultPath);
     assert.equal(identityReport.kind, 'infra-agent.identity-conflict-report');
