@@ -5449,6 +5449,11 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
     hasYamlSyntaxFailure: true,
     hasIdentityConflict: false
   });
+  assert.deepEqual(compact.validation.issueDetails, {
+    maxEntries: 5,
+    omittedCount: 5
+  });
+  assert.equal(compact.validation.issueDetails.omittedCount, compact.validation.issueSummary.omittedIssueCount);
   assert.equal(compact.validation.issues.length, 5);
   assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'validation');
   assert.equal(compact.harness.plannerHandoff.activeBlocker.validationIssueKind, 'terraform-validate-failure');

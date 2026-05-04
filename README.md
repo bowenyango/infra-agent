@@ -199,7 +199,8 @@ Current behavior is intentionally runtime-foundation oriented:
   `validation.issueSummary` groups active validation blockers by issue kind and
   repairability with counts, source-command counts, omitted issue/group totals,
   and booleans for repairable, non-repairable, unsafe-command, YAML syntax, and
-  identity-conflict blockers.
+  identity-conflict blockers. `validation.issueDetails` reports the sampling
+  budget and omitted count for the capped `validation.issues` detail array.
   `approval.resume` carries a structured continuation command, active approval
   scope, and signal count for approval-required runs so downstream agents do
   not need to scrape prose before asking for explicit user approval.

@@ -284,6 +284,10 @@ export interface CompactAgentRunResult {
         hasIdentityConflict: boolean;
       };
     };
+    issueDetails: {
+      maxEntries: number;
+      omittedCount: number;
+    };
     issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
   };
   approval: {
@@ -1647,6 +1651,10 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       yamlGuardCount,
       commands: collectValidationCommandSummaries(state),
       issueSummary: collectValidationIssueSummary(state),
+      issueDetails: {
+        maxEntries: COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT,
+        omittedCount: Math.max(0, state.runtime.validationIssues.length - COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT)
+      },
       issues: state.runtime.validationIssues.slice(0, COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT).map(issue => ({
         kind: issue.kind,
         repairable: issue.repairable,

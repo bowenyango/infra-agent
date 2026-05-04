@@ -3849,6 +3849,31 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Compact Validation Issue Details Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `validation.issueDetails` budget metadata beside the existing
+  capped `validation.issues` detail array.
+- Report the maximum included issue-detail entries and omitted issue-detail
+  count so downstream agents can tell when the sampled issue list is incomplete
+  without recomputing the cap.
+- Keep detailed validation issue messages sampled; aggregate blocker posture
+  remains in `validation.issueSummary`.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Shared Agent Outcome Constants Slice
 
 Files added or updated:
