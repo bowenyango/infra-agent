@@ -5318,6 +5318,103 @@ test('buildCompactAgentRunResult includes budgeted validation command summaries'
   assert.equal(Object.hasOwn(compact, 'runtime'), false);
 });
 
+test('buildCompactAgentRunResult includes grouped validation issue summary', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const validationIssues = [
+    {
+      kind: 'terraform-validate-failure',
+      repairable: true,
+      sourceCommand: 'terraform -chdir=terraform/payments-api validate',
+      message: 'Missing required argument.'
+    },
+    {
+      kind: 'terraform-validate-failure',
+      repairable: true,
+      sourceCommand: 'terraform -chdir=terraform/payments-api validate -json',
+      message: 'Missing required argument.'
+    },
+    {
+      kind: 'yaml-syntax-failure',
+      repairable: false,
+      sourceCommand: 'infra-agent yaml-parse terraform/payments-api/dev.auto.tfvars',
+      message: 'YAML syntax failed.'
+    },
+    {
+      kind: 'unsafe-validation-command',
+      repairable: false,
+      sourceCommand: 'terraform -chdir=terraform/payments-api apply',
+      message: 'Unsafe validation command blocked.'
+    },
+    {
+      kind: 'helm-missing-service-port',
+      repairable: true,
+      sourceCommand: 'helm template payments-api charts/payments-api',
+      message: 'service.port is required.'
+    },
+    {
+      kind: 'helm-missing-ingress-values',
+      repairable: true,
+      sourceCommand: 'helm template payments-api charts/payments-api',
+      message: 'ingress.enabled is required.'
+    },
+    {
+      kind: 'pulumi-missing-config',
+      repairable: true,
+      sourceCommand: 'pulumi preview --stack dev',
+      message: 'Missing stack config.'
+    },
+    {
+      kind: 'pulumi-preview-failure',
+      repairable: false,
+      sourceCommand: 'pulumi preview --stack dev',
+      message: 'Preview failed.'
+    },
+    {
+      kind: 'terraform-formatting-required',
+      repairable: true,
+      sourceCommand: 'terraform -chdir=terraform/payments-api fmt -check',
+      message: 'Terraform formatting is required.'
+    },
+    {
+      kind: 'unknown-validation-failure',
+      repairable: false,
+      sourceCommand: 'custom validate',
+      message: 'Unknown validation failed.'
+    }
+  ];
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'validation-blocked',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues,
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.equal(compact.validation.issueSummary.totalCount, 10);
+  assert.equal(compact.validation.issueSummary.repairableCount, 6);
+  assert.equal(compact.validation.issueSummary.nonRepairableCount, 4);
+  assert.equal(compact.validation.issueSummary.maxGroups, 8);
+  assert.equal(compact.validation.issueSummary.groups.length, 8);
+  assert.equal(compact.validation.issueSummary.omittedGroupCount, 1);
+  assert.deepEqual(compact.validation.issueSummary.groups[0], {
+    kind: 'terraform-validate-failure',
+    repairable: true,
+    count: 2,
+    sourceCommandCount: 2,
+    blocking: true
+  });
+});
+
 test('agent CLI args accept --max-turns for bounded loop control', () => {
   const parsed = parseArgs([
     'agent',

@@ -227,6 +227,20 @@ export interface CompactAgentRunResult {
         unsafeBlocked: boolean;
       }>;
     };
+    issueSummary: {
+      totalCount: number;
+      repairableCount: number;
+      nonRepairableCount: number;
+      maxGroups: number;
+      omittedGroupCount: number;
+      groups: Array<{
+        kind: ValidationIssue['kind'];
+        repairable: boolean;
+        count: number;
+        sourceCommandCount: number;
+        blocking: boolean;
+      }>;
+    };
     issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
   };
   approval: {
@@ -564,6 +578,7 @@ function isTerminalTurnAction(kind: string): boolean {
 const COMPACT_TOOL_TRACE_LIMIT = 8;
 const COMPACT_TURN_TRACE_LIMIT = 10;
 const COMPACT_VALIDATION_COMMAND_LIMIT = 8;
+const COMPACT_VALIDATION_ISSUE_GROUP_LIMIT = 8;
 const COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS = 300;
 
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
@@ -716,6 +731,57 @@ function collectValidationCommandSummaries(state: AgentRunState): CompactAgentRu
     maxEntries: COMPACT_VALIDATION_COMMAND_LIMIT,
     omittedCount: Math.max(0, state.runtime.validationResults.length - entries.length),
     entries
+  };
+}
+
+function collectValidationIssueSummary(state: AgentRunState): CompactAgentRunResult['validation']['issueSummary'] {
+  const issues = state.runtime.validationIssues;
+  const groups = new Map<string, {
+    kind: ValidationIssue['kind'];
+    repairable: boolean;
+    count: number;
+    sourceCommands: Set<string>;
+  }>();
+
+  for (const issue of issues) {
+    const groupKey = `${issue.kind}:${issue.repairable}`;
+    const group = groups.get(groupKey);
+
+    if (group) {
+      group.count += 1;
+      group.sourceCommands.add(issue.sourceCommand);
+      continue;
+    }
+
+    groups.set(groupKey, {
+      kind: issue.kind,
+      repairable: issue.repairable,
+      count: 1,
+      sourceCommands: new Set([issue.sourceCommand])
+    });
+  }
+
+  const orderedGroups = Array.from(groups.values())
+    .sort((left, right) => (
+      right.count - left.count
+      || left.kind.localeCompare(right.kind)
+      || Number(left.repairable) - Number(right.repairable)
+    ));
+  const entries = orderedGroups.slice(0, COMPACT_VALIDATION_ISSUE_GROUP_LIMIT).map(group => ({
+    kind: group.kind,
+    repairable: group.repairable,
+    count: group.count,
+    sourceCommandCount: group.sourceCommands.size,
+    blocking: true
+  }));
+
+  return {
+    totalCount: issues.length,
+    repairableCount: issues.filter(issue => issue.repairable).length,
+    nonRepairableCount: issues.filter(issue => !issue.repairable).length,
+    maxGroups: COMPACT_VALIDATION_ISSUE_GROUP_LIMIT,
+    omittedGroupCount: Math.max(0, orderedGroups.length - entries.length),
+    groups: entries
   };
 }
 
@@ -1420,6 +1486,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       targetCommandCount: targetValidationCount,
       yamlGuardCount,
       commands: collectValidationCommandSummaries(state),
+      issueSummary: collectValidationIssueSummary(state),
       issues: state.runtime.validationIssues.slice(0, 5).map(issue => ({
         kind: issue.kind,
         repairable: issue.repairable,

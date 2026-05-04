@@ -4224,3 +4224,28 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Compact Validation Issue Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `validation.issueSummary` to `infra-agent.agent-result` output so
+  downstream agents can understand validation blocker shape before reading
+  sampled issue details.
+- Group active validation issues by kind and repairability with issue counts,
+  distinct source-command counts, blocking flags, and omitted group counts.
+- Keep raw native validation output out of the summary; detailed messages remain
+  capped in the existing sampled `validation.issues` array.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
