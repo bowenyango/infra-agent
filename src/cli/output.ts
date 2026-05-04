@@ -176,7 +176,10 @@ export interface IdentityConflictIncidentReport {
   sourceTask: string;
   workspaceRoot: string;
   outcome: CompactAgentRunResult['outcome'];
+  mutationAllowed: false;
   incidentCount: number;
+  omittedIncidentCount: number;
+  incidentSummary: ValidationIdentityConflictAggregateSummary;
   summary: string[];
   incidents: IdentityConflictIncident[];
 }
@@ -1231,6 +1234,59 @@ function summarizeIdentityConflictIncident(conflict: ValidationIdentityConflictS
   return `${engineLabel} ${label}${locatorSummary}: ${identity} [${riskCategory}].`;
 }
 
+function summarizeIdentityIncidentSample(
+  incidents: IdentityConflictIncident[],
+  sourceSummary: CompactAgentRunResult['validation']['identityConflictSummary'] | undefined
+): ValidationIdentityConflictAggregateSummary {
+  if (sourceSummary) {
+    return {
+      totalCount: sourceSummary.totalCount,
+      includedCount: sourceSummary.includedCount,
+      maxEntries: sourceSummary.maxEntries,
+      omittedCount: sourceSummary.omittedCount,
+      mutationAllowed: false,
+      byEngine: {
+        pulumi: sourceSummary.byEngine?.pulumi ?? 0,
+        terraform: sourceSummary.byEngine?.terraform ?? 0
+      },
+      byRiskCategory: {
+        'create-before-delete-ordering': sourceSummary.byRiskCategory?.['create-before-delete-ordering'] ?? 0,
+        'dns-or-domain-ownership': sourceSummary.byRiskCategory?.['dns-or-domain-ownership'] ?? 0,
+        'exclusive-identity-review': sourceSummary.byRiskCategory?.['exclusive-identity-review'] ?? 0,
+        'kubernetes-object-ownership': sourceSummary.byRiskCategory?.['kubernetes-object-ownership'] ?? 0,
+        'physical-name-ownership': sourceSummary.byRiskCategory?.['physical-name-ownership'] ?? 0
+      }
+    };
+  }
+
+  const byEngine: ValidationIdentityConflictAggregateSummary['byEngine'] = {
+    pulumi: 0,
+    terraform: 0
+  };
+  const byRiskCategory: ValidationIdentityConflictAggregateSummary['byRiskCategory'] = {
+    'create-before-delete-ordering': 0,
+    'dns-or-domain-ownership': 0,
+    'exclusive-identity-review': 0,
+    'kubernetes-object-ownership': 0,
+    'physical-name-ownership': 0
+  };
+
+  for (const incident of incidents) {
+    byEngine[incident.engine] += 1;
+    byRiskCategory[incident.riskCategory] += 1;
+  }
+
+  return {
+    totalCount: incidents.length,
+    includedCount: incidents.length,
+    maxEntries: incidents.length,
+    omittedCount: 0,
+    mutationAllowed: false,
+    byEngine,
+    byRiskCategory
+  };
+}
+
 export function buildIdentityConflictIncidentReport(
   result: CompactAgentRunResult
 ): IdentityConflictIncidentReport {
@@ -1249,6 +1305,10 @@ export function buildIdentityConflictIncidentReport(
     sourceCommand: conflict.sourceCommand,
     mutationAllowed: false as const
   }));
+  const incidentSummary = summarizeIdentityIncidentSample(
+    incidents,
+    result.validation.identityConflictSummary
+  );
 
   return {
     kind: 'infra-agent.identity-conflict-report',
@@ -1258,7 +1318,10 @@ export function buildIdentityConflictIncidentReport(
     sourceTask: result.task,
     workspaceRoot: result.workspaceRoot,
     outcome: result.outcome,
+    mutationAllowed: false,
     incidentCount: incidents.length,
+    omittedIncidentCount: incidentSummary.omittedCount,
+    incidentSummary,
     summary: result.validation.identityConflicts.length > 0
       ? result.validation.identityConflicts.map(summarizeIdentityConflictIncident)
       : ['No runtime exclusive-identity incidents found.'],
@@ -2701,7 +2764,11 @@ export function printIdentityConflictIncidentReport(report: IdentityConflictInci
   process.stdout.write(`source task: ${report.sourceTask}\n`);
   process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
   process.stdout.write(`outcome: ${report.outcome}\n`);
-  process.stdout.write(`incidents: ${report.incidentCount}\n\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`incidents: ${report.incidentCount}\n`);
+  process.stdout.write(`incident sample: ${report.incidentSummary.includedCount}/${report.incidentSummary.totalCount} included; ${report.omittedIncidentCount} omitted; max ${report.incidentSummary.maxEntries}\n`);
+  process.stdout.write(`engine counts: ${formatGraphCounts(report.incidentSummary.byEngine)}\n`);
+  process.stdout.write(`risk counts: ${formatGraphCounts(report.incidentSummary.byRiskCategory)}\n\n`);
 
   printHeader('Summary');
   printList(report.summary, 'No runtime exclusive-identity incidents found.');

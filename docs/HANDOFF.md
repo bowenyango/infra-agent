@@ -3902,6 +3902,32 @@ Known validation:
 - `npm run test:unit` passed with 273 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Identity Incident Report Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add top-level `mutationAllowed=false`, `incidentSummary`, and
+  `omittedIncidentCount` to `infra-agent.identity-conflict-report`.
+- Preserve compact identity conflict total/included/omitted and grouped counts
+  in derived reports so capped incident details are not mistaken for complete
+  blocker inventories.
+- Render the same sample and grouped count metadata in human `identity-report`
+  output.
+
+Known validation:
+
+- `npm run test:unit` passed with 273 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

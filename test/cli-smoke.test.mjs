@@ -6475,6 +6475,24 @@ test('identity-report loader renders compact conflict reports from a JSON file',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
       validation: {
+        identityConflictSummary: {
+          totalCount: 3,
+          includedCount: 1,
+          maxEntries: 5,
+          omittedCount: 2,
+          mutationAllowed: false,
+          byEngine: {
+            terraform: 3,
+            pulumi: 0
+          },
+          byRiskCategory: {
+            'create-before-delete-ordering': 3,
+            'dns-or-domain-ownership': 0,
+            'exclusive-identity-review': 0,
+            'kubernetes-object-ownership': 0,
+            'physical-name-ownership': 0
+          }
+        },
         identityConflicts: [
           {
             engine: 'terraform',
@@ -6501,7 +6519,13 @@ test('identity-report loader renders compact conflict reports from a JSON file',
     const report = await loadIdentityConflictIncidentReport(inputPath);
     assert.equal(report.kind, 'infra-agent.identity-conflict-report');
     assert.equal(report.sourceSchemaVersion, 1);
+    assert.equal(report.mutationAllowed, false);
     assert.equal(report.incidentCount, 1);
+    assert.equal(report.omittedIncidentCount, 2);
+    assert.equal(report.incidentSummary.totalCount, 3);
+    assert.equal(report.incidentSummary.includedCount, 1);
+    assert.equal(report.incidentSummary.byEngine.terraform, 3);
+    assert.equal(report.incidentSummary.byRiskCategory['create-before-delete-ordering'], 3);
     assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
     assert.equal(report.incidents[0]?.riskCategory, 'create-before-delete-ordering');
     assert.equal(report.incidents[0]?.mutationAllowed, false);
@@ -8471,7 +8495,11 @@ test('summarizeResultCard includes Terraform exclusive identity validation findi
 
   const report = buildIdentityConflictIncidentReport(compact);
   assert.equal(report.kind, 'infra-agent.identity-conflict-report');
+  assert.equal(report.mutationAllowed, false);
   assert.equal(report.incidentCount, 1);
+  assert.equal(report.omittedIncidentCount, 0);
+  assert.equal(report.incidentSummary.totalCount, 1);
+  assert.equal(report.incidentSummary.byEngine.terraform, 1);
   assert.match(report.summary[0] ?? '', /Terraform AWS Load Balancer Listener Rule at aws_lb_listener_rule\.api/);
   assert.equal(report.incidents[0]?.resourceLocator, 'aws_lb_listener_rule.api');
   assert.equal(report.incidents[0]?.riskCategory, 'create-before-delete-ordering');
@@ -8538,6 +8566,12 @@ test('compact agent result summarizes omitted identity conflict details', async 
   assert.equal(compact.validation.identityConflictSummary.byRiskCategory['physical-name-ownership'], 2);
   assert.equal(compact.validation.identityConflictSummary.byRiskCategory['dns-or-domain-ownership'], 2);
   assert.equal(compact.validation.identityConflictSummary.mutationAllowed, false);
+
+  const report = buildIdentityConflictIncidentReport(compact);
+  assert.equal(report.incidentCount, 5);
+  assert.equal(report.omittedIncidentCount, 2);
+  assert.equal(report.incidentSummary.totalCount, 7);
+  assert.equal(report.incidentSummary.mutationAllowed, false);
 });
 
 test('summarizeResultCard includes Terraform validation findings for missing required variables', async () => {

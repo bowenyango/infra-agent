@@ -110,6 +110,9 @@ durable design reference for infra-agent development.
 - `validation.identityConflictSummary` should carry total/included/omitted and
   grouped counts because detail arrays are budgeted handoff samples, not
   exhaustive incident inventories.
+- `identity-report` should mirror compact identity conflict summary metadata
+  instead of recomputing only from included incidents; otherwise capped details
+  look exhaustive after handoff.
 - `impact-report` should carry source provenance for graph summaries so
   downstream agents can separate workspace-inspection facts from attached
   Terraform plan or Pulumi preview impact data without rerunning native tools.

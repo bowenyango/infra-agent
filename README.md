@@ -225,7 +225,9 @@ Current behavior is intentionally runtime-foundation oriented:
   agents. It consumes `validation.identityConflicts`; it does not rerun
   Terraform, Pulumi, Helm, or any repair command. The input must be compact
   `infra-agent.agent-result` JSON with `schemaVersion: 1`, not full debug
-  output or graph JSON.
+  output or graph JSON. Reports include `mutationAllowed: false`,
+  `incidentSummary`, and `omittedIncidentCount` so capped incident details are
+  explicit in downstream handoff.
   When a run is blocked by runtime exclusive-identity conflicts, suggested
   commands include an `agent --json > agent-result.json` export followed by
   `identity-report agent-result.json --json`.
