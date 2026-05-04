@@ -11,7 +11,16 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
       compact: true,
       primaryArtifact: 'agent --json',
       debugArtifact: 'agent --json-full',
-      mutationAllowed: false
+      mutationAllowed: false,
+      durableSections: [
+        'root',
+        'harness',
+        'validation',
+        'approval',
+        'knowledge',
+        'readiness',
+        'result-card'
+      ]
     },
     validation: {
       selectedPlan: [],

@@ -5374,7 +5374,16 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       compact: true,
       primaryArtifact: 'agent --json',
       debugArtifact: 'agent --json-full',
-      mutationAllowed: false
+      mutationAllowed: false,
+      durableSections: [
+        'root',
+        'harness',
+        'validation',
+        'approval',
+        'knowledge',
+        'readiness',
+        'result-card'
+      ]
     });
     assert.ok(compact.resultCard.some(line => /Readiness: pass/i.test(line)));
     assert.match(compact.readiness.doctorCommand, / doctor /);
@@ -6174,7 +6183,16 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
         compact: true,
         primaryArtifact: 'agent --json',
         debugArtifact: 'agent --json-full',
-        mutationAllowed: false
+        mutationAllowed: false,
+        durableSections: [
+          'root',
+          'harness',
+          'validation',
+          'approval',
+          'knowledge',
+          'readiness',
+          'result-card'
+        ]
       },
       validation: {
         selectedPlan: [],
@@ -6659,7 +6677,16 @@ test('compact agent result contract validates shallow handoff shape', () => {
       compact: true,
       primaryArtifact: 'agent --json',
       debugArtifact: 'agent --json-full',
-      mutationAllowed: false
+      mutationAllowed: false,
+      durableSections: [
+        'root',
+        'harness',
+        'validation',
+        'approval',
+        'knowledge',
+        'readiness',
+        'result-card'
+      ]
     },
     validation: {
       targetCommandCount: 1,
@@ -7041,6 +7068,26 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /handoffCheckpoint\.mutationAllowed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        durableSections: []
+      }
+    }),
+    /handoffCheckpoint\.durableSections/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        durableSections: ['runtime']
+      }
+    }),
+    /handoffCheckpoint\.durableSections/
   );
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, outcome: 'unexpected' }),
@@ -8985,7 +9032,16 @@ test('identity-report loader renders compact conflict reports from a JSON file',
         compact: true,
         primaryArtifact: 'agent --json',
         debugArtifact: 'agent --json-full',
-        mutationAllowed: false
+        mutationAllowed: false,
+        durableSections: [
+          'root',
+          'harness',
+          'validation',
+          'approval',
+          'knowledge',
+          'readiness',
+          'result-card'
+        ]
       },
       validation: {
         selectedPlan: [],
@@ -9318,7 +9374,16 @@ test('identity-report loader rejects non-compact result inputs', async () => {
         compact: true,
         primaryArtifact: 'agent --json',
         debugArtifact: 'agent --json-full',
-        mutationAllowed: false
+        mutationAllowed: false,
+        durableSections: [
+          'root',
+          'harness',
+          'validation',
+          'approval',
+          'knowledge',
+          'readiness',
+          'result-card'
+        ]
       },
       validation: {}
     }), 'utf8');

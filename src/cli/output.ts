@@ -167,6 +167,15 @@ interface CompactHandoffCheckpoint {
   primaryArtifact: 'agent --json';
   debugArtifact: 'agent --json-full';
   mutationAllowed: false;
+  durableSections: Array<
+    | 'root'
+    | 'harness'
+    | 'validation'
+    | 'approval'
+    | 'knowledge'
+    | 'readiness'
+    | 'result-card'
+  >;
 }
 
 export interface IdentityConflictIncident {
@@ -2012,7 +2021,16 @@ function collectHandoffCheckpoint(): CompactHandoffCheckpoint {
     compact: true,
     primaryArtifact: 'agent --json',
     debugArtifact: 'agent --json-full',
-    mutationAllowed: false
+    mutationAllowed: false,
+    durableSections: [
+      'root',
+      'harness',
+      'validation',
+      'approval',
+      'knowledge',
+      'readiness',
+      'result-card'
+    ]
   };
 }
 

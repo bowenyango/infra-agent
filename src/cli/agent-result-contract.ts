@@ -97,6 +97,15 @@ const KNOWLEDGE_CACHE_SOURCES = [
 const HANDOFF_CHECKPOINT_SOURCES = ['agent-result'] as const;
 const HANDOFF_CHECKPOINT_PRIMARY_ARTIFACTS = ['agent --json'] as const;
 const HANDOFF_CHECKPOINT_DEBUG_ARTIFACTS = ['agent --json-full'] as const;
+const HANDOFF_CHECKPOINT_DURABLE_SECTIONS = [
+  'root',
+  'harness',
+  'validation',
+  'approval',
+  'knowledge',
+  'readiness',
+  'result-card'
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -118,6 +127,11 @@ function isKnownHandoffCheckpointPrimaryArtifact(value: unknown): boolean {
 function isKnownHandoffCheckpointDebugArtifact(value: unknown): boolean {
   return typeof value === 'string'
     && HANDOFF_CHECKPOINT_DEBUG_ARTIFACTS.includes(value as typeof HANDOFF_CHECKPOINT_DEBUG_ARTIFACTS[number]);
+}
+
+function isKnownHandoffCheckpointDurableSection(value: unknown): boolean {
+  return typeof value === 'string'
+    && HANDOFF_CHECKPOINT_DURABLE_SECTIONS.includes(value as typeof HANDOFF_CHECKPOINT_DURABLE_SECTIONS[number]);
 }
 
 function isKnownAgentActionKind(value: unknown): boolean {
@@ -335,6 +349,17 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
   if (value.handoffCheckpoint.mutationAllowed !== false) {
     throw new Error('compact result input handoffCheckpoint.mutationAllowed must be false.');
+  }
+
+  if (!Array.isArray(value.handoffCheckpoint.durableSections)) {
+    throw new Error('compact result input handoffCheckpoint.durableSections must be an array.');
+  }
+
+  if (
+    value.handoffCheckpoint.durableSections.length === 0
+    || value.handoffCheckpoint.durableSections.some(section => !isKnownHandoffCheckpointDurableSection(section))
+  ) {
+    throw new Error('compact result input handoffCheckpoint.durableSections must use supported section names.');
   }
 
   if (!isKnownAgentResultOutcome(value.outcome)) {

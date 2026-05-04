@@ -130,6 +130,30 @@ Known validation:
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
 
+## 2026-05-04 Handoff Durable Sections Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `scripts/compact-fixtures.mjs`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `handoffCheckpoint.durableSections` to name compact sections that may be
+  used for post-compaction recovery.
+- Include root metadata, harness, validation, approval, knowledge, readiness,
+  and result-card sections as the current durable handoff surface.
+- Reject missing, empty, or unsupported durable section names in compact result
+  inputs.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.
+
 ## Historical Slice: Domain-Focused Preflight And Result Output
 
 Files:
