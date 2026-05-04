@@ -5794,3 +5794,29 @@ Known validation:
 
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
+
+## 2026-05-04 Handoff Budget Consistency Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check `handoffCheckpoint.budgets` against `harness.turnTraceBudget`,
+  `harness.lifecycleEvents`, `harness.toolTrace`, validation command samples,
+  validation issue samples, validation issue groups, validation safety
+  blockers, identity conflict summaries, approval resume counts, and knowledge
+  context packet counts.
+- Cross-check knowledge packet token estimates against `knowledgeContext` so a
+  continuation agent can trust the checkpoint budget without inspecting packet
+  details.
+- Add parser regression coverage for budget count drift across harness,
+  validation, and knowledge sections.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.

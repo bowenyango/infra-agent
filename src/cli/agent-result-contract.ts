@@ -316,6 +316,22 @@ function assertHandoffBudgetSample(
   }
 }
 
+function assertHandoffBudgetMatches(
+  value: unknown,
+  fieldPath: string,
+  includedCount: number,
+  omittedCount: number,
+  sourcePath: string
+): void {
+  if (!isRecord(value)) {
+    throw new Error(`compact result input ${fieldPath} must be an object.`);
+  }
+
+  if (value.includedCount !== includedCount || value.omittedCount !== omittedCount) {
+    throw new Error(`compact result input ${fieldPath} must match ${sourcePath}.`);
+  }
+}
+
 function expectedIdentityIssueKind(engine: unknown): string | null {
   if (engine === 'terraform') {
     return 'terraform-create-before-delete-conflict';
@@ -1220,6 +1236,36 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input handoffCheckpoint.summary.nextControlAction must match harness.plannerHandoff.nextControlAction.');
       }
     }
+
+    if (isRecord(value.harness.turnTraceBudget)) {
+      assertHandoffBudgetMatches(
+        value.handoffCheckpoint.budgets.turnTrace,
+        'handoffCheckpoint.budgets.turnTrace',
+        value.harness.turnTraceBudget.includedCount as number,
+        value.harness.turnTraceBudget.omittedCount as number,
+        'harness.turnTraceBudget'
+      );
+    }
+
+    if (isRecord(value.harness.lifecycleEvents)) {
+      assertHandoffBudgetMatches(
+        value.handoffCheckpoint.budgets.lifecycleEvents,
+        'handoffCheckpoint.budgets.lifecycleEvents',
+        value.harness.lifecycleEvents.includedCount as number,
+        value.harness.lifecycleEvents.omittedCount as number,
+        'harness.lifecycleEvents'
+      );
+    }
+
+    if (isRecord(value.harness.toolTrace)) {
+      assertHandoffBudgetMatches(
+        value.handoffCheckpoint.budgets.toolTrace,
+        'handoffCheckpoint.budgets.toolTrace',
+        value.harness.toolTrace.includedCount as number,
+        value.harness.toolTrace.omittedCount as number,
+        'harness.toolTrace'
+      );
+    }
   }
 
   if (isRecord(value.readiness)) {
@@ -1498,6 +1544,19 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         }
       }
     }
+
+    if (
+      Array.isArray(value.validation.commands.entries)
+      && isNonNegativeInteger(value.validation.commands.omittedCount)
+    ) {
+      assertHandoffBudgetMatches(
+        value.handoffCheckpoint.budgets.validationCommands,
+        'handoffCheckpoint.budgets.validationCommands',
+        value.validation.commands.entries.length,
+        value.validation.commands.omittedCount as number,
+        'validation.commands'
+      );
+    }
   }
 
   if (!isRecord(value.validation.issueSummary)) {
@@ -1633,6 +1692,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
+  assertHandoffBudgetMatches(
+    value.handoffCheckpoint.budgets.validationIssueGroups,
+    'handoffCheckpoint.budgets.validationIssueGroups',
+    value.validation.issueSummary.groups.length,
+    issueSummaryOmittedGroupCount,
+    'validation.issueSummary'
+  );
+
   if (!isRecord(value.validation.issueDetails)) {
     throw new Error('compact result input must include validation.issueDetails object.');
   }
@@ -1663,6 +1730,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   if (value.validation.issues.length + sampledIssueOmittedCount !== issueSummaryTotalCount) {
     throw new Error('compact result input validation.issues length plus omitted count must match validation.issueSummary.totalCount.');
   }
+
+  assertHandoffBudgetMatches(
+    value.handoffCheckpoint.budgets.validationIssues,
+    'handoffCheckpoint.budgets.validationIssues',
+    value.validation.issues.length,
+    sampledIssueOmittedCount,
+    'validation.issueDetails'
+  );
 
   let sampledRepairableCount = 0;
   let sampledNonRepairableCount = 0;
@@ -1793,6 +1868,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
+  assertHandoffBudgetMatches(
+    value.handoffCheckpoint.budgets.validationSafetyBlockers,
+    'handoffCheckpoint.budgets.validationSafetyBlockers',
+    value.validation.safetyBlockers.entries.length,
+    value.validation.safetyBlockers.omittedCount as number,
+    'validation.safetyBlockers'
+  );
+
   const includedIdentityConflictCountsByEngine = new Map<string, number>();
   const includedIdentityConflictCountsByRiskCategory = new Map<string, number>();
 
@@ -1877,6 +1960,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   if (value.handoffCheckpoint.summary.identityConflictCount !== value.validation.identityConflictSummary.totalCount) {
     throw new Error('compact result input handoffCheckpoint.summary.identityConflictCount must match validation.identityConflictSummary.totalCount.');
   }
+
+  assertHandoffBudgetMatches(
+    value.handoffCheckpoint.budgets.identityConflicts,
+    'handoffCheckpoint.budgets.identityConflicts',
+    value.validation.identityConflictSummary.includedCount as number,
+    value.validation.identityConflictSummary.omittedCount as number,
+    'validation.identityConflictSummary'
+  );
 
   if (isRecord(value.approval)) {
     if ('requiredWriteRisks' in value.approval && !isArrayOf(value.approval.requiredWriteRisks, isKnownFileWriteRisk)) {
@@ -1977,6 +2068,16 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
       if (value.handoffCheckpoint.summary.approvalContinuationRequired !== value.approval.resume.continuationRequired) {
         throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must match approval.resume.continuationRequired.');
+      }
+
+      if (Array.isArray(value.approval.signals)) {
+        assertHandoffBudgetMatches(
+          value.handoffCheckpoint.budgets.approvalSignals,
+          'handoffCheckpoint.budgets.approvalSignals',
+          value.approval.signals.length,
+          Math.max(0, (value.approval.resume.signalCount as number) - value.approval.signals.length),
+          'approval.resume'
+        );
       }
     }
   }
@@ -2134,6 +2235,22 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
   if (derivedOmittedByTokenBudget !== knowledgeOmittedByTokenBudget) {
     throw new Error('compact result input knowledgeContext.omittedByTokenBudget must match packets.');
+  }
+
+  assertHandoffBudgetMatches(
+    value.handoffCheckpoint.budgets.knowledgePackets,
+    'handoffCheckpoint.budgets.knowledgePackets',
+    knowledgeIncludedPacketCount,
+    knowledgeOmittedPacketCount,
+    'knowledgeContext'
+  );
+
+  const knowledgePacketBudget = value.handoffCheckpoint.budgets.knowledgePackets as Record<string, unknown>;
+  if (
+    knowledgePacketBudget.includedTokenEstimate !== value.knowledgeContext.includedTokenEstimate
+    || knowledgePacketBudget.omittedTokenEstimate !== value.knowledgeContext.omittedTokenEstimate
+  ) {
+    throw new Error('compact result input handoffCheckpoint.budgets.knowledgePackets token estimates must match knowledgeContext.');
   }
 
   if (!isRecord(value.knowledgeCache)) {

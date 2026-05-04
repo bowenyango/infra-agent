@@ -6808,7 +6808,18 @@ test('compact agent result contract validates shallow handoff shape', () => {
         approvalContinuationRequired: false,
         changedFileCount: 0
       },
-      budgets: buildCompactHandoffBudgetsFixture(),
+      budgets: buildCompactHandoffBudgetsFixture({
+        turnTrace: { includedCount: 1, omittedCount: 0 },
+        lifecycleEvents: { includedCount: 2, omittedCount: 0 },
+        toolTrace: { includedCount: 1, omittedCount: 0 },
+        validationCommands: { includedCount: 1, omittedCount: 0 },
+        knowledgePackets: {
+          includedCount: 1,
+          omittedCount: 1,
+          includedTokenEstimate: 40,
+          omittedTokenEstimate: 80
+        }
+      }),
       durableSections: [
         'root',
         'harness',
@@ -7388,6 +7399,54 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /handoffCheckpoint\.budgets\.knowledgePackets\.includedTokenEstimate/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          turnTrace: {
+            ...validResult.handoffCheckpoint.budgets.turnTrace,
+            includedCount: 0
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.turnTrace must match harness\.turnTraceBudget/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          validationIssueGroups: {
+            ...validResult.handoffCheckpoint.budgets.validationIssueGroups,
+            omittedCount: 1
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.validationIssueGroups must match validation\.issueSummary/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          knowledgePackets: {
+            ...validResult.handoffCheckpoint.budgets.knowledgePackets,
+            omittedTokenEstimate: 79
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.knowledgePackets token estimates must match knowledgeContext/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
