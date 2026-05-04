@@ -7386,6 +7386,50 @@ test('summarizeResultCard highlights changed files, native CLI usage, validators
   assert.ok(summary.some(line => /Repair activity: 1\/2 bounded repair attempt\(s\) used/i.test(line)));
 });
 
+test('summarizeResultCard includes retrieved knowledge context budget', async () => {
+  const preflight = await buildRunPreflight('update terraform payments-api dev image tag to 2.3.4', 'fixtures/terraform-workspace');
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'no-safe-action',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      retrievedContext: [0, 1, 2].map(index => ({
+        id: `terraform-registry-${index}`,
+        source: {
+          kind: 'terraform-registry',
+          name: `resource:aws_test_${index}`,
+          provider: 'hashicorp/aws',
+          version: '5.37.0',
+          url: `https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/test_${index}`
+        },
+        confidence: 'high',
+        reason: 'Terraform Registry docs for selected root terraform/payments-api',
+        contentType: 'text/markdown',
+        excerpt: `# aws_test_${index}\ncontext`,
+        tokenEstimate: 10
+      })),
+      retrievedContextBudget: {
+        maxPackets: 1,
+        maxTokens: 500,
+        maxExcerptChars: 1200
+      },
+      observations: [],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(summary.some(line => /Knowledge context: 1\/3 packet\(s\) included; \d+\/500 token estimate used; omitted 2 \(packet-limit=2\)/i.test(line)));
+});
+
 test('summarizeResultCard includes Helm CLI usage when helm_show_values is executed', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const summary = summarizeResultCard({

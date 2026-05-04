@@ -82,6 +82,8 @@ durable design reference for infra-agent development.
   context-compaction boundary for official docs, schemas, and examples. They
   should report packet/token budgets and omissions without exposing raw cached
   documents in ordinary handoff payloads.
+- Result cards should mirror the retrieved context budget posture with packet,
+  token, and omission counts so human handoff does not require `--json-full`.
 - Query config owns context budget knobs. Keep packet/token overrides explicit
   in the harness and CLI instead of adding per-prompt one-off limits.
 - `validation.identityConflicts`, `runtimeIdentityConflicts`, and

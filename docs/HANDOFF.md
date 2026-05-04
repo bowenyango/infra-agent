@@ -4303,3 +4303,27 @@ Known validation:
 
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
+
+## 2026-05-03 Result Card Knowledge Context Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a result-card `Knowledge context` line that mirrors the compact
+  retrieved-context budget summary.
+- Report included packet count, total packet count, token estimate use, omitted
+  packet count, and omission reasons such as packet limit or token budget.
+- Keep raw retrieved excerpts out of human output; detailed context remains
+  budgeted in compact `knowledgeContext`.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.

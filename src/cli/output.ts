@@ -1506,6 +1506,26 @@ function summarizePermissionPosture(state: AgentRunState): string {
   return parts.join('; ');
 }
 
+function summarizeKnowledgeContext(state: AgentRunState): string {
+  const budget = budgetRetrievedContext(
+    state.runtime.retrievedContext,
+    state.runtime.retrievedContextBudget
+  ).budget;
+  const omittedReasons = [
+    budget.omittedByPacketLimit > 0 ? `packet-limit=${budget.omittedByPacketLimit}` : null,
+    budget.omittedByTokenBudget > 0 ? `token-budget=${budget.omittedByTokenBudget}` : null
+  ].filter((part): part is string => Boolean(part));
+  const omittedSummary = budget.omittedPacketCount === 0
+    ? 'none'
+    : `${budget.omittedPacketCount} (${omittedReasons.join(', ')})`;
+
+  return [
+    `${budget.includedPacketCount}/${budget.totalPacketCount} packet(s) included`,
+    `${budget.includedTokenEstimate}/${budget.maxTokens} token estimate used`,
+    `omitted ${omittedSummary}`
+  ].join('; ');
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -1524,6 +1544,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
+  lines.push(`Knowledge context: ${summarizeKnowledgeContext(state)}`);
   const targetValidationCount = getTargetValidationResults(state).length;
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
   lines.push(`Validators executed: ${targetValidationCount} command(s) across ${summarizeValidatorFamilies(state)}${yamlGuardCount > 0 ? `; ${yamlGuardCount} YAML syntax guard(s)` : ''}`);
