@@ -7218,6 +7218,7 @@ test('planner system prompt documents explicit stop reasons', () => {
   assert.match(prompt, /repair-budget-exhausted/);
   assert.match(prompt, /validation-succeeded/);
   assert.match(prompt, /runtimeIdentityConflicts/);
+  assert.match(prompt, /runtimeIdentityConflictSummary/);
   assert.match(prompt, /review-only incident context/);
 });
 
@@ -7254,6 +7255,14 @@ test('planner user prompt includes runtime identity conflict summaries', async (
   });
   const parsed = JSON.parse(prompt);
 
+  assert.equal(parsed.runtimeIdentityConflictSummary.totalCount, 1);
+  assert.equal(parsed.runtimeIdentityConflictSummary.includedCount, 1);
+  assert.equal(parsed.runtimeIdentityConflictSummary.omittedCount, 0);
+  assert.equal(parsed.runtimeIdentityConflictSummary.maxEntries, 5);
+  assert.equal(parsed.runtimeIdentityConflictSummary.byEngine.terraform, 1);
+  assert.equal(parsed.runtimeIdentityConflictSummary.byEngine.pulumi, 0);
+  assert.equal(parsed.runtimeIdentityConflictSummary.byRiskCategory['create-before-delete-ordering'], 1);
+  assert.equal(parsed.runtimeIdentityConflictSummary.mutationAllowed, false);
   assert.equal(parsed.runtimeIdentityConflicts.length, 1);
   assert.equal(parsed.runtimeIdentityConflicts[0]?.engine, 'terraform');
   assert.equal(parsed.runtimeIdentityConflicts[0]?.conflictFamily, 'aws-lb-listener-rule');

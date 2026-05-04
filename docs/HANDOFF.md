@@ -4146,6 +4146,35 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Runtime Identity Conflict Prompt Summary Slice
+
+Files added or updated:
+
+- `src/agent/identity-conflicts.ts`
+- `src/model/prompt.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a shared runtime identity-conflict aggregate helper for total, included,
+  omitted, engine, and risk-category counts.
+- Include `runtimeIdentityConflictSummary` in planner prompts beside the
+  existing sampled `runtimeIdentityConflicts` list so the planner can detect
+  capped detail arrays.
+- Reuse the shared aggregate helper for compact
+  `validation.identityConflictSummary` to keep prompt and result count semantics
+  aligned.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

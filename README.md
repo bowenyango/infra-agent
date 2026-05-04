@@ -144,10 +144,12 @@ Current behavior is intentionally runtime-foundation oriented:
   supported values are preserved, and missing or unsupported values fall back to
   deterministic runtime, domain, validation, repair, or stop families.
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
-- LLM planner prompts include compact `runtimeIdentityConflicts` when native
-  validation reports provider-exclusive identity blockers. These entries carry
-  risk category, locator, identity fields, and review steps without passing
-  long stderr logs as the primary planning context.
+- LLM planner prompts include compact `runtimeIdentityConflictSummary` and
+  `runtimeIdentityConflicts` when native validation reports provider-exclusive
+  identity blockers. The summary carries total/included/omitted, engine, and
+  risk-category counts, while sampled entries carry risk category, locator,
+  identity fields, and review steps without passing long stderr logs as the
+  primary planning context.
 - `agent` exposes `--max-turns <n>` to keep bounded loop experiments explicit from the CLI
 - `agent` exposes `--max-repair-attempts <n>` to keep the validation repair
   loop budget explicit. The default is `2`; `0` disables automatic repair

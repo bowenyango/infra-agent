@@ -23,6 +23,16 @@ export interface RuntimeIdentityConflictSummary {
   sourceCommand: string;
 }
 
+export interface RuntimeIdentityConflictAggregateSummary {
+  totalCount: number;
+  includedCount: number;
+  maxEntries: number;
+  omittedCount: number;
+  mutationAllowed: false;
+  byEngine: Record<RuntimeIdentityConflictSummary['engine'], number>;
+  byRiskCategory: Record<IdentityConflictRiskCategory, number>;
+}
+
 function validationIssueEngine(issue: ValidationIssue): RuntimeIdentityConflictSummary['engine'] | null {
   if (issue.kind === 'pulumi-create-before-delete-conflict') {
     return 'pulumi';
@@ -204,4 +214,38 @@ export function collectRuntimeIdentityConflicts(
       }];
     })
     .slice(0, limit);
+}
+
+export function summarizeRuntimeIdentityConflictAggregate(
+  validationIssues: ValidationIssue[],
+  maxEntries = 5,
+  includedConflicts = collectRuntimeIdentityConflicts(validationIssues, maxEntries)
+): RuntimeIdentityConflictAggregateSummary {
+  const allConflicts = collectRuntimeIdentityConflicts(validationIssues, validationIssues.length);
+  const byEngine: RuntimeIdentityConflictAggregateSummary['byEngine'] = {
+    pulumi: 0,
+    terraform: 0
+  };
+  const byRiskCategory: RuntimeIdentityConflictAggregateSummary['byRiskCategory'] = {
+    'create-before-delete-ordering': 0,
+    'dns-or-domain-ownership': 0,
+    'exclusive-identity-review': 0,
+    'kubernetes-object-ownership': 0,
+    'physical-name-ownership': 0
+  };
+
+  for (const conflict of allConflicts) {
+    byEngine[conflict.engine] += 1;
+    byRiskCategory[normalizeIdentityConflictRiskCategory(conflict.riskCategory, conflict.conflictFamily)] += 1;
+  }
+
+  return {
+    totalCount: allConflicts.length,
+    includedCount: includedConflicts.length,
+    maxEntries,
+    omittedCount: Math.max(0, allConflicts.length - includedConflicts.length),
+    mutationAllowed: false,
+    byEngine,
+    byRiskCategory
+  };
 }

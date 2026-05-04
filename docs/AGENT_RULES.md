@@ -254,7 +254,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   risk-category counts before assuming all blockers are visible.
 - Preserve Terraform `resourceAddress` and Pulumi `resourceName` metadata for runtime exclusive-identity blockers when parseable. Treat these as IaC locator candidates for review, not as approval to write moved blocks, aliases, imports, state moves, or stack mutations.
 - Preserve `validation.identityConflicts[].riskCategory` as a triage grouping, not a remediation decision. Current categories include `create-before-delete-ordering`, `dns-or-domain-ownership`, `physical-name-ownership`, `kubernetes-object-ownership`, and `exclusive-identity-review`.
-- Planner prompts should expose the same runtime exclusive-identity blockers as compact `runtimeIdentityConflicts`, including `riskCategory`, locator fields, parsed identity, and review steps. Treat this as low-noise blocker context for the planner, not as permission to plan or execute Terraform state moves, Pulumi aliases/imports, DNS changes, Kubernetes ownership changes, deletion, or stack mutation.
+- Planner prompts should expose the same runtime exclusive-identity blockers as
+  compact `runtimeIdentityConflictSummary` plus sampled
+  `runtimeIdentityConflicts`, including `riskCategory`, locator fields, parsed
+  identity, and review steps. Treat this as low-noise blocker context for the
+  planner, not as permission to plan or execute Terraform state moves, Pulumi
+  aliases/imports, DNS changes, Kubernetes ownership changes, deletion, or
+  stack mutation.
 - Preserve `validation.identityConflicts[].reviewSteps` as a review-only checklist. It may suggest moved blocks, aliases, import/state repair, or sequencing analysis, and it may include family-specific identity checks such as routes, listener priorities, security permissions, DNS/domain ownership, OIDC URLs, named AWS resources, or Kubernetes name/namespace ownership. It must not trigger state or stack mutation without explicit approval and human-reviewed mappings.
 - Preserve `infra-agent.identity-conflict-report.mutationAllowed=false`. Treat that report as incident triage only; it is not a remediation plan and does not authorize Terraform state, Pulumi stack, import, alias, DNS, or Kubernetes object changes.
 - Identity conflict reports should preserve `incidentSummary` and

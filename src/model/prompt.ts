@@ -1,7 +1,10 @@
 import type { AgentActionKind, AgentClarificationKind, AgentRuntimeState, AgentStopReason } from '../types/agent.ts';
 import { AGENT_ACTION_FAMILIES } from '../types/agent.ts';
 import { getRuntimeConfigSemantics } from '../agent/config-semantics-state.ts';
-import { collectRuntimeIdentityConflicts } from '../agent/identity-conflicts.ts';
+import {
+  collectRuntimeIdentityConflicts,
+  summarizeRuntimeIdentityConflictAggregate
+} from '../agent/identity-conflicts.ts';
 import { budgetRetrievedContext } from '../knowledge/context-budget.ts';
 import { aggregateToolPermissions, classifyToolPermission } from '../agent/tool-permissions.ts';
 
@@ -145,7 +148,8 @@ export function buildPlannerSystemPrompt(): string {
     '- Use stopReason=repair-budget-exhausted only when validationIssues are repairable but the bounded repair budget is already exhausted.',
     '- Use stopReason=validation-blocked when validation failed and no bounded repair is available.',
     '- Treat runtimeIdentityConflicts as review-only incident context. Do not propose state moves, imports, aliases, DNS changes, Kubernetes ownership changes, delete-before-create sequencing, or stack mutations as automatic actions.',
-    '- When runtimeIdentityConflicts is non-empty and no bounded edit plan already exists, prefer stop with stopReason=validation-blocked and summarize the risk category and review steps.',
+    '- Use runtimeIdentityConflictSummary to detect capped runtimeIdentityConflicts details before assuming the sample is exhaustive.',
+    '- When runtimeIdentityConflictSummary.totalCount is greater than 0 and no bounded edit plan already exists, prefer stop with stopReason=validation-blocked and summarize the risk category and review steps.',
     '- If no safe action exists, return stop with stopReason=no-safe-action.',
     'Do not include markdown. Do not include commentary outside the JSON object.'
   ].join('\n');
@@ -172,6 +176,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       })),
       validationResults: summarizeValidationResults(runtime),
       validationIssues: summarizeValidationIssues(runtime),
+      runtimeIdentityConflictSummary: summarizeRuntimeIdentityConflictAggregate(runtime.validationIssues),
       runtimeIdentityConflicts: summarizeIdentityConflicts(runtime),
       repairBudget: {
         attemptsUsed: runtime.repairAttempts,

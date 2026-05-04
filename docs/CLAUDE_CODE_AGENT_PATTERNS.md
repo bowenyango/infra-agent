@@ -117,7 +117,8 @@ durable design reference for infra-agent development.
 - `validation.identityConflicts`, `runtimeIdentityConflicts`, and
   `identity-report` are blocker-specific handoff surfaces. They must remain
   review-only until a separate remediation planner and approval model exists.
-- `validation.identityConflictSummary` should carry total/included/omitted and
+- `validation.identityConflictSummary` and planner
+  `runtimeIdentityConflictSummary` should carry total/included/omitted and
   grouped counts because detail arrays are budgeted handoff samples, not
   exhaustive incident inventories.
 - `identity-report` should mirror compact identity conflict summary metadata

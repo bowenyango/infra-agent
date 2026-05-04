@@ -35,7 +35,9 @@ import {
   formatIdentityConflictFields,
   identityConflictResourceLocator,
   normalizeIdentityConflictRiskCategory,
+  summarizeRuntimeIdentityConflictAggregate,
   type IdentityConflictRiskCategory,
+  type RuntimeIdentityConflictAggregateSummary,
   type RuntimeIdentityConflictSummary
 } from '../agent/identity-conflicts.ts';
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
@@ -65,17 +67,8 @@ import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts
 import type { InfraGraphImpactReport } from './infra-graph-report.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
+type ValidationIdentityConflictAggregateSummary = RuntimeIdentityConflictAggregateSummary;
 type GraphImpactSummary = NonNullable<InfraGraph['summary']['impact']>;
-
-interface ValidationIdentityConflictAggregateSummary {
-  totalCount: number;
-  includedCount: number;
-  maxEntries: number;
-  omittedCount: number;
-  mutationAllowed: false;
-  byEngine: Record<ValidationIdentityConflictSummary['engine'], number>;
-  byRiskCategory: Record<IdentityConflictRiskCategory, number>;
-}
 
 interface ValidationDerivedSemanticBlocker {
   targetKind: string;
@@ -1308,36 +1301,11 @@ function collectValidationIdentityConflictSummary(
   state: AgentRunState,
   includedConflicts = collectValidationIdentityConflicts(state)
 ): ValidationIdentityConflictAggregateSummary {
-  const allConflicts = collectRuntimeIdentityConflicts(
+  return summarizeRuntimeIdentityConflictAggregate(
     state.runtime.validationIssues,
-    state.runtime.validationIssues.length
+    COMPACT_IDENTITY_CONFLICT_LIMIT,
+    includedConflicts
   );
-  const byEngine: ValidationIdentityConflictAggregateSummary['byEngine'] = {
-    pulumi: 0,
-    terraform: 0
-  };
-  const byRiskCategory: ValidationIdentityConflictAggregateSummary['byRiskCategory'] = {
-    'create-before-delete-ordering': 0,
-    'dns-or-domain-ownership': 0,
-    'exclusive-identity-review': 0,
-    'kubernetes-object-ownership': 0,
-    'physical-name-ownership': 0
-  };
-
-  for (const conflict of allConflicts) {
-    byEngine[conflict.engine] += 1;
-    byRiskCategory[normalizeIdentityConflictRiskCategory(conflict.riskCategory, conflict.conflictFamily)] += 1;
-  }
-
-  return {
-    totalCount: allConflicts.length,
-    includedCount: includedConflicts.length,
-    maxEntries: COMPACT_IDENTITY_CONFLICT_LIMIT,
-    omittedCount: Math.max(0, allConflicts.length - includedConflicts.length),
-    mutationAllowed: false,
-    byEngine,
-    byRiskCategory
-  };
 }
 
 function summarizeIdentityConflictReview(state: AgentRunState): string {
