@@ -69,7 +69,8 @@ durable design reference for infra-agent development.
   non-repairable blocker posture without parsing compact JSON first.
 - `harness.turnTrace` is the compact turn-transition surface inspired by the
   Claude Code query lifecycle. It intentionally omits full decisions, full
-  runtime snapshots, and raw tool output.
+  runtime snapshots, and raw tool output. `harness.turnTraceBudget` should make
+  the preserved window and omitted turn count explicit.
 - `harness.repairBudget` is the compact bounded-repair surface. It should
   report attempts used, max attempts, remaining attempts, and exhaustion
   without requiring downstream agents to parse result-card prose.

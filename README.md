@@ -166,8 +166,9 @@ Current behavior is intentionally runtime-foundation oriented:
   harness design. It exposes action kind, terminal status, execution status,
   execution skip reason, tool count, changed-file count, validation issue
   count, and approval signal count without exposing full runtime snapshots. The
-  companion `harness.turnTraceLimit` and `harness.turnTraceOmittedCount`
-  fields make the trace budget explicit for downstream handoff.
+  companion `harness.turnTraceBudget`, `harness.turnTraceLimit`, and
+  `harness.turnTraceOmittedCount` fields make the trace window and omitted
+  count explicit for downstream handoff.
   `harness.loopBudget` reports turns used, max turns, remaining turns, and
   whether the loop stopped because the turn budget was exhausted.
   `harness.repairBudget` reports bounded repair attempts used, max attempts,

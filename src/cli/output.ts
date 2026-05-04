@@ -271,6 +271,15 @@ export interface CompactAgentRunResult {
       omittedCount: number;
       events: CompactLifecycleEvent[];
     };
+    turnTraceBudget: {
+      maxEntries: number;
+      totalCount: number;
+      includedCount: number;
+      omittedCount: number;
+      firstIncludedTurnIndex: number | null;
+      lastIncludedTurnIndex: number | null;
+      preservedWindow: 'head';
+    };
     turnTraceLimit: number;
     turnTraceOmittedCount: number;
     turnTrace: CompactTurnTraceEntry[];
@@ -725,6 +734,21 @@ function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] 
     validationIssueCount: turn.runtimeSnapshot.validationIssues.length,
     approvalSignalCount: turn.runtimeSnapshot.approvalSignals.length
   }));
+}
+
+function collectTurnTraceBudget(
+  state: AgentRunState,
+  turnTrace: CompactTurnTraceEntry[]
+): CompactAgentRunResult['harness']['turnTraceBudget'] {
+  return {
+    maxEntries: COMPACT_TURN_TRACE_LIMIT,
+    totalCount: state.turns.length,
+    includedCount: turnTrace.length,
+    omittedCount: Math.max(0, state.turns.length - turnTrace.length),
+    firstIncludedTurnIndex: turnTrace[0]?.index ?? null,
+    lastIncludedTurnIndex: turnTrace[turnTrace.length - 1]?.index ?? null,
+    preservedWindow: 'head'
+  };
 }
 
 function compactLifecycleEvent(
@@ -1900,6 +1924,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
   const queryConfig = getAgentQueryConfig(state);
   const identityConflicts = collectValidationIdentityConflicts(state);
+  const turnTrace = collectCompactTurnTrace(state);
 
   return {
     kind: 'infra-agent.agent-result',
@@ -1937,9 +1962,10 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       stateSummary: collectRuntimeStateSummary(state),
       plannerHandoff: collectPlannerHandoff(state),
       lifecycleEvents: collectCompactLifecycleEvents(state),
+      turnTraceBudget: collectTurnTraceBudget(state, turnTrace),
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
       turnTraceOmittedCount: Math.max(0, state.turns.length - COMPACT_TURN_TRACE_LIMIT),
-      turnTrace: collectCompactTurnTrace(state),
+      turnTrace,
       toolTrace: collectCompactToolTrace(state),
       toolPermissionSummary: collectToolPermissionAggregate(state)
     },

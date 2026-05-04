@@ -3981,6 +3981,32 @@ Known validation:
 - `npm run test:unit` passed with 273 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Turn Trace Budget Metadata Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `harness.turnTraceBudget` with total, included, omitted, first
+  included turn, last included turn, max-entry, and preserved-window metadata.
+- Keep legacy `turnTraceLimit` and `turnTraceOmittedCount` for compatibility
+  while giving downstream agents a structured trace budget surface.
+- Extend the compact result contract parser to validate turn trace budget count
+  fields when present.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

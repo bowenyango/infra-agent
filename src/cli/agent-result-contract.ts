@@ -59,6 +59,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.turnTrace must be an array when present.');
     }
 
+    if (isRecord(value.harness.turnTraceBudget)) {
+      for (const field of ['totalCount', 'includedCount', 'omittedCount']) {
+        if (field in value.harness.turnTraceBudget && !isNumber(value.harness.turnTraceBudget[field])) {
+          throw new Error(`compact result input harness.turnTraceBudget.${field} must be a number when present.`);
+        }
+      }
+    }
+
     if (isRecord(value.harness.stateSummary)) {
       const countKeys = [
         'observationCount',

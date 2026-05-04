@@ -5247,6 +5247,15 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.ok(compact.resultCard.some(line => /Turn budget: 1\/1 turn\(s\) used; exhausted/i.test(line)));
     assert.equal(compact.harness.turnTraceLimit, 10);
     assert.equal(compact.harness.turnTraceOmittedCount, 0);
+    assert.deepEqual(compact.harness.turnTraceBudget, {
+      maxEntries: 10,
+      totalCount: 1,
+      includedCount: 1,
+      omittedCount: 0,
+      firstIncludedTurnIndex: 0,
+      lastIncludedTurnIndex: 0,
+      preservedWindow: 'head'
+    });
     assert.equal(compact.knowledgeContext.maxPackets, 2);
     assert.equal(compact.knowledgeContext.maxTokens, 500);
     assert.equal(compact.harness.turnTrace.length, 1);
@@ -5387,6 +5396,60 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
   });
   assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'turn-budget');
   assert.equal(compact.harness.plannerHandoff.nextControlAction, 'rerun-with-larger-turn-budget');
+});
+
+test('buildCompactAgentRunResult exposes turn trace budget metadata when capped', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const runtime = {
+    task: preflight.task,
+    preflight,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const turns = Array.from({ length: 12 }, (_, index) => ({
+    index,
+    decision: {
+      confidence: 'medium',
+      action: {
+        kind: 'inspect-target-files',
+        summary: `Inspect turn ${index}`,
+        rationale: 'Synthetic capped trace coverage.',
+        payload: {
+          actionFamily: 'workspace-inspection'
+        }
+      }
+    },
+    execution: {
+      status: 'completed',
+      executedTools: [],
+      reason: null
+    },
+    runtimeSnapshot: runtime
+  }));
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'no-safe-action',
+    preflight,
+    runtime,
+    turns
+  });
+
+  assert.equal(compact.harness.turnTrace.length, 10);
+  assert.equal(compact.harness.turnTraceOmittedCount, 2);
+  assert.deepEqual(compact.harness.turnTraceBudget, {
+    maxEntries: 10,
+    totalCount: 12,
+    includedCount: 10,
+    omittedCount: 2,
+    firstIncludedTurnIndex: 0,
+    lastIncludedTurnIndex: 9,
+    preservedWindow: 'head'
+  });
 });
 
 test('buildCompactAgentRunResult includes budgeted validation command summaries', async () => {
@@ -6324,6 +6387,11 @@ test('compact agent result contract validates shallow handoff shape', () => {
     },
     harness: {
       turnTrace: [],
+      turnTraceBudget: {
+        totalCount: 0,
+        includedCount: 0,
+        omittedCount: 0
+      },
       stateSummary: {
         validationIssueCount: 1
       },
@@ -6418,6 +6486,17 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.toolTrace\.totalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        turnTraceBudget: {
+          totalCount: '0'
+        }
+      }
+    }),
+    /harness\.turnTraceBudget\.totalCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
