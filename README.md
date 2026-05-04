@@ -236,6 +236,9 @@ Current behavior is intentionally runtime-foundation oriented:
   and booleans for repairable, non-repairable, unsafe-command, YAML syntax, and
   identity-conflict blockers. `validation.issueDetails` reports the sampling
   budget and omitted count for the capped `validation.issues` detail array.
+  Compact consumers validate issue summary count arithmetic, group entry shape,
+  group budget limits, flag/count consistency, and issue-details omitted-count
+  alignment before deriving validation blocker reports.
   `validation.safetyBlockers` isolates unsafe validation command and YAML syntax
   blockers with explicit mutation-prevented posture.
   `approval.resume` carries a structured continuation command, active approval

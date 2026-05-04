@@ -6148,6 +6148,34 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
       outcome: 'validation-blocked',
       validation: {
         selectedPlan: [],
+        issueSummary: {
+          totalCount: 1,
+          omittedIssueCount: 0,
+          repairableCount: 0,
+          nonRepairableCount: 1,
+          maxGroups: 8,
+          omittedGroupCount: 0,
+          groups: [
+            {
+              kind: 'terraform-create-before-delete-conflict',
+              repairable: false,
+              count: 1,
+              sourceCommandCount: 1,
+              blocking: true
+            }
+          ],
+          flags: {
+            hasRepairableIssues: false,
+            hasNonRepairableIssues: true,
+            hasUnsafeValidationCommand: false,
+            hasYamlSyntaxFailure: false,
+            hasIdentityConflict: true
+          }
+        },
+        issueDetails: {
+          maxEntries: 5,
+          omittedCount: 0
+        },
         identityConflictSummary: {
           totalCount: 1,
           includedCount: 1,
@@ -6583,7 +6611,32 @@ test('compact agent result contract validates shallow handoff shape', () => {
         ]
       },
       issueSummary: {
-        groups: []
+        totalCount: 1,
+        omittedIssueCount: 0,
+        repairableCount: 0,
+        nonRepairableCount: 1,
+        maxGroups: 8,
+        omittedGroupCount: 0,
+        groups: [
+          {
+            kind: 'terraform-create-before-delete-conflict',
+            repairable: false,
+            count: 1,
+            sourceCommandCount: 1,
+            blocking: true
+          }
+        ],
+        flags: {
+          hasRepairableIssues: false,
+          hasNonRepairableIssues: true,
+          hasUnsafeValidationCommand: false,
+          hasYamlSyntaxFailure: false,
+          hasIdentityConflict: true
+        }
+      },
+      issueDetails: {
+        maxEntries: 5,
+        omittedCount: 0
       },
       safetyBlockers: {
         entries: []
@@ -7088,6 +7141,161 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /validation\.selectedPlan\[0\]\.validatorAvailable/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: null
+      }
+    }),
+    /validation\.issueSummary object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          totalCount: '1'
+        }
+      }
+    }),
+    /validation\.issueSummary\.totalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          repairableCount: 1
+        }
+      }
+    }),
+    /validation\.issueSummary repairable counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          maxGroups: 0
+        }
+      }
+    }),
+    /validation\.issueSummary\.groups length/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          groups: [
+            {
+              ...validResult.validation.issueSummary.groups[0],
+              kind: 'unexpected'
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.issueSummary\.groups\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          groups: [
+            {
+              ...validResult.validation.issueSummary.groups[0],
+              count: 0
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.issueSummary\.groups\[0\]\.count/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          groups: [
+            {
+              ...validResult.validation.issueSummary.groups[0],
+              count: 2
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.issueSummary group counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueSummary: {
+          ...validResult.validation.issueSummary,
+          flags: {
+            ...validResult.validation.issueSummary.flags,
+            hasIdentityConflict: false
+          }
+        }
+      }
+    }),
+    /validation\.issueSummary\.flags\.hasIdentityConflict/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueDetails: null
+      }
+    }),
+    /validation\.issueDetails object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueDetails: {
+          ...validResult.validation.issueDetails,
+          maxEntries: -1
+        }
+      }
+    }),
+    /validation\.issueDetails\.maxEntries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        issueDetails: {
+          ...validResult.validation.issueDetails,
+          omittedCount: 1
+        }
+      }
+    }),
+    /validation\.issueDetails\.omittedCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -7860,6 +8068,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
         ...validResult.validation,
         identityConflicts: [],
         issueSummary: {
+          ...validResult.validation.issueSummary,
           groups: {}
         }
       }
@@ -8080,6 +8289,34 @@ test('identity-report loader renders compact conflict reports from a JSON file',
       outcome: 'validation-blocked',
       validation: {
         selectedPlan: [],
+        issueSummary: {
+          totalCount: 3,
+          omittedIssueCount: 0,
+          repairableCount: 0,
+          nonRepairableCount: 3,
+          maxGroups: 8,
+          omittedGroupCount: 0,
+          groups: [
+            {
+              kind: 'terraform-create-before-delete-conflict',
+              repairable: false,
+              count: 3,
+              sourceCommandCount: 1,
+              blocking: true
+            }
+          ],
+          flags: {
+            hasRepairableIssues: false,
+            hasNonRepairableIssues: true,
+            hasUnsafeValidationCommand: false,
+            hasYamlSyntaxFailure: false,
+            hasIdentityConflict: true
+          }
+        },
+        issueDetails: {
+          maxEntries: 5,
+          omittedCount: 0
+        },
         identityConflictSummary: {
           totalCount: 3,
           includedCount: 1,

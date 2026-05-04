@@ -1264,12 +1264,155 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
-  if (
-    isRecord(value.validation.issueSummary)
-    && 'groups' in value.validation.issueSummary
-    && !Array.isArray(value.validation.issueSummary.groups)
-  ) {
-    throw new Error('compact result input validation.issueSummary.groups must be an array when present.');
+  if (!isRecord(value.validation.issueSummary)) {
+    throw new Error('compact result input must include validation.issueSummary object.');
+  }
+
+  for (const field of [
+    'totalCount',
+    'omittedIssueCount',
+    'repairableCount',
+    'nonRepairableCount',
+    'maxGroups',
+    'omittedGroupCount'
+  ]) {
+    assertIntegerField(
+      value.validation.issueSummary,
+      field,
+      'validation.issueSummary',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+  }
+
+  const issueSummaryTotalCount = value.validation.issueSummary.totalCount as number;
+  const issueSummaryRepairableCount = value.validation.issueSummary.repairableCount as number;
+  const issueSummaryNonRepairableCount = value.validation.issueSummary.nonRepairableCount as number;
+  const issueSummaryMaxGroups = value.validation.issueSummary.maxGroups as number;
+  const issueSummaryOmittedGroupCount = value.validation.issueSummary.omittedGroupCount as number;
+
+  if (issueSummaryRepairableCount + issueSummaryNonRepairableCount !== issueSummaryTotalCount) {
+    throw new Error('compact result input validation.issueSummary repairable counts must sum to totalCount.');
+  }
+
+  if (!Array.isArray(value.validation.issueSummary.groups)) {
+    throw new Error('compact result input validation.issueSummary.groups must be an array.');
+  }
+
+  if (value.validation.issueSummary.groups.length > issueSummaryMaxGroups) {
+    throw new Error('compact result input validation.issueSummary.groups length must not exceed maxGroups.');
+  }
+
+  let groupedIssueCount = 0;
+  let groupedRepairableCount = 0;
+  let groupedNonRepairableCount = 0;
+  const groupedIssueKinds = new Set<string>();
+
+  for (let index = 0; index < value.validation.issueSummary.groups.length; index += 1) {
+    const group = value.validation.issueSummary.groups[index];
+    const groupPath = `validation.issueSummary.groups[${index}]`;
+
+    if (!isRecord(group)) {
+      throw new Error(`compact result input ${groupPath} must be an object.`);
+    }
+
+    if (!isKnownValidationIssueKind(group.kind)) {
+      throw new Error(`compact result input ${groupPath}.kind must be supported.`);
+    }
+
+    if (typeof group.repairable !== 'boolean') {
+      throw new Error(`compact result input ${groupPath}.repairable must be a boolean.`);
+    }
+
+    assertIntegerField(group, 'count', groupPath, isPositiveInteger, 'a positive integer');
+    assertIntegerField(group, 'sourceCommandCount', groupPath, isPositiveInteger, 'a positive integer');
+
+    if (typeof group.blocking !== 'boolean') {
+      throw new Error(`compact result input ${groupPath}.blocking must be a boolean.`);
+    }
+
+    groupedIssueCount += group.count as number;
+    if (group.repairable) {
+      groupedRepairableCount += group.count as number;
+    } else {
+      groupedNonRepairableCount += group.count as number;
+    }
+    groupedIssueKinds.add(group.kind as string);
+  }
+
+  if (groupedIssueCount > issueSummaryTotalCount) {
+    throw new Error('compact result input validation.issueSummary group counts must not exceed totalCount.');
+  }
+
+  if (issueSummaryOmittedGroupCount === 0 && groupedIssueCount !== issueSummaryTotalCount) {
+    throw new Error('compact result input validation.issueSummary group counts must match totalCount when no groups are omitted.');
+  }
+
+  if (issueSummaryOmittedGroupCount === 0 && groupedRepairableCount !== issueSummaryRepairableCount) {
+    throw new Error('compact result input validation.issueSummary repairable group counts must match repairableCount when no groups are omitted.');
+  }
+
+  if (issueSummaryOmittedGroupCount === 0 && groupedNonRepairableCount !== issueSummaryNonRepairableCount) {
+    throw new Error('compact result input validation.issueSummary non-repairable group counts must match nonRepairableCount when no groups are omitted.');
+  }
+
+  if (!isRecord(value.validation.issueSummary.flags)) {
+    throw new Error('compact result input validation.issueSummary.flags must be an object.');
+  }
+
+  const issueSummaryFlags = value.validation.issueSummary.flags;
+  for (const field of [
+    'hasRepairableIssues',
+    'hasNonRepairableIssues',
+    'hasUnsafeValidationCommand',
+    'hasYamlSyntaxFailure',
+    'hasIdentityConflict'
+  ]) {
+    if (typeof issueSummaryFlags[field] !== 'boolean') {
+      throw new Error(`compact result input validation.issueSummary.flags.${field} must be a boolean.`);
+    }
+  }
+
+  if (issueSummaryFlags.hasRepairableIssues !== (issueSummaryRepairableCount > 0)) {
+    throw new Error('compact result input validation.issueSummary.flags.hasRepairableIssues must match repairableCount.');
+  }
+
+  if (issueSummaryFlags.hasNonRepairableIssues !== (issueSummaryNonRepairableCount > 0)) {
+    throw new Error('compact result input validation.issueSummary.flags.hasNonRepairableIssues must match nonRepairableCount.');
+  }
+
+  if (issueSummaryOmittedGroupCount === 0) {
+    if (issueSummaryFlags.hasUnsafeValidationCommand !== groupedIssueKinds.has('unsafe-validation-command')) {
+      throw new Error('compact result input validation.issueSummary.flags.hasUnsafeValidationCommand must match groups when no groups are omitted.');
+    }
+
+    if (issueSummaryFlags.hasYamlSyntaxFailure !== groupedIssueKinds.has('yaml-syntax-failure')) {
+      throw new Error('compact result input validation.issueSummary.flags.hasYamlSyntaxFailure must match groups when no groups are omitted.');
+    }
+
+    const hasIdentityConflict = groupedIssueKinds.has('terraform-create-before-delete-conflict')
+      || groupedIssueKinds.has('pulumi-create-before-delete-conflict');
+    if (issueSummaryFlags.hasIdentityConflict !== hasIdentityConflict) {
+      throw new Error('compact result input validation.issueSummary.flags.hasIdentityConflict must match groups when no groups are omitted.');
+    }
+  }
+
+  if (!isRecord(value.validation.issueDetails)) {
+    throw new Error('compact result input must include validation.issueDetails object.');
+  }
+
+  for (const field of ['maxEntries', 'omittedCount']) {
+    assertIntegerField(
+      value.validation.issueDetails,
+      field,
+      'validation.issueDetails',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+  }
+
+  if (value.validation.issueDetails.omittedCount !== value.validation.issueSummary.omittedIssueCount) {
+    throw new Error('compact result input validation.issueDetails.omittedCount must match validation.issueSummary.omittedIssueCount.');
   }
 
   if (

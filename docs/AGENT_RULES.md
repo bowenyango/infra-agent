@@ -246,6 +246,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   command strings, supported status/kind values, non-negative exit codes,
   status/exit-code consistency, preview strings, boolean unsafe-blocked flags,
   and unsafe rule metadata when a command is blocked.
+- Validate compact `validation.issueSummary` and `validation.issueDetails`
+  before deriving blocker reports: non-negative integer summary/detail counts,
+  repairable plus non-repairable totals, groups bounded by `maxGroups`,
+  supported issue kinds, positive group counts/source-command counts, boolean
+  flags, flag/count consistency, and issue-details omitted counts that match
+  summary omitted issue counts.
 - LLM planner `validate-targets` payloads must be treated as suggestions, not
   authority. Parser code must clamp validation commands to the selected
   validation plan and fall back to selected plan commands when a model invents

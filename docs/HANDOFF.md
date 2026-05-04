@@ -4618,6 +4618,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Issue Summary Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `validation.issueSummary` and `validation.issueDetails`
+  objects before downstream agents derive blocker reports.
+- Validate issue summary count arithmetic, bounded group entries, supported
+  issue kinds, positive group/source-command counts, and boolean flag
+  consistency.
+- Validate issue-details budget fields and require omitted issue counts to
+  match the summary surface.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:
