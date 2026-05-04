@@ -351,6 +351,22 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input handoffCheckpoint.mutationAllowed must be false.');
   }
 
+  if (!isRecord(value.handoffCheckpoint.exclusions)) {
+    throw new Error('compact result input handoffCheckpoint.exclusions must be an object.');
+  }
+
+  for (const field of [
+    'rawRuntimeIncluded',
+    'rawPreflightIncluded',
+    'rawToolOutputIncluded',
+    'rawPromptIncluded',
+    'rawKnowledgeExcerptIncluded'
+  ]) {
+    if (value.handoffCheckpoint.exclusions[field] !== false) {
+      throw new Error(`compact result input handoffCheckpoint.exclusions.${field} must be false.`);
+    }
+  }
+
   if (!Array.isArray(value.handoffCheckpoint.durableSections)) {
     throw new Error('compact result input handoffCheckpoint.durableSections must be an array.');
   }

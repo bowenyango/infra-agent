@@ -154,6 +154,31 @@ Known validation:
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
 
+## 2026-05-04 Handoff Raw-State Exclusions Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `scripts/compact-fixtures.mjs`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `handoffCheckpoint.exclusions` so downstream agents know the compact
+  checkpoint excludes raw runtime state, preflight state, tool output, prompts,
+  and knowledge excerpts.
+- Require every raw-state inclusion flag to remain `false` in compact result
+  inputs.
+- Keep existing `runtime` and `preflight` omissions explicit for post-compaction
+  routing.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.
+
 ## Historical Slice: Domain-Focused Preflight And Result Output
 
 Files:

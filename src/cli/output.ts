@@ -167,6 +167,13 @@ interface CompactHandoffCheckpoint {
   primaryArtifact: 'agent --json';
   debugArtifact: 'agent --json-full';
   mutationAllowed: false;
+  exclusions: {
+    rawRuntimeIncluded: false;
+    rawPreflightIncluded: false;
+    rawToolOutputIncluded: false;
+    rawPromptIncluded: false;
+    rawKnowledgeExcerptIncluded: false;
+  };
   durableSections: Array<
     | 'root'
     | 'harness'
@@ -2022,6 +2029,13 @@ function collectHandoffCheckpoint(): CompactHandoffCheckpoint {
     primaryArtifact: 'agent --json',
     debugArtifact: 'agent --json-full',
     mutationAllowed: false,
+    exclusions: {
+      rawRuntimeIncluded: false,
+      rawPreflightIncluded: false,
+      rawToolOutputIncluded: false,
+      rawPromptIncluded: false,
+      rawKnowledgeExcerptIncluded: false
+    },
     durableSections: [
       'root',
       'harness',
