@@ -86,6 +86,29 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Infra Graph Contract Entry Shape Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require every `infra-agent.infra-graph` node entry to be an object with string
+  `id`/`label`, a supported node kind, `path` as string or null, supported
+  domain, supported confidence, and supported source.
+- Require every edge entry to be an object with string `id`/`from`/`to`, a
+  supported edge kind, supported confidence, supported source, and string
+  `label` when present.
+- Keep metadata validation deferred for a later graph contract slice.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "infra graph contract" test/cli-smoke.test.mjs`: passed with 1 test.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Contract Count Slice
 
 Files added or updated:

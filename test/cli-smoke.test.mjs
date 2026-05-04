@@ -6478,13 +6478,47 @@ test('infra graph contract validates shallow impact handoff shape', () => {
     schemaVersion: 1,
     mutationAllowed: false,
     workspaceRoot: 'fixtures/sample-workspace',
-    nodes: [],
-    edges: [],
+    nodes: [
+      {
+        id: 'workspace',
+        kind: 'workspace',
+        label: 'sample workspace',
+        path: null,
+        domain: 'workspace',
+        confidence: 'high',
+        source: 'workspace-inspection'
+      },
+      {
+        id: 'terraform-root:infra',
+        kind: 'terraform-root',
+        label: 'infra',
+        path: 'infra',
+        domain: 'terraform',
+        confidence: 'medium',
+        source: 'terraform-plan'
+      }
+    ],
+    edges: [
+      {
+        id: 'contains:workspace->terraform-root:infra',
+        from: 'workspace',
+        to: 'terraform-root:infra',
+        kind: 'contains',
+        confidence: 'high',
+        source: 'workspace-inspection',
+        label: 'workspace contains Terraform root'
+      }
+    ],
     summary: {
-      nodeCount: 0,
-      edgeCount: 0,
-      nodesByKind: {},
-      edgesByKind: {},
+      nodeCount: 2,
+      edgeCount: 1,
+      nodesByKind: {
+        workspace: 1,
+        'terraform-root': 1
+      },
+      edgesByKind: {
+        contains: 1
+      },
       impact: {
         dependencyEdges: 0,
         createBeforeDeleteConflicts: 0,
@@ -6552,7 +6586,7 @@ test('infra graph contract validates shallow impact handoff shape', () => {
       ...validGraph,
       summary: {
         ...validGraph.summary,
-        nodeCount: 1
+        nodeCount: 3
       }
     }),
     /summary\.nodeCount.*nodes\.length/
@@ -6562,10 +6596,148 @@ test('infra graph contract validates shallow impact handoff shape', () => {
       ...validGraph,
       summary: {
         ...validGraph.summary,
-        edgeCount: 1
+        edgeCount: 2
       }
     }),
     /summary\.edgeCount.*edges\.length/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      nodes: [
+        {
+          ...validGraph.nodes[0],
+          id: 123
+        },
+        validGraph.nodes[1]
+      ]
+    }),
+    /nodes\[0\]\.id/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      nodes: [
+        validGraph.nodes[0],
+        {
+          ...validGraph.nodes[1],
+          kind: 'database'
+        }
+      ]
+    }),
+    /nodes\[1\]\.kind.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      nodes: [
+        {
+          ...validGraph.nodes[0],
+          path: 42
+        },
+        validGraph.nodes[1]
+      ]
+    }),
+    /nodes\[0\]\.path.*string or null/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      nodes: [
+        {
+          ...validGraph.nodes[0],
+          domain: 'kubernetes'
+        },
+        validGraph.nodes[1]
+      ]
+    }),
+    /nodes\[0\]\.domain.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      nodes: [
+        {
+          ...validGraph.nodes[0],
+          confidence: 'certain'
+        },
+        validGraph.nodes[1]
+      ]
+    }),
+    /nodes\[0\]\.confidence.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      nodes: [
+        {
+          ...validGraph.nodes[0],
+          source: 'manual'
+        },
+        validGraph.nodes[1]
+      ]
+    }),
+    /nodes\[0\]\.source.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      edges: [
+        {
+          ...validGraph.edges[0],
+          from: null
+        }
+      ]
+    }),
+    /edges\[0\]\.from/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      edges: [
+        {
+          ...validGraph.edges[0],
+          kind: 'routes-to'
+        }
+      ]
+    }),
+    /edges\[0\]\.kind.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      edges: [
+        {
+          ...validGraph.edges[0],
+          confidence: 'certain'
+        }
+      ]
+    }),
+    /edges\[0\]\.confidence.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      edges: [
+        {
+          ...validGraph.edges[0],
+          source: 'manual'
+        }
+      ]
+    }),
+    /edges\[0\]\.source.*supported/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      edges: [
+        {
+          ...validGraph.edges[0],
+          label: false
+        }
+      ]
+    }),
+    /edges\[0\]\.label.*string/
   );
   assert.throws(
     () => parseInfraGraphResult({
