@@ -185,6 +185,21 @@ interface CompactHandoffCheckpoint {
     approvalContinuationRequired: boolean;
     changedFileCount: number;
   };
+  budgets: {
+    turnTrace: CompactHandoffBudgetSample;
+    lifecycleEvents: CompactHandoffBudgetSample;
+    toolTrace: CompactHandoffBudgetSample;
+    validationCommands: CompactHandoffBudgetSample;
+    validationIssues: CompactHandoffBudgetSample;
+    validationIssueGroups: CompactHandoffBudgetSample;
+    validationSafetyBlockers: CompactHandoffBudgetSample;
+    identityConflicts: CompactHandoffBudgetSample;
+    approvalSignals: CompactHandoffBudgetSample;
+    knowledgePackets: CompactHandoffBudgetSample & {
+      includedTokenEstimate: number;
+      omittedTokenEstimate: number;
+    };
+  };
   durableSections: Array<
     | 'root'
     | 'harness'
@@ -194,6 +209,11 @@ interface CompactHandoffCheckpoint {
     | 'readiness'
     | 'result-card'
   >;
+}
+
+interface CompactHandoffBudgetSample {
+  includedCount: number;
+  omittedCount: number;
 }
 
 export interface IdentityConflictIncident {
@@ -749,6 +769,7 @@ const COMPACT_VALIDATION_COMMAND_LIMIT = 8;
 const COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT = 5;
 const COMPACT_VALIDATION_ISSUE_GROUP_LIMIT = 8;
 const COMPACT_VALIDATION_SAFETY_BLOCKER_LIMIT = 5;
+const COMPACT_APPROVAL_SIGNAL_LIMIT = 5;
 const COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS = 300;
 
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
@@ -1343,6 +1364,13 @@ function collectValidationIdentityConflictSummary(
     COMPACT_IDENTITY_CONFLICT_LIMIT,
     includedConflicts
   );
+}
+
+function sampleBudget(totalCount: number, includedCount: number): CompactHandoffBudgetSample {
+  return {
+    includedCount,
+    omittedCount: Math.max(0, totalCount - includedCount)
+  };
 }
 
 function summarizeIdentityConflictReview(state: AgentRunState): string {
@@ -2020,7 +2048,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     approval: {
       requiredWriteRisks: [...state.preflight.effectiveApprovalPolicy.requiredWriteRisks],
       requiredToolCategories: [...state.preflight.effectiveApprovalPolicy.requiredToolCategories],
-      signals: state.runtime.approvalSignals.slice(0, 5).map(compactApprovalSignal),
+      signals: state.runtime.approvalSignals.slice(0, COMPACT_APPROVAL_SIGNAL_LIMIT).map(compactApprovalSignal),
       resume: collectApprovalResume(state)
     },
     knowledgeCache: state.preflight.inspection.knowledgeCache,
@@ -2035,7 +2063,14 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
 function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoint {
   const plannerHandoff = collectPlannerHandoff(state);
   const readiness = collectCompactReadiness(state);
+  const lifecycleEvents = collectCompactLifecycleEvents(state);
+  const validationIssueSummary = collectValidationIssueSummary(state);
+  const validationSafetyBlockers = collectValidationSafetyBlockers(state);
   const identityConflictSummary = collectValidationIdentityConflictSummary(state);
+  const knowledgeBudget = budgetRetrievedContext(
+    state.runtime.retrievedContext,
+    state.runtime.retrievedContextBudget
+  ).budget;
 
   return {
     schemaVersion: 1,
@@ -2061,6 +2096,47 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
       identityConflictCount: identityConflictSummary.totalCount,
       approvalContinuationRequired: state.outcome === 'approval-required',
       changedFileCount: new Set(state.runtime.appliedWrites.map(write => write.path)).size
+    },
+    budgets: {
+      turnTrace: sampleBudget(state.turns.length, Math.min(state.turns.length, COMPACT_TURN_TRACE_LIMIT)),
+      lifecycleEvents: {
+        includedCount: lifecycleEvents.includedCount,
+        omittedCount: lifecycleEvents.omittedCount
+      },
+      toolTrace: sampleBudget(
+        state.runtime.toolSummaries?.length ?? 0,
+        Math.min(state.runtime.toolSummaries?.length ?? 0, COMPACT_TOOL_TRACE_LIMIT)
+      ),
+      validationCommands: sampleBudget(
+        state.runtime.validationResults.length,
+        Math.min(state.runtime.validationResults.length, COMPACT_VALIDATION_COMMAND_LIMIT)
+      ),
+      validationIssues: sampleBudget(
+        state.runtime.validationIssues.length,
+        Math.min(state.runtime.validationIssues.length, COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT)
+      ),
+      validationIssueGroups: {
+        includedCount: validationIssueSummary.groups.length,
+        omittedCount: validationIssueSummary.omittedGroupCount
+      },
+      validationSafetyBlockers: {
+        includedCount: validationSafetyBlockers.entries.length,
+        omittedCount: validationSafetyBlockers.omittedCount
+      },
+      identityConflicts: {
+        includedCount: identityConflictSummary.includedCount,
+        omittedCount: identityConflictSummary.omittedCount
+      },
+      approvalSignals: sampleBudget(
+        state.runtime.approvalSignals.length,
+        Math.min(state.runtime.approvalSignals.length, COMPACT_APPROVAL_SIGNAL_LIMIT)
+      ),
+      knowledgePackets: {
+        includedCount: knowledgeBudget.includedPacketCount,
+        omittedCount: knowledgeBudget.omittedPacketCount,
+        includedTokenEstimate: knowledgeBudget.includedTokenEstimate,
+        omittedTokenEstimate: knowledgeBudget.omittedTokenEstimate
+      }
     },
     durableSections: [
       'root',

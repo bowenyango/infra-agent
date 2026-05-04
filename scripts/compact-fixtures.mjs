@@ -30,6 +30,23 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         approvalContinuationRequired: false,
         changedFileCount: 0
       },
+      budgets: {
+        turnTrace: { includedCount: 0, omittedCount: 0 },
+        lifecycleEvents: { includedCount: 0, omittedCount: 0 },
+        toolTrace: { includedCount: 0, omittedCount: 0 },
+        validationCommands: { includedCount: 0, omittedCount: 0 },
+        validationIssues: { includedCount: 1, omittedCount: 0 },
+        validationIssueGroups: { includedCount: 1, omittedCount: 0 },
+        validationSafetyBlockers: { includedCount: 0, omittedCount: 0 },
+        identityConflicts: { includedCount: 1, omittedCount: 0 },
+        approvalSignals: { includedCount: 0, omittedCount: 0 },
+        knowledgePackets: {
+          includedCount: 0,
+          omittedCount: 0,
+          includedTokenEstimate: 0,
+          omittedTokenEstimate: 0
+        }
+      },
       durableSections: [
         'root',
         'harness',

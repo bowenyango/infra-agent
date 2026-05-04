@@ -118,6 +118,36 @@ async function captureStdout(run) {
   return output;
 }
 
+function buildCompactHandoffBudgetsFixture(overrides = {}) {
+  const base = {
+    turnTrace: { includedCount: 0, omittedCount: 0 },
+    lifecycleEvents: { includedCount: 0, omittedCount: 0 },
+    toolTrace: { includedCount: 0, omittedCount: 0 },
+    validationCommands: { includedCount: 0, omittedCount: 0 },
+    validationIssues: { includedCount: 1, omittedCount: 0 },
+    validationIssueGroups: { includedCount: 1, omittedCount: 0 },
+    validationSafetyBlockers: { includedCount: 0, omittedCount: 0 },
+    identityConflicts: { includedCount: 1, omittedCount: 0 },
+    approvalSignals: { includedCount: 0, omittedCount: 0 },
+    knowledgePackets: {
+      includedCount: 0,
+      omittedCount: 0,
+      includedTokenEstimate: 0,
+      omittedTokenEstimate: 0
+    }
+  };
+
+  return Object.fromEntries(
+    Object.entries(base).map(([key, value]) => [
+      key,
+      {
+        ...value,
+        ...(overrides[key] ?? {})
+      }
+    ])
+  );
+}
+
 function buildGraphSnapshotBaseGraph() {
   const nodes = [
     {
@@ -5393,6 +5423,50 @@ test('runSingleStep respects the configured maximum turn count', async () => {
         approvalContinuationRequired: false,
         changedFileCount: 0
       },
+      budgets: {
+        turnTrace: {
+          includedCount: compact.harness.turnTraceBudget.includedCount,
+          omittedCount: compact.harness.turnTraceBudget.omittedCount
+        },
+        lifecycleEvents: {
+          includedCount: compact.harness.lifecycleEvents.includedCount,
+          omittedCount: compact.harness.lifecycleEvents.omittedCount
+        },
+        toolTrace: {
+          includedCount: compact.harness.toolTrace.includedCount,
+          omittedCount: compact.harness.toolTrace.omittedCount
+        },
+        validationCommands: {
+          includedCount: compact.validation.commands.entries.length,
+          omittedCount: compact.validation.commands.omittedCount
+        },
+        validationIssues: {
+          includedCount: compact.validation.issues.length,
+          omittedCount: compact.validation.issueDetails.omittedCount
+        },
+        validationIssueGroups: {
+          includedCount: compact.validation.issueSummary.groups.length,
+          omittedCount: compact.validation.issueSummary.omittedGroupCount
+        },
+        validationSafetyBlockers: {
+          includedCount: compact.validation.safetyBlockers.entries.length,
+          omittedCount: compact.validation.safetyBlockers.omittedCount
+        },
+        identityConflicts: {
+          includedCount: compact.validation.identityConflictSummary.includedCount,
+          omittedCount: compact.validation.identityConflictSummary.omittedCount
+        },
+        approvalSignals: {
+          includedCount: compact.approval.signals.length,
+          omittedCount: Math.max(0, compact.approval.resume.signalCount - compact.approval.signals.length)
+        },
+        knowledgePackets: {
+          includedCount: compact.knowledgeContext.includedPacketCount,
+          omittedCount: compact.knowledgeContext.omittedPacketCount,
+          includedTokenEstimate: compact.knowledgeContext.includedTokenEstimate,
+          omittedTokenEstimate: compact.knowledgeContext.omittedTokenEstimate
+        }
+      },
       durableSections: [
         'root',
         'harness',
@@ -6220,6 +6294,7 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           approvalContinuationRequired: false,
           changedFileCount: 0
         },
+        budgets: buildCompactHandoffBudgetsFixture(),
         durableSections: [
           'root',
           'harness',
@@ -6733,6 +6808,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
         approvalContinuationRequired: false,
         changedFileCount: 0
       },
+      budgets: buildCompactHandoffBudgetsFixture(),
       durableSections: [
         'root',
         'harness',
@@ -7280,6 +7356,38 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /handoffCheckpoint\.summary\.approvalContinuationRequired must match approval\.resume\.continuationRequired/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          validationCommands: {
+            ...validResult.handoffCheckpoint.budgets.validationCommands,
+            omittedCount: -1
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.validationCommands\.omittedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          knowledgePackets: {
+            ...validResult.handoffCheckpoint.budgets.knowledgePackets,
+            includedTokenEstimate: -1
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.knowledgePackets\.includedTokenEstimate/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -9263,6 +9371,10 @@ test('identity-report loader renders compact conflict reports from a JSON file',
           approvalContinuationRequired: false,
           changedFileCount: 0
         },
+        budgets: buildCompactHandoffBudgetsFixture({
+          validationIssues: { includedCount: 1, omittedCount: 2 },
+          identityConflicts: { includedCount: 1, omittedCount: 2 }
+        }),
         durableSections: [
           'root',
           'harness',
@@ -9624,6 +9736,7 @@ test('identity-report loader rejects non-compact result inputs', async () => {
           approvalContinuationRequired: false,
           changedFileCount: 0
         },
+        budgets: buildCompactHandoffBudgetsFixture(),
         durableSections: [
           'root',
           'harness',

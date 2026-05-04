@@ -302,6 +302,20 @@ function assertIntegerField(
   }
 }
 
+function assertHandoffBudgetSample(
+  value: unknown,
+  fieldPath: string,
+  extraCountFields: string[] = []
+): void {
+  if (!isRecord(value)) {
+    throw new Error(`compact result input ${fieldPath} must be an object.`);
+  }
+
+  for (const field of ['includedCount', 'omittedCount', ...extraCountFields]) {
+    assertIntegerField(value, field, fieldPath, isNonNegativeInteger, 'a non-negative integer');
+  }
+}
+
 function expectedIdentityIssueKind(engine: unknown): string | null {
   if (engine === 'terraform') {
     return 'terraform-create-before-delete-conflict';
@@ -404,6 +418,30 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   if (typeof value.handoffCheckpoint.summary.approvalContinuationRequired !== 'boolean') {
     throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must be a boolean.');
   }
+
+  if (!isRecord(value.handoffCheckpoint.budgets)) {
+    throw new Error('compact result input handoffCheckpoint.budgets must be an object.');
+  }
+
+  for (const field of [
+    'turnTrace',
+    'lifecycleEvents',
+    'toolTrace',
+    'validationCommands',
+    'validationIssues',
+    'validationIssueGroups',
+    'validationSafetyBlockers',
+    'identityConflicts',
+    'approvalSignals'
+  ]) {
+    assertHandoffBudgetSample(value.handoffCheckpoint.budgets[field], `handoffCheckpoint.budgets.${field}`);
+  }
+
+  assertHandoffBudgetSample(
+    value.handoffCheckpoint.budgets.knowledgePackets,
+    'handoffCheckpoint.budgets.knowledgePackets',
+    ['includedTokenEstimate', 'omittedTokenEstimate']
+  );
 
   if (!Array.isArray(value.handoffCheckpoint.durableSections)) {
     throw new Error('compact result input handoffCheckpoint.durableSections must be an array.');
