@@ -86,6 +86,31 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Compact Validation Commands Metadata Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Tighten `parseCompactAgentRunResult` validation for compact
+  `validation.commands` metadata.
+- Require command entries to carry string `unsafeRuleId` and `unsafeReason`
+  when `unsafeBlocked=true`, and require both fields to be `null` when
+  `unsafeBlocked=false`.
+- Require `validation.targetCommandCount` and `validation.yamlGuardCount` to
+  match included `validation.commands.entries` by command kind when
+  `validation.commands.omittedCount=0`, while preserving non-negative shape
+  checks without exact matching when command entries are omitted.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "validation.commands|unsafeRuleId" test/cli-smoke.test.mjs`: passed with 3 tests.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Impact Report Contract Consistency Slice
 
 Files added or updated:

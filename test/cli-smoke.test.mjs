@@ -8014,7 +8014,7 @@ test('infra graph impact report contract validates read-only handoff shape', () 
   );
 });
 
-test('compact agent result contract validates shallow handoff shape', () => {
+test('compact agent result contract validates shallow handoff shape and validation.commands metadata', () => {
   const validResult = {
     kind: 'infra-agent.agent-result',
     schemaVersion: 1,
@@ -10315,6 +10315,67 @@ test('compact agent result contract validates shallow handoff shape', () => {
     }),
     /validation\.commands\.entries\[0\]\.unsafeRuleId/
   );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        commands: {
+          ...validResult.validation.commands,
+          entries: [
+            {
+              ...validResult.validation.commands.entries[0],
+              unsafeBlocked: false,
+              unsafeRuleId: 'terraform-apply-destroy',
+              unsafeReason: null
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.commands\.entries\[0\]\.unsafeRuleId/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        targetCommandCount: 0
+      }
+    }),
+    /validation\.targetCommandCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        yamlGuardCount: 1
+      }
+    }),
+    /validation\.yamlGuardCount/
+  );
+  assert.equal(parseCompactAgentRunResult({
+    ...validResult,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        validationCommands: {
+          includedCount: 1,
+          omittedCount: 1
+        }
+      }
+    },
+    validation: {
+      ...validResult.validation,
+      targetCommandCount: 2,
+      commands: {
+        ...validResult.validation.commands,
+        omittedCount: 1
+      }
+    }
+  }).validation.targetCommandCount, 2);
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,

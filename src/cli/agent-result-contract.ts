@@ -1591,8 +1591,29 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           throw new Error(`compact result input ${entryPath}.status must match exitCode.`);
         }
 
-        if (entry.unsafeBlocked && (entry.unsafeRuleId === null || entry.unsafeReason === null)) {
-          throw new Error(`compact result input ${entryPath}.unsafeRuleId and unsafeReason are required when unsafeBlocked is true.`);
+        if (entry.unsafeBlocked && (typeof entry.unsafeRuleId !== 'string' || typeof entry.unsafeReason !== 'string')) {
+          throw new Error(`compact result input ${entryPath}.unsafeRuleId and unsafeReason must be strings when unsafeBlocked is true.`);
+        }
+
+        if (!entry.unsafeBlocked && (entry.unsafeRuleId !== null || entry.unsafeReason !== null)) {
+          throw new Error(`compact result input ${entryPath}.unsafeRuleId and unsafeReason must be null when unsafeBlocked is false.`);
+        }
+      }
+
+      if (value.validation.commands.omittedCount === 0) {
+        const targetCommandCount = value.validation.commands.entries
+          .filter(entry => isRecord(entry) && entry.kind === 'target-validation')
+          .length;
+        const yamlGuardCount = value.validation.commands.entries
+          .filter(entry => isRecord(entry) && entry.kind === 'yaml-guard')
+          .length;
+
+        if (value.validation.targetCommandCount !== targetCommandCount) {
+          throw new Error('compact result input validation.targetCommandCount must match validation.commands target-validation entries when no commands are omitted.');
+        }
+
+        if (value.validation.yamlGuardCount !== yamlGuardCount) {
+          throw new Error('compact result input validation.yamlGuardCount must match validation.commands yaml-guard entries when no commands are omitted.');
         }
       }
     }
