@@ -5820,3 +5820,28 @@ Known validation:
 
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
+
+## 2026-05-04 Handoff Continuation Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `scripts/compact-fixtures.mjs`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `handoffCheckpoint.continuation` with required/optional continuation
+  state, reason, next control action, approval requirement, optional approval
+  resume command, and `mutationAllowed: false`.
+- Validate continuation shape and cross-check reason/action/approval posture
+  against `handoffCheckpoint.summary`.
+- Cross-check continuation approval command against `approval.resume.command`
+  when the durable approval section is present.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.

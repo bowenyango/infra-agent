@@ -459,6 +459,58 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     ['includedTokenEstimate', 'omittedTokenEstimate']
   );
 
+  if (!isRecord(value.handoffCheckpoint.continuation)) {
+    throw new Error('compact result input handoffCheckpoint.continuation must be an object.');
+  }
+
+  if (typeof value.handoffCheckpoint.continuation.required !== 'boolean') {
+    throw new Error('compact result input handoffCheckpoint.continuation.required must be a boolean.');
+  }
+
+  if (!isKnownPlannerHandoffActiveBlocker(value.handoffCheckpoint.continuation.reason)) {
+    throw new Error('compact result input handoffCheckpoint.continuation.reason must be supported.');
+  }
+
+  if (!isKnownPlannerHandoffNextControlAction(value.handoffCheckpoint.continuation.nextControlAction)) {
+    throw new Error('compact result input handoffCheckpoint.continuation.nextControlAction must be supported.');
+  }
+
+  if (typeof value.handoffCheckpoint.continuation.approvalRequired !== 'boolean') {
+    throw new Error('compact result input handoffCheckpoint.continuation.approvalRequired must be a boolean.');
+  }
+
+  if (!isStringOrNull(value.handoffCheckpoint.continuation.command)) {
+    throw new Error('compact result input handoffCheckpoint.continuation.command must be string or null.');
+  }
+
+  if (value.handoffCheckpoint.continuation.mutationAllowed !== false) {
+    throw new Error('compact result input handoffCheckpoint.continuation.mutationAllowed must be false.');
+  }
+
+  if (value.handoffCheckpoint.continuation.required !== (value.handoffCheckpoint.continuation.reason !== 'none')) {
+    throw new Error('compact result input handoffCheckpoint.continuation.required must match reason.');
+  }
+
+  if (value.handoffCheckpoint.continuation.reason !== value.handoffCheckpoint.summary.activeBlocker) {
+    throw new Error('compact result input handoffCheckpoint.continuation.reason must match handoffCheckpoint.summary.activeBlocker.');
+  }
+
+  if (value.handoffCheckpoint.continuation.nextControlAction !== value.handoffCheckpoint.summary.nextControlAction) {
+    throw new Error('compact result input handoffCheckpoint.continuation.nextControlAction must match handoffCheckpoint.summary.nextControlAction.');
+  }
+
+  if (value.handoffCheckpoint.continuation.approvalRequired !== value.handoffCheckpoint.summary.approvalContinuationRequired) {
+    throw new Error('compact result input handoffCheckpoint.continuation.approvalRequired must match handoffCheckpoint.summary.approvalContinuationRequired.');
+  }
+
+  if (value.handoffCheckpoint.continuation.approvalRequired && typeof value.handoffCheckpoint.continuation.command !== 'string') {
+    throw new Error('compact result input handoffCheckpoint.continuation.command is required when approvalRequired is true.');
+  }
+
+  if (!value.handoffCheckpoint.continuation.approvalRequired && value.handoffCheckpoint.continuation.command !== null) {
+    throw new Error('compact result input handoffCheckpoint.continuation.command must be null when approvalRequired is false.');
+  }
+
   if (!Array.isArray(value.handoffCheckpoint.durableSections)) {
     throw new Error('compact result input handoffCheckpoint.durableSections must be an array.');
   }
@@ -2068,6 +2120,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
       if (value.handoffCheckpoint.summary.approvalContinuationRequired !== value.approval.resume.continuationRequired) {
         throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must match approval.resume.continuationRequired.');
+      }
+
+      if (value.handoffCheckpoint.continuation.command !== value.approval.resume.command) {
+        throw new Error('compact result input handoffCheckpoint.continuation.command must match approval.resume.command.');
       }
 
       if (Array.isArray(value.approval.signals)) {

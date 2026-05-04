@@ -47,6 +47,14 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
           omittedTokenEstimate: 0
         }
       },
+      continuation: {
+        required: true,
+        reason: 'validation',
+        nextControlAction: 'resolve-validation',
+        approvalRequired: false,
+        command: null,
+        mutationAllowed: false
+      },
       durableSections: [
         'root',
         'harness',

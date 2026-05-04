@@ -200,6 +200,14 @@ interface CompactHandoffCheckpoint {
       omittedTokenEstimate: number;
     };
   };
+  continuation: {
+    required: boolean;
+    reason: 'none' | 'approval' | 'clarification' | 'validation' | 'repair-budget' | 'turn-budget' | 'no-safe-action';
+    nextControlAction: CompactAgentRunResult['harness']['plannerHandoff']['nextControlAction'];
+    approvalRequired: boolean;
+    command: string | null;
+    mutationAllowed: false;
+  };
   durableSections: Array<
     | 'root'
     | 'harness'
@@ -2067,10 +2075,14 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
   const validationIssueSummary = collectValidationIssueSummary(state);
   const validationSafetyBlockers = collectValidationSafetyBlockers(state);
   const identityConflictSummary = collectValidationIdentityConflictSummary(state);
+  const approvalResume = collectApprovalResume(state);
   const knowledgeBudget = budgetRetrievedContext(
     state.runtime.retrievedContext,
     state.runtime.retrievedContextBudget
   ).budget;
+  const continuationReason = plannerHandoff.activeBlocker.kind === 'none'
+    ? 'none'
+    : plannerHandoff.activeBlocker.kind;
 
   return {
     schemaVersion: 1,
@@ -2137,6 +2149,14 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
         includedTokenEstimate: knowledgeBudget.includedTokenEstimate,
         omittedTokenEstimate: knowledgeBudget.omittedTokenEstimate
       }
+    },
+    continuation: {
+      required: continuationReason !== 'none',
+      reason: continuationReason,
+      nextControlAction: plannerHandoff.nextControlAction,
+      approvalRequired: state.outcome === 'approval-required',
+      command: state.outcome === 'approval-required' ? approvalResume.command : null,
+      mutationAllowed: false
     },
     durableSections: [
       'root',

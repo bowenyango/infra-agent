@@ -5467,6 +5467,14 @@ test('runSingleStep respects the configured maximum turn count', async () => {
           omittedTokenEstimate: compact.knowledgeContext.omittedTokenEstimate
         }
       },
+      continuation: {
+        required: true,
+        reason: 'turn-budget',
+        nextControlAction: 'rerun-with-larger-turn-budget',
+        approvalRequired: false,
+        command: null,
+        mutationAllowed: false
+      },
       durableSections: [
         'root',
         'harness',
@@ -6295,6 +6303,14 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           changedFileCount: 0
         },
         budgets: buildCompactHandoffBudgetsFixture(),
+        continuation: {
+          required: true,
+          reason: 'validation',
+          nextControlAction: 'resolve-validation',
+          approvalRequired: false,
+          command: null,
+          mutationAllowed: false
+        },
         durableSections: [
           'root',
           'harness',
@@ -6820,6 +6836,14 @@ test('compact agent result contract validates shallow handoff shape', () => {
           omittedTokenEstimate: 80
         }
       }),
+      continuation: {
+        required: true,
+        reason: 'validation',
+        nextControlAction: 'resolve-validation',
+        approvalRequired: false,
+        command: null,
+        mutationAllowed: false
+      },
       durableSections: [
         'root',
         'harness',
@@ -7285,6 +7309,10 @@ test('compact agent result contract validates shallow handoff shape', () => {
         summary: {
           ...validResult.handoffCheckpoint.summary,
           activeBlocker: 'approval'
+        },
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
+          reason: 'approval'
         }
       }
     }),
@@ -7297,6 +7325,10 @@ test('compact agent result contract validates shallow handoff shape', () => {
         ...validResult.handoffCheckpoint,
         summary: {
           ...validResult.handoffCheckpoint.summary,
+          nextControlAction: 'review-result'
+        },
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
           nextControlAction: 'review-result'
         }
       }
@@ -7363,6 +7395,11 @@ test('compact agent result contract validates shallow handoff shape', () => {
         summary: {
           ...validResult.handoffCheckpoint.summary,
           approvalContinuationRequired: true
+        },
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
+          approvalRequired: true,
+          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority"'
         }
       }
     }),
@@ -7447,6 +7484,45 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /handoffCheckpoint\.budgets\.knowledgePackets token estimates must match knowledgeContext/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
+          reason: 'approval'
+        }
+      }
+    }),
+    /handoffCheckpoint\.continuation\.reason must match handoffCheckpoint\.summary\.activeBlocker/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
+          required: false
+        }
+      }
+    }),
+    /handoffCheckpoint\.continuation\.required must match reason/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
+          command: 'node --experimental-strip-types src/cli/main.ts agent "retry"'
+        }
+      }
+    }),
+    /handoffCheckpoint\.continuation\.command must be null when approvalRequired is false/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -9434,6 +9510,14 @@ test('identity-report loader renders compact conflict reports from a JSON file',
           validationIssues: { includedCount: 1, omittedCount: 2 },
           identityConflicts: { includedCount: 1, omittedCount: 2 }
         }),
+        continuation: {
+          required: true,
+          reason: 'validation',
+          nextControlAction: 'resolve-validation',
+          approvalRequired: false,
+          command: null,
+          mutationAllowed: false
+        },
         durableSections: [
           'root',
           'harness',
@@ -9796,6 +9880,14 @@ test('identity-report loader rejects non-compact result inputs', async () => {
           changedFileCount: 0
         },
         budgets: buildCompactHandoffBudgetsFixture(),
+        continuation: {
+          required: true,
+          reason: 'validation',
+          nextControlAction: 'resolve-validation',
+          approvalRequired: false,
+          command: null,
+          mutationAllowed: false
+        },
         durableSections: [
           'root',
           'harness',
