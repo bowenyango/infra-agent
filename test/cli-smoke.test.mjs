@@ -163,6 +163,7 @@ function buildGraphSnapshotBaseGraph() {
   return {
     kind: 'infra-agent.infra-graph',
     schemaVersion: 1,
+    mutationAllowed: false,
     workspaceRoot: 'fixtures/graph-snapshot-workspace',
     nodes,
     edges,
@@ -370,6 +371,7 @@ test('workspace graph exposes inspected infra topology foundation', async () => 
   const graph = buildWorkspaceInfraGraph(inspection);
 
   assert.equal(graph.kind, 'infra-agent.infra-graph');
+  assert.equal(graph.mutationAllowed, false);
   assert.ok(graph.nodes.some(node =>
     node.kind === 'helm-chart'
     && node.path === 'charts/payments-api'
@@ -6075,6 +6077,7 @@ test('infra graph contract validates shallow impact handoff shape', () => {
   const validGraph = {
     kind: 'infra-agent.infra-graph',
     schemaVersion: 1,
+    mutationAllowed: false,
     workspaceRoot: 'fixtures/sample-workspace',
     nodes: [],
     edges: [],
@@ -6122,6 +6125,10 @@ test('infra graph contract validates shallow impact handoff shape', () => {
   assert.throws(
     () => parseInfraGraphResult({ ...validGraph, schemaVersion: 2 }),
     /schemaVersion 1/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({ ...validGraph, mutationAllowed: true }),
+    /mutationAllowed/
   );
   assert.throws(
     () => parseInfraGraphResult({ ...validGraph, nodes: {} }),
@@ -6176,6 +6183,7 @@ test('infra graph impact report loader renders read-only graph impact summary', 
   const graph = {
     kind: 'infra-agent.infra-graph',
     schemaVersion: 1,
+    mutationAllowed: false,
     workspaceRoot: 'fixtures/sample-workspace',
     nodes: [],
     edges: [

@@ -4036,6 +4036,34 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Graph Root Read-Only Posture Slice
+
+Files added or updated:
+
+- `src/types/infra-graph.ts`
+- `src/impact/workspace-graph.ts`
+- `src/cli/infra-graph-contract.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `fixtures/graph-snapshots/cross-domain-impact.snapshot.json`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add top-level `mutationAllowed=false` to `infra-agent.infra-graph` so all
+  graph handoffs are explicitly read-only, including graphs with no impact
+  block.
+- Require root `mutationAllowed=false` in the graph contract parser.
+- Render the root read-only posture in human graph output and update stable
+  snapshot coverage.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

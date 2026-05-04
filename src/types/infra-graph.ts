@@ -125,6 +125,7 @@ export interface InfraGraphSummary {
 export interface InfraGraph {
   kind: 'infra-agent.infra-graph';
   schemaVersion: 1;
+  mutationAllowed: false;
   workspaceRoot: string;
   nodes: InfraGraphNode[];
   edges: InfraGraphEdge[];

@@ -107,10 +107,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `riskLevel`, `primaryConcern`, `recommendedAction`, review-only
   `reviewSteps`, prioritized `reviewTargets` with per-target
   `priority`, `mutationAllowed=false`, `recommendedAction`, `riskCategory`, and
-  `reviewSteps`, plus summary-level `reviewTargetBudget`,
-  `omittedReviewTargets`, and
-  `mutationAllowed=false`, and the text output includes an `Impact` section for
-  quick handoff. VPC-style security group rule matching keeps TCP/UDP ports
+  `reviewSteps`, plus root and summary-level `mutationAllowed=false`,
+  `reviewTargetBudget`, and `omittedReviewTargets`, and the text output includes
+  an `Impact` section for quick handoff. VPC-style security group rule matching keeps TCP/UDP ports
   required but permits omitted ports for
   all-protocol and ICMPv6 rules. A stable graph snapshot fixture now covers the
   cross-domain impact contract before any topology viewer work starts

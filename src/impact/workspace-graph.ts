@@ -252,6 +252,7 @@ export function buildWorkspaceInfraGraph(inspection: WorkspaceInspection): Infra
   return {
     kind: 'infra-agent.infra-graph',
     schemaVersion: 1,
+    mutationAllowed: INFRA_GRAPH_IMPACT_MUTATION_ALLOWED,
     workspaceRoot: inspection.workspaceRoot,
     nodes,
     edges,

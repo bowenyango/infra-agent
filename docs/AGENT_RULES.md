@@ -208,7 +208,8 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Use `infra-agent graph --json` as the topology handoff surface. Treat it as inspection-derived structure until plan/preview impact data is explicitly attached.
 - When consuming saved graph JSON, parse it as compact `infra-agent.infra-graph`
   schema version 1 before trusting impact fields. Reject graph payloads where
-  `summary.impact.mutationAllowed` or any impact review target is not `false`.
+  root `mutationAllowed`, `summary.impact.mutationAllowed`, or any impact review
+  target is not `false`.
 - Use `infra-agent impact-report <graph.json>` when a human operator or
   downstream agent needs a focused graph impact report from an existing graph
   handoff. Graph impact reports are read-only summaries of existing

@@ -2589,6 +2589,7 @@ export function summarizeInfraGraphImpact(graph: InfraGraph): string[] {
 export function printInfraGraph(graph: InfraGraph): void {
   printHeader('Infrastructure graph');
   process.stdout.write(`workspace: ${graph.workspaceRoot}\n`);
+  process.stdout.write('mutation allowed: no\n');
   process.stdout.write(`nodes: ${graph.summary.nodeCount}\n`);
   process.stdout.write(`edges: ${graph.summary.edgeCount}\n`);
   process.stdout.write(`node kinds: ${formatGraphCounts(graph.summary.nodesByKind)}\n`);

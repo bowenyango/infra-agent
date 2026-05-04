@@ -23,6 +23,10 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
     throw new Error('infra graph input must use infra graph schemaVersion 1.');
   }
 
+  if (value.mutationAllowed !== false) {
+    throw new Error('infra graph input mutationAllowed must be false.');
+  }
+
   if (!Array.isArray(value.nodes)) {
     throw new Error('infra graph input must include nodes array.');
   }

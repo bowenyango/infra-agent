@@ -1,6 +1,7 @@
 {
   "kind": "infra-agent.infra-graph",
   "schemaVersion": 1,
+  "mutationAllowed": false,
   "workspaceRoot": "<workspace>",
   "nodes": [
     {
