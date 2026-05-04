@@ -224,6 +224,10 @@ Current behavior is intentionally runtime-foundation oriented:
   Retrieved official-doc/schema context is budgeted before planner handoff, and
   compact results expose `knowledgeContext` with packet/token counts and
   omitted-context reasons instead of raw excerpts.
+  Report commands are covered through the real CLI entrypoint for
+  `identity-report --json` and `impact-report --json` so downstream handoff
+  paths exercise command parsing, file loading, contract parsing, and JSON
+  output together.
   The compact validation payload includes `identityConflicts`, a low-noise
   machine-readable summary of Pulumi/Terraform exclusive-identity blockers
   with engine, conflict family, IaC resource locator when parseable, identity

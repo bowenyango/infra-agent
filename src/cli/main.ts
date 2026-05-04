@@ -588,8 +588,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   fail(`Unknown command: ${commandName}`);
 }
 
-async function main(): Promise<void> {
-  const parsed = parseArgs(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2)): Promise<void> {
+  const parsed = parseArgs(argv);
 
   if (parsed.command === 'help') {
     printUsage();

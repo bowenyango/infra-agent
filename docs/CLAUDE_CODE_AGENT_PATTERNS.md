@@ -131,6 +131,9 @@ durable design reference for infra-agent development.
 - `identity-report` should also validate its generated
   `infra-agent.identity-conflict-report` shape before handoff so read-only
   posture and capped incident counts survive secondary transformations.
+- Report commands should have at least one real CLI entrypoint test for JSON
+  output so argument parsing, file loading, contract parsing, and serialization
+  remain covered as one handoff path.
 - `impact-report` should carry source provenance for graph summaries so
   downstream agents can separate workspace-inspection facts from attached
   Terraform plan or Pulumi preview impact data without rerunning native tools.

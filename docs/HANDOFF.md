@@ -4230,6 +4230,29 @@ Known validation:
 - `npm run test:unit` passed with 275 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Report CLI Execution Coverage Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a unit smoke test that invokes the exported CLI `main` entrypoint with
+  report command arguments and captured stdout.
+- Cover `identity-report <agent-result.json> --json` from compact input file to
+  read-only `infra-agent.identity-conflict-report` JSON output.
+- Cover `impact-report <graph.json> --json` from infra graph input file to
+  read-only `infra-agent.infra-graph-impact-report` JSON output.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

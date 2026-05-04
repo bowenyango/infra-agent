@@ -32,7 +32,7 @@ import {
   summarizeResultCard,
   summarizeSuggestedCommands
 } from '../src/cli/output.ts';
-import { parseArgs, readPackageVersion } from '../src/cli/main.ts';
+import { main, parseArgs, readPackageVersion } from '../src/cli/main.ts';
 import { buildDoctorReport } from '../src/cli/doctor.ts';
 import {
   exitCodeForAgentOutcome,
@@ -94,6 +94,29 @@ import {
   attachPulumiPreviewToGraph,
   parsePulumiPreviewResourceChanges
 } from '../src/impact/pulumi-preview-graph.ts';
+
+async function captureStdout(run) {
+  const originalWrite = process.stdout.write;
+  let output = '';
+
+  process.stdout.write = (chunk, encoding, callback) => {
+    output += String(chunk);
+    if (typeof encoding === 'function') {
+      encoding();
+    } else if (typeof callback === 'function') {
+      callback();
+    }
+    return true;
+  };
+
+  try {
+    await run();
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+
+  return output;
+}
 
 function buildGraphSnapshotBaseGraph() {
   const nodes = [
@@ -6103,6 +6126,102 @@ test('impact-report CLI args accept infra graph input path', () => {
   assert.equal(parsed.inputPath, 'graph.json');
   assert.equal(parsed.workspace, process.cwd());
   assert.equal(parsed.json, true);
+});
+
+test('report CLI commands emit read-only JSON through the entrypoint', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-report-cli-'));
+  const identityInputPath = join(tempRoot, 'agent-result.json');
+  const graphInputPath = join(tempRoot, 'graph.json');
+
+  try {
+    await writeFile(identityInputPath, JSON.stringify({
+      kind: 'infra-agent.agent-result',
+      schemaVersion: 1,
+      task: 'review terraform listener rule conflict',
+      workspaceRoot: '/workspace',
+      outcome: 'validation-blocked',
+      validation: {
+        identityConflictSummary: {
+          totalCount: 1,
+          includedCount: 1,
+          maxEntries: 5,
+          omittedCount: 0,
+          mutationAllowed: false,
+          byEngine: {
+            terraform: 1,
+            pulumi: 0
+          },
+          byRiskCategory: {
+            'create-before-delete-ordering': 1,
+            'dns-or-domain-ownership': 0,
+            'exclusive-identity-review': 0,
+            'kubernetes-object-ownership': 0,
+            'physical-name-ownership': 0
+          }
+        },
+        identityConflicts: [
+          {
+            engine: 'terraform',
+            issueKind: 'terraform-create-before-delete-conflict',
+            conflictCode: 'PriorityInUse',
+            conflictFamily: 'aws-lb-listener-rule',
+            conflictLabel: 'AWS Load Balancer Listener Rule',
+            resourceAddress: 'aws_lb_listener_rule.api',
+            resourceName: null,
+            resourceType: 'aws_lb_listener_rule',
+            identity: {
+              listenerRulePriorities: '100'
+            },
+            riskCategory: 'create-before-delete-ordering',
+            reviewSteps: [
+              'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.'
+            ],
+            suggestedAction: 'Use an IaC-native rename mapping for logical renames.',
+            sourceCommand: 'terraform -chdir=terraform/payments-api plan'
+          }
+        ]
+      }
+    }), 'utf8');
+
+    await writeFile(graphInputPath, JSON.stringify({
+      kind: 'infra-agent.infra-graph',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      workspaceRoot: '/workspace',
+      nodes: [],
+      edges: [],
+      summary: {
+        nodeCount: 0,
+        edgeCount: 0,
+        nodesByKind: {},
+        edgesByKind: {}
+      }
+    }), 'utf8');
+
+    const identityOutput = await captureStdout(() => main([
+      'identity-report',
+      identityInputPath,
+      '--json'
+    ]));
+    const identityReport = JSON.parse(identityOutput);
+    assert.equal(identityReport.kind, 'infra-agent.identity-conflict-report');
+    assert.equal(identityReport.mutationAllowed, false);
+    assert.equal(identityReport.incidentCount, 1);
+    assert.equal(identityReport.incidentSummary.byEngine.terraform, 1);
+
+    const impactOutput = await captureStdout(() => main([
+      'impact-report',
+      graphInputPath,
+      '--json'
+    ]));
+    const impactReport = JSON.parse(impactOutput);
+    assert.equal(impactReport.kind, 'infra-agent.infra-graph-impact-report');
+    assert.equal(impactReport.mutationAllowed, false);
+    assert.equal(impactReport.sourceKind, 'infra-agent.infra-graph');
+    assert.equal(impactReport.counts.plannedChanges, 0);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('infra graph contract validates shallow impact handoff shape', () => {

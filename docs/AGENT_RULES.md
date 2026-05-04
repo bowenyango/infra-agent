@@ -275,6 +275,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   root and incident `mutationAllowed` must be false, incident counts must match
   included summaries, engine/risk grouped counts must sum to total incidents,
   and incident identities/review steps must keep string-only shapes.
+- Report command tests should exercise the real CLI entrypoint for
+  `identity-report --json` and `impact-report --json`, not only argument
+  parsing or loader helpers, so command routing and JSON output stay covered.
 - For Kubernetes `AlreadyExists` runtime failures, preserve parsed `kubernetesNames` and `kubernetesNamespaces` metadata when present. Treat the identity as API kind plus `metadata.name` plus `metadata.namespace` for namespaced objects, or API kind plus `metadata.name` for namespaces.
 - For AWS named-resource runtime failures, preserve parsed `duplicateIdentity` metadata from provider messages such as `repository with name ... already exists`, `Role with name ... already exists`, or safe Terraform `creating <resource> (<name>)` context. Treat this as physical identity context for review, not as approval to import or replace.
 - Some exclusive-identity specs intentionally use overlap matching, such as CloudFront aliases and security group rule source sets, optional identity parts such as Route53 `set_identifier`, or protocol-gated omissions such as VPC security group rule ports for `ipProtocol=-1` or `icmpv6`. Explain the matched identity keys from graph metadata and still confirm with native plan/preview/state before recommending DNS, alias, security group permission, or state changes.
