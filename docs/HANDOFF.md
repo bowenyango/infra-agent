@@ -4544,6 +4544,31 @@ Known validation:
 - `npm run e2e`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Compact Lifecycle Event Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.lifecycleEvents` max/count fields as non-negative
+  integers and require included count to match the emitted event sample.
+- Validate lifecycle event entry fields including turn index, action kind,
+  action family, execution status, reason, tool/approval/validation counts, and
+  optional outcome.
+- Validate lifecycle `eventCounts` keys and totals so downstream agents can
+  trust query lifecycle routing without raw runtime state.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

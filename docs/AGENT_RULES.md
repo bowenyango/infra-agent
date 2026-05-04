@@ -175,8 +175,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   result.
 - Treat compact lifecycle and turn-trace budgets as contract data, not prose.
   Validate supported lifecycle event names, numeric event counts, total =
-  included + omitted invariants, and the supported `turnTraceBudget`
-  `preservedWindow` value before deriving secondary reports.
+  included + omitted invariants, lifecycle `maxEntries`, event-kind count
+  totals, event entry action/status/outcome fields, and the supported
+  `turnTraceBudget` `preservedWindow` value before deriving secondary reports.
 - Validate compact `harness.turnTrace` entries before deriving follow-up work:
   supported action/family/stop/clarification/status enums, string summaries,
   boolean terminal flags, non-negative count fields, stop-reason coherence, and

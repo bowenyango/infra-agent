@@ -748,33 +748,80 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
 
     if (isRecord(value.harness.lifecycleEvents)) {
-      for (const field of ['totalCount', 'includedCount', 'omittedCount']) {
-        if (field in value.harness.lifecycleEvents && !isNumber(value.harness.lifecycleEvents[field])) {
-          throw new Error(`compact result input harness.lifecycleEvents.${field} must be a number when present.`);
+      for (const field of ['maxEntries', 'totalCount', 'includedCount', 'omittedCount']) {
+        if (field in value.harness.lifecycleEvents && !isNonNegativeInteger(value.harness.lifecycleEvents[field])) {
+          throw new Error(`compact result input harness.lifecycleEvents.${field} must be a non-negative integer when present.`);
         }
       }
 
       if (Array.isArray(value.harness.lifecycleEvents.events)) {
         for (let index = 0; index < value.harness.lifecycleEvents.events.length; index += 1) {
           const event = value.harness.lifecycleEvents.events[index];
+          const eventPath = `harness.lifecycleEvents.events[${index}]`;
+
           if (!isRecord(event) || !isKnownLifecycleEventName(event.event)) {
             throw new Error(`compact result input harness.lifecycleEvents.events[${index}].event must be supported.`);
+          }
+
+          if (event.turnIndex !== null && !isNonNegativeInteger(event.turnIndex)) {
+            throw new Error(`compact result input ${eventPath}.turnIndex must be a non-negative integer or null.`);
+          }
+
+          if (event.actionKind !== null && !isKnownAgentActionKind(event.actionKind)) {
+            throw new Error(`compact result input ${eventPath}.actionKind must be supported or null.`);
+          }
+
+          if (event.actionFamily !== null && !isKnownAgentActionFamily(event.actionFamily)) {
+            throw new Error(`compact result input ${eventPath}.actionFamily must be supported or null.`);
+          }
+
+          if (event.executionStatus !== null && !isKnownAgentDecisionExecutionStatus(event.executionStatus)) {
+            throw new Error(`compact result input ${eventPath}.executionStatus must be supported or null.`);
+          }
+
+          if (!isStringOrNull(event.reason)) {
+            throw new Error(`compact result input ${eventPath}.reason must be string or null.`);
+          }
+
+          for (const field of ['toolCount', 'approvalSignalCount', 'validationIssueCount']) {
+            assertIntegerField(event, field, eventPath, isNonNegativeInteger, 'a non-negative integer');
+          }
+
+          if (event.outcome !== null && !isKnownAgentResultOutcome(event.outcome)) {
+            throw new Error(`compact result input ${eventPath}.outcome must be supported or null.`);
           }
         }
 
         if (
-          isNumber(value.harness.lifecycleEvents.includedCount)
+          isNonNegativeInteger(value.harness.lifecycleEvents.includedCount)
           && value.harness.lifecycleEvents.includedCount !== value.harness.lifecycleEvents.events.length
         ) {
           throw new Error('compact result input harness.lifecycleEvents.includedCount must match events length when present.');
         }
+
+        if (
+          isNonNegativeInteger(value.harness.lifecycleEvents.includedCount)
+          && isNonNegativeInteger(value.harness.lifecycleEvents.maxEntries)
+          && (value.harness.lifecycleEvents.includedCount as number) > (value.harness.lifecycleEvents.maxEntries as number)
+        ) {
+          throw new Error('compact result input harness.lifecycleEvents.includedCount must not exceed maxEntries.');
+        }
       }
 
       if (isRecord(value.harness.lifecycleEvents.eventCounts)) {
+        let totalLifecycleEventCount = 0;
         for (const [eventName, count] of Object.entries(value.harness.lifecycleEvents.eventCounts)) {
-          if (!isKnownLifecycleEventName(eventName) || !isNumber(count)) {
-            throw new Error('compact result input harness.lifecycleEvents.eventCounts must use supported numeric event counts.');
+          if (!isKnownLifecycleEventName(eventName) || !isNonNegativeInteger(count)) {
+            throw new Error('compact result input harness.lifecycleEvents.eventCounts must use supported non-negative integer event counts.');
           }
+          totalLifecycleEventCount += count as number;
+        }
+
+        if (
+          isNonNegativeInteger(value.harness.lifecycleEvents.totalCount)
+          && totalLifecycleEventCount !== (value.harness.lifecycleEvents.totalCount as number)
+        ) {
+          throw new Error('compact result input harness.lifecycleEvents.eventCounts must sum to totalCount when present.');
         }
       }
 

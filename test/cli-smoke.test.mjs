@@ -6700,17 +6700,43 @@ test('compact agent result contract validates shallow handoff shape', () => {
         ]
       },
       lifecycleEvents: {
-        totalCount: 0,
-        includedCount: 0,
+        maxEntries: 12,
+        totalCount: 2,
+        includedCount: 2,
         omittedCount: 0,
         eventCounts: {
-          'query-started': 0,
+          'query-started': 1,
           decision: 0,
           'tool-execution': 0,
           'approval-gate': 0,
-          terminal: 0
+          terminal: 1
         },
-        events: []
+        events: [
+          {
+            event: 'query-started',
+            turnIndex: null,
+            actionKind: null,
+            actionFamily: null,
+            executionStatus: null,
+            reason: null,
+            toolCount: 0,
+            approvalSignalCount: 0,
+            validationIssueCount: 1,
+            outcome: null
+          },
+          {
+            event: 'terminal',
+            turnIndex: 0,
+            actionKind: 'stop',
+            actionFamily: 'validation-blocked',
+            executionStatus: null,
+            reason: 'outcome:validation-blocked',
+            toolCount: 0,
+            approvalSignalCount: 0,
+            validationIssueCount: 1,
+            outcome: 'validation-blocked'
+          }
+        ]
       },
       plannerHandoff: {
         lastAction: {
@@ -7243,6 +7269,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
       harness: {
         ...validResult.harness,
         lifecycleEvents: {
+          maxEntries: 12,
           totalCount: 1,
           includedCount: 1,
           omittedCount: 0,
@@ -7277,18 +7304,54 @@ test('compact agent result contract validates shallow handoff shape', () => {
       harness: {
         ...validResult.harness,
         lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
           totalCount: 2,
           includedCount: 1,
           omittedCount: 0,
           events: [
             {
-              event: 'terminal'
+              ...validResult.harness.lifecycleEvents.events[1]
             }
           ]
         }
       }
     }),
     /harness\.lifecycleEvents counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
+          events: [
+            {
+              ...validResult.harness.lifecycleEvents.events[0],
+              actionKind: 'unexpected'
+            },
+            validResult.harness.lifecycleEvents.events[1]
+          ]
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.events\[0\]\.actionKind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
+          eventCounts: {
+            ...validResult.harness.lifecycleEvents.eventCounts,
+            decision: 1
+          }
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.eventCounts/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

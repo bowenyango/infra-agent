@@ -195,8 +195,9 @@ Current behavior is intentionally runtime-foundation oriented:
   decisions, tool execution, approval gates, and terminal outcome. It keeps
   lifecycle routing explicit with total, included, omitted, and event-kind
   counts, without timestamps or raw tool output. Compact result consumers
-  validate supported lifecycle event names, event count consistency, and the
-  preserved `harness.turnTraceBudget` window before deriving reports.
+  validate supported lifecycle event names, event entry fields, count and
+  `maxEntries` consistency, event-kind count totals, and outcome metadata before
+  deriving reports.
   `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
   plus total, included, omitted, latest-turn, and permission-category counts, so
   downstream agents can inspect execution evidence and permission posture
