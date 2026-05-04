@@ -86,6 +86,28 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Compact Handoff Checkpoint Base Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a root `handoffCheckpoint` object to compact `infra-agent.agent-result`
+  output.
+- Record that the primary downstream artifact is compact `agent --json`, full
+  runtime output is only `agent --json-full` debug data, and the checkpoint does
+  not allow mutation.
+- Cover the new checkpoint shape in compact output unit coverage.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.
+
 ## Historical Slice: Domain-Focused Preflight And Result Output
 
 Files:

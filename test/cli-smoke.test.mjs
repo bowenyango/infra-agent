@@ -5368,6 +5368,14 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       compact.knowledgeContext.packets.filter(packet => packet.included).length
     );
     assert.equal(compact.readiness.status, 'pass');
+    assert.deepEqual(compact.handoffCheckpoint, {
+      schemaVersion: 1,
+      source: 'agent-result',
+      compact: true,
+      primaryArtifact: 'agent --json',
+      debugArtifact: 'agent --json-full',
+      mutationAllowed: false
+    });
     assert.ok(compact.resultCard.some(line => /Readiness: pass/i.test(line)));
     assert.match(compact.readiness.doctorCommand, / doctor /);
     assert.ok(compact.readiness.checks.some(check =>
@@ -6637,6 +6645,14 @@ test('compact agent result contract validates shallow handoff shape', () => {
     resultCard: [],
     nextSteps: [],
     suggestedCommands: [],
+    handoffCheckpoint: {
+      schemaVersion: 1,
+      source: 'agent-result',
+      compact: true,
+      primaryArtifact: 'agent --json',
+      debugArtifact: 'agent --json-full',
+      mutationAllowed: false
+    },
     validation: {
       targetCommandCount: 1,
       yamlGuardCount: 0,

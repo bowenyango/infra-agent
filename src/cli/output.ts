@@ -160,6 +160,15 @@ interface CompactReadinessSummary {
   checks: CompactReadinessCheck[];
 }
 
+interface CompactHandoffCheckpoint {
+  schemaVersion: 1;
+  source: 'agent-result';
+  compact: true;
+  primaryArtifact: 'agent --json';
+  debugArtifact: 'agent --json-full';
+  mutationAllowed: false;
+}
+
 export interface IdentityConflictIncident {
   engine: ValidationIdentityConflictSummary['engine'];
   issueKind: ValidationIdentityConflictSummary['issueKind'];
@@ -209,6 +218,7 @@ export interface CompactAgentRunResult {
   resultCard: string[];
   nextSteps: string[];
   suggestedCommands: string[];
+  handoffCheckpoint: CompactHandoffCheckpoint;
   harness: {
     maxTurns: number;
     queryConfig: {
@@ -1936,6 +1946,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     resultCard: summarizeResultCard(state),
     nextSteps: summarizeRecommendedNextSteps(state),
     suggestedCommands: summarizeSuggestedCommands(state),
+    handoffCheckpoint: collectHandoffCheckpoint(),
     harness: {
       maxTurns: getAgentMaxTurns(state),
       queryConfig: {
@@ -1991,6 +2002,17 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       state.runtime.retrievedContextBudget
     ).budget,
     readiness: collectCompactReadiness(state)
+  };
+}
+
+function collectHandoffCheckpoint(): CompactHandoffCheckpoint {
+  return {
+    schemaVersion: 1,
+    source: 'agent-result',
+    compact: true,
+    primaryArtifact: 'agent --json',
+    debugArtifact: 'agent --json-full',
+    mutationAllowed: false
   };
 }
 
