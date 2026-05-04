@@ -223,6 +223,9 @@ Current behavior is intentionally runtime-foundation oriented:
   posture. `validation.selectedPlan` mirrors the selected validation targets and
   commands, including executed and failed command counts, so downstream agents
   can tell what validation was intended before raw tool output is requested.
+  Compact consumers validate selected-plan entry kind, target, command array,
+  command-count consistency, executed/failed count bounds, and validator
+  availability booleans.
   `validation.commands` carries a budgeted list of recent executed validation
   commands with pass/fail status, short stdout/stderr previews, and structured
   unsafe-command rule metadata when a mutation command is blocked. Compact

@@ -176,8 +176,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `harness.stateSummary` counts, `harness.turnTraceBudget`,
   `harness.lifecycleEvents`, `harness.toolTrace` budget counts,
   `harness.toolPermissionSummary` aggregate/category counts,
-  `validation.commands`, `validation.issueSummary`, `approval.resume`, and
-  `validation.identityConflicts` before treating the payload as an agent result.
+  `validation.selectedPlan`, `validation.commands`, `validation.issueSummary`,
+  `approval.resume`, and `validation.identityConflicts` before treating the
+  payload as an agent result.
 - Treat compact lifecycle and turn-trace budgets as contract data, not prose.
   Validate supported lifecycle event names, numeric event counts, total =
   included + omitted invariants, lifecycle `maxEntries`, event-kind count
@@ -235,6 +236,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   mutation, and Kubernetes mutation commands before spawning them. Remove the
   unsafe command from workspace config or planner output instead of asking the
   tool to run it.
+- Validate compact `validation.selectedPlan` before using intended validators
+  for handoff: supported Helm/Pulumi/Terraform kinds, non-empty target paths,
+  non-empty command strings, command counts that match the command array,
+  executed counts that do not exceed command counts, failed counts that do not
+  exceed executed counts, and boolean validator availability.
 - Validate compact `validation.commands` before using command summaries for
   handoff: non-negative budget and target/yaml command counts, non-empty
   command strings, supported status/kind values, non-negative exit codes,

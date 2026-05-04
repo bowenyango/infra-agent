@@ -37,6 +37,7 @@ const TOOL_PERMISSION_CATEGORIES = [
 const DOCTOR_CHECK_STATUSES = ['pass', 'warn', 'fail'] as const;
 const VALIDATION_COMMAND_STATUSES = ['passed', 'failed'] as const;
 const VALIDATION_COMMAND_KINDS = ['yaml-guard', 'target-validation'] as const;
+const VALIDATION_PLAN_KINDS = ['helm', 'pulumi', 'terraform'] as const;
 const VALIDATION_ISSUE_KINDS = [
   'helm-missing-service-port',
   'helm-missing-ingress-values',
@@ -141,6 +142,10 @@ function isKnownValidationCommandStatus(value: unknown): boolean {
 
 function isKnownValidationCommandKind(value: unknown): boolean {
   return typeof value === 'string' && VALIDATION_COMMAND_KINDS.includes(value as typeof VALIDATION_COMMAND_KINDS[number]);
+}
+
+function isKnownValidationPlanKind(value: unknown): boolean {
+  return typeof value === 'string' && VALIDATION_PLAN_KINDS.includes(value as typeof VALIDATION_PLAN_KINDS[number]);
 }
 
 function isKnownValidationIssueKind(value: unknown): boolean {
@@ -1131,6 +1136,54 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   for (const field of ['targetCommandCount', 'yamlGuardCount']) {
     if (field in value.validation && !isNonNegativeInteger(value.validation[field])) {
       throw new Error(`compact result input validation.${field} must be a non-negative integer when present.`);
+    }
+  }
+
+  if (!Array.isArray(value.validation.selectedPlan)) {
+    throw new Error('compact result input must include validation.selectedPlan array.');
+  }
+
+  for (let index = 0; index < value.validation.selectedPlan.length; index += 1) {
+    const entry = value.validation.selectedPlan[index];
+    const entryPath = `validation.selectedPlan[${index}]`;
+
+    if (!isRecord(entry)) {
+      throw new Error(`compact result input ${entryPath} must be an object.`);
+    }
+
+    if (!isKnownValidationPlanKind(entry.kind)) {
+      throw new Error(`compact result input ${entryPath}.kind must be supported.`);
+    }
+
+    if (typeof entry.target !== 'string' || entry.target.length === 0) {
+      throw new Error(`compact result input ${entryPath}.target must be a non-empty string.`);
+    }
+
+    for (const field of ['commandCount', 'executedCommandCount', 'failedCommandCount']) {
+      assertIntegerField(entry, field, entryPath, isNonNegativeInteger, 'a non-negative integer');
+    }
+
+    if (
+      !Array.isArray(entry.commands)
+      || !entry.commands.every(command => typeof command === 'string' && command.length > 0)
+    ) {
+      throw new Error(`compact result input ${entryPath}.commands must be a non-empty string array.`);
+    }
+
+    if (typeof entry.validatorAvailable !== 'boolean') {
+      throw new Error(`compact result input ${entryPath}.validatorAvailable must be a boolean.`);
+    }
+
+    if (entry.commandCount !== entry.commands.length) {
+      throw new Error(`compact result input ${entryPath}.commandCount must match commands length.`);
+    }
+
+    if ((entry.executedCommandCount as number) > (entry.commandCount as number)) {
+      throw new Error(`compact result input ${entryPath}.executedCommandCount must not exceed commandCount.`);
+    }
+
+    if ((entry.failedCommandCount as number) > (entry.executedCommandCount as number)) {
+      throw new Error(`compact result input ${entryPath}.failedCommandCount must not exceed executedCommandCount.`);
     }
   }
 

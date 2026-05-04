@@ -6147,6 +6147,7 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
       validation: {
+        selectedPlan: [],
         identityConflictSummary: {
           totalCount: 1,
           includedCount: 1,
@@ -6616,6 +6617,17 @@ test('compact agent result contract validates shallow handoff shape', () => {
           sourceCommand: 'terraform plan',
           reviewSteps: []
         }
+      ],
+      selectedPlan: [
+        {
+          kind: 'terraform',
+          target: 'terraform/payments-api',
+          commandCount: 1,
+          commands: ['terraform plan'],
+          executedCommandCount: 1,
+          failedCommandCount: 1,
+          validatorAvailable: true
+        }
       ]
     },
     harness: {
@@ -6961,6 +6973,121 @@ test('compact agent result contract validates shallow handoff shape', () => {
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, validation: {} }),
     /validation\.identityConflicts array/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: 'terraform'
+      }
+    }),
+    /validation\.selectedPlan array/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            kind: 'ansible'
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            target: ''
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.target/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            commands: ['terraform plan', 1]
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.commands/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            commandCount: 2
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.commandCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            executedCommandCount: 2
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.executedCommandCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            failedCommandCount: 2
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.failedCommandCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            validatorAvailable: 'yes'
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.validatorAvailable/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -7638,6 +7765,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       validation: {
+        ...validResult.validation,
         identityConflicts: [],
         commands: {
           entries: {}
@@ -7729,6 +7857,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       validation: {
+        ...validResult.validation,
         identityConflicts: [],
         issueSummary: {
           groups: {}
@@ -7741,6 +7870,7 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       validation: {
+        ...validResult.validation,
         identityConflicts: [],
         safetyBlockers: {
           entries: {}
@@ -7949,6 +8079,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
       validation: {
+        selectedPlan: [],
         identityConflictSummary: {
           totalCount: 3,
           includedCount: 1,

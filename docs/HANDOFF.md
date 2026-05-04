@@ -4594,6 +4594,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Selected Plan Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `validation.selectedPlan` to be an array before downstream
+  agents use intended validator metadata.
+- Validate selected-plan entry kind, target path, command strings, command
+  count consistency, executed/failed count bounds, and validator availability.
+- Keep intended validation plan contract separate from executed
+  `validation.commands` summaries.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:
