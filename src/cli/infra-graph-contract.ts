@@ -26,6 +26,23 @@ const SUPPORTED_EDGE_KINDS = new Set([
 const SUPPORTED_DOMAINS = new Set(['helm', 'pulumi', 'terraform', 'workspace']);
 const SUPPORTED_CONFIDENCES = new Set(['low', 'medium', 'high']);
 const SUPPORTED_SOURCES = new Set(['workspace-inspection', 'terraform-plan', 'pulumi-preview']);
+const SUPPORTED_IMPACT_RISK_LEVELS = new Set(['none', 'low', 'medium', 'high']);
+const SUPPORTED_IMPACT_PRIMARY_CONCERNS = new Set([
+  'none',
+  'planned-changes',
+  'possible-renames',
+  'replacements',
+  'replacement-cascades',
+  'create-before-delete-conflicts'
+]);
+const SUPPORTED_IMPACT_RECOMMENDED_ACTIONS = new Set([
+  'none',
+  'review-planned-changes',
+  'review-possible-renames',
+  'review-replacements',
+  'review-replacement-cascades',
+  'review-create-before-delete-conflicts'
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -211,6 +228,92 @@ function assertSourceProvenance(
   }
 }
 
+function assertStringArrayField(record: Record<string, unknown>, field: string, label: string): void {
+  if (!Array.isArray(record[field])) {
+    throw new Error(`infra graph input ${label}.${field} must be an array.`);
+  }
+
+  const values = record[field];
+  for (let index = 0; index < values.length; index += 1) {
+    if (typeof values[index] !== 'string') {
+      throw new Error(`infra graph input ${label}.${field}[${index}] must be a string.`);
+    }
+  }
+}
+
+function assertImpactSummary(impact: Record<string, unknown>): void {
+  const label = 'summary.impact';
+  for (const field of [
+    'dependencyEdges',
+    'createBeforeDeleteConflicts',
+    'plannedChanges',
+    'possibleRenames',
+    'replacementCascades'
+  ]) {
+    assertNumberField(impact, field, label);
+  }
+
+  if (impact.mutationAllowed !== false) {
+    throw new Error('infra graph input summary.impact.mutationAllowed must be false when impact is present.');
+  }
+
+  assertSupportedField(impact, 'riskLevel', label, SUPPORTED_IMPACT_RISK_LEVELS);
+  assertSupportedField(impact, 'primaryConcern', label, SUPPORTED_IMPACT_PRIMARY_CONCERNS);
+  assertSupportedField(impact, 'recommendedAction', label, SUPPORTED_IMPACT_RECOMMENDED_ACTIONS);
+  assertStringArrayField(impact, 'reviewSteps', label);
+  assertNonNegativeInteger(impact.omittedReviewTargets, `${label}.omittedReviewTargets`);
+
+  if (!isRecord(impact.reviewTargetBudget)) {
+    throw new Error('infra graph input summary.impact.reviewTargetBudget must be an object.');
+  }
+
+  const budget = impact.reviewTargetBudget;
+  for (const field of ['maxTargets', 'totalTargets', 'includedTargets', 'omittedTargets']) {
+    assertNonNegativeInteger(budget[field], `${label}.reviewTargetBudget.${field}`);
+  }
+
+  if (budget.includedTargets + budget.omittedTargets !== budget.totalTargets) {
+    throw new Error(
+      'infra graph input summary.impact.reviewTargetBudget includedTargets + omittedTargets must equal totalTargets.'
+    );
+  }
+
+  if (budget.includedTargets > budget.maxTargets) {
+    throw new Error(
+      'infra graph input summary.impact.reviewTargetBudget includedTargets must be less than or equal to maxTargets.'
+    );
+  }
+
+  if (impact.omittedReviewTargets !== budget.omittedTargets) {
+    throw new Error(
+      'infra graph input summary.impact.omittedReviewTargets must match reviewTargetBudget.omittedTargets.'
+    );
+  }
+
+  if ('reviewTargets' in impact && !Array.isArray(impact.reviewTargets)) {
+    throw new Error('infra graph input summary.impact.reviewTargets must be an array when present.');
+  }
+
+  if (Array.isArray(impact.reviewTargets)) {
+    if (budget.includedTargets !== impact.reviewTargets.length) {
+      throw new Error(
+        'infra graph input summary.impact.reviewTargetBudget.includedTargets must match reviewTargets.length.'
+      );
+    }
+
+    for (let index = 0; index < impact.reviewTargets.length; index += 1) {
+      const target = impact.reviewTargets[index];
+      if (!isRecord(target)) {
+        throw new Error(`infra graph input summary.impact.reviewTargets[${index}] must be an object.`);
+      }
+
+      if (target.mutationAllowed !== false) {
+        throw new Error(`infra graph input summary.impact.reviewTargets[${index}].mutationAllowed must be false.`);
+      }
+    }
+  }
+}
+
 function assertNodeShape(node: unknown, index: number): void {
   const label = `nodes[${index}]`;
   if (!isRecord(node)) {
@@ -296,45 +399,12 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
     throw new Error('infra graph input summary.edgeCount must match edges.length.');
   }
 
-  if (isRecord(value.summary.impact)) {
-    const impact = value.summary.impact;
-    for (const field of [
-      'dependencyEdges',
-      'createBeforeDeleteConflicts',
-      'omittedReviewTargets',
-      'plannedChanges',
-      'possibleRenames',
-      'replacementCascades'
-    ]) {
-      assertNumberField(impact, field, 'summary.impact');
+  if ('impact' in value.summary) {
+    if (!isRecord(value.summary.impact)) {
+      throw new Error('infra graph input summary.impact must be an object when present.');
     }
 
-    if (impact.mutationAllowed !== false) {
-      throw new Error('infra graph input summary.impact.mutationAllowed must be false when impact is present.');
-    }
-
-    if (isRecord(impact.reviewTargetBudget)) {
-      for (const field of ['maxTargets', 'totalTargets', 'includedTargets', 'omittedTargets']) {
-        assertNumberField(impact.reviewTargetBudget, field, 'summary.impact.reviewTargetBudget');
-      }
-    }
-
-    if ('reviewTargets' in impact && !Array.isArray(impact.reviewTargets)) {
-      throw new Error('infra graph input summary.impact.reviewTargets must be an array when present.');
-    }
-
-    if (Array.isArray(impact.reviewTargets)) {
-      for (let index = 0; index < impact.reviewTargets.length; index += 1) {
-        const target = impact.reviewTargets[index];
-        if (!isRecord(target)) {
-          throw new Error(`infra graph input summary.impact.reviewTargets[${index}] must be an object.`);
-        }
-
-        if (target.mutationAllowed !== false) {
-          throw new Error(`infra graph input summary.impact.reviewTargets[${index}].mutationAllowed must be false.`);
-        }
-      }
-    }
+    assertImpactSummary(value.summary.impact);
   }
 
   return value as unknown as InfraGraph;

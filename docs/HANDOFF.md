@@ -86,6 +86,31 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Infra Graph Contract Impact Summary Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require `summary.impact` to be an object when present and validate supported
+  risk posture enums for `riskLevel`, `primaryConcern`, and
+  `recommendedAction`.
+- Require `summary.impact.reviewSteps` to be an array of strings.
+- Require `summary.impact.reviewTargetBudget` with non-negative integer
+  `maxTargets`, `totalTargets`, `includedTargets`, and `omittedTargets`, plus
+  arithmetic consistency with omitted and included review target counts.
+- Keep deeper per-review-target field validation deferred to the next slice,
+  while preserving the existing `mutationAllowed=false` target check.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "infra graph contract|review target" test/cli-smoke.test.mjs`: passed with 3 tests.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Contract Source Provenance Slice
 
 Files added or updated:
