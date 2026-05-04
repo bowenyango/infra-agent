@@ -60,6 +60,10 @@ durable design reference for infra-agent development.
 - `validation.issueDetails` is the sampled issue-detail budget surface. It
   should expose max entries and omitted count while `validation.issues` remains
   a capped compatibility detail array.
+- `validation.safetyBlockers` is the compact validation safety surface. It
+  should isolate unsafe validation commands and YAML syntax gates, retain
+  mutation-prevented posture, and avoid requiring agents to infer safety state
+  from sampled issue prose.
 - Result cards should mirror validation blocker counts from
   `validation.issueSummary` so human handoff can see repairable and
   non-repairable blocker posture without parsing compact JSON first.

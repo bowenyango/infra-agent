@@ -73,6 +73,20 @@ interface ValidationDerivedSemanticBlocker {
   message?: string;
 }
 
+interface CompactValidationSafetyBlocker {
+  kind: 'unsafe-validation-command' | 'yaml-syntax-failure';
+  sourceCommand: string;
+  message: string;
+  guidance: string | null;
+  repairable: boolean;
+  mutationPrevented: true;
+  unsafeCommand: string | null;
+  unsafeRuleId: string | null;
+  unsafeReason: string | null;
+  yamlPath: string | null;
+  yamlParser: string | null;
+}
+
 interface CompactTurnTraceEntry {
   index: number;
   actionKind: string;
@@ -290,6 +304,11 @@ export interface CompactAgentRunResult {
     issueDetails: {
       maxEntries: number;
       omittedCount: number;
+    };
+    safetyBlockers: {
+      maxEntries: number;
+      omittedCount: number;
+      entries: CompactValidationSafetyBlocker[];
     };
     issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
   };
@@ -645,6 +664,7 @@ const COMPACT_TURN_TRACE_LIMIT = 10;
 const COMPACT_VALIDATION_COMMAND_LIMIT = 8;
 const COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT = 5;
 const COMPACT_VALIDATION_ISSUE_GROUP_LIMIT = 8;
+const COMPACT_VALIDATION_SAFETY_BLOCKER_LIMIT = 5;
 const COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS = 300;
 
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
@@ -961,6 +981,46 @@ function collectValidationIssueSummary(state: AgentRunState): CompactAgentRunRes
         || issue.kind === 'pulumi-create-before-delete-conflict'
       )
     }
+  };
+}
+
+function isValidationSafetyBlocker(issue: ValidationIssue): issue is ValidationIssue & {
+  kind: 'unsafe-validation-command' | 'yaml-syntax-failure';
+} {
+  return issue.kind === 'unsafe-validation-command' || issue.kind === 'yaml-syntax-failure';
+}
+
+function compactValidationSafetyBlocker(issue: ValidationIssue & {
+  kind: 'unsafe-validation-command' | 'yaml-syntax-failure';
+}): CompactValidationSafetyBlocker {
+  const unsafeCommand = issue.metadata?.unsafeCommand ?? (issue.kind === 'unsafe-validation-command' ? issue.sourceCommand : null);
+  const unsafe = unsafeCommand ? classifyUnsafeValidationCommand(unsafeCommand) : null;
+
+  return {
+    kind: issue.kind,
+    sourceCommand: issue.sourceCommand,
+    message: issue.message,
+    guidance: issue.guidance ?? null,
+    repairable: issue.repairable,
+    mutationPrevented: true,
+    unsafeCommand,
+    unsafeRuleId: unsafe?.matchedPattern ?? null,
+    unsafeReason: unsafe?.reason ?? issue.metadata?.unsafeReason ?? null,
+    yamlPath: issue.metadata?.yamlPath ?? null,
+    yamlParser: issue.metadata?.yamlParser ?? null
+  };
+}
+
+function collectValidationSafetyBlockers(state: AgentRunState): CompactAgentRunResult['validation']['safetyBlockers'] {
+  const blockers = state.runtime.validationIssues.filter(isValidationSafetyBlocker);
+  const entries = blockers
+    .slice(0, COMPACT_VALIDATION_SAFETY_BLOCKER_LIMIT)
+    .map(compactValidationSafetyBlocker);
+
+  return {
+    maxEntries: COMPACT_VALIDATION_SAFETY_BLOCKER_LIMIT,
+    omittedCount: Math.max(0, blockers.length - entries.length),
+    entries
   };
 }
 
@@ -1694,6 +1754,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         maxEntries: COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT,
         omittedCount: Math.max(0, state.runtime.validationIssues.length - COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT)
       },
+      safetyBlockers: collectValidationSafetyBlockers(state),
       issues: state.runtime.validationIssues.slice(0, COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT).map(issue => ({
         kind: issue.kind,
         repairable: issue.repairable,

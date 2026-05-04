@@ -3849,6 +3849,35 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Compact Validation Safety Blockers Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `validation.safetyBlockers` for unsafe validation command and
+  YAML syntax blockers.
+- Preserve explicit `mutationPrevented` posture, unsafe command rule/reason
+  metadata, and YAML path/parser hints without requiring agents to inspect
+  sampled issue prose.
+- Extend the compact result contract parser to shallow-validate
+  `validation.safetyBlockers.entries` when present.
+- Update the packaged infra skill so downstream agents know to check safety
+  blockers before raw logs.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Unsafe Validation Command Metadata Slice
 
 Files added or updated:

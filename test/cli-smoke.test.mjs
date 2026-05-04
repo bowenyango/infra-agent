@@ -5433,13 +5433,21 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
       kind: 'yaml-syntax-failure',
       repairable: false,
       sourceCommand: 'infra-agent yaml-parse terraform/payments-api/dev.auto.tfvars',
-      message: 'YAML syntax failed.'
+      message: 'YAML syntax failed.',
+      metadata: {
+        yamlPath: 'terraform/payments-api/dev.auto.tfvars',
+        yamlParser: 'yaml'
+      }
     },
     {
       kind: 'unsafe-validation-command',
       repairable: false,
       sourceCommand: 'terraform -chdir=terraform/payments-api apply',
-      message: 'Unsafe validation command blocked.'
+      message: 'Unsafe validation command blocked.',
+      metadata: {
+        unsafeCommand: 'terraform -chdir=terraform/payments-api apply',
+        unsafeReason: 'Terraform apply and destroy commands are deploy/state mutation operations, not validation.'
+      }
     },
     {
       kind: 'helm-missing-service-port',
@@ -5524,6 +5532,22 @@ test('buildCompactAgentRunResult includes grouped validation issue summary', asy
     omittedCount: 5
   });
   assert.equal(compact.validation.issueDetails.omittedCount, compact.validation.issueSummary.omittedIssueCount);
+  assert.equal(compact.validation.safetyBlockers.maxEntries, 5);
+  assert.equal(compact.validation.safetyBlockers.omittedCount, 0);
+  assert.equal(compact.validation.safetyBlockers.entries.length, 2);
+  const yamlSafetyBlocker = compact.validation.safetyBlockers.entries.find(entry => entry.kind === 'yaml-syntax-failure');
+  const unsafeSafetyBlocker = compact.validation.safetyBlockers.entries.find(entry => entry.kind === 'unsafe-validation-command');
+  assert.equal(yamlSafetyBlocker?.mutationPrevented, true);
+  assert.equal(yamlSafetyBlocker?.yamlPath, 'terraform/payments-api/dev.auto.tfvars');
+  assert.equal(yamlSafetyBlocker?.yamlParser, 'yaml');
+  assert.equal(yamlSafetyBlocker?.unsafeRuleId, null);
+  assert.equal(unsafeSafetyBlocker?.mutationPrevented, true);
+  assert.equal(unsafeSafetyBlocker?.unsafeCommand, 'terraform -chdir=terraform/payments-api apply');
+  assert.equal(unsafeSafetyBlocker?.unsafeRuleId, 'terraform-apply-destroy');
+  assert.equal(
+    unsafeSafetyBlocker?.unsafeReason,
+    'Terraform apply and destroy commands are deploy/state mutation operations, not validation.'
+  );
   assert.equal(compact.validation.issues.length, 5);
   assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'validation');
   assert.equal(compact.harness.plannerHandoff.activeBlocker.validationIssueKind, 'terraform-validate-failure');
@@ -5834,6 +5858,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /validation\.commands/);
   assert.match(infraSkillContent, /validation\.issueSummary/);
   assert.match(infraSkillContent, /validation\.issueDetails/);
+  assert.match(infraSkillContent, /validation\.safetyBlockers/);
   assert.match(infraSkillContent, /approval\.resume/);
   assert.match(infraSkillContent, /knowledgeContext/);
 });
@@ -5931,6 +5956,9 @@ test('compact agent result contract validates shallow handoff shape', () => {
       },
       issueSummary: {
         groups: []
+      },
+      safetyBlockers: {
+        entries: []
       },
       identityConflicts: [
         {
@@ -6055,6 +6083,18 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /validation\.issueSummary\.groups/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        identityConflicts: [],
+        safetyBlockers: {
+          entries: {}
+        }
+      }
+    }),
+    /validation\.safetyBlockers\.entries/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

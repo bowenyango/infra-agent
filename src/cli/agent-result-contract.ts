@@ -117,6 +117,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input validation.issueSummary.groups must be an array when present.');
   }
 
+  if (
+    isRecord(value.validation.safetyBlockers)
+    && 'entries' in value.validation.safetyBlockers
+    && !Array.isArray(value.validation.safetyBlockers.entries)
+  ) {
+    throw new Error('compact result input validation.safetyBlockers.entries must be an array when present.');
+  }
+
   for (let index = 0; index < value.validation.identityConflicts.length; index += 1) {
     const conflict = value.validation.identityConflicts[index];
     if (!isRecord(conflict)) {

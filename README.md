@@ -202,6 +202,8 @@ Current behavior is intentionally runtime-foundation oriented:
   and booleans for repairable, non-repairable, unsafe-command, YAML syntax, and
   identity-conflict blockers. `validation.issueDetails` reports the sampling
   budget and omitted count for the capped `validation.issues` detail array.
+  `validation.safetyBlockers` isolates unsafe validation command and YAML syntax
+  blockers with explicit mutation-prevented posture.
   `approval.resume` carries a structured continuation command, active approval
   scope, and signal count for approval-required runs so downstream agents do
   not need to scrape prose before asking for explicit user approval.

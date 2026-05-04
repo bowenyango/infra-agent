@@ -59,7 +59,9 @@ configured, but it must not expose API keys.
    `validation.commands` for executed validation command summaries,
    `validation.issueSummary` for grouped blocker posture, and
    `validation.issueDetails` before assuming the sampled `validation.issues`
-   array is complete. For replacement or duplicate-provider failures,
+   array is complete. Read `validation.safetyBlockers` first when unsafe
+   validation commands or YAML syntax gates are present. For replacement or
+   duplicate-provider failures,
    read `validation.identityConflicts` before raw stderr or long guidance
    strings; it can include Terraform `resourceAddress` and Pulumi
    `resourceName` locators, `riskCategory` triage grouping, and `reviewSteps`
