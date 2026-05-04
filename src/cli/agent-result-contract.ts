@@ -547,18 +547,26 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   }
 
   for (const field of ['modelName', 'profileId']) {
-    if (field in value && typeof value[field] !== 'string') {
-      throw new Error(`compact result input root.${field} must be a string when present.`);
+    if (typeof value[field] !== 'string') {
+      throw new Error(`compact result input root.${field} must be a string.`);
     }
   }
 
-  if ('turnsUsed' in value && !isNumber(value.turnsUsed)) {
-    throw new Error('compact result input root.turnsUsed must be a number when present.');
+  if (!isNonNegativeInteger(value.turnsUsed)) {
+    throw new Error('compact result input root.turnsUsed must be a non-negative integer.');
   }
 
-  for (const field of ['requestedDomains', 'changedFiles', 'resultCard', 'nextSteps', 'suggestedCommands']) {
-    if (field in value && !isStringArray(value[field])) {
-      throw new Error(`compact result input root.${field} must be a string array when present.`);
+  if (!isStringArray(value.requestedDomains)) {
+    throw new Error('compact result input root.requestedDomains must be a string array.');
+  }
+
+  if (!value.requestedDomains.every(domain => isKnownValidationPlanKind(domain))) {
+    throw new Error('compact result input root.requestedDomains must use supported domains.');
+  }
+
+  for (const field of ['changedFiles', 'resultCard', 'nextSteps', 'suggestedCommands']) {
+    if (!isStringArray(value[field])) {
+      throw new Error(`compact result input root.${field} must be a string array.`);
     }
   }
 

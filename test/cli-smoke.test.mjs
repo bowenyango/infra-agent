@@ -6281,6 +6281,14 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
       task: 'review terraform listener rule conflict',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
+      modelName: 'rule-based',
+      turnsUsed: 1,
+      profileId: 'generic',
+      requestedDomains: ['terraform'],
+      changedFiles: [],
+      resultCard: [],
+      nextSteps: [],
+      suggestedCommands: [],
       handoffCheckpoint: {
         schemaVersion: 1,
         source: 'agent-result',
@@ -8817,9 +8825,34 @@ test('compact agent result contract validates shallow handoff shape and validati
     () => parseCompactAgentRunResult({ ...validResult, workspaceRoot: null }),
     /root\.workspaceRoot/
   );
+  for (const field of [
+    'modelName',
+    'profileId',
+    'turnsUsed',
+    'requestedDomains',
+    'changedFiles',
+    'resultCard',
+    'nextSteps',
+    'suggestedCommands'
+  ]) {
+    const missingRootField = { ...validResult };
+    delete missingRootField[field];
+    assert.throws(
+      () => parseCompactAgentRunResult(missingRootField),
+      new RegExp(`root\\.${field}`)
+    );
+  }
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, turnsUsed: '1' }),
     /root\.turnsUsed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, turnsUsed: -1 }),
+    /root\.turnsUsed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({ ...validResult, requestedDomains: ['ansible'] }),
+    /root\.requestedDomains/
   );
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, changedFiles: ['a.tf', 1] }),
@@ -10803,6 +10836,14 @@ test('identity-report loader renders compact conflict reports from a JSON file',
       task: 'update terraform listener priority',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
+      modelName: 'rule-based',
+      turnsUsed: 1,
+      profileId: 'generic',
+      requestedDomains: ['terraform'],
+      changedFiles: [],
+      resultCard: [],
+      nextSteps: [],
+      suggestedCommands: [],
       handoffCheckpoint: {
         schemaVersion: 1,
         source: 'agent-result',
@@ -11176,6 +11217,14 @@ test('identity-report loader rejects non-compact result inputs', async () => {
       task: 'review terraform listener priority',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
+      modelName: 'rule-based',
+      turnsUsed: 1,
+      profileId: 'generic',
+      requestedDomains: ['terraform'],
+      changedFiles: [],
+      resultCard: [],
+      nextSteps: [],
+      suggestedCommands: [],
       handoffCheckpoint: {
         schemaVersion: 1,
         source: 'agent-result',

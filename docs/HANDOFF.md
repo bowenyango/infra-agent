@@ -86,6 +86,29 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Compact Agent Root Required Fields Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Tighten `parseCompactAgentRunResult` root validation so compact
+  `modelName`, `profileId`, `turnsUsed`, `requestedDomains`, `changedFiles`,
+  `resultCard`, `nextSteps`, and `suggestedCommands` are required.
+- Preserve existing root shape checks while requiring non-negative integer
+  turns and supported requested domain labels.
+- Add focused compact contract coverage that deletes each required root field
+  from the valid fixture and expects a root-field validation error.
+
+Known validation:
+
+- `source /Users/ybw/.nvm/nvm.sh && nvm use --silent default && node --experimental-strip-types --test-name-pattern "compact agent result contract|root" test/cli-smoke.test.mjs`: passed with 276 tests on Node v24.15.0.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Compact Handoff Durable Sections Slice
 
 Files added or updated:
