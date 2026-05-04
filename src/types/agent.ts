@@ -45,13 +45,15 @@ export type AgentStopReason =
   | 'validation-blocked'
   | 'repair-budget-exhausted'
   | 'no-safe-action';
-export type AgentRunOutcome =
-  | 'completed'
-  | 'approval-required'
-  | 'clarification-required'
-  | 'validation-blocked'
-  | 'repair-budget-exhausted'
-  | 'no-safe-action';
+export const AGENT_RUN_OUTCOMES = [
+  'completed',
+  'approval-required',
+  'clarification-required',
+  'validation-blocked',
+  'repair-budget-exhausted',
+  'no-safe-action'
+] as const;
+export type AgentRunOutcome = typeof AGENT_RUN_OUTCOMES[number];
 import type { EditPlan, FileWritePlan } from './edit-plan.ts';
 import type { FileWriteRisk } from './edit-plan.ts';
 

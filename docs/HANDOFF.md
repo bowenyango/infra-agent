@@ -3849,6 +3849,28 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Shared Agent Outcome Constants Slice
+
+Files added or updated:
+
+- `src/types/agent.ts`
+- `src/cli/agent-result-contract.ts`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add shared `AGENT_RUN_OUTCOMES` constants in the agent type module and derive
+  `AgentRunOutcome` from that tuple.
+- Update the compact agent-result contract parser to validate outcomes from
+  the shared tuple instead of maintaining a duplicate local list.
+- Reduce drift between runtime outcome typing and agent-facing compact result
+  validation.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-03 Compact Turn Trace Budget Slice
 
 Files added or updated:

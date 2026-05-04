@@ -1,13 +1,5 @@
 import type { CompactAgentRunResult } from './output.ts';
-
-const AGENT_RESULT_OUTCOMES = [
-  'completed',
-  'approval-required',
-  'clarification-required',
-  'validation-blocked',
-  'repair-budget-exhausted',
-  'no-safe-action'
-] as const;
+import { AGENT_RUN_OUTCOMES } from '../types/agent.ts';
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
   'none',
   'approval',
@@ -32,7 +24,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isKnownAgentResultOutcome(value: unknown): boolean {
-  return typeof value === 'string' && AGENT_RESULT_OUTCOMES.includes(value as typeof AGENT_RESULT_OUTCOMES[number]);
+  return typeof value === 'string' && AGENT_RUN_OUTCOMES.includes(value as typeof AGENT_RUN_OUTCOMES[number]);
 }
 
 function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
