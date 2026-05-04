@@ -121,6 +121,10 @@ durable design reference for infra-agent development.
   `runtimeIdentityConflictSummary` should carry total/included/omitted and
   grouped counts because detail arrays are budgeted handoff samples, not
   exhaustive incident inventories.
+- Compact identity conflict parsers should enforce engine/issue-kind alignment,
+  supported risk categories, string-valued identity fields, string-only review
+  steps, and reporting-only mutation posture before secondary reports trust
+  sampled incidents.
 - `identity-report` should mirror compact identity conflict summary metadata
   instead of recomputing only from included incidents; otherwise capped details
   look exhaustive after handoff.

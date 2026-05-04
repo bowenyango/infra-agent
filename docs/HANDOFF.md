@@ -4175,6 +4175,34 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Strict Identity Conflict Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Harden compact `validation.identityConflictSummary` parsing with numeric
+  engine/risk maps, total/included/omitted consistency, and included <= max
+  invariants.
+- Harden compact `validation.identityConflicts` samples with engine/issue-kind
+  alignment, supported `riskCategory`, string-valued `identity`, required
+  `sourceCommand`, string-only `reviewSteps`, and reporting-only
+  `mutationAllowed=false` when present.
+- Update identity-report fixture input to include the risk category now enforced
+  by the compact parser.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

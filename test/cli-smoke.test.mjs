@@ -6430,12 +6430,28 @@ test('compact agent result contract validates shallow handoff shape', () => {
         includedCount: 1,
         maxEntries: 5,
         omittedCount: 0,
-        mutationAllowed: false
+        mutationAllowed: false,
+        byEngine: {
+          terraform: 1,
+          pulumi: 0
+        },
+        byRiskCategory: {
+          'create-before-delete-ordering': 1,
+          'dns-or-domain-ownership': 0,
+          'exclusive-identity-review': 0,
+          'kubernetes-object-ownership': 0,
+          'physical-name-ownership': 0
+        }
       },
       identityConflicts: [
         {
           engine: 'terraform',
           issueKind: 'terraform-create-before-delete-conflict',
+          riskCategory: 'create-before-delete-ordering',
+          identity: {
+            listenerRulePriorities: '100'
+          },
+          sourceCommand: 'terraform plan',
           reviewSteps: []
         }
       ]
@@ -6529,6 +6545,66 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /identityConflictSummary\.mutationAllowed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          totalCount: 2,
+          includedCount: 1,
+          omittedCount: 0
+        }
+      }
+    }),
+    /identityConflictSummary counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          totalCount: 6,
+          includedCount: 6,
+          omittedCount: 0
+        }
+      }
+    }),
+    /identityConflictSummary\.includedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          byEngine: {
+            ansible: 1
+          }
+        }
+      }
+    }),
+    /identityConflictSummary\.byEngine/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          byRiskCategory: {
+            'create-before-delete-ordering': '1'
+          }
+        }
+      }
+    }),
+    /identityConflictSummary\.byRiskCategory/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -6765,6 +6841,98 @@ test('compact agent result contract validates shallow handoff shape', () => {
     }),
     /approval\.resume\.continuationRequired/
   );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflicts: [
+          {
+            ...validResult.validation.identityConflicts[0],
+            issueKind: 'pulumi-create-before-delete-conflict'
+          }
+        ]
+      }
+    }),
+    /conflict at index 0.*issueKind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflicts: [
+          {
+            ...validResult.validation.identityConflicts[0],
+            riskCategory: 'unexpected'
+          }
+        ]
+      }
+    }),
+    /conflict at index 0.*riskCategory/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflicts: [
+          {
+            ...validResult.validation.identityConflicts[0],
+            identity: {
+              listenerRulePriorities: 100
+            }
+          }
+        ]
+      }
+    }),
+    /conflict at index 0 identity values/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflicts: [
+          {
+            ...validResult.validation.identityConflicts[0],
+            sourceCommand: ''
+          }
+        ]
+      }
+    }),
+    /conflict at index 0.*sourceCommand/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflicts: [
+          {
+            ...validResult.validation.identityConflicts[0],
+            reviewSteps: ['review', 1]
+          }
+        ]
+      }
+    }),
+    /conflict at index 0.*reviewSteps/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflicts: [
+          {
+            ...validResult.validation.identityConflicts[0],
+            mutationAllowed: true
+          }
+        ]
+      }
+    }),
+    /conflict at index 0.*mutationAllowed/
+  );
 });
 
 test('identity-report loader renders compact conflict reports from a JSON file', async () => {
@@ -6807,6 +6975,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
             resourceAddress: 'aws_lb_listener_rule.api',
             resourceName: null,
             resourceType: 'aws_lb_listener_rule',
+            riskCategory: 'create-before-delete-ordering',
             identity: {
               listenerRulePriorities: '100'
             },

@@ -252,6 +252,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   for exclusive-identity blockers. `validation.identityConflicts` is a capped
   detail sample, so consumers must check total, included, omitted, engine, and
   risk-category counts before assuming all blockers are visible.
+- Compact identity conflict consumers must reject malformed conflict samples:
+  engine must match issue kind, risk category must be one of the supported
+  triage categories, `identity` must be a string-valued object, `sourceCommand`
+  must be present, `reviewSteps` must be string-only, and any
+  `mutationAllowed` field must be `false`.
 - Preserve Terraform `resourceAddress` and Pulumi `resourceName` metadata for runtime exclusive-identity blockers when parseable. Treat these as IaC locator candidates for review, not as approval to write moved blocks, aliases, imports, state moves, or stack mutations.
 - Preserve `validation.identityConflicts[].riskCategory` as a triage grouping, not a remediation decision. Current categories include `create-before-delete-ordering`, `dns-or-domain-ownership`, `physical-name-ownership`, `kubernetes-object-ownership`, and `exclusive-identity-review`.
 - Planner prompts should expose the same runtime exclusive-identity blockers as

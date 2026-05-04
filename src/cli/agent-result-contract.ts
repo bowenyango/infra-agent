@@ -26,6 +26,14 @@ const LIFECYCLE_EVENT_NAMES = [
   'terminal'
 ] as const;
 const TURN_TRACE_PRESERVED_WINDOWS = ['head'] as const;
+const IDENTITY_CONFLICT_RISK_CATEGORIES = [
+  'create-before-delete-ordering',
+  'dns-or-domain-ownership',
+  'exclusive-identity-review',
+  'kubernetes-object-ownership',
+  'physical-name-ownership'
+] as const;
+const IDENTITY_CONFLICT_ENGINES = ['pulumi', 'terraform'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -55,6 +63,16 @@ function isKnownTurnTracePreservedWindow(value: unknown): boolean {
     && TURN_TRACE_PRESERVED_WINDOWS.includes(value as typeof TURN_TRACE_PRESERVED_WINDOWS[number]);
 }
 
+function isKnownIdentityConflictEngine(value: unknown): boolean {
+  return typeof value === 'string'
+    && IDENTITY_CONFLICT_ENGINES.includes(value as typeof IDENTITY_CONFLICT_ENGINES[number]);
+}
+
+function isKnownIdentityConflictRiskCategory(value: unknown): boolean {
+  return typeof value === 'string'
+    && IDENTITY_CONFLICT_RISK_CATEGORIES.includes(value as typeof IDENTITY_CONFLICT_RISK_CATEGORIES[number]);
+}
+
 function isNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -68,6 +86,30 @@ function hasConsistentCountSet(record: Record<string, unknown>): boolean {
     && typeof record.includedCount === 'number'
     && typeof record.omittedCount === 'number'
     && record.includedCount + record.omittedCount === record.totalCount;
+}
+
+function assertNumericMap(
+  record: Record<string, unknown>,
+  fieldName: string,
+  keyValidator: (value: unknown) => boolean
+): void {
+  for (const [key, value] of Object.entries(record)) {
+    if (!keyValidator(key) || !isNumber(value)) {
+      throw new Error(`compact result input ${fieldName} must use supported numeric keys when present.`);
+    }
+  }
+}
+
+function expectedIdentityIssueKind(engine: unknown): string | null {
+  if (engine === 'terraform') {
+    return 'terraform-create-before-delete-conflict';
+  }
+
+  if (engine === 'pulumi') {
+    return 'pulumi-create-before-delete-conflict';
+  }
+
+  return null;
 }
 
 export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResult {
@@ -224,6 +266,37 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     ) {
       throw new Error('compact result input validation.identityConflictSummary.mutationAllowed must be false when present.');
     }
+
+    if (isRecord(value.validation.identityConflictSummary.byEngine)) {
+      assertNumericMap(
+        value.validation.identityConflictSummary.byEngine,
+        'validation.identityConflictSummary.byEngine',
+        isKnownIdentityConflictEngine
+      );
+    }
+
+    if (isRecord(value.validation.identityConflictSummary.byRiskCategory)) {
+      assertNumericMap(
+        value.validation.identityConflictSummary.byRiskCategory,
+        'validation.identityConflictSummary.byRiskCategory',
+        isKnownIdentityConflictRiskCategory
+      );
+    }
+
+    if (
+      hasNumericCountSet(value.validation.identityConflictSummary)
+      && !hasConsistentCountSet(value.validation.identityConflictSummary)
+    ) {
+      throw new Error('compact result input validation.identityConflictSummary counts must be consistent when present.');
+    }
+
+    if (
+      isNumber(value.validation.identityConflictSummary.includedCount)
+      && isNumber(value.validation.identityConflictSummary.maxEntries)
+      && value.validation.identityConflictSummary.includedCount > value.validation.identityConflictSummary.maxEntries
+    ) {
+      throw new Error('compact result input validation.identityConflictSummary.includedCount must not exceed maxEntries.');
+    }
   }
 
   if (isRecord(value.validation.commands) && 'entries' in value.validation.commands && !Array.isArray(value.validation.commands.entries)) {
@@ -252,12 +325,36 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error(`compact result conflict at index ${index} must be an object.`);
     }
 
-    if (conflict.engine !== 'terraform' && conflict.engine !== 'pulumi') {
+    if (!isKnownIdentityConflictEngine(conflict.engine)) {
       throw new Error(`compact result conflict at index ${index} must include engine terraform or pulumi.`);
     }
 
-    if (!Array.isArray(conflict.reviewSteps)) {
+    if (conflict.issueKind !== expectedIdentityIssueKind(conflict.engine)) {
+      throw new Error(`compact result conflict at index ${index} must include matching engine issueKind.`);
+    }
+
+    if (!isKnownIdentityConflictRiskCategory(conflict.riskCategory)) {
+      throw new Error(`compact result conflict at index ${index} must include supported riskCategory.`);
+    }
+
+    if (!isRecord(conflict.identity)) {
+      throw new Error(`compact result conflict at index ${index} must include identity object.`);
+    }
+
+    if (Object.values(conflict.identity).some(value => typeof value !== 'string')) {
+      throw new Error(`compact result conflict at index ${index} identity values must be strings.`);
+    }
+
+    if (typeof conflict.sourceCommand !== 'string' || conflict.sourceCommand.length === 0) {
+      throw new Error(`compact result conflict at index ${index} must include sourceCommand.`);
+    }
+
+    if (!Array.isArray(conflict.reviewSteps) || conflict.reviewSteps.some(step => typeof step !== 'string')) {
       throw new Error(`compact result conflict at index ${index} must include reviewSteps array.`);
+    }
+
+    if ('mutationAllowed' in conflict && conflict.mutationAllowed !== false) {
+      throw new Error(`compact result conflict at index ${index} mutationAllowed must be false when present.`);
     }
   }
 
