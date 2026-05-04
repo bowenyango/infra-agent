@@ -205,7 +205,11 @@ Current behavior is intentionally runtime-foundation oriented:
   shapes, supported safety and permission categories, boolean mutation flags,
   entry counts, and permission-category totals.
   `harness.toolPermissionSummary` aggregates workspace mutations, native CLI
-  calls, and stack/state mutation-risk tools.
+  calls, stack/state mutation-risk tools, approval-required tools, and
+  permission category totals. Compact consumers validate that summary counts are
+  non-negative integers, category totals equal `totalToolCount`, category keys
+  are supported, and category counts match `harness.toolTrace` permission
+  provenance when both are present.
   Result cards, snapshots, and human output also report repair attempts as
   `used/max` so downstream agents can distinguish unused repair capacity from
   an exhausted repair loop. Result cards also summarize retrieved knowledge

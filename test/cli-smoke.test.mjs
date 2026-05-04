@@ -6672,7 +6672,14 @@ test('compact agent result contract validates shallow handoff shape', () => {
         }
       ],
       stateSummary: {
-        validationIssueCount: 1
+        observationCount: 0,
+        toolSummaryCount: 1,
+        appliedWriteCount: 0,
+        validationResultCount: 1,
+        validationIssueCount: 1,
+        approvalSignalCount: 0,
+        retrievedContextCount: 0,
+        semanticFactCount: 0
       },
       toolTrace: {
         maxEntries: 5,
@@ -6698,6 +6705,16 @@ test('compact agent result contract validates shallow handoff shape', () => {
             summary: 'Read selected Terraform files.'
           }
         ]
+      },
+      toolPermissionSummary: {
+        totalToolCount: 1,
+        workspaceMutationToolCount: 0,
+        externalCommandToolCount: 0,
+        externalStateMutationToolCount: 0,
+        approvalRequiredToolCount: 0,
+        categories: {
+          'workspace-read': 1
+        }
       },
       lifecycleEvents: {
         maxEntries: 12,
@@ -7377,11 +7394,96 @@ test('compact agent result contract validates shallow handoff shape', () => {
       harness: {
         ...validResult.harness,
         stateSummary: {
+          ...validResult.harness.stateSummary,
           validationIssueCount: '1'
         }
       }
     }),
     /harness\.stateSummary/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          semanticFactCount: -1
+        }
+      }
+    }),
+    /harness\.stateSummary/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolPermissionSummary: {
+          ...validResult.harness.toolPermissionSummary,
+          totalToolCount: '1'
+        }
+      }
+    }),
+    /harness\.toolPermissionSummary/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolPermissionSummary: {
+          ...validResult.harness.toolPermissionSummary,
+          workspaceMutationToolCount: 2
+        }
+      }
+    }),
+    /workspaceMutationToolCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolPermissionSummary: {
+          ...validResult.harness.toolPermissionSummary,
+          categories: {
+            ansible: 1
+          }
+        }
+      }
+    }),
+    /toolPermissionSummary\.categories/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolPermissionSummary: {
+          ...validResult.harness.toolPermissionSummary,
+          categories: {
+            'workspace-read': 2
+          }
+        }
+      }
+    }),
+    /toolPermissionSummary\.categories/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolPermissionSummary: {
+          ...validResult.harness.toolPermissionSummary,
+          categories: {
+            'workspace-write': 1
+          }
+        }
+      }
+    }),
+    /must match harness\.toolTrace\.permissionCategoryCounts/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

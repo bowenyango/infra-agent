@@ -616,8 +616,8 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         'retrievedContextCount',
         'semanticFactCount'
       ];
-      if (countKeys.some(key => key in value.harness.stateSummary && !isNumber(value.harness.stateSummary[key]))) {
-        throw new Error('compact result input harness.stateSummary counts must be numbers when present.');
+      if (countKeys.some(key => key in value.harness.stateSummary && !isNonNegativeInteger(value.harness.stateSummary[key]))) {
+        throw new Error('compact result input harness.stateSummary counts must be non-negative integers when present.');
       }
     }
 
@@ -735,6 +735,67 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           && totalPermissionCategoryCount !== (value.harness.toolTrace.totalCount as number)
         ) {
           throw new Error('compact result input harness.toolTrace.permissionCategoryCounts must sum to totalCount when present.');
+        }
+      }
+    }
+
+    if (isRecord(value.harness.toolPermissionSummary)) {
+      const countKeys = [
+        'totalToolCount',
+        'workspaceMutationToolCount',
+        'externalCommandToolCount',
+        'externalStateMutationToolCount',
+        'approvalRequiredToolCount'
+      ];
+      if (countKeys.some(key => key in value.harness.toolPermissionSummary && !isNonNegativeInteger(value.harness.toolPermissionSummary[key]))) {
+        throw new Error('compact result input harness.toolPermissionSummary counts must be non-negative integers when present.');
+      }
+
+      const totalToolCount = isNonNegativeInteger(value.harness.toolPermissionSummary.totalToolCount)
+        ? value.harness.toolPermissionSummary.totalToolCount as number
+        : null;
+
+      if (totalToolCount !== null) {
+        for (const field of countKeys.filter(key => key !== 'totalToolCount')) {
+          if (
+            isNonNegativeInteger(value.harness.toolPermissionSummary[field])
+            && (value.harness.toolPermissionSummary[field] as number) > totalToolCount
+          ) {
+            throw new Error(`compact result input harness.toolPermissionSummary.${field} must not exceed totalToolCount.`);
+          }
+        }
+      }
+
+      if (isRecord(value.harness.toolPermissionSummary.categories)) {
+        let totalCategoryCount = 0;
+        for (const [category, count] of Object.entries(value.harness.toolPermissionSummary.categories)) {
+          if (!isKnownToolPermissionCategory(category) || !isNonNegativeInteger(count)) {
+            throw new Error('compact result input harness.toolPermissionSummary.categories must use supported non-negative integer counts.');
+          }
+          totalCategoryCount += count as number;
+        }
+
+        if (totalToolCount !== null && totalCategoryCount !== totalToolCount) {
+          throw new Error('compact result input harness.toolPermissionSummary.categories must sum to totalToolCount when present.');
+        }
+      }
+
+      if (
+        isRecord(value.harness.toolTrace)
+        && isRecord(value.harness.toolTrace.permissionCategoryCounts)
+        && isRecord(value.harness.toolPermissionSummary.categories)
+      ) {
+        const traceCategories = value.harness.toolTrace.permissionCategoryCounts;
+        const summaryCategories = value.harness.toolPermissionSummary.categories;
+        const categoryNames = new Set([
+          ...Object.keys(traceCategories),
+          ...Object.keys(summaryCategories)
+        ]);
+
+        for (const category of categoryNames) {
+          if (traceCategories[category] !== summaryCategories[category]) {
+            throw new Error('compact result input harness.toolPermissionSummary.categories must match harness.toolTrace.permissionCategoryCounts when present.');
+          }
         }
       }
     }

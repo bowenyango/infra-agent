@@ -4569,6 +4569,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Tool Permission Summary Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.stateSummary` runtime counts as non-negative
+  integers.
+- Validate `harness.toolPermissionSummary` aggregate counts, ensuring mutation
+  and approval counts do not exceed `totalToolCount`.
+- Validate permission summary category keys and totals, and require them to
+  match `harness.toolTrace.permissionCategoryCounts` when both summaries are
+  present.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

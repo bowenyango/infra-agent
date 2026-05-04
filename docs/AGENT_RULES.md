@@ -152,6 +152,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   mutation/approval flags, non-negative budget counts, included-entry length,
   first included turn index, and permission-category counts that sum to
   `totalCount`.
+- Validate compact `harness.toolPermissionSummary` as the aggregate permission
+  posture: non-negative integer tool counts, mutation/approval counts that do
+  not exceed `totalToolCount`, supported permission category keys, category
+  totals that equal `totalToolCount`, and category counts that match
+  `harness.toolTrace.permissionCategoryCounts` when both are present.
 - Keep `harness.plannerHandoff` derived and compact. It may route by last
   action, active blocker, and next control action, but it must not include raw
   prompts, rationales, payloads, observations, or file contents.
@@ -170,9 +175,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   array shape when present, `harness.queryConfig`, `harness.loopBudget`,
   `harness.stateSummary` counts, `harness.turnTraceBudget`,
   `harness.lifecycleEvents`, `harness.toolTrace` budget counts,
+  `harness.toolPermissionSummary` aggregate/category counts,
   `validation.commands`, `validation.issueSummary`, `approval.resume`, and
-  `validation.identityConflicts` before treating the payload as an agent
-  result.
+  `validation.identityConflicts` before treating the payload as an agent result.
 - Treat compact lifecycle and turn-trace budgets as contract data, not prose.
   Validate supported lifecycle event names, numeric event counts, total =
   included + omitted invariants, lifecycle `maxEntries`, event-kind count
