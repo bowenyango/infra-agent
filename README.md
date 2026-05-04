@@ -278,9 +278,11 @@ Current behavior is intentionally runtime-foundation oriented:
   review action. `validation.identityConflictSummary` carries total, included,
   omitted, engine, and risk-category counts so downstream agents do not treat
   the capped `identityConflicts` detail list as exhaustive. Compact result
-  consumers validate identity conflict engine/issue-kind alignment, supported
-  risk categories, identity field shape, review steps, source command, and
-  reporting-only `mutationAllowed=false` posture before deriving reports.
+  consumers validate summary count arithmetic, engine/risk-category totals,
+  included-sample length, summary coverage for included conflicts, identity
+  conflict engine/issue-kind alignment, supported risk categories, identity
+  field shape, review steps, source command, and reporting-only
+  `mutationAllowed=false` posture before deriving reports.
 - `identity-report` renders an existing compact `agent --json` result into a
   read-only `infra-agent.identity-conflict-report` for human operators or other
   agents. It consumes `validation.identityConflicts`; it does not rerun

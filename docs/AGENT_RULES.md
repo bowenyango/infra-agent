@@ -330,7 +330,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Treat `validation.identityConflictSummary` as the authoritative count surface
   for exclusive-identity blockers. `validation.identityConflicts` is a capped
   detail sample, so consumers must check total, included, omitted, engine, and
-  risk-category counts before assuming all blockers are visible.
+  risk-category counts before assuming all blockers are visible. Validate that
+  summary counts are non-negative integers, included plus omitted equals total,
+  included count matches the conflict sample length, engine/risk-category maps
+  sum to total, and included conflicts are covered by those maps.
 - Compact identity conflict consumers must reject malformed conflict samples:
   engine must match issue kind, risk category must be one of the supported
   triage categories, `identity` must be a string-valued object, `sourceCommand`

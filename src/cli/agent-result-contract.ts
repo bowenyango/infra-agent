@@ -253,8 +253,8 @@ function assertNumericMap(
   keyValidator: (value: unknown) => boolean
 ): void {
   for (const [key, value] of Object.entries(record)) {
-    if (!keyValidator(key) || !isNumber(value)) {
-      throw new Error(`compact result input ${fieldName} must use supported numeric keys when present.`);
+    if (!keyValidator(key) || !isNonNegativeInteger(value)) {
+      throw new Error(`compact result input ${fieldName} must use supported non-negative integer keys when present.`);
     }
   }
 }
@@ -1109,50 +1109,71 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input must include validation.identityConflicts array.');
   }
 
-  if (isRecord(value.validation.identityConflictSummary)) {
-    for (const field of ['totalCount', 'includedCount', 'maxEntries', 'omittedCount']) {
-      if (field in value.validation.identityConflictSummary && !isNumber(value.validation.identityConflictSummary[field])) {
-        throw new Error(`compact result input validation.identityConflictSummary.${field} must be a number when present.`);
-      }
-    }
+  if (!isRecord(value.validation.identityConflictSummary)) {
+    throw new Error('compact result input must include validation.identityConflictSummary object.');
+  }
 
-    if (
-      'mutationAllowed' in value.validation.identityConflictSummary
-      && value.validation.identityConflictSummary.mutationAllowed !== false
-    ) {
-      throw new Error('compact result input validation.identityConflictSummary.mutationAllowed must be false when present.');
-    }
+  for (const field of ['totalCount', 'includedCount', 'maxEntries', 'omittedCount']) {
+    assertIntegerField(
+      value.validation.identityConflictSummary,
+      field,
+      'validation.identityConflictSummary',
+      isNonNegativeInteger,
+      'a non-negative integer'
+    );
+  }
 
-    if (isRecord(value.validation.identityConflictSummary.byEngine)) {
-      assertNumericMap(
-        value.validation.identityConflictSummary.byEngine,
-        'validation.identityConflictSummary.byEngine',
-        isKnownIdentityConflictEngine
-      );
-    }
+  if (value.validation.identityConflictSummary.mutationAllowed !== false) {
+    throw new Error('compact result input validation.identityConflictSummary.mutationAllowed must be false.');
+  }
 
-    if (isRecord(value.validation.identityConflictSummary.byRiskCategory)) {
-      assertNumericMap(
-        value.validation.identityConflictSummary.byRiskCategory,
-        'validation.identityConflictSummary.byRiskCategory',
-        isKnownIdentityConflictRiskCategory
-      );
-    }
+  if (
+    !hasConsistentCountSet(value.validation.identityConflictSummary)
+  ) {
+    throw new Error('compact result input validation.identityConflictSummary counts must be consistent.');
+  }
 
-    if (
-      hasNumericCountSet(value.validation.identityConflictSummary)
-      && !hasConsistentCountSet(value.validation.identityConflictSummary)
-    ) {
-      throw new Error('compact result input validation.identityConflictSummary counts must be consistent when present.');
-    }
+  if (
+    (value.validation.identityConflictSummary.includedCount as number)
+    > (value.validation.identityConflictSummary.maxEntries as number)
+  ) {
+    throw new Error('compact result input validation.identityConflictSummary.includedCount must not exceed maxEntries.');
+  }
 
-    if (
-      isNumber(value.validation.identityConflictSummary.includedCount)
-      && isNumber(value.validation.identityConflictSummary.maxEntries)
-      && value.validation.identityConflictSummary.includedCount > value.validation.identityConflictSummary.maxEntries
-    ) {
-      throw new Error('compact result input validation.identityConflictSummary.includedCount must not exceed maxEntries.');
-    }
+  if ((value.validation.identityConflictSummary.includedCount as number) !== value.validation.identityConflicts.length) {
+    throw new Error('compact result input validation.identityConflictSummary.includedCount must match validation.identityConflicts length.');
+  }
+
+  if (!isRecord(value.validation.identityConflictSummary.byEngine)) {
+    throw new Error('compact result input validation.identityConflictSummary.byEngine must be an object.');
+  }
+
+  assertNumericMap(
+    value.validation.identityConflictSummary.byEngine,
+    'validation.identityConflictSummary.byEngine',
+    isKnownIdentityConflictEngine
+  );
+
+  if (!isRecord(value.validation.identityConflictSummary.byRiskCategory)) {
+    throw new Error('compact result input validation.identityConflictSummary.byRiskCategory must be an object.');
+  }
+
+  assertNumericMap(
+    value.validation.identityConflictSummary.byRiskCategory,
+    'validation.identityConflictSummary.byRiskCategory',
+    isKnownIdentityConflictRiskCategory
+  );
+
+  const byEngineTotal = Object.values(value.validation.identityConflictSummary.byEngine)
+    .reduce((total, count) => total + (count as number), 0);
+  if (byEngineTotal !== value.validation.identityConflictSummary.totalCount) {
+    throw new Error('compact result input validation.identityConflictSummary.byEngine counts must sum to totalCount.');
+  }
+
+  const byRiskCategoryTotal = Object.values(value.validation.identityConflictSummary.byRiskCategory)
+    .reduce((total, count) => total + (count as number), 0);
+  if (byRiskCategoryTotal !== value.validation.identityConflictSummary.totalCount) {
+    throw new Error('compact result input validation.identityConflictSummary.byRiskCategory counts must sum to totalCount.');
   }
 
   for (const field of ['targetCommandCount', 'yamlGuardCount']) {
@@ -1579,6 +1600,9 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
+  const includedIdentityConflictCountsByEngine = new Map<string, number>();
+  const includedIdentityConflictCountsByRiskCategory = new Map<string, number>();
+
   for (let index = 0; index < value.validation.identityConflicts.length; index += 1) {
     const conflict = value.validation.identityConflicts[index];
     if (!isRecord(conflict)) {
@@ -1615,6 +1639,41 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
     if ('mutationAllowed' in conflict && conflict.mutationAllowed !== false) {
       throw new Error(`compact result conflict at index ${index} mutationAllowed must be false when present.`);
+    }
+
+    includedIdentityConflictCountsByEngine.set(
+      conflict.engine as string,
+      (includedIdentityConflictCountsByEngine.get(conflict.engine as string) ?? 0) + 1
+    );
+    includedIdentityConflictCountsByRiskCategory.set(
+      conflict.riskCategory as string,
+      (includedIdentityConflictCountsByRiskCategory.get(conflict.riskCategory as string) ?? 0) + 1
+    );
+  }
+
+  for (const [engine, includedCount] of includedIdentityConflictCountsByEngine) {
+    if (includedCount > (value.validation.identityConflictSummary.byEngine[engine] as number)) {
+      throw new Error('compact result input validation.identityConflictSummary.byEngine must cover included conflicts.');
+    }
+  }
+
+  for (const [riskCategory, includedCount] of includedIdentityConflictCountsByRiskCategory) {
+    if (includedCount > (value.validation.identityConflictSummary.byRiskCategory[riskCategory] as number)) {
+      throw new Error('compact result input validation.identityConflictSummary.byRiskCategory must cover included conflicts.');
+    }
+  }
+
+  if ((value.validation.identityConflictSummary.omittedCount as number) === 0) {
+    for (const [engine, totalCount] of Object.entries(value.validation.identityConflictSummary.byEngine)) {
+      if ((includedIdentityConflictCountsByEngine.get(engine) ?? 0) !== totalCount) {
+        throw new Error('compact result input validation.identityConflictSummary.byEngine must match included conflicts when none are omitted.');
+      }
+    }
+
+    for (const [riskCategory, totalCount] of Object.entries(value.validation.identityConflictSummary.byRiskCategory)) {
+      if ((includedIdentityConflictCountsByRiskCategory.get(riskCategory) ?? 0) !== totalCount) {
+        throw new Error('compact result input validation.identityConflictSummary.byRiskCategory must match included conflicts when none are omitted.');
+      }
     }
   }
 

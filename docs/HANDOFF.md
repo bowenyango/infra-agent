@@ -4741,6 +4741,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Identity Aggregate Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `validation.identityConflictSummary` as the authoritative
+  count surface for capped identity conflict samples.
+- Validate non-negative integer summary counts, included/omitted arithmetic,
+  included sample length, and engine/risk-category map totals.
+- Validate included conflicts are covered by summary engine and risk-category
+  counts, while preserving the existing conflict detail shape checks.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

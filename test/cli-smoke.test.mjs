@@ -7657,6 +7657,16 @@ test('compact agent result contract validates shallow handoff shape', () => {
       ...validResult,
       validation: {
         ...validResult.validation,
+        identityConflictSummary: null
+      }
+    }),
+    /identityConflictSummary object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
         identityConflictSummary: {
           ...validResult.validation.identityConflictSummary,
           totalCount: '1'
@@ -7715,6 +7725,20 @@ test('compact agent result contract validates shallow handoff shape', () => {
         ...validResult.validation,
         identityConflictSummary: {
           ...validResult.validation.identityConflictSummary,
+          includedCount: 0,
+          omittedCount: 1
+        }
+      }
+    }),
+    /identityConflictSummary\.includedCount.*identityConflicts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
           byEngine: {
             ansible: 1
           }
@@ -7730,6 +7754,38 @@ test('compact agent result contract validates shallow handoff shape', () => {
         ...validResult.validation,
         identityConflictSummary: {
           ...validResult.validation.identityConflictSummary,
+          byEngine: {
+            terraform: 0,
+            pulumi: 0
+          }
+        }
+      }
+    }),
+    /identityConflictSummary\.byEngine counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          byEngine: {
+            terraform: 0,
+            pulumi: 1
+          }
+        }
+      }
+    }),
+    /identityConflictSummary\.byEngine must cover/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
           byRiskCategory: {
             'create-before-delete-ordering': '1'
           }
@@ -7737,6 +7793,44 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /identityConflictSummary\.byRiskCategory/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          byRiskCategory: {
+            'create-before-delete-ordering': 0,
+            'dns-or-domain-ownership': 0,
+            'exclusive-identity-review': 0,
+            'kubernetes-object-ownership': 0,
+            'physical-name-ownership': 0
+          }
+        }
+      }
+    }),
+    /identityConflictSummary\.byRiskCategory counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        identityConflictSummary: {
+          ...validResult.validation.identityConflictSummary,
+          byRiskCategory: {
+            'create-before-delete-ordering': 0,
+            'dns-or-domain-ownership': 0,
+            'exclusive-identity-review': 0,
+            'kubernetes-object-ownership': 0,
+            'physical-name-ownership': 1
+          }
+        }
+      }
+    }),
+    /identityConflictSummary\.byRiskCategory must cover/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -8329,7 +8423,6 @@ test('compact agent result contract validates shallow handoff shape', () => {
       ...validResult,
       validation: {
         ...validResult.validation,
-        identityConflicts: [],
         commands: {
           entries: {}
         }
@@ -8421,7 +8514,6 @@ test('compact agent result contract validates shallow handoff shape', () => {
       ...validResult,
       validation: {
         ...validResult.validation,
-        identityConflicts: [],
         issueSummary: {
           ...validResult.validation.issueSummary,
           groups: {}
@@ -8435,7 +8527,6 @@ test('compact agent result contract validates shallow handoff shape', () => {
       ...validResult,
       validation: {
         ...validResult.validation,
-        identityConflicts: [],
         safetyBlockers: {
           ...validResult.validation.safetyBlockers,
           entries: {}
