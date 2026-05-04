@@ -41,6 +41,12 @@ function assertNumberField(record: Record<string, unknown>, field: string, label
   }
 }
 
+function assertNonNegativeInteger(value: unknown, label: string): void {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new Error(`infra graph input ${label} must be a non-negative integer.`);
+  }
+}
+
 function assertStringField(record: Record<string, unknown>, field: string, label: string): void {
   if (typeof record[field] !== 'string') {
     throw new Error(`infra graph input ${label}.${field} must be a string.`);
@@ -55,6 +61,51 @@ function assertSupportedField(
 ): void {
   if (typeof record[field] !== 'string' || !supportedValues.has(record[field])) {
     throw new Error(`infra graph input ${label}.${field} must be a supported value.`);
+  }
+}
+
+function assertSummaryKindCounts(
+  summary: Record<string, unknown>,
+  field: string,
+  items: unknown[],
+  itemField: string,
+  supportedValues: Set<string>
+): void {
+  const label = `summary.${field}`;
+  const value = summary[field];
+  if (!isRecord(value)) {
+    throw new Error(`infra graph input ${label} must be an object.`);
+  }
+
+  const actualCounts = new Map<string, number>();
+  for (const item of items) {
+    if (isRecord(item)) {
+      const kind = item[itemField];
+      if (typeof kind !== 'string') {
+        continue;
+      }
+
+      actualCounts.set(kind, (actualCounts.get(kind) ?? 0) + 1);
+    }
+  }
+
+  for (const [kind, count] of Object.entries(value)) {
+    if (!supportedValues.has(kind)) {
+      throw new Error(`infra graph input ${label}.${kind} must be a supported graph kind.`);
+    }
+
+    assertNonNegativeInteger(count, `${label}.${kind}`);
+
+    const actualCount = actualCounts.get(kind) ?? 0;
+    if (actualCount === 0 && count !== 0) {
+      throw new Error(`infra graph input ${label}.${kind} must be 0 when no matching entries are present.`);
+    }
+  }
+
+  for (const [kind, actualCount] of actualCounts.entries()) {
+    if (value[kind] !== actualCount) {
+      throw new Error(`infra graph input ${label}.${kind} must match actual ${itemField} totals.`);
+    }
   }
 }
 
@@ -131,6 +182,8 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
 
   assertNumberField(value.summary, 'nodeCount', 'summary');
   assertNumberField(value.summary, 'edgeCount', 'summary');
+  assertSummaryKindCounts(value.summary, 'nodesByKind', value.nodes, 'kind', SUPPORTED_NODE_KINDS);
+  assertSummaryKindCounts(value.summary, 'edgesByKind', value.edges, 'kind', SUPPORTED_EDGE_KINDS);
 
   if (value.summary.nodeCount !== value.nodes.length) {
     throw new Error('infra graph input summary.nodeCount must match nodes.length.');

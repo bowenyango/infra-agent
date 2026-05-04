@@ -86,6 +86,28 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Infra Graph Contract Kind Count Map Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require `summary.nodesByKind` and `summary.edgesByKind` in
+  `infra-agent.infra-graph` inputs to be objects.
+- Reject unsupported graph kind labels and values that are not non-negative
+  integers in both summary maps.
+- Require summary kind counts to match actual node and edge kind totals,
+  including missing present-kind counts and nonzero absent-kind counts.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "infra graph contract" test/cli-smoke.test.mjs`: passed with 1 test.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Contract Entry Shape Slice
 
 Files added or updated:
