@@ -241,7 +241,10 @@ Current behavior is intentionally runtime-foundation oriented:
   `infra-agent.agent-result` JSON with `schemaVersion: 1`, not full debug
   output or graph JSON. Reports include `mutationAllowed: false`,
   `incidentSummary`, and `omittedIncidentCount` so capped incident details are
-  explicit in downstream handoff.
+  explicit in downstream handoff. The generated report is parsed through its
+  own contract gate before return, including read-only posture, incident count
+  consistency, engine/risk grouped counts, string-valued identities, and
+  incident-level `mutationAllowed=false`.
   When a run is blocked by runtime exclusive-identity conflicts, suggested
   commands include an `agent --json > agent-result.json` export followed by
   `identity-report agent-result.json --json`.

@@ -46,7 +46,10 @@ import {
   loadInfraGraphImpactReport,
   parseInfraGraphImpactReport
 } from '../src/cli/infra-graph-report.ts';
-import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
+import {
+  loadIdentityConflictIncidentReport,
+  parseIdentityConflictIncidentReport
+} from '../src/cli/identity-report.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
 import { SearchWorkspaceTool } from '../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
@@ -7005,6 +7008,185 @@ test('identity-report loader renders compact conflict reports from a JSON file',
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('identity conflict incident report contract validates read-only report shape', () => {
+  const validReport = {
+    kind: 'infra-agent.identity-conflict-report',
+    schemaVersion: 1,
+    sourceKind: 'infra-agent.agent-result',
+    sourceSchemaVersion: 1,
+    sourceTask: 'update terraform listener priority',
+    workspaceRoot: '/workspace',
+    outcome: 'validation-blocked',
+    mutationAllowed: false,
+    incidentCount: 1,
+    omittedIncidentCount: 0,
+    incidentSummary: {
+      totalCount: 1,
+      includedCount: 1,
+      maxEntries: 5,
+      omittedCount: 0,
+      mutationAllowed: false,
+      byEngine: {
+        terraform: 1,
+        pulumi: 0
+      },
+      byRiskCategory: {
+        'create-before-delete-ordering': 1,
+        'dns-or-domain-ownership': 0,
+        'exclusive-identity-review': 0,
+        'kubernetes-object-ownership': 0,
+        'physical-name-ownership': 0
+      }
+    },
+    summary: [
+      'Terraform AWS listener rule at aws_lb_listener_rule.api: listenerRulePriorities=100.'
+    ],
+    incidents: [
+      {
+        engine: 'terraform',
+        issueKind: 'terraform-create-before-delete-conflict',
+        conflictCode: 'PriorityInUse',
+        conflictFamily: 'aws-lb-listener-rule',
+        conflictLabel: 'AWS Load Balancer Listener Rule',
+        resourceLocator: 'aws_lb_listener_rule.api',
+        resourceType: 'aws_lb_listener_rule',
+        identity: {
+          listenerRulePriorities: '100'
+        },
+        riskCategory: 'create-before-delete-ordering',
+        reviewSteps: [
+          'Review Terraform locator aws_lb_listener_rule.api against existing state/stack ownership.'
+        ],
+        suggestedAction: 'Use an IaC-native rename mapping for logical renames.',
+        sourceCommand: 'terraform -chdir=terraform/payments-api plan',
+        mutationAllowed: false
+      }
+    ]
+  };
+
+  assert.equal(parseIdentityConflictIncidentReport(validReport).kind, 'infra-agent.identity-conflict-report');
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({ ...validReport, kind: 'infra-agent.agent-result' }),
+    /identity-conflict-report/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({ ...validReport, schemaVersion: 2 }),
+    /schemaVersion 1/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({ ...validReport, mutationAllowed: true }),
+    /mutationAllowed/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({ ...validReport, incidentCount: 2 }),
+    /incidents length/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidentSummary: {
+        ...validReport.incidentSummary,
+        totalCount: 2
+      }
+    }),
+    /incidentSummary counts/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      omittedIncidentCount: 1
+    }),
+    /omittedIncidentCount/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidentSummary: {
+        ...validReport.incidentSummary,
+        byEngine: {
+          terraform: 0,
+          pulumi: 0
+        }
+      }
+    }),
+    /incidentSummary\.byEngine counts/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidentSummary: {
+        ...validReport.incidentSummary,
+        byRiskCategory: {
+          'create-before-delete-ordering': '1'
+        }
+      }
+    }),
+    /incidentSummary\.byRiskCategory/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidents: [
+        {
+          ...validReport.incidents[0],
+          issueKind: 'pulumi-create-before-delete-conflict'
+        }
+      ]
+    }),
+    /incident at index 0.*issueKind/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidents: [
+        {
+          ...validReport.incidents[0],
+          identity: {
+            listenerRulePriorities: 100
+          }
+        }
+      ]
+    }),
+    /incident at index 0 identity/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidents: [
+        {
+          ...validReport.incidents[0],
+          riskCategory: 'unexpected'
+        }
+      ]
+    }),
+    /incident at index 0.*riskCategory/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidents: [
+        {
+          ...validReport.incidents[0],
+          reviewSteps: ['review', 1]
+        }
+      ]
+    }),
+    /incident at index 0.*reviewSteps/
+  );
+  assert.throws(
+    () => parseIdentityConflictIncidentReport({
+      ...validReport,
+      incidents: [
+        {
+          ...validReport.incidents[0],
+          mutationAllowed: true
+        }
+      ]
+    }),
+    /incident at index 0.*mutationAllowed/
+  );
 });
 
 test('identity-report loader rejects non-compact result inputs', async () => {

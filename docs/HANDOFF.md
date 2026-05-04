@@ -4203,6 +4203,33 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Identity Report Contract Parser Slice
+
+Files added or updated:
+
+- `src/cli/identity-report.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `parseIdentityConflictIncidentReport` for generated
+  `infra-agent.identity-conflict-report` payloads.
+- Validate report kind/schema, compact source schema, supported outcome,
+  root and incident `mutationAllowed=false`, incident count consistency,
+  summary total/included/omitted invariants, engine/risk grouped counts, and
+  string-only incident identity/review-step fields.
+- Run the loader's generated report through the parser before returning it so
+  downstream handoff gets a verified read-only report.
+
+Known validation:
+
+- `npm run test:unit` passed with 275 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:
