@@ -41,6 +41,10 @@ import {
 } from '../src/cli/exit-codes.ts';
 import { parseCompactAgentRunResult } from '../src/cli/agent-result-contract.ts';
 import { parseInfraGraphResult } from '../src/cli/infra-graph-contract.ts';
+import {
+  buildInfraGraphImpactReport,
+  loadInfraGraphImpactReport
+} from '../src/cli/infra-graph-report.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
@@ -6043,6 +6047,85 @@ test('infra graph contract validates shallow impact handoff shape', () => {
     }),
     /reviewTargets\[0\]\.mutationAllowed/
   );
+});
+
+test('infra graph impact report loader renders read-only graph impact summary', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-graph-report-'));
+  const inputPath = join(tempRoot, 'graph.json');
+  const graph = {
+    kind: 'infra-agent.infra-graph',
+    schemaVersion: 1,
+    workspaceRoot: 'fixtures/sample-workspace',
+    nodes: [],
+    edges: [
+      {
+        id: 'possible-rename:old->new',
+        from: 'terraform-resource:old',
+        to: 'terraform-resource:new',
+        kind: 'possible-rename',
+        confidence: 'medium',
+        source: 'terraform-plan'
+      }
+    ],
+    summary: {
+      nodeCount: 0,
+      edgeCount: 1,
+      nodesByKind: {},
+      edgesByKind: {
+        'possible-rename': 1
+      },
+      impact: {
+        dependencyEdges: 0,
+        createBeforeDeleteConflicts: 0,
+        mutationAllowed: false,
+        omittedReviewTargets: 2,
+        plannedChanges: 1,
+        possibleRenames: 1,
+        primaryConcern: 'possible-renames',
+        recommendedAction: 'review-possible-renames',
+        replacementCascades: 0,
+        reviewSteps: ['Review possible rename before state operations.'],
+        reviewTargets: [
+          {
+            edgeId: 'possible-rename:old->new',
+            kind: 'possible-rename',
+            priority: 1,
+            from: 'terraform-resource:old',
+            to: 'terraform-resource:new',
+            confidence: 'medium',
+            source: 'terraform-plan',
+            mutationAllowed: false,
+            recommendedAction: 'review-possible-renames',
+            riskCategory: 'possible-rename-review',
+            reviewSteps: ['Compare identity before any state move.']
+          }
+        ],
+        riskLevel: 'medium'
+      }
+    }
+  };
+
+  try {
+    await writeFile(inputPath, JSON.stringify(graph), 'utf8');
+    const report = await loadInfraGraphImpactReport(inputPath);
+    const directReport = buildInfraGraphImpactReport(parseInfraGraphResult(graph));
+
+    assert.equal(report.kind, 'infra-agent.infra-graph-impact-report');
+    assert.equal(report.sourceKind, 'infra-agent.infra-graph');
+    assert.equal(report.sourceSchemaVersion, 1);
+    assert.equal(report.mutationAllowed, false);
+    assert.equal(report.riskLevel, 'medium');
+    assert.equal(report.primaryConcern, 'possible-renames');
+    assert.equal(report.recommendedAction, 'review-possible-renames');
+    assert.equal(report.counts.possibleRenames, 1);
+    assert.equal(report.reviewTargetCount, 1);
+    assert.equal(report.omittedReviewTargetCount, 2);
+    assert.equal(report.reviewTargets[0]?.mutationAllowed, false);
+    assert.deepEqual(directReport.counts, report.counts);
+    assert.ok(report.summary.some(line => /mutation allowed=false/i.test(line)));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('compact agent result contract validates shallow handoff shape', () => {

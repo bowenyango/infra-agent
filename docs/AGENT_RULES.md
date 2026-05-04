@@ -208,6 +208,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - When consuming saved graph JSON, parse it as compact `infra-agent.infra-graph`
   schema version 1 before trusting impact fields. Reject graph payloads where
   `summary.impact.mutationAllowed` or any impact review target is not `false`.
+- Graph impact reports are read-only summaries of existing
+  `infra-agent.infra-graph` JSON. They do not rerun Terraform, Pulumi, Helm, or
+  Kubernetes commands and do not authorize state moves, aliases, imports, or
+  apply/update operations.
 - Use `infra-agent graph --terraform-plan <plan.json> --target <terraform-root> --json` to attach Terraform plan actions without executing Terraform. Treat replacement and rename guidance as advisory until reviewed against state.
 - Use `infra-agent graph --pulumi-preview <preview.json> --target <pulumi-project> --json` to attach Pulumi preview actions without executing Pulumi.
 - Keep graph contract changes covered by stable graph snapshots before building or changing topology UI behavior. Update snapshot fixtures deliberately when graph semantics change, not as incidental churn.

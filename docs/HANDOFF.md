@@ -3849,6 +3849,30 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Infra Graph Impact Report Loader Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-report.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a read-only graph impact report builder and loader for saved
+  `infra-agent.infra-graph` JSON.
+- Reuse the graph contract parser before reporting impact, preserve
+  `mutationAllowed=false`, and surface compact counts, review target counts,
+  omitted review target counts, and existing graph impact summaries.
+- Record that graph impact reports summarize existing graph JSON only; they do
+  not rerun native tools or authorize remediation.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Contract Parser Slice
 
 Files added or updated:
