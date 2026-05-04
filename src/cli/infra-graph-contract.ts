@@ -27,6 +27,10 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
     throw new Error('infra graph input mutationAllowed must be false.');
   }
 
+  if (typeof value.workspaceRoot !== 'string') {
+    throw new Error('infra graph input workspaceRoot must be a string.');
+  }
+
   if (!Array.isArray(value.nodes)) {
     throw new Error('infra graph input must include nodes array.');
   }
@@ -41,6 +45,14 @@ export function parseInfraGraphResult(value: unknown): InfraGraph {
 
   assertNumberField(value.summary, 'nodeCount', 'summary');
   assertNumberField(value.summary, 'edgeCount', 'summary');
+
+  if (value.summary.nodeCount !== value.nodes.length) {
+    throw new Error('infra graph input summary.nodeCount must match nodes.length.');
+  }
+
+  if (value.summary.edgeCount !== value.edges.length) {
+    throw new Error('infra graph input summary.edgeCount must match edges.length.');
+  }
 
   if (isRecord(value.summary.impact)) {
     const impact = value.summary.impact;

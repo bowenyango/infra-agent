@@ -6530,6 +6530,10 @@ test('infra graph contract validates shallow impact handoff shape', () => {
     /mutationAllowed/
   );
   assert.throws(
+    () => parseInfraGraphResult({ ...validGraph, workspaceRoot: null }),
+    /workspaceRoot/
+  );
+  assert.throws(
     () => parseInfraGraphResult({ ...validGraph, nodes: {} }),
     /nodes array/
   );
@@ -6542,6 +6546,26 @@ test('infra graph contract validates shallow impact handoff shape', () => {
       }
     }),
     /summary\.nodeCount/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        nodeCount: 1
+      }
+    }),
+    /summary\.nodeCount.*nodes\.length/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        edgeCount: 1
+      }
+    }),
+    /summary\.edgeCount.*edges\.length/
   );
   assert.throws(
     () => parseInfraGraphResult({
