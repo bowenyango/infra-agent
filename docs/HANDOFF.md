@@ -3849,6 +3849,30 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Infra Graph Contract Parser Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a shallow `infra-agent.infra-graph` contract parser for saved graph JSON
+  handoffs.
+- Validate graph kind, schema version, node/edge arrays, summary counts, impact
+  review target shape, and `mutationAllowed=false` posture before downstream
+  report consumers trust graph impact data.
+- Add focused unit coverage for rejecting malformed graph JSON and graph impact
+  payloads that imply mutation authority.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Compact Validation Safety Blockers Slice
 
 Files added or updated:

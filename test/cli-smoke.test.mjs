@@ -40,6 +40,7 @@ import {
   INFRA_AGENT_EXIT_CODES
 } from '../src/cli/exit-codes.ts';
 import { parseCompactAgentRunResult } from '../src/cli/agent-result-contract.ts';
+import { parseInfraGraphResult } from '../src/cli/infra-graph-contract.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
 import { PulumiConfigSetTool } from '../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
@@ -5943,6 +5944,105 @@ test('identity-report CLI args accept compact result input path', () => {
   assert.equal(parsed.inputPath, 'agent-result.json');
   assert.equal(parsed.workspace, process.cwd());
   assert.equal(parsed.json, true);
+});
+
+test('infra graph contract validates shallow impact handoff shape', () => {
+  const validGraph = {
+    kind: 'infra-agent.infra-graph',
+    schemaVersion: 1,
+    workspaceRoot: 'fixtures/sample-workspace',
+    nodes: [],
+    edges: [],
+    summary: {
+      nodeCount: 0,
+      edgeCount: 0,
+      nodesByKind: {},
+      edgesByKind: {},
+      impact: {
+        dependencyEdges: 0,
+        createBeforeDeleteConflicts: 0,
+        mutationAllowed: false,
+        omittedReviewTargets: 0,
+        plannedChanges: 0,
+        possibleRenames: 0,
+        primaryConcern: 'none',
+        recommendedAction: 'none',
+        replacementCascades: 0,
+        reviewSteps: [],
+        reviewTargets: [
+          {
+            edgeId: 'edge-1',
+            kind: 'possible-rename',
+            priority: 1,
+            from: 'terraform-resource:old',
+            to: 'terraform-resource:new',
+            confidence: 'medium',
+            source: 'terraform-plan',
+            mutationAllowed: false,
+            recommendedAction: 'review-possible-renames',
+            riskCategory: 'possible-rename-review',
+            reviewSteps: []
+          }
+        ],
+        riskLevel: 'none'
+      }
+    }
+  };
+
+  assert.equal(parseInfraGraphResult(validGraph).kind, 'infra-agent.infra-graph');
+  assert.throws(
+    () => parseInfraGraphResult({ ...validGraph, kind: 'infra-agent.agent-result' }),
+    /infra-agent\.infra-graph/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({ ...validGraph, schemaVersion: 2 }),
+    /schemaVersion 1/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({ ...validGraph, nodes: {} }),
+    /nodes array/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        nodeCount: '0'
+      }
+    }),
+    /summary\.nodeCount/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          mutationAllowed: true
+        }
+      }
+    }),
+    /summary\.impact\.mutationAllowed/
+  );
+  assert.throws(
+    () => parseInfraGraphResult({
+      ...validGraph,
+      summary: {
+        ...validGraph.summary,
+        impact: {
+          ...validGraph.summary.impact,
+          reviewTargets: [
+            {
+              ...validGraph.summary.impact.reviewTargets[0],
+              mutationAllowed: true
+            }
+          ]
+        }
+      }
+    }),
+    /reviewTargets\[0\]\.mutationAllowed/
+  );
 });
 
 test('compact agent result contract validates shallow handoff shape', () => {
