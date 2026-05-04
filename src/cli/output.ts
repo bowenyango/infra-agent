@@ -3093,7 +3093,8 @@ export function printInfraGraphImpactReport(report: InfraGraphImpactReport): voi
   process.stdout.write(`recommended action: ${report.recommendedAction}\n`);
   process.stdout.write('mutation allowed: no\n');
   process.stdout.write(`review targets: ${report.reviewTargetCount}\n`);
-  process.stdout.write(`omitted review targets: ${report.omittedReviewTargetCount}\n\n`);
+  process.stdout.write(`omitted review targets: ${report.omittedReviewTargetCount}\n`);
+  process.stdout.write(`review target budget: ${report.reviewTargetBudget.includedTargets}/${report.reviewTargetBudget.totalTargets} included; ${report.reviewTargetBudget.omittedTargets} omitted; max ${report.reviewTargetBudget.maxTargets}\n\n`);
 
   printHeader('Counts');
   process.stdout.write(`planned changes: ${report.counts.plannedChanges}\n`);

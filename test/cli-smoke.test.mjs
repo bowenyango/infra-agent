@@ -7560,6 +7560,12 @@ test('infra graph impact report loader renders read-only graph impact summary', 
             reviewSteps: ['Compare identity before any state move.']
           }
         ],
+        reviewTargetBudget: {
+          maxTargets: 5,
+          totalTargets: 3,
+          includedTargets: 1,
+          omittedTargets: 2
+        },
         riskLevel: 'medium'
       }
     }
@@ -7597,9 +7603,33 @@ test('infra graph impact report loader renders read-only graph impact summary', 
     assert.equal(report.sourceProvenance.hasWorkspaceInspection, true);
     assert.equal(report.reviewTargetCount, 1);
     assert.equal(report.omittedReviewTargetCount, 2);
+    assert.deepEqual(report.reviewTargetBudget, {
+      maxTargets: 5,
+      totalTargets: 3,
+      includedTargets: 1,
+      omittedTargets: 2
+    });
     assert.equal(report.reviewTargets[0]?.mutationAllowed, false);
+    assert.deepEqual(directReport.reviewTargetBudget, report.reviewTargetBudget);
     assert.deepEqual(directReport.counts, report.counts);
     assert.ok(report.summary.some(line => /mutation allowed=false/i.test(line)));
+
+    const legacyReport = buildInfraGraphImpactReport({
+      ...graph,
+      summary: {
+        ...graph.summary,
+        impact: {
+          ...graph.summary.impact,
+          reviewTargetBudget: undefined
+        }
+      }
+    });
+    assert.deepEqual(legacyReport.reviewTargetBudget, {
+      maxTargets: 1,
+      totalTargets: 3,
+      includedTargets: 1,
+      omittedTargets: 2
+    });
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -7638,6 +7668,12 @@ test('infra graph impact report contract validates read-only handoff shape', () 
     },
     reviewTargetCount: 1,
     omittedReviewTargetCount: 0,
+    reviewTargetBudget: {
+      maxTargets: 5,
+      totalTargets: 1,
+      includedTargets: 1,
+      omittedTargets: 0
+    },
     summary: ['Risk: medium.'],
     reviewTargets: [
       {
@@ -7688,6 +7724,54 @@ test('infra graph impact report contract validates read-only handoff shape', () 
       }
     }),
     /sourceProvenance\.hasTerraformPlan/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargetBudget: undefined
+    }),
+    /reviewTargetBudget.*object/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargetBudget: {
+        ...validReport.reviewTargetBudget,
+        maxTargets: -1
+      }
+    }),
+    /reviewTargetBudget\.maxTargets.*non-negative integer/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargetBudget: {
+        ...validReport.reviewTargetBudget,
+        omittedTargets: 1
+      }
+    }),
+    /includedTargets \+ omittedTargets.*totalTargets/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargetCount: 2
+    }),
+    /includedTargets.*reviewTargetCount/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      omittedReviewTargetCount: 1
+    }),
+    /omittedTargets.*omittedReviewTargetCount/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: []
+    }),
+    /includedTargets.*reviewTargets\.length/
   );
   assert.throws(
     () => parseInfraGraphImpactReport({

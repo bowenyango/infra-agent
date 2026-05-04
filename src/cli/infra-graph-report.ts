@@ -26,6 +26,12 @@ export interface InfraGraphImpactReport {
   sourceProvenance: NonNullable<InfraGraph['summary']['sourceProvenance']>;
   reviewTargetCount: number;
   omittedReviewTargetCount: number;
+  reviewTargetBudget: {
+    maxTargets: number;
+    totalTargets: number;
+    includedTargets: number;
+    omittedTargets: number;
+  };
   summary: string[];
   reviewTargets: InfraGraphImpactReviewTarget[];
 }
@@ -41,6 +47,12 @@ function isFiniteNumber(value: unknown): boolean {
 function assertRequiredNumberField(record: Record<string, unknown>, field: string, label: string): void {
   if (!isFiniteNumber(record[field])) {
     throw new Error(`infra graph impact report ${label}.${field} must be a finite number.`);
+  }
+}
+
+function assertNonNegativeIntegerField(record: Record<string, unknown>, field: string, label: string): void {
+  if (!Number.isInteger(record[field]) || (record[field] as number) < 0) {
+    throw new Error(`infra graph impact report ${label}.${field} must be a non-negative integer.`);
   }
 }
 
@@ -63,6 +75,13 @@ function countEdges(graph: InfraGraph, kind: string): number {
 export function buildInfraGraphImpactReport(graph: InfraGraph): InfraGraphImpactReport {
   const impact = graph.summary.impact;
   const reviewTargets = impact?.reviewTargets ?? [];
+  const omittedReviewTargetCount = impact?.omittedReviewTargets ?? 0;
+  const reviewTargetBudget = impact?.reviewTargetBudget ?? {
+    maxTargets: reviewTargets.length,
+    totalTargets: reviewTargets.length + omittedReviewTargetCount,
+    includedTargets: reviewTargets.length,
+    omittedTargets: omittedReviewTargetCount
+  };
 
   return {
     kind: 'infra-agent.infra-graph-impact-report',
@@ -83,7 +102,8 @@ export function buildInfraGraphImpactReport(graph: InfraGraph): InfraGraphImpact
     },
     sourceProvenance: graph.summary.sourceProvenance ?? collectInfraGraphSourceProvenance(graph.nodes, graph.edges),
     reviewTargetCount: reviewTargets.length,
-    omittedReviewTargetCount: impact?.omittedReviewTargets ?? 0,
+    omittedReviewTargetCount,
+    reviewTargetBudget,
     summary: summarizeInfraGraphImpact(graph),
     reviewTargets
   };
@@ -152,8 +172,17 @@ export function parseInfraGraphImpactReport(value: unknown): InfraGraphImpactRep
     }
   }
 
-  assertRequiredNumberField(value, 'reviewTargetCount', 'root');
-  assertRequiredNumberField(value, 'omittedReviewTargetCount', 'root');
+  assertNonNegativeIntegerField(value, 'reviewTargetCount', 'root');
+  assertNonNegativeIntegerField(value, 'omittedReviewTargetCount', 'root');
+
+  if (!isRecord(value.reviewTargetBudget)) {
+    throw new Error('infra graph impact report reviewTargetBudget must be an object.');
+  }
+  const reviewTargetBudget = value.reviewTargetBudget;
+
+  for (const field of ['maxTargets', 'totalTargets', 'includedTargets', 'omittedTargets']) {
+    assertNonNegativeIntegerField(reviewTargetBudget, field, 'reviewTargetBudget');
+  }
 
   if (!Array.isArray(value.summary)) {
     throw new Error('infra graph impact report summary must be an array.');
@@ -178,6 +207,27 @@ export function parseInfraGraphImpactReport(value: unknown): InfraGraphImpactRep
     if (target.mutationAllowed !== false) {
       throw new Error(`infra graph impact report reviewTargets[${index}].mutationAllowed must be false.`);
     }
+  }
+
+  const reviewTargetCount = value.reviewTargetCount as number;
+  const includedTargets = reviewTargetBudget.includedTargets as number;
+  const omittedTargets = reviewTargetBudget.omittedTargets as number;
+  const totalTargets = reviewTargetBudget.totalTargets as number;
+
+  if (includedTargets + omittedTargets !== totalTargets) {
+    throw new Error('infra graph impact report reviewTargetBudget includedTargets + omittedTargets must equal totalTargets.');
+  }
+
+  if (includedTargets !== reviewTargetCount) {
+    throw new Error('infra graph impact report reviewTargetBudget.includedTargets must equal reviewTargetCount.');
+  }
+
+  if (omittedTargets !== value.omittedReviewTargetCount) {
+    throw new Error('infra graph impact report reviewTargetBudget.omittedTargets must equal omittedReviewTargetCount.');
+  }
+
+  if (includedTargets !== value.reviewTargets.length) {
+    throw new Error('infra graph impact report reviewTargetBudget.includedTargets must equal reviewTargets.length.');
   }
 
   return value as InfraGraphImpactReport;

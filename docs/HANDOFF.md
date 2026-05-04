@@ -86,6 +86,30 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Infra Graph Impact Report Budget Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-report.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `reviewTargetBudget` to `infra-agent.infra-graph-impact-report` JSON.
+- Mirror `summary.impact.reviewTargetBudget` when present and derive a compact
+  legacy budget from included and omitted review target counts when absent.
+- Validate impact-report budget fields as non-negative integers and require
+  included/omitted arithmetic plus included-count consistency with
+  `reviewTargetCount` and `reviewTargets.length`.
+- Print the compact review-target budget in the human text report.
+
+Known validation:
+
+- `/Users/ybw/.nvm/versions/node/v22.15.0/bin/node --experimental-strip-types --test-name-pattern "impact report" test/cli-smoke.test.mjs`: passed with 2 tests.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Contract Review Target Slice
 
 Files added or updated:
