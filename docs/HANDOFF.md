@@ -3871,6 +3871,30 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Compact Repair Budget Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `harness.repairBudget` to `infra-agent.agent-result` output.
+- Report repair attempts used, max attempts, remaining attempts, and exhaustion
+  as structured JSON instead of requiring downstream agents to parse result-card
+  text.
+- Preserve existing repair behavior; this is an agent-facing reporting change
+  only.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-03 Compact Turn Trace Budget Slice
 
 Files added or updated:

@@ -185,6 +185,12 @@ export interface CompactAgentRunResult {
       turnsRemaining: number;
       exhausted: boolean;
     };
+    repairBudget: {
+      attemptsUsed: number;
+      maxAttempts: number;
+      attemptsRemaining: number;
+      exhausted: boolean;
+    };
     stateSummary: {
       observationCount: number;
       toolSummaryCount: number;
@@ -650,6 +656,17 @@ function collectLoopBudget(state: AgentRunState): CompactAgentRunResult['harness
     maxTurns,
     turnsRemaining: Math.max(0, maxTurns - turnsUsed),
     exhausted: turnsUsed >= maxTurns && state.outcome === 'no-safe-action'
+  };
+}
+
+function collectRepairBudget(state: AgentRunState): CompactAgentRunResult['harness']['repairBudget'] {
+  const attemptsUsed = state.runtime.repairAttempts;
+  const maxAttempts = getAgentMaxRepairAttempts(state);
+  return {
+    attemptsUsed,
+    maxAttempts,
+    attemptsRemaining: Math.max(0, maxAttempts - attemptsUsed),
+    exhausted: state.outcome === 'repair-budget-exhausted' || attemptsUsed >= maxAttempts
   };
 }
 
@@ -1595,6 +1612,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         retrievedContextBudget: queryConfig.retrievedContextBudget
       },
       loopBudget: collectLoopBudget(state),
+      repairBudget: collectRepairBudget(state),
       stateSummary: collectRuntimeStateSummary(state),
       plannerHandoff: collectPlannerHandoff(state),
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
