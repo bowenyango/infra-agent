@@ -128,6 +128,19 @@ interface CompactToolTraceEntry {
   summary: string;
 }
 
+interface CompactLifecycleEvent {
+  event: 'query-started' | 'decision' | 'tool-execution' | 'approval-gate' | 'terminal';
+  turnIndex: number | null;
+  actionKind: string | null;
+  actionFamily: string | null;
+  executionStatus: string | null;
+  reason: string | null;
+  toolCount: number;
+  approvalSignalCount: number;
+  validationIssueCount: number;
+  outcome: AgentRunState['outcome'] | null;
+}
+
 interface CompactApprovalSignal {
   kind: ApprovalSignal['kind'];
   message: string;
@@ -251,6 +264,11 @@ export interface CompactAgentRunResult {
         | 'manual-repair'
         | 'rerun-with-larger-turn-budget'
         | 'inspect-readiness-or-targeting';
+    };
+    lifecycleEvents: {
+      maxEntries: number;
+      omittedCount: number;
+      events: CompactLifecycleEvent[];
     };
     turnTraceLimit: number;
     turnTraceOmittedCount: number;
@@ -676,6 +694,7 @@ function isTerminalTurnAction(kind: string): boolean {
 
 const COMPACT_TOOL_TRACE_LIMIT = 8;
 const COMPACT_TURN_TRACE_LIMIT = 10;
+const COMPACT_LIFECYCLE_EVENT_LIMIT = 12;
 const COMPACT_IDENTITY_CONFLICT_LIMIT = 5;
 const COMPACT_VALIDATION_COMMAND_LIMIT = 8;
 const COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT = 5;
@@ -700,6 +719,59 @@ function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] 
     validationIssueCount: turn.runtimeSnapshot.validationIssues.length,
     approvalSignalCount: turn.runtimeSnapshot.approvalSignals.length
   }));
+}
+
+function compactLifecycleEvent(
+  event: CompactLifecycleEvent['event'],
+  turn: AgentRunState['turns'][number] | null,
+  state: AgentRunState,
+  outcome: AgentRunState['outcome'] | null = null
+): CompactLifecycleEvent {
+  return {
+    event,
+    turnIndex: turn?.index ?? null,
+    actionKind: turn?.decision.action.kind ?? null,
+    actionFamily: turn?.decision.action.payload?.actionFamily ?? null,
+    executionStatus: turn?.execution?.status ?? null,
+    reason: turn?.execution?.reason ?? (outcome ? `outcome:${outcome}` : null),
+    toolCount: turn?.execution?.executedTools.length ?? 0,
+    approvalSignalCount: turn?.runtimeSnapshot.approvalSignals.length ?? state.runtime.approvalSignals.length,
+    validationIssueCount: turn?.runtimeSnapshot.validationIssues.length ?? state.runtime.validationIssues.length,
+    outcome
+  };
+}
+
+function collectCompactLifecycleEvents(state: AgentRunState): CompactAgentRunResult['harness']['lifecycleEvents'] {
+  const events: CompactLifecycleEvent[] = [
+    compactLifecycleEvent('query-started', null, state)
+  ];
+
+  for (const turn of state.turns) {
+    events.push(compactLifecycleEvent('decision', turn, state));
+
+    if ((turn.execution?.executedTools.length ?? 0) > 0) {
+      events.push(compactLifecycleEvent('tool-execution', turn, state));
+    }
+
+    if (
+      turn.runtimeSnapshot.approvalSignals.length > 0
+      || /approval/i.test(turn.execution?.reason ?? '')
+    ) {
+      events.push(compactLifecycleEvent('approval-gate', turn, state));
+    }
+  }
+
+  events.push(compactLifecycleEvent('terminal', state.turns[state.turns.length - 1] ?? null, state, state.outcome));
+
+  const entries = events.length <= COMPACT_LIFECYCLE_EVENT_LIMIT
+    ? events
+    : [events[0], ...events.slice(-(COMPACT_LIFECYCLE_EVENT_LIMIT - 1))];
+
+  return {
+    maxEntries: COMPACT_LIFECYCLE_EVENT_LIMIT,
+    omittedCount: Math.max(0, events.length - entries.length),
+    events: entries
+  };
 }
 
 function getAgentMaxTurns(state: AgentRunState): number {
@@ -1847,6 +1919,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       repairBudget: collectRepairBudget(state),
       stateSummary: collectRuntimeStateSummary(state),
       plannerHandoff: collectPlannerHandoff(state),
+      lifecycleEvents: collectCompactLifecycleEvents(state),
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,
       turnTraceOmittedCount: Math.max(0, state.turns.length - COMPACT_TURN_TRACE_LIMIT),
       turnTrace: collectCompactTurnTrace(state),

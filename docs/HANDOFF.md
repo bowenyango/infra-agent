@@ -3928,6 +3928,33 @@ Known validation:
 - `npm run test:unit` passed with 273 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Lifecycle Events Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add budgeted `harness.lifecycleEvents` to compact `infra-agent.agent-result`
+  output with query-started, decision, tool-execution, approval-gate, and
+  terminal events derived from existing turns and runtime state.
+- Preserve event budget metadata while avoiding timestamps, raw decisions,
+  prompts, full runtime snapshots, or raw tool output.
+- Extend the compact result contract parser to validate the lifecycle event
+  array shape when present.
+
+Known validation:
+
+- `npm run test:unit` passed with 273 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

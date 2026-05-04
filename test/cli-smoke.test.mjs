@@ -5231,6 +5231,19 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.plannerHandoff.nextControlAction, 'rerun-with-larger-turn-budget');
     assert.equal(compact.harness.plannerHandoff.lastAction.kind, 'inspect-target-files');
     assert.equal(compact.harness.plannerHandoff.lastAction.executionStatus, 'completed');
+    assert.equal(compact.harness.lifecycleEvents.maxEntries, 12);
+    assert.equal(compact.harness.lifecycleEvents.omittedCount, 0);
+    assert.equal(compact.harness.lifecycleEvents.events[0]?.event, 'query-started');
+    assert.ok(compact.harness.lifecycleEvents.events.some(event =>
+      event.event === 'decision'
+      && event.actionKind === 'inspect-target-files'
+    ));
+    assert.ok(compact.harness.lifecycleEvents.events.some(event =>
+      event.event === 'tool-execution'
+      && event.toolCount > 0
+    ));
+    assert.equal(compact.harness.lifecycleEvents.events.at(-1)?.event, 'terminal');
+    assert.equal(compact.harness.lifecycleEvents.events.at(-1)?.outcome, 'no-safe-action');
     assert.ok(compact.resultCard.some(line => /Turn budget: 1\/1 turn\(s\) used; exhausted/i.test(line)));
     assert.equal(compact.harness.turnTraceLimit, 10);
     assert.equal(compact.harness.turnTraceOmittedCount, 0);
@@ -5348,6 +5361,14 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
   const compact = buildCompactAgentRunResult(state);
 
   assert.equal(compact.harness.turnTrace[0]?.executionStatus, 'skipped');
+  assert.ok(compact.harness.lifecycleEvents.events.some(event =>
+    event.event === 'decision'
+    && event.actionKind === 'validate-targets'
+    && event.executionStatus === 'skipped'
+    && /No validation commands/.test(event.reason ?? '')
+  ));
+  assert.equal(compact.harness.lifecycleEvents.events.at(-1)?.event, 'terminal');
+  assert.equal(compact.harness.lifecycleEvents.events.at(-1)?.outcome, 'no-safe-action');
   assert.equal(
     compact.harness.turnTrace[0]?.executionReason,
     'No validation commands were present in the decision payload.'
@@ -6304,6 +6325,9 @@ test('compact agent result contract validates shallow handoff shape', () => {
       toolTrace: {
         entries: []
       },
+      lifecycleEvents: {
+        events: []
+      },
       plannerHandoff: {
         activeBlocker: {
           kind: 'validation'
@@ -6374,6 +6398,17 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.toolTrace\.entries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        lifecycleEvents: {
+          events: {}
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.events/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

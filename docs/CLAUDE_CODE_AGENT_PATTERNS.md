@@ -84,6 +84,9 @@ durable design reference for infra-agent development.
 - `harness.plannerHandoff` is the compact routing surface. It should derive
   last action, active blocker, and next control action from existing state
   without exposing rationale, raw decision payloads, prompts, or observations.
+- `harness.lifecycleEvents` is the budgeted query lifecycle surface. It should
+  expose query start, decisions, tool execution, approval gates, and terminal
+  outcome without timestamps, full prompts, raw decisions, or raw tool output.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
   deterministic tool summaries and an omitted count, not full tool outputs.
 - Tool summaries should carry explicit permission categories such as workspace

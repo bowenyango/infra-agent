@@ -83,6 +83,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.toolTrace.entries must be an array when present.');
     }
 
+    if (
+      isRecord(value.harness.lifecycleEvents)
+      && 'events' in value.harness.lifecycleEvents
+      && !Array.isArray(value.harness.lifecycleEvents.events)
+    ) {
+      throw new Error('compact result input harness.lifecycleEvents.events must be an array when present.');
+    }
+
     if (isRecord(value.harness.plannerHandoff)) {
       if (
         isRecord(value.harness.plannerHandoff.activeBlocker)
