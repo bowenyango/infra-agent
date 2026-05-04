@@ -51,8 +51,9 @@ durable design reference for infra-agent development.
   discovered in the workspace, and should stay separate from executed
   validation command output.
 - `validation.commands` is the compact executed-validation surface. It should
-  keep command status and short previews under a fixed budget instead of
-  passing raw native CLI logs through ordinary handoff payloads.
+  keep command status, short previews, and unsafe-command rule metadata under a
+  fixed budget instead of passing raw native CLI logs through ordinary handoff
+  payloads.
 - `validation.issueSummary` is the compact blocker-shape surface. It should
   expose grouped kind/repairability counts, omitted issue/group counts, and
   coarse blocker flags before downstream agents inspect sampled issue messages.

@@ -5403,7 +5403,14 @@ test('buildCompactAgentRunResult includes budgeted validation command summaries'
   assert.equal(compact.validation.commands.entries[0]?.kind, 'yaml-guard');
   assert.equal(compact.validation.commands.entries[1]?.status, 'failed');
   assert.equal(compact.validation.commands.entries[1]?.stdoutPreview.length, 303);
+  assert.equal(compact.validation.commands.entries[1]?.unsafeRuleId, null);
+  assert.equal(compact.validation.commands.entries[1]?.unsafeReason, null);
   assert.equal(compact.validation.commands.entries[2]?.unsafeBlocked, true);
+  assert.equal(compact.validation.commands.entries[2]?.unsafeRuleId, 'terraform-apply-destroy');
+  assert.equal(
+    compact.validation.commands.entries[2]?.unsafeReason,
+    'Terraform apply and destroy commands are deploy/state mutation operations, not validation.'
+  );
   assert.equal(Object.hasOwn(compact, 'runtime'), false);
 });
 

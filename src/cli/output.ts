@@ -59,6 +59,7 @@ import {
 } from '../impact/graph-impact-summary.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
 import type { DoctorReport } from './doctor.ts';
+import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
 type GraphImpactSummary = NonNullable<InfraGraph['summary']['impact']>;
@@ -260,6 +261,8 @@ export interface CompactAgentRunResult {
         stdoutPreview: string;
         stderrPreview: string;
         unsafeBlocked: boolean;
+        unsafeRuleId: string | null;
+        unsafeReason: string | null;
       }>;
     };
     issueSummary: {
@@ -843,16 +846,52 @@ function compactOutputPreview(value: string): string {
   return `${trimmed.slice(0, COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS)}...`;
 }
 
+function summarizeUnsafeValidationCommand(result: ValidationCommandOutput): {
+  unsafeBlocked: boolean;
+  unsafeRuleId: string | null;
+  unsafeReason: string | null;
+} {
+  const classified = classifyUnsafeValidationCommand(result.command);
+  if (classified) {
+    return {
+      unsafeBlocked: true,
+      unsafeRuleId: classified.matchedPattern,
+      unsafeReason: classified.reason
+    };
+  }
+
+  const output = `${result.stdout}\n${result.stderr}`;
+  const blockedMatch = output.match(/infra-agent blocked unsafe validation command:\s*([^\n[]+?)(?:\s*\[([^\]\n]+)\])?(?:\n|$)/i);
+  if (!blockedMatch) {
+    return {
+      unsafeBlocked: false,
+      unsafeRuleId: null,
+      unsafeReason: null
+    };
+  }
+
+  return {
+    unsafeBlocked: true,
+    unsafeRuleId: blockedMatch[2]?.trim() || null,
+    unsafeReason: blockedMatch[1]?.trim() || null
+  };
+}
+
 function collectValidationCommandSummaries(state: AgentRunState): CompactAgentRunResult['validation']['commands'] {
-  const entries = state.runtime.validationResults.slice(-COMPACT_VALIDATION_COMMAND_LIMIT).map(result => ({
-    command: result.command,
-    exitCode: result.exitCode,
-    status: result.exitCode === 0 ? 'passed' as const : 'failed' as const,
-    kind: isYamlSyntaxValidationCommand(result.command) ? 'yaml-guard' as const : 'target-validation' as const,
-    stdoutPreview: compactOutputPreview(result.stdout),
-    stderrPreview: compactOutputPreview(result.stderr),
-    unsafeBlocked: /infra-agent blocked unsafe validation command:/i.test(`${result.stdout}\n${result.stderr}`)
-  }));
+  const entries = state.runtime.validationResults.slice(-COMPACT_VALIDATION_COMMAND_LIMIT).map(result => {
+    const unsafe = summarizeUnsafeValidationCommand(result);
+    return {
+      command: result.command,
+      exitCode: result.exitCode,
+      status: result.exitCode === 0 ? 'passed' as const : 'failed' as const,
+      kind: isYamlSyntaxValidationCommand(result.command) ? 'yaml-guard' as const : 'target-validation' as const,
+      stdoutPreview: compactOutputPreview(result.stdout),
+      stderrPreview: compactOutputPreview(result.stderr),
+      unsafeBlocked: unsafe.unsafeBlocked,
+      unsafeRuleId: unsafe.unsafeRuleId,
+      unsafeReason: unsafe.unsafeReason
+    };
+  });
 
   return {
     maxEntries: COMPACT_VALIDATION_COMMAND_LIMIT,

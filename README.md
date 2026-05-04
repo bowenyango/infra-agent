@@ -195,7 +195,8 @@ Current behavior is intentionally runtime-foundation oriented:
   commands, including executed and failed command counts, so downstream agents
   can tell what validation was intended before raw tool output is requested.
   `validation.commands` carries a budgeted list of recent executed validation
-  commands with pass/fail status and short stdout/stderr previews.
+  commands with pass/fail status, short stdout/stderr previews, and structured
+  unsafe-command rule metadata when a mutation command is blocked.
   `validation.issueSummary` groups active validation blockers by issue kind and
   repairability with counts, source-command counts, omitted issue/group totals,
   and booleans for repairable, non-repairable, unsafe-command, YAML syntax, and

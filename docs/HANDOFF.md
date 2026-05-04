@@ -3849,6 +3849,30 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Unsafe Validation Command Metadata Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extend compact `validation.commands.entries` with `unsafeRuleId` and
+  `unsafeReason` fields alongside the existing `unsafeBlocked` boolean.
+- Derive metadata from the same command-safety classifier used by
+  `validate_targets`, with a stderr fallback for older blocked command output.
+- Keep downstream agents from scraping native stderr to identify why a validation
+  command was rejected as unsafe.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Execution Approval Gate Slice
 
 Files added or updated:
