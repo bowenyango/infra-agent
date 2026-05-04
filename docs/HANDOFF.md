@@ -3849,6 +3849,32 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Graph Impact Report Contract Slice
+
+Files added or updated:
+
+- `src/cli/infra-graph-report.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `parseInfraGraphImpactReport` so downstream agents can validate saved
+  `infra-agent.infra-graph-impact-report` payloads before consuming them as
+  handoff context.
+- Enforce schema version 1, source graph schema metadata, finite count fields,
+  source provenance shape, summary arrays, and read-only `mutationAllowed=false`
+  posture on the report and each review target.
+- Document that impact report JSON is still only a read-only triage artifact and
+  does not authorize native mutation or state operations.
+
+Known validation:
+
+- `npm run test:unit` passed with 272 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

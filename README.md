@@ -232,7 +232,10 @@ Current behavior is intentionally runtime-foundation oriented:
   JSON, validates schema version 1 and mutation-disallowed impact posture, and
   does not rerun native validators or mutate state. The report includes source
   provenance so downstream agents can distinguish workspace-inspection facts
-  from Terraform plan or Pulumi preview impact data.
+  from Terraform plan or Pulumi preview impact data. Agents consuming saved
+  impact report JSON should validate the
+  `infra-agent.infra-graph-impact-report` schema and require
+  `mutationAllowed: false` before using it as handoff context.
 - `agent` can resume past approval-required pauses by rerunning with explicit
   approval flags such as `--approve-write-risk high` with optional
   `--approve-write-path charts/payments-api`, or

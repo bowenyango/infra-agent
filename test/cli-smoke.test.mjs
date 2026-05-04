@@ -43,7 +43,8 @@ import { parseCompactAgentRunResult } from '../src/cli/agent-result-contract.ts'
 import { parseInfraGraphResult } from '../src/cli/infra-graph-contract.ts';
 import {
   buildInfraGraphImpactReport,
-  loadInfraGraphImpactReport
+  loadInfraGraphImpactReport,
+  parseInfraGraphImpactReport
 } from '../src/cli/infra-graph-report.ts';
 import { loadIdentityConflictIncidentReport } from '../src/cli/identity-report.ts';
 import { executeTool } from '../src/services/tools/execute-tool.ts';
@@ -6165,6 +6166,104 @@ test('infra graph impact report loader renders read-only graph impact summary', 
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('infra graph impact report contract validates read-only handoff shape', () => {
+  const validReport = {
+    kind: 'infra-agent.infra-graph-impact-report',
+    schemaVersion: 1,
+    sourceKind: 'infra-agent.infra-graph',
+    sourceSchemaVersion: 1,
+    workspaceRoot: 'fixtures/sample-workspace',
+    riskLevel: 'medium',
+    primaryConcern: 'possible-renames',
+    recommendedAction: 'review-possible-renames',
+    mutationAllowed: false,
+    counts: {
+      plannedChanges: 1,
+      dependencyEdges: 0,
+      possibleRenames: 1,
+      replacementCascades: 0,
+      createBeforeDeleteConflicts: 0
+    },
+    sourceProvenance: {
+      sources: [
+        {
+          source: 'terraform-plan',
+          nodeCount: 0,
+          edgeCount: 1,
+          totalCount: 1
+        }
+      ],
+      hasWorkspaceInspection: false,
+      hasTerraformPlan: true,
+      hasPulumiPreview: false
+    },
+    reviewTargetCount: 1,
+    omittedReviewTargetCount: 0,
+    summary: ['Risk: medium.'],
+    reviewTargets: [
+      {
+        edgeId: 'possible-rename:old->new',
+        kind: 'possible-rename',
+        priority: 1,
+        from: 'terraform-resource:old',
+        to: 'terraform-resource:new',
+        confidence: 'medium',
+        source: 'terraform-plan',
+        mutationAllowed: false,
+        recommendedAction: 'review-possible-renames',
+        riskCategory: 'possible-rename-review',
+        reviewSteps: []
+      }
+    ]
+  };
+
+  assert.equal(parseInfraGraphImpactReport(validReport).kind, 'infra-agent.infra-graph-impact-report');
+  assert.throws(
+    () => parseInfraGraphImpactReport({ ...validReport, kind: 'infra-agent.infra-graph' }),
+    /infra-agent\.infra-graph-impact-report/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({ ...validReport, schemaVersion: 2 }),
+    /schemaVersion 1/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({ ...validReport, mutationAllowed: true }),
+    /mutationAllowed/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      counts: {
+        ...validReport.counts,
+        plannedChanges: '1'
+      }
+    }),
+    /counts\.plannedChanges/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      sourceProvenance: {
+        ...validReport.sourceProvenance,
+        hasTerraformPlan: 'yes'
+      }
+    }),
+    /sourceProvenance\.hasTerraformPlan/
+  );
+  assert.throws(
+    () => parseInfraGraphImpactReport({
+      ...validReport,
+      reviewTargets: [
+        {
+          ...validReport.reviewTargets[0],
+          mutationAllowed: true
+        }
+      ]
+    }),
+    /reviewTargets\[0\]\.mutationAllowed/
+  );
 });
 
 test('compact agent result contract validates shallow handoff shape', () => {
