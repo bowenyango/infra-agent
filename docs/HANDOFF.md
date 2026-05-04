@@ -4495,6 +4495,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Planner Handoff Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.plannerHandoff.lastAction` kind, family,
+  stop-reason, clarification-kind, and execution-status values.
+- Validate active blocker issue/signal metadata and require it to match blocker
+  kind.
+- Validate outcome-to-active-blocker and outcome-to-next-control-action
+  consistency so downstream agents can route handoff without raw planner state.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

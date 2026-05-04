@@ -188,7 +188,9 @@ Current behavior is intentionally runtime-foundation oriented:
   facts without exposing the full runtime state.
   `harness.plannerHandoff` reports the last action, active blocker, and next
   control action so another agent can route the run without reading raw
-  decisions, prompts, or runtime arrays.
+  decisions, prompts, or runtime arrays. Compact consumers validate last-action
+  enums, blocker issue/signal kinds, stop/clarification coherence, and
+  outcome-to-control-action consistency.
   `harness.lifecycleEvents` is a budgeted event stream for query start,
   decisions, tool execution, approval gates, and terminal outcome. It keeps
   lifecycle routing explicit with total, included, omitted, and event-kind

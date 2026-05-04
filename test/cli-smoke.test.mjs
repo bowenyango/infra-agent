@@ -6713,8 +6713,17 @@ test('compact agent result contract validates shallow handoff shape', () => {
         events: []
       },
       plannerHandoff: {
+        lastAction: {
+          kind: 'stop',
+          family: 'validation-blocked',
+          stopReason: 'validation-blocked',
+          clarificationKind: null,
+          executionStatus: null
+        },
         activeBlocker: {
-          kind: 'validation'
+          kind: 'validation',
+          validationIssueKind: 'terraform-create-before-delete-conflict',
+          approvalSignalKind: null
         },
         nextControlAction: 'resolve-validation'
       }
@@ -7317,10 +7326,11 @@ test('compact agent result contract validates shallow handoff shape', () => {
       harness: {
         ...validResult.harness,
         plannerHandoff: {
+          ...validResult.harness.plannerHandoff,
           activeBlocker: {
+            ...validResult.harness.plannerHandoff.activeBlocker,
             kind: 'unexpected'
-          },
-          nextControlAction: 'resolve-validation'
+          }
         }
       }
     }),
@@ -7332,7 +7342,9 @@ test('compact agent result contract validates shallow handoff shape', () => {
       harness: {
         ...validResult.harness,
         plannerHandoff: {
+          ...validResult.harness.plannerHandoff,
           activeBlocker: {
+            ...validResult.harness.plannerHandoff.activeBlocker,
             kind: 'validation'
           },
           nextControlAction: 'unexpected'
@@ -7340,6 +7352,67 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /plannerHandoff\.nextControlAction/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        plannerHandoff: {
+          ...validResult.harness.plannerHandoff,
+          lastAction: {
+            ...validResult.harness.plannerHandoff.lastAction,
+            kind: 'unexpected'
+          }
+        }
+      }
+    }),
+    /plannerHandoff\.lastAction\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        plannerHandoff: {
+          ...validResult.harness.plannerHandoff,
+          lastAction: {
+            ...validResult.harness.plannerHandoff.lastAction,
+            stopReason: null
+          }
+        }
+      }
+    }),
+    /plannerHandoff\.lastAction\.stopReason/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        plannerHandoff: {
+          ...validResult.harness.plannerHandoff,
+          activeBlocker: {
+            ...validResult.harness.plannerHandoff.activeBlocker,
+            validationIssueKind: 'new-validation-kind'
+          }
+        }
+      }
+    }),
+    /plannerHandoff\.activeBlocker\.validationIssueKind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        plannerHandoff: {
+          ...validResult.harness.plannerHandoff,
+          nextControlAction: 'review-result'
+        }
+      }
+    }),
+    /plannerHandoff\.nextControlAction must match outcome/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

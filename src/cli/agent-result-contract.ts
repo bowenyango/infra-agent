@@ -37,6 +37,19 @@ const TOOL_PERMISSION_CATEGORIES = [
 const DOCTOR_CHECK_STATUSES = ['pass', 'warn', 'fail'] as const;
 const VALIDATION_COMMAND_STATUSES = ['passed', 'failed'] as const;
 const VALIDATION_COMMAND_KINDS = ['yaml-guard', 'target-validation'] as const;
+const VALIDATION_ISSUE_KINDS = [
+  'helm-missing-service-port',
+  'helm-missing-ingress-values',
+  'pulumi-create-before-delete-conflict',
+  'pulumi-missing-config',
+  'pulumi-preview-failure',
+  'terraform-create-before-delete-conflict',
+  'terraform-formatting-required',
+  'terraform-validate-failure',
+  'unsafe-validation-command',
+  'yaml-syntax-failure',
+  'unknown-validation-failure'
+] as const;
 const FILE_WRITE_RISKS = ['low', 'medium', 'high'] as const;
 const APPROVAL_SIGNAL_KINDS = ['write-approval-required', 'tool-category-approval-required'] as const;
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
@@ -128,6 +141,10 @@ function isKnownValidationCommandStatus(value: unknown): boolean {
 
 function isKnownValidationCommandKind(value: unknown): boolean {
   return typeof value === 'string' && VALIDATION_COMMAND_KINDS.includes(value as typeof VALIDATION_COMMAND_KINDS[number]);
+}
+
+function isKnownValidationIssueKind(value: unknown): boolean {
+  return typeof value === 'string' && VALIDATION_ISSUE_KINDS.includes(value as typeof VALIDATION_ISSUE_KINDS[number]);
 }
 
 function isKnownFileWriteRisk(value: unknown): boolean {
@@ -770,6 +787,47 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
 
     if (isRecord(value.harness.plannerHandoff)) {
+      if (!isRecord(value.harness.plannerHandoff.lastAction)) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction must be an object when present.');
+      }
+
+      const lastAction = value.harness.plannerHandoff.lastAction;
+      if (lastAction.kind !== null && !isKnownAgentActionKind(lastAction.kind)) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.kind must be supported or null.');
+      }
+
+      if (lastAction.family !== null && !isKnownAgentActionFamily(lastAction.family)) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.family must be supported or null.');
+      }
+
+      if (lastAction.stopReason !== null && !isKnownAgentStopReason(lastAction.stopReason)) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.stopReason must be supported or null.');
+      }
+
+      if (lastAction.clarificationKind !== null && !isKnownAgentClarificationKind(lastAction.clarificationKind)) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.clarificationKind must be supported or null.');
+      }
+
+      if (lastAction.executionStatus !== null && !isKnownAgentDecisionExecutionStatus(lastAction.executionStatus)) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.executionStatus must be supported or null.');
+      }
+
+      if (lastAction.kind === 'stop' && lastAction.stopReason === null) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.stopReason is required for stop actions.');
+      }
+
+      if (lastAction.kind !== 'stop' && lastAction.stopReason !== null) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.stopReason must be null unless kind is stop.');
+      }
+
+      if (lastAction.kind === 'ask-for-clarification' && lastAction.clarificationKind === null) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.clarificationKind is required for clarification actions.');
+      }
+
+      if (lastAction.kind !== 'ask-for-clarification' && lastAction.clarificationKind !== null) {
+        throw new Error('compact result input harness.plannerHandoff.lastAction.clarificationKind must be null unless kind asks for clarification.');
+      }
+
       if (
         isRecord(value.harness.plannerHandoff.activeBlocker)
         && !isKnownPlannerHandoffActiveBlocker(value.harness.plannerHandoff.activeBlocker.kind)
@@ -777,8 +835,73 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input harness.plannerHandoff.activeBlocker.kind must be supported when present.');
       }
 
+      if (!isRecord(value.harness.plannerHandoff.activeBlocker)) {
+        throw new Error('compact result input harness.plannerHandoff.activeBlocker must be an object when present.');
+      }
+
+      const activeBlocker = value.harness.plannerHandoff.activeBlocker;
+      if (activeBlocker.validationIssueKind !== null && !isKnownValidationIssueKind(activeBlocker.validationIssueKind)) {
+        throw new Error('compact result input harness.plannerHandoff.activeBlocker.validationIssueKind must be supported or null.');
+      }
+
+      if (activeBlocker.approvalSignalKind !== null && !isKnownApprovalSignalKind(activeBlocker.approvalSignalKind)) {
+        throw new Error('compact result input harness.plannerHandoff.activeBlocker.approvalSignalKind must be supported or null.');
+      }
+
+      if (activeBlocker.kind !== 'validation' && activeBlocker.validationIssueKind !== null) {
+        throw new Error('compact result input harness.plannerHandoff.activeBlocker.validationIssueKind must be null unless blocker kind is validation.');
+      }
+
+      if (activeBlocker.kind !== 'approval' && activeBlocker.approvalSignalKind !== null) {
+        throw new Error('compact result input harness.plannerHandoff.activeBlocker.approvalSignalKind must be null unless blocker kind is approval.');
+      }
+
       if (!isKnownPlannerHandoffNextControlAction(value.harness.plannerHandoff.nextControlAction)) {
         throw new Error('compact result input harness.plannerHandoff.nextControlAction must be supported when present.');
+      }
+
+      const expectedActiveBlockerKind = (() => {
+        switch (value.outcome) {
+          case 'completed':
+            return 'none';
+          case 'approval-required':
+            return 'approval';
+          case 'clarification-required':
+            return 'clarification';
+          case 'validation-blocked':
+            return 'validation';
+          case 'repair-budget-exhausted':
+            return 'repair-budget';
+          case 'no-safe-action':
+            return isRecord(value.harness) && isRecord(value.harness.loopBudget) && value.harness.loopBudget.exhausted === true
+              ? 'turn-budget'
+              : 'no-safe-action';
+        }
+      })();
+      if (activeBlocker.kind !== expectedActiveBlockerKind) {
+        throw new Error('compact result input harness.plannerHandoff.activeBlocker.kind must match outcome.');
+      }
+
+      const expectedNextControlAction = (() => {
+        switch (value.outcome) {
+          case 'completed':
+            return 'review-result';
+          case 'approval-required':
+            return 'request-approval';
+          case 'clarification-required':
+            return 'answer-clarification';
+          case 'validation-blocked':
+            return 'resolve-validation';
+          case 'repair-budget-exhausted':
+            return 'manual-repair';
+          case 'no-safe-action':
+            return expectedActiveBlockerKind === 'turn-budget'
+              ? 'rerun-with-larger-turn-budget'
+              : 'inspect-readiness-or-targeting';
+        }
+      })();
+      if (value.harness.plannerHandoff.nextControlAction !== expectedNextControlAction) {
+        throw new Error('compact result input harness.plannerHandoff.nextControlAction must match outcome.');
       }
     }
   }

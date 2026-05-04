@@ -155,6 +155,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Keep `harness.plannerHandoff` derived and compact. It may route by last
   action, active blocker, and next control action, but it must not include raw
   prompts, rationales, payloads, observations, or file contents.
+- Validate compact planner handoff before routing another agent: supported
+  last-action kind/family/stop/clarification/execution-status values,
+  stop-reason and clarification-kind coherence, active blocker issue/signal
+  kinds, and outcome-to-active-blocker/next-control-action consistency.
 - Workspace approval policy may require explicit approval for tool categories such as `native-stack-config-write`; use `--approve-tool-category <category>` to resume only when the user has approved that category.
 - Planner prompts must pass retrieved official-doc/schema context through the context budget helper. Do not inject full cached documents or unbounded excerpts into LLM prompts.
 - Treat retrieved context packet/token budgets as query harness configuration. Prefer `--context-packet-limit` and `--context-token-budget` for experiments instead of changing budget constants ad hoc.
