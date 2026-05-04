@@ -1623,6 +1623,61 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         const yamlGuardCount = value.validation.commands.entries
           .filter(entry => isRecord(entry) && entry.kind === 'yaml-guard')
           .length;
+        const selectedPlanCommandOwners = new Map<string, number>();
+        const selectedPlanExecutedCounts = Array(value.validation.selectedPlan.length).fill(0) as number[];
+        const selectedPlanFailedCounts = Array(value.validation.selectedPlan.length).fill(0) as number[];
+
+        for (let selectedPlanIndex = 0; selectedPlanIndex < value.validation.selectedPlan.length; selectedPlanIndex += 1) {
+          const selectedPlanEntry = value.validation.selectedPlan[selectedPlanIndex];
+          if (!isRecord(selectedPlanEntry) || !Array.isArray(selectedPlanEntry.commands)) {
+            continue;
+          }
+
+          for (const command of selectedPlanEntry.commands) {
+            if (typeof command !== 'string') {
+              continue;
+            }
+
+            const existingOwner = selectedPlanCommandOwners.get(command);
+            if (existingOwner !== undefined && existingOwner !== selectedPlanIndex) {
+              throw new Error(`compact result input validation.selectedPlan command "${command}" is owned by both validation.selectedPlan[${existingOwner}] and validation.selectedPlan[${selectedPlanIndex}].`);
+            }
+
+            selectedPlanCommandOwners.set(command, selectedPlanIndex);
+          }
+        }
+
+        for (let commandIndex = 0; commandIndex < value.validation.commands.entries.length; commandIndex += 1) {
+          const commandEntry = value.validation.commands.entries[commandIndex];
+          if (!isRecord(commandEntry) || commandEntry.kind !== 'target-validation') {
+            continue;
+          }
+
+          const ownerIndex = selectedPlanCommandOwners.get(commandEntry.command as string);
+          if (ownerIndex === undefined) {
+            throw new Error(`compact result input validation.commands.entries[${commandIndex}].command must exist in validation.selectedPlan commands when no commands are omitted.`);
+          }
+
+          selectedPlanExecutedCounts[ownerIndex] += 1;
+          if (commandEntry.status === 'failed') {
+            selectedPlanFailedCounts[ownerIndex] += 1;
+          }
+        }
+
+        for (let selectedPlanIndex = 0; selectedPlanIndex < value.validation.selectedPlan.length; selectedPlanIndex += 1) {
+          const selectedPlanEntry = value.validation.selectedPlan[selectedPlanIndex];
+          if (!isRecord(selectedPlanEntry)) {
+            continue;
+          }
+
+          if (selectedPlanEntry.executedCommandCount !== selectedPlanExecutedCounts[selectedPlanIndex]) {
+            throw new Error(`compact result input validation.selectedPlan[${selectedPlanIndex}].executedCommandCount must match validation.commands target-validation entries when no commands are omitted.`);
+          }
+
+          if (selectedPlanEntry.failedCommandCount !== selectedPlanFailedCounts[selectedPlanIndex]) {
+            throw new Error(`compact result input validation.selectedPlan[${selectedPlanIndex}].failedCommandCount must match failed validation.commands target-validation entries when no commands are omitted.`);
+          }
+        }
 
         if (value.validation.targetCommandCount !== targetCommandCount) {
           throw new Error('compact result input validation.targetCommandCount must match validation.commands target-validation entries when no commands are omitted.');

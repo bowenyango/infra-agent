@@ -8490,6 +8490,106 @@ test('compact agent result contract validates shallow handoff shape and validati
     'infra-agent.agent-result'
   );
   assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        commands: {
+          ...validResult.validation.commands,
+          entries: [
+            {
+              ...validResult.validation.commands.entries[0],
+              command: 'terraform validate'
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.commands\.entries\[0\]\.command.*validation\.selectedPlan/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          validResult.validation.selectedPlan[0],
+          {
+            ...validResult.validation.selectedPlan[0],
+            executedCommandCount: 0,
+            failedCommandCount: 0
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan command "terraform plan".*validation\.selectedPlan\[0\].*validation\.selectedPlan\[1\]/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            executedCommandCount: 0,
+            failedCommandCount: 0
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.executedCommandCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        selectedPlan: [
+          {
+            ...validResult.validation.selectedPlan[0],
+            failedCommandCount: 0
+          }
+        ]
+      }
+    }),
+    /validation\.selectedPlan\[0\]\.failedCommandCount/
+  );
+  assert.equal(parseCompactAgentRunResult({
+    ...validResult,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        validationCommands: {
+          includedCount: 2,
+          omittedCount: 0
+        }
+      }
+    },
+    validation: {
+      ...validResult.validation,
+      yamlGuardCount: 1,
+      commands: {
+        ...validResult.validation.commands,
+        entries: [
+          ...validResult.validation.commands.entries,
+          {
+            command: 'yaml guard terraform/payments-api/dev.auto.tfvars',
+            exitCode: 0,
+            status: 'passed',
+            kind: 'yaml-guard',
+            stdoutPreview: '',
+            stderrPreview: '',
+            unsafeBlocked: false,
+            unsafeRuleId: null,
+            unsafeReason: null
+          }
+        ]
+      }
+    }
+  }).validation.yamlGuardCount, 1);
+  assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, kind: 'infra-agent.infra-graph' }),
     /compact infra-agent\.agent-result/
   );

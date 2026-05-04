@@ -86,6 +86,37 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Compact Selected Plan Command Coherence Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Tighten `parseCompactAgentRunResult` validation for compact
+  `validation.selectedPlan` and `validation.commands.entries` coherence when
+  command entries are complete (`validation.commands.omittedCount=0`).
+- Reject target-validation command entries that do not belong to a selected
+  plan command and reject commands owned by multiple selected plan entries.
+- Require each selected plan entry's `executedCommandCount` and
+  `failedCommandCount` to match complete target-validation command entries,
+  while excluding `yaml-guard` entries from selected-plan execution counts.
+- Preserve existing `validation.targetCommandCount` and
+  `validation.yamlGuardCount` complete-entry checks.
+
+Known validation:
+
+- `source /Users/ybw/.nvm/nvm.sh && nvm use --silent default && node --experimental-strip-types --test-name-pattern "selectedPlan|validation.commands|compact agent result contract" test/cli-smoke.test.mjs`: passed with 3 tests.
+- `git diff --check`: passed.
+
+Residual risk:
+
+- Full repository verification was not run for this subagent slice; coverage is
+  limited to the requested focused compact contract smoke pattern.
+
 ## 2026-05-04 Compact Safety Blocker Metadata Slice
 
 Files added or updated:
