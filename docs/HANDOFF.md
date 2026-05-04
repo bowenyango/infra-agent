@@ -4470,6 +4470,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Approval Resume Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact approval signal kinds, write-risk values, tool-category
+  values, and signal field coherence for write approval versus tool-category
+  approval.
+- Validate compact `approval.resume` command/null consistency, resume array
+  shapes, signal count coverage, and continuation-required boolean semantics.
+- Preserve approval metadata as handoff-only data; it does not authorize writes
+  or native operations.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

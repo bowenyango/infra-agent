@@ -6735,8 +6735,16 @@ test('compact agent result contract validates shallow handoff shape', () => {
       ]
     },
     approval: {
+      requiredWriteRisks: [],
+      requiredToolCategories: [],
+      signals: [],
       resume: {
-        continuationRequired: false
+        continuationRequired: false,
+        command: null,
+        writeRisks: [],
+        writePaths: [],
+        toolCategories: [],
+        signalCount: 0
       }
     }
   };
@@ -7507,12 +7515,95 @@ test('compact agent result contract validates shallow handoff shape', () => {
     () => parseCompactAgentRunResult({
       ...validResult,
       approval: {
+        ...validResult.approval,
         resume: {
+          ...validResult.approval.resume,
           continuationRequired: 'yes'
         }
       }
     }),
     /approval\.resume\.continuationRequired/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        requiredWriteRisks: ['urgent']
+      }
+    }),
+    /approval\.requiredWriteRisks/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        signals: [
+          {
+            kind: 'write-approval-required',
+            message: 'Approval required.',
+            path: '',
+            risk: 'medium',
+            toolCategory: null
+          }
+        ]
+      }
+    }),
+    /approval\.signals\[0\]\.path/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        signals: [
+          {
+            kind: 'tool-category-approval-required',
+            message: 'Approval required.',
+            path: null,
+            risk: null,
+            toolCategory: 'deploy'
+          }
+        ]
+      }
+    }),
+    /approval\.signals\[0\]\.toolCategory/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        resume: {
+          ...validResult.approval.resume,
+          command: 'node --experimental-strip-types src/cli/main.ts agent task --workspace /workspace'
+        }
+      }
+    }),
+    /approval\.resume\.command/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        signals: [
+          {
+            kind: 'write-approval-required',
+            message: 'Approval required.',
+            path: 'values.yaml',
+            risk: 'medium',
+            toolCategory: null
+          }
+        ],
+        resume: {
+          ...validResult.approval.resume,
+          signalCount: 0
+        }
+      }
+    }),
+    /approval\.resume\.signalCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

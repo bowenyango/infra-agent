@@ -202,6 +202,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   approval gate. It can show the scoped continuation command and active signal
   scope, but it is not approval and must not authorize writes or native
   operations without explicit user approval.
+- Validate compact approval handoff before using it: supported signal kinds,
+  write-risk values, tool permission categories, signal path/risk/category
+  coherence, resume command/null consistency, resume array shapes, and
+  `signalCount` coverage for included signals.
 - Treat CLI exit codes as part of the agent-facing contract: `0` means success, `1` means fatal CLI/runtime failure, `2` means validation blocked, `3` means approval required, `4` means clarification required, `5` means no safe action, `6` means repair budget exhausted, and `7` means `run` preflight blockers.
 - Keep the bounded repair budget in `QueryLoopConfig`. Use
   `--max-repair-attempts <n>` for experiments instead of hard-coding retry

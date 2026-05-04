@@ -230,7 +230,10 @@ Current behavior is intentionally runtime-foundation oriented:
   blockers with explicit mutation-prevented posture.
   `approval.resume` carries a structured continuation command, active approval
   scope, and signal count for approval-required runs so downstream agents do
-  not need to scrape prose before asking for explicit user approval.
+  not need to scrape prose before asking for explicit user approval. Compact
+  consumers validate approval signal shapes, write-risk and tool-category
+  enums, resume arrays, continuation command/null consistency, and signal count
+  coverage; this metadata is not approval by itself.
   readiness report when another agent needs it. Result cards include the same
   readiness posture, and suggested commands surface the read-only doctor command
   first when readiness has warnings or failures.

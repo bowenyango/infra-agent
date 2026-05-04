@@ -37,6 +37,8 @@ const TOOL_PERMISSION_CATEGORIES = [
 const DOCTOR_CHECK_STATUSES = ['pass', 'warn', 'fail'] as const;
 const VALIDATION_COMMAND_STATUSES = ['passed', 'failed'] as const;
 const VALIDATION_COMMAND_KINDS = ['yaml-guard', 'target-validation'] as const;
+const FILE_WRITE_RISKS = ['low', 'medium', 'high'] as const;
+const APPROVAL_SIGNAL_KINDS = ['write-approval-required', 'tool-category-approval-required'] as const;
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
   'none',
   'approval',
@@ -128,6 +130,14 @@ function isKnownValidationCommandKind(value: unknown): boolean {
   return typeof value === 'string' && VALIDATION_COMMAND_KINDS.includes(value as typeof VALIDATION_COMMAND_KINDS[number]);
 }
 
+function isKnownFileWriteRisk(value: unknown): boolean {
+  return typeof value === 'string' && FILE_WRITE_RISKS.includes(value as typeof FILE_WRITE_RISKS[number]);
+}
+
+function isKnownApprovalSignalKind(value: unknown): boolean {
+  return typeof value === 'string' && APPROVAL_SIGNAL_KINDS.includes(value as typeof APPROVAL_SIGNAL_KINDS[number]);
+}
+
 function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
   return typeof value === 'string'
     && PLANNER_HANDOFF_ACTIVE_BLOCKERS.includes(value as typeof PLANNER_HANDOFF_ACTIVE_BLOCKERS[number]);
@@ -176,6 +186,10 @@ function isStringOrNull(value: unknown): boolean {
 
 function isStringArray(value: unknown): boolean {
   return Array.isArray(value) && value.every(entry => typeof entry === 'string');
+}
+
+function isArrayOf(value: unknown, validator: (entry: unknown) => boolean): boolean {
+  return Array.isArray(value) && value.every(entry => validator(entry));
 }
 
 function hasNumericCountSet(record: Record<string, unknown>): boolean {
@@ -1021,13 +1035,103 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
-  if (
-    isRecord(value.approval)
-    && isRecord(value.approval.resume)
-    && 'continuationRequired' in value.approval.resume
-    && typeof value.approval.resume.continuationRequired !== 'boolean'
-  ) {
-    throw new Error('compact result input approval.resume.continuationRequired must be a boolean when present.');
+  if (isRecord(value.approval)) {
+    if ('requiredWriteRisks' in value.approval && !isArrayOf(value.approval.requiredWriteRisks, isKnownFileWriteRisk)) {
+      throw new Error('compact result input approval.requiredWriteRisks must use supported write risks when present.');
+    }
+
+    if (
+      'requiredToolCategories' in value.approval
+      && !isArrayOf(value.approval.requiredToolCategories, isKnownToolPermissionCategory)
+    ) {
+      throw new Error('compact result input approval.requiredToolCategories must use supported tool categories when present.');
+    }
+
+    if ('signals' in value.approval && !Array.isArray(value.approval.signals)) {
+      throw new Error('compact result input approval.signals must be an array when present.');
+    }
+
+    if (Array.isArray(value.approval.signals)) {
+      for (let index = 0; index < value.approval.signals.length; index += 1) {
+        const signal = value.approval.signals[index];
+        const signalPath = `approval.signals[${index}]`;
+
+        if (!isRecord(signal)) {
+          throw new Error(`compact result input ${signalPath} must be an object.`);
+        }
+
+        if (!isKnownApprovalSignalKind(signal.kind)) {
+          throw new Error(`compact result input ${signalPath}.kind must be supported.`);
+        }
+
+        if (typeof signal.message !== 'string') {
+          throw new Error(`compact result input ${signalPath}.message must be a string.`);
+        }
+
+        if (signal.kind === 'write-approval-required') {
+          if (typeof signal.path !== 'string' || signal.path.length === 0) {
+            throw new Error(`compact result input ${signalPath}.path must be a non-empty string for write approval signals.`);
+          }
+
+          if (!isKnownFileWriteRisk(signal.risk)) {
+            throw new Error(`compact result input ${signalPath}.risk must be supported for write approval signals.`);
+          }
+
+          if (signal.toolCategory !== null) {
+            throw new Error(`compact result input ${signalPath}.toolCategory must be null for write approval signals.`);
+          }
+        }
+
+        if (signal.kind === 'tool-category-approval-required') {
+          if (!isKnownToolPermissionCategory(signal.toolCategory)) {
+            throw new Error(`compact result input ${signalPath}.toolCategory must be supported for tool category approval signals.`);
+          }
+
+          if (signal.path !== null || signal.risk !== null) {
+            throw new Error(`compact result input ${signalPath}.path and risk must be null for tool category approval signals.`);
+          }
+        }
+      }
+    }
+
+    if (isRecord(value.approval.resume)) {
+      if (typeof value.approval.resume.continuationRequired !== 'boolean') {
+        throw new Error('compact result input approval.resume.continuationRequired must be a boolean when present.');
+      }
+
+      if (!isStringOrNull(value.approval.resume.command)) {
+        throw new Error('compact result input approval.resume.command must be string or null when present.');
+      }
+
+      if (!isArrayOf(value.approval.resume.writeRisks, isKnownFileWriteRisk)) {
+        throw new Error('compact result input approval.resume.writeRisks must use supported write risks when present.');
+      }
+
+      if (!isStringArray(value.approval.resume.writePaths)) {
+        throw new Error('compact result input approval.resume.writePaths must be a string array when present.');
+      }
+
+      if (!isArrayOf(value.approval.resume.toolCategories, isKnownToolPermissionCategory)) {
+        throw new Error('compact result input approval.resume.toolCategories must use supported tool categories when present.');
+      }
+
+      assertIntegerField(value.approval.resume, 'signalCount', 'approval.resume', isNonNegativeInteger, 'a non-negative integer');
+
+      if (value.approval.resume.continuationRequired && typeof value.approval.resume.command !== 'string') {
+        throw new Error('compact result input approval.resume.command is required when continuationRequired is true.');
+      }
+
+      if (!value.approval.resume.continuationRequired && value.approval.resume.command !== null) {
+        throw new Error('compact result input approval.resume.command must be null when continuationRequired is false.');
+      }
+
+      if (
+        Array.isArray(value.approval.signals)
+        && (value.approval.resume.signalCount as number) < value.approval.signals.length
+      ) {
+        throw new Error('compact result input approval.resume.signalCount must cover included approval signals.');
+      }
+    }
   }
 
   return value as unknown as CompactAgentRunResult;
