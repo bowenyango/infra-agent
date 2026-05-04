@@ -4717,6 +4717,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Knowledge Cache Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `knowledgeCache` as handoff metadata alongside
+  `knowledgeContext`.
+- Validate non-empty cache root strings and supported source labels for
+  environment override, workspace config, and default user cache.
+- Keep path-safety policy in the cache-root resolver rather than re-deriving it
+  from compact result parsing.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

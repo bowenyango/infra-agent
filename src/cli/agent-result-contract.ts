@@ -89,6 +89,11 @@ const IDENTITY_CONFLICT_RISK_CATEGORIES = [
 ] as const;
 const IDENTITY_CONFLICT_ENGINES = ['pulumi', 'terraform'] as const;
 const RETRIEVED_CONTEXT_OMITTED_REASONS = ['packet-limit', 'token-budget'] as const;
+const KNOWLEDGE_CACHE_SOURCES = [
+  'environment: INFRA_AGENT_KNOWLEDGE_CACHE',
+  'workspace-config: knowledgeCache.root',
+  'default: user cache'
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -200,6 +205,11 @@ function isKnownIdentityConflictRiskCategory(value: unknown): boolean {
 function isKnownRetrievedContextOmittedReason(value: unknown): boolean {
   return typeof value === 'string'
     && RETRIEVED_CONTEXT_OMITTED_REASONS.includes(value as typeof RETRIEVED_CONTEXT_OMITTED_REASONS[number]);
+}
+
+function isKnownKnowledgeCacheSource(value: unknown): boolean {
+  return typeof value === 'string'
+    && KNOWLEDGE_CACHE_SOURCES.includes(value as typeof KNOWLEDGE_CACHE_SOURCES[number]);
 }
 
 function isNumber(value: unknown): boolean {
@@ -1860,6 +1870,18 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
   if (derivedOmittedByTokenBudget !== knowledgeOmittedByTokenBudget) {
     throw new Error('compact result input knowledgeContext.omittedByTokenBudget must match packets.');
+  }
+
+  if (!isRecord(value.knowledgeCache)) {
+    throw new Error('compact result input must include knowledgeCache object.');
+  }
+
+  if (typeof value.knowledgeCache.root !== 'string' || value.knowledgeCache.root.length === 0) {
+    throw new Error('compact result input knowledgeCache.root must be a non-empty string.');
+  }
+
+  if (!isKnownKnowledgeCacheSource(value.knowledgeCache.source)) {
+    throw new Error('compact result input knowledgeCache.source must be supported.');
   }
 
   return value as unknown as CompactAgentRunResult;

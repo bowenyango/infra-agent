@@ -6232,6 +6232,10 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           }
         ]
       },
+      knowledgeCache: {
+        root: '/workspace/.infra-agent/knowledge-cache',
+        source: 'workspace-config: knowledgeCache.root'
+      },
       knowledgeContext: {
         maxPackets: 5,
         maxTokens: 1000,
@@ -6905,6 +6909,10 @@ test('compact agent result contract validates shallow handoff shape', () => {
         toolCategories: [],
         signalCount: 0
       }
+    },
+    knowledgeCache: {
+      root: '/workspace/.infra-agent/knowledge-cache',
+      source: 'workspace-config: knowledgeCache.root'
     },
     knowledgeContext: {
       maxPackets: 2,
@@ -8774,6 +8782,33 @@ test('compact agent result contract validates shallow handoff shape', () => {
     }),
     /knowledgeContext\.includedTokenEstimate/
   );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeCache: null
+    }),
+    /knowledgeCache object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeCache: {
+        ...validResult.knowledgeCache,
+        root: ''
+      }
+    }),
+    /knowledgeCache\.root/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeCache: {
+        ...validResult.knowledgeCache,
+        source: 'unknown'
+      }
+    }),
+    /knowledgeCache\.source/
+  );
 });
 
 test('identity-report loader renders compact conflict reports from a JSON file', async () => {
@@ -8872,6 +8907,10 @@ test('identity-report loader renders compact conflict reports from a JSON file',
             sourceCommand: 'terraform -chdir=terraform/payments-api plan'
           }
         ]
+      },
+      knowledgeCache: {
+        root: '/workspace/.infra-agent/knowledge-cache',
+        source: 'workspace-config: knowledgeCache.root'
       },
       knowledgeContext: {
         maxPackets: 5,

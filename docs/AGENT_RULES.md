@@ -152,6 +152,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   counts, packet summary shape, confidence enums, included/omitted reason
   coherence, derived token totals, excerpt-char limits, and no raw excerpts,
   facts, or source payloads.
+- Validate compact `knowledgeCache` as handoff metadata only: non-empty root
+  string and one of the supported source labels for environment override,
+  workspace config, or default user cache. Do not re-derive workspace path
+  safety from compact output; that belongs in the cache-root resolver.
 - Tool summaries must preserve permission categories for workspace mutation, native CLI execution, and stack/state mutation-risk tools. Do not collapse these into generic "tool ran" prose.
 - Validate compact `harness.toolTrace` as permission provenance: supported
   tool safety and permission categories, non-empty tool names, boolean

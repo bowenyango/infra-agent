@@ -263,6 +263,10 @@ Current behavior is intentionally runtime-foundation oriented:
   positive budget limits, packet/omission count arithmetic, packet summary
   entry shape, omitted-reason coherence, derived token totals, excerpt-char
   limits, and the absence of raw context fields.
+  `knowledgeCache` records the resolved cache root and whether it came from the
+  environment, workspace config, or the default user cache. Compact consumers
+  validate those fields as handoff metadata; path-safety policy stays in the
+  cache-root resolver.
   Report commands are covered through the real CLI entrypoint for
   `identity-report --json` and `impact-report --json` so downstream handoff
   paths exercise command parsing, file loading, contract parsing, and JSON
