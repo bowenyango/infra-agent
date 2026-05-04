@@ -43,11 +43,15 @@ configured, but it must not expose API keys.
 4. Prefer `--json` when another agent will consume the result. This returns the
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
    debugging the whole runtime state. Treat compact JSON as contract-checked
-   handoff data: root task/workspace metadata, query/loop/repair budgets,
-   lifecycle/turn/tool trace entries, tool permission summaries, readiness
-   checks, validation plan/command/issue/safety/identity summaries, knowledge
-   cache/context summaries, approval resume metadata, and planner handoff
-   routing must be structurally valid before another agent acts on them. Read
+   handoff data: root task/workspace metadata, `handoffCheckpoint`, query/loop/
+   repair budgets, lifecycle/turn/tool trace entries, tool permission summaries,
+   readiness checks, validation plan/command/issue/safety/identity summaries,
+   knowledge cache/context summaries, approval resume metadata, and planner
+   handoff routing must be structurally valid before another agent acts on
+   them. Read `handoffCheckpoint` first for compact/read-only posture, raw
+   content exclusions, routing summary, section budgets, continuation reason,
+   approval command metadata, durable section names, and `mutationAllowed=false`.
+   Then read
    `harness.stateSummary` for runtime counts and `harness.turnTrace` for the
    bounded action flow, `harness.plannerHandoff` for the active blocker and next
    control action, `harness.turnTraceBudget` and `harness.lifecycleEvents` for

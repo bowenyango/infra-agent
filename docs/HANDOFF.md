@@ -5845,3 +5845,29 @@ Known validation:
 
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
+
+## 2026-05-04 Handoff Checkpoint Documentation Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document `handoffCheckpoint` as the first compact routing checkpoint for
+  downstream continuation agents.
+- Align the packaged infra-configuration skill and context reference with the
+  new summary, budget, continuation, raw-exclusion, durable-section, and
+  `mutationAllowed=false` contract.
+- Extend package surface assertions so the shipped skill keeps checkpoint and
+  continuation guidance.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.

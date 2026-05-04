@@ -162,9 +162,17 @@ Current behavior is intentionally runtime-foundation oriented:
   agents; use `--json-full` only when debugging the complete runtime state.
   Compact result consumers use a shared shallow contract parser that verifies
   `kind`, `schemaVersion`, `outcome`, required root task/workspace metadata,
-  root string-array handoff fields, query/loop budget consistency, compact
-  trace arrays, readiness checks, and `validation.identityConflicts` before
-  producing derived reports.
+  root string-array handoff fields, `handoffCheckpoint`, query/loop budget
+  consistency, compact trace arrays, readiness checks, and
+  `validation.identityConflicts` before producing derived reports.
+  `handoffCheckpoint` is the first routing checkpoint for continuation agents:
+  it declares compact/read-only posture, primary/debug artifacts, raw-content
+  exclusions, derived routing summary, section budgets, continuation reason and
+  command metadata, durable section names, and `mutationAllowed=false`.
+  Compact consumers validate checkpoint enums, raw-exclusion flags,
+  summary-to-section consistency, budget-to-section consistency, continuation
+  command consistency, and read-only mutation posture before trusting the rest
+  of the handoff.
   The compact payload includes `harness.queryConfig`, an immutable snapshot of
   the turn, repair-attempt, and retrieved-context budgets used for the run, plus
   `harness.turnTrace`, a bounded per-turn trace inspired by Claude Code's query

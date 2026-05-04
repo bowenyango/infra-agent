@@ -40,21 +40,29 @@ durable design reference for infra-agent development.
 
 | Claude Code pattern | Infra-agent surface |
 | --- | --- |
-| Streamed compaction without raw tool output | Compact `agent --json` sections such as `harness.turnTrace`, `harness.toolTrace`, `validation.commands`, `validation.issues`, and `knowledgeContext` |
-| Preserved current task and routing state | Root task/workspace metadata, `harness.loopBudget`, `harness.repairBudget`, `harness.plannerHandoff`, and CLI exit codes |
+| Streamed compaction without raw tool output | Compact `agent --json` sections plus `handoffCheckpoint.exclusions`, `harness.turnTrace`, `harness.toolTrace`, `validation.commands`, `validation.issues`, and `knowledgeContext` |
+| Preserved current task and routing state | Root task/workspace metadata, `handoffCheckpoint.summary`, `handoffCheckpoint.continuation`, `harness.loopBudget`, `harness.repairBudget`, `harness.plannerHandoff`, and CLI exit codes |
 | Permission logging before tool execution | `harness.toolTrace.permissionCategoryCounts`, `harness.toolPermissionSummary`, approval signals, and `approval.resume` |
-| Restoring durable context after compaction | `readiness`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, and `knowledgeContext` |
+| Restoring durable context after compaction | `handoffCheckpoint.durableSections`, `handoffCheckpoint.budgets`, `readiness`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, and `knowledgeContext` |
 | Skill base-directory references | Packaged `skills/infra-configuration/SKILL.md` with optional detailed references under `skills/infra-configuration/references/` |
 
 - `runQueryLoop` is the current session-owned harness. Keep adding durable state
   there instead of spreading control-flow decisions through CLI output code.
 - Compact `agent --json` output is the primary agent-to-agent handoff. Add
   small structured sections there before adding prose-only output.
+- `handoffCheckpoint` is the compact routing checkpoint. It should remain
+  read-only and derive from durable compact sections: `summary` gives outcome,
+  blocker, next control action, readiness, validation, identity, approval, and
+  changed-file counts; `budgets` gives included/omitted section counts;
+  `continuation` gives the required next control action and approval command
+  metadata; `exclusions` proves raw runtime, preflight, prompt, tool output,
+  and knowledge excerpts are not included in ordinary compact handoff.
 - Compact handoff sections need parser-enforced contracts before downstream
   agents route on them. Root task/workspace metadata, query/loop/repair
   budgets, lifecycle/tool traces, permission summaries, readiness, validation
   plan/command/issue/safety/identity surfaces, knowledge cache/context,
-  approval resume, and planner handoff routing should reject malformed or
+  approval resume, planner handoff routing, and `handoffCheckpoint`
+  summary/budget/continuation consistency should reject malformed or
   inconsistent JSON instead of relying on prose interpretation.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,

@@ -42,6 +42,11 @@ message is enough.
 Before routing another agent from compact JSON, prefer fields that are already
 contract-checked by the parser:
 
+- `handoffCheckpoint` first: confirm `compact: true`,
+  `primaryArtifact: agent --json`, `debugArtifact: agent --json-full`,
+  `mutationAllowed: false`, raw-content exclusions, durable section names,
+  routing `summary`, section `budgets`, and `continuation` reason/command
+  metadata before reading deeper sections.
 - `harness.stateSummary`, `harness.lifecycleEvents`, `harness.turnTrace`, and
   `harness.plannerHandoff` for current run state and next control action.
 - `harness.toolTrace` and `harness.toolPermissionSummary` for permission
@@ -57,6 +62,8 @@ contract-checked by the parser:
   `validation.identityConflicts`; the summary is the authoritative total and
   omission surface.
 - `approval.resume` only as approval-request metadata. It is not approval.
+- `handoffCheckpoint.continuation.command` must match `approval.resume.command`
+  for approval-required runs; neither field grants approval by itself.
 
 ## Official Docs Strategy
 
