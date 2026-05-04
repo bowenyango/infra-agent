@@ -5,6 +5,14 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
     task: 'update terraform listener priority',
     workspaceRoot,
     outcome: 'validation-blocked',
+    handoffCheckpoint: {
+      schemaVersion: 1,
+      source: 'agent-result',
+      compact: true,
+      primaryArtifact: 'agent --json',
+      debugArtifact: 'agent --json-full',
+      mutationAllowed: false
+    },
     validation: {
       selectedPlan: [],
       issueSummary: {

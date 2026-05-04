@@ -6168,6 +6168,14 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
       task: 'review terraform listener rule conflict',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
+      handoffCheckpoint: {
+        schemaVersion: 1,
+        source: 'agent-result',
+        compact: true,
+        primaryArtifact: 'agent --json',
+        debugArtifact: 'agent --json-full',
+        mutationAllowed: false
+      },
       validation: {
         selectedPlan: [],
         issueSummary: {
@@ -7005,6 +7013,34 @@ test('compact agent result contract validates shallow handoff shape', () => {
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, schemaVersion: 2 }),
     /schemaVersion 1/
+  );
+  assert.throws(
+    () => {
+      const { handoffCheckpoint, ...missingCheckpoint } = validResult;
+      void handoffCheckpoint;
+      parseCompactAgentRunResult(missingCheckpoint);
+    },
+    /handoffCheckpoint object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        compact: false
+      }
+    }),
+    /handoffCheckpoint\.compact/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        mutationAllowed: true
+      }
+    }),
+    /handoffCheckpoint\.mutationAllowed/
   );
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, outcome: 'unexpected' }),
@@ -8943,6 +8979,14 @@ test('identity-report loader renders compact conflict reports from a JSON file',
       task: 'update terraform listener priority',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
+      handoffCheckpoint: {
+        schemaVersion: 1,
+        source: 'agent-result',
+        compact: true,
+        primaryArtifact: 'agent --json',
+        debugArtifact: 'agent --json-full',
+        mutationAllowed: false
+      },
       validation: {
         selectedPlan: [],
         issueSummary: {
@@ -9268,6 +9312,14 @@ test('identity-report loader rejects non-compact result inputs', async () => {
       task: 'review terraform listener priority',
       workspaceRoot: '/workspace',
       outcome: 'validation-blocked',
+      handoffCheckpoint: {
+        schemaVersion: 1,
+        source: 'agent-result',
+        compact: true,
+        primaryArtifact: 'agent --json',
+        debugArtifact: 'agent --json-full',
+        mutationAllowed: false
+      },
       validation: {}
     }), 'utf8');
 

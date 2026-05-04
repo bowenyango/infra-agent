@@ -108,6 +108,28 @@ Known validation:
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
 
+## 2026-05-04 Handoff Checkpoint Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `scripts/compact-fixtures.mjs`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact result inputs to include a valid `handoffCheckpoint` object.
+- Validate checkpoint schema version, supported source/artifact identifiers,
+  compact posture, and `mutationAllowed=false`.
+- Update read-only report fixtures so `identity-report` only accepts current
+  compact agent-result handoff payloads.
+
+Known validation:
+
+- `npm run test:unit`: passed with 276 tests.
+- `git diff --check`: passed.
+
 ## Historical Slice: Domain-Focused Preflight And Result Output
 
 Files:

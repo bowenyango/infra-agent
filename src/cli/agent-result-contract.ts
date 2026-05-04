@@ -94,6 +94,9 @@ const KNOWLEDGE_CACHE_SOURCES = [
   'workspace-config: knowledgeCache.root',
   'default: user cache'
 ] as const;
+const HANDOFF_CHECKPOINT_SOURCES = ['agent-result'] as const;
+const HANDOFF_CHECKPOINT_PRIMARY_ARTIFACTS = ['agent --json'] as const;
+const HANDOFF_CHECKPOINT_DEBUG_ARTIFACTS = ['agent --json-full'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -101,6 +104,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isKnownAgentResultOutcome(value: unknown): boolean {
   return typeof value === 'string' && AGENT_RUN_OUTCOMES.includes(value as typeof AGENT_RUN_OUTCOMES[number]);
+}
+
+function isKnownHandoffCheckpointSource(value: unknown): boolean {
+  return typeof value === 'string' && HANDOFF_CHECKPOINT_SOURCES.includes(value as typeof HANDOFF_CHECKPOINT_SOURCES[number]);
+}
+
+function isKnownHandoffCheckpointPrimaryArtifact(value: unknown): boolean {
+  return typeof value === 'string'
+    && HANDOFF_CHECKPOINT_PRIMARY_ARTIFACTS.includes(value as typeof HANDOFF_CHECKPOINT_PRIMARY_ARTIFACTS[number]);
+}
+
+function isKnownHandoffCheckpointDebugArtifact(value: unknown): boolean {
+  return typeof value === 'string'
+    && HANDOFF_CHECKPOINT_DEBUG_ARTIFACTS.includes(value as typeof HANDOFF_CHECKPOINT_DEBUG_ARTIFACTS[number]);
 }
 
 function isKnownAgentActionKind(value: unknown): boolean {
@@ -290,6 +307,34 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
   if (value.schemaVersion !== 1) {
     throw new Error('compact result input must use compact agent result schemaVersion 1.');
+  }
+
+  if (!isRecord(value.handoffCheckpoint)) {
+    throw new Error('compact result input must include handoffCheckpoint object.');
+  }
+
+  if (value.handoffCheckpoint.schemaVersion !== 1) {
+    throw new Error('compact result input handoffCheckpoint.schemaVersion must be 1.');
+  }
+
+  if (!isKnownHandoffCheckpointSource(value.handoffCheckpoint.source)) {
+    throw new Error('compact result input handoffCheckpoint.source must be supported.');
+  }
+
+  if (value.handoffCheckpoint.compact !== true) {
+    throw new Error('compact result input handoffCheckpoint.compact must be true.');
+  }
+
+  if (!isKnownHandoffCheckpointPrimaryArtifact(value.handoffCheckpoint.primaryArtifact)) {
+    throw new Error('compact result input handoffCheckpoint.primaryArtifact must be supported.');
+  }
+
+  if (!isKnownHandoffCheckpointDebugArtifact(value.handoffCheckpoint.debugArtifact)) {
+    throw new Error('compact result input handoffCheckpoint.debugArtifact must be supported.');
+  }
+
+  if (value.handoffCheckpoint.mutationAllowed !== false) {
+    throw new Error('compact result input handoffCheckpoint.mutationAllowed must be false.');
   }
 
   if (!isKnownAgentResultOutcome(value.outcome)) {
