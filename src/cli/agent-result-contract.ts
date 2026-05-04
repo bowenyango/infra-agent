@@ -35,6 +35,8 @@ const TOOL_PERMISSION_CATEGORIES = [
   'unknown'
 ] as const;
 const DOCTOR_CHECK_STATUSES = ['pass', 'warn', 'fail'] as const;
+const VALIDATION_COMMAND_STATUSES = ['passed', 'failed'] as const;
+const VALIDATION_COMMAND_KINDS = ['yaml-guard', 'target-validation'] as const;
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
   'none',
   'approval',
@@ -115,6 +117,15 @@ function isKnownToolPermissionCategory(value: unknown): boolean {
 
 function isKnownDoctorCheckStatus(value: unknown): boolean {
   return typeof value === 'string' && DOCTOR_CHECK_STATUSES.includes(value as typeof DOCTOR_CHECK_STATUSES[number]);
+}
+
+function isKnownValidationCommandStatus(value: unknown): boolean {
+  return typeof value === 'string'
+    && VALIDATION_COMMAND_STATUSES.includes(value as typeof VALIDATION_COMMAND_STATUSES[number]);
+}
+
+function isKnownValidationCommandKind(value: unknown): boolean {
+  return typeof value === 'string' && VALIDATION_COMMAND_KINDS.includes(value as typeof VALIDATION_COMMAND_KINDS[number]);
 }
 
 function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
@@ -872,8 +883,87 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
-  if (isRecord(value.validation.commands) && 'entries' in value.validation.commands && !Array.isArray(value.validation.commands.entries)) {
-    throw new Error('compact result input validation.commands.entries must be an array when present.');
+  for (const field of ['targetCommandCount', 'yamlGuardCount']) {
+    if (field in value.validation && !isNonNegativeInteger(value.validation[field])) {
+      throw new Error(`compact result input validation.${field} must be a non-negative integer when present.`);
+    }
+  }
+
+  if (isRecord(value.validation.commands)) {
+    for (const field of ['maxEntries', 'omittedCount']) {
+      if (field in value.validation.commands && !isNonNegativeInteger(value.validation.commands[field])) {
+        throw new Error(`compact result input validation.commands.${field} must be a non-negative integer when present.`);
+      }
+    }
+
+    if ('entries' in value.validation.commands && !Array.isArray(value.validation.commands.entries)) {
+      throw new Error('compact result input validation.commands.entries must be an array when present.');
+    }
+
+    if (Array.isArray(value.validation.commands.entries)) {
+      if (
+        isNonNegativeInteger(value.validation.commands.maxEntries)
+        && value.validation.commands.entries.length > (value.validation.commands.maxEntries as number)
+      ) {
+        throw new Error('compact result input validation.commands.entries length must not exceed maxEntries.');
+      }
+
+      for (let index = 0; index < value.validation.commands.entries.length; index += 1) {
+        const entry = value.validation.commands.entries[index];
+        const entryPath = `validation.commands.entries[${index}]`;
+
+        if (!isRecord(entry)) {
+          throw new Error(`compact result input ${entryPath} must be an object.`);
+        }
+
+        if (typeof entry.command !== 'string' || entry.command.length === 0) {
+          throw new Error(`compact result input ${entryPath}.command must be a non-empty string.`);
+        }
+
+        assertIntegerField(entry, 'exitCode', entryPath, isNonNegativeInteger, 'a non-negative integer');
+
+        if (!isKnownValidationCommandStatus(entry.status)) {
+          throw new Error(`compact result input ${entryPath}.status must be supported.`);
+        }
+
+        if (!isKnownValidationCommandKind(entry.kind)) {
+          throw new Error(`compact result input ${entryPath}.kind must be supported.`);
+        }
+
+        if (typeof entry.stdoutPreview !== 'string') {
+          throw new Error(`compact result input ${entryPath}.stdoutPreview must be a string.`);
+        }
+
+        if (typeof entry.stderrPreview !== 'string') {
+          throw new Error(`compact result input ${entryPath}.stderrPreview must be a string.`);
+        }
+
+        if (typeof entry.unsafeBlocked !== 'boolean') {
+          throw new Error(`compact result input ${entryPath}.unsafeBlocked must be a boolean.`);
+        }
+
+        if (!isStringOrNull(entry.unsafeRuleId)) {
+          throw new Error(`compact result input ${entryPath}.unsafeRuleId must be string or null.`);
+        }
+
+        if (!isStringOrNull(entry.unsafeReason)) {
+          throw new Error(`compact result input ${entryPath}.unsafeReason must be string or null.`);
+        }
+
+        const exitCode = entry.exitCode as number;
+        if (entry.status === 'passed' && exitCode !== 0) {
+          throw new Error(`compact result input ${entryPath}.status must match exitCode.`);
+        }
+
+        if (entry.status === 'failed' && exitCode === 0) {
+          throw new Error(`compact result input ${entryPath}.status must match exitCode.`);
+        }
+
+        if (entry.unsafeBlocked && (entry.unsafeRuleId === null || entry.unsafeReason === null)) {
+          throw new Error(`compact result input ${entryPath}.unsafeRuleId and unsafeReason are required when unsafeBlocked is true.`);
+        }
+      }
+    }
   }
 
   if (

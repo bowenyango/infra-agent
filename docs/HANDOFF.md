@@ -4445,6 +4445,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Validation Command Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `validation.commands` budget fields and command entry
+  shapes, including command strings, exit codes, status/kind enums, previews,
+  unsafe-blocked flags, and unsafe rule metadata.
+- Validate `validation.targetCommandCount` and `validation.yamlGuardCount` as
+  non-negative integer summary fields.
+- Keep unsafe validation command data reporting-only; no mutation or approval
+  semantics are introduced.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

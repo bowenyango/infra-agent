@@ -221,6 +221,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   mutation, and Kubernetes mutation commands before spawning them. Remove the
   unsafe command from workspace config or planner output instead of asking the
   tool to run it.
+- Validate compact `validation.commands` before using command summaries for
+  handoff: non-negative budget and target/yaml command counts, non-empty
+  command strings, supported status/kind values, non-negative exit codes,
+  status/exit-code consistency, preview strings, boolean unsafe-blocked flags,
+  and unsafe rule metadata when a command is blocked.
 - LLM planner `validate-targets` payloads must be treated as suggestions, not
   authority. Parser code must clamp validation commands to the selected
   validation plan and fall back to selected plan commands when a model invents

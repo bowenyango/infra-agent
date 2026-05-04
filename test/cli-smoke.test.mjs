@@ -6562,8 +6562,24 @@ test('compact agent result contract validates shallow handoff shape', () => {
     nextSteps: [],
     suggestedCommands: [],
     validation: {
+      targetCommandCount: 1,
+      yamlGuardCount: 0,
       commands: {
-        entries: []
+        maxEntries: 8,
+        omittedCount: 0,
+        entries: [
+          {
+            command: 'terraform plan',
+            exitCode: 1,
+            status: 'failed',
+            kind: 'target-validation',
+            stdoutPreview: '',
+            stderrPreview: 'Listener rule priority is already in use.',
+            unsafeBlocked: false,
+            unsafeRuleId: null,
+            unsafeReason: null
+          }
+        ]
       },
       issueSummary: {
         groups: []
@@ -7383,6 +7399,85 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /validation\.commands\.entries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        targetCommandCount: '1'
+      }
+    }),
+    /validation\.targetCommandCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        commands: {
+          ...validResult.validation.commands,
+          maxEntries: '8'
+        }
+      }
+    }),
+    /validation\.commands\.maxEntries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        commands: {
+          ...validResult.validation.commands,
+          entries: [
+            {
+              ...validResult.validation.commands.entries[0],
+              status: 'passed'
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.commands\.entries\[0\]\.status/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        commands: {
+          ...validResult.validation.commands,
+          entries: [
+            {
+              ...validResult.validation.commands.entries[0],
+              kind: 'deploy'
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.commands\.entries\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      validation: {
+        ...validResult.validation,
+        commands: {
+          ...validResult.validation.commands,
+          entries: [
+            {
+              ...validResult.validation.commands.entries[0],
+              unsafeBlocked: true,
+              unsafeRuleId: null,
+              unsafeReason: null
+            }
+          ]
+        }
+      }
+    }),
+    /validation\.commands\.entries\[0\]\.unsafeRuleId/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
