@@ -182,7 +182,8 @@ Current behavior is intentionally runtime-foundation oriented:
   decisions, prompts, or runtime arrays.
   `harness.lifecycleEvents` is a budgeted event stream for query start,
   decisions, tool execution, approval gates, and terminal outcome. It keeps
-  lifecycle routing explicit without timestamps or raw tool output.
+  lifecycle routing explicit with total, included, omitted, and event-kind
+  counts, without timestamps or raw tool output.
   `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
   plus total, included, omitted, latest-turn, and permission-category counts, so
   downstream agents can inspect execution evidence and permission posture

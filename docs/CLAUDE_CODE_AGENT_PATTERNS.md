@@ -87,7 +87,8 @@ durable design reference for infra-agent development.
   without exposing rationale, raw decision payloads, prompts, or observations.
 - `harness.lifecycleEvents` is the budgeted query lifecycle surface. It should
   expose query start, decisions, tool execution, approval gates, and terminal
-  outcome without timestamps, full prompts, raw decisions, or raw tool output.
+  outcome plus total/included/omitted and event-kind counts without timestamps,
+  full prompts, raw decisions, or raw tool output.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
   deterministic tool summaries plus total/included/omitted and permission
   category counts, not full tool outputs.

@@ -4095,6 +4095,31 @@ Known validation:
 - `npm run test:unit` passed with 274 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Lifecycle Event Budget Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extend compact `harness.lifecycleEvents` with total, included, omitted, and
+  event-kind counts.
+- Keep lifecycle event entries capped while allowing downstream agents to detect
+  truncated lifecycle data without recomputing from the included sample.
+- Extend the compact result contract parser to validate lifecycle count fields
+  when present.
+
+Known validation:
+
+- `npm run test:unit` passed with 274 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

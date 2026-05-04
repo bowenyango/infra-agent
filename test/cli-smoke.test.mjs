@@ -5271,7 +5271,13 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.plannerHandoff.lastAction.kind, 'inspect-target-files');
     assert.equal(compact.harness.plannerHandoff.lastAction.executionStatus, 'completed');
     assert.equal(compact.harness.lifecycleEvents.maxEntries, 12);
+    assert.equal(compact.harness.lifecycleEvents.totalCount, compact.harness.lifecycleEvents.events.length);
+    assert.equal(compact.harness.lifecycleEvents.includedCount, compact.harness.lifecycleEvents.events.length);
     assert.equal(compact.harness.lifecycleEvents.omittedCount, 0);
+    assert.equal(compact.harness.lifecycleEvents.eventCounts['query-started'], 1);
+    assert.equal(compact.harness.lifecycleEvents.eventCounts.decision, 1);
+    assert.ok(compact.harness.lifecycleEvents.eventCounts['tool-execution'] >= 1);
+    assert.equal(compact.harness.lifecycleEvents.eventCounts.terminal, 1);
     assert.equal(compact.harness.lifecycleEvents.events[0]?.event, 'query-started');
     assert.ok(compact.harness.lifecycleEvents.events.some(event =>
       event.event === 'decision'
@@ -5414,6 +5420,10 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
   const compact = buildCompactAgentRunResult(state);
 
   assert.equal(compact.harness.turnTrace[0]?.executionStatus, 'skipped');
+  assert.equal(compact.harness.lifecycleEvents.totalCount, 3);
+  assert.equal(compact.harness.lifecycleEvents.includedCount, 3);
+  assert.equal(compact.harness.lifecycleEvents.eventCounts.decision, 1);
+  assert.equal(compact.harness.lifecycleEvents.eventCounts.terminal, 1);
   assert.ok(compact.harness.lifecycleEvents.events.some(event =>
     event.event === 'decision'
     && event.actionKind === 'validate-targets'
@@ -6447,6 +6457,9 @@ test('compact agent result contract validates shallow handoff shape', () => {
         entries: []
       },
       lifecycleEvents: {
+        totalCount: 0,
+        includedCount: 0,
+        omittedCount: 0,
         events: []
       },
       plannerHandoff: {
@@ -6553,6 +6566,18 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /harness\.lifecycleEvents\.events/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        lifecycleEvents: {
+          totalCount: '0',
+          events: []
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.totalCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

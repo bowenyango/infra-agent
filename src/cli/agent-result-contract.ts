@@ -107,6 +107,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.lifecycleEvents.events must be an array when present.');
     }
 
+    if (isRecord(value.harness.lifecycleEvents)) {
+      for (const field of ['totalCount', 'includedCount', 'omittedCount']) {
+        if (field in value.harness.lifecycleEvents && !isNumber(value.harness.lifecycleEvents[field])) {
+          throw new Error(`compact result input harness.lifecycleEvents.${field} must be a number when present.`);
+        }
+      }
+    }
+
     if (isRecord(value.harness.plannerHandoff)) {
       if (
         isRecord(value.harness.plannerHandoff.activeBlocker)

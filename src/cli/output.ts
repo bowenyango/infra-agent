@@ -269,7 +269,10 @@ export interface CompactAgentRunResult {
     };
     lifecycleEvents: {
       maxEntries: number;
+      totalCount: number;
+      includedCount: number;
       omittedCount: number;
+      eventCounts: Record<CompactLifecycleEvent['event'], number>;
       events: CompactLifecycleEvent[];
     };
     turnTraceBudget: {
@@ -776,6 +779,13 @@ function collectCompactLifecycleEvents(state: AgentRunState): CompactAgentRunRes
   const events: CompactLifecycleEvent[] = [
     compactLifecycleEvent('query-started', null, state)
   ];
+  const eventCounts: Record<CompactLifecycleEvent['event'], number> = {
+    'query-started': 0,
+    decision: 0,
+    'tool-execution': 0,
+    'approval-gate': 0,
+    terminal: 0
+  };
 
   for (const turn of state.turns) {
     events.push(compactLifecycleEvent('decision', turn, state));
@@ -794,13 +804,20 @@ function collectCompactLifecycleEvents(state: AgentRunState): CompactAgentRunRes
 
   events.push(compactLifecycleEvent('terminal', state.turns[state.turns.length - 1] ?? null, state, state.outcome));
 
+  for (const event of events) {
+    eventCounts[event.event] += 1;
+  }
+
   const entries = events.length <= COMPACT_LIFECYCLE_EVENT_LIMIT
     ? events
     : [events[0], ...events.slice(-(COMPACT_LIFECYCLE_EVENT_LIMIT - 1))];
 
   return {
     maxEntries: COMPACT_LIFECYCLE_EVENT_LIMIT,
+    totalCount: events.length,
+    includedCount: entries.length,
     omittedCount: Math.max(0, events.length - entries.length),
+    eventCounts,
     events: entries
   };
 }
