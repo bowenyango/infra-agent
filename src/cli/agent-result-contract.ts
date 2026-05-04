@@ -1955,6 +1955,34 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error(`compact result input ${entryPath}.${field} must be string or null.`);
       }
     }
+
+    if (entry.kind === 'unsafe-validation-command') {
+      for (const field of ['unsafeCommand', 'unsafeRuleId', 'unsafeReason']) {
+        if (typeof entry[field] !== 'string' || entry[field].length === 0) {
+          throw new Error(`compact result input ${entryPath}.${field} must be a non-empty string for unsafe-validation-command safety blockers.`);
+        }
+      }
+
+      for (const field of ['yamlPath', 'yamlParser']) {
+        if (entry[field] !== null) {
+          throw new Error(`compact result input ${entryPath}.${field} must be null for unsafe-validation-command safety blockers.`);
+        }
+      }
+    }
+
+    if (entry.kind === 'yaml-syntax-failure') {
+      for (const field of ['yamlPath', 'yamlParser']) {
+        if (typeof entry[field] !== 'string' || entry[field].length === 0) {
+          throw new Error(`compact result input ${entryPath}.${field} must be a non-empty string for yaml-syntax-failure safety blockers.`);
+        }
+      }
+
+      for (const field of ['unsafeCommand', 'unsafeRuleId', 'unsafeReason']) {
+        if (entry[field] !== null) {
+          throw new Error(`compact result input ${entryPath}.${field} must be null for yaml-syntax-failure safety blockers.`);
+        }
+      }
+    }
   }
 
   assertHandoffBudgetMatches(

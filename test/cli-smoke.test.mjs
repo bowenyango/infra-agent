@@ -8444,8 +8444,51 @@ test('compact agent result contract validates shallow handoff shape and validati
     yamlPath: 'terraform/payments-api/dev.auto.tfvars',
     yamlParser: 'yaml'
   };
+  const validUnsafeSafetyBlocker = {
+    kind: 'unsafe-validation-command',
+    sourceCommand: 'terraform apply',
+    message: 'Unsafe validation command blocked.',
+    guidance: 'Remove deploy or apply commands from validation configuration.',
+    repairable: false,
+    mutationPrevented: true,
+    unsafeCommand: 'terraform apply',
+    unsafeRuleId: 'terraform-apply',
+    unsafeReason: 'Terraform apply mutates infrastructure state.',
+    yamlPath: null,
+    yamlParser: null
+  };
+  const resultWithSafetyBlockers = entries => ({
+    ...validResult,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: buildCompactHandoffBudgetsFixture({
+        turnTrace: { includedCount: 1, omittedCount: 0 },
+        lifecycleEvents: { includedCount: 2, omittedCount: 0 },
+        toolTrace: { includedCount: 1, omittedCount: 0 },
+        validationCommands: { includedCount: 1, omittedCount: 0 },
+        validationSafetyBlockers: { includedCount: entries.length, omittedCount: 0 },
+        knowledgePackets: {
+          includedCount: 1,
+          omittedCount: 1,
+          includedTokenEstimate: 40,
+          omittedTokenEstimate: 80
+        }
+      })
+    },
+    validation: {
+      ...validResult.validation,
+      safetyBlockers: {
+        ...validResult.validation.safetyBlockers,
+        entries
+      }
+    }
+  });
 
   assert.equal(parseCompactAgentRunResult(validResult).kind, 'infra-agent.agent-result');
+  assert.equal(
+    parseCompactAgentRunResult(resultWithSafetyBlockers([validSafetyBlocker, validUnsafeSafetyBlocker])).kind,
+    'infra-agent.agent-result'
+  );
   assert.throws(
     () => parseCompactAgentRunResult({ ...validResult, kind: 'infra-agent.infra-graph' }),
     /compact infra-agent\.agent-result/
@@ -9513,6 +9556,42 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /validation\.safetyBlockers\.entries\[0\]\.unsafeRuleId/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult(resultWithSafetyBlockers([
+      {
+        ...validUnsafeSafetyBlocker,
+        unsafeCommand: ''
+      }
+    ])),
+    /validation\.safetyBlockers\.entries\[0\]\.unsafeCommand.*unsafe-validation-command/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult(resultWithSafetyBlockers([
+      {
+        ...validUnsafeSafetyBlocker,
+        yamlPath: 'terraform/payments-api/dev.auto.tfvars'
+      }
+    ])),
+    /validation\.safetyBlockers\.entries\[0\]\.yamlPath.*unsafe-validation-command/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult(resultWithSafetyBlockers([
+      {
+        ...validSafetyBlocker,
+        yamlParser: ''
+      }
+    ])),
+    /validation\.safetyBlockers\.entries\[0\]\.yamlParser.*yaml-syntax-failure/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult(resultWithSafetyBlockers([
+      {
+        ...validSafetyBlocker,
+        unsafeReason: 'Terraform apply mutates infrastructure state.'
+      }
+    ])),
+    /validation\.safetyBlockers\.entries\[0\]\.unsafeReason.*yaml-syntax-failure/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

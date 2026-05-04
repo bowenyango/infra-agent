@@ -86,6 +86,36 @@ This document captures current development state for future Codex sessions.
 - Do not reset or discard future uncommitted work without explicit user
   approval.
 
+## 2026-05-04 Compact Safety Blocker Metadata Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Tighten `parseCompactAgentRunResult` validation for compact
+  `validation.safetyBlockers.entries` metadata coherence.
+- Require `unsafe-validation-command` blockers to include non-empty
+  `unsafeCommand`, `unsafeRuleId`, and `unsafeReason`, with YAML metadata
+  fields set to `null`.
+- Require `yaml-syntax-failure` blockers to include non-empty `yamlPath` and
+  `yamlParser`, with unsafe-command metadata fields set to `null`.
+- Preserve common safety blocker requirements, including string-or-null
+  `guidance` and `mutationPrevented=true`.
+
+Known validation:
+
+- `source /Users/ybw/.nvm/nvm.sh && nvm use --silent default && node --experimental-strip-types --test-name-pattern "validation.safetyBlockers|compact agent result contract" test/cli-smoke.test.mjs`: passed with 1 test.
+- `git diff --check`: passed.
+
+Residual risk:
+
+- Full repository verification was not run for this subagent slice; coverage is
+  limited to the requested focused compact contract smoke pattern.
+
 ## 2026-05-04 Compact Agent Root Required Fields Slice
 
 Files added or updated:
