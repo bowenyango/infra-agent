@@ -60,6 +60,7 @@ import {
 import type { InfraGraph } from '../types/infra-graph.ts';
 import type { DoctorReport } from './doctor.ts';
 import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts';
+import type { InfraGraphImpactReport } from './infra-graph-report.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
 type GraphImpactSummary = NonNullable<InfraGraph['summary']['impact']>;
@@ -2671,5 +2672,42 @@ export function printIdentityConflictIncidentReport(report: IdentityConflictInci
       process.stdout.write(`provider rule: ${incident.suggestedAction}\n`);
     }
     printList(incident.reviewSteps, 'No review steps available.');
+  }
+}
+
+export function printInfraGraphImpactReport(report: InfraGraphImpactReport): void {
+  printHeader('Graph Impact Report');
+  process.stdout.write(`source schema: ${report.sourceKind}@${report.sourceSchemaVersion}\n`);
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`risk: ${report.riskLevel}\n`);
+  process.stdout.write(`primary concern: ${report.primaryConcern}\n`);
+  process.stdout.write(`recommended action: ${report.recommendedAction}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`review targets: ${report.reviewTargetCount}\n`);
+  process.stdout.write(`omitted review targets: ${report.omittedReviewTargetCount}\n\n`);
+
+  printHeader('Counts');
+  process.stdout.write(`planned changes: ${report.counts.plannedChanges}\n`);
+  process.stdout.write(`dependencies: ${report.counts.dependencyEdges}\n`);
+  process.stdout.write(`possible renames: ${report.counts.possibleRenames}\n`);
+  process.stdout.write(`replacement cascades: ${report.counts.replacementCascades}\n`);
+  process.stdout.write(`create-before-delete conflicts: ${report.counts.createBeforeDeleteConflicts}\n\n`);
+
+  printHeader('Summary');
+  printList(report.summary, 'No graph impact detected.');
+
+  for (let index = 0; index < report.reviewTargets.length; index += 1) {
+    const target = report.reviewTargets[index];
+    process.stdout.write('\n');
+    printHeader(`Review Target ${index + 1}`);
+    process.stdout.write(`kind: ${target.kind}\n`);
+    process.stdout.write(`edge: ${target.edgeId}\n`);
+    process.stdout.write(`priority: ${target.priority}\n`);
+    process.stdout.write(`from: ${target.from}\n`);
+    process.stdout.write(`to: ${target.to}\n`);
+    process.stdout.write(`risk category: ${target.riskCategory}\n`);
+    process.stdout.write(`recommended action: ${target.recommendedAction}\n`);
+    process.stdout.write('mutation allowed: no\n');
+    printList(target.reviewSteps, 'No review steps available.');
   }
 }

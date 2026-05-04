@@ -3849,6 +3849,32 @@ Known validation:
 - `npm run test:unit`: passed.
 - `git diff --check`: passed.
 
+## 2026-05-04 Graph Impact Report CLI Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `infra-agent impact-report <graph.json> [--json]` as a focused read-only
+  reporting command for existing graph JSON.
+- Render graph impact report text and JSON without rerunning native validators
+  or mutating workspace, Terraform state, Pulumi stacks, Helm releases, or
+  Kubernetes resources.
+- Document the command as the graph equivalent of `identity-report` for
+  downstream agent handoff.
+
+Known validation:
+
+- `npm run test:unit`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Infra Graph Impact Report Loader Slice
 
 Files added or updated:

@@ -208,7 +208,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - When consuming saved graph JSON, parse it as compact `infra-agent.infra-graph`
   schema version 1 before trusting impact fields. Reject graph payloads where
   `summary.impact.mutationAllowed` or any impact review target is not `false`.
-- Graph impact reports are read-only summaries of existing
+- Use `infra-agent impact-report <graph.json>` when a human operator or
+  downstream agent needs a focused graph impact report from an existing graph
+  handoff. Graph impact reports are read-only summaries of existing
   `infra-agent.infra-graph` JSON. They do not rerun Terraform, Pulumi, Helm, or
   Kubernetes commands and do not authorize state moves, aliases, imports, or
   apply/update operations.

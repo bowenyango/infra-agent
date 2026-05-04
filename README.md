@@ -227,6 +227,10 @@ Current behavior is intentionally runtime-foundation oriented:
   When a run is blocked by runtime exclusive-identity conflicts, suggested
   commands include an `agent --json > agent-result.json` export followed by
   `identity-report agent-result.json --json`.
+- `impact-report` renders an existing `graph --json` result into a read-only
+  `infra-agent.infra-graph-impact-report`. It consumes `infra-agent.infra-graph`
+  JSON, validates schema version 1 and mutation-disallowed impact posture, and
+  does not rerun native validators or mutate state.
 - `agent` can resume past approval-required pauses by rerunning with explicit
   approval flags such as `--approve-write-risk high` with optional
   `--approve-write-path charts/payments-api`, or

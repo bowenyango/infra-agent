@@ -5950,6 +5950,19 @@ test('identity-report CLI args accept compact result input path', () => {
   assert.equal(parsed.json, true);
 });
 
+test('impact-report CLI args accept infra graph input path', () => {
+  const parsed = parseArgs([
+    'impact-report',
+    'graph.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'impact-report');
+  assert.equal(parsed.inputPath, 'graph.json');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.json, true);
+});
+
 test('infra graph contract validates shallow impact handoff shape', () => {
   const validGraph = {
     kind: 'infra-agent.infra-graph',

@@ -15,10 +15,12 @@ import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
 import { loadIdentityConflictIncidentReport } from './identity-report.ts';
+import { loadInfraGraphImpactReport } from './infra-graph-report.ts';
 import { buildDoctorReport } from './doctor.ts';
 import {
   buildCompactAgentRunResult,
   printIdentityConflictIncidentReport,
+  printInfraGraphImpactReport,
   printAgentRunState,
   printDoctorReport,
   printInfraGraph,
@@ -33,7 +35,7 @@ import { readPackageVersion } from './package-metadata.ts';
 export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'identity-report' | 'doctor' | 'version' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'version' | 'help';
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -65,6 +67,7 @@ function printUsage(): void {
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
+      '  infra-agent impact-report <graph.json> [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
@@ -298,6 +301,42 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
     return {
       command: 'identity-report',
+      task: null,
+      workspace: cwd(),
+      inputPath: positionalArgs[0],
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains: [],
+      targetPaths: [],
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
+    };
+  }
+
+  if (commandName === 'impact-report') {
+    const positionalArgs: string[] = [];
+    for (const arg of cleanArgs) {
+      if (arg.startsWith('--')) {
+        fail(`Unknown impact-report option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length !== 1) {
+      fail('impact-report requires exactly one infra graph JSON path.');
+    }
+
+    return {
+      command: 'impact-report',
       task: null,
       workspace: cwd(),
       inputPath: positionalArgs[0],
@@ -640,6 +679,22 @@ async function main(): Promise<void> {
     }
 
     printIdentityConflictIncidentReport(report);
+    return;
+  }
+
+  if (parsed.command === 'impact-report') {
+    if (!parsed.inputPath) {
+      fail('impact-report requires exactly one infra graph JSON path.');
+    }
+
+    const report = await loadInfraGraphImpactReport(parsed.inputPath, cwd());
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    printInfraGraphImpactReport(report);
     return;
   }
 
