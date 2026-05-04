@@ -211,7 +211,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `readiness` summarizes the planner mode, workspace blockers, selected
   validation plan, and only the validators required by that selected plan. It
   also includes a `doctorCommand` for a fuller read-only package/Node/tool
-  report. `validation.selectedPlan` mirrors the selected validation targets and
+  report. Compact consumers validate readiness status enums, summary counts,
+  check entry shapes, and status/count consistency before deriving handoff
+  posture. `validation.selectedPlan` mirrors the selected validation targets and
   commands, including executed and failed command counts, so downstream agents
   can tell what validation was intended before raw tool output is requested.
   `validation.commands` carries a budgeted list of recent executed validation

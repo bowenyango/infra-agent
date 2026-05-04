@@ -4421,6 +4421,30 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Readiness Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `readiness` status, pass/warn/fail summary counts,
+  `doctorCommand`, and check entry shapes.
+- Validate that readiness counts match checks by status and that summary status
+  is derived from fail/warn/pass check counts.
+- Keep readiness as read-only posture data; no resume or mutation semantics are
+  introduced.
+
+Known validation:
+
+- `npm run test:unit` passed with 276 tests.
+- `git diff --check` passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

@@ -190,6 +190,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   exhausted-state consistency before a downstream agent decides to retry or
   hand off manual repair.
 - Keep compact `agent --json` readiness targeted: include planner mode, workspace blocker status, selected validation-plan status, and validators required by that selected plan, plus a `doctorCommand` for fuller read-only checks. Do not include API keys or unrelated validator noise.
+- Validate compact readiness as read-only status data: supported
+  pass/warn/fail values, non-negative summary counts, check name/message/detail
+  shapes, counts that match checks by status, and summary status derived from
+  check counts.
 - Surface readiness posture in result cards, and include the read-only
   `doctorCommand` in suggested commands when readiness is warn or fail. Do not
   let this replace approval continuation commands when an approval gate is the

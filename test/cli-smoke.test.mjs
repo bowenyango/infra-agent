@@ -6704,7 +6704,19 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     },
     readiness: {
-      checks: []
+      status: 'pass',
+      passCount: 1,
+      warnCount: 0,
+      failCount: 0,
+      doctorCommand: 'infra-agent doctor /workspace --json',
+      checks: [
+        {
+          name: 'planner',
+          status: 'pass',
+          message: 'Rule-based planner is selected for this run.',
+          detail: 'rule-based'
+        }
+      ]
     },
     approval: {
       resume: {
@@ -7304,6 +7316,61 @@ test('compact agent result contract validates shallow handoff shape', () => {
       }
     }),
     /plannerHandoff\.nextControlAction/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        status: 'unknown'
+      }
+    }),
+    /readiness\.status/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        checks: {}
+      }
+    }),
+    /readiness\.checks/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        passCount: 0
+      }
+    }),
+    /readiness counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        checks: [
+          {
+            ...validResult.readiness.checks[0],
+            status: 'unknown'
+          }
+        ]
+      }
+    }),
+    /readiness\.checks\[0\]\.status/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        doctorCommand: null
+      }
+    }),
+    /readiness\.doctorCommand/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

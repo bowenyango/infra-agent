@@ -34,6 +34,7 @@ const TOOL_PERMISSION_CATEGORIES = [
   'approval-required',
   'unknown'
 ] as const;
+const DOCTOR_CHECK_STATUSES = ['pass', 'warn', 'fail'] as const;
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
   'none',
   'approval',
@@ -110,6 +111,10 @@ function isKnownToolSafety(value: unknown): boolean {
 function isKnownToolPermissionCategory(value: unknown): boolean {
   return typeof value === 'string'
     && TOOL_PERMISSION_CATEGORIES.includes(value as typeof TOOL_PERMISSION_CATEGORIES[number]);
+}
+
+function isKnownDoctorCheckStatus(value: unknown): boolean {
+  return typeof value === 'string' && DOCTOR_CHECK_STATUSES.includes(value as typeof DOCTOR_CHECK_STATUSES[number]);
 }
 
 function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
@@ -753,8 +758,68 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
   }
 
-  if (isRecord(value.readiness) && 'checks' in value.readiness && !Array.isArray(value.readiness.checks)) {
-    throw new Error('compact result input readiness.checks must be an array when present.');
+  if (isRecord(value.readiness)) {
+    if (!isKnownDoctorCheckStatus(value.readiness.status)) {
+      throw new Error('compact result input readiness.status must be supported when present.');
+    }
+
+    for (const field of ['passCount', 'warnCount', 'failCount']) {
+      assertIntegerField(value.readiness, field, 'readiness', isNonNegativeInteger, 'a non-negative integer');
+    }
+
+    if (typeof value.readiness.doctorCommand !== 'string') {
+      throw new Error('compact result input readiness.doctorCommand must be a string when present.');
+    }
+
+    if (!Array.isArray(value.readiness.checks)) {
+      throw new Error('compact result input readiness.checks must be an array when present.');
+    }
+
+    const statusCounts = {
+      pass: 0,
+      warn: 0,
+      fail: 0
+    };
+
+    for (let index = 0; index < value.readiness.checks.length; index += 1) {
+      const check = value.readiness.checks[index];
+      const checkPath = `readiness.checks[${index}]`;
+
+      if (!isRecord(check)) {
+        throw new Error(`compact result input ${checkPath} must be an object.`);
+      }
+
+      if (typeof check.name !== 'string' || check.name.length === 0) {
+        throw new Error(`compact result input ${checkPath}.name must be a non-empty string.`);
+      }
+
+      if (!isKnownDoctorCheckStatus(check.status)) {
+        throw new Error(`compact result input ${checkPath}.status must be supported.`);
+      }
+
+      if (typeof check.message !== 'string') {
+        throw new Error(`compact result input ${checkPath}.message must be a string.`);
+      }
+
+      if (!isStringOrNull(check.detail)) {
+        throw new Error(`compact result input ${checkPath}.detail must be string or null.`);
+      }
+
+      statusCounts[check.status as keyof typeof statusCounts] += 1;
+    }
+
+    if (
+      value.readiness.passCount !== statusCounts.pass
+      || value.readiness.warnCount !== statusCounts.warn
+      || value.readiness.failCount !== statusCounts.fail
+    ) {
+      throw new Error('compact result input readiness counts must match checks by status.');
+    }
+
+    const expectedReadinessStatus = statusCounts.fail > 0 ? 'fail' : statusCounts.warn > 0 ? 'warn' : 'pass';
+    if (value.readiness.status !== expectedReadinessStatus) {
+      throw new Error('compact result input readiness.status must match check counts.');
+    }
   }
 
   if (!isRecord(value.validation) || !Array.isArray(value.validation.identityConflicts)) {
