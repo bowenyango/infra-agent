@@ -4519,6 +4519,31 @@ Known validation:
 - `npm run test:unit` passed with 276 tests.
 - `git diff --check` passed.
 
+## 2026-05-04 Compact Contract Skill Alignment Slice
+
+Files added or updated:
+
+- `skills/infra-configuration/SKILL.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Align the infra-configuration skill with the hardened compact
+  `infra-agent.agent-result` contract so downstream agents treat compact JSON as
+  parser-validated handoff data.
+- Update the Claude Code pattern reference to call out contract enforcement for
+  root metadata, budgets, traces, readiness, validation commands, approval
+  resume, and planner handoff routing.
+
+Known validation:
+
+- `npm run lint`: passed.
+- `npm run test:unit`: passed with 276 tests.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-04 Graph Impact Source Provenance Slice
 
 Files added or updated:

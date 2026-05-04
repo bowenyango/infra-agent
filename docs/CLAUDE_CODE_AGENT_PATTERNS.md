@@ -42,6 +42,11 @@ durable design reference for infra-agent development.
   there instead of spreading control-flow decisions through CLI output code.
 - Compact `agent --json` output is the primary agent-to-agent handoff. Add
   small structured sections there before adding prose-only output.
+- Compact handoff sections need parser-enforced contracts before downstream
+  agents route on them. Root task/workspace metadata, query/loop/repair
+  budgets, turn/tool traces, readiness, validation commands, approval resume,
+  and planner handoff routing should reject malformed or inconsistent JSON
+  instead of relying on prose interpretation.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without
@@ -87,6 +92,9 @@ durable design reference for infra-agent development.
 - `harness.plannerHandoff` is the compact routing surface. It should derive
   last action, active blocker, and next control action from existing state
   without exposing rationale, raw decision payloads, prompts, or observations.
+  Contract parsers should validate last-action enums, active-blocker metadata,
+  and outcome-to-control-action consistency before another agent uses it for
+  routing.
 - `harness.lifecycleEvents` is the budgeted query lifecycle surface. It should
   expose query start, decisions, tool execution, approval gates, and terminal
   outcome plus total/included/omitted and event-kind counts without timestamps,
@@ -95,7 +103,9 @@ durable design reference for infra-agent development.
   omitted totals so agent-to-agent handoff remains deterministic.
 - `harness.toolTrace` is the budgeted tool-summary surface. It carries recent
   deterministic tool summaries plus total/included/omitted and permission
-  category counts, not full tool outputs.
+  category counts, not full tool outputs. Contract parsers should validate
+  entry shapes, supported permission categories, mutation/approval booleans,
+  and budget/category-count consistency.
 - Tool summaries should carry explicit permission categories such as workspace
   reads/writes, native CLI validation, native CLI writes, and stack config
   mutation-risk tools. Downstream agents should reason from these categories

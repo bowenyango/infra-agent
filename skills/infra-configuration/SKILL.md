@@ -42,11 +42,15 @@ configured, but it must not expose API keys.
 
 4. Prefer `--json` when another agent will consume the result. This returns the
    compact `infra-agent.agent-result` payload; reserve `--json-full` for
-   debugging the whole runtime state. Read `harness.turnTrace` for the bounded
-   action flow, `harness.plannerHandoff` for the active blocker and next control
-   action, `harness.turnTraceBudget` and `harness.lifecycleEvents` for capped
-   lifecycle window/count metadata, and `harness.toolTrace` for budgeted recent
-   tool summaries before asking for raw logs. Read `harness.repairBudget`
+   debugging the whole runtime state. Treat compact JSON as contract-checked
+   handoff data: root task/workspace metadata, query/loop/repair budgets,
+   turn/tool trace entries, readiness checks, validation command summaries,
+   approval resume metadata, and planner handoff routing must be structurally
+   valid before another agent acts on them. Read `harness.turnTrace` for the
+   bounded action flow, `harness.plannerHandoff` for the active blocker and next
+   control action, `harness.turnTraceBudget` and `harness.lifecycleEvents` for
+   capped lifecycle window/count metadata, and `harness.toolTrace` for budgeted
+   recent tool summaries before asking for raw logs. Read `harness.repairBudget`
    before starting another repair attempt. Read `harness.toolPermissionSummary`
    to separate workspace writes, native CLI calls, and stack/state mutation-risk
    tools. Read
