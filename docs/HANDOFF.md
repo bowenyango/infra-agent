@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Tool Category Approval Resume Command Scope Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate that a tool-category approval continuation command keeps
+  `--approve-tool-category` tied to the active approval signal.
+- Add focused smoke coverage for generated tool-category approval-required
+  compact results.
+- Keep write approval and tool approval resume contracts symmetric so future
+  agents can safely resume blocked runs.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|tool category approval continuation|compact agent result contract" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Write Approval Resume Command Scope Slice
 
 Files added or updated:

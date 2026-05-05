@@ -3017,6 +3017,16 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input approval.resume.command must include the active write approval scope.');
       }
 
+      if (
+        value.approval.resume.continuationRequired
+        && isRecord(firstApprovalSignal)
+        && firstApprovalSignal.kind === 'tool-category-approval-required'
+        && typeof value.approval.resume.command === 'string'
+        && !value.approval.resume.command.includes(`--approve-tool-category ${firstApprovalSignal.toolCategory}`)
+      ) {
+        throw new Error('compact result input approval.resume.command must include the active tool category approval scope.');
+      }
+
       if (value.handoffCheckpoint.summary.approvalContinuationRequired !== value.approval.resume.continuationRequired) {
         throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must match approval.resume.continuationRequired.');
       }

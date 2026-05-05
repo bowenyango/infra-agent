@@ -13886,6 +13886,67 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   );
 });
 
+test('summarizeSuggestedCommands includes tool category approval continuation scope', async () => {
+  const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
+  const state = {
+    modelName: 'test-model',
+    outcome: 'approval-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [
+        {
+          kind: 'tool-category-approval-required',
+          toolCategory: 'native-stack-config-write',
+          message: 'Approval required.'
+        }
+      ],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [],
+    config: resolveQueryLoopConfig()
+  };
+  const commands = summarizeSuggestedCommands(state);
+  const compact = buildCompactAgentRunResult(state);
+
+  assert.ok(commands[0]?.includes('--approve-tool-category native-stack-config-write'));
+  assert.equal(compact.approval.resume.continuationRequired, true);
+  assert.equal(compact.approval.resume.command, commands[0]);
+  assert.deepEqual(compact.approval.resume.writeRisks, []);
+  assert.deepEqual(compact.approval.resume.writePaths, []);
+  assert.deepEqual(compact.approval.resume.toolCategories, ['native-stack-config-write']);
+  assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'approval');
+  assert.equal(compact.harness.plannerHandoff.activeBlocker.approvalSignalKind, 'tool-category-approval-required');
+  assert.equal(compact.harness.plannerHandoff.nextControlAction, 'request-approval');
+  assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      handoffCheckpoint: {
+        ...compact.handoffCheckpoint,
+        continuation: {
+          ...compact.handoffCheckpoint.continuation,
+          command: compact.approval.resume.command?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null
+        }
+      },
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          command: compact.approval.resume.command?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null
+        }
+      }
+    }),
+    /approval\.resume\.command.*tool category approval scope/
+  );
+});
+
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const commands = summarizeSuggestedCommands({
