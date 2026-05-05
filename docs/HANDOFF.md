@@ -9463,6 +9463,33 @@ Remaining risks:
 
 - `knowledge validate` and `knowledge pack` are still pending.
 
+## 2026-05-05 Knowledge Validate CLI Slice
+
+Files added or updated:
+
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add validation for `infra-agent.knowledge-facts` and aggregated
+  `infra-agent.knowledge-extraction` JSON payloads.
+- Check fact-set contracts, mutation posture, schema version, and aggregate
+  source/fact count consistency before downstream planner or team-cache use.
+- Expose `infra-agent knowledge validate <knowledge.json>` with JSON and text
+  output; invalid reports set a non-zero process exit code.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge validation|knowledge validate" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- `knowledge pack` is still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

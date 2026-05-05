@@ -105,6 +105,7 @@ import {
 import { parseKnowledgeFactSet } from '../src/knowledge/facts-contract.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../src/knowledge/facts.ts';
 import { extractWorkspaceKnowledgeFacts } from '../src/knowledge/extract.ts';
+import { validateKnowledgePayload } from '../src/knowledge/validate.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2736,6 +2737,33 @@ test('workspace knowledge facts extract local Helm schema sources without fetchi
     )
   ));
   assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+});
+
+test('knowledge validation accepts extraction reports and rejects count drift', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const extraction = await extractWorkspaceKnowledgeFacts(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+
+  const validReport = validateKnowledgePayload(extraction, 'inline');
+  assert.equal(validReport.kind, 'infra-agent.knowledge-validation');
+  assert.equal(validReport.mutationAllowed, false);
+  assert.equal(validReport.inputKind, 'infra-agent.knowledge-extraction');
+  assert.equal(validReport.valid, true);
+  assert.equal(validReport.factSetCount, extraction.factSetCount);
+  assert.equal(validReport.factCount, extraction.factCount);
+
+  const invalidReport = validateKnowledgePayload({
+    ...extraction,
+    factCount: extraction.factCount + 1
+  }, 'inline');
+  assert.equal(invalidReport.valid, false);
+  assert.ok(invalidReport.issues.some(issue =>
+    issue.severity === 'error'
+    && issue.path === '$.factCount'
+  ));
 });
 
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {
@@ -7230,6 +7258,21 @@ test('knowledge extract CLI args accept source filters and bounded targets', () 
   assert.equal(parsed.json, true);
 });
 
+test('knowledge validate CLI args accept a knowledge JSON path', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'validate',
+    'knowledge-extraction.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'validate');
+  assert.equal(parsed.inputPath, 'knowledge-extraction.json');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge sources command emits read-only source listing JSON', async () => {
   const output = await captureStdout(() => main([
     'knowledge',
@@ -7320,6 +7363,40 @@ test('knowledge extract command emits cache-first fact sets as JSON', async () =
     && factSet.facts.some(fact => fact.path === 'chart.payments-api.service.port')
   ));
   assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+});
+
+test('knowledge validate command validates extraction JSON files', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-validate-'));
+
+  try {
+    const inspection = await inspectWorkspace('fixtures/sample-workspace');
+    const extraction = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['helm'],
+      targetPaths: ['charts/payments-api'],
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+    const inputPath = join(tempRoot, 'knowledge-extraction.json');
+    await writeFile(inputPath, JSON.stringify(extraction, null, 2));
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      inputPath,
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-validation');
+    assert.equal(report.schemaVersion, 1);
+    assert.equal(report.mutationAllowed, false);
+    assert.equal(report.inputKind, 'infra-agent.knowledge-extraction');
+    assert.equal(report.valid, true);
+    assert.equal(report.factSetCount, extraction.factSetCount);
+    assert.equal(report.factCount, extraction.factCount);
+    assert.deepEqual(report.issues, []);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('graph CLI args accept workspace and json flags', () => {

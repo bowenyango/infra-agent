@@ -44,6 +44,7 @@ import {
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
 import type { KnowledgeSourcesReport, KnowledgeSourceReportEntry } from '../knowledge/sources.ts';
 import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
+import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   aggregateToolPermissions,
@@ -3423,6 +3424,16 @@ export function printKnowledgeExtractionReport(report: KnowledgeExtractionReport
   process.stdout.write(`summary: sources=${report.sourceCount}, factSets=${report.factSetCount}, facts=${report.factCount}, skipped=${report.skippedSourceCount}\n\n`);
   printHeader('Sources');
   printList(report.sources.map(formatKnowledgeExtractionSourceResult), 'No knowledge sources selected.');
+}
+
+export function printKnowledgeValidationReport(report: KnowledgeValidationReport): void {
+  printHeader('Knowledge validation');
+  process.stdout.write(`input: ${report.inputPath}\n`);
+  process.stdout.write(`kind: ${report.inputKind ?? 'unknown'}\n`);
+  process.stdout.write(`valid: ${report.valid ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: factSets=${report.factSetCount}, facts=${report.factCount}, issues=${report.issueCount}\n\n`);
+  printHeader('Issues');
+  printList(report.issues.map(issue => `${issue.severity} ${issue.path}: ${issue.message}`), 'No knowledge validation issues.');
 }
 
 function formatGraphCounts(counts: Record<string, number | undefined>): string {

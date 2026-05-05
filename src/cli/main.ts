@@ -13,6 +13,7 @@ import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
+import { loadKnowledgeValidationReport } from '../knowledge/validate.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -31,6 +32,7 @@ import {
   printKnowledgePrefetchResult,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
+  printKnowledgeValidationReport,
   printPlannerProviderCatalogReport,
   printRunPreflight,
   printValidationPreflight
@@ -42,7 +44,7 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -85,6 +87,7 @@ function printUsage(): void {
       '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]',
+      '  infra-agent knowledge validate <knowledge.json> [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -539,8 +542,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (commandName === 'knowledge') {
     const knowledgeAction = cleanArgs[0];
-    if (knowledgeAction !== 'sources' && knowledgeAction !== 'prefetch' && knowledgeAction !== 'extract') {
-      fail('knowledge requires a supported action: sources, prefetch, extract.');
+    if (knowledgeAction !== 'sources' && knowledgeAction !== 'prefetch' && knowledgeAction !== 'extract' && knowledgeAction !== 'validate') {
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate.');
     }
 
     let workspace = cwd();
@@ -555,6 +558,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
+        if (knowledgeAction === 'validate') {
+          fail('--domain is not supported for knowledge validate.');
+        }
         const domainValue = actionArgs[index + 1];
         if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
           fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
@@ -566,6 +572,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
+        if (knowledgeAction === 'validate') {
+          fail('--target is not supported for knowledge validate.');
+        }
         const targetValue = actionArgs[index + 1];
         if (!targetValue) {
           fail('Missing value for --target.');
@@ -616,14 +625,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
       fail(`knowledge ${knowledgeAction} accepts at most one workspace path.`);
     }
 
+    if (knowledgeAction === 'validate' && positionalArgs.length !== 1) {
+      fail('knowledge validate requires exactly one knowledge JSON path.');
+    }
+
     workspace = positionalArgs[0] ?? workspace;
 
     return {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace,
-      inputPath: null,
+      workspace: knowledgeAction === 'validate' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' ? positionalArgs[0] : null,
       json,
       jsonFull,
       planner: 'auto',
@@ -1036,6 +1049,25 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeExtractionReport(report);
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'validate') {
+    if (!parsed.inputPath) {
+      fail('knowledge validate requires exactly one knowledge JSON path.');
+    }
+
+    const report = await loadKnowledgeValidationReport(parsed.inputPath, cwd());
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      printKnowledgeValidationReport(report);
+    }
+
+    if (!report.valid) {
+      process.exitCode = 1;
+    }
     return;
   }
 
