@@ -8262,3 +8262,29 @@ Remaining risks:
 
 - Approval continuation and suggested export commands still need to preserve
   user-selected planner flags.
+
+## 2026-05-05 Approval Continuation Planner Flags Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Preserve explicit planner mode, model, provider, and OpenAI-compatible base
+  URL flags in approval continuation commands.
+- Preserve user-selected planner flags in compact `agent --json` export
+  commands used by identity-report follow-up flows.
+- Emit only CLI-selected non-secret values; API keys remain environment-only.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "tool category approval continuation scope" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- The compact parser does not yet require planner flags to be present in
+  approval continuation commands when `harness.plannerConfig` says they came
+  from CLI.

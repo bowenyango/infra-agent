@@ -14826,7 +14826,7 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
     }
   });
   const state = {
-    modelName: 'test-model',
+    modelName: 'llm-model-client:codex-infra-test',
     outcome: 'approval-required',
     preflight,
     runtime: {
@@ -14847,12 +14847,31 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
       lastEditPlan: null
     },
     turns: [],
-    config: queryConfig
+    config: queryConfig,
+    plannerConfig: {
+      requestedMode: 'llm',
+      effectiveMode: 'llm',
+      clientName: 'llm-model-client:codex-infra-test',
+      fallbackReason: null,
+      llm: {
+        provider: 'openai-compatible',
+        model: 'codex-infra-test',
+        baseUrl: 'https://models.example.test/v1',
+        apiKeySource: 'OPENAI_API_KEY',
+        providerSource: 'cli',
+        modelSource: 'cli',
+        baseUrlSource: 'cli'
+      }
+    }
   };
   const commands = summarizeSuggestedCommands(state);
   const compact = buildCompactAgentRunResult(state);
 
   assert.ok(commands[0]?.includes('--max-turns 4'));
+  assert.ok(commands[0]?.includes('--planner llm'));
+  assert.ok(commands[0]?.includes('--llm-provider openai-compatible'));
+  assert.ok(commands[0]?.includes('--model "codex-infra-test"'));
+  assert.ok(commands[0]?.includes('--openai-base-url "https://models.example.test/v1"'));
   assert.ok(commands[0]?.includes('--max-repair-attempts 1'));
   assert.ok(commands[0]?.includes('--context-packet-limit 3'));
   assert.ok(commands[0]?.includes('--context-token-budget 700'));
@@ -14861,6 +14880,7 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.equal(compact.approval.resume.command, commands[0]);
   assert.equal(compact.approval.resume.compactCommand, `${commands[0]} --json`);
   assert.equal(compact.approval.resume.debugCommand, `${commands[0]} --json-full`);
+  assert.equal(compact.harness.plannerConfig.llm?.modelSource, 'cli');
   assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
   assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);
   assert.equal(compact.handoffCheckpoint.continuation.debugCommand, compact.approval.resume.debugCommand);

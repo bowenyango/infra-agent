@@ -2742,6 +2742,29 @@ function buildQueryConfigFlags(state: AgentRunState): string {
   ].join(' ');
 }
 
+function buildPlannerConfigFlagParts(state: AgentRunState): string[] {
+  const plannerConfig = collectPlannerConfig(state);
+  const flags: string[] = [];
+
+  if (plannerConfig.requestedMode !== 'auto') {
+    flags.push(`--planner ${plannerConfig.requestedMode}`);
+  }
+
+  if (plannerConfig.llm) {
+    if (plannerConfig.llm.providerSource === 'cli') {
+      flags.push(`--llm-provider ${plannerConfig.llm.provider}`);
+    }
+    if (plannerConfig.llm.modelSource === 'cli') {
+      flags.push(`--model ${shellQuote(plannerConfig.llm.model)}`);
+    }
+    if (plannerConfig.llm.baseUrlSource === 'cli') {
+      flags.push(`--openai-base-url ${shellQuote(plannerConfig.llm.baseUrl)}`);
+    }
+  }
+
+  return flags;
+}
+
 function buildApprovalGrantFlagParts(state: AgentRunState): string[] {
   return [
     ...state.preflight.approval.approvedWriteRisks.map(risk => `--approve-write-risk ${risk}`),
@@ -2796,6 +2819,7 @@ function buildApprovalContinuationCommandForSignal(
   const base = buildCliBaseCommand();
   const taskFlag = buildTaskFlag(state.preflight.task);
   const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
+  const plannerFlagSegment = buildFlagSegment(buildPlannerConfigFlagParts(state));
   const queryConfigFlags = buildQueryConfigFlags(state);
   const approvalFlags = Array.from(new Set([
     ...buildApprovalGrantFlagParts(state),
@@ -2808,7 +2832,7 @@ function buildApprovalContinuationCommandForSignal(
       ? ' --json-full'
       : '';
 
-  return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags}${approvalFlagSegment}${outputFlag}`;
+  return `${base} agent ${taskFlag} ${workspaceFlag}${plannerFlagSegment} ${queryConfigFlags}${approvalFlagSegment}${outputFlag}`;
 }
 
 function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['approval']['resume'] {
@@ -3102,9 +3126,10 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
   const domainValidateCommand = `${base} validate ${workspaceArg}`;
   const domainInspectCommand = `${base} inspect ${workspaceArg}`;
+  const plannerFlagSegment = buildFlagSegment(buildPlannerConfigFlagParts(state));
   const approvalGrantFlagSegment = buildFlagSegment(buildApprovalGrantFlagParts(state));
   const rerunCommand = `${base} run ${taskFlag} ${workspaceFlag}${approvalGrantFlagSegment}`;
-  const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag}${approvalGrantFlagSegment} --json`;
+  const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag}${plannerFlagSegment}${approvalGrantFlagSegment} --json`;
   const domainNativeCommands = summarizeDomainSuggestedCommands(state);
   const identityReportCommands = summarizeIdentityReportSuggestedCommands(state, agentJsonCommand, base);
   const reviewCommand = summarizeReviewCommand(state);
