@@ -2869,6 +2869,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
       assertIntegerField(value.approval.resume, 'signalCount', 'approval.resume', isNonNegativeInteger, 'a non-negative integer');
 
+      if (
+        isRecord(value.harness)
+        && isRecord(value.harness.stateSummary)
+        && value.harness.stateSummary.approvalSignalCount !== value.approval.resume.signalCount
+      ) {
+        throw new Error('compact result input harness.stateSummary.approvalSignalCount must match approval.resume.signalCount.');
+      }
+
       if (value.approval.resume.continuationRequired && typeof value.approval.resume.command !== 'string') {
         throw new Error('compact result input approval.resume.command is required when continuationRequired is true.');
       }

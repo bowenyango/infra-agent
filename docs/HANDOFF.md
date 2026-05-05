@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 State Summary Approval Signal Count Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check `harness.stateSummary.approvalSignalCount` against
+  `approval.resume.signalCount`.
+- Keep approval-gate runtime facts aligned with the compact approval
+  continuation surface.
+- Prevent stale approval counts from making a blocked run look safer or more
+  complete than the resume metadata indicates.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 State Summary Validation Issue Count Slice
 
 Files added or updated:
