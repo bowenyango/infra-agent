@@ -3083,6 +3083,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input handoffCheckpoint.budgets.knowledgePackets token estimates must match knowledgeContext.');
   }
 
+  if (
+    isRecord(value.harness)
+    && isRecord(value.harness.stateSummary)
+    && value.harness.stateSummary.retrievedContextCount !== knowledgeTotalPacketCount
+  ) {
+    throw new Error('compact result input harness.stateSummary.retrievedContextCount must match knowledgeContext.totalPacketCount.');
+  }
+
   if (!isRecord(value.knowledgeCache)) {
     throw new Error('compact result input must include knowledgeCache object.');
   }

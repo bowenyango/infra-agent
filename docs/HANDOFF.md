@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 State Summary Retrieved Context Count Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check `harness.stateSummary.retrievedContextCount` against
+  `knowledgeContext.totalPacketCount`.
+- Align the runtime-state boundary with the compact retrieved-context budget
+  and packet summary surface.
+- Update the hand-built compact fixture so its state summary reflects both
+  included and omitted retrieved context packets.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 State Summary Approval Signal Count Slice
 
 Files added or updated:
