@@ -8799,3 +8799,28 @@ Known validation:
 Remaining risks:
 
 - CLI/report surfaces for this catalog are still pending.
+
+## 2026-05-05 Planner Provider Catalog Report Slice
+
+Files added or updated:
+
+- `src/cli/planner-provider-catalog.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a read-only `infra-agent.planner-provider-catalog` report builder for
+  downstream agent discovery.
+- Declare the catalog scope as planner-only, `mutationAllowed=false`, and
+  `liveProviderCheck=false`.
+- Include CLI/env configuration hints without including env values,
+  credentials, bearer headers, or live reachability state.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner provider catalog report" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- The report is not yet wired to a CLI command or contract parser.

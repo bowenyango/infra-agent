@@ -41,6 +41,7 @@ import {
 } from '../src/cli/output.ts';
 import { buildLLMClientConfigOverrides, main, parseArgs, readPackageVersion } from '../src/cli/main.ts';
 import { buildDoctorReport } from '../src/cli/doctor.ts';
+import { buildPlannerProviderCatalogReport } from '../src/cli/planner-provider-catalog.ts';
 import {
   exitCodeForAgentOutcome,
   exitCodeForRunPreflight,
@@ -14002,6 +14003,52 @@ test('LLM provider catalog lists deterministic non-secret adapter metadata', () 
 
   catalog[0].capabilities.transport = 'mutated';
   assert.equal(listLLMProviderCatalog()[0]?.capabilities.transport, 'chat-completions');
+});
+
+test('planner provider catalog report exposes read-only adapter metadata', () => {
+  const report = buildPlannerProviderCatalogReport();
+
+  assert.equal(report.kind, 'infra-agent.planner-provider-catalog');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.mutationAllowed, false);
+  assert.equal(report.liveProviderCheck, false);
+  assert.deepEqual(report.scope, {
+    plannerOnly: true,
+    domains: ['helm', 'pulumi', 'terraform']
+  });
+  assert.deepEqual(report.commands, ['agent', 'doctor']);
+  assert.deepEqual(report.summary, {
+    providerCount: 1,
+    supportedProviderCount: 1
+  });
+  assert.deepEqual(report.providers[0], {
+    id: 'openai-compatible',
+    displayName: 'OpenAI-compatible chat completions',
+    status: 'supported',
+    capabilities: {
+      transport: 'chat-completions',
+      endpointPath: '/chat/completions',
+      responseFormat: 'json-object',
+      supportsJsonObject: true,
+      supportsStreaming: false
+    },
+    defaults: {
+      model: DEFAULT_LLM_MODEL,
+      baseUrl: DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    },
+    apiKeyEnv: ['INFRA_AGENT_OPENAI_API_KEY', 'OPENAI_API_KEY'],
+    configEnv: {
+      provider: 'INFRA_AGENT_LLM_PROVIDER',
+      model: 'INFRA_AGENT_MODEL',
+      baseUrl: ['INFRA_AGENT_OPENAI_BASE_URL', 'OPENAI_BASE_URL']
+    },
+    cliFlags: {
+      provider: ['--llm-provider openai-compatible'],
+      model: ['--model <name>', '--llm-model <name>'],
+      baseUrl: ['--openai-base-url <url>', '--llm-base-url <url>']
+    }
+  });
+  assert.doesNotMatch(JSON.stringify(report), /apiKeyValue|authorization|bearer|secret/i);
 });
 
 test('OpenAI-compatible provider adapter builds JSON chat completion requests', () => {
