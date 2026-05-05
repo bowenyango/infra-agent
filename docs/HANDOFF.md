@@ -9172,6 +9172,51 @@ Remaining risks:
 
 - Full verification and final handoff record are still pending.
 
+## 2026-05-05 Planner Catalog Discovery Verification Record
+
+Files added or updated:
+
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Close the planner provider catalog discovery integration round.
+- Preserve the verification state after adding doctor/readiness discovery,
+  parser enforcement, docs, packaged skill guidance, and secret-safety checks.
+
+Known validation:
+
+- `npm run verify`: passed.
+  - Lint passed across 112 files.
+  - Unit test suite passed with 303 tests.
+  - Smoke passed.
+  - E2E passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed with 113 package entries.
+- `git diff --check`: passed after this final record update.
+
+Current capability:
+
+- `infra-agent planner-providers [--json]` exposes a static, read-only LLM
+  planner adapter catalog for the supported `openai-compatible` adapter.
+- Doctor JSON exposes `plannerProviderCatalog` discovery metadata and doctor
+  text prints the read-only catalog command.
+- Compact `agent --json` readiness exposes
+  `readiness.plannerProviderCatalog` as a compact pointer to the full catalog.
+- `parseCompactAgentRunResult` validates the readiness discovery object,
+  rejects live-check/command/count/provider drift, and rejects unexpected
+  fields such as secret-bearing runtime metadata.
+- README, rules, Claude-code patterns, and packaged skill guidance tell
+  downstream agents to read `readiness.plannerProviderCatalog` before running
+  `infra-agent planner-providers --json` when compact handoff already exists.
+
+Remaining risks:
+
+- The catalog remains declarative and static. It does not prove model
+  reachability, API-key validity, account access, or provider feature
+  availability beyond the adapter contract.
+- The only supported provider remains `openai-compatible`.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
