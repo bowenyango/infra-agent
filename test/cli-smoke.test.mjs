@@ -6551,6 +6551,12 @@ test('planner-providers command emits text through the entrypoint', async () => 
   assert.doesNotMatch(output, /authorization|bearer|secret/i);
 });
 
+test('help output includes planner provider catalog command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent planner-providers \[--json\]/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);

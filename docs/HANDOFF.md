@@ -8918,3 +8918,24 @@ Known validation:
 Remaining risks:
 
 - Durable docs and skill guidance are still pending.
+
+## 2026-05-05 Planner Provider Catalog Help Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add CLI help coverage for the new read-only `planner-providers` command.
+- Ensure the command remains discoverable through the standard `--help`
+  surface before durable docs are updated.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "help output includes planner provider" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Durable docs and skill guidance are still pending.
