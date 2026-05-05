@@ -8724,3 +8724,29 @@ Known validation:
 Remaining risks:
 
 - Full verification still needs to run after docs and tests settle.
+
+## 2026-05-05 Provider Capability Verification Slice
+
+Files added or updated:
+
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Record the completed provider capability development round after code,
+  contract, doctor, result-card, docs, and skill slices landed.
+- Preserve the final validation status for continuation agents.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed before final verification-record update.
+
+Remaining risks:
+
+- Only `openai-compatible` is supported. Other GPT-compatible gateways are
+  usable when they implement the same chat-completions JSON-object contract,
+  but no provider-specific adapters exist yet.
+- Capability metadata is declarative readiness/handoff data; it does not make a
+  live network call to prove model availability.
