@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Agent CLI Work Plan JSON Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cover the real `agent --json` CLI path for compact `harness.workPlan`.
+- Verify argument parsing, bounded query loop execution, compact serialization,
+  checkpoint work-plan budget mirroring, result-card work-plan summary, and
+  no-safe-action exit code behavior together.
+- Keep work-plan coverage connected to the user-facing command contract, not
+  only internal output builders.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent CLI compact JSON includes work plan" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Work Plan Documentation Slice
 
 Files added or updated:

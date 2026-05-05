@@ -5685,6 +5685,38 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   ));
 });
 
+test('agent CLI compact JSON includes work plan handoff', async () => {
+  const previousExitCode = process.exitCode;
+  process.exitCode = 0;
+
+  try {
+    const output = await captureStdout(() => main([
+      'agent',
+      'add ingress to payments-api dev chart',
+      '--workspace',
+      'fixtures/sample-workspace',
+      '--planner',
+      'rule-based',
+      '--max-turns',
+      '1',
+      '--json'
+    ]));
+    const compact = JSON.parse(output);
+
+    assert.equal(compact.kind, 'infra-agent.agent-result');
+    assert.equal(compact.outcome, 'no-safe-action');
+    assert.equal(compact.harness.workPlan.schemaVersion, 1);
+    assert.equal(compact.harness.workPlan.blockerKind, compact.harness.plannerHandoff.activeBlocker.kind);
+    assert.equal(compact.harness.workPlan.nextControlAction, compact.harness.plannerHandoff.nextControlAction);
+    assert.equal(compact.handoffCheckpoint.budgets.workPlan.includedCount, compact.harness.workPlan.includedCount);
+    assert.equal(compact.handoffCheckpoint.budgets.workPlan.omittedCount, compact.harness.workPlan.omittedCount);
+    assert.ok(compact.resultCard.some(line => /Work plan: blocked; current handoff\/blocked/i.test(line)));
+    assert.equal(process.exitCode, INFRA_AGENT_EXIT_CODES.noSafeAction);
+  } finally {
+    process.exitCode = previousExitCode;
+  }
+});
+
 test('buildCompactAgentRunResult exposes skipped turn execution reasons', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const runtime = {
