@@ -13846,6 +13846,9 @@ test('LLM planner config resolves explicit env maps without mutating process env
   assert.equal(config?.apiKey, 'infra-agent-key');
   assert.equal(config?.apiKeySource, 'INFRA_AGENT_OPENAI_API_KEY');
   assert.equal(config?.provider, 'openai-compatible');
+  assert.equal(config?.providerCapabilities.endpointPath, '/chat/completions');
+  assert.equal(config?.providerCapabilities.supportsJsonObject, true);
+  assert.equal(config?.providerCapabilities.supportsStreaming, false);
   assert.equal(config?.providerSource, 'default');
   assert.equal(config?.baseUrl, 'https://infra-agent.example.test/v1');
   assert.equal(config?.baseUrlSource, 'env');

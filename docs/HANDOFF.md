@@ -8445,3 +8445,27 @@ Known validation:
 Remaining risks:
 
 - Capabilities are not yet attached to resolved LLM config or compact handoff.
+
+## 2026-05-05 LLM Config Capability Resolution Slice
+
+Files added or updated:
+
+- `src/model/config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Attach provider capabilities to the resolved LLM client config at the same
+  point provider/model/base URL and source metadata are snapshotted.
+- Keep provider capabilities deterministic and derived from the supported
+  provider id instead of hard-coding them in downstream output code.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLM planner config resolves" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- The model client still constructs the endpoint path directly instead of using
+  provider capabilities.

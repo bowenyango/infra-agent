@@ -1,3 +1,5 @@
+import { resolveLLMProviderCapabilities, type LLMProviderCapabilities } from './providers.ts';
+
 export type PlannerMode = 'auto' | 'llm' | 'rule-based';
 export type { LLMProvider } from './providers.ts';
 export type LLMConfigSource = 'cli' | 'env' | 'default';
@@ -13,6 +15,7 @@ export interface LLMClientConfig {
   apiKey: string;
   apiKeySource: LLMApiKeySource;
   provider: LLMProvider;
+  providerCapabilities: LLMProviderCapabilities;
   providerSource: LLMConfigSource;
   baseUrl: string;
   baseUrlSource: LLMConfigSource;
@@ -90,6 +93,7 @@ export function resolveLLMClientConfig(
     apiKey,
     apiKeySource,
     provider,
+    providerCapabilities: resolveLLMProviderCapabilities(provider),
     providerSource,
     baseUrl: normalizeBaseUrl(rawBaseUrl),
     baseUrlSource,
