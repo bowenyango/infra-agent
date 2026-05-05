@@ -9146,6 +9146,32 @@ Remaining risks:
 - Need a final secret-safety focused check and full verification before closing
   this development round.
 
+## 2026-05-05 Planner Catalog Discovery Secret-Safety Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Close the compact `readiness.plannerProviderCatalog` field set so runtime
+  LLM configuration or secret-bearing fields cannot be accepted as catalog
+  discovery metadata.
+- Assert that doctor and compact readiness discovery do not mirror selected LLM
+  model names, gateway URLs, or API-key source labels.
+- Preserve the boundary that catalog discovery is static, read-only, and not a
+  live/provider credential report.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "doctor command reports configured LLM planner without exposing secrets|summarizeSuggestedCommands includes tool category approval continuation scope|compact agent result contract validates shallow handoff shape and validation.commands metadata" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Full verification and final handoff record are still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

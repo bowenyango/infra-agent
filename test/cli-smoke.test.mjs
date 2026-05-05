@@ -6663,6 +6663,10 @@ test('doctor command reports configured LLM planner without exposing secrets', a
     plannerCheck?.detail,
     'provider=openai-compatible, model=doctor-test-model, baseUrl=https://planner.example.test/v1, transport=chat-completions, responseFormat=json-object, streaming=disabled'
   );
+  assert.deepEqual(report.plannerProviderCatalog, buildPlannerProviderCatalogDiscovery());
+  assert.doesNotMatch(JSON.stringify(report.plannerProviderCatalog), /doctor-test-model/);
+  assert.doesNotMatch(JSON.stringify(report.plannerProviderCatalog), /planner\.example\.test/);
+  assert.doesNotMatch(JSON.stringify(report.plannerProviderCatalog), /OPENAI_API_KEY/);
   assert.doesNotMatch(JSON.stringify(report), /secret-value/);
   assert.doesNotMatch(JSON.stringify(report), /authorization|bearer/i);
 });
@@ -12146,6 +12150,19 @@ test('compact agent result contract validates shallow handoff shape and validati
         ...validResult.readiness,
         plannerProviderCatalog: {
           ...validResult.readiness.plannerProviderCatalog,
+          apiKey: 'secret-value'
+        }
+      }
+    }),
+    /readiness\.plannerProviderCatalog\.apiKey must not be included/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        plannerProviderCatalog: {
+          ...validResult.readiness.plannerProviderCatalog,
           command: 'infra-agent planner-providers --json --live'
         }
       }
@@ -15419,6 +15436,9 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.match(compact.readiness.doctorCommand, /--openai-base-url "https:\/\/models\.example\.test\/v1"/);
   assert.doesNotMatch(compact.readiness.doctorCommand, /--planner llm/);
   assert.deepEqual(compact.readiness.plannerProviderCatalog, buildPlannerProviderCatalogDiscovery());
+  assert.doesNotMatch(JSON.stringify(compact.readiness.plannerProviderCatalog), /codex-infra-test/);
+  assert.doesNotMatch(JSON.stringify(compact.readiness.plannerProviderCatalog), /models\.example\.test/);
+  assert.doesNotMatch(JSON.stringify(compact.readiness.plannerProviderCatalog), /OPENAI_API_KEY/);
   assert.ok(compact.resultCard.some(line => /Planner config: openai-compatible\/codex-infra-test.*transport=chat-completions.*streaming=disabled/i.test(line)));
   assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
   assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);

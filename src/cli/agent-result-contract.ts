@@ -138,6 +138,17 @@ const LLM_PROVIDER_RESPONSE_FORMATS = ['json-object'] as const;
 const PLANNER_PROVIDER_CATALOG_DISCOVERY_SOURCES = ['static-catalog'] as const;
 const PLANNER_PROVIDER_CATALOG_COMMAND = 'infra-agent planner-providers --json';
 const PLANNER_PROVIDER_CATALOG_SUPPORTED_IDS = ['openai-compatible'] as const;
+const PLANNER_PROVIDER_CATALOG_DISCOVERY_FIELDS = [
+  'schemaVersion',
+  'source',
+  'command',
+  'mutationAllowed',
+  'liveProviderCheck',
+  'plannerOnly',
+  'providerCount',
+  'supportedProviderCount',
+  'supportedProviderIds'
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -576,6 +587,14 @@ function assertCommandIncludesPlannerConfigFlags(
 function assertPlannerProviderCatalogDiscovery(value: unknown, fieldPath: string): void {
   if (!isRecord(value)) {
     throw new Error(`compact result input ${fieldPath} must be an object.`);
+  }
+
+  for (const field of Object.keys(value)) {
+    if (!PLANNER_PROVIDER_CATALOG_DISCOVERY_FIELDS.includes(
+      field as typeof PLANNER_PROVIDER_CATALOG_DISCOVERY_FIELDS[number]
+    )) {
+      throw new Error(`compact result input ${fieldPath}.${field} must not be included.`);
+    }
   }
 
   if (value.schemaVersion !== 1) {
