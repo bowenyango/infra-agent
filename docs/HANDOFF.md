@@ -2,6 +2,26 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Additional Signal Count Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `approval.resume.additionalSignalCount` to compact agent results.
+- Show how many approval signals remain beyond the primary continuation scope.
+- Add generated compact coverage for a multi-signal approval handoff.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|tool category approval continuation|approval signals beyond" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Primary Signal Consistency Slice
 
 Files added or updated:

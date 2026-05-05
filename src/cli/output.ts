@@ -524,6 +524,7 @@ export interface CompactAgentRunResult {
       continuationRequired: boolean;
       command: string | null;
       primarySignal: CompactApprovalSignal | null;
+      additionalSignalCount: number;
       writeRisks: string[];
       writePaths: string[];
       toolCategories: string[];
@@ -2635,6 +2636,7 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
     continuationRequired: state.outcome === 'approval-required',
     command,
     primarySignal: topApprovalSignal ? compactApprovalSignal(topApprovalSignal) : null,
+    additionalSignalCount: Math.max(0, state.runtime.approvalSignals.length - (topApprovalSignal ? 1 : 0)),
     writeRisks: Array.from(writeRisks),
     writePaths: Array.from(writePaths),
     toolCategories: Array.from(toolCategories),

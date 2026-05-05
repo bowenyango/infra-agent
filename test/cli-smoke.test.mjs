@@ -13979,6 +13979,7 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
     risk: 'high',
     toolCategory: null
   });
+  assert.equal(compact.approval.resume.additionalSignalCount, 0);
   assert.deepEqual(compact.approval.resume.writeRisks, ['high']);
   assert.deepEqual(compact.approval.resume.writePaths, ['charts/payments-api/values.yaml']);
   assert.deepEqual(compact.approval.resume.toolCategories, []);
@@ -14065,6 +14066,7 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
     risk: null,
     toolCategory: 'native-stack-config-write'
   });
+  assert.equal(compact.approval.resume.additionalSignalCount, 0);
   assert.deepEqual(compact.approval.resume.writeRisks, []);
   assert.deepEqual(compact.approval.resume.writePaths, []);
   assert.deepEqual(compact.approval.resume.toolCategories, ['native-stack-config-write']);
@@ -14092,6 +14094,45 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
     }),
     /approval\.resume\.command.*tool category approval scope/
   );
+});
+
+test('buildCompactAgentRunResult counts approval signals beyond the primary continuation scope', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'approval-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [
+        {
+          kind: 'write-approval-required',
+          path: 'charts/payments-api/values.yaml',
+          risk: 'high',
+          message: 'Approval required for values.'
+        },
+        {
+          kind: 'tool-category-approval-required',
+          toolCategory: 'native-stack-config-write',
+          message: 'Approval required for native stack config.'
+        }
+      ],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [],
+    config: resolveQueryLoopConfig()
+  });
+
+  assert.equal(compact.approval.resume.signalCount, 2);
+  assert.equal(compact.approval.resume.additionalSignalCount, 1);
+  assert.equal(compact.approval.resume.primarySignal?.kind, 'write-approval-required');
+  assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
