@@ -8347,7 +8347,7 @@ test('compact agent result contract validates shallow handoff shape and validati
       },
       budgets: buildCompactHandoffBudgetsFixture({
         turnTrace: { includedCount: 1, omittedCount: 0 },
-        lifecycleEvents: { includedCount: 2, omittedCount: 0 },
+        lifecycleEvents: { includedCount: 3, omittedCount: 0 },
         toolTrace: { includedCount: 1, omittedCount: 0 },
         workPlan: { includedCount: 6, omittedCount: 0 },
         validationCommands: { includedCount: 1, omittedCount: 0 },
@@ -8631,12 +8631,12 @@ test('compact agent result contract validates shallow handoff shape and validati
       },
       lifecycleEvents: {
         maxEntries: 12,
-        totalCount: 2,
-        includedCount: 2,
+        totalCount: 3,
+        includedCount: 3,
         omittedCount: 0,
         eventCounts: {
           'query-started': 1,
-          decision: 0,
+          decision: 1,
           'tool-execution': 0,
           'approval-gate': 0,
           terminal: 1
@@ -8647,6 +8647,18 @@ test('compact agent result contract validates shallow handoff shape and validati
             turnIndex: null,
             actionKind: null,
             actionFamily: null,
+            executionStatus: null,
+            reason: null,
+            toolCount: 0,
+            approvalSignalCount: 0,
+            validationIssueCount: 1,
+            outcome: null
+          },
+          {
+            event: 'decision',
+            turnIndex: 0,
+            actionKind: 'stop',
+            actionFamily: 'validation-blocked',
             executionStatus: null,
             reason: null,
             toolCount: 0,
@@ -8866,7 +8878,7 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult.handoffCheckpoint,
       budgets: buildCompactHandoffBudgetsFixture({
         turnTrace: { includedCount: 1, omittedCount: 0 },
-        lifecycleEvents: { includedCount: 2, omittedCount: 0 },
+        lifecycleEvents: { includedCount: 3, omittedCount: 0 },
         toolTrace: { includedCount: 1, omittedCount: 0 },
         validationCommands: { includedCount: 1, omittedCount: 0 },
         validationSafetyBlockers: { includedCount: entries.length, omittedCount: 0 },
@@ -10957,9 +10969,9 @@ test('compact agent result contract validates shallow handoff shape and validati
         ...validResult.harness,
         lifecycleEvents: {
           ...validResult.harness.lifecycleEvents,
-          totalCount: 1,
-          includedCount: 1,
-          omittedCount: 0,
+          totalCount: 3,
+          includedCount: 2,
+          omittedCount: 1,
           events: []
         }
       }
@@ -10973,7 +10985,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         ...validResult.harness,
         lifecycleEvents: {
           ...validResult.harness.lifecycleEvents,
-          totalCount: 2,
+          totalCount: 3,
           includedCount: 1,
           omittedCount: 0,
           events: [
@@ -11014,12 +11026,33 @@ test('compact agent result contract validates shallow handoff shape and validati
           ...validResult.harness.lifecycleEvents,
           eventCounts: {
             ...validResult.harness.lifecycleEvents.eventCounts,
-            decision: 1
+            decision: 2
           }
         }
       }
     }),
     /harness\.lifecycleEvents\.eventCounts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
+          events: [
+            validResult.harness.lifecycleEvents.events[0],
+            validResult.harness.lifecycleEvents.events[1],
+            {
+              ...validResult.harness.lifecycleEvents.events[2],
+              outcome: 'completed',
+              reason: 'outcome:completed'
+            }
+          ]
+        }
+      }
+    }),
+    /harness\.lifecycleEvents terminal event/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

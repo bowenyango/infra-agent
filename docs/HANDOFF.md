@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Lifecycle Event Count Consistency Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check lifecycle `query-started`, `decision`, and `terminal` aggregate
+  counts against root run metadata.
+- Require exactly one query start, exactly one terminal lifecycle event, and one
+  decision event per used turn.
+- Validate that an included terminal lifecycle event is last and matches the
+  root outcome.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Required Lifecycle Events Contract Slice
 
 Files added or updated:

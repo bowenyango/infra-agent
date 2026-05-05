@@ -1789,6 +1789,18 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         ) {
           throw new Error('compact result input harness.lifecycleEvents.eventCounts must sum to totalCount when present.');
         }
+
+        if (value.harness.lifecycleEvents.eventCounts['query-started'] !== 1) {
+          throw new Error('compact result input harness.lifecycleEvents.eventCounts.query-started must be exactly 1.');
+        }
+
+        if (value.harness.lifecycleEvents.eventCounts.terminal !== 1) {
+          throw new Error('compact result input harness.lifecycleEvents.eventCounts.terminal must be exactly 1.');
+        }
+
+        if (value.harness.lifecycleEvents.eventCounts.decision !== value.turnsUsed) {
+          throw new Error('compact result input harness.lifecycleEvents.eventCounts.decision must match root.turnsUsed.');
+        }
       }
 
       if (
@@ -1796,6 +1808,22 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         && !hasConsistentCountSet(value.harness.lifecycleEvents)
       ) {
         throw new Error('compact result input harness.lifecycleEvents counts must be consistent when present.');
+      }
+
+      const includedLifecycleEvents = value.harness.lifecycleEvents.events;
+      const terminalEventIndex = includedLifecycleEvents.findIndex(event =>
+        isRecord(event) && event.event === 'terminal'
+      );
+      if (terminalEventIndex >= 0) {
+        const terminalEvent = includedLifecycleEvents[terminalEventIndex];
+        if (
+          terminalEventIndex !== includedLifecycleEvents.length - 1
+          || !isRecord(terminalEvent)
+          || terminalEvent.outcome !== value.outcome
+          || terminalEvent.reason !== `outcome:${value.outcome}`
+        ) {
+          throw new Error('compact result input harness.lifecycleEvents terminal event must be last and match root.outcome.');
+        }
       }
     }
 
