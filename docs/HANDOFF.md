@@ -2,6 +2,32 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Doctor Package Surface Guard Slice
+
+Files added or updated:
+
+- `src/cli/doctor.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Keep `doctor [workspace] --json` as the read-only package and
+  agent-facing surface guard.
+- Fail the `agent-surface` doctor check when `package.json.files` accidentally
+  includes non-surface paths such as fixtures, tests, scripts, or handoff
+  history.
+- Preserve the canonical installed surface: CLI runtime, `AGENTS.md`, the
+  infra-configuration skill, README, and durable docs.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "doctor|package metadata" ./test/cli-smoke.test.mjs`: passed.
+- `npm run test:unit`: passed.
+- `node --experimental-strip-types src/cli/main.ts doctor fixtures/sample-workspace --json`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## Current Branch State
 
 - Branch: `agent-1`

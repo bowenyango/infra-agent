@@ -77,6 +77,14 @@ const REQUIRED_AGENT_SURFACE_PACKAGE_ENTRIES = [
   'docs/ROADMAP.md'
 ];
 
+const EXCLUDED_AGENT_SURFACE_PACKAGE_ENTRIES = [
+  'fixtures/',
+  'test/',
+  'tests/',
+  'scripts/',
+  'docs/HANDOFF.md'
+];
+
 const REQUIRED_AGENT_SURFACE_PATHS = [
   'bin/infra-agent.js',
   'src/cli/main.ts',
@@ -102,6 +110,9 @@ async function buildAgentSurfaceCheck(packageMetadata: InfraAgentPackageMetadata
   const missingPackageEntries = REQUIRED_AGENT_SURFACE_PACKAGE_ENTRIES.filter(
     entry => !packageMetadata.files.includes(entry)
   );
+  const excludedPackageEntries = EXCLUDED_AGENT_SURFACE_PACKAGE_ENTRIES.filter(
+    entry => packageMetadata.files.includes(entry)
+  );
   const missingPaths: string[] = [];
 
   for (const relativePath of REQUIRED_AGENT_SURFACE_PATHS) {
@@ -112,6 +123,7 @@ async function buildAgentSurfaceCheck(packageMetadata: InfraAgentPackageMetadata
 
   const missingDetails = [
     missingPackageEntries.length > 0 ? `missing package files entries: ${missingPackageEntries.join(', ')}` : null,
+    excludedPackageEntries.length > 0 ? `unexpected non-surface package files entries: ${excludedPackageEntries.join(', ')}` : null,
     missingPaths.length > 0 ? `missing installed paths: ${missingPaths.join(', ')}` : null
   ].filter((detail): detail is string => Boolean(detail));
 
@@ -120,7 +132,7 @@ async function buildAgentSurfaceCheck(packageMetadata: InfraAgentPackageMetadata
     status: missingDetails.length > 0 ? 'fail' : 'pass',
     message: missingDetails.length > 0
       ? 'Installed agent-facing package surface is incomplete.'
-      : 'Installed agent-facing package surface includes CLI runtime, skills, AGENTS.md, README, and durable docs.',
+      : 'Installed agent-facing package surface includes CLI runtime, canonical AGENTS.md, infra skill, README, and durable docs.',
     detail: missingDetails.length > 0 ? missingDetails.join('; ') : REQUIRED_AGENT_SURFACE_PATHS.join(', ')
   };
 }

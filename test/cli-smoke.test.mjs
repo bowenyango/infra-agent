@@ -6079,6 +6079,8 @@ test('doctor command reports install and workspace readiness', async () => {
       && /skills\//.test(check.detail ?? '')
       && /context-validation-and-impact\.md/.test(check.detail ?? '')
   ));
+  const agentSurfaceCheck = report.checks.find(check => check.name === 'agent-surface');
+  assert.doesNotMatch(agentSurfaceCheck?.detail ?? '', /fixtures\/|test\/|tests\/|scripts\//);
   assert.ok(report.checks.some(check => check.name === 'node' && check.status === 'pass'));
   assert.ok(report.checks.some(check => check.name === 'planner' && check.status === 'warn' && check.detail === 'rule-based-fallback'));
   assert.ok(report.checks.some(check => check.name === 'workspace' && check.status === 'pass'));
@@ -6140,6 +6142,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   ]);
   assert.ok(!packageJson.files.includes('fixtures/'));
   assert.ok(!packageJson.files.includes('test/'));
+  assert.ok(!packageJson.files.includes('tests/'));
+  assert.ok(!packageJson.files.includes('scripts/'));
   assert.ok(!packageJson.files.includes('docs/HANDOFF.md'));
   assert.match(binContent, /cwd:\s*process\.cwd\(\)/);
   assert.doesNotMatch(binContent, /cwd:\s*projectRoot/);
