@@ -14448,6 +14448,33 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
     /handoffCheckpoint\.continuation JSON commands/
   );
   assert.throws(
+    () => {
+      const dropBudgetFlag = (command) => command?.replace(/ --context-token-budget 500/g, '') ?? null;
+      return parseCompactAgentRunResult({
+        ...compact,
+        handoffCheckpoint: {
+          ...compact.handoffCheckpoint,
+          continuation: {
+            ...compact.handoffCheckpoint.continuation,
+            command: dropBudgetFlag(compact.handoffCheckpoint.continuation.command),
+            compactCommand: dropBudgetFlag(compact.handoffCheckpoint.continuation.compactCommand),
+            debugCommand: dropBudgetFlag(compact.handoffCheckpoint.continuation.debugCommand)
+          }
+        },
+        approval: {
+          ...compact.approval,
+          resume: {
+            ...compact.approval.resume,
+            command: dropBudgetFlag(compact.approval.resume.command),
+            compactCommand: dropBudgetFlag(compact.approval.resume.compactCommand),
+            debugCommand: dropBudgetFlag(compact.approval.resume.debugCommand)
+          }
+        }
+      });
+    },
+    /approval\.resume\.command must include query config flags/
+  );
+  assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,
       approval: {
@@ -14615,6 +14642,30 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
   assert.deepEqual(compact.approval.resume.additionalToolCategories, ['native-stack-config-write']);
   assert.equal(compact.approval.resume.primarySignal?.kind, 'write-approval-required');
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => {
+      const additionalCommand = compact.approval.resume.additionalCommands[0];
+      const commandWithoutBudgetFlag = additionalCommand?.command.replace(/ --max-turns 5/g, '');
+      return parseCompactAgentRunResult({
+        ...compact,
+        approval: {
+          ...compact.approval,
+          resume: {
+            ...compact.approval.resume,
+            additionalCommands: [
+              {
+                ...additionalCommand,
+                command: commandWithoutBudgetFlag,
+                compactCommand: `${commandWithoutBudgetFlag} --json`,
+                debugCommand: `${commandWithoutBudgetFlag} --json-full`
+              }
+            ]
+          }
+        }
+      });
+    },
+    /approval\.resume\.additionalCommands\[0\]\.command must include query config flags/
+  );
   assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,

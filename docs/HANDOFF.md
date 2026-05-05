@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Resume Query Budget Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate that approval continuation commands preserve compact
+  `harness.queryConfig` flags.
+- Apply the same query-budget check to per-signal
+  `approval.resume.additionalCommands`.
+- Prevent downstream agents from accepting approval-required handoffs that
+  silently reset turn, repair, or retrieved-context budgets.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|approval signals beyond" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Resume Query Budget Output Slice
 
 Files added or updated:

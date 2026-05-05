@@ -449,6 +449,28 @@ function assertHandoffBudgetMatches(
   }
 }
 
+function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknown, fieldPath: string): void {
+  if (typeof command !== 'string' || !isRecord(harness) || !isRecord(harness.queryConfig)) {
+    return;
+  }
+
+  const queryConfig = harness.queryConfig;
+  if (!isRecord(queryConfig.retrievedContextBudget)) {
+    return;
+  }
+
+  const expectedFlags = [
+    `--max-turns ${queryConfig.maxTurns}`,
+    `--max-repair-attempts ${queryConfig.maxRepairAttempts}`,
+    `--context-packet-limit ${queryConfig.retrievedContextBudget.maxPackets}`,
+    `--context-token-budget ${queryConfig.retrievedContextBudget.maxTokens}`
+  ];
+
+  if (expectedFlags.some(flag => !command.includes(flag))) {
+    throw new Error(`compact result input ${fieldPath} must include query config flags.`);
+  }
+}
+
 function expectedIdentityIssueKind(engine: unknown): string | null {
   if (engine === 'terraform') {
     return 'terraform-create-before-delete-conflict';
@@ -3211,6 +3233,20 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         )
       ) {
         throw new Error('compact result input approval.resume JSON commands must match the approval continuation command and output mode.');
+      }
+
+      if (value.approval.resume.continuationRequired) {
+        assertCommandIncludesQueryConfigFlags(value.approval.resume.command, value.harness, 'approval.resume.command');
+        for (let index = 0; index < value.approval.resume.additionalCommands.length; index += 1) {
+          const additionalCommand = value.approval.resume.additionalCommands[index];
+          if (isRecord(additionalCommand)) {
+            assertCommandIncludesQueryConfigFlags(
+              additionalCommand.command,
+              value.harness,
+              `approval.resume.additionalCommands[${index}].command`
+            );
+          }
+        }
       }
 
       if (
