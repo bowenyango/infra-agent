@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Query Flag Exact Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Tighten approval continuation query-budget validation from substring presence
+  to exact flag/value checks.
+- Reject missing, wrong, or duplicate query-budget flags in primary and
+  additional approval continuation commands.
+- Preserve the compact `harness.queryConfig` as the source of truth for resumed
+  command budgets.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|approval signals beyond" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Handoff Documentation Refresh Slice
 
 Files added or updated:

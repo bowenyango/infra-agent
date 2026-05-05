@@ -453,6 +453,15 @@ function assertHandoffBudgetMatches(
   }
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractCommandFlagValues(command: string, flag: string): string[] {
+  return [...command.matchAll(new RegExp(`(?:^|\\s)${escapeRegExp(flag)}\\s+(\\S+)`, 'g'))]
+    .map(match => match[1] ?? '');
+}
+
 function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknown, fieldPath: string): void {
   if (typeof command !== 'string' || !isRecord(harness) || !isRecord(harness.queryConfig)) {
     return;
@@ -464,14 +473,17 @@ function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknow
   }
 
   const expectedFlags = [
-    `--max-turns ${queryConfig.maxTurns}`,
-    `--max-repair-attempts ${queryConfig.maxRepairAttempts}`,
-    `--context-packet-limit ${queryConfig.retrievedContextBudget.maxPackets}`,
-    `--context-token-budget ${queryConfig.retrievedContextBudget.maxTokens}`
+    ['--max-turns', queryConfig.maxTurns],
+    ['--max-repair-attempts', queryConfig.maxRepairAttempts],
+    ['--context-packet-limit', queryConfig.retrievedContextBudget.maxPackets],
+    ['--context-token-budget', queryConfig.retrievedContextBudget.maxTokens]
   ];
 
-  if (expectedFlags.some(flag => !command.includes(flag))) {
-    throw new Error(`compact result input ${fieldPath} must include query config flags.`);
+  for (const [flag, expectedValue] of expectedFlags) {
+    const values = extractCommandFlagValues(command, String(flag));
+    if (values.length !== 1 || values[0] !== String(expectedValue)) {
+      throw new Error(`compact result input ${fieldPath} must include query config flags exactly.`);
+    }
   }
 }
 

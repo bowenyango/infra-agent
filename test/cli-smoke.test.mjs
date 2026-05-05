@@ -14591,6 +14591,33 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
     /approval\.resume\.command must include query config flags/
   );
   assert.throws(
+    () => {
+      const duplicateBudgetFlag = (command) => command?.replace(/--max-turns 3/g, '--max-turns 3 --max-turns 9') ?? null;
+      return parseCompactAgentRunResult({
+        ...compact,
+        handoffCheckpoint: {
+          ...compact.handoffCheckpoint,
+          continuation: {
+            ...compact.handoffCheckpoint.continuation,
+            command: duplicateBudgetFlag(compact.handoffCheckpoint.continuation.command),
+            compactCommand: duplicateBudgetFlag(compact.handoffCheckpoint.continuation.compactCommand),
+            debugCommand: duplicateBudgetFlag(compact.handoffCheckpoint.continuation.debugCommand)
+          }
+        },
+        approval: {
+          ...compact.approval,
+          resume: {
+            ...compact.approval.resume,
+            command: duplicateBudgetFlag(compact.approval.resume.command),
+            compactCommand: duplicateBudgetFlag(compact.approval.resume.compactCommand),
+            debugCommand: duplicateBudgetFlag(compact.approval.resume.debugCommand)
+          }
+        }
+      });
+    },
+    /approval\.resume\.command must include query config flags/
+  );
+  assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,
       approval: {
@@ -14808,6 +14835,30 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
                 command: commandWithoutBudgetFlag,
                 compactCommand: `${commandWithoutBudgetFlag} --json`,
                 debugCommand: `${commandWithoutBudgetFlag} --json-full`
+              }
+            ]
+          }
+        }
+      });
+    },
+    /approval\.resume\.additionalCommands\[0\]\.command must include query config flags/
+  );
+  assert.throws(
+    () => {
+      const additionalCommand = compact.approval.resume.additionalCommands[0];
+      const commandWithWrongBudgetFlag = additionalCommand?.command.replace(/--max-repair-attempts 1/g, '--max-repair-attempts 2');
+      return parseCompactAgentRunResult({
+        ...compact,
+        approval: {
+          ...compact.approval,
+          resume: {
+            ...compact.approval.resume,
+            additionalCommands: [
+              {
+                ...additionalCommand,
+                command: commandWithWrongBudgetFlag,
+                compactCommand: `${commandWithWrongBudgetFlag} --json`,
+                debugCommand: `${commandWithWrongBudgetFlag} --json-full`
               }
             ]
           }
