@@ -1468,20 +1468,28 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       }
     }
 
-    if (isRecord(value.harness.stateSummary)) {
-      const countKeys = [
-        'observationCount',
-        'toolSummaryCount',
-        'appliedWriteCount',
-        'validationResultCount',
-        'validationIssueCount',
-        'approvalSignalCount',
-        'retrievedContextCount',
-        'semanticFactCount'
-      ];
-      if (countKeys.some(key => key in value.harness.stateSummary && !isNonNegativeInteger(value.harness.stateSummary[key]))) {
-        throw new Error('compact result input harness.stateSummary counts must be non-negative integers when present.');
-      }
+    if (!isRecord(value.harness.stateSummary)) {
+      throw new Error('compact result input harness.stateSummary must be an object when harness is present.');
+    }
+
+    const stateSummaryCountKeys = [
+      'observationCount',
+      'toolSummaryCount',
+      'appliedWriteCount',
+      'validationResultCount',
+      'validationIssueCount',
+      'approvalSignalCount',
+      'retrievedContextCount',
+      'semanticFactCount'
+    ];
+    for (const key of stateSummaryCountKeys) {
+      assertIntegerField(
+        value.harness.stateSummary,
+        key,
+        'harness.stateSummary',
+        isNonNegativeInteger,
+        'a non-negative integer'
+      );
     }
 
     assertCompactWorkPlan(value.harness.workPlan);

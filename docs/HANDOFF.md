@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 State Summary Required Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `harness.stateSummary` whenever the compact harness section is
+  present.
+- Treat every state summary count as required contract data rather than optional
+  best-effort metadata.
+- Preserve the Claude Code compaction boundary by rejecting harness payloads
+  that omit the runtime count surface needed for downstream handoff.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Compact Fixture Targeting Budget Slice
 
 Files added or updated:

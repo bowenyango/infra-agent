@@ -10955,6 +10955,29 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult,
       harness: {
         ...validResult.harness,
+        stateSummary: null
+      }
+    }),
+    /harness\.stateSummary/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          semanticFactCount: undefined
+        }
+      }
+    }),
+    /harness\.stateSummary\.semanticFactCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
         stateSummary: {
           ...validResult.harness.stateSummary,
           validationIssueCount: '1'
