@@ -8508,6 +8508,54 @@ test('compact agent result contract validates shallow handoff shape and validati
         retrievedContextCount: 0,
         semanticFactCount: 0
       },
+      targeting: {
+        schemaVersion: 1,
+        source: 'derived-run-preflight',
+        compact: true,
+        mutationAllowed: false,
+        selectedTarget: {
+          rank: 1,
+          kind: 'terraform-root',
+          domain: 'terraform',
+          name: 'payments-api',
+          path: 'terraform/payments-api',
+          score: 10
+        },
+        candidateCount: 1,
+        topScore: 10,
+        scoreGapToNext: null,
+        maxCandidates: 5,
+        includedCount: 1,
+        omittedCount: 0,
+        ambiguityKinds: ['missing-environment', 'missing-service'],
+        recommendedAction: 'review-targeting',
+        flags: {
+          missingEnvironment: true,
+          missingService: true,
+          noCandidates: false,
+          weakTopScore: false,
+          tiedTopScore: false
+        },
+        candidates: [
+          {
+            rank: 1,
+            selected: true,
+            kind: 'terraform-root',
+            domain: 'terraform',
+            name: 'payments-api',
+            path: 'terraform/payments-api',
+            score: 10,
+            reasonCount: 2,
+            reasons: [
+              'path matched service token "payments-api"',
+              'task vocabulary prefers Terraform root targets'
+            ],
+            matchedEnvironmentHints: [],
+            detailCount: 1,
+            details: ['tfvars: dev.auto.tfvars']
+          }
+        ]
+      },
       toolTrace: {
         maxEntries: 5,
         totalCount: 1,
@@ -8805,6 +8853,89 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.equal(
     parseCompactAgentRunResult(resultWithSafetyBlockers([validSafetyBlocker, validUnsafeSafetyBlocker])).kind,
     'infra-agent.agent-result'
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: null
+      }
+    }),
+    /harness\.targeting/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          source: 'raw-preflight'
+        }
+      }
+    }),
+    /harness\.targeting\.source/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          includedCount: 0
+        }
+      }
+    }),
+    /harness\.targeting\.includedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          ambiguityKinds: ['missing-service', 'manual-review']
+        }
+      }
+    }),
+    /harness\.targeting\.ambiguityKinds/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          candidates: [
+            {
+              ...validResult.harness.targeting.candidates[0],
+              kind: 'ansible-playbook'
+            }
+          ]
+        }
+      }
+    }),
+    /harness\.targeting\.candidates\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          targeting: {
+            includedCount: 0,
+            omittedCount: 0
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.targeting must match harness\.targeting/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

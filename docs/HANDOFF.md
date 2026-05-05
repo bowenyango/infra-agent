@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Targeting Contract Shape Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `harness.targeting` when a harness section is present.
+- Enforce targeting schema version, source, read-only posture, candidate
+  budgets, selected target shape, candidate ranks, domain/kind enums,
+  ambiguity enums, recommended action enums, and string-array samples.
+- Cross-check `handoffCheckpoint.budgets.targeting` against the compact
+  targeting sample budget.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Targeting Handoff Budget Slice
 
 Files added or updated:

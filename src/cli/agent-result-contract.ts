@@ -106,6 +106,21 @@ const HANDOFF_CHECKPOINT_DURABLE_SECTIONS = [
   'readiness',
   'result-card'
 ] as const;
+const TARGETING_SOURCES = ['derived-run-preflight'] as const;
+const TARGET_CANDIDATE_KINDS = ['helm-chart', 'pulumi-project', 'terraform-root'] as const;
+const TARGET_CANDIDATE_DOMAINS = ['helm', 'pulumi', 'terraform'] as const;
+const TARGETING_AMBIGUITY_KINDS = [
+  'missing-environment',
+  'missing-service',
+  'no-candidates',
+  'weak-match',
+  'tied-top-score'
+] as const;
+const TARGETING_RECOMMENDED_ACTIONS = [
+  'inspect-selected-target',
+  'review-targeting',
+  'clarify-target'
+] as const;
 const WORK_PLAN_SOURCES = ['derived-agent-run-state'] as const;
 const WORK_PLAN_STATUSES = ['not-started', 'in-progress', 'blocked', 'completed'] as const;
 const WORK_PLAN_STEP_KINDS = ['readiness', 'targeting', 'inspection', 'edit', 'validation', 'handoff'] as const;
@@ -247,6 +262,30 @@ function isKnownKnowledgeCacheSource(value: unknown): boolean {
     && KNOWLEDGE_CACHE_SOURCES.includes(value as typeof KNOWLEDGE_CACHE_SOURCES[number]);
 }
 
+function isKnownTargetingSource(value: unknown): boolean {
+  return typeof value === 'string' && TARGETING_SOURCES.includes(value as typeof TARGETING_SOURCES[number]);
+}
+
+function isKnownTargetCandidateKind(value: unknown): boolean {
+  return typeof value === 'string'
+    && TARGET_CANDIDATE_KINDS.includes(value as typeof TARGET_CANDIDATE_KINDS[number]);
+}
+
+function isKnownTargetCandidateDomain(value: unknown): boolean {
+  return typeof value === 'string'
+    && TARGET_CANDIDATE_DOMAINS.includes(value as typeof TARGET_CANDIDATE_DOMAINS[number]);
+}
+
+function isKnownTargetingAmbiguityKind(value: unknown): boolean {
+  return typeof value === 'string'
+    && TARGETING_AMBIGUITY_KINDS.includes(value as typeof TARGETING_AMBIGUITY_KINDS[number]);
+}
+
+function isKnownTargetingRecommendedAction(value: unknown): boolean {
+  return typeof value === 'string'
+    && TARGETING_RECOMMENDED_ACTIONS.includes(value as typeof TARGETING_RECOMMENDED_ACTIONS[number]);
+}
+
 function isKnownWorkPlanSource(value: unknown): boolean {
   return typeof value === 'string' && WORK_PLAN_SOURCES.includes(value as typeof WORK_PLAN_SOURCES[number]);
 }
@@ -362,6 +401,182 @@ function expectedIdentityIssueKind(engine: unknown): string | null {
   }
 
   return null;
+}
+
+function assertCompactTargeting(value: unknown): void {
+  if (!isRecord(value)) {
+    throw new Error('compact result input harness.targeting must be an object when harness is present.');
+  }
+
+  if (value.schemaVersion !== 1) {
+    throw new Error('compact result input harness.targeting.schemaVersion must be 1.');
+  }
+
+  if (!isKnownTargetingSource(value.source)) {
+    throw new Error('compact result input harness.targeting.source must be supported.');
+  }
+
+  if (value.compact !== true) {
+    throw new Error('compact result input harness.targeting.compact must be true.');
+  }
+
+  if (value.mutationAllowed !== false) {
+    throw new Error('compact result input harness.targeting.mutationAllowed must be false.');
+  }
+
+  for (const field of [
+    'candidateCount',
+    'maxCandidates',
+    'includedCount',
+    'omittedCount'
+  ]) {
+    assertIntegerField(value, field, 'harness.targeting', isNonNegativeInteger, 'a non-negative integer');
+  }
+
+  if (value.topScore !== null && !isNumber(value.topScore)) {
+    throw new Error('compact result input harness.targeting.topScore must be a number or null.');
+  }
+
+  if (value.scoreGapToNext !== null && !isNumber(value.scoreGapToNext)) {
+    throw new Error('compact result input harness.targeting.scoreGapToNext must be a number or null.');
+  }
+
+  if (!isKnownTargetingRecommendedAction(value.recommendedAction)) {
+    throw new Error('compact result input harness.targeting.recommendedAction must be supported.');
+  }
+
+  if (!Array.isArray(value.ambiguityKinds)) {
+    throw new Error('compact result input harness.targeting.ambiguityKinds must be an array.');
+  }
+
+  if (value.ambiguityKinds.some(kind => !isKnownTargetingAmbiguityKind(kind))) {
+    throw new Error('compact result input harness.targeting.ambiguityKinds must use supported values.');
+  }
+
+  if (new Set(value.ambiguityKinds).size !== value.ambiguityKinds.length) {
+    throw new Error('compact result input harness.targeting.ambiguityKinds must not include duplicates.');
+  }
+
+  if (!isRecord(value.flags)) {
+    throw new Error('compact result input harness.targeting.flags must be an object.');
+  }
+
+  for (const field of ['missingEnvironment', 'missingService', 'noCandidates', 'weakTopScore', 'tiedTopScore']) {
+    if (typeof value.flags[field] !== 'boolean') {
+      throw new Error(`compact result input harness.targeting.flags.${field} must be a boolean.`);
+    }
+  }
+
+  if (!Array.isArray(value.candidates)) {
+    throw new Error('compact result input harness.targeting.candidates must be an array.');
+  }
+
+  if (value.includedCount !== value.candidates.length) {
+    throw new Error('compact result input harness.targeting.includedCount must match candidates length.');
+  }
+
+  if ((value.includedCount as number) + (value.omittedCount as number) !== value.candidateCount) {
+    throw new Error('compact result input harness.targeting candidate counts must be consistent.');
+  }
+
+  if ((value.includedCount as number) > (value.maxCandidates as number)) {
+    throw new Error('compact result input harness.targeting.includedCount must not exceed maxCandidates.');
+  }
+
+  const selectedCandidateCount = value.candidates
+    .filter(candidate => isRecord(candidate) && candidate.selected === true)
+    .length;
+
+  if (value.selectedTarget !== null) {
+    if (!isRecord(value.selectedTarget)) {
+      throw new Error('compact result input harness.targeting.selectedTarget must be an object or null.');
+    }
+
+    assertIntegerField(value.selectedTarget, 'rank', 'harness.targeting.selectedTarget', isPositiveInteger, 'a positive integer');
+
+    if (!isKnownTargetCandidateKind(value.selectedTarget.kind)) {
+      throw new Error('compact result input harness.targeting.selectedTarget.kind must be supported.');
+    }
+
+    if (!isKnownTargetCandidateDomain(value.selectedTarget.domain)) {
+      throw new Error('compact result input harness.targeting.selectedTarget.domain must be supported.');
+    }
+
+    for (const field of ['name', 'path']) {
+      if (typeof value.selectedTarget[field] !== 'string') {
+        throw new Error(`compact result input harness.targeting.selectedTarget.${field} must be a string.`);
+      }
+    }
+
+    if (!isNumber(value.selectedTarget.score)) {
+      throw new Error('compact result input harness.targeting.selectedTarget.score must be a number.');
+    }
+  } else if (selectedCandidateCount > 0) {
+    throw new Error('compact result input harness.targeting.selectedTarget is required when an included candidate is selected.');
+  }
+
+  let previousRank = 0;
+  for (let index = 0; index < value.candidates.length; index += 1) {
+    const candidate = value.candidates[index];
+    const candidatePath = `harness.targeting.candidates[${index}]`;
+
+    if (!isRecord(candidate)) {
+      throw new Error(`compact result input ${candidatePath} must be an object.`);
+    }
+
+    assertIntegerField(candidate, 'rank', candidatePath, isPositiveInteger, 'a positive integer');
+
+    if ((candidate.rank as number) <= previousRank) {
+      throw new Error('compact result input harness.targeting.candidates ranks must be unique and ascending.');
+    }
+    previousRank = candidate.rank as number;
+
+    if (typeof candidate.selected !== 'boolean') {
+      throw new Error(`compact result input ${candidatePath}.selected must be a boolean.`);
+    }
+
+    if (!isKnownTargetCandidateKind(candidate.kind)) {
+      throw new Error(`compact result input ${candidatePath}.kind must be supported.`);
+    }
+
+    if (!isKnownTargetCandidateDomain(candidate.domain)) {
+      throw new Error(`compact result input ${candidatePath}.domain must be supported.`);
+    }
+
+    for (const field of ['name', 'path']) {
+      if (typeof candidate[field] !== 'string') {
+        throw new Error(`compact result input ${candidatePath}.${field} must be a string.`);
+      }
+    }
+
+    if (!isNumber(candidate.score)) {
+      throw new Error(`compact result input ${candidatePath}.score must be a number.`);
+    }
+
+    for (const field of ['reasonCount', 'detailCount']) {
+      assertIntegerField(candidate, field, candidatePath, isNonNegativeInteger, 'a non-negative integer');
+    }
+
+    if (!isStringArray(candidate.reasons)) {
+      throw new Error(`compact result input ${candidatePath}.reasons must be a string array.`);
+    }
+
+    if (!isStringArray(candidate.matchedEnvironmentHints)) {
+      throw new Error(`compact result input ${candidatePath}.matchedEnvironmentHints must be a string array.`);
+    }
+
+    if (!isStringArray(candidate.details)) {
+      throw new Error(`compact result input ${candidatePath}.details must be a string array.`);
+    }
+
+    if ((candidate.reasons as unknown[]).length > (candidate.reasonCount as number)) {
+      throw new Error(`compact result input ${candidatePath}.reasons length must not exceed reasonCount.`);
+    }
+
+    if ((candidate.details as unknown[]).length > (candidate.detailCount as number)) {
+      throw new Error(`compact result input ${candidatePath}.details length must not exceed detailCount.`);
+    }
+  }
 }
 
 function assertCompactWorkPlan(value: unknown): void {
@@ -669,6 +884,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     'lifecycleEvents',
     'toolTrace',
     'workPlan',
+    'targeting',
     'validationCommands',
     'validationIssues',
     'validationIssueGroups',
@@ -1132,6 +1348,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
 
     assertCompactWorkPlan(value.harness.workPlan);
+    assertCompactTargeting(value.harness.targeting);
 
     if (
       isRecord(value.harness.toolTrace)
@@ -1572,6 +1789,16 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         value.harness.workPlan.includedCount as number,
         value.harness.workPlan.omittedCount as number,
         'harness.workPlan'
+      );
+    }
+
+    if (isRecord(value.harness.targeting)) {
+      assertHandoffBudgetMatches(
+        value.handoffCheckpoint.budgets.targeting,
+        'handoffCheckpoint.budgets.targeting',
+        value.harness.targeting.includedCount as number,
+        value.harness.targeting.omittedCount as number,
+        'harness.targeting'
       );
     }
   }
