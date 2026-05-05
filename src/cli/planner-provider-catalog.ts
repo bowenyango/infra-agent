@@ -1,7 +1,20 @@
 import { listLLMProviderCatalog, type LLMProvider } from '../model/providers.ts';
 import type { InfraDomainId } from '../types/repository.ts';
+import { parsePlannerProviderCatalogReport } from './planner-provider-catalog-contract.ts';
 
 export const PLANNER_PROVIDER_CATALOG_COMMAND = 'infra-agent planner-providers --json';
+
+export interface PlannerProviderCatalogDiscovery {
+  schemaVersion: 1;
+  source: 'static-catalog';
+  command: string;
+  mutationAllowed: false;
+  liveProviderCheck: false;
+  plannerOnly: true;
+  providerCount: number;
+  supportedProviderCount: number;
+  supportedProviderIds: LLMProvider[];
+}
 
 export interface PlannerProviderCatalogReport {
   kind: 'infra-agent.planner-provider-catalog';
@@ -96,5 +109,23 @@ export function buildPlannerProviderCatalogReport(): PlannerProviderCatalogRepor
       supportedProviderCount: providers.filter(provider => provider.status === 'supported').length
     },
     providers
+  };
+}
+
+export function buildPlannerProviderCatalogDiscovery(): PlannerProviderCatalogDiscovery {
+  const report = parsePlannerProviderCatalogReport(buildPlannerProviderCatalogReport());
+
+  return {
+    schemaVersion: 1,
+    source: 'static-catalog',
+    command: PLANNER_PROVIDER_CATALOG_COMMAND,
+    mutationAllowed: false,
+    liveProviderCheck: false,
+    plannerOnly: true,
+    providerCount: report.summary.providerCount,
+    supportedProviderCount: report.summary.supportedProviderCount,
+    supportedProviderIds: report.providers
+      .filter(provider => provider.status === 'supported')
+      .map(provider => provider.id)
   };
 }

@@ -9037,3 +9037,29 @@ Known validation:
 Remaining risks:
 
 - Doctor and compact readiness do not yet expose the shared command.
+
+## 2026-05-05 Planner Provider Catalog Discovery Slice
+
+Files added or updated:
+
+- `src/cli/planner-provider-catalog.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a compact planner provider catalog discovery object for doctor and
+  readiness handoff surfaces.
+- Build discovery from the full catalog report after parsing it with
+  `parsePlannerProviderCatalogReport`, so compact handoff stays downstream of
+  the catalog contract.
+- Expose only command, read-only posture, live-check posture, counts, and
+  supported provider ids.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner provider catalog discovery" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Doctor and compact readiness do not yet include the discovery object.

@@ -43,6 +43,7 @@ import {
 import { buildLLMClientConfigOverrides, main, parseArgs, readPackageVersion } from '../src/cli/main.ts';
 import { buildDoctorReport } from '../src/cli/doctor.ts';
 import {
+  buildPlannerProviderCatalogDiscovery,
   buildPlannerProviderCatalogReport,
   PLANNER_PROVIDER_CATALOG_COMMAND
 } from '../src/cli/planner-provider-catalog.ts';
@@ -14205,6 +14206,20 @@ test('planner provider catalog contract validates read-only provider metadata', 
     }),
     /cliFlags\.model/
   );
+});
+
+test('planner provider catalog discovery projects contract-checked metadata', () => {
+  assert.deepEqual(buildPlannerProviderCatalogDiscovery(), {
+    schemaVersion: 1,
+    source: 'static-catalog',
+    command: PLANNER_PROVIDER_CATALOG_COMMAND,
+    mutationAllowed: false,
+    liveProviderCheck: false,
+    plannerOnly: true,
+    providerCount: 1,
+    supportedProviderCount: 1,
+    supportedProviderIds: ['openai-compatible']
+  });
 });
 
 test('planner provider catalog text output summarizes adapter metadata', async () => {
