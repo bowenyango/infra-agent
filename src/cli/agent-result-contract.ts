@@ -1297,77 +1297,79 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.repairBudget.exhausted must match remaining repair budget.');
     }
 
-    if ('turnTrace' in value.harness && !Array.isArray(value.harness.turnTrace)) {
-      throw new Error('compact result input harness.turnTrace must be an array when present.');
+    if (!Array.isArray(value.harness.turnTrace)) {
+      throw new Error('compact result input harness.turnTrace must be an array when harness is present.');
     }
 
-    if (Array.isArray(value.harness.turnTrace)) {
-      for (let index = 0; index < value.harness.turnTrace.length; index += 1) {
-        const entry = value.harness.turnTrace[index];
-        const entryPath = `harness.turnTrace[${index}]`;
+    for (let index = 0; index < value.harness.turnTrace.length; index += 1) {
+      const entry = value.harness.turnTrace[index];
+      const entryPath = `harness.turnTrace[${index}]`;
 
-        if (!isRecord(entry)) {
-          throw new Error(`compact result input ${entryPath} must be an object.`);
-        }
-
-        assertIntegerField(entry, 'index', entryPath, isNonNegativeInteger, 'a non-negative integer');
-
-        if (!isKnownAgentActionKind(entry.actionKind)) {
-          throw new Error(`compact result input ${entryPath}.actionKind must be supported.`);
-        }
-
-        if (entry.actionFamily !== null && !isKnownAgentActionFamily(entry.actionFamily)) {
-          throw new Error(`compact result input ${entryPath}.actionFamily must be supported or null.`);
-        }
-
-        if (!isKnownAgentConfidence(entry.confidence)) {
-          throw new Error(`compact result input ${entryPath}.confidence must be supported.`);
-        }
-
-        if (typeof entry.summary !== 'string') {
-          throw new Error(`compact result input ${entryPath}.summary must be a string.`);
-        }
-
-        if (typeof entry.terminal !== 'boolean') {
-          throw new Error(`compact result input ${entryPath}.terminal must be a boolean.`);
-        }
-
-        if (entry.executionStatus !== null && !isKnownAgentDecisionExecutionStatus(entry.executionStatus)) {
-          throw new Error(`compact result input ${entryPath}.executionStatus must be supported or null.`);
-        }
-
-        if (!isStringOrNull(entry.executionReason)) {
-          throw new Error(`compact result input ${entryPath}.executionReason must be string or null.`);
-        }
-
-        for (const field of ['executedToolCount', 'changedFileCount', 'validationIssueCount', 'approvalSignalCount']) {
-          assertIntegerField(entry, field, entryPath, isNonNegativeInteger, 'a non-negative integer');
-        }
-
-        if (entry.stopReason !== null && !isKnownAgentStopReason(entry.stopReason)) {
-          throw new Error(`compact result input ${entryPath}.stopReason must be supported or null.`);
-        }
-
-        if (entry.clarificationKind !== null && !isKnownAgentClarificationKind(entry.clarificationKind)) {
-          throw new Error(`compact result input ${entryPath}.clarificationKind must be supported or null.`);
-        }
-
-        if (entry.actionKind === 'stop' && entry.stopReason === null) {
-          throw new Error(`compact result input ${entryPath}.stopReason is required for stop actions.`);
-        }
-
-        if (entry.actionKind !== 'stop' && entry.stopReason !== null) {
-          throw new Error(`compact result input ${entryPath}.stopReason must be null unless actionKind is stop.`);
-        }
-
-        if (entry.actionKind === 'ask-for-clarification' && entry.clarificationKind === null) {
-          throw new Error(`compact result input ${entryPath}.clarificationKind is required for clarification actions.`);
-        }
-
-        if (entry.actionKind !== 'ask-for-clarification' && entry.clarificationKind !== null) {
-          throw new Error(`compact result input ${entryPath}.clarificationKind must be null unless actionKind asks for clarification.`);
-        }
+      if (!isRecord(entry)) {
+        throw new Error(`compact result input ${entryPath} must be an object.`);
       }
+
+      assertIntegerField(entry, 'index', entryPath, isNonNegativeInteger, 'a non-negative integer');
+
+      if (!isKnownAgentActionKind(entry.actionKind)) {
+        throw new Error(`compact result input ${entryPath}.actionKind must be supported.`);
+      }
+
+      if (entry.actionFamily !== null && !isKnownAgentActionFamily(entry.actionFamily)) {
+        throw new Error(`compact result input ${entryPath}.actionFamily must be supported or null.`);
+      }
+
+      if (!isKnownAgentConfidence(entry.confidence)) {
+        throw new Error(`compact result input ${entryPath}.confidence must be supported.`);
+      }
+
+      if (typeof entry.summary !== 'string') {
+        throw new Error(`compact result input ${entryPath}.summary must be a string.`);
+      }
+
+      if (typeof entry.terminal !== 'boolean') {
+        throw new Error(`compact result input ${entryPath}.terminal must be a boolean.`);
+      }
+
+      if (entry.executionStatus !== null && !isKnownAgentDecisionExecutionStatus(entry.executionStatus)) {
+        throw new Error(`compact result input ${entryPath}.executionStatus must be supported or null.`);
+      }
+
+      if (!isStringOrNull(entry.executionReason)) {
+        throw new Error(`compact result input ${entryPath}.executionReason must be string or null.`);
+      }
+
+      for (const field of ['executedToolCount', 'changedFileCount', 'validationIssueCount', 'approvalSignalCount']) {
+        assertIntegerField(entry, field, entryPath, isNonNegativeInteger, 'a non-negative integer');
+      }
+
+      if (entry.stopReason !== null && !isKnownAgentStopReason(entry.stopReason)) {
+        throw new Error(`compact result input ${entryPath}.stopReason must be supported or null.`);
+      }
+
+      if (entry.clarificationKind !== null && !isKnownAgentClarificationKind(entry.clarificationKind)) {
+        throw new Error(`compact result input ${entryPath}.clarificationKind must be supported or null.`);
+      }
+
+      if (entry.actionKind === 'stop' && entry.stopReason === null) {
+        throw new Error(`compact result input ${entryPath}.stopReason is required for stop actions.`);
+      }
+
+      if (entry.actionKind !== 'stop' && entry.stopReason !== null) {
+        throw new Error(`compact result input ${entryPath}.stopReason must be null unless actionKind is stop.`);
+      }
+
+      if (entry.actionKind === 'ask-for-clarification' && entry.clarificationKind === null) {
+        throw new Error(`compact result input ${entryPath}.clarificationKind is required for clarification actions.`);
+      }
+
+      if (entry.actionKind !== 'ask-for-clarification' && entry.clarificationKind !== null) {
+        throw new Error(`compact result input ${entryPath}.clarificationKind must be null unless actionKind asks for clarification.`);
+      }
+    }
+
+    if (!isRecord(value.harness.turnTraceBudget)) {
+      throw new Error('compact result input harness.turnTraceBudget must be an object when harness is present.');
     }
 
     if (isRecord(value.harness.turnTraceBudget)) {

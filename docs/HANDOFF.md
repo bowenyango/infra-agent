@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Required Turn Trace Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `harness.turnTrace` whenever the harness section is present.
+- Require compact `harness.turnTraceBudget` whenever the harness section is
+  present.
+- Keep the Claude Code-inspired turn-transition window from becoming optional
+  in agent-to-agent handoff payloads.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 State Summary Retrieved Context Count Slice
 
 Files added or updated:
