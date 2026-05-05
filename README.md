@@ -148,6 +148,13 @@ Current behavior is intentionally runtime-foundation oriented:
   `--model`/`--llm-model`, `--openai-base-url`/`--llm-base-url`, and
   `--llm-provider openai-compatible`. API keys remain environment-only, and
   compact handoff records only non-secret planner config metadata.
+- The LLM planner provider adapter registry is intentionally narrow and
+  planner-only. The current `openai-compatible` adapter declares
+  `chat-completions` transport, `/chat/completions` endpoint, JSON-object
+  response format, and non-streaming behavior. Doctor output, result cards, and
+  compact `harness.plannerConfig.llm.capabilities` expose this metadata for
+  handoff without API keys, auth headers, or secret-bearing URLs. This registry
+  is not a general provider platform or multi-agent runtime.
 - LLM planner prompts include compact `runtimeIdentityConflictSummary` and
   `runtimeIdentityConflicts` when native validation reports provider-exclusive
   identity blockers. The summary carries total/included/omitted, engine, and
@@ -438,6 +445,11 @@ When both names are present, `INFRA_AGENT_*` values take precedence.
 Agent and doctor CLI flags override non-secret provider/model/base URL env
 values for that invocation. API keys are intentionally not accepted as CLI
 flags.
+The selected provider adapter contributes declarative capability metadata used
+by requests and compact handoff: provider id, transport, endpoint path,
+response format, JSON-object support, and streaming support. Unsupported
+providers fail closed at config resolution, and tests use injected transports
+instead of live provider calls.
 
 Development verification commands:
 

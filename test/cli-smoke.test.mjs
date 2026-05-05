@@ -6656,6 +6656,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /harness\.targeting/);
   assert.match(infraSkillContent, /harness\.workPlan/);
   assert.match(infraSkillContent, /harness\.plannerConfig/);
+  assert.match(infraSkillContent, /harness\.plannerConfig\.llm\.capabilities/);
+  assert.match(infraSkillContent, /provider\s+adapter/);
   assert.match(infraSkillContent, /harness\.repairBudget/);
   assert.match(infraSkillContent, /harness\.turnTraceBudget/);
   assert.match(infraSkillContent, /harness\.lifecycleEvents/);
@@ -6686,6 +6688,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillReferenceContent, /harness\.targeting/);
   assert.match(infraSkillReferenceContent, /harness\.workPlan/);
   assert.match(infraSkillReferenceContent, /harness\.plannerConfig/);
+  assert.match(infraSkillReferenceContent, /provider capabilities/);
+  assert.match(infraSkillReferenceContent, /JSON-object support/);
   assert.match(infraSkillReferenceContent, /harness\.toolTrace/);
   assert.match(infraSkillReferenceContent, /tail/);
   assert.match(infraSkillReferenceContent, /handoffCheckpoint\.continuation\.command/);

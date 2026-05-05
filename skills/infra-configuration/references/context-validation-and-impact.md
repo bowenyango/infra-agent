@@ -52,7 +52,11 @@ contract-checked by the parser:
   `harness.plannerHandoff` for current run state, selected target posture,
   derived progress, and next control action.
 - `harness.plannerConfig` for requested/effective planner mode and non-secret
-  LLM provider/model/base URL source metadata. It is not credential metadata.
+  LLM provider/model/base URL source metadata plus provider capabilities such
+  as transport, endpoint path, response format, JSON-object support, and
+  streaming posture. It is not credential metadata and does not prove live
+  provider reachability unless a read-only doctor report explicitly reports
+  configured readiness.
 - `harness.toolTrace` and `harness.toolPermissionSummary` for permission
   posture before asking for raw tool output or native CLI reruns.
 - `readiness.doctorCommand` when readiness is warn or fail; this is read-only.

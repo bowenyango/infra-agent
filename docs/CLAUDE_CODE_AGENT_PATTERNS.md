@@ -210,6 +210,12 @@ durable design reference for infra-agent development.
   `harness.plannerConfig` records requested/effective mode plus non-secret LLM
   provider/model/base URL metadata, and approval continuation commands preserve
   CLI-selected planner flags so handoff agents do not silently switch models.
+- Provider adapter selection follows the same snapshot-once pattern. Capability
+  negotiation is deterministic and visible in `harness.plannerConfig.llm`
+  rather than inferred from prompts or raw environment. The adapter boundary is
+  only a planner request/response client: it is not Claude Code-style
+  subagent orchestration, not recursive delegation, and not a general provider
+  marketplace.
 
 ## Current Non-Goals
 

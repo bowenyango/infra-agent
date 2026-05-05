@@ -278,6 +278,10 @@ Status on 2026-04-28:
   overrides for provider, model, and base URL. API keys remain env-only,
   compact handoff records `harness.plannerConfig`, and approval continuation
   commands preserve CLI-selected planner flags.
+- The OpenAI-compatible planner provider now has a small adapter/capability
+  boundary. Request transport details live outside `LLMModelClient`, doctor
+  and result-card output summarize non-secret capability posture, and compact
+  `harness.plannerConfig.llm.capabilities` is parser-validated before handoff.
 - Claude Code harness design notes are persisted in
   `docs/CLAUDE_CODE_AGENT_PATTERNS.md`; compact agent output includes
   `harness.turnTrace` and `harness.toolTrace` for low-noise per-turn and

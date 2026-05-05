@@ -8695,3 +8695,32 @@ Remaining risks:
 
 - Durable docs and package-surface tests still need to describe provider
   capabilities as planner-only contract metadata.
+
+## 2026-05-05 Provider Capability Docs Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document provider capabilities as a narrow planner-client contract.
+- Clarify that capability metadata is non-secret, parser-validated handoff data
+  and not proof of live provider reachability.
+- Preserve the current scope: one `openai-compatible` adapter, no general
+  provider platform, no multi-agent runtime, and no live provider tests.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Full verification still needs to run after docs and tests settle.

@@ -149,6 +149,16 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   config only. Keep API keys environment-only, include model/base URL source
   metadata in compact handoff, and preserve CLI-selected planner flags in
   approval continuation commands.
+- LLM provider adapters are declarative planner-client boundaries only. Keep
+  capability metadata fail-closed and parser-validated: supported provider id,
+  chat-completions transport, endpoint path, response format, JSON-object
+  support, and streaming posture. Capability metadata must never bypass bounded
+  parser validation, approval gates, query budgets, lifecycle limits, or IaC
+  safety rules.
+- Doctor, result-card, and compact planner capability output is agent-facing
+  contract data, not credentials and not proof of live provider reachability.
+  Keep API keys, bearer headers, tokens, and secret-bearing URLs out of all
+  planner metadata and tests.
 - Follow `docs/CLAUDE_CODE_AGENT_PATTERNS.md` when evolving the harness: prefer compact structured turn traces, tool summaries, and explicit permission/validation state over raw logs or full runtime snapshots in agent-facing output.
 - Validate compact `knowledgeContext` before using retrieved docs/schema
   context in handoff: positive packet/token/excerpt budgets, non-negative
@@ -322,8 +332,8 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   kind, or edit-plan kind when the model omits or invents an unsupported value.
 - Compact `harness.plannerConfig` must be validated before another agent trusts
   model/provider handoff. Treat it as a non-secret snapshot of requested mode,
-  effective planner, provider, model, base URL, and source labels; never infer
-  credentials from it.
+  effective planner, provider, model, base URL, source labels, and provider
+  capabilities; never infer credentials from it.
 - Use `infra-agent identity-report <agent-result.json>` when a human operator or downstream agent needs a focused runtime exclusive-identity incident report from an existing compact result. This command is read-only and must not rerun validators or mutate state.
 - `identity-report` inputs must be compact `infra-agent.agent-result` JSON with `schemaVersion=1` and `validation.identityConflicts`; do not point it at graph JSON, full debug state, native plan JSON, or raw CLI logs.
 - When `suggestedCommands` includes an `agent --json > agent-result.json` export followed by `identity-report agent-result.json --json`, treat that as a read-only reporting handoff for exclusive-identity triage, not as approval to rerun apply/update or mutate state.

@@ -16,12 +16,12 @@ The installable package intentionally includes only the CLI runtime, skills,
 installation check before running repository-specific commands. Use
 `infra-agent doctor <workspace> --json` when another agent needs a structured,
 read-only readiness report before planning edits. Doctor output verifies the
-installed agent-facing surface and may report whether the LLM planner is
-configured, but it must not expose API keys. If a caller wants to verify a
-specific OpenAI-compatible model or gateway before running the agent, pass
-`--model <name>`, `--openai-base-url <url>`, and
-`--llm-provider openai-compatible` to `doctor`; credentials must still come
-from environment variables.
+installed agent-facing surface and may report whether the LLM planner provider
+adapter is configured, including non-secret capability metadata, but it must
+not expose API keys. If a caller wants to verify a specific OpenAI-compatible
+model or gateway before running the agent, pass `--model <name>`,
+`--openai-base-url <url>`, and `--llm-provider openai-compatible` to `doctor`;
+credentials must still come from environment variables.
 
 ## Workflow
 
@@ -64,8 +64,11 @@ from environment variables.
    target, candidate score posture, ambiguity flags, and recommended targeting
    action, `harness.workPlan` for derived progress steps, skipped-step count,
    current step, and next control action, and `harness.turnTrace` for the bounded action flow. Read
-   `harness.plannerConfig` for requested/effective planner mode and non-secret
-   provider/model/base URL source metadata, `harness.plannerHandoff` for the
+   `harness.plannerConfig` for requested/effective planner mode, non-secret
+   provider/model/base URL source metadata, and
+   `harness.plannerConfig.llm.capabilities` before assuming JSON response
+   support, structured output support, or streaming behavior,
+   `harness.plannerHandoff` for the
    active blocker and next control action,
    `harness.turnTraceBudget` and
    `harness.lifecycleEvents` for capped lifecycle window/count metadata, and
