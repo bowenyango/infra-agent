@@ -8371,3 +8371,28 @@ Remaining risks:
 
 - Full repository verification and package dry-run still need to run after the
   complete development round.
+
+## 2026-05-05 LLM Base URL Safety Slice
+
+Files added or updated:
+
+- `src/model/config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Reject LLM planner base URLs that are not absolute HTTP(S) URLs.
+- Reject credentials, query strings, and fragments in model gateway base URLs
+  so secrets do not enter config metadata, doctor output, compact JSON, or
+  command handoff.
+- Preserve trailing-slash normalization for valid OpenAI-compatible base URLs.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLM planner config" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Provider-specific compatibility beyond OpenAI-compatible chat completions is
+  still intentionally out of scope.

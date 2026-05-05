@@ -37,6 +37,21 @@ function normalizeBaseUrl(value: string | undefined): string {
     return 'https://api.openai.com/v1';
   }
 
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`Unsupported LLM planner base URL "${trimmed}". Expected an absolute http(s) URL without credentials, query, or fragment.`);
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`Unsupported LLM planner base URL "${trimmed}". Expected an absolute http(s) URL without credentials, query, or fragment.`);
+  }
+
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error(`Unsupported LLM planner base URL "${trimmed}". Expected an absolute http(s) URL without credentials, query, or fragment.`);
+  }
+
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }
 

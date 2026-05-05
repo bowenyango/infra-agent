@@ -13889,6 +13889,17 @@ test('LLM planner config tracks CLI override sources without exposing keys', () 
     () => resolveLLMClientConfig({ OPENAI_API_KEY: 'key', INFRA_AGENT_LLM_PROVIDER: 'anthropic' }),
     /Unsupported LLM planner provider/
   );
+  for (const baseUrl of [
+    'https://user:pass@planner.example.test/v1',
+    'https://planner.example.test/v1?token=secret',
+    'https://planner.example.test/v1#fragment',
+    'file:///tmp/model'
+  ]) {
+    assert.throws(
+      () => resolveLLMClientConfig({ OPENAI_API_KEY: 'key' }, { baseUrl }),
+      /Unsupported LLM planner base URL/
+    );
+  }
 });
 
 test('createModelClient selects planner clients from explicit env maps', () => {
