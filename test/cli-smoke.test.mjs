@@ -14476,6 +14476,9 @@ test('buildCompactAgentRunResult exposes explicit approval grants', async () => 
     writePathScope: 'scoped',
     hasExplicitApproval: true
   });
+  assert.ok(compact.resultCard.some(line =>
+    /Approval grants: write risks high; write paths charts\/payments-api; tool categories native-stack-config-write; write path scope scoped/i.test(line)
+  ));
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {

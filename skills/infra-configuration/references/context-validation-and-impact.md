@@ -66,6 +66,9 @@ contract-checked by the parser:
 - `approval.resume` only as approval-request metadata. Use its primary signal
   and additional pending approval scope to decide what to ask the user about,
   but do not treat either field as approval.
+- `approval.grants` only as supplied-scope metadata. It shows approval already
+  passed into the current run, not permission to expand write paths, write
+  risks, or native tool categories.
 - `handoffCheckpoint.continuation.command` must match `approval.resume.command`
   for approval-required runs; neither field grants approval by itself.
 - `harness.workPlan` is derived progress only. Treat its

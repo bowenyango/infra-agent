@@ -2162,6 +2162,23 @@ function summarizeApprovalResumePosture(state: AgentRunState): string {
   return `${primary}; ${additional}`;
 }
 
+function summarizeApprovalGrantPosture(state: AgentRunState): string {
+  const grants = collectApprovalGrants(state);
+
+  if (!grants.hasExplicitApproval) {
+    return 'none';
+  }
+
+  const parts = [
+    grants.approvedWriteRisks.length > 0 ? `write risks ${grants.approvedWriteRisks.join(', ')}` : null,
+    grants.approvedWritePaths.length > 0 ? `write paths ${grants.approvedWritePaths.join(', ')}` : null,
+    grants.approvedToolCategories.length > 0 ? `tool categories ${grants.approvedToolCategories.join(', ')}` : null,
+    `write path scope ${grants.writePathScope}`
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join('; ');
+}
+
 function summarizeReviewFocus(state: AgentRunState): string {
   const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
   const topValidationIssue = state.runtime.validationIssues[0];
@@ -2390,6 +2407,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Targeting: ${summarizeTargetingPosture(state)}`);
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
   lines.push(`Approval resume: ${summarizeApprovalResumePosture(state)}`);
+  lines.push(`Approval grants: ${summarizeApprovalGrantPosture(state)}`);
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
   lines.push(`Identity review: ${summarizeIdentityConflictReview(state)}`);
   lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);

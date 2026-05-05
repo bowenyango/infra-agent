@@ -218,6 +218,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   activity: supported permission categories, numeric count budgets,
   `preservedWindow="tail"`, first/last included indexes matching emitted
   entries, and `latestTurnIndex` consistency when no tool entries are omitted.
+- Treat compact `approval.grants` as supplied approval scope for the current
+  run only. Validate granted write risks, write paths, tool categories, write
+  path scope, and `hasExplicitApproval` consistency before using it for audit or
+  resume explanations.
 - Treat compact query and loop budgets as contract data. Validate positive
   max-turn and retrieved-context budget integers, non-negative repair attempts,
   root `turnsUsed` consistency, remaining-turn arithmetic, and exhausted-state

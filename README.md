@@ -272,6 +272,11 @@ Current behavior is intentionally runtime-foundation oriented:
   signal shapes, write-risk and tool-category enums, resume arrays,
   continuation command/null consistency, primary/additional scope consistency,
   and signal count coverage; this metadata is not approval by itself.
+  `approval.grants` reports the explicit approval scope already supplied to the
+  current run, including granted write risks, write paths, tool categories, and
+  whether write approval was global or path-scoped. Result cards mirror that
+  grant posture so human handoff can distinguish supplied approval from pending
+  approval requests.
   readiness report when another agent needs it. Result cards include the same
   readiness posture, and suggested commands surface the read-only doctor command
   first when readiness has warnings or failures.

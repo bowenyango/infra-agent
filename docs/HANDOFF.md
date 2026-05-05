@@ -2,6 +2,33 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Grant Result Card Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add an `Approval grants:` result-card line so human handoff can see explicit
+  approval scope supplied to the current run.
+- Document the split between pending approval requests in `approval.resume` and
+  supplied approval scope in `approval.grants`.
+- Keep approval grants audit-only and scoped to the current run.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "explicit approval grants|approval-required posture|package metadata exposes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Grant Contract Slice
 
 Files added or updated:

@@ -161,6 +161,9 @@ durable design reference for infra-agent development.
   the exact scoped command, primary signal, additional pending scope, write
   risks, write paths, tool categories, and signal count, but it must not be
   interpreted as approval by itself.
+- `approval.grants` is the compact supplied-approval surface. It records the
+  explicit approval scope passed into the current run for audit and handoff
+  explanations, but it must not authorize broader writes or native operations.
 - `knowledgeCache` and compact `knowledgeContext` summaries are the
   context-compaction boundary for official docs, schemas, and examples. They
   should report resolved cache source, packet/token budgets, token estimates,
