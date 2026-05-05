@@ -532,7 +532,8 @@ function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknow
     ['--max-turns', queryConfig.maxTurns],
     ['--max-repair-attempts', queryConfig.maxRepairAttempts],
     ['--context-packet-limit', queryConfig.retrievedContextBudget.maxPackets],
-    ['--context-token-budget', queryConfig.retrievedContextBudget.maxTokens]
+    ['--context-token-budget', queryConfig.retrievedContextBudget.maxTokens],
+    ['--context-fact-limit', queryConfig.retrievedContextBudget.maxFacts]
   ];
 
   for (const [flag, expectedValue] of expectedFlags) {

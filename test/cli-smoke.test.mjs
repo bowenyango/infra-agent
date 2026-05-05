@@ -5680,6 +5680,7 @@ test('resolveQueryLoopConfig keeps bounded defaults and normalizes overrides', (
   assert.equal(resolveQueryLoopConfig().maxRepairAttempts, 2);
   assert.equal(resolveQueryLoopConfig().retrievedContextBudget.maxPackets, 5);
   assert.equal(resolveQueryLoopConfig().retrievedContextBudget.maxTokens, 1000);
+  assert.equal(resolveQueryLoopConfig().retrievedContextBudget.maxFacts, 12);
   assert.equal(resolveQueryLoopConfig({ maxTurns: 2.8 }).maxTurns, 2);
   assert.equal(resolveQueryLoopConfig({ maxTurns: 0 }).maxTurns, 1);
   assert.equal(resolveQueryLoopConfig({ maxRepairAttempts: 3.8 }).maxRepairAttempts, 3);
@@ -5688,23 +5689,31 @@ test('resolveQueryLoopConfig keeps bounded defaults and normalizes overrides', (
     retrievedContextBudget: {
       maxPackets: 2.8,
       maxTokens: 0,
-      maxExcerptChars: 240.8
+      maxExcerptChars: 240.8,
+      maxFacts: 4.8
     }
   }).retrievedContextBudget.maxPackets, 2);
   assert.equal(resolveQueryLoopConfig({
     retrievedContextBudget: {
       maxPackets: 2.8,
       maxTokens: 0,
-      maxExcerptChars: 240.8
+      maxExcerptChars: 240.8,
+      maxFacts: 4.8
     }
   }).retrievedContextBudget.maxTokens, 1);
   assert.equal(resolveQueryLoopConfig({
     retrievedContextBudget: {
       maxPackets: 2.8,
       maxTokens: 0,
-      maxExcerptChars: 240.8
+      maxExcerptChars: 240.8,
+      maxFacts: 4.8
     }
   }).retrievedContextBudget.maxExcerptChars, 240);
+  assert.equal(resolveQueryLoopConfig({
+    retrievedContextBudget: {
+      maxFacts: 4.8
+    }
+  }).retrievedContextBudget.maxFacts, 4);
 });
 
 test('runSingleStep respects configured zero repair attempts', async () => {
@@ -6861,6 +6870,8 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
     '2',
     '--context-token-budget',
     '500',
+    '--context-fact-limit',
+    '4',
     '--approve-tool-category',
     'native-stack-config-write',
     '--json'
@@ -6877,6 +6888,7 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
   assert.equal(parsed.maxRepairAttempts, 0);
   assert.equal(parsed.contextPacketLimit, 2);
   assert.equal(parsed.contextTokenBudget, 500);
+  assert.equal(parsed.contextFactLimit, 4);
   assert.deepEqual(parsed.approvedToolCategories, ['native-stack-config-write']);
   assert.equal(parsed.json, true);
   assert.equal(parsed.jsonFull, false);
@@ -6896,6 +6908,8 @@ test('agent CLI args parse write approval resume scope with query budget flags',
     '2',
     '--context-token-budget',
     '500',
+    '--context-fact-limit',
+    '4',
     '--approve-write-risk',
     'high',
     '--approve-write-path',
@@ -6910,6 +6924,7 @@ test('agent CLI args parse write approval resume scope with query budget flags',
   assert.equal(parsed.maxRepairAttempts, 0);
   assert.equal(parsed.contextPacketLimit, 2);
   assert.equal(parsed.contextTokenBudget, 500);
+  assert.equal(parsed.contextFactLimit, 4);
   assert.deepEqual(parsed.approvedWriteRisks, ['high']);
   assert.deepEqual(parsed.approvedWritePaths, ['charts/payments-api/values.yaml']);
   assert.deepEqual(parsed.approvedToolCategories, []);
@@ -15867,7 +15882,8 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
     maxRepairAttempts: 0,
     retrievedContextBudget: {
       maxPackets: 2,
-      maxTokens: 500
+      maxTokens: 500,
+      maxFacts: 4
     }
   });
   const state = {
@@ -15903,6 +15919,7 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.ok(commands[0]?.includes('--max-repair-attempts 0'));
   assert.ok(commands[0]?.includes('--context-packet-limit 2'));
   assert.ok(commands[0]?.includes('--context-token-budget 500'));
+  assert.ok(commands[0]?.includes('--context-fact-limit 4'));
   assert.ok(commands[0]?.includes('--approve-write-risk high'));
   assert.ok(commands[0]?.includes('--approve-write-path "charts/payments-api/values.yaml"'));
   assert.equal(compact.approval.resume.continuationRequired, true);
@@ -16101,7 +16118,8 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
     maxRepairAttempts: 1,
     retrievedContextBudget: {
       maxPackets: 3,
-      maxTokens: 700
+      maxTokens: 700,
+      maxFacts: 5
     }
   });
   const state = {
@@ -16154,6 +16172,7 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.ok(commands[0]?.includes('--max-repair-attempts 1'));
   assert.ok(commands[0]?.includes('--context-packet-limit 3'));
   assert.ok(commands[0]?.includes('--context-token-budget 700'));
+  assert.ok(commands[0]?.includes('--context-fact-limit 5'));
   assert.ok(commands[0]?.includes('--approve-tool-category native-stack-config-write'));
   assert.equal(compact.approval.resume.continuationRequired, true);
   assert.equal(compact.approval.resume.command, commands[0]);
@@ -16301,7 +16320,8 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
       maxRepairAttempts: 1,
       retrievedContextBudget: {
         maxPackets: 4,
-        maxTokens: 800
+        maxTokens: 800,
+        maxFacts: 6
       }
     })
   });
@@ -16315,10 +16335,12 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
   assert.ok(compact.approval.resume.command?.includes('--max-repair-attempts 1'));
   assert.ok(compact.approval.resume.command?.includes('--context-packet-limit 4'));
   assert.ok(compact.approval.resume.command?.includes('--context-token-budget 800'));
+  assert.ok(compact.approval.resume.command?.includes('--context-fact-limit 6'));
   assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--max-turns 5'));
   assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--max-repair-attempts 1'));
   assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--context-packet-limit 4'));
   assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--context-token-budget 800'));
+  assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--context-fact-limit 6'));
   assert.equal(compact.approval.resume.additionalCommands[0]?.compactCommand, `${compact.approval.resume.additionalCommands[0]?.command} --json`);
   assert.equal(compact.approval.resume.additionalCommands[0]?.debugCommand, `${compact.approval.resume.additionalCommands[0]?.command} --json-full`);
   assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);

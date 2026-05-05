@@ -63,6 +63,7 @@ export interface ParsedArgs {
   maxRepairAttempts?: number | null;
   contextPacketLimit: number | null;
   contextTokenBudget: number | null;
+  contextFactLimit?: number | null;
   domains: InfraDomainId[];
   targetPaths: string[];
   sourceIds?: string[];
@@ -92,7 +93,7 @@ function printUsage(): void {
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--json]',
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
     ].join('\n')
@@ -686,6 +687,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let maxRepairAttempts: number | null = null;
     let contextPacketLimit: number | null = null;
     let contextTokenBudget: number | null = null;
+    let contextFactLimit: number | null = null;
     const approvedWritePaths: string[] = [];
     const approvedWriteRisks: FileWriteRisk[] = [];
     const approvedToolCategories: ToolPermissionCategory[] = [];
@@ -815,6 +817,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--context-fact-limit') {
+        const factLimitValue = cleanArgs[index + 1];
+        const parsedFactLimit = Number(factLimitValue);
+        if (!factLimitValue || !Number.isInteger(parsedFactLimit) || parsedFactLimit < 1) {
+          fail('Missing or invalid value for --context-fact-limit. Expected a positive integer.');
+        }
+
+        contextFactLimit = parsedFactLimit;
+        index += 1;
+        continue;
+      }
+
       if (arg === '--approve-write-path') {
         const pathValue = cleanArgs[index + 1];
         if (!pathValue) {
@@ -874,6 +888,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       maxRepairAttempts,
       contextPacketLimit,
       contextTokenBudget,
+      contextFactLimit,
       domains: [],
       targetPaths: [],
       maxSources: null,
@@ -1120,7 +1135,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       maxRepairAttempts: parsed.maxRepairAttempts ?? undefined,
       retrievedContextBudget: {
         maxPackets: parsed.contextPacketLimit ?? undefined,
-        maxTokens: parsed.contextTokenBudget ?? undefined
+        maxTokens: parsed.contextTokenBudget ?? undefined,
+        maxFacts: parsed.contextFactLimit ?? undefined
       }
     }, buildLLMClientConfigOverrides(parsed));
     if (parsed.json) {

@@ -2834,7 +2834,8 @@ function buildQueryConfigFlags(state: AgentRunState): string {
     `--max-turns ${config.maxTurns}`,
     `--max-repair-attempts ${config.maxRepairAttempts}`,
     `--context-packet-limit ${config.retrievedContextBudget.maxPackets}`,
-    `--context-token-budget ${config.retrievedContextBudget.maxTokens}`
+    `--context-token-budget ${config.retrievedContextBudget.maxTokens}`,
+    `--context-fact-limit ${config.retrievedContextBudget.maxFacts}`
   ].join(' ');
 }
 

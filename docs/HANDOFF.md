@@ -9650,6 +9650,34 @@ Remaining risks:
 - CLI flags and compact `agent --json` output still need to expose the fact
   budget and summaries.
 
+## 2026-05-05 Knowledge Fact Budget CLI Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `--context-fact-limit <n>` for `infra-agent agent` so operators can
+  control how many extracted knowledge facts enter runtime and planner prompts.
+- Thread the flag through `retrievedContextBudget.maxFacts`, preserving the
+  existing query-loop config model instead of adding a parallel budget channel.
+- Include `--context-fact-limit` in approval resume commands and compact result
+  command validation so continuation runs keep the same fact budget.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "resolveQueryLoopConfig|agent CLI args accept --max-turns|agent CLI args parse write approval resume scope|summarizeSuggestedCommands includes approval continuation flags|summarizeSuggestedCommands includes tool category approval continuation scope|compact approval resume supports multiple approval signals" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact `agent --json` still needs a root-level `knowledgeFacts` summary and
+  dedicated contract checks for the fact payload shape.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
