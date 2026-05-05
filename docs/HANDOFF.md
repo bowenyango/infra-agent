@@ -2,6 +2,26 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 ToolTrace Preserved Window Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.toolTrace.preservedWindow: "tail"` to compact agent results.
+- Make recent-tool trace truncation explicit for downstream handoff consumers.
+- Update compact output and contract fixture coverage before parser tightening.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count|compact agent result contract" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 WorkPlan Skipped Count Result Card Slice
 
 Files added or updated:
