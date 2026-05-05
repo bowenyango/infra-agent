@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Targeting Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.targeting` to compact `infra-agent.agent-result` output as a
+  derived, read-only target-selection surface.
+- Preserve selected target, candidate count, score gap, ambiguity flags,
+  recommended targeting action, and a bounded candidate sample without exposing
+  raw preflight state.
+- Keep target handoff aligned with the existing compact harness pattern before
+  adding parser-enforced contract checks.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Compact Fixture Work Plan Budget Slice
 
 Files added or updated:

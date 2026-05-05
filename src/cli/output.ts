@@ -11,6 +11,7 @@ import type {
 } from '../types/agent.ts';
 import type {
   DomainCapabilitySummary,
+  InfraDomainId,
   RunPreflightState,
   TargetCandidate,
   ValidationPlanEntry,
@@ -158,6 +159,56 @@ interface CompactReadinessSummary {
   failCount: number;
   doctorCommand: string;
   checks: CompactReadinessCheck[];
+}
+
+type CompactTargetingAmbiguityKind =
+  | 'missing-environment'
+  | 'missing-service'
+  | 'no-candidates'
+  | 'weak-match'
+  | 'tied-top-score';
+type CompactTargetingRecommendedAction =
+  | 'inspect-selected-target'
+  | 'review-targeting'
+  | 'clarify-target';
+
+interface CompactTargetingCandidate {
+  rank: number;
+  selected: boolean;
+  kind: TargetCandidate['kind'];
+  domain: InfraDomainId;
+  name: string;
+  path: string;
+  score: number;
+  reasonCount: number;
+  reasons: string[];
+  matchedEnvironmentHints: string[];
+  detailCount: number;
+  details: string[];
+}
+
+interface CompactTargetingSummary {
+  schemaVersion: 1;
+  source: 'derived-run-preflight';
+  compact: true;
+  mutationAllowed: false;
+  selectedTarget: Pick<CompactTargetingCandidate, 'rank' | 'kind' | 'domain' | 'name' | 'path' | 'score'> | null;
+  candidateCount: number;
+  topScore: number | null;
+  scoreGapToNext: number | null;
+  maxCandidates: number;
+  includedCount: number;
+  omittedCount: number;
+  ambiguityKinds: CompactTargetingAmbiguityKind[];
+  recommendedAction: CompactTargetingRecommendedAction;
+  flags: {
+    missingEnvironment: boolean;
+    missingService: boolean;
+    noCandidates: boolean;
+    weakTopScore: boolean;
+    tiedTopScore: boolean;
+  };
+  candidates: CompactTargetingCandidate[];
 }
 
 interface CompactHandoffCheckpoint {
@@ -338,6 +389,7 @@ export interface CompactAgentRunResult {
       retrievedContextCount: number;
       semanticFactCount: number;
     };
+    targeting: CompactTargetingSummary;
     plannerHandoff: {
       lastAction: {
         kind: AgentActionKind | null;
@@ -827,6 +879,9 @@ const COMPACT_VALIDATION_ISSUE_GROUP_LIMIT = 8;
 const COMPACT_VALIDATION_SAFETY_BLOCKER_LIMIT = 5;
 const COMPACT_APPROVAL_SIGNAL_LIMIT = 5;
 const COMPACT_WORK_PLAN_STEP_LIMIT = 6;
+const COMPACT_TARGET_CANDIDATE_LIMIT = 5;
+const COMPACT_TARGET_REASON_LIMIT = 3;
+const COMPACT_TARGET_DETAIL_LIMIT = 3;
 const COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS = 300;
 
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
@@ -966,6 +1021,89 @@ function collectRuntimeStateSummary(state: AgentRunState): CompactAgentRunResult
     approvalSignalCount: state.runtime.approvalSignals?.length ?? 0,
     retrievedContextCount: state.runtime.retrievedContext?.length ?? 0,
     semanticFactCount: getRuntimeConfigSemantics(state.runtime).reduce((count, summary) => count + summary.facts.length, 0)
+  };
+}
+
+function domainForTargetCandidate(kind: TargetCandidate['kind']): InfraDomainId {
+  switch (kind) {
+    case 'helm-chart':
+      return 'helm';
+    case 'pulumi-project':
+      return 'pulumi';
+    case 'terraform-root':
+      return 'terraform';
+  }
+}
+
+function collectCompactTargeting(state: AgentRunState): CompactTargetingSummary {
+  const primaryTarget = getPrimaryTargetCandidateFromAgent(state);
+  const selectedRank = primaryTarget
+    ? state.preflight.targetCandidates.findIndex(candidate => candidate.path === primaryTarget.path) + 1
+    : 0;
+  const topCandidate = state.preflight.targetCandidates[0] ?? null;
+  const nextCandidate = state.preflight.targetCandidates[1] ?? null;
+  const topScore = topCandidate?.score ?? null;
+  const flags = {
+    missingEnvironment: state.preflight.requestedEnvironment === null,
+    missingService: state.preflight.requestedService === null,
+    noCandidates: state.preflight.targetCandidates.length === 0,
+    weakTopScore: topScore !== null && topScore <= 0,
+    tiedTopScore: topScore !== null && topScore > 0 && nextCandidate?.score === topScore
+  };
+  const ambiguityKinds: CompactTargetingAmbiguityKind[] = [
+    flags.missingEnvironment ? 'missing-environment' : null,
+    flags.missingService ? 'missing-service' : null,
+    flags.noCandidates ? 'no-candidates' : null,
+    flags.weakTopScore ? 'weak-match' : null,
+    flags.tiedTopScore ? 'tied-top-score' : null
+  ].filter((kind): kind is CompactTargetingAmbiguityKind => kind !== null);
+  const includedCandidates = state.preflight.targetCandidates
+    .slice(0, COMPACT_TARGET_CANDIDATE_LIMIT)
+    .map((candidate, index) => ({
+      rank: index + 1,
+      selected: primaryTarget?.path === candidate.path,
+      kind: candidate.kind,
+      domain: domainForTargetCandidate(candidate.kind),
+      name: candidate.name,
+      path: candidate.path,
+      score: candidate.score,
+      reasonCount: candidate.reasons.length,
+      reasons: candidate.reasons.slice(0, COMPACT_TARGET_REASON_LIMIT),
+      matchedEnvironmentHints: [...candidate.matchedEnvironmentHints],
+      detailCount: candidate.details?.length ?? 0,
+      details: (candidate.details ?? []).slice(0, COMPACT_TARGET_DETAIL_LIMIT)
+    }));
+  const recommendedAction: CompactTargetingRecommendedAction = flags.noCandidates || flags.weakTopScore || flags.tiedTopScore
+    ? 'clarify-target'
+    : ambiguityKinds.length > 0
+      ? 'review-targeting'
+      : 'inspect-selected-target';
+
+  return {
+    schemaVersion: 1,
+    source: 'derived-run-preflight',
+    compact: true,
+    mutationAllowed: false,
+    selectedTarget: primaryTarget
+      ? {
+          rank: selectedRank,
+          kind: primaryTarget.kind,
+          domain: domainForTargetCandidate(primaryTarget.kind),
+          name: primaryTarget.name,
+          path: primaryTarget.path,
+          score: primaryTarget.score
+        }
+      : null,
+    candidateCount: state.preflight.targetCandidates.length,
+    topScore,
+    scoreGapToNext: topCandidate && nextCandidate ? topCandidate.score - nextCandidate.score : null,
+    maxCandidates: COMPACT_TARGET_CANDIDATE_LIMIT,
+    includedCount: includedCandidates.length,
+    omittedCount: Math.max(0, state.preflight.targetCandidates.length - includedCandidates.length),
+    ambiguityKinds,
+    recommendedAction,
+    flags,
+    candidates: includedCandidates
   };
 }
 
@@ -2235,6 +2373,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       loopBudget: collectLoopBudget(state),
       repairBudget: collectRepairBudget(state),
       stateSummary: collectRuntimeStateSummary(state),
+      targeting: collectCompactTargeting(state),
       plannerHandoff: collectPlannerHandoff(state),
       workPlan: collectWorkPlan(state),
       lifecycleEvents: collectCompactLifecycleEvents(state),
