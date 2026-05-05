@@ -3000,6 +3000,23 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         }
       }
 
+      const firstApprovalSignal = Array.isArray(value.approval.signals)
+        ? value.approval.signals.find(isRecord) ?? null
+        : null;
+      if (
+        value.approval.resume.continuationRequired
+        && isRecord(firstApprovalSignal)
+        && firstApprovalSignal.kind === 'write-approval-required'
+        && typeof value.approval.resume.command === 'string'
+        && (
+          !value.approval.resume.command.includes(`--approve-write-risk ${firstApprovalSignal.risk}`)
+          || !value.approval.resume.command.includes('--approve-write-path')
+          || !value.approval.resume.command.includes(firstApprovalSignal.path as string)
+        )
+      ) {
+        throw new Error('compact result input approval.resume.command must include the active write approval scope.');
+      }
+
       if (value.handoffCheckpoint.summary.approvalContinuationRequired !== value.approval.resume.continuationRequired) {
         throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must match approval.resume.continuationRequired.');
       }

@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Write Approval Resume Command Scope Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate that an approval continuation command for a write approval signal
+  includes `--approve-write-risk`.
+- Validate that the same command includes `--approve-write-path`.
+- Reject continuation commands that drop the active write path scope while still
+  advertising approval resume metadata.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|compact agent result contract" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Resume Exact Signal Set Slice
 
 Files added or updated:

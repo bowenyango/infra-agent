@@ -13864,6 +13864,26 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'payload'), false);
   assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'runtime'), false);
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      handoffCheckpoint: {
+        ...compact.handoffCheckpoint,
+        continuation: {
+          ...compact.handoffCheckpoint.continuation,
+          command: compact.approval.resume.command?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null
+        }
+      },
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          command: compact.approval.resume.command?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null
+        }
+      }
+    }),
+    /approval\.resume\.command.*write approval scope/
+  );
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
