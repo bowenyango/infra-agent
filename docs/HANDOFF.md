@@ -9251,6 +9251,32 @@ Remaining risks:
   `knowledge extract`, `knowledge validate`, `knowledge pack`, or remote backend
   implementation.
 
+## 2026-05-05 Knowledge Fact Schema Constants Slice
+
+Files added or updated:
+
+- `src/types/knowledge.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add the first typed `KnowledgeFact` and `KnowledgeFactSet` schema surface for
+  source-linked, compact knowledge extraction.
+- Define supported fact kinds for provider/resource arguments, attributes,
+  examples, identity/replacement fields, module inputs/outputs, chart values,
+  and Pulumi config parameters.
+- Define the initial extraction method identifiers for Terraform Registry
+  markdown, Helm values schemas, and repo-local static extraction.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge fact schema constants" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Parser validation and extractor implementation are still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

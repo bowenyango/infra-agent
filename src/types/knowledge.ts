@@ -19,6 +19,61 @@ export type KnowledgeContentType =
 
 export type RetrievedContextConfidence = 'low' | 'medium' | 'high';
 
+export const KNOWLEDGE_FACT_KINDS = [
+  'argument',
+  'attribute',
+  'nested-block',
+  'example',
+  'identity-field',
+  'replacement-sensitive-field',
+  'module-input',
+  'module-output',
+  'chart-value',
+  'pulumi-config-parameter'
+] as const;
+
+export type KnowledgeFactKind = typeof KNOWLEDGE_FACT_KINDS[number];
+
+export const KNOWLEDGE_FACT_EXTRACTION_METHODS = [
+  'terraform-registry-markdown',
+  'helm-values-schema',
+  'repo-local-static'
+] as const;
+
+export type KnowledgeFactExtractionMethod = typeof KNOWLEDGE_FACT_EXTRACTION_METHODS[number];
+
+export interface KnowledgeFactSourceRef {
+  id: string;
+  source: KnowledgeSource;
+  contentHash: string;
+  locator: string;
+}
+
+export interface KnowledgeFact {
+  kind: KnowledgeFactKind;
+  path: string;
+  summary: string;
+  values?: string[];
+  required?: boolean;
+  type?: string;
+  defaultValue?: string;
+  confidence: RetrievedContextConfidence;
+  extractionMethod: KnowledgeFactExtractionMethod;
+  source: KnowledgeFactSourceRef;
+}
+
+export interface KnowledgeFactSet {
+  kind: 'infra-agent.knowledge-facts';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  sourceId: string;
+  source: KnowledgeSource;
+  sourceContentHash: string;
+  sourceStale: boolean;
+  factCount: number;
+  facts: KnowledgeFact[];
+}
+
 export interface KnowledgeSource {
   kind: KnowledgeSourceKind;
   name: string;

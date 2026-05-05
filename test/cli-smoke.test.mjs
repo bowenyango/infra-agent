@@ -98,6 +98,10 @@ import {
   retrieveHelmChartContextPackets
 } from '../src/domain/helm-chart-context.ts';
 import { prefetchWorkspaceKnowledge } from '../src/knowledge/prefetch.ts';
+import {
+  KNOWLEDGE_FACT_EXTRACTION_METHODS,
+  KNOWLEDGE_FACT_KINDS
+} from '../src/types/knowledge.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2284,6 +2288,26 @@ test('knowledge cache ids include version-sensitive source metadata', () => {
   };
 
   assert.notEqual(buildKnowledgeCacheId(sourceV1), buildKnowledgeCacheId(sourceV2));
+});
+
+test('knowledge fact schema constants cover planned extraction surfaces', () => {
+  assert.deepEqual(KNOWLEDGE_FACT_KINDS, [
+    'argument',
+    'attribute',
+    'nested-block',
+    'example',
+    'identity-field',
+    'replacement-sensitive-field',
+    'module-input',
+    'module-output',
+    'chart-value',
+    'pulumi-config-parameter'
+  ]);
+  assert.deepEqual(KNOWLEDGE_FACT_EXTRACTION_METHODS, [
+    'terraform-registry-markdown',
+    'helm-values-schema',
+    'repo-local-static'
+  ]);
 });
 
 test('knowledge cache writes versioned entries and detects staleness', async () => {
