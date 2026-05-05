@@ -224,6 +224,40 @@ interface CompactHandoffBudgetSample {
   omittedCount: number;
 }
 
+type CompactWorkPlanStatus = 'not-started' | 'in-progress' | 'blocked' | 'completed';
+type CompactWorkPlanStepKind = 'readiness' | 'targeting' | 'inspection' | 'edit' | 'validation' | 'handoff';
+type CompactWorkPlanStepStatus = 'pending' | 'in-progress' | 'blocked' | 'completed' | 'skipped';
+
+interface CompactWorkPlanStep {
+  index: number;
+  kind: CompactWorkPlanStepKind;
+  status: CompactWorkPlanStepStatus;
+  title: string;
+  summary: string;
+  actionKind: AgentActionKind | null;
+  validationIssueKind: ValidationIssue['kind'] | null;
+  approvalSignalKind: ApprovalSignal['kind'] | null;
+}
+
+interface CompactWorkPlan {
+  schemaVersion: 1;
+  source: 'derived-agent-run-state';
+  compact: true;
+  mutationAllowed: false;
+  status: CompactWorkPlanStatus;
+  blockerKind: CompactAgentRunResult['harness']['plannerHandoff']['activeBlocker']['kind'];
+  nextControlAction: CompactAgentRunResult['harness']['plannerHandoff']['nextControlAction'];
+  currentStepIndex: number | null;
+  totalStepCount: number;
+  completedStepCount: number;
+  pendingStepCount: number;
+  blockedStepCount: number;
+  maxEntries: number;
+  includedCount: number;
+  omittedCount: number;
+  steps: CompactWorkPlanStep[];
+}
+
 export interface IdentityConflictIncident {
   engine: ValidationIdentityConflictSummary['engine'];
   issueKind: ValidationIdentityConflictSummary['issueKind'];
@@ -325,6 +359,7 @@ export interface CompactAgentRunResult {
         | 'rerun-with-larger-turn-budget'
         | 'inspect-readiness-or-targeting';
     };
+    workPlan: CompactWorkPlan;
     lifecycleEvents: {
       maxEntries: number;
       totalCount: number;
@@ -778,6 +813,7 @@ const COMPACT_VALIDATION_ISSUE_DETAIL_LIMIT = 5;
 const COMPACT_VALIDATION_ISSUE_GROUP_LIMIT = 8;
 const COMPACT_VALIDATION_SAFETY_BLOCKER_LIMIT = 5;
 const COMPACT_APPROVAL_SIGNAL_LIMIT = 5;
+const COMPACT_WORK_PLAN_STEP_LIMIT = 6;
 const COMPACT_VALIDATION_OUTPUT_PREVIEW_CHARS = 300;
 
 function collectCompactTurnTrace(state: AgentRunState): CompactTurnTraceEntry[] {
@@ -970,6 +1006,166 @@ function collectPlannerHandoff(state: AgentRunState): CompactAgentRunResult['har
       approvalSignalKind: state.runtime.approvalSignals[0]?.kind ?? null
     },
     nextControlAction
+  };
+}
+
+function latestActionKindForStep(state: AgentRunState, stepKind: CompactWorkPlanStepKind): AgentActionKind | null {
+  const actionKindsByStep: Partial<Record<CompactWorkPlanStepKind, AgentActionKind[]>> = {
+    inspection: ['inspect-target-files'],
+    edit: ['apply-edit-plan'],
+    validation: ['validate-targets', 'repair-terraform-formatting'],
+    handoff: ['ask-for-clarification', 'stop']
+  };
+  const actionKinds = actionKindsByStep[stepKind] ?? [];
+  const matchingTurn = [...state.turns].reverse().find(turn => actionKinds.includes(turn.decision.action.kind));
+  return matchingTurn?.decision.action.kind ?? null;
+}
+
+function compactWorkPlanStatus(
+  state: AgentRunState,
+  blockerKind: CompactAgentRunResult['harness']['plannerHandoff']['activeBlocker']['kind']
+): CompactWorkPlanStatus {
+  const hasProgress = state.turns.length > 0
+    || state.runtime.toolSummaries.length > 0
+    || state.runtime.appliedWrites.length > 0
+    || state.runtime.validationResults.length > 0
+    || state.runtime.approvalSignals.length > 0;
+
+  if (!hasProgress) {
+    return 'not-started';
+  }
+
+  if (state.outcome === 'completed') {
+    return 'completed';
+  }
+
+  if (blockerKind !== 'none') {
+    return 'blocked';
+  }
+
+  return 'in-progress';
+}
+
+function buildWorkPlanStep(params: Omit<CompactWorkPlanStep, 'validationIssueKind' | 'approvalSignalKind'> & {
+  validationIssueKind?: ValidationIssue['kind'] | null;
+  approvalSignalKind?: ApprovalSignal['kind'] | null;
+}): CompactWorkPlanStep {
+  return {
+    ...params,
+    validationIssueKind: params.validationIssueKind ?? null,
+    approvalSignalKind: params.approvalSignalKind ?? null
+  };
+}
+
+function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
+  const plannerHandoff = collectPlannerHandoff(state);
+  const readiness = collectCompactReadiness(state);
+  const validationStatus = summarizeValidationStatus(state);
+  const primaryTarget = getPrimaryTargetCandidateFromAgent(state);
+  const hasInspection = state.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files');
+  const hasWrites = state.runtime.appliedWrites.length > 0;
+  const hasValidation = state.runtime.validationResults.length > 0;
+  const hasValidationBlocker = plannerHandoff.activeBlocker.kind === 'validation'
+    || plannerHandoff.activeBlocker.kind === 'repair-budget';
+  const hasTurnBudgetBlocker = plannerHandoff.activeBlocker.kind === 'turn-budget';
+  const hasApprovalBlocker = plannerHandoff.activeBlocker.kind === 'approval';
+  const firstValidationIssueKind = state.runtime.validationIssues[0]?.kind ?? null;
+  const firstApprovalSignalKind = state.runtime.approvalSignals[0]?.kind ?? null;
+
+  const steps: CompactWorkPlanStep[] = [
+    buildWorkPlanStep({
+      index: 0,
+      kind: 'readiness',
+      status: readiness.status === 'fail' ? 'blocked' : 'completed',
+      title: 'Readiness',
+      summary: `Readiness ${readiness.status}: ${readiness.passCount} pass, ${readiness.warnCount} warn, ${readiness.failCount} fail.`,
+      actionKind: null
+    }),
+    buildWorkPlanStep({
+      index: 1,
+      kind: 'targeting',
+      status: primaryTarget ? 'completed' : plannerHandoff.activeBlocker.kind === 'clarification' ? 'blocked' : 'pending',
+      title: 'Targeting',
+      summary: primaryTarget
+        ? `${primaryTarget.kind} ${primaryTarget.path} selected for ${formatRequestedDomains(state.preflight.requestedDomains)}.`
+        : `No primary target selected for ${formatRequestedDomains(state.preflight.requestedDomains)}.`,
+      actionKind: null
+    }),
+    buildWorkPlanStep({
+      index: 2,
+      kind: 'inspection',
+      status: hasInspection ? 'completed' : state.turns.length > 0 ? 'in-progress' : 'pending',
+      title: 'Inspection',
+      summary: hasInspection
+        ? `Recorded ${state.runtime.toolSummaries.filter(summary => summary.actionKind === 'inspect-target-files').length} inspection tool summary item(s).`
+        : 'Target file inspection has not produced a tool summary yet.',
+      actionKind: latestActionKindForStep(state, 'inspection')
+    }),
+    buildWorkPlanStep({
+      index: 3,
+      kind: 'edit',
+      status: hasApprovalBlocker ? 'blocked' : hasWrites ? 'completed' : hasInspection ? 'in-progress' : 'pending',
+      title: 'Bounded edit',
+      summary: hasWrites
+        ? `Applied ${state.runtime.appliedWrites.length} bounded write(s).`
+        : hasApprovalBlocker
+          ? 'A workspace mutation is waiting for explicit approval.'
+          : 'No bounded write has been applied yet.',
+      actionKind: latestActionKindForStep(state, 'edit'),
+      approvalSignalKind: hasApprovalBlocker ? firstApprovalSignalKind : null
+    }),
+    buildWorkPlanStep({
+      index: 4,
+      kind: 'validation',
+      status: validationStatus === 'passed'
+        ? 'completed'
+        : hasValidationBlocker
+          ? 'blocked'
+          : hasValidation
+            ? 'in-progress'
+            : 'pending',
+      title: 'Validation',
+      summary: `Validation ${validationStatus}; ${state.runtime.validationIssues.length} issue(s) currently recorded.`,
+      actionKind: latestActionKindForStep(state, 'validation'),
+      validationIssueKind: hasValidationBlocker ? firstValidationIssueKind : null
+    }),
+    buildWorkPlanStep({
+      index: 5,
+      kind: 'handoff',
+      status: state.outcome === 'completed'
+        ? 'completed'
+        : plannerHandoff.activeBlocker.kind !== 'none' || hasTurnBudgetBlocker
+          ? 'blocked'
+          : state.turns.length > 0
+            ? 'in-progress'
+            : 'pending',
+      title: 'Handoff',
+      summary: `Next control action: ${plannerHandoff.nextControlAction}.`,
+      actionKind: latestActionKindForStep(state, 'handoff')
+    })
+  ];
+  const includedSteps = steps.slice(0, COMPACT_WORK_PLAN_STEP_LIMIT);
+  const currentStep = includedSteps.find(step => step.status === 'blocked')
+    ?? includedSteps.find(step => step.status === 'in-progress')
+    ?? null;
+
+  return {
+    schemaVersion: 1,
+    source: 'derived-agent-run-state',
+    compact: true,
+    mutationAllowed: false,
+    status: compactWorkPlanStatus(state, plannerHandoff.activeBlocker.kind),
+    blockerKind: plannerHandoff.activeBlocker.kind,
+    nextControlAction: plannerHandoff.nextControlAction,
+    currentStepIndex: currentStep?.index ?? null,
+    totalStepCount: steps.length,
+    completedStepCount: steps.filter(step => step.status === 'completed').length,
+    pendingStepCount: steps.filter(step => step.status === 'pending').length,
+    blockedStepCount: steps.filter(step => step.status === 'blocked').length,
+    maxEntries: COMPACT_WORK_PLAN_STEP_LIMIT,
+    includedCount: includedSteps.length,
+    omittedCount: Math.max(0, steps.length - includedSteps.length),
+    steps: includedSteps
   };
 }
 
@@ -2021,6 +2217,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       repairBudget: collectRepairBudget(state),
       stateSummary: collectRuntimeStateSummary(state),
       plannerHandoff: collectPlannerHandoff(state),
+      workPlan: collectWorkPlan(state),
       lifecycleEvents: collectCompactLifecycleEvents(state),
       turnTraceBudget: collectTurnTraceBudget(state, turnTrace),
       turnTraceLimit: COMPACT_TURN_TRACE_LIMIT,

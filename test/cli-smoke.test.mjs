@@ -5398,6 +5398,30 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       compact.knowledgeContext.packets.filter(packet => packet.included).length
     );
     assert.equal(compact.readiness.status, 'pass');
+    assert.equal(compact.harness.workPlan.schemaVersion, 1);
+    assert.equal(compact.harness.workPlan.source, 'derived-agent-run-state');
+    assert.equal(compact.harness.workPlan.compact, true);
+    assert.equal(compact.harness.workPlan.mutationAllowed, false);
+    assert.equal(compact.harness.workPlan.status, 'blocked');
+    assert.equal(compact.harness.workPlan.blockerKind, 'turn-budget');
+    assert.equal(compact.harness.workPlan.nextControlAction, compact.harness.plannerHandoff.nextControlAction);
+    assert.equal(compact.harness.workPlan.totalStepCount, 6);
+    assert.equal(compact.harness.workPlan.includedCount, compact.harness.workPlan.steps.length);
+    assert.equal(compact.harness.workPlan.omittedCount, 0);
+    assert.equal(compact.harness.workPlan.currentStepIndex, 5);
+    assert.deepEqual(
+      compact.harness.workPlan.steps.map(step => step.kind),
+      ['readiness', 'targeting', 'inspection', 'edit', 'validation', 'handoff']
+    );
+    assert.ok(compact.harness.workPlan.steps.some(step =>
+      step.kind === 'inspection'
+      && step.status === 'completed'
+      && step.actionKind === 'inspect-target-files'
+    ));
+    assert.ok(compact.harness.workPlan.steps.some(step =>
+      step.kind === 'handoff'
+      && step.status === 'blocked'
+    ));
     assert.deepEqual(compact.handoffCheckpoint, {
       schemaVersion: 1,
       source: 'agent-result',

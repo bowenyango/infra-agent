@@ -2,6 +2,30 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Work Plan Output Shape Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.workPlan` to compact `infra-agent.agent-result` output as a
+  derived, read-only progress surface.
+- Summarize readiness, targeting, inspection, bounded edit, validation, and
+  handoff steps without exposing raw runtime state, prompts, tool output, or
+  file content.
+- Keep the work plan aligned with existing `plannerHandoff` next-control
+  routing while avoiding a new writable todo system.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Doctor Package Surface Guard Slice
 
 Files added or updated:
