@@ -8131,3 +8131,30 @@ Remaining risks:
 
 - Agent run state does not yet persist this metadata; later slices must carry
   the snapshot into compact handoff and suggested commands.
+
+## 2026-05-05 Agent Run Planner Snapshot Slice
+
+Files added or updated:
+
+- `src/agent/run-single-step.ts`
+- `src/model/create-model-client.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Persist the selected planner configuration on `AgentRunState` so downstream
+  output and handoff builders read a query-entry snapshot instead of
+  re-resolving process environment.
+- Support injected custom planning models in tests without treating them as
+  LLM planner clients.
+- Keep planner selection metadata non-secret and separate from raw runtime
+  state.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "runSingleStep respects the configured maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact output and CLI flags do not yet expose or consume this snapshot.

@@ -9,7 +9,7 @@ import {
 import { LLMModelClient } from './LLMModelClient.ts';
 import { RuleBasedModelClient } from './RuleBasedModelClient.ts';
 
-export type PlannerEffectiveMode = 'llm' | 'rule-based';
+export type PlannerEffectiveMode = 'llm' | 'rule-based' | 'custom';
 
 export interface PlannerRuntimeConfig {
   requestedMode: PlannerMode;

@@ -5327,6 +5327,10 @@ test('runSingleStep respects the configured maximum turn count', async () => {
 
     assert.equal(result.turns.length, 1);
     assert.equal(result.outcome, 'no-safe-action');
+    assert.equal(result.plannerConfig?.requestedMode, 'rule-based');
+    assert.equal(result.plannerConfig?.effectiveMode, 'rule-based');
+    assert.equal(result.plannerConfig?.clientName, 'rule-based-model-client');
+    assert.equal(result.plannerConfig?.llm, null);
     assert.ok(result.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files'));
     const compact = buildCompactAgentRunResult(result);
     assert.equal(compact.harness.maxTurns, 1);

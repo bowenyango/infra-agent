@@ -3,8 +3,8 @@ import type { AgentRunOutcome, AgentRuntimeState } from '../types/agent.ts';
 import { runQueryLoop } from '../query.ts';
 import type { RunApprovalScope, RunPreflightState } from '../types/repository.ts';
 import type { QueryLoopConfig, QueryLoopConfigOverrides } from '../query-config.ts';
-import type { PlannerMode } from '../model/config.ts';
-import { createModelClient } from '../model/create-model-client.ts';
+import type { LLMClientConfigOverrides, PlannerMode } from '../model/config.ts';
+import { createModelClientSelection, type PlannerRuntimeConfig } from '../model/create-model-client.ts';
 import type { ModelClient } from '../model/ModelClient.ts';
 
 export interface AgentRunState {
@@ -14,6 +14,7 @@ export interface AgentRunState {
   runtime: AgentRuntimeState;
   turns: Awaited<ReturnType<typeof runQueryLoop>>['turns'];
   config: QueryLoopConfig;
+  plannerConfig?: PlannerRuntimeConfig;
 }
 
 function toModelClient(model: PlanningModel): ModelClient {
@@ -31,11 +32,20 @@ export async function runSingleStep(
   model?: PlanningModel,
   plannerMode: PlannerMode = 'auto',
   approvalScope?: Partial<RunApprovalScope>,
-  queryConfig?: QueryLoopConfigOverrides
+  queryConfig?: QueryLoopConfigOverrides,
+  plannerOptions?: LLMClientConfigOverrides
 ): Promise<AgentRunState> {
-  const modelClient = model ? toModelClient(model) : createModelClient(plannerMode);
+  const modelSelection = model ? null : createModelClientSelection(plannerMode, undefined, plannerOptions);
+  const modelClient = model ? toModelClient(model) : modelSelection.client;
   const result = await runQueryLoop(task, workspacePath, modelClient, approvalScope, queryConfig);
   const preflight = result.runtime.preflight;
+  const plannerConfig = modelSelection?.plannerConfig ?? {
+    requestedMode: plannerMode,
+    effectiveMode: 'custom',
+    clientName: modelClient.name,
+    fallbackReason: null,
+    llm: null
+  } satisfies PlannerRuntimeConfig;
 
   return {
     modelName: modelClient.name,
@@ -43,6 +53,7 @@ export async function runSingleStep(
     preflight,
     runtime: result.runtime,
     turns: result.turns,
-    config: result.config
+    config: result.config,
+    plannerConfig
   };
 }
