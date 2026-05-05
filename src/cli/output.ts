@@ -1819,7 +1819,7 @@ function collectCompactReadiness(state: AgentRunState): CompactReadinessSummary 
 
   return {
     ...summarizeReadinessChecks(checks),
-    doctorCommand: `${buildCliBaseCommand()} doctor ${shellQuote(state.preflight.workspaceRoot)} --json`,
+    doctorCommand: buildDoctorCommand(state),
     checks
   };
 }
@@ -2765,13 +2765,9 @@ function buildQueryConfigFlags(state: AgentRunState): string {
   ].join(' ');
 }
 
-function buildPlannerConfigFlagParts(state: AgentRunState): string[] {
+function buildLLMConfigFlagParts(state: AgentRunState): string[] {
   const plannerConfig = collectPlannerConfig(state);
   const flags: string[] = [];
-
-  if (plannerConfig.requestedMode !== 'auto') {
-    flags.push(`--planner ${plannerConfig.requestedMode}`);
-  }
 
   if (plannerConfig.llm) {
     if (plannerConfig.llm.providerSource === 'cli') {
@@ -2786,6 +2782,18 @@ function buildPlannerConfigFlagParts(state: AgentRunState): string[] {
   }
 
   return flags;
+}
+
+function buildPlannerConfigFlagParts(state: AgentRunState): string[] {
+  const plannerConfig = collectPlannerConfig(state);
+  return [
+    ...(plannerConfig.requestedMode !== 'auto' ? [`--planner ${plannerConfig.requestedMode}`] : []),
+    ...buildLLMConfigFlagParts(state)
+  ];
+}
+
+function buildDoctorCommand(state: AgentRunState): string {
+  return `${buildCliBaseCommand()} doctor ${shellQuote(state.preflight.workspaceRoot)}${buildFlagSegment(buildLLMConfigFlagParts(state))} --json`;
 }
 
 function buildApprovalGrantFlagParts(state: AgentRunState): string[] {

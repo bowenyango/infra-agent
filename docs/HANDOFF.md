@@ -8593,3 +8593,29 @@ Remaining risks:
 
 - Compact readiness `doctorCommand` still does not preserve CLI-selected
   planner flags.
+
+## 2026-05-05 Readiness Doctor Planner Flag Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Preserve CLI-selected LLM provider/model/base URL flags in compact
+  `readiness.doctorCommand`.
+- Keep `--planner` out of doctor commands because doctor is a read-only
+  readiness check, not an agent planning mode selector.
+- Share the same LLM flag builder between doctor and agent continuation command
+  surfaces.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "tool category approval continuation scope" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact parser validation for planner flags in `readiness.doctorCommand` is
+  still pending.

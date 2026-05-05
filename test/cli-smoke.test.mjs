@@ -14992,6 +14992,10 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
     supportsJsonObject: true,
     supportsStreaming: false
   });
+  assert.match(compact.readiness.doctorCommand, /--llm-provider openai-compatible/);
+  assert.match(compact.readiness.doctorCommand, /--model "codex-infra-test"/);
+  assert.match(compact.readiness.doctorCommand, /--openai-base-url "https:\/\/models\.example\.test\/v1"/);
+  assert.doesNotMatch(compact.readiness.doctorCommand, /--planner llm/);
   assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
   assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);
   assert.equal(compact.handoffCheckpoint.continuation.debugCommand, compact.approval.resume.debugCommand);
