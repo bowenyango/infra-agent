@@ -8644,3 +8644,26 @@ Known validation:
 Remaining risks:
 
 - Human result-card output does not yet summarize provider capability posture.
+
+## 2026-05-05 Result Card Planner Capability Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a result-card planner configuration line for human handoff.
+- Summarize LLM provider/model, transport, response format, and streaming
+  posture without exposing credentials or request headers.
+- Keep rule-based runs summarized by effective planner mode and client name.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "tool category approval continuation scope" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Durable docs and packaged skill guidance still need capability wording.

@@ -2498,6 +2498,20 @@ function summarizeKnowledgeContext(state: AgentRunState): string {
   ].join('; ');
 }
 
+function summarizePlannerConfig(state: AgentRunState): string {
+  const plannerConfig = collectPlannerConfig(state);
+  if (!plannerConfig.llm) {
+    return `${plannerConfig.effectiveMode} (${plannerConfig.clientName})`;
+  }
+
+  return [
+    `${plannerConfig.llm.provider}/${plannerConfig.llm.model}`,
+    `transport=${plannerConfig.llm.capabilities.transport}`,
+    `response=${plannerConfig.llm.capabilities.responseFormat}`,
+    `streaming=${plannerConfig.llm.capabilities.supportsStreaming ? 'supported' : 'disabled'}`
+  ].join('; ');
+}
+
 export function summarizeResultCard(state: AgentRunState): string[] {
   const lines: string[] = [];
   const changedPaths = Array.from(new Set(state.runtime.appliedWrites.map(write => write.path)));
@@ -2517,6 +2531,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Work plan: ${summarizeWorkPlan(state)}`);
   lines.push(`Tool trace: ${summarizeToolTrace(state)}`);
   lines.push(`Permission posture: ${summarizePermissionPosture(state)}`);
+  lines.push(`Planner config: ${summarizePlannerConfig(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);

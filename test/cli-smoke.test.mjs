@@ -15010,6 +15010,7 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.match(compact.readiness.doctorCommand, /--model "codex-infra-test"/);
   assert.match(compact.readiness.doctorCommand, /--openai-base-url "https:\/\/models\.example\.test\/v1"/);
   assert.doesNotMatch(compact.readiness.doctorCommand, /--planner llm/);
+  assert.ok(compact.resultCard.some(line => /Planner config: openai-compatible\/codex-infra-test.*transport=chat-completions.*streaming=disabled/i.test(line)));
   assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
   assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);
   assert.equal(compact.handoffCheckpoint.continuation.debugCommand, compact.approval.resume.debugCommand);
