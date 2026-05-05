@@ -10243,6 +10243,10 @@ test('compact agent result contract validates shallow handoff shape and validati
   const llmResult = {
     ...validResult,
     modelName: 'llm-model-client:codex-infra-test',
+    readiness: {
+      ...validResult.readiness,
+      doctorCommand: 'infra-agent doctor /workspace --model codex-infra-test --openai-base-url https://models.example.test/v1 --json'
+    },
     harness: {
       ...validResult.harness,
       plannerConfig: {
@@ -10271,6 +10275,16 @@ test('compact agent result contract validates shallow handoff shape and validati
     }
   };
   assert.equal(parseCompactAgentRunResult(llmResult).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...llmResult,
+      readiness: {
+        ...llmResult.readiness,
+        doctorCommand: 'infra-agent doctor /workspace --planner llm --model codex-infra-test --openai-base-url https://models.example.test/v1 --json'
+      }
+    }),
+    /readiness\.doctorCommand must not include planner mode flags/
+  );
   assert.throws(
     () => parseCompactAgentRunResult({
       ...llmResult,

@@ -8619,3 +8619,28 @@ Remaining risks:
 
 - Compact parser validation for planner flags in `readiness.doctorCommand` is
   still pending.
+
+## 2026-05-05 Readiness Doctor Planner Flag Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate compact `readiness.doctorCommand` against CLI-sourced LLM
+  provider/model/base URL metadata in `harness.plannerConfig`.
+- Reject planner mode flags in doctor commands because doctor does not execute
+  planner turns.
+- Keep read-only readiness handoff aligned with approval continuation command
+  validation.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Human result-card output does not yet summarize provider capability posture.

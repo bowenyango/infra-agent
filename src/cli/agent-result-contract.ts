@@ -529,7 +529,12 @@ function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknow
   }
 }
 
-function assertCommandIncludesPlannerConfigFlags(command: unknown, harness: unknown, fieldPath: string): void {
+function assertCommandIncludesPlannerConfigFlags(
+  command: unknown,
+  harness: unknown,
+  fieldPath: string,
+  options: { includePlannerMode?: boolean } = {}
+): void {
   if (typeof command !== 'string' || !isRecord(harness) || !isRecord(harness.plannerConfig)) {
     return;
   }
@@ -537,7 +542,7 @@ function assertCommandIncludesPlannerConfigFlags(command: unknown, harness: unkn
   const plannerConfig = harness.plannerConfig;
   const expectedFlags: Array<[string, unknown]> = [];
 
-  if (plannerConfig.requestedMode !== 'auto') {
+  if (options.includePlannerMode !== false && plannerConfig.requestedMode !== 'auto') {
     expectedFlags.push(['--planner', plannerConfig.requestedMode]);
   }
 
@@ -558,6 +563,10 @@ function assertCommandIncludesPlannerConfigFlags(command: unknown, harness: unkn
     if (values.length !== 1 || values[0] !== String(expectedValue)) {
       throw new Error(`compact result input ${fieldPath} must include planner config flags exactly.`);
     }
+  }
+
+  if (options.includePlannerMode === false && extractCommandFlagValues(command, '--planner').length > 0) {
+    throw new Error(`compact result input ${fieldPath} must not include planner mode flags.`);
   }
 }
 
@@ -2397,6 +2406,13 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     if (typeof value.readiness.doctorCommand !== 'string') {
       throw new Error('compact result input readiness.doctorCommand must be a string when present.');
     }
+
+    assertCommandIncludesPlannerConfigFlags(
+      value.readiness.doctorCommand,
+      value.harness,
+      'readiness.doctorCommand',
+      { includePlannerMode: false }
+    );
 
     if (!Array.isArray(value.readiness.checks)) {
       throw new Error('compact result input readiness.checks must be an array when present.');
