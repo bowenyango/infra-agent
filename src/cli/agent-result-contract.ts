@@ -579,6 +579,132 @@ function assertCompactTargeting(value: unknown): void {
   }
 }
 
+function domainForTargetCandidateKind(kind: unknown): string | null {
+  switch (kind) {
+    case 'helm-chart':
+      return 'helm';
+    case 'pulumi-project':
+      return 'pulumi';
+    case 'terraform-root':
+      return 'terraform';
+    default:
+      return null;
+  }
+}
+
+function assertCompactTargetingConsistency(
+  targeting: unknown,
+  value: Record<string, unknown>
+): void {
+  if (!isRecord(targeting)) {
+    return;
+  }
+
+  const candidates = Array.isArray(targeting.candidates)
+    ? targeting.candidates.filter(isRecord)
+    : [];
+  const selectedCandidates = candidates.filter(candidate => candidate.selected === true);
+
+  if (selectedCandidates.length > 1) {
+    throw new Error('compact result input harness.targeting.candidates must include at most one selected candidate.');
+  }
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    const expectedDomain = domainForTargetCandidateKind(candidate.kind);
+    if (expectedDomain !== candidate.domain) {
+      throw new Error(`compact result input harness.targeting.candidates[${index}].domain must match kind.`);
+    }
+  }
+
+  if (isRecord(targeting.selectedTarget)) {
+    const expectedSelectedDomain = domainForTargetCandidateKind(targeting.selectedTarget.kind);
+    if (expectedSelectedDomain !== targeting.selectedTarget.domain) {
+      throw new Error('compact result input harness.targeting.selectedTarget.domain must match kind.');
+    }
+  }
+
+  if (value.primaryTarget === null && targeting.selectedTarget !== null) {
+    throw new Error('compact result input harness.targeting.selectedTarget must be null when root.primaryTarget is null.');
+  }
+
+  if (isRecord(value.primaryTarget)) {
+    if (!isRecord(targeting.selectedTarget)) {
+      throw new Error('compact result input harness.targeting.selectedTarget is required when root.primaryTarget is present.');
+    }
+
+    for (const field of ['kind', 'name', 'path', 'score']) {
+      if (targeting.selectedTarget[field] !== value.primaryTarget[field]) {
+        throw new Error(`compact result input harness.targeting.selectedTarget.${field} must match root.primaryTarget.${field}.`);
+      }
+    }
+  }
+
+  if (isRecord(targeting.selectedTarget)) {
+    if (
+      Array.isArray(value.requestedDomains)
+      && value.requestedDomains.length > 0
+      && targeting.selectedTarget.domain !== value.requestedDomains[0]
+    ) {
+      throw new Error('compact result input harness.targeting.selectedTarget.domain must match the primary requested domain.');
+    }
+
+    const selectedCandidate = selectedCandidates[0];
+    if (selectedCandidate) {
+      for (const field of ['rank', 'kind', 'domain', 'name', 'path', 'score']) {
+        if (selectedCandidate[field] !== targeting.selectedTarget[field]) {
+          throw new Error(`compact result input harness.targeting selected candidate ${field} must match selectedTarget.`);
+        }
+      }
+    }
+  }
+
+  if (targeting.candidateCount === 0) {
+    if (targeting.selectedTarget !== null || targeting.topScore !== null || targeting.scoreGapToNext !== null) {
+      throw new Error('compact result input harness.targeting empty candidate state must not include selected target or scores.');
+    }
+  } else if (candidates[0] && targeting.topScore !== candidates[0].score) {
+    throw new Error('compact result input harness.targeting.topScore must match the first included candidate score.');
+  }
+
+  if (targeting.candidateCount < 2 && targeting.scoreGapToNext !== null) {
+    throw new Error('compact result input harness.targeting.scoreGapToNext must be null with fewer than two candidates.');
+  }
+
+  if (candidates.length >= 2 && targeting.scoreGapToNext !== (candidates[0].score as number) - (candidates[1].score as number)) {
+    throw new Error('compact result input harness.targeting.scoreGapToNext must match the top candidate score gap.');
+  }
+
+  if (!isRecord(targeting.flags) || !Array.isArray(targeting.ambiguityKinds)) {
+    return;
+  }
+
+  const expectedAmbiguityKinds = [
+    targeting.flags.missingEnvironment ? 'missing-environment' : null,
+    targeting.flags.missingService ? 'missing-service' : null,
+    targeting.flags.noCandidates ? 'no-candidates' : null,
+    targeting.flags.weakTopScore ? 'weak-match' : null,
+    targeting.flags.tiedTopScore ? 'tied-top-score' : null
+  ].filter((kind): kind is string => kind !== null);
+
+  if (
+    expectedAmbiguityKinds.length !== targeting.ambiguityKinds.length
+    || expectedAmbiguityKinds.some((kind, index) => targeting.ambiguityKinds[index] !== kind)
+  ) {
+    throw new Error('compact result input harness.targeting.ambiguityKinds must match flags.');
+  }
+
+  const expectedRecommendedAction = targeting.flags.noCandidates || targeting.flags.weakTopScore || targeting.flags.tiedTopScore
+    ? 'clarify-target'
+    : expectedAmbiguityKinds.length > 0
+      ? 'review-targeting'
+      : 'inspect-selected-target';
+
+  if (targeting.recommendedAction !== expectedRecommendedAction) {
+    throw new Error('compact result input harness.targeting.recommendedAction must match ambiguity posture.');
+  }
+}
+
 function assertCompactWorkPlan(value: unknown): void {
   if (!isRecord(value)) {
     throw new Error('compact result input harness.workPlan must be an object when harness is present.');
@@ -1349,6 +1475,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
     assertCompactWorkPlan(value.harness.workPlan);
     assertCompactTargeting(value.harness.targeting);
+    assertCompactTargetingConsistency(value.harness.targeting, value);
 
     if (
       isRecord(value.harness.toolTrace)

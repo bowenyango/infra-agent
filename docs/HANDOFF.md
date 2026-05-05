@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Targeting Consistency Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check compact targeting with root `primaryTarget` and requested-domain
+  routing.
+- Reject targeting drift between candidate kind and domain, selected candidate
+  and selected target, score gap and included candidate scores, ambiguity flags
+  and ambiguity kinds, and recommended action and ambiguity posture.
+- Keep continuation agents from re-deriving target ambiguity from raw preflight
+  state.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Compact Targeting Contract Shape Slice
 
 Files added or updated:

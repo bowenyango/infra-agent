@@ -8940,6 +8940,74 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      primaryTarget: {
+        ...validResult.primaryTarget,
+        path: 'terraform/other'
+      }
+    }),
+    /harness\.targeting\.selectedTarget\.path.*root\.primaryTarget\.path/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          selectedTarget: {
+            ...validResult.harness.targeting.selectedTarget,
+            domain: 'helm'
+          }
+        }
+      }
+    }),
+    /harness\.targeting\.selectedTarget\.domain must match kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          scoreGapToNext: 1
+        }
+      }
+    }),
+    /harness\.targeting\.scoreGapToNext/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          flags: {
+            ...validResult.harness.targeting.flags,
+            missingService: false
+          }
+        }
+      }
+    }),
+    /harness\.targeting\.ambiguityKinds must match flags/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        targeting: {
+          ...validResult.harness.targeting,
+          recommendedAction: 'inspect-selected-target'
+        }
+      }
+    }),
+    /harness\.targeting\.recommendedAction/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
       harness: {
         ...validResult.harness,
         workPlan: null
