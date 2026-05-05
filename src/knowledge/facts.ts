@@ -10,6 +10,7 @@ import { parseKnowledgeFactSet } from './facts-contract.ts';
 
 interface ExtractKnowledgeFactSetOptions {
   now?: Date;
+  extractedAt?: string;
 }
 
 const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
@@ -252,10 +253,6 @@ function isRecordWithArray(value: unknown, field: string): value is Record<strin
     && Array.isArray((value as Record<string, unknown>)[field]);
 }
 
-function extractionMethodConfidence(entry: KnowledgeCacheEntry): RetrievedContextConfidence {
-  return isKnowledgeCacheEntryStale(entry) ? 'medium' : 'high';
-}
-
 export function extractKnowledgeFactSetFromCacheEntry(
   entry: KnowledgeCacheEntry,
   options: ExtractKnowledgeFactSetOptions = {}
@@ -272,7 +269,7 @@ export function extractKnowledgeFactSetFromCacheEntry(
 
     return [];
   })();
-  const confidence = extractionMethodConfidence(entry);
+  const confidence: RetrievedContextConfidence = sourceStale ? 'medium' : 'high';
   const facts = extractedFacts.map(fact => sourceStale && fact.confidence === 'high'
     ? { ...fact, confidence }
     : fact);
@@ -284,7 +281,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
     sourceId: entry.id,
     source: entry.source,
     sourceContentHash: entry.contentHash,
+    sourceFetchedAt: entry.fetchedAt,
+    ...(entry.staleAfter !== undefined ? { sourceStaleAfter: entry.staleAfter } : {}),
     sourceStale,
+    extractedAt: options.extractedAt ?? new Date().toISOString(),
     factCount: facts.length,
     facts
   });

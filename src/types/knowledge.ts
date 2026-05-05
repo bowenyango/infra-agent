@@ -36,6 +36,7 @@ export type KnowledgeFactKind = typeof KNOWLEDGE_FACT_KINDS[number];
 
 export const KNOWLEDGE_FACT_EXTRACTION_METHODS = [
   'terraform-registry-markdown',
+  'terraform-provider-schema',
   'helm-values-schema',
   'repo-local-static'
 ] as const;
@@ -60,6 +61,7 @@ export interface KnowledgeFact {
   confidence: RetrievedContextConfidence;
   extractionMethod: KnowledgeFactExtractionMethod;
   source: KnowledgeFactSourceRef;
+  relatedPaths?: string[];
 }
 
 export interface KnowledgeFactSet {
@@ -69,7 +71,10 @@ export interface KnowledgeFactSet {
   sourceId: string;
   source: KnowledgeSource;
   sourceContentHash: string;
+  sourceFetchedAt: string | null;
+  sourceStaleAfter?: string;
   sourceStale: boolean;
+  extractedAt: string;
   factCount: number;
   facts: KnowledgeFact[];
 }

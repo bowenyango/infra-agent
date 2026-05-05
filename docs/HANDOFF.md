@@ -9330,6 +9330,35 @@ Remaining risks:
 - CLI surfaces for source listing, extraction, validation, and pack creation are
   still pending.
 
+## 2026-05-05 Knowledge Fact Stale Metadata Slice
+
+Files added or updated:
+
+- `src/types/knowledge.ts`
+- `src/knowledge/facts-contract.ts`
+- `src/knowledge/facts.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add source fetch time, stale-after time, and extraction time to
+  `KnowledgeFactSet`.
+- Validate source ids against the deterministic knowledge-cache source id,
+  require SHA-256 source content hashes, and reject secret-bearing URLs.
+- Reject high-confidence facts when the underlying source is stale.
+- Preserve stale/cache provenance for future planner consumption and team-cache
+  publication.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge fact schema constants|knowledge fact contract|knowledge fact extractor" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- CLI surfaces for source listing, extraction, validation, and pack creation are
+  still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

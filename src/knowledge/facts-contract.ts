@@ -1,3 +1,4 @@
+import { buildKnowledgeCacheId } from './cache.ts';
 import {
   KNOWLEDGE_FACT_EXTRACTION_METHODS,
   KNOWLEDGE_FACT_KINDS,
@@ -28,7 +29,9 @@ const OPTIONAL_STRING_SOURCE_FIELDS = [
   'packageName'
 ] as const;
 const FACT_OPTIONAL_STRING_FIELDS = ['type', 'defaultValue'] as const;
+const FACT_OPTIONAL_STRING_ARRAY_FIELDS = ['relatedPaths'] as const;
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -43,6 +46,12 @@ function assertNonEmptyString(value: unknown, fieldPath: string): void {
 function assertNoSecretLikeValue(value: string, fieldPath: string): void {
   if (SECRET_VALUE_PATTERN.test(value)) {
     throw new Error(`knowledge fact input ${fieldPath} must not include secret-like values.`);
+  }
+}
+
+function assertIsoDateString(value: unknown, fieldPath: string): void {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+    throw new Error(`knowledge fact input ${fieldPath} must be an ISO date string.`);
   }
 }
 
@@ -65,6 +74,18 @@ function assertKnowledgeSource(value: unknown, fieldPath: string): asserts value
 
   for (const field of OPTIONAL_STRING_SOURCE_FIELDS) {
     assertOptionalString(value[field], `${fieldPath}.${field}`);
+  }
+
+  if (typeof value.url === 'string') {
+    assertNoSecretLikeValue(value.url, `${fieldPath}.url`);
+    try {
+      const parsedUrl = new URL(value.url);
+      if (parsedUrl.username || parsedUrl.password || parsedUrl.search || parsedUrl.hash) {
+        throw new Error();
+      }
+    } catch {
+      throw new Error(`knowledge fact input ${fieldPath}.url must be a secret-safe URL without credentials, query, or fragment.`);
+    }
   }
 }
 
@@ -93,7 +114,23 @@ export function parseKnowledgeFactSet(value: unknown): KnowledgeFactSet {
 
   assertNonEmptyString(value.sourceId, 'sourceId');
   assertKnowledgeSource(value.source, 'source');
+  if (value.sourceId !== buildKnowledgeCacheId(value.source)) {
+    throw new Error('knowledge fact input sourceId must match source.');
+  }
   assertNonEmptyString(value.sourceContentHash, 'sourceContentHash');
+  if (!SHA256_HEX_PATTERN.test(value.sourceContentHash as string)) {
+    throw new Error('knowledge fact input sourceContentHash must be a SHA-256 hex string.');
+  }
+
+  if (value.sourceFetchedAt !== null) {
+    assertIsoDateString(value.sourceFetchedAt, 'sourceFetchedAt');
+  }
+
+  if (value.sourceStaleAfter !== undefined) {
+    assertIsoDateString(value.sourceStaleAfter, 'sourceStaleAfter');
+  }
+
+  assertIsoDateString(value.extractedAt, 'extractedAt');
 
   if (typeof value.sourceStale !== 'boolean') {
     throw new Error('knowledge fact input sourceStale must be a boolean.');
@@ -148,6 +185,12 @@ export function parseKnowledgeFactSet(value: unknown): KnowledgeFactSet {
       assertStringArray(fact.values, `${factPath}.values`);
     }
 
+    for (const field of FACT_OPTIONAL_STRING_ARRAY_FIELDS) {
+      if (fact[field] !== undefined) {
+        assertStringArray(fact[field], `${factPath}.${field}`);
+      }
+    }
+
     if (fact.required !== undefined && typeof fact.required !== 'boolean') {
       throw new Error(`knowledge fact input ${factPath}.required must be a boolean when present.`);
     }
@@ -169,6 +212,10 @@ export function parseKnowledgeFactSet(value: unknown): KnowledgeFactSet {
 
     if (fact.source.contentHash !== value.sourceContentHash) {
       throw new Error(`knowledge fact input ${factPath}.source.contentHash must match sourceContentHash.`);
+    }
+
+    if (value.sourceStale === true && fact.confidence === 'high') {
+      throw new Error(`knowledge fact input ${factPath}.confidence must not be high when sourceStale is true.`);
     }
 
     assertKnowledgeSource(fact.source.source, `${factPath}.source.source`);

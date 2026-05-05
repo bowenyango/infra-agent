@@ -2307,6 +2307,7 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
   ]);
   assert.deepEqual(KNOWLEDGE_FACT_EXTRACTION_METHODS, [
     'terraform-registry-markdown',
+    'terraform-provider-schema',
     'helm-values-schema',
     'repo-local-static'
   ]);
@@ -2320,14 +2321,19 @@ test('knowledge fact contract validates source-linked fact sets', () => {
     version: '5.37.0',
     url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket'
   };
+  const sourceId = buildKnowledgeCacheId(source);
+  const sourceContentHash = 'a'.repeat(64);
   const factSet = {
     kind: 'infra-agent.knowledge-facts',
     schemaVersion: 1,
     mutationAllowed: false,
-    sourceId: 'abc123',
+    sourceId,
     source,
-    sourceContentHash: 'content-hash',
+    sourceContentHash,
+    sourceFetchedAt: '2026-05-05T00:00:00.000Z',
+    sourceStaleAfter: '2026-06-05T00:00:00.000Z',
     sourceStale: false,
+    extractedAt: '2026-05-05T01:00:00.000Z',
     factCount: 2,
     facts: [
       {
@@ -2340,9 +2346,9 @@ test('knowledge fact contract validates source-linked fact sets', () => {
         confidence: 'high',
         extractionMethod: 'terraform-registry-markdown',
         source: {
-          id: 'abc123',
+          id: sourceId,
           source,
-          contentHash: 'content-hash',
+          contentHash: sourceContentHash,
           locator: 'Argument Reference: bucket'
         }
       },
@@ -2353,9 +2359,9 @@ test('knowledge fact contract validates source-linked fact sets', () => {
         confidence: 'medium',
         extractionMethod: 'terraform-registry-markdown',
         source: {
-          id: 'abc123',
+          id: sourceId,
           source,
-          contentHash: 'content-hash',
+          contentHash: sourceContentHash,
           locator: 'Example Usage'
         }
       }
@@ -2392,6 +2398,20 @@ test('knowledge fact contract validates source-linked fact sets', () => {
       factCount: 1
     }),
     /facts\[0\]\.source\.id/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      facts: [
+        {
+          ...factSet.facts[0],
+          confidence: 'high'
+        }
+      ],
+      sourceStale: true,
+      factCount: 1
+    }),
+    /confidence/
   );
   assert.throws(
     () => parseKnowledgeFactSet({
