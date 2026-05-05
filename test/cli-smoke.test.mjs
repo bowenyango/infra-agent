@@ -15010,6 +15010,11 @@ test('summarizeResultCard includes approval-required posture', async () => {
           path: 'charts/payments-api/templates/deployment.yaml',
           risk: 'high',
           message: 'High-risk rewrite requires approval.'
+        },
+        {
+          kind: 'tool-category-approval-required',
+          toolCategory: 'native-stack-config-write',
+          message: 'Native stack config write requires approval.'
         }
       ],
       repairAttempts: 0,
@@ -15020,6 +15025,7 @@ test('summarizeResultCard includes approval-required posture', async () => {
 
   assert.ok(summary.some(line => /Run posture: paused pending explicit approval for a scoped high-risk change/i.test(line)));
   assert.ok(summary.some(line => /Open concern: Approval required for high-risk write at charts\/payments-api\/templates\/deployment\.yaml/i.test(line)));
+  assert.ok(summary.some(line => /Approval resume: primary high-risk write at charts\/payments-api\/templates\/deployment\.yaml; additional 1 signal\(s\): tool categories native-stack-config-write/i.test(line)));
   assert.ok(summary.some(line => /Next operator step: Decide whether to approve high-risk write at charts\/payments-api\/templates\/deployment\.yaml before continuing\./i.test(line)));
 });
 

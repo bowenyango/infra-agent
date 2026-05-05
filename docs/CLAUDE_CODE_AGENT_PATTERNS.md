@@ -158,8 +158,9 @@ durable design reference for infra-agent development.
   policy and run approval scope, and resume with `--approve-tool-category`
   instead of treating native operations as ordinary file writes.
 - `approval.resume` is the compact approval-continuation surface. It may report
-  the exact scoped command, write risks, write paths, tool categories, and
-  signal count, but it must not be interpreted as approval by itself.
+  the exact scoped command, primary signal, additional pending scope, write
+  risks, write paths, tool categories, and signal count, but it must not be
+  interpreted as approval by itself.
 - `knowledgeCache` and compact `knowledgeContext` summaries are the
   context-compaction boundary for official docs, schemas, and examples. They
   should report resolved cache source, packet/token budgets, token estimates,

@@ -239,8 +239,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   active blocker.
 - Treat compact `approval.resume` as a structured handoff for the existing
   approval gate. It can show the scoped continuation command and active signal
-  scope, but it is not approval and must not authorize writes or native
-  operations without explicit user approval.
+  scope, including the primary signal and additional pending scope, but it is
+  not approval and must not authorize writes or native operations without
+  explicit user approval.
 - Validate compact approval handoff before using it: supported signal kinds,
   write-risk values, tool permission categories, signal path/risk/category
   coherence, resume command/null consistency, resume array shapes, and

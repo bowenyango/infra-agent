@@ -2129,6 +2129,32 @@ function summarizeOpenConcern(state: AgentRunState): string {
   }
 }
 
+function summarizeApprovalResumePosture(state: AgentRunState): string {
+  const resume = collectApprovalResume(state);
+  const topApprovalSignal = state.runtime.approvalSignals[0];
+
+  if (!resume.continuationRequired) {
+    return 'none';
+  }
+
+  const primary = topApprovalSignal
+    ? `primary ${formatApprovalSignal(topApprovalSignal)}`
+    : 'primary approval scope unavailable';
+  const additionalParts = [
+    resume.additionalWritePaths.length > 0
+      ? `write paths ${resume.additionalWritePaths.join(', ')}`
+      : null,
+    resume.additionalToolCategories.length > 0
+      ? `tool categories ${resume.additionalToolCategories.join(', ')}`
+      : null
+  ].filter((part): part is string => Boolean(part));
+  const additional = resume.additionalSignalCount === 0
+    ? 'no additional approval signals'
+    : `additional ${resume.additionalSignalCount} signal(s)${additionalParts.length > 0 ? `: ${additionalParts.join('; ')}` : ''}`;
+
+  return `${primary}; ${additional}`;
+}
+
 function summarizeReviewFocus(state: AgentRunState): string {
   const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
   const topValidationIssue = state.runtime.validationIssues[0];
@@ -2356,6 +2382,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
   lines.push(`Targeting: ${summarizeTargetingPosture(state)}`);
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
+  lines.push(`Approval resume: ${summarizeApprovalResumePosture(state)}`);
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
   lines.push(`Identity review: ${summarizeIdentityConflictReview(state)}`);
   lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);

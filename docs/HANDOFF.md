@@ -2,6 +2,32 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Additional Scope Result Card Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add an `Approval resume:` result-card line with primary and additional
+  approval scope posture.
+- Cover an approval-required result with both a primary write signal and an
+  additional tool-category signal.
+- Update durable rules, Claude Code pattern notes, and the packaged infra skill
+  to mention primary and additional approval scope metadata.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval-required posture|package metadata exposes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Additional Scope Contract Slice
 
 Files added or updated:
