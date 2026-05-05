@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Identity Report Approval Fixture Alignment Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Update hand-authored identity-report compact agent-result fixtures with the
+  now-required `approval` section.
+- Keep identity-report entrypoint and loader tests aligned with stricter compact
+  approval contracts.
+- Preserve the read-only identity-report behavior without loosening parser
+  requirements.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "report CLI commands emit read-only JSON|identity-report loader renders compact conflict reports|compact agent result contract" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval And ToolTrace Docs Alignment Slice
 
 Files added or updated:

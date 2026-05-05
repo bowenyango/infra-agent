@@ -6750,6 +6750,24 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           }
         ]
       },
+      approval: {
+        requiredWriteRisks: [],
+        requiredToolCategories: [],
+        signals: [],
+        resume: {
+          continuationRequired: false,
+          command: null,
+          primarySignal: null,
+          additionalSignalCount: 0,
+          additionalWriteRisks: [],
+          additionalWritePaths: [],
+          additionalToolCategories: [],
+          writeRisks: [],
+          writePaths: [],
+          toolCategories: [],
+          signalCount: 0
+        }
+      },
       knowledgeCache: {
         root: '/workspace/.infra-agent/knowledge-cache',
         source: 'workspace-config: knowledgeCache.root'
@@ -12596,6 +12614,24 @@ test('identity-report loader renders compact conflict reports from a JSON file',
             sourceCommand: 'terraform -chdir=terraform/payments-api plan'
           }
         ]
+      },
+      approval: {
+        requiredWriteRisks: [],
+        requiredToolCategories: [],
+        signals: [],
+        resume: {
+          continuationRequired: false,
+          command: null,
+          primarySignal: null,
+          additionalSignalCount: 0,
+          additionalWriteRisks: [],
+          additionalWritePaths: [],
+          additionalToolCategories: [],
+          writeRisks: [],
+          writePaths: [],
+          toolCategories: [],
+          signalCount: 0
+        }
       },
       knowledgeCache: {
         root: '/workspace/.infra-agent/knowledge-cache',
