@@ -194,6 +194,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `harness.stateSummary` reports runtime counts for observations, tools,
   writes, validation results/issues, approvals, retrieved context, and semantic
   facts without exposing the full runtime state.
+  `harness.targeting` reports the selected target, candidate score posture,
+  bounded candidate sample, ambiguity flags, and recommended targeting action
+  without exposing raw preflight state.
   `harness.workPlan` reports a derived compact progress plan with readiness,
   targeting, inspection, bounded edit, validation, and handoff steps. It is
   read-only, carries current-step and blocker posture, and is validated against

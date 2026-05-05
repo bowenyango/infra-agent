@@ -2,6 +2,32 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Targeting Documentation Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document `harness.targeting` as the derived compact target-selection surface.
+- Instruct downstream agents to use selected target, candidate budget, score
+  posture, ambiguity flags, and recommended targeting action before requesting
+  raw preflight data.
+- Keep the packaged skill and durable Claude Code pattern notes aligned with
+  the new compact contract section.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Result Card Targeting Summary Slice
 
 Files added or updated:

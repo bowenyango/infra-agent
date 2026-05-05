@@ -173,6 +173,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Keep `harness.workPlan` derived and compact. It may expose progress steps,
   status counts, current step, blocker kind, and next control action, but it
   must not become a writable todo store or include raw runtime data.
+- Keep `harness.targeting` derived and compact. It may expose selected target,
+  candidate score posture, bounded candidate samples, ambiguity flags, and
+  recommended targeting action, but it must not include raw preflight state or
+  become a second target-selection engine.
+- Validate compact targeting before routing another agent: supported target
+  source/kind/domain/ambiguity/action enums, read-only posture, candidate
+  budget counts, unique ascending ranks, selected target consistency with root
+  `primaryTarget`, candidate kind/domain coherence, score-gap arithmetic, and
+  ambiguity flag/recommended-action consistency.
 - Validate compact planner handoff before routing another agent: supported
   last-action kind/family/stop/clarification/execution-status values,
   stop-reason and clarification-kind coherence, active blocker issue/signal
@@ -186,7 +195,7 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `schemaVersion`, known `outcome`, required root task/workspace metadata,
   root string-array handoff fields, compact trace array shape, readiness check
   array shape when present, `harness.queryConfig`, `harness.loopBudget`,
-  `harness.stateSummary` counts, `harness.workPlan`,
+  `harness.stateSummary` counts, `harness.targeting`, `harness.workPlan`,
   `harness.turnTraceBudget`,
   `harness.lifecycleEvents`, `harness.toolTrace` budget counts,
   `harness.toolPermissionSummary` aggregate/category counts,

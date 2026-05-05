@@ -47,8 +47,9 @@ contract-checked by the parser:
   `mutationAllowed: false`, raw-content exclusions, durable section names,
   routing `summary`, section `budgets`, and `continuation` reason/command
   metadata before reading deeper sections.
-- `harness.stateSummary`, `harness.workPlan`, `harness.lifecycleEvents`,
-  `harness.turnTrace`, and `harness.plannerHandoff` for current run state,
+- `harness.stateSummary`, `harness.targeting`, `harness.workPlan`,
+  `harness.lifecycleEvents`, `harness.turnTrace`, and
+  `harness.plannerHandoff` for current run state, selected target posture,
   derived progress, and next control action.
 - `harness.toolTrace` and `harness.toolPermissionSummary` for permission
   posture before asking for raw tool output or native CLI reruns.
@@ -68,6 +69,9 @@ contract-checked by the parser:
 - `harness.workPlan` is derived progress only. Treat its
   `mutationAllowed=false`, step budgets, current step, blocker kind, and
   next-control action as routing metadata; do not edit it as a todo list.
+- `harness.targeting` is derived targeting metadata only. Use its selected
+  target, candidate budget, score gap, ambiguity flags, and recommended action
+  before asking for raw preflight state or rescanning unrelated directories.
 
 ## Official Docs Strategy
 
