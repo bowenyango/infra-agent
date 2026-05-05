@@ -14432,6 +14432,13 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,
+      suggestedCommands: compact.suggestedCommands.filter(command => command !== compact.approval.resume.command)
+    }),
+    /suggestedCommands must include approval\.resume\.command/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
       approval: {
         ...compact.approval,
         resume: {

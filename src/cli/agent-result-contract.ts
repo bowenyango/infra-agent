@@ -3427,6 +3427,15 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input handoffCheckpoint.continuation.debugCommand must match approval.resume.debugCommand.');
       }
 
+      if (
+        value.approval.resume.continuationRequired
+        && typeof value.approval.resume.command === 'string'
+        && Array.isArray(value.suggestedCommands)
+        && !value.suggestedCommands.includes(value.approval.resume.command)
+      ) {
+        throw new Error('compact result input suggestedCommands must include approval.resume.command when approval continuation is required.');
+      }
+
       if (Array.isArray(value.approval.signals)) {
         assertHandoffBudgetMatches(
           value.handoffCheckpoint.budgets.approvalSignals,

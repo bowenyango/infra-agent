@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Resume Suggested Command Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require approval-required compact payloads to include
+  `approval.resume.command` in root `suggestedCommands`.
+- Allow readiness `doctorCommand` or other read-only suggestions to be present
+  without displacing the approval continuation command.
+- Prevent downstream agents from losing the active approval handoff when they
+  route from suggested commands.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|planner handoff controls" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Grant Suggested Command Slice
 
 Files added or updated:
