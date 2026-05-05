@@ -2,6 +2,32 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 ToolTrace Window Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `harness.toolTrace` when `harness` is present.
+- Validate `preservedWindow="tail"`, `lastIncludedTurnIndex`, empty-entry
+  boundary nulls, and no-omission `latestTurnIndex` consistency.
+- Document recent-tool tail windows in project rules, architecture notes, and
+  the infra skill handoff checklist.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|maximum turn count|package metadata exposes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 ToolTrace Last Included Turn Output Slice
 
 Files added or updated:

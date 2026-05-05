@@ -73,6 +73,9 @@ contract-checked by the parser:
 - `harness.targeting` is derived targeting metadata only. Use its selected
   target, candidate budget, score gap, ambiguity flags, and recommended action
   before asking for raw preflight state or rescanning unrelated directories.
+- `harness.toolTrace` is a compact tail window over recent tool summaries. Use
+  `preservedWindow`, first/last included turn indexes, and `latestTurnIndex` to
+  decide whether raw debug output is actually needed.
 
 ## Official Docs Strategy
 

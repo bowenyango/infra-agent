@@ -98,6 +98,10 @@ durable design reference for infra-agent development.
   the preserved window and omitted turn count explicit; downstream parsers
   should reject unsupported preserved-window values and inconsistent budget
   totals.
+- `harness.toolTrace` is the compact recent-tool surface. It preserves a tail
+  window, so `preservedWindow`, `firstIncludedTurnIndex`,
+  `lastIncludedTurnIndex`, and `latestTurnIndex` should make truncation
+  explicit before another agent asks for full debug state.
 - `harness.repairBudget` is the compact bounded-repair surface. It should
   report attempts used, max attempts, remaining attempts, and exhaustion
   without requiring downstream agents to parse result-card prose.

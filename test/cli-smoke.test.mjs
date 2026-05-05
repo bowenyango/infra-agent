@@ -10699,6 +10699,42 @@ test('compact agent result contract validates shallow handoff shape and validati
         ...validResult.harness,
         toolTrace: {
           ...validResult.harness.toolTrace,
+          preservedWindow: 'head'
+        }
+      }
+    }),
+    /harness\.toolTrace\.preservedWindow/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          lastIncludedTurnIndex: 99
+        }
+      }
+    }),
+    /harness\.toolTrace\.lastIncludedTurnIndex/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: null
+      }
+    }),
+    /harness\.toolTrace/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
           entries: [
             {
               ...validResult.harness.toolTrace.entries[0],

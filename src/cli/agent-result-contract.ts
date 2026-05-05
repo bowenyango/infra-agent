@@ -80,6 +80,7 @@ const LIFECYCLE_EVENT_NAMES = [
   'terminal'
 ] as const;
 const TURN_TRACE_PRESERVED_WINDOWS = ['head'] as const;
+const TOOL_TRACE_PRESERVED_WINDOWS = ['tail'] as const;
 const IDENTITY_CONFLICT_RISK_CATEGORIES = [
   'create-before-delete-ordering',
   'dns-or-domain-ownership',
@@ -240,6 +241,11 @@ function isKnownLifecycleEventName(value: unknown): boolean {
 function isKnownTurnTracePreservedWindow(value: unknown): boolean {
   return typeof value === 'string'
     && TURN_TRACE_PRESERVED_WINDOWS.includes(value as typeof TURN_TRACE_PRESERVED_WINDOWS[number]);
+}
+
+function isKnownToolTracePreservedWindow(value: unknown): boolean {
+  return typeof value === 'string'
+    && TOOL_TRACE_PRESERVED_WINDOWS.includes(value as typeof TOOL_TRACE_PRESERVED_WINDOWS[number]);
 }
 
 function isKnownIdentityConflictEngine(value: unknown): boolean {
@@ -1512,6 +1518,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     assertCompactTargeting(value.harness.targeting);
     assertCompactTargetingConsistency(value.harness.targeting, value);
 
+    if (!isRecord(value.harness.toolTrace)) {
+      throw new Error('compact result input harness.toolTrace must be an object when harness is present.');
+    }
+
     if (
       isRecord(value.harness.toolTrace)
       && 'entries' in value.harness.toolTrace
@@ -1527,7 +1537,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         }
       }
 
-      for (const field of ['firstIncludedTurnIndex', 'latestTurnIndex']) {
+      for (const field of ['firstIncludedTurnIndex', 'lastIncludedTurnIndex', 'latestTurnIndex']) {
         if (
           field in value.harness.toolTrace
           && value.harness.toolTrace[field] !== null
@@ -1535,6 +1545,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         ) {
           throw new Error(`compact result input harness.toolTrace.${field} must be a non-negative integer or null when present.`);
         }
+      }
+
+      if (!isKnownToolTracePreservedWindow(value.harness.toolTrace.preservedWindow)) {
+        throw new Error('compact result input harness.toolTrace.preservedWindow must be supported.');
       }
 
       if (
@@ -1604,10 +1618,29 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           throw new Error('compact result input harness.toolTrace.firstIncludedTurnIndex must be null when entries are empty.');
         }
 
+        if (
+          value.harness.toolTrace.entries.length === 0
+          && value.harness.toolTrace.lastIncludedTurnIndex !== null
+        ) {
+          throw new Error('compact result input harness.toolTrace.lastIncludedTurnIndex must be null when entries are empty.');
+        }
+
         if (value.harness.toolTrace.entries.length > 0) {
           const firstToolTurnIndex = (value.harness.toolTrace.entries[0] as Record<string, unknown>).turnIndex;
           if (value.harness.toolTrace.firstIncludedTurnIndex !== firstToolTurnIndex) {
             throw new Error('compact result input harness.toolTrace.firstIncludedTurnIndex must match first entry turnIndex.');
+          }
+
+          const lastToolTurnIndex = (value.harness.toolTrace.entries[value.harness.toolTrace.entries.length - 1] as Record<string, unknown>).turnIndex;
+          if (value.harness.toolTrace.lastIncludedTurnIndex !== lastToolTurnIndex) {
+            throw new Error('compact result input harness.toolTrace.lastIncludedTurnIndex must match last entry turnIndex.');
+          }
+
+          if (
+            value.harness.toolTrace.omittedCount === 0
+            && value.harness.toolTrace.latestTurnIndex !== lastToolTurnIndex
+          ) {
+            throw new Error('compact result input harness.toolTrace.latestTurnIndex must match last included entry when none are omitted.');
           }
         }
       }

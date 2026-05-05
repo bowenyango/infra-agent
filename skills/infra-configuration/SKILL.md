@@ -59,7 +59,8 @@ configured, but it must not expose API keys.
    `harness.plannerHandoff` for the active blocker and next control action,
    `harness.turnTraceBudget` and
    `harness.lifecycleEvents` for capped lifecycle window/count metadata, and
-   `harness.toolTrace` for budgeted recent tool summaries before asking for raw
+   `harness.toolTrace` for budgeted tail-window recent tool summaries, first
+   and last included turn indexes, and latest tool turn before asking for raw
    logs. Read `harness.repairBudget`
    before starting another repair attempt. Read `harness.toolPermissionSummary`
    to separate workspace writes, native CLI calls, and stack/state mutation-risk
