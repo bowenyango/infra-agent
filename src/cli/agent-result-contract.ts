@@ -2940,6 +2940,9 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     const includedApprovalWriteRisks = new Set<string>();
     const includedApprovalWritePaths = new Set<string>();
     const includedApprovalToolCategories = new Set<string>();
+    const includedAdditionalApprovalWriteRisks = new Set<string>();
+    const includedAdditionalApprovalWritePaths = new Set<string>();
+    const includedAdditionalApprovalToolCategories = new Set<string>();
 
     if (Array.isArray(value.approval.signals)) {
       for (let index = 0; index < value.approval.signals.length; index += 1) {
@@ -2951,10 +2954,17 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         if (signal.kind === 'write-approval-required') {
           includedApprovalWriteRisks.add(signal.risk as string);
           includedApprovalWritePaths.add(signal.path as string);
+          if (index > 0) {
+            includedAdditionalApprovalWriteRisks.add(signal.risk as string);
+            includedAdditionalApprovalWritePaths.add(signal.path as string);
+          }
         }
 
         if (signal.kind === 'tool-category-approval-required') {
           includedApprovalToolCategories.add(signal.toolCategory as string);
+          if (index > 0) {
+            includedAdditionalApprovalToolCategories.add(signal.toolCategory as string);
+          }
         }
       }
     }
@@ -2973,6 +2983,18 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       }
 
       assertIntegerField(value.approval.resume, 'additionalSignalCount', 'approval.resume', isNonNegativeInteger, 'a non-negative integer');
+
+      if (!isArrayOf(value.approval.resume.additionalWriteRisks, isKnownFileWriteRisk)) {
+        throw new Error('compact result input approval.resume.additionalWriteRisks must use supported write risks when present.');
+      }
+
+      if (!isStringArray(value.approval.resume.additionalWritePaths)) {
+        throw new Error('compact result input approval.resume.additionalWritePaths must be a string array when present.');
+      }
+
+      if (!isArrayOf(value.approval.resume.additionalToolCategories, isKnownToolPermissionCategory)) {
+        throw new Error('compact result input approval.resume.additionalToolCategories must use supported tool categories when present.');
+      }
 
       if (!isArrayOf(value.approval.resume.writeRisks, isKnownFileWriteRisk)) {
         throw new Error('compact result input approval.resume.writeRisks must use supported write risks when present.');
@@ -3046,6 +3068,24 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         }
       }
 
+      for (const risk of includedAdditionalApprovalWriteRisks) {
+        if (!value.approval.resume.additionalWriteRisks.includes(risk)) {
+          throw new Error('compact result input approval.resume.additionalWriteRisks must cover included additional approval signals.');
+        }
+      }
+
+      for (const path of includedAdditionalApprovalWritePaths) {
+        if (!value.approval.resume.additionalWritePaths.includes(path)) {
+          throw new Error('compact result input approval.resume.additionalWritePaths must cover included additional approval signals.');
+        }
+      }
+
+      for (const category of includedAdditionalApprovalToolCategories) {
+        if (!value.approval.resume.additionalToolCategories.includes(category)) {
+          throw new Error('compact result input approval.resume.additionalToolCategories must cover included additional approval signals.');
+        }
+      }
+
       if (
         Array.isArray(value.approval.signals)
         && value.approval.resume.signalCount === value.approval.signals.length
@@ -3065,6 +3105,24 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         for (const category of value.approval.resume.toolCategories) {
           if (!includedApprovalToolCategories.has(category)) {
             throw new Error('compact result input approval.resume.toolCategories must match included approval signals when none are omitted.');
+          }
+        }
+
+        for (const risk of value.approval.resume.additionalWriteRisks) {
+          if (!includedAdditionalApprovalWriteRisks.has(risk)) {
+            throw new Error('compact result input approval.resume.additionalWriteRisks must match included additional approval signals when none are omitted.');
+          }
+        }
+
+        for (const path of value.approval.resume.additionalWritePaths) {
+          if (!includedAdditionalApprovalWritePaths.has(path)) {
+            throw new Error('compact result input approval.resume.additionalWritePaths must match included additional approval signals when none are omitted.');
+          }
+        }
+
+        for (const category of value.approval.resume.additionalToolCategories) {
+          if (!includedAdditionalApprovalToolCategories.has(category)) {
+            throw new Error('compact result input approval.resume.additionalToolCategories must match included additional approval signals when none are omitted.');
           }
         }
       }

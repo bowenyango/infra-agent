@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Additional Scope Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate additional approval scope arrays for supported write risks, paths,
+  and tool categories.
+- Require additional scope arrays to cover included non-primary approval
+  signals.
+- Require exact additional scope arrays when no approval signals are omitted.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval signals beyond" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Additional Scope Output Slice
 
 Files added or updated:

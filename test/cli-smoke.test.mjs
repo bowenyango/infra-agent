@@ -8810,6 +8810,9 @@ test('compact agent result contract validates shallow handoff shape and validati
         command: null,
         primarySignal: null,
         additionalSignalCount: 0,
+        additionalWriteRisks: [],
+        additionalWritePaths: [],
+        additionalToolCategories: [],
         writeRisks: [],
         writePaths: [],
         toolCategories: [],
@@ -14155,6 +14158,19 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
       }
     }),
     /approval\.resume\.additionalSignalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          additionalToolCategories: []
+        }
+      }
+    }),
+    /approval\.resume\.additionalToolCategories.*additional approval signals/
   );
 });
 
