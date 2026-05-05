@@ -150,6 +150,16 @@ function buildCompactHandoffBudgetsFixture(overrides = {}) {
   );
 }
 
+function buildEmptyApprovalGrantsFixture() {
+  return {
+    approvedWriteRisks: [],
+    approvedWritePaths: [],
+    approvedToolCategories: [],
+    writePathScope: 'all',
+    hasExplicitApproval: false
+  };
+}
+
 function buildGraphSnapshotBaseGraph() {
   const nodes = [
     {
@@ -6753,6 +6763,7 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
       approval: {
         requiredWriteRisks: [],
         requiredToolCategories: [],
+        grants: buildEmptyApprovalGrantsFixture(),
         signals: [],
         resume: {
           continuationRequired: false,
@@ -8869,6 +8880,7 @@ test('compact agent result contract validates shallow handoff shape and validati
     approval: {
       requiredWriteRisks: [],
       requiredToolCategories: [],
+      grants: buildEmptyApprovalGrantsFixture(),
       signals: [],
       resume: {
         continuationRequired: false,
@@ -11869,6 +11881,58 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult,
       approval: {
         ...validResult.approval,
+        grants: null
+      }
+    }),
+    /approval\.grants/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        grants: {
+          ...validResult.approval.grants,
+          approvedWriteRisks: ['urgent']
+        }
+      }
+    }),
+    /approval\.grants\.approvedWriteRisks/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        grants: {
+          ...validResult.approval.grants,
+          approvedWritePaths: ['charts/payments-api'],
+          writePathScope: 'all',
+          hasExplicitApproval: true
+        }
+      }
+    }),
+    /approval\.grants\.writePathScope.*scoped/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        grants: {
+          ...validResult.approval.grants,
+          approvedToolCategories: ['native-stack-config-write'],
+          hasExplicitApproval: false
+        }
+      }
+    }),
+    /approval\.grants\.hasExplicitApproval/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
         resume: {
           ...validResult.approval.resume,
           primarySignal: {}
@@ -12618,6 +12682,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
       approval: {
         requiredWriteRisks: [],
         requiredToolCategories: [],
+        grants: buildEmptyApprovalGrantsFixture(),
         signals: [],
         resume: {
           continuationRequired: false,

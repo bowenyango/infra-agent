@@ -54,6 +54,7 @@ const VALIDATION_ISSUE_KINDS = [
 ] as const;
 const FILE_WRITE_RISKS = ['low', 'medium', 'high'] as const;
 const APPROVAL_SIGNAL_KINDS = ['write-approval-required', 'tool-category-approval-required'] as const;
+const APPROVAL_WRITE_PATH_SCOPES = ['all', 'scoped'] as const;
 const PLANNER_HANDOFF_ACTIVE_BLOCKERS = [
   'none',
   'approval',
@@ -221,6 +222,11 @@ function isKnownFileWriteRisk(value: unknown): boolean {
 
 function isKnownApprovalSignalKind(value: unknown): boolean {
   return typeof value === 'string' && APPROVAL_SIGNAL_KINDS.includes(value as typeof APPROVAL_SIGNAL_KINDS[number]);
+}
+
+function isKnownApprovalWritePathScope(value: unknown): boolean {
+  return typeof value === 'string'
+    && APPROVAL_WRITE_PATH_SCOPES.includes(value as typeof APPROVAL_WRITE_PATH_SCOPES[number]);
 }
 
 function isKnownPlannerHandoffActiveBlocker(value: unknown): boolean {
@@ -2945,6 +2951,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input approval.resume must be an object.');
   }
 
+  if (!isRecord(value.approval.grants)) {
+    throw new Error('compact result input approval.grants must be an object.');
+  }
+
   if (isRecord(value.approval)) {
     if ('requiredWriteRisks' in value.approval && !isArrayOf(value.approval.requiredWriteRisks, isKnownFileWriteRisk)) {
       throw new Error('compact result input approval.requiredWriteRisks must use supported write risks when present.');
@@ -2955,6 +2965,44 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       && !isArrayOf(value.approval.requiredToolCategories, isKnownToolPermissionCategory)
     ) {
       throw new Error('compact result input approval.requiredToolCategories must use supported tool categories when present.');
+    }
+
+    if (isRecord(value.approval.grants)) {
+      if (!isArrayOf(value.approval.grants.approvedWriteRisks, isKnownFileWriteRisk)) {
+        throw new Error('compact result input approval.grants.approvedWriteRisks must use supported write risks.');
+      }
+
+      if (!isStringArray(value.approval.grants.approvedWritePaths)) {
+        throw new Error('compact result input approval.grants.approvedWritePaths must be a string array.');
+      }
+
+      if (!isArrayOf(value.approval.grants.approvedToolCategories, isKnownToolPermissionCategory)) {
+        throw new Error('compact result input approval.grants.approvedToolCategories must use supported tool categories.');
+      }
+
+      if (!isKnownApprovalWritePathScope(value.approval.grants.writePathScope)) {
+        throw new Error('compact result input approval.grants.writePathScope must be supported.');
+      }
+
+      if (typeof value.approval.grants.hasExplicitApproval !== 'boolean') {
+        throw new Error('compact result input approval.grants.hasExplicitApproval must be a boolean.');
+      }
+
+      if (value.approval.grants.writePathScope === 'all' && value.approval.grants.approvedWritePaths.length > 0) {
+        throw new Error('compact result input approval.grants.writePathScope must be scoped when approved write paths are present.');
+      }
+
+      if (value.approval.grants.writePathScope === 'scoped' && value.approval.grants.approvedWritePaths.length === 0) {
+        throw new Error('compact result input approval.grants.writePathScope must be all when no approved write paths are present.');
+      }
+
+      const hasAnyGrant = value.approval.grants.approvedWriteRisks.length > 0
+        || value.approval.grants.approvedWritePaths.length > 0
+        || value.approval.grants.approvedToolCategories.length > 0;
+
+      if (value.approval.grants.hasExplicitApproval !== hasAnyGrant) {
+        throw new Error('compact result input approval.grants.hasExplicitApproval must match approved grant arrays.');
+      }
     }
 
     const includedApprovalWriteRisks = new Set<string>();

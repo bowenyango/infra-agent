@@ -174,6 +174,13 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
     approval: {
       requiredWriteRisks: [],
       requiredToolCategories: [],
+      grants: {
+        approvedWriteRisks: [],
+        approvedWritePaths: [],
+        approvedToolCategories: [],
+        writePathScope: 'all',
+        hasExplicitApproval: false
+      },
       signals: [],
       resume: {
         continuationRequired: false,

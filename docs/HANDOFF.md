@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Grant Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `approval.grants` in parser input.
+- Validate granted write risks, write paths, tool categories, write path scope,
+  and explicit-approval posture.
+- Align hand-authored compact fixtures with the new grant contract.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|report CLI commands emit read-only JSON|identity-report loader renders compact conflict reports" ./test/cli-smoke.test.mjs`
+- `npm run smoke`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Grant Output Slice
 
 Files added or updated:
