@@ -5709,7 +5709,9 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
       '1',
       '--json'
     ]));
-    const compact = JSON.parse(output);
+    const jsonStart = output.indexOf('{');
+    const jsonEnd = output.lastIndexOf('}');
+    const compact = JSON.parse(output.slice(jsonStart, jsonEnd + 1));
 
     assert.equal(compact.kind, 'infra-agent.agent-result');
     assert.equal(compact.outcome, 'no-safe-action');

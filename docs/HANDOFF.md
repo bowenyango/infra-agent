@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Work Plan Synthetic Runtime Robustness Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Make work-plan collection tolerate synthetic test runtimes that omit optional
+  `toolSummaries`.
+- Keep the CLI work-plan JSON smoke stable under Node's test runner by parsing
+  the JSON payload from captured stdout even when reporter output is present.
+- Restore full-suite compatibility for existing result-card and compact-output
+  tests.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent CLI compact JSON includes work plan|skipped turn execution|summarizeResultCard includes" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Work Plan No-Safe-Action Status Slice
 
 Files added or updated:

@@ -1039,10 +1039,10 @@ function compactWorkPlanStatus(
   blockerKind: CompactAgentRunResult['harness']['plannerHandoff']['activeBlocker']['kind']
 ): CompactWorkPlanStatus {
   const hasProgress = state.turns.length > 0
-    || state.runtime.toolSummaries.length > 0
-    || state.runtime.appliedWrites.length > 0
-    || state.runtime.validationResults.length > 0
-    || state.runtime.approvalSignals.length > 0;
+    || (state.runtime.toolSummaries?.length ?? 0) > 0
+    || (state.runtime.appliedWrites?.length ?? 0) > 0
+    || (state.runtime.validationResults?.length ?? 0) > 0
+    || (state.runtime.approvalSignals?.length ?? 0) > 0;
 
   if (state.outcome === 'completed') {
     return 'completed';
@@ -1075,15 +1075,20 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
   const readiness = collectCompactReadiness(state);
   const validationStatus = summarizeValidationStatus(state);
   const primaryTarget = getPrimaryTargetCandidateFromAgent(state);
-  const hasInspection = state.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files');
-  const hasWrites = state.runtime.appliedWrites.length > 0;
-  const hasValidation = state.runtime.validationResults.length > 0;
+  const toolSummaries = state.runtime.toolSummaries ?? [];
+  const appliedWrites = state.runtime.appliedWrites ?? [];
+  const validationResults = state.runtime.validationResults ?? [];
+  const validationIssues = state.runtime.validationIssues ?? [];
+  const approvalSignals = state.runtime.approvalSignals ?? [];
+  const hasInspection = toolSummaries.some(summary => summary.actionKind === 'inspect-target-files');
+  const hasWrites = appliedWrites.length > 0;
+  const hasValidation = validationResults.length > 0;
   const hasValidationBlocker = plannerHandoff.activeBlocker.kind === 'validation'
     || plannerHandoff.activeBlocker.kind === 'repair-budget';
   const hasTurnBudgetBlocker = plannerHandoff.activeBlocker.kind === 'turn-budget';
   const hasApprovalBlocker = plannerHandoff.activeBlocker.kind === 'approval';
-  const firstValidationIssueKind = state.runtime.validationIssues[0]?.kind ?? null;
-  const firstApprovalSignalKind = state.runtime.approvalSignals[0]?.kind ?? null;
+  const firstValidationIssueKind = validationIssues[0]?.kind ?? null;
+  const firstApprovalSignalKind = approvalSignals[0]?.kind ?? null;
 
   const steps: CompactWorkPlanStep[] = [
     buildWorkPlanStep({
@@ -1110,7 +1115,7 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
       status: hasInspection ? 'completed' : state.turns.length > 0 ? 'in-progress' : 'pending',
       title: 'Inspection',
       summary: hasInspection
-        ? `Recorded ${state.runtime.toolSummaries.filter(summary => summary.actionKind === 'inspect-target-files').length} inspection tool summary item(s).`
+        ? `Recorded ${toolSummaries.filter(summary => summary.actionKind === 'inspect-target-files').length} inspection tool summary item(s).`
         : 'Target file inspection has not produced a tool summary yet.',
       actionKind: latestActionKindForStep(state, 'inspection')
     }),
@@ -1120,7 +1125,7 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
       status: hasApprovalBlocker ? 'blocked' : hasWrites ? 'completed' : hasInspection ? 'in-progress' : 'pending',
       title: 'Bounded edit',
       summary: hasWrites
-        ? `Applied ${state.runtime.appliedWrites.length} bounded write(s).`
+        ? `Applied ${appliedWrites.length} bounded write(s).`
         : hasApprovalBlocker
           ? 'A workspace mutation is waiting for explicit approval.'
           : 'No bounded write has been applied yet.',
@@ -1138,7 +1143,7 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
             ? 'in-progress'
             : 'pending',
       title: 'Validation',
-      summary: `Validation ${validationStatus}; ${state.runtime.validationIssues.length} issue(s) currently recorded.`,
+      summary: `Validation ${validationStatus}; ${validationIssues.length} issue(s) currently recorded.`,
       actionKind: latestActionKindForStep(state, 'validation'),
       validationIssueKind: hasValidationBlocker ? firstValidationIssueKind : null
     }),
