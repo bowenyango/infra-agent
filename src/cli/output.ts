@@ -2021,6 +2021,19 @@ function summarizePrimaryTargetImpact(state: AgentRunState): string {
   return `${domainLabel} target ${targetPath} was inspected`;
 }
 
+function summarizeTargetingPosture(state: AgentRunState): string {
+  const targeting = collectCompactTargeting(state);
+  const selected = targeting.selectedTarget
+    ? `${targeting.selectedTarget.domain} ${targeting.selectedTarget.path} score=${targeting.selectedTarget.score}`
+    : 'undetected';
+  const ambiguity = targeting.ambiguityKinds.length > 0
+    ? targeting.ambiguityKinds.join(', ')
+    : 'none';
+  const omitted = targeting.omittedCount > 0 ? `; omitted ${targeting.omittedCount}` : '';
+
+  return `${selected}; candidates ${targeting.includedCount}/${targeting.candidateCount}${omitted}; ambiguity ${ambiguity}; next ${targeting.recommendedAction}`;
+}
+
 function summarizeRunPosture(state: AgentRunState): string {
   switch (state.outcome) {
     case 'completed':
@@ -2305,6 +2318,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Run posture: ${summarizeRunPosture(state)}`);
   lines.push(`Readiness: ${summarizeReadinessPosture(state)}`);
   lines.push(`Primary target impact: ${summarizePrimaryTargetImpact(state)}`);
+  lines.push(`Targeting: ${summarizeTargetingPosture(state)}`);
   lines.push(`Open concern: ${summarizeOpenConcern(state)}`);
   lines.push(`Review focus: ${summarizeReviewFocus(state)}`);
   lines.push(`Identity review: ${summarizeIdentityConflictReview(state)}`);

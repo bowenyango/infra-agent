@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Result Card Targeting Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Mirror compact targeting posture in result cards for human operators.
+- Show selected target, included/total candidate count, ambiguity kinds, and
+  next targeting action without exposing raw preflight state.
+- Keep human-readable output aligned with the machine-readable
+  `harness.targeting` section.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Compact Targeting Consistency Slice
 
 Files added or updated:

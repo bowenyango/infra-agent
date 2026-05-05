@@ -5349,6 +5349,9 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.lifecycleEvents.events.at(-1)?.outcome, 'no-safe-action');
     assert.ok(compact.resultCard.some(line => /Turn budget: 1\/1 turn\(s\) used; exhausted/i.test(line)));
     assert.ok(compact.resultCard.some(line =>
+      /Targeting: helm charts\/payments-api score=.*candidates .*; ambiguity none; next inspect-selected-target/i.test(line)
+    ));
+    assert.ok(compact.resultCard.some(line =>
       /Work plan: blocked; current handoff\/blocked; completed 3\/6; blocked 1; next rerun-with-larger-turn-budget/i.test(line)
     ));
     assert.equal(compact.harness.turnTraceLimit, 10);
