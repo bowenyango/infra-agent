@@ -5379,6 +5379,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.toolTrace.includedCount, compact.harness.toolTrace.entries.length);
     assert.equal(compact.harness.toolTrace.omittedCount, Math.max(0, result.runtime.toolSummaries.length - 8));
     assert.equal(compact.harness.toolTrace.firstIncludedTurnIndex, compact.harness.toolTrace.entries[0]?.turnIndex ?? null);
+    assert.equal(compact.harness.toolTrace.lastIncludedTurnIndex, compact.harness.toolTrace.entries.at(-1)?.turnIndex ?? null);
     assert.equal(compact.harness.toolTrace.preservedWindow, 'tail');
     assert.equal(compact.harness.toolTrace.latestTurnIndex, result.runtime.toolSummaries.at(-1)?.turnIndex ?? null);
     assert.ok(Object.values(compact.harness.toolTrace.permissionCategoryCounts).reduce((total, count) => total + count, 0) >= compact.harness.toolTrace.includedCount);
@@ -8607,6 +8608,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         includedCount: 1,
         omittedCount: 0,
         firstIncludedTurnIndex: 0,
+        lastIncludedTurnIndex: 0,
         preservedWindow: 'tail',
         latestTurnIndex: 0,
         permissionCategoryCounts: {

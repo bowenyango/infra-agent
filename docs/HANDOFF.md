@@ -2,6 +2,26 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 ToolTrace Last Included Turn Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.toolTrace.lastIncludedTurnIndex` to compact agent results.
+- Distinguish the last retained tool entry from the overall latest tool turn.
+- Cover generated output and the parser fixture before enforcing the field.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count|compact agent result contract" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 ToolTrace Preserved Window Output Slice
 
 Files added or updated:

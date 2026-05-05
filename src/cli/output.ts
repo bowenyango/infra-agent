@@ -441,6 +441,7 @@ export interface CompactAgentRunResult {
       includedCount: number;
       omittedCount: number;
       firstIncludedTurnIndex: number | null;
+      lastIncludedTurnIndex: number | null;
       preservedWindow: 'tail';
       latestTurnIndex: number | null;
       permissionCategoryCounts: Partial<Record<ToolPermissionCategory, number>>;
@@ -1411,6 +1412,7 @@ function collectCompactToolTrace(state: AgentRunState): CompactAgentRunResult['h
     includedCount: entries.length,
     omittedCount: Math.max(0, summaries.length - entries.length),
     firstIncludedTurnIndex: entries[0]?.turnIndex ?? null,
+    lastIncludedTurnIndex: entries[entries.length - 1]?.turnIndex ?? null,
     preservedWindow: 'tail',
     latestTurnIndex: summaries[summaries.length - 1]?.turnIndex ?? null,
     permissionCategoryCounts,
