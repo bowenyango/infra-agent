@@ -1,6 +1,8 @@
 import { listLLMProviderCatalog, type LLMProvider } from '../model/providers.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 
+export const PLANNER_PROVIDER_CATALOG_COMMAND = 'infra-agent planner-providers --json';
+
 export interface PlannerProviderCatalogReport {
   kind: 'infra-agent.planner-provider-catalog';
   schemaVersion: 1;

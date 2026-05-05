@@ -9014,3 +9014,26 @@ Remaining risks:
   capabilities, defaults, env names, and CLI flags, but it does not prove model
   reachability or account access.
 - The only supported provider remains `openai-compatible`.
+
+## 2026-05-05 Planner Provider Catalog Command Constant Slice
+
+Files added or updated:
+
+- `src/cli/planner-provider-catalog.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a shared `PLANNER_PROVIDER_CATALOG_COMMAND` constant before wiring the
+  catalog into doctor and compact readiness handoff.
+- Keep all future handoff surfaces pointed at the same read-only
+  `infra-agent planner-providers --json` command.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner provider catalog report" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Doctor and compact readiness do not yet expose the shared command.

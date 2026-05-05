@@ -42,7 +42,10 @@ import {
 } from '../src/cli/output.ts';
 import { buildLLMClientConfigOverrides, main, parseArgs, readPackageVersion } from '../src/cli/main.ts';
 import { buildDoctorReport } from '../src/cli/doctor.ts';
-import { buildPlannerProviderCatalogReport } from '../src/cli/planner-provider-catalog.ts';
+import {
+  buildPlannerProviderCatalogReport,
+  PLANNER_PROVIDER_CATALOG_COMMAND
+} from '../src/cli/planner-provider-catalog.ts';
 import { parsePlannerProviderCatalogReport } from '../src/cli/planner-provider-catalog-contract.ts';
 import {
   exitCodeForAgentOutcome,
@@ -14097,6 +14100,7 @@ test('planner provider catalog report exposes read-only adapter metadata', () =>
     domains: ['helm', 'pulumi', 'terraform']
   });
   assert.deepEqual(report.commands, ['agent', 'doctor']);
+  assert.equal(PLANNER_PROVIDER_CATALOG_COMMAND, 'infra-agent planner-providers --json');
   assert.deepEqual(report.summary, {
     providerCount: 1,
     supportedProviderCount: 1
