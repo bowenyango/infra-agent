@@ -8521,6 +8521,85 @@ test('compact agent result contract validates shallow handoff shape and validati
           approvalSignalKind: null
         },
         nextControlAction: 'resolve-validation'
+      },
+      workPlan: {
+        schemaVersion: 1,
+        source: 'derived-agent-run-state',
+        compact: true,
+        mutationAllowed: false,
+        status: 'blocked',
+        blockerKind: 'validation',
+        nextControlAction: 'resolve-validation',
+        currentStepIndex: 4,
+        totalStepCount: 6,
+        completedStepCount: 3,
+        pendingStepCount: 1,
+        blockedStepCount: 2,
+        maxEntries: 6,
+        includedCount: 6,
+        omittedCount: 0,
+        steps: [
+          {
+            index: 0,
+            kind: 'readiness',
+            status: 'completed',
+            title: 'Readiness',
+            summary: 'Readiness pass.',
+            actionKind: null,
+            validationIssueKind: null,
+            approvalSignalKind: null
+          },
+          {
+            index: 1,
+            kind: 'targeting',
+            status: 'completed',
+            title: 'Targeting',
+            summary: 'Terraform root selected.',
+            actionKind: null,
+            validationIssueKind: null,
+            approvalSignalKind: null
+          },
+          {
+            index: 2,
+            kind: 'inspection',
+            status: 'completed',
+            title: 'Inspection',
+            summary: 'Read selected Terraform files.',
+            actionKind: 'inspect-target-files',
+            validationIssueKind: null,
+            approvalSignalKind: null
+          },
+          {
+            index: 3,
+            kind: 'edit',
+            status: 'pending',
+            title: 'Bounded edit',
+            summary: 'No bounded write has been applied yet.',
+            actionKind: null,
+            validationIssueKind: null,
+            approvalSignalKind: null
+          },
+          {
+            index: 4,
+            kind: 'validation',
+            status: 'blocked',
+            title: 'Validation',
+            summary: 'Validation failed.',
+            actionKind: 'validate-targets',
+            validationIssueKind: 'terraform-create-before-delete-conflict',
+            approvalSignalKind: null
+          },
+          {
+            index: 5,
+            kind: 'handoff',
+            status: 'blocked',
+            title: 'Handoff',
+            summary: 'Next control action: resolve-validation.',
+            actionKind: 'stop',
+            validationIssueKind: null,
+            approvalSignalKind: null
+          }
+        ]
       }
     },
     readiness: {
@@ -8651,6 +8730,81 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.equal(
     parseCompactAgentRunResult(resultWithSafetyBlockers([validSafetyBlocker, validUnsafeSafetyBlocker])).kind,
     'infra-agent.agent-result'
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: null
+      }
+    }),
+    /harness\.workPlan/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          source: 'todo-store'
+        }
+      }
+    }),
+    /harness\.workPlan\.source/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          includedCount: 5
+        }
+      }
+    }),
+    /harness\.workPlan\.includedCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          steps: [
+            validResult.harness.workPlan.steps[0],
+            {
+              ...validResult.harness.workPlan.steps[1],
+              index: 0
+            },
+            ...validResult.harness.workPlan.steps.slice(2)
+          ]
+        }
+      }
+    }),
+    /harness\.workPlan\.steps indexes/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          steps: [
+            {
+              ...validResult.harness.workPlan.steps[0],
+              kind: 'deploy'
+            },
+            ...validResult.harness.workPlan.steps.slice(1)
+          ]
+        }
+      }
+    }),
+    /harness\.workPlan\.steps\[0\]\.kind/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

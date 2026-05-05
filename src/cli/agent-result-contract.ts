@@ -106,6 +106,10 @@ const HANDOFF_CHECKPOINT_DURABLE_SECTIONS = [
   'readiness',
   'result-card'
 ] as const;
+const WORK_PLAN_SOURCES = ['derived-agent-run-state'] as const;
+const WORK_PLAN_STATUSES = ['not-started', 'in-progress', 'blocked', 'completed'] as const;
+const WORK_PLAN_STEP_KINDS = ['readiness', 'targeting', 'inspection', 'edit', 'validation', 'handoff'] as const;
+const WORK_PLAN_STEP_STATUSES = ['pending', 'in-progress', 'blocked', 'completed', 'skipped'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -243,6 +247,22 @@ function isKnownKnowledgeCacheSource(value: unknown): boolean {
     && KNOWLEDGE_CACHE_SOURCES.includes(value as typeof KNOWLEDGE_CACHE_SOURCES[number]);
 }
 
+function isKnownWorkPlanSource(value: unknown): boolean {
+  return typeof value === 'string' && WORK_PLAN_SOURCES.includes(value as typeof WORK_PLAN_SOURCES[number]);
+}
+
+function isKnownWorkPlanStatus(value: unknown): boolean {
+  return typeof value === 'string' && WORK_PLAN_STATUSES.includes(value as typeof WORK_PLAN_STATUSES[number]);
+}
+
+function isKnownWorkPlanStepKind(value: unknown): boolean {
+  return typeof value === 'string' && WORK_PLAN_STEP_KINDS.includes(value as typeof WORK_PLAN_STEP_KINDS[number]);
+}
+
+function isKnownWorkPlanStepStatus(value: unknown): boolean {
+  return typeof value === 'string' && WORK_PLAN_STEP_STATUSES.includes(value as typeof WORK_PLAN_STEP_STATUSES[number]);
+}
+
 function isNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -342,6 +362,120 @@ function expectedIdentityIssueKind(engine: unknown): string | null {
   }
 
   return null;
+}
+
+function assertCompactWorkPlan(value: unknown): void {
+  if (!isRecord(value)) {
+    throw new Error('compact result input harness.workPlan must be an object when harness is present.');
+  }
+
+  if (value.schemaVersion !== 1) {
+    throw new Error('compact result input harness.workPlan.schemaVersion must be 1.');
+  }
+
+  if (!isKnownWorkPlanSource(value.source)) {
+    throw new Error('compact result input harness.workPlan.source must be supported.');
+  }
+
+  if (value.compact !== true) {
+    throw new Error('compact result input harness.workPlan.compact must be true.');
+  }
+
+  if (value.mutationAllowed !== false) {
+    throw new Error('compact result input harness.workPlan.mutationAllowed must be false.');
+  }
+
+  if (!isKnownWorkPlanStatus(value.status)) {
+    throw new Error('compact result input harness.workPlan.status must be supported.');
+  }
+
+  if (!isKnownPlannerHandoffActiveBlocker(value.blockerKind)) {
+    throw new Error('compact result input harness.workPlan.blockerKind must be supported.');
+  }
+
+  if (!isKnownPlannerHandoffNextControlAction(value.nextControlAction)) {
+    throw new Error('compact result input harness.workPlan.nextControlAction must be supported.');
+  }
+
+  for (const field of [
+    'totalStepCount',
+    'completedStepCount',
+    'pendingStepCount',
+    'blockedStepCount',
+    'maxEntries',
+    'includedCount',
+    'omittedCount'
+  ]) {
+    assertIntegerField(value, field, 'harness.workPlan', isNonNegativeInteger, 'a non-negative integer');
+  }
+
+  if (value.currentStepIndex !== null && !isNonNegativeInteger(value.currentStepIndex)) {
+    throw new Error('compact result input harness.workPlan.currentStepIndex must be a non-negative integer or null.');
+  }
+
+  if (!Array.isArray(value.steps)) {
+    throw new Error('compact result input harness.workPlan.steps must be an array.');
+  }
+
+  if (value.includedCount !== value.steps.length) {
+    throw new Error('compact result input harness.workPlan.includedCount must match steps length.');
+  }
+
+  if ((value.includedCount as number) + (value.omittedCount as number) !== value.totalStepCount) {
+    throw new Error('compact result input harness.workPlan step counts must be consistent.');
+  }
+
+  if ((value.includedCount as number) > (value.maxEntries as number)) {
+    throw new Error('compact result input harness.workPlan.includedCount must not exceed maxEntries.');
+  }
+
+  const seenIndexes = new Set<number>();
+  let previousIndex = -1;
+
+  for (let index = 0; index < value.steps.length; index += 1) {
+    const step = value.steps[index];
+    const stepPath = `harness.workPlan.steps[${index}]`;
+
+    if (!isRecord(step)) {
+      throw new Error(`compact result input ${stepPath} must be an object.`);
+    }
+
+    assertIntegerField(step, 'index', stepPath, isNonNegativeInteger, 'a non-negative integer');
+
+    if (!isKnownWorkPlanStepKind(step.kind)) {
+      throw new Error(`compact result input ${stepPath}.kind must be supported.`);
+    }
+
+    if (!isKnownWorkPlanStepStatus(step.status)) {
+      throw new Error(`compact result input ${stepPath}.status must be supported.`);
+    }
+
+    for (const field of ['title', 'summary']) {
+      if (typeof step[field] !== 'string') {
+        throw new Error(`compact result input ${stepPath}.${field} must be a string.`);
+      }
+    }
+
+    if (step.actionKind !== null && !isKnownAgentActionKind(step.actionKind)) {
+      throw new Error(`compact result input ${stepPath}.actionKind must be supported or null.`);
+    }
+
+    if (step.validationIssueKind !== null && !isKnownValidationIssueKind(step.validationIssueKind)) {
+      throw new Error(`compact result input ${stepPath}.validationIssueKind must be supported or null.`);
+    }
+
+    if (step.approvalSignalKind !== null && !isKnownApprovalSignalKind(step.approvalSignalKind)) {
+      throw new Error(`compact result input ${stepPath}.approvalSignalKind must be supported or null.`);
+    }
+
+    const stepIndex = step.index as number;
+    if (seenIndexes.has(stepIndex) || stepIndex <= previousIndex) {
+      throw new Error('compact result input harness.workPlan.steps indexes must be unique and ascending.');
+    }
+
+    seenIndexes.add(stepIndex);
+    previousIndex = stepIndex;
+  }
 }
 
 export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResult {
@@ -904,6 +1038,8 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input harness.stateSummary counts must be non-negative integers when present.');
       }
     }
+
+    assertCompactWorkPlan(value.harness.workPlan);
 
     if (
       isRecord(value.harness.toolTrace)

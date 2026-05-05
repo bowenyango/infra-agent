@@ -2,6 +2,30 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Work Plan Contract Shape Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate `harness.workPlan` when compact agent-result payloads include a
+  harness section.
+- Enforce the work-plan schema version, source, compact/read-only posture,
+  supported status and step enums, count arithmetic, and ascending unique step
+  indexes.
+- Keep this slice focused on local shape validation; cross-section routing
+  consistency is handled separately.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Compact Work Plan Blocker Coverage Slice
 
 Files added or updated:
