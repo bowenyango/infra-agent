@@ -2,6 +2,31 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Planner Handoff Blocker Metadata Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Keep `harness.plannerHandoff.activeBlocker.validationIssueKind` populated
+  only for active validation blockers.
+- Keep approval signal metadata populated only for active approval blockers.
+- Preserve repair-budget issue detail through `harness.workPlan` validation
+  step metadata and `validation.issues`, while allowing generated compact
+  repair-budget payloads to pass the parser.
+- Normalize compact validation issue samples so in-memory builder output uses
+  `guidance: null` and `metadata: {}` instead of parser-hostile `undefined`
+  values.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact work plan maps" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Targeting Documentation Slice
 
 Files added or updated:

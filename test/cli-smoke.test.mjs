@@ -5657,24 +5657,26 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   assert.equal(validationCompact.harness.workPlan.currentStepIndex, 4);
   assert.equal(validationStep?.status, 'blocked');
   assert.equal(validationStep?.validationIssueKind, 'helm-missing-service-port');
+  assert.equal(validationCompact.harness.plannerHandoff.activeBlocker.validationIssueKind, 'helm-missing-service-port');
+  assert.equal(parseCompactAgentRunResult(validationCompact).kind, 'infra-agent.agent-result');
 
   const repairCompact = buildCompactAgentRunResult(makeState({
     outcome: 'repair-budget-exhausted',
     repairAttempts: 2,
     validationResults: [
       {
-        command: 'terraform -chdir=terraform/payments-api fmt -check',
+        command: 'helm lint charts/payments-api',
         exitCode: 1,
         stdout: '',
-        stderr: 'main.tf'
+        stderr: 'service.port is required'
       }
     ],
     validationIssues: [
       {
-        kind: 'terraform-formatting-required',
+        kind: 'helm-missing-service-port',
         repairable: true,
-        sourceCommand: 'terraform -chdir=terraform/payments-api fmt -check',
-        message: 'Terraform formatting is required.'
+        sourceCommand: 'helm lint charts/payments-api',
+        message: 'service.port is required'
       }
     ]
   }));
@@ -5683,7 +5685,9 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   assert.equal(repairCompact.harness.workPlan.blockerKind, 'repair-budget');
   assert.equal(repairCompact.harness.workPlan.nextControlAction, 'manual-repair');
   assert.equal(repairStep?.status, 'blocked');
-  assert.equal(repairStep?.validationIssueKind, 'terraform-formatting-required');
+  assert.equal(repairStep?.validationIssueKind, 'helm-missing-service-port');
+  assert.equal(repairCompact.harness.plannerHandoff.activeBlocker.validationIssueKind, null);
+  assert.equal(parseCompactAgentRunResult(repairCompact).kind, 'infra-agent.agent-result');
 
   const completedCompact = buildCompactAgentRunResult(makeState({
     outcome: 'completed',

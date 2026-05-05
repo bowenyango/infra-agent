@@ -509,7 +509,9 @@ export interface CompactAgentRunResult {
       omittedCount: number;
       entries: CompactValidationSafetyBlocker[];
     };
-    issues: Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'guidance' | 'metadata'>[];
+    issues: Array<Pick<ValidationIssue, 'kind' | 'repairable' | 'message' | 'metadata'> & {
+      guidance: string | null;
+    }>;
   };
   approval: {
     requiredWriteRisks: string[];
@@ -1154,8 +1156,8 @@ function collectPlannerHandoff(state: AgentRunState): CompactAgentRunResult['har
     },
     activeBlocker: {
       kind: activeBlockerKind,
-      validationIssueKind: state.runtime.validationIssues[0]?.kind ?? null,
-      approvalSignalKind: state.runtime.approvalSignals[0]?.kind ?? null
+      validationIssueKind: activeBlockerKind === 'validation' ? state.runtime.validationIssues[0]?.kind ?? null : null,
+      approvalSignalKind: activeBlockerKind === 'approval' ? state.runtime.approvalSignals[0]?.kind ?? null : null
     },
     nextControlAction
   };
@@ -2419,8 +2421,8 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         kind: issue.kind,
         repairable: issue.repairable,
         message: issue.message,
-        guidance: issue.guidance,
-        metadata: issue.metadata
+        guidance: issue.guidance ?? null,
+        metadata: issue.metadata ?? {}
       }))
     },
     approval: {
