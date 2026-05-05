@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Generated Compact Parse Coverage Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Parse real `agent --json` CLI output with `parseCompactAgentRunResult`.
+- Parse generated compact payloads for max-turn, skipped-execution, capped-turn
+  trace, and approval-resume scenarios.
+- Allow terminal lifecycle events to preserve an execution reason while still
+  requiring the terminal event to be last and match the root outcome.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count|agent CLI compact JSON|skipped turn|turn trace budget metadata|approval continuation flags" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Lifecycle Event Count Consistency Slice
 
 Files added or updated:

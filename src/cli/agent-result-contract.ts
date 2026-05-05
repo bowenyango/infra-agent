@@ -1820,7 +1820,6 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           terminalEventIndex !== includedLifecycleEvents.length - 1
           || !isRecord(terminalEvent)
           || terminalEvent.outcome !== value.outcome
-          || terminalEvent.reason !== `outcome:${value.outcome}`
         ) {
           throw new Error('compact result input harness.lifecycleEvents terminal event must be last and match root.outcome.');
         }

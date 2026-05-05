@@ -5557,6 +5557,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.ok(!compact.readiness.checks.some(check => check.name === 'validator:terraform'));
     assert.equal(Object.hasOwn(compact, 'runtime'), false);
     assert.equal(Object.hasOwn(compact, 'preflight'), false);
+    assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
 
     const fallbackCompact = buildCompactAgentRunResult({
       ...result,
@@ -5772,6 +5773,7 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
     const compact = JSON.parse(output.slice(jsonStart, jsonEnd + 1));
 
     assert.equal(compact.kind, 'infra-agent.agent-result');
+    assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
     assert.equal(compact.outcome, 'no-safe-action');
     assert.equal(compact.harness.workPlan.schemaVersion, 1);
     assert.equal(compact.harness.workPlan.blockerKind, compact.harness.plannerHandoff.activeBlocker.kind);
@@ -5855,6 +5857,7 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
   });
   assert.equal(compact.harness.plannerHandoff.activeBlocker.kind, 'turn-budget');
   assert.equal(compact.harness.plannerHandoff.nextControlAction, 'rerun-with-larger-turn-budget');
+  assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
 });
 
 test('buildCompactAgentRunResult exposes turn trace budget metadata when capped', async () => {
@@ -5879,7 +5882,7 @@ test('buildCompactAgentRunResult exposes turn trace budget metadata when capped'
         summary: `Inspect turn ${index}`,
         rationale: 'Synthetic capped trace coverage.',
         payload: {
-          actionFamily: 'workspace-inspection'
+          actionFamily: 'runtime-inspection'
         }
       }
     },
@@ -5909,6 +5912,7 @@ test('buildCompactAgentRunResult exposes turn trace budget metadata when capped'
     lastIncludedTurnIndex: 9,
     preservedWindow: 'head'
   });
+  assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
 });
 
 test('buildCompactAgentRunResult includes budgeted validation command summaries', async () => {
@@ -13640,7 +13644,8 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
       repairAttempts: 0,
       lastEditPlan: null
     },
-    turns: []
+    turns: [],
+    config: resolveQueryLoopConfig()
   };
   const commands = summarizeSuggestedCommands(state);
   const compact = buildCompactAgentRunResult(state);
@@ -13659,6 +13664,7 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.equal(compact.harness.plannerHandoff.nextControlAction, 'request-approval');
   assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'payload'), false);
   assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'runtime'), false);
+  assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
