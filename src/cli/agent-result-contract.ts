@@ -668,6 +668,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     'turnTrace',
     'lifecycleEvents',
     'toolTrace',
+    'workPlan',
     'validationCommands',
     'validationIssues',
     'validationIssueGroups',
@@ -1561,6 +1562,16 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         value.harness.toolTrace.includedCount as number,
         value.harness.toolTrace.omittedCount as number,
         'harness.toolTrace'
+      );
+    }
+
+    if (isRecord(value.harness.workPlan)) {
+      assertHandoffBudgetMatches(
+        value.handoffCheckpoint.budgets.workPlan,
+        'handoffCheckpoint.budgets.workPlan',
+        value.harness.workPlan.includedCount as number,
+        value.harness.workPlan.omittedCount as number,
+        'harness.workPlan'
       );
     }
   }

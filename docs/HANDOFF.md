@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Handoff Work Plan Budget Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `handoffCheckpoint.budgets.workPlan` so continuation agents can see
+  work-plan inclusion and omission counts from the compact checkpoint.
+- Cross-check the checkpoint work-plan budget against `harness.workPlan`.
+- Preserve the existing checkpoint pattern where budgeted compact sections
+  expose included and omitted counts before downstream agents inspect details.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count|compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Compact Work Plan Consistency Slice
 
 Files added or updated:

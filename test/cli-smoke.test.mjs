@@ -123,6 +123,7 @@ function buildCompactHandoffBudgetsFixture(overrides = {}) {
     turnTrace: { includedCount: 0, omittedCount: 0 },
     lifecycleEvents: { includedCount: 0, omittedCount: 0 },
     toolTrace: { includedCount: 0, omittedCount: 0 },
+    workPlan: { includedCount: 6, omittedCount: 0 },
     validationCommands: { includedCount: 0, omittedCount: 0 },
     validationIssues: { includedCount: 1, omittedCount: 0 },
     validationIssueGroups: { includedCount: 1, omittedCount: 0 },
@@ -5460,6 +5461,10 @@ test('runSingleStep respects the configured maximum turn count', async () => {
           includedCount: compact.harness.toolTrace.includedCount,
           omittedCount: compact.harness.toolTrace.omittedCount
         },
+        workPlan: {
+          includedCount: compact.harness.workPlan.includedCount,
+          omittedCount: compact.harness.workPlan.omittedCount
+        },
         validationCommands: {
           includedCount: compact.validation.commands.entries.length,
           omittedCount: compact.validation.commands.omittedCount
@@ -8237,6 +8242,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         turnTrace: { includedCount: 1, omittedCount: 0 },
         lifecycleEvents: { includedCount: 2, omittedCount: 0 },
         toolTrace: { includedCount: 1, omittedCount: 0 },
+        workPlan: { includedCount: 6, omittedCount: 0 },
         validationCommands: { includedCount: 1, omittedCount: 0 },
         knowledgePackets: {
           includedCount: 1,
@@ -8897,6 +8903,22 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /harness\.workPlan\.steps\[4\]\.approvalSignalKind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          workPlan: {
+            includedCount: 5,
+            omittedCount: 0
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.workPlan must match harness\.workPlan/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
