@@ -90,8 +90,11 @@ The product should settle into seven layers.
 5. **Knowledge and Context System**
    - version-aware local cache for official docs and examples
    - dynamic retrieval for missing or stale official material
+   - structured extraction of provider/resource/chart/module facts from cached
+     docs, schemas, examples, and repo-local code
    - repo-local facts as the highest priority source
    - provider, module, and chart schemas preferred over prose where available
+   - opt-in team cache backends after the local fact schema is stable
 
 6. **Semantics and Validation Layer**
    - YAML syntax parsing before any YAML write is accepted
@@ -135,6 +138,114 @@ The cache key should include at least:
 The planner should receive small retrieved context packets, not whole documents.
 Each packet should include source, version, confidence, excerpt or structured
 schema facts, and why it was selected.
+
+## Knowledge Extraction And Storage Plan
+
+This is a core product area. Infrastructure agents become materially better
+when they can reuse source-linked, versioned, validated facts about providers,
+resources, modules, components, and charts instead of relearning the same public
+or repository-local material on every run.
+
+Current progress as of 2026-05-05:
+
+| Area | Status | Current capability | Main gap |
+| --- | --- | --- | --- |
+| Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, and cache-root resolution | No structured fact index or remote backend |
+| Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock` | Pulumi docs source selection is not implemented; source selection is not yet broad provider/resource coverage |
+| Official docs retrieval | Partial | Explicit `prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only; no extraction after fetch |
+| Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports | No durable repo knowledge pack for modules/components/charts |
+| Structured knowledge extraction | Not started | Existing `ConfigSemanticFact` is a useful pattern for focused repo facts | No normalized `KnowledgeFact` schema for official docs/examples |
+| Team storage | Not started | Cache root can be local, environment-selected, or workspace-relative | No S3/GCS/Azure/Postgres backend abstraction |
+
+Target artifact families:
+
+- `infra-agent.knowledge-source`: selected source metadata for official docs,
+  local schemas, examples, module READMEs, and chart metadata.
+- `infra-agent.knowledge-cache-entry`: raw or lightly normalized fetched/local
+  content, stored by version-sensitive source id.
+- `infra-agent.knowledge-facts`: extracted facts such as provider/resource
+  arguments, required attributes, defaults, enum-like values, nested blocks,
+  replacement-sensitive fields, identity fields, examples, chart values, module
+  inputs/outputs, and Pulumi component config shape.
+- `infra-agent.knowledge-pack`: a bounded, validated bundle of facts for one
+  provider version, resource type, chart version, module, component, or repo
+  target.
+
+Extraction rules:
+
+- Every fact must carry source id, source URL or local path, version or commit,
+  extraction method, confidence, and a short source locator.
+- Extracted facts are advisory unless confirmed by repo-local schemas,
+  validators, provider schemas, plan/preview output, or explicit user/team
+  curation.
+- Public provider/chart facts should not be committed into every user repo by
+  default. Store them in the user cache or a team cache. Repos may commit small
+  curated packs only when the team intentionally wants reviewed policy or module
+  knowledge in version control.
+- Private repo facts must be opt-in. Do not upload or share user module,
+  component, chart, or code-derived facts without explicit configuration.
+- Planner prompts should receive budgeted fact summaries, not full cached docs
+  or full repo files.
+
+Recommended new CLI surfaces:
+
+- `infra-agent knowledge sources <workspace> [--domain helm|pulumi|terraform]
+  [--target <path>] [--json]`
+  - lists selected knowledge sources without fetching.
+- `infra-agent knowledge prefetch <workspace> ...`
+  - can later replace or alias the current top-level `prefetch` command.
+- `infra-agent knowledge extract <workspace> [--domain ...] [--target ...]
+  [--source <id>] [--json]`
+  - extracts normalized `knowledge-facts` from cached docs, repo-local schemas,
+    examples, and module/component/chart code.
+- `infra-agent knowledge validate <facts.json> --json`
+  - validates schema, source links, count consistency, stale policy, confidence
+    labels, and secret safety before facts are used by the planner.
+- `infra-agent knowledge pack <workspace> [--target <path>] --json`
+  - builds a bounded `knowledge-pack` for handoff or team cache publication.
+
+Recommended storage layers:
+
+- Local default: current filesystem cache under the resolved knowledge-cache
+  root.
+- Repo-curated: small reviewed packs under a workspace-relative configured path,
+  never automatic bulk cache commits.
+- Team cache: content-addressed object store plus metadata index. S3-compatible
+  storage is a good first remote backend for blobs; add DynamoDB/Postgres only
+  when query/index requirements justify it.
+- Package-bundled: only schemas, extractors, validators, and small durable rules.
+  Do not bundle full provider docs.
+
+Measurable milestones:
+
+1. **Knowledge Fact Schema**
+   - Add `KnowledgeFact`, `KnowledgeFactSet`, and parser contract.
+   - Acceptance: unit tests reject missing source ids, unsupported fact kinds,
+     stale/invalid version metadata, and secret-looking values.
+2. **Official Docs Extractor Tool**
+   - Extract Terraform Registry resource/data-source arguments and examples from
+     cached markdown/JSON; add a Helm chart values extractor for schema/docs.
+   - Acceptance: mocked cached docs produce deterministic facts for at least
+     three Terraform resource types and two Helm chart/schema cases.
+3. **Repo Knowledge Pack**
+   - Extract module/component/chart facts from local Terraform modules, Pulumi
+     projects/components, Helm charts, examples, and READMEs.
+   - Acceptance: fixture workspace produces a bounded pack with module inputs,
+     chart values, Pulumi stack config shape, source locators, and no secrets.
+4. **Planner Consumption**
+   - Budget knowledge facts separately from raw retrieved excerpts and expose
+     compact `knowledgeFacts` metadata in `agent --json`.
+   - Acceptance: planner prompt includes only capped fact summaries; compact
+     parser validates fact counts, omitted counts, and source provenance.
+5. **Refresh And Staleness**
+   - Add stale/fresh reporting for facts derived from cache entries and local
+     files.
+   - Acceptance: changing a cached source hash or local file hash marks derived
+     facts stale and prevents silent reuse as high-confidence context.
+6. **Team Backend Abstraction**
+   - Define a storage interface after local schema and validation settle.
+   - Acceptance: local filesystem remains default; mocked S3-compatible adapter
+     stores and retrieves content-addressed packs without leaking private data.
 
 ## Validation Strategy
 

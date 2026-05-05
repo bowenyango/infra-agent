@@ -9217,6 +9217,40 @@ Remaining risks:
   availability beyond the adapter contract.
 - The only supported provider remains `openai-compatible`.
 
+## 2026-05-05 Knowledge Extraction Roadmap Update
+
+Files added or updated:
+
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `README.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Promote knowledge extraction, storage, validation, refresh, and team cache
+  design into a first-class development track.
+- Record the current cache-first implementation state separately from the
+  missing structured fact extraction system.
+- Define measurable milestones for `KnowledgeFact` schemas, extractor tools,
+  repo knowledge packs, planner consumption, stale/fresh checks, and future
+  team storage backends.
+- Preserve the storage policy: public provider/chart facts default to local or
+  explicit team cache; private repo-derived facts require opt-in before shared
+  storage.
+
+Known validation:
+
+- `git diff --check`: passed.
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes only the installable CLI and skill surface" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- This update is a plan and rules change only. It does not yet add the
+  `knowledge extract`, `knowledge validate`, `knowledge pack`, or remote backend
+  implementation.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

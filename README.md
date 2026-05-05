@@ -409,6 +409,12 @@ Current behavior is intentionally runtime-foundation oriented:
   dependency chart names, versions, and HTTP(S) repositories can participate in
   cache selection without fetching non-document URLs such as `file://` or
   `oci://`.
+- Planned knowledge work promotes cache entries into validated fact packs:
+  provider/resource arguments, required/defaulted attributes, examples,
+  replacement-sensitive fields, Helm chart values, Terraform module inputs, and
+  Pulumi component/config parameters. Public facts should default to the user or
+  team cache, not bulk commits inside every infrastructure repo; private
+  repo-derived facts require explicit opt-in before any shared backend is used.
 
 CLI exit codes for downstream agents:
 

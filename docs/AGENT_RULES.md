@@ -136,6 +136,17 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Surface validation-derived semantic blockers as structured result output when they exist; do not bury required config facts in raw stderr.
 - Use the resolved knowledge-cache root for docs/schema cache writes. Treat `INFRA_AGENT_KNOWLEDGE_CACHE` as the explicit user override, and only accept workspace-config cache roots that stay inside the workspace.
 - Retrieve official docs through cache-first context packets. If only stale cached context is available, keep confidence at medium and do not treat it as validator-grade authority.
+- Treat knowledge extraction as a first-class contract surface. Extracted facts
+  must be schema-versioned, source-linked, versioned or commit-linked,
+  confidence-labeled, stale-aware, and parser-validated before a planner uses
+  them.
+- Do not commit generated public-provider or chart cache data into user
+  repositories by default. Use the resolved local cache or an explicit team
+  cache. Commit only small curated packs when the team deliberately wants
+  reviewed knowledge in source control.
+- Do not upload private repo-derived module, component, chart, or code facts to
+  shared storage without explicit configuration. Remote knowledge backends must
+  be opt-in and secret-safe.
 - For Terraform Registry docs, prefer provider source and locked provider version from `required_providers` and `.terraform.lock.hcl` before falling back to local-name heuristics.
 - For local Terraform provider schema context, use only root-scoped exports such as `.infra-agent/terraform-provider-schema.json` or `.infra-agent/terraform-providers-schema.json`. Extract compact facts for resources used by the selected root, preserve `.terraform.lock.hcl` provider version labels when available, do not pass full provider schema JSON into planner prompts, and do not infer replacement safety from schema shape alone.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.

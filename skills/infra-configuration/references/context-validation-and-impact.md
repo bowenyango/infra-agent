@@ -159,6 +159,29 @@ Current cache foundation:
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.
 
+Planned extraction direction:
+
+- Convert cached official docs, repo-local schemas, examples, module READMEs,
+  Pulumi component/project metadata, and Helm chart metadata into compact
+  `knowledge-facts` before planner use.
+- Facts should carry source id, URL or local path, provider/chart/module name,
+  version or commit, content hash, extraction method, confidence, stale posture,
+  and a short locator back to the source.
+- Useful fact families include provider/resource arguments, required/defaulted
+  attributes, enum-like values, nested blocks, replacement-sensitive fields,
+  identity fields, module inputs/outputs, Pulumi config/component parameters,
+  Helm chart values, and minimal examples.
+- Public provider/chart facts should live in the resolved user cache or an
+  explicit team cache by default. User repositories should only commit small
+  reviewed curated packs, not bulk generated cache data.
+- Private module/component/chart facts must stay local unless the workspace
+  explicitly configures a team backend. A future S3-compatible backend should
+  store content-addressed packs and keep metadata sufficient for staleness and
+  source provenance checks.
+- Other agents should prefer validated facts over raw docs. If fact extraction
+  is unavailable, use bounded retrieved context packets and keep confidence
+  lower than validator/schema-derived facts.
+
 ## Validation Layers
 
 Always validate syntax before domain validation.
