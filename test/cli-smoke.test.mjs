@@ -5543,6 +5543,8 @@ test('runSingleStep respects the configured maximum turn count', async () => {
         nextControlAction: 'rerun-with-larger-turn-budget',
         approvalRequired: false,
         command: null,
+        compactCommand: null,
+        debugCommand: null,
         mutationAllowed: false
       },
       durableSections: [
@@ -14311,6 +14313,9 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.equal(compact.approval.resume.command, commands[0]);
   assert.equal(compact.approval.resume.compactCommand, `${commands[0]} --json`);
   assert.equal(compact.approval.resume.debugCommand, `${commands[0]} --json-full`);
+  assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
+  assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);
+  assert.equal(compact.handoffCheckpoint.continuation.debugCommand, compact.approval.resume.debugCommand);
   assert.deepEqual(compact.approval.resume.primarySignal, {
     kind: 'write-approval-required',
     message: 'Approval required.',
@@ -14425,6 +14430,9 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.equal(compact.approval.resume.command, commands[0]);
   assert.equal(compact.approval.resume.compactCommand, `${commands[0]} --json`);
   assert.equal(compact.approval.resume.debugCommand, `${commands[0]} --json-full`);
+  assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
+  assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);
+  assert.equal(compact.handoffCheckpoint.continuation.debugCommand, compact.approval.resume.debugCommand);
   assert.deepEqual(compact.approval.resume.primarySignal, {
     kind: 'tool-category-approval-required',
     message: 'Approval required.',

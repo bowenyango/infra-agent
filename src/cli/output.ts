@@ -259,6 +259,8 @@ interface CompactHandoffCheckpoint {
     nextControlAction: CompactAgentRunResult['harness']['plannerHandoff']['nextControlAction'];
     approvalRequired: boolean;
     command: string | null;
+    compactCommand: string | null;
+    debugCommand: string | null;
     mutationAllowed: false;
   };
   durableSections: Array<
@@ -2633,6 +2635,8 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
       nextControlAction: plannerHandoff.nextControlAction,
       approvalRequired: state.outcome === 'approval-required',
       command: state.outcome === 'approval-required' ? approvalResume.command : null,
+      compactCommand: state.outcome === 'approval-required' ? approvalResume.compactCommand : null,
+      debugCommand: state.outcome === 'approval-required' ? approvalResume.debugCommand : null,
       mutationAllowed: false
     },
     durableSections: [

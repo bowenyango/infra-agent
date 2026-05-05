@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Handoff Continuation JSON Command Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Mirror the primary approval continuation command into
+  `handoffCheckpoint.continuation`.
+- Include compact and debug JSON variants beside the human-readable command so
+  resumed agents can stay in machine-readable mode without reconstructing flags.
+- Keep non-approval continuation checkpoints explicit with null command fields.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|tool category approval continuation|agent CLI compact JSON includes work plan handoff" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Handoff Documentation Slice
 
 Files added or updated:
