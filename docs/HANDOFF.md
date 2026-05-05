@@ -9302,6 +9302,34 @@ Remaining risks:
 
 - Extractors do not yet produce fact sets.
 
+## 2026-05-05 Knowledge Fact Cache Extractor Slice
+
+Files added or updated:
+
+- `src/knowledge/facts.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add cache-entry extraction for `infra-agent.knowledge-facts` fact sets.
+- Extract compact Terraform Registry markdown facts for examples, arguments,
+  attributes, identity fields, and replacement-sensitive fields.
+- Extract compact Helm `values.schema.json` chart-value facts with required,
+  type, default, and enum metadata.
+- Keep extraction cache/local only and validate generated fact sets through
+  `parseKnowledgeFactSet`.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge fact extractor" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Extracted fact metadata still needs timestamps/stale contract tightening.
+- CLI surfaces for source listing, extraction, validation, and pack creation are
+  still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

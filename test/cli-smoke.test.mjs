@@ -103,6 +103,7 @@ import {
   KNOWLEDGE_FACT_KINDS
 } from '../src/types/knowledge.ts';
 import { parseKnowledgeFactSet } from '../src/knowledge/facts-contract.ts';
+import { extractKnowledgeFactSetFromCacheEntry } from '../src/knowledge/facts.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2535,6 +2536,151 @@ test('knowledge context retrieval uses fresh cache entries before fetching', asy
     assert.ok(packet);
     assert.equal(packet.confidence, 'high');
     assert.match(packet.excerpt ?? '', /Pulumi Config/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge fact extractor summarizes Terraform Registry markdown from cache', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-terraform-'));
+
+  try {
+    const source = {
+      kind: 'terraform-registry',
+      name: 'resource:aws_s3_bucket',
+      provider: 'hashicorp/aws',
+      version: '5.37.0',
+      url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'text/markdown',
+      content: [
+        '# aws_s3_bucket',
+        '',
+        '## Example Usage',
+        '',
+        '```hcl',
+        'resource "aws_s3_bucket" "example" {',
+        '  bucket = "example-bucket"',
+        '}',
+        '```',
+        '',
+        '## Argument Reference',
+        '',
+        '- `bucket` - (Optional) Name of the bucket. Forces replacement.',
+        '- `tags` - (Optional) Map of tags for the bucket.',
+        '',
+        '## Attributes Reference',
+        '',
+        '- `arn` - ARN of the bucket.',
+        ''
+      ].join('\n'),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      now: new Date('2026-05-06T00:00:00.000Z')
+    });
+
+    assert.equal(factSet.kind, 'infra-agent.knowledge-facts');
+    assert.equal(factSet.sourceId, entry.id);
+    assert.equal(factSet.sourceContentHash, entry.contentHash);
+    assert.equal(factSet.sourceStale, false);
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.path === 'resource.aws_s3_bucket.bucket'
+      && fact.required === false
+      && fact.source.locator === 'Argument Reference: bucket'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'identity-field'
+      && fact.path === 'resource.aws_s3_bucket.bucket'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'replacement-sensitive-field'
+      && fact.path === 'resource.aws_s3_bucket.bucket'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'attribute'
+      && fact.path === 'resource.aws_s3_bucket.arn'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'example'
+      && fact.path === 'resource.aws_s3_bucket.example'
+    ));
+    assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge fact extractor summarizes Helm values schema from cache', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-helm-'));
+
+  try {
+    const source = {
+      kind: 'chart-schema',
+      name: 'payments-api:values.schema.json',
+      chart: 'payments-api',
+      version: '1.2.3',
+      localPath: 'charts/payments-api/values.schema.json'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'application/json',
+      content: JSON.stringify({
+        type: 'object',
+        required: ['image'],
+        properties: {
+          image: {
+            type: 'object',
+            required: ['tag'],
+            properties: {
+              tag: {
+                type: 'string',
+                description: 'Container image tag.',
+                default: 'latest'
+              }
+            }
+          },
+          ingress: {
+            type: 'object',
+            properties: {
+              className: {
+                type: 'string',
+                enum: ['nginx', 'internal'],
+                description: 'Ingress class name.'
+              }
+            }
+          }
+        }
+      }),
+      fetchedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry);
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.path === 'chart.payments-api.image'
+      && fact.required === true
+      && fact.type === 'object'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.path === 'chart.payments-api.image.tag'
+      && fact.required === true
+      && fact.defaultValue === 'latest'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.path === 'chart.payments-api.ingress.className'
+      && fact.values?.includes('nginx')
+      && fact.values?.includes('internal')
+    ));
+    assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
