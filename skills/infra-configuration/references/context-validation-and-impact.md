@@ -47,8 +47,9 @@ contract-checked by the parser:
   `mutationAllowed: false`, raw-content exclusions, durable section names,
   routing `summary`, section `budgets`, and `continuation` reason/command
   metadata before reading deeper sections.
-- `harness.stateSummary`, `harness.lifecycleEvents`, `harness.turnTrace`, and
-  `harness.plannerHandoff` for current run state and next control action.
+- `harness.stateSummary`, `harness.workPlan`, `harness.lifecycleEvents`,
+  `harness.turnTrace`, and `harness.plannerHandoff` for current run state,
+  derived progress, and next control action.
 - `harness.toolTrace` and `harness.toolPermissionSummary` for permission
   posture before asking for raw tool output or native CLI reruns.
 - `readiness.doctorCommand` when readiness is warn or fail; this is read-only.
@@ -64,6 +65,9 @@ contract-checked by the parser:
 - `approval.resume` only as approval-request metadata. It is not approval.
 - `handoffCheckpoint.continuation.command` must match `approval.resume.command`
   for approval-required runs; neither field grants approval by itself.
+- `harness.workPlan` is derived progress only. Treat its
+  `mutationAllowed=false`, step budgets, current step, blocker kind, and
+  next-control action as routing metadata; do not edit it as a todo list.
 
 ## Official Docs Strategy
 

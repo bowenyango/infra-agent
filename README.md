@@ -194,6 +194,11 @@ Current behavior is intentionally runtime-foundation oriented:
   `harness.stateSummary` reports runtime counts for observations, tools,
   writes, validation results/issues, approvals, retrieved context, and semantic
   facts without exposing the full runtime state.
+  `harness.workPlan` reports a derived compact progress plan with readiness,
+  targeting, inspection, bounded edit, validation, and handoff steps. It is
+  read-only, carries current-step and blocker posture, and is validated against
+  planner handoff routing so continuation agents do not need to reconstruct
+  progress from raw turn history.
   `harness.plannerHandoff` reports the last action, active blocker, and next
   control action so another agent can route the run without reading raw
   decisions, prompts, or runtime arrays. Compact consumers validate last-action

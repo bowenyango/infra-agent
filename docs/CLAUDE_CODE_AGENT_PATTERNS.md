@@ -41,7 +41,7 @@ durable design reference for infra-agent development.
 | Claude Code pattern | Infra-agent surface |
 | --- | --- |
 | Streamed compaction without raw tool output | Compact `agent --json` sections plus `handoffCheckpoint.exclusions`, `harness.turnTrace`, `harness.toolTrace`, `validation.commands`, `validation.issues`, and `knowledgeContext` |
-| Preserved current task and routing state | Root task/workspace metadata, `handoffCheckpoint.summary`, `handoffCheckpoint.continuation`, `harness.loopBudget`, `harness.repairBudget`, `harness.plannerHandoff`, and CLI exit codes |
+| Preserved current task and routing state | Root task/workspace metadata, `handoffCheckpoint.summary`, `handoffCheckpoint.continuation`, `harness.loopBudget`, `harness.repairBudget`, `harness.workPlan`, `harness.plannerHandoff`, and CLI exit codes |
 | Permission logging before tool execution | `harness.toolTrace.permissionCategoryCounts`, `harness.toolPermissionSummary`, approval signals, and `approval.resume` |
 | Restoring durable context after compaction | `handoffCheckpoint.durableSections`, `handoffCheckpoint.budgets`, `readiness`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, and `knowledgeContext` |
 | Skill base-directory references | Packaged `skills/infra-configuration/SKILL.md` with optional detailed references under `skills/infra-configuration/references/` |
@@ -109,6 +109,14 @@ durable design reference for infra-agent development.
   counts for observations, tool summaries, writes, validation, approvals,
   retrieved context, and semantic facts, but it must not expose raw runtime
   arrays or file contents.
+- `harness.workPlan` is the derived compact progress surface. It borrows the
+  TodoWrite/compaction idea of preserving current progress and next control
+  point, but it is not a writable todo store and does not drive execution. It
+  should expose bounded readiness, targeting, inspection, edit, validation, and
+  handoff steps with status counts, current-step routing, blocker metadata, and
+  `mutationAllowed=false`. Contract parsers should validate count arithmetic,
+  planner-handoff consistency, outcome/blocker status coherence, and blocker
+  metadata placement before another agent routes on it.
 - `harness.plannerHandoff` is the compact routing surface. It should derive
   last action, active blocker, and next control action from existing state
   without exposing rationale, raw decision payloads, prompts, or observations.

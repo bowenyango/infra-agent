@@ -170,6 +170,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Keep `harness.plannerHandoff` derived and compact. It may route by last
   action, active blocker, and next control action, but it must not include raw
   prompts, rationales, payloads, observations, or file contents.
+- Keep `harness.workPlan` derived and compact. It may expose progress steps,
+  status counts, current step, blocker kind, and next control action, but it
+  must not become a writable todo store or include raw runtime data.
 - Validate compact planner handoff before routing another agent: supported
   last-action kind/family/stop/clarification/execution-status values,
   stop-reason and clarification-kind coherence, active blocker issue/signal
@@ -183,7 +186,8 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `schemaVersion`, known `outcome`, required root task/workspace metadata,
   root string-array handoff fields, compact trace array shape, readiness check
   array shape when present, `harness.queryConfig`, `harness.loopBudget`,
-  `harness.stateSummary` counts, `harness.turnTraceBudget`,
+  `harness.stateSummary` counts, `harness.workPlan`,
+  `harness.turnTraceBudget`,
   `harness.lifecycleEvents`, `harness.toolTrace` budget counts,
   `harness.toolPermissionSummary` aggregate/category counts,
   `validation.selectedPlan`, `validation.commands`, `validation.issueSummary`,

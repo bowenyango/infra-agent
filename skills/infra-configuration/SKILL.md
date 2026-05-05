@@ -52,11 +52,13 @@ configured, but it must not expose API keys.
    content exclusions, routing summary, section budgets, continuation reason,
    approval command metadata, durable section names, and `mutationAllowed=false`.
    Then read
-   `harness.stateSummary` for runtime counts and `harness.turnTrace` for the
-   bounded action flow, `harness.plannerHandoff` for the active blocker and next
-   control action, `harness.turnTraceBudget` and `harness.lifecycleEvents` for
-   capped lifecycle window/count metadata, and `harness.toolTrace` for budgeted
-   recent tool summaries before asking for raw logs. Read `harness.repairBudget`
+   `harness.stateSummary` for runtime counts, `harness.workPlan` for derived
+   progress steps/current step/next control action, and `harness.turnTrace` for
+   the bounded action flow. Read `harness.plannerHandoff` for the active blocker
+   and next control action, `harness.turnTraceBudget` and
+   `harness.lifecycleEvents` for capped lifecycle window/count metadata, and
+   `harness.toolTrace` for budgeted recent tool summaries before asking for raw
+   logs. Read `harness.repairBudget`
    before starting another repair attempt. Read `harness.toolPermissionSummary`
    to separate workspace writes, native CLI calls, and stack/state mutation-risk
    tools. Read

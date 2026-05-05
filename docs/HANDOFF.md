@@ -2,6 +2,33 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Work Plan Documentation Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document `harness.workPlan` as a derived compact progress surface for
+  continuation agents.
+- Clarify that work-plan data is read-only routing metadata, not a writable
+  todo store or execution driver.
+- Update the packaged infra-configuration skill and reference checklist so
+  downstream agents read work-plan posture before asking for raw logs.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Result Card Work Plan Summary Slice
 
 Files added or updated:
