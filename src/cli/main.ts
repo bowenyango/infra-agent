@@ -11,6 +11,7 @@ import type { FileWriteRisk } from '../types/edit-plan.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
+import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -27,6 +28,7 @@ import {
   printInfraGraph,
   printInspection,
   printKnowledgePrefetchResult,
+  printKnowledgeSourcesReport,
   printPlannerProviderCatalogReport,
   printRunPreflight,
   printValidationPreflight
@@ -37,7 +39,8 @@ import { readPackageVersion } from './package-metadata.ts';
 export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
+  knowledgeAction?: 'sources' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -76,6 +79,7 @@ function printUsage(): void {
       '  infra-agent impact-report <graph.json> [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
+      '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -528,6 +532,79 @@ export function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
+  if (commandName === 'knowledge') {
+    const knowledgeAction = cleanArgs[0];
+    if (knowledgeAction !== 'sources') {
+      fail('knowledge requires a supported action: sources.');
+    }
+
+    let workspace = cwd();
+    const domains: InfraDomainId[] = [];
+    const targetPaths: string[] = [];
+    const positionalArgs: string[] = [];
+    const actionArgs = cleanArgs.slice(1);
+
+    for (let index = 0; index < actionArgs.length; index += 1) {
+      const arg = actionArgs[index];
+
+      if (arg === '--domain') {
+        const domainValue = actionArgs[index + 1];
+        if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
+          fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
+        }
+
+        domains.push(domainValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--target') {
+        const targetValue = actionArgs[index + 1];
+        if (!targetValue) {
+          fail('Missing value for --target.');
+        }
+
+        targetPaths.push(targetValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg.startsWith('--')) {
+        fail(`Unknown knowledge sources option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('knowledge sources accepts at most one workspace path.');
+    }
+
+    workspace = positionalArgs[0] ?? workspace;
+
+    return {
+      command: 'knowledge',
+      knowledgeAction,
+      task: null,
+      workspace,
+      inputPath: null,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains,
+      targetPaths,
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
+    };
+  }
+
   if (commandName === 'run' || commandName === 'agent') {
     let workspace = cwd();
     let planner: PlannerMode = 'auto';
@@ -872,6 +949,22 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgePrefetchResult(result);
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'sources') {
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const report = await buildKnowledgeSourcesReport(inspection, {
+      domains: parsed.domains,
+      targetPaths: parsed.targetPaths
+    });
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeSourcesReport(report);
     return;
   }
 

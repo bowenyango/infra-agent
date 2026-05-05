@@ -9359,6 +9359,33 @@ Remaining risks:
 - CLI surfaces for source listing, extraction, validation, and pack creation are
   still pending.
 
+## 2026-05-05 Knowledge Sources CLI Slice
+
+Files added or updated:
+
+- `src/knowledge/sources.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `infra-agent knowledge sources` as the first namespaced knowledge command.
+- Reuse existing workspace source selection without fetching, writing cache
+  entries, or exposing raw source contents.
+- Emit `infra-agent.knowledge-sources` JSON with source ids, target/domain
+  posture, local/external counts, and read-only `mutationAllowed=false`.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge sources" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- `knowledge extract`, `knowledge validate`, and `knowledge pack` are still
+  pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

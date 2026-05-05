@@ -7132,6 +7132,56 @@ test('prefetch CLI args accept bounded source selection flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge sources CLI args accept bounded source listing flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'sources',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'sources');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.equal(parsed.json, true);
+});
+
+test('knowledge sources command emits read-only source listing JSON', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'sources',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.knowledge-sources');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.mutationAllowed, false);
+  assert.deepEqual(report.requestedDomains, ['helm']);
+  assert.deepEqual(report.targetPaths, ['charts/payments-api']);
+  assert.equal(report.sourceCount, report.sources.length);
+  assert.ok(report.sources.some(source =>
+    source.domain === 'helm'
+    && source.targetPath === 'charts/payments-api'
+    && source.id
+    && source.requiresFetch === false
+    && source.source.kind === 'chart-schema'
+  ));
+  assert.ok(report.summary.local >= 1);
+  assert.doesNotMatch(output, /contentHash|fetchedAt|# Values|replicaCount:/);
+});
+
 test('graph CLI args accept workspace and json flags', () => {
   const parsed = parseArgs([
     'graph',

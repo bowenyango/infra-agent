@@ -1,0 +1,72 @@
+import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
+import { buildKnowledgeCacheId } from './cache.ts';
+import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
+import type { KnowledgeSource } from '../types/knowledge.ts';
+
+export interface KnowledgeSourceReportEntry {
+  id: string;
+  domain: InfraDomainId;
+  targetPath: string;
+  requiresFetch: boolean;
+  source: KnowledgeSource;
+}
+
+export interface KnowledgeSourcesReport {
+  kind: 'infra-agent.knowledge-sources';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  workspaceRoot: string;
+  cacheRoot: string;
+  requestedDomains: InfraDomainId[];
+  targetPaths: string[];
+  sourceCount: number;
+  summary: {
+    local: number;
+    external: number;
+    byDomain: Partial<Record<InfraDomainId, number>>;
+  };
+  sources: KnowledgeSourceReportEntry[];
+}
+
+function summarizeSources(sources: KnowledgeSourceReportEntry[]): KnowledgeSourcesReport['summary'] {
+  const byDomain: Partial<Record<InfraDomainId, number>> = {};
+  for (const source of sources) {
+    byDomain[source.domain] = (byDomain[source.domain] ?? 0) + 1;
+  }
+
+  return {
+    local: sources.filter(source => !source.requiresFetch).length,
+    external: sources.filter(source => source.requiresFetch).length,
+    byDomain
+  };
+}
+
+export async function buildKnowledgeSourcesReport(
+  inspection: WorkspaceInspection,
+  options: {
+    domains?: InfraDomainId[];
+    targetPaths?: string[];
+  } = {}
+): Promise<KnowledgeSourcesReport> {
+  const candidates = await collectWorkspaceKnowledgeSources(inspection, options);
+  const sources = candidates.map(candidate => ({
+    id: buildKnowledgeCacheId(candidate.source),
+    domain: candidate.domain,
+    targetPath: candidate.targetPath,
+    requiresFetch: Boolean(candidate.source.url),
+    source: candidate.source
+  }));
+
+  return {
+    kind: 'infra-agent.knowledge-sources',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    workspaceRoot: inspection.workspaceRoot,
+    cacheRoot: inspection.knowledgeCache.root,
+    requestedDomains: options.domains ?? inspection.domainCapabilities.map(domain => domain.id),
+    targetPaths: options.targetPaths ?? [],
+    sourceCount: sources.length,
+    summary: summarizeSources(sources),
+    sources
+  };
+}
