@@ -188,6 +188,7 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         compactCommand: null,
         debugCommand: null,
         primarySignal: null,
+        additionalCommands: [],
         additionalSignalCount: 0,
         additionalWriteRisks: [],
         additionalWritePaths: [],

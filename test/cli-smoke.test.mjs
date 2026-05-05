@@ -6813,6 +6813,7 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           compactCommand: null,
           debugCommand: null,
           primarySignal: null,
+          additionalCommands: [],
           additionalSignalCount: 0,
           additionalWriteRisks: [],
           additionalWritePaths: [],
@@ -8932,6 +8933,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         compactCommand: null,
         debugCommand: null,
         primarySignal: null,
+        additionalCommands: [],
         additionalSignalCount: 0,
         additionalWriteRisks: [],
         additionalWritePaths: [],
@@ -12751,6 +12753,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
           compactCommand: null,
           debugCommand: null,
           primarySignal: null,
+          additionalCommands: [],
           additionalSignalCount: 0,
           additionalWriteRisks: [],
           additionalWritePaths: [],
@@ -14530,6 +14533,39 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
       }
     }),
     /approval\.resume\.additionalToolCategories.*additional approval signals/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          additionalCommands: []
+        }
+      }
+    }),
+    /approval\.resume\.additionalCommands.*non-primary approval signals/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          additionalCommands: [
+            {
+              ...compact.approval.resume.additionalCommands[0],
+              command: compact.approval.resume.additionalCommands[0].command.replace(/ --approve-tool-category native-stack-config-write/, ''),
+              compactCommand: compact.approval.resume.additionalCommands[0].compactCommand.replace(/ --approve-tool-category native-stack-config-write/, ''),
+              debugCommand: compact.approval.resume.additionalCommands[0].debugCommand.replace(/ --approve-tool-category native-stack-config-write/, '')
+            }
+          ]
+        }
+      }
+    }),
+    /approval\.resume\.additionalCommands\[0\]\.command.*tool category approval scope/
   );
 });
 

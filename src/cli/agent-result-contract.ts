@@ -3058,6 +3058,51 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         assertCompactApprovalSignal(value.approval.resume.primarySignal, 'approval.resume.primarySignal');
       }
 
+      if (!Array.isArray(value.approval.resume.additionalCommands)) {
+        throw new Error('compact result input approval.resume.additionalCommands must be an array.');
+      }
+
+      for (let index = 0; index < value.approval.resume.additionalCommands.length; index += 1) {
+        const additionalCommand = value.approval.resume.additionalCommands[index];
+        const commandPath = `approval.resume.additionalCommands[${index}]`;
+
+        if (!isRecord(additionalCommand)) {
+          throw new Error(`compact result input ${commandPath} must be an object.`);
+        }
+
+        assertCompactApprovalSignal(additionalCommand.signal, `${commandPath}.signal`);
+
+        if (typeof additionalCommand.command !== 'string' || additionalCommand.command.length === 0) {
+          throw new Error(`compact result input ${commandPath}.command must be a non-empty string.`);
+        }
+
+        if (additionalCommand.compactCommand !== `${additionalCommand.command} --json`) {
+          throw new Error(`compact result input ${commandPath}.compactCommand must match command plus --json.`);
+        }
+
+        if (additionalCommand.debugCommand !== `${additionalCommand.command} --json-full`) {
+          throw new Error(`compact result input ${commandPath}.debugCommand must match command plus --json-full.`);
+        }
+
+        if (
+          additionalCommand.signal.kind === 'write-approval-required'
+          && (
+            !additionalCommand.command.includes(`--approve-write-risk ${additionalCommand.signal.risk}`)
+            || !additionalCommand.command.includes('--approve-write-path')
+            || !additionalCommand.command.includes(additionalCommand.signal.path as string)
+          )
+        ) {
+          throw new Error(`compact result input ${commandPath}.command must include the additional write approval scope.`);
+        }
+
+        if (
+          additionalCommand.signal.kind === 'tool-category-approval-required'
+          && !additionalCommand.command.includes(`--approve-tool-category ${additionalCommand.signal.toolCategory}`)
+        ) {
+          throw new Error(`compact result input ${commandPath}.command must include the additional tool category approval scope.`);
+        }
+      }
+
       assertIntegerField(value.approval.resume, 'additionalSignalCount', 'approval.resume', isNonNegativeInteger, 'a non-negative integer');
 
       if (!isArrayOf(value.approval.resume.additionalWriteRisks, isKnownFileWriteRisk)) {
@@ -3262,6 +3307,13 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       const expectedAdditionalSignalCount = Math.max(0, (value.approval.resume.signalCount as number) - (primaryApprovalSignal ? 1 : 0));
       if (value.approval.resume.additionalSignalCount !== expectedAdditionalSignalCount) {
         throw new Error('compact result input approval.resume.additionalSignalCount must match signalCount minus the primary signal.');
+      }
+
+      if (
+        value.approval.resume.continuationRequired
+        && value.approval.resume.additionalCommands.length !== Math.max(0, value.approval.signals.length - 1)
+      ) {
+        throw new Error('compact result input approval.resume.additionalCommands must match included non-primary approval signals.');
       }
 
       if (
