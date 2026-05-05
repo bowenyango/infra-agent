@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Targeting Handoff Budget Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Mirror compact `harness.targeting` inclusion and omission counts in
+  `handoffCheckpoint.budgets.targeting`.
+- Keep targeting aligned with the existing budgeted handoff pattern used by
+  work-plan, turn-trace, lifecycle, tool, validation, approval, and knowledge
+  sections.
+- Prepare the targeting surface for parser-enforced budget consistency checks.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Compact Targeting Output Slice
 
 Files added or updated:

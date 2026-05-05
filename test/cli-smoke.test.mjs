@@ -124,6 +124,7 @@ function buildCompactHandoffBudgetsFixture(overrides = {}) {
     lifecycleEvents: { includedCount: 0, omittedCount: 0 },
     toolTrace: { includedCount: 0, omittedCount: 0 },
     workPlan: { includedCount: 6, omittedCount: 0 },
+    targeting: { includedCount: 1, omittedCount: 0 },
     validationCommands: { includedCount: 0, omittedCount: 0 },
     validationIssues: { includedCount: 1, omittedCount: 0 },
     validationIssueGroups: { includedCount: 1, omittedCount: 0 },
@@ -5484,6 +5485,10 @@ test('runSingleStep respects the configured maximum turn count', async () => {
         workPlan: {
           includedCount: compact.harness.workPlan.includedCount,
           omittedCount: compact.harness.workPlan.omittedCount
+        },
+        targeting: {
+          includedCount: compact.harness.targeting.includedCount,
+          omittedCount: compact.harness.targeting.omittedCount
         },
         validationCommands: {
           includedCount: compact.validation.commands.entries.length,

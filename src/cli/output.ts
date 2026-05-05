@@ -241,6 +241,7 @@ interface CompactHandoffCheckpoint {
     lifecycleEvents: CompactHandoffBudgetSample;
     toolTrace: CompactHandoffBudgetSample;
     workPlan: CompactHandoffBudgetSample;
+    targeting: CompactHandoffBudgetSample;
     validationCommands: CompactHandoffBudgetSample;
     validationIssues: CompactHandoffBudgetSample;
     validationIssueGroups: CompactHandoffBudgetSample;
@@ -2426,6 +2427,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
 function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoint {
   const plannerHandoff = collectPlannerHandoff(state);
   const workPlan = collectWorkPlan(state);
+  const targeting = collectCompactTargeting(state);
   const readiness = collectCompactReadiness(state);
   const lifecycleEvents = collectCompactLifecycleEvents(state);
   const validationIssueSummary = collectValidationIssueSummary(state);
@@ -2478,6 +2480,10 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
       workPlan: {
         includedCount: workPlan.includedCount,
         omittedCount: workPlan.omittedCount
+      },
+      targeting: {
+        includedCount: targeting.includedCount,
+        omittedCount: targeting.omittedCount
       },
       validationCommands: sampleBudget(
         state.runtime.validationResults.length,
