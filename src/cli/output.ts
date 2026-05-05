@@ -45,6 +45,7 @@ import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../
 import type { KnowledgeSourcesReport, KnowledgeSourceReportEntry } from '../knowledge/sources.ts';
 import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
+import type { KnowledgePack } from '../knowledge/pack.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   aggregateToolPermissions,
@@ -3434,6 +3435,18 @@ export function printKnowledgeValidationReport(report: KnowledgeValidationReport
   process.stdout.write(`summary: factSets=${report.factSetCount}, facts=${report.factCount}, issues=${report.issueCount}\n\n`);
   printHeader('Issues');
   printList(report.issues.map(issue => `${issue.severity} ${issue.path}: ${issue.message}`), 'No knowledge validation issues.');
+}
+
+export function printKnowledgePack(pack: KnowledgePack): void {
+  printHeader('Knowledge pack');
+  process.stdout.write(`pack: ${pack.packId}\n`);
+  process.stdout.write(`workspace: ${pack.workspaceRoot}\n`);
+  process.stdout.write(`knowledge cache: ${pack.cacheRoot}\n`);
+  process.stdout.write(`domains: ${pack.requestedDomains.length > 0 ? pack.requestedDomains.join(', ') : 'none'}\n`);
+  process.stdout.write(`targets: ${pack.targetPaths.length > 0 ? pack.targetPaths.join(', ') : 'all'}\n`);
+  process.stdout.write(`summary: sources=${pack.sourceCount}, factSets=${pack.factSetCount}, facts=${pack.includedFactCount}/${pack.factCount}, omitted=${pack.omittedFactCount}, staleSources=${pack.staleSourceCount}\n\n`);
+  printHeader('Facts');
+  printList(pack.facts.map(fact => `${fact.confidence} ${fact.kind} ${fact.path}: ${fact.summary}`), 'No knowledge facts included.');
 }
 
 function formatGraphCounts(counts: Record<string, number | undefined>): string {

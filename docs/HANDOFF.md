@@ -9490,6 +9490,34 @@ Remaining risks:
 
 - `knowledge pack` is still pending.
 
+## 2026-05-05 Knowledge Pack CLI Slice
+
+Files added or updated:
+
+- `src/knowledge/pack.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add bounded `infra-agent.knowledge-pack` generation for planner and
+  follow-on Agent consumption.
+- Build packs from validated extraction facts without raw cache/source content,
+  using compact source references, fact summaries, confidence, and locators.
+- Expose `infra-agent knowledge pack` with domain, target, source-id, and
+  `--max-facts` filters.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge pack" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Documentation and package metadata still need to describe the completed
+  knowledge CLI workflow.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

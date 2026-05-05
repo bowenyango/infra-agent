@@ -106,6 +106,7 @@ import { parseKnowledgeFactSet } from '../src/knowledge/facts-contract.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../src/knowledge/facts.ts';
 import { extractWorkspaceKnowledgeFacts } from '../src/knowledge/extract.ts';
 import { validateKnowledgePayload } from '../src/knowledge/validate.ts';
+import { buildKnowledgePack } from '../src/knowledge/pack.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2764,6 +2765,34 @@ test('knowledge validation accepts extraction reports and rejects count drift', 
     issue.severity === 'error'
     && issue.path === '$.factCount'
   ));
+});
+
+test('knowledge pack builds bounded planner-safe fact packs', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 3,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+
+  assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+  assert.equal(pack.schemaVersion, 1);
+  assert.equal(pack.mutationAllowed, false);
+  assert.match(pack.packId, /^[a-f0-9]{24}$/);
+  assert.deepEqual(pack.requestedDomains, ['helm']);
+  assert.deepEqual(pack.targetPaths, ['charts/payments-api']);
+  assert.equal(pack.maxFacts, 3);
+  assert.equal(pack.includedFactCount, Math.min(3, pack.factCount));
+  assert.equal(pack.facts.length, pack.includedFactCount);
+  assert.ok(pack.omittedFactCount >= 1);
+  assert.ok(pack.sources.some(source =>
+    source.kind === 'chart-schema'
+    && source.domain === 'helm'
+    && source.factCount > 0
+  ));
+  assert.ok(pack.facts.every(fact => typeof fact.sourceId === 'string' && !('source' in fact)));
+  assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|replicaCount":\s*\{|"\$schema"|resource "aws_/);
 });
 
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {
@@ -7273,6 +7302,32 @@ test('knowledge validate CLI args accept a knowledge JSON path', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge pack CLI args accept bounded fact pack flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'pack',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--source',
+    'chart-schema:example',
+    '--max-facts',
+    '5',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'pack');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
+  assert.equal(parsed.maxFacts, 5);
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge sources command emits read-only source listing JSON', async () => {
   const output = await captureStdout(() => main([
     'knowledge',
@@ -7397,6 +7452,33 @@ test('knowledge validate command validates extraction JSON files', async () => {
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('knowledge pack command emits bounded fact pack JSON', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'pack',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--max-facts',
+    '4',
+    '--json'
+  ]));
+  const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+  assert.equal(pack.schemaVersion, 1);
+  assert.equal(pack.mutationAllowed, false);
+  assert.match(pack.packId, /^[a-f0-9]{24}$/);
+  assert.equal(pack.maxFacts, 4);
+  assert.equal(pack.includedFactCount, Math.min(4, pack.factCount));
+  assert.equal(pack.facts.length, pack.includedFactCount);
+  assert.ok(pack.sources.some(source => source.kind === 'chart-schema'));
+  assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.replicaCount'));
+  assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
 });
 
 test('graph CLI args accept workspace and json flags', () => {

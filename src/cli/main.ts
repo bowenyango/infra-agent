@@ -14,6 +14,7 @@ import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
 import { loadKnowledgeValidationReport } from '../knowledge/validate.ts';
+import { buildKnowledgePack } from '../knowledge/pack.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -33,6 +34,7 @@ import {
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
+  printKnowledgePack,
   printPlannerProviderCatalogReport,
   printRunPreflight,
   printValidationPreflight
@@ -44,7 +46,7 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -65,6 +67,7 @@ export interface ParsedArgs {
   targetPaths: string[];
   sourceIds?: string[];
   maxSources: number | null;
+  maxFacts?: number | null;
   terraformPlanPaths: string[];
   pulumiPreviewPaths: string[];
 }
@@ -88,6 +91,7 @@ function printUsage(): void {
       '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--json]',
+      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -542,8 +546,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (commandName === 'knowledge') {
     const knowledgeAction = cleanArgs[0];
-    if (knowledgeAction !== 'sources' && knowledgeAction !== 'prefetch' && knowledgeAction !== 'extract' && knowledgeAction !== 'validate') {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate.');
+    if (knowledgeAction !== 'sources' && knowledgeAction !== 'prefetch' && knowledgeAction !== 'extract' && knowledgeAction !== 'validate' && knowledgeAction !== 'pack') {
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack.');
     }
 
     let workspace = cwd();
@@ -551,6 +555,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const targetPaths: string[] = [];
     const sourceIds: string[] = [];
     let maxSources: number | null = null;
+    let maxFacts: number | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
 
@@ -605,11 +610,26 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!sourceId) {
           fail('Missing value for --source.');
         }
-        if (knowledgeAction !== 'extract') {
-          fail('--source is only supported for knowledge extract.');
+        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack') {
+          fail('--source is only supported for knowledge extract or knowledge pack.');
         }
 
         sourceIds.push(sourceId);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--max-facts') {
+        const rawMaxFacts = actionArgs[index + 1];
+        const parsedMaxFacts = Number.parseInt(rawMaxFacts ?? '', 10);
+        if (!Number.isInteger(parsedMaxFacts) || parsedMaxFacts < 1) {
+          fail('Missing or invalid value for --max-facts. Expected a positive integer.');
+        }
+        if (knowledgeAction !== 'pack') {
+          fail('--max-facts is only supported for knowledge pack.');
+        }
+
+        maxFacts = parsedMaxFacts;
         index += 1;
         continue;
       }
@@ -650,6 +670,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       targetPaths,
       sourceIds,
       maxSources,
+      maxFacts,
       terraformPlanPaths: [],
       pulumiPreviewPaths: []
     };
@@ -1068,6 +1089,24 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (!report.valid) {
       process.exitCode = 1;
     }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'pack') {
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const pack = await buildKnowledgePack(inspection, {
+      domains: parsed.domains,
+      targetPaths: parsed.targetPaths,
+      sourceIds: parsed.sourceIds,
+      maxFacts: parsed.maxFacts ?? undefined
+    });
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(pack, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgePack(pack);
     return;
   }
 
