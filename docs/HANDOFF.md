@@ -8824,3 +8824,27 @@ Known validation:
 Remaining risks:
 
 - The report is not yet wired to a CLI command or contract parser.
+
+## 2026-05-05 Planner Provider Catalog Contract Slice
+
+Files added or updated:
+
+- `src/cli/planner-provider-catalog-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a fail-closed parser for the agent-facing planner provider catalog JSON
+  report.
+- Validate read-only posture, live-check posture, provider/count consistency,
+  supported capability literals, and supported CLI/env hint strings.
+- Keep downstream agents from trusting malformed catalog payloads.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner provider catalog contract" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- CLI dispatch and human text output are still pending.

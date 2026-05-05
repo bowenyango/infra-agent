@@ -42,6 +42,7 @@ import {
 import { buildLLMClientConfigOverrides, main, parseArgs, readPackageVersion } from '../src/cli/main.ts';
 import { buildDoctorReport } from '../src/cli/doctor.ts';
 import { buildPlannerProviderCatalogReport } from '../src/cli/planner-provider-catalog.ts';
+import { parsePlannerProviderCatalogReport } from '../src/cli/planner-provider-catalog-contract.ts';
 import {
   exitCodeForAgentOutcome,
   exitCodeForRunPreflight,
@@ -14049,6 +14050,78 @@ test('planner provider catalog report exposes read-only adapter metadata', () =>
     }
   });
   assert.doesNotMatch(JSON.stringify(report), /apiKeyValue|authorization|bearer|secret/i);
+});
+
+test('planner provider catalog contract validates read-only provider metadata', () => {
+  const report = buildPlannerProviderCatalogReport();
+
+  assert.equal(parsePlannerProviderCatalogReport(report).kind, 'infra-agent.planner-provider-catalog');
+  assert.throws(
+    () => parsePlannerProviderCatalogReport({
+      ...report,
+      mutationAllowed: true
+    }),
+    /mutationAllowed/
+  );
+  assert.throws(
+    () => parsePlannerProviderCatalogReport({
+      ...report,
+      liveProviderCheck: true
+    }),
+    /liveProviderCheck/
+  );
+  assert.throws(
+    () => parsePlannerProviderCatalogReport({
+      ...report,
+      summary: {
+        ...report.summary,
+        providerCount: 2
+      }
+    }),
+    /providerCount/
+  );
+  assert.throws(
+    () => parsePlannerProviderCatalogReport({
+      ...report,
+      providers: [
+        {
+          ...report.providers[0],
+          id: 'anthropic'
+        }
+      ]
+    }),
+    /providers\[0\]\.id/
+  );
+  assert.throws(
+    () => parsePlannerProviderCatalogReport({
+      ...report,
+      providers: [
+        {
+          ...report.providers[0],
+          capabilities: {
+            ...report.providers[0].capabilities,
+            supportsStreaming: true
+          }
+        }
+      ]
+    }),
+    /supportsStreaming/
+  );
+  assert.throws(
+    () => parsePlannerProviderCatalogReport({
+      ...report,
+      providers: [
+        {
+          ...report.providers[0],
+          cliFlags: {
+            ...report.providers[0].cliFlags,
+            model: ['--model <name>']
+          }
+        }
+      ]
+    }),
+    /cliFlags\.model/
+  );
 });
 
 test('OpenAI-compatible provider adapter builds JSON chat completion requests', () => {
