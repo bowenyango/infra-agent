@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Additional Scope Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `approval.resume.additionalWriteRisks`,
+  `approval.resume.additionalWritePaths`, and
+  `approval.resume.additionalToolCategories`.
+- Keep the primary continuation scope separate from remaining approval scope
+  aggregates.
+- Cover single-signal and multi-signal generated compact output.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|tool category approval continuation|approval signals beyond" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Additional Signal Count Contract Slice
 
 Files added or updated:

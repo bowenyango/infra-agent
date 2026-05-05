@@ -525,6 +525,9 @@ export interface CompactAgentRunResult {
       command: string | null;
       primarySignal: CompactApprovalSignal | null;
       additionalSignalCount: number;
+      additionalWriteRisks: string[];
+      additionalWritePaths: string[];
+      additionalToolCategories: string[];
       writeRisks: string[];
       writePaths: string[];
       toolCategories: string[];
@@ -2603,16 +2606,26 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
   const writeRisks = new Set<string>();
   const writePaths = new Set<string>();
   const toolCategories = new Set<string>();
+  const additionalWriteRisks = new Set<string>();
+  const additionalWritePaths = new Set<string>();
+  const additionalToolCategories = new Set<string>();
 
-  for (const signal of state.runtime.approvalSignals) {
+  for (const [index, signal] of state.runtime.approvalSignals.entries()) {
     if (signal.kind === 'write-approval-required') {
       writeRisks.add(signal.risk);
       writePaths.add(signal.path);
+      if (index > 0) {
+        additionalWriteRisks.add(signal.risk);
+        additionalWritePaths.add(signal.path);
+      }
       continue;
     }
 
     if (signal.kind === 'tool-category-approval-required') {
       toolCategories.add(signal.toolCategory);
+      if (index > 0) {
+        additionalToolCategories.add(signal.toolCategory);
+      }
     }
   }
 
@@ -2637,6 +2650,9 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
     command,
     primarySignal: topApprovalSignal ? compactApprovalSignal(topApprovalSignal) : null,
     additionalSignalCount: Math.max(0, state.runtime.approvalSignals.length - (topApprovalSignal ? 1 : 0)),
+    additionalWriteRisks: Array.from(additionalWriteRisks),
+    additionalWritePaths: Array.from(additionalWritePaths),
+    additionalToolCategories: Array.from(additionalToolCategories),
     writeRisks: Array.from(writeRisks),
     writePaths: Array.from(writePaths),
     toolCategories: Array.from(toolCategories),

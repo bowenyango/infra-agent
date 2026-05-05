@@ -13981,6 +13981,9 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
     toolCategory: null
   });
   assert.equal(compact.approval.resume.additionalSignalCount, 0);
+  assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
+  assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
+  assert.deepEqual(compact.approval.resume.additionalToolCategories, []);
   assert.deepEqual(compact.approval.resume.writeRisks, ['high']);
   assert.deepEqual(compact.approval.resume.writePaths, ['charts/payments-api/values.yaml']);
   assert.deepEqual(compact.approval.resume.toolCategories, []);
@@ -14068,6 +14071,9 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
     toolCategory: 'native-stack-config-write'
   });
   assert.equal(compact.approval.resume.additionalSignalCount, 0);
+  assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
+  assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
+  assert.deepEqual(compact.approval.resume.additionalToolCategories, []);
   assert.deepEqual(compact.approval.resume.writeRisks, []);
   assert.deepEqual(compact.approval.resume.writePaths, []);
   assert.deepEqual(compact.approval.resume.toolCategories, ['native-stack-config-write']);
@@ -14132,6 +14138,9 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
 
   assert.equal(compact.approval.resume.signalCount, 2);
   assert.equal(compact.approval.resume.additionalSignalCount, 1);
+  assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
+  assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
+  assert.deepEqual(compact.approval.resume.additionalToolCategories, ['native-stack-config-write']);
   assert.equal(compact.approval.resume.primarySignal?.kind, 'write-approval-required');
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
   assert.throws(
