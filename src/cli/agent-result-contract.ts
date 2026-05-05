@@ -3209,6 +3209,22 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input approval.resume.additionalToolCategories must use supported tool categories when present.');
       }
 
+      if (!isRecord(value.approval.resume.pendingScope)) {
+        throw new Error('compact result input approval.resume.pendingScope must be an object.');
+      }
+
+      for (const field of [
+        'signalCount',
+        'includedSignalCount',
+        'omittedSignalCount',
+        'additionalSignalCount',
+        'writeRiskCount',
+        'writePathCount',
+        'toolCategoryCount'
+      ]) {
+        assertIntegerField(value.approval.resume.pendingScope, field, 'approval.resume.pendingScope', isNonNegativeInteger, 'a non-negative integer');
+      }
+
       if (!isArrayOf(value.approval.resume.writeRisks, isKnownFileWriteRisk)) {
         throw new Error('compact result input approval.resume.writeRisks must use supported write risks when present.');
       }
@@ -3419,6 +3435,37 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       const expectedAdditionalSignalCount = Math.max(0, (value.approval.resume.signalCount as number) - (primaryApprovalSignal ? 1 : 0));
       if (value.approval.resume.additionalSignalCount !== expectedAdditionalSignalCount) {
         throw new Error('compact result input approval.resume.additionalSignalCount must match signalCount minus the primary signal.');
+      }
+
+      if (value.approval.resume.pendingScope.signalCount !== value.approval.resume.signalCount) {
+        throw new Error('compact result input approval.resume.pendingScope.signalCount must match approval.resume.signalCount.');
+      }
+
+      if (value.approval.resume.pendingScope.includedSignalCount !== value.approval.signals.length) {
+        throw new Error('compact result input approval.resume.pendingScope.includedSignalCount must match included approval signals.');
+      }
+
+      if (
+        value.approval.resume.pendingScope.omittedSignalCount
+        !== Math.max(0, (value.approval.resume.signalCount as number) - value.approval.signals.length)
+      ) {
+        throw new Error('compact result input approval.resume.pendingScope.omittedSignalCount must match omitted approval signals.');
+      }
+
+      if (value.approval.resume.pendingScope.additionalSignalCount !== value.approval.resume.additionalSignalCount) {
+        throw new Error('compact result input approval.resume.pendingScope.additionalSignalCount must match approval.resume.additionalSignalCount.');
+      }
+
+      if (value.approval.resume.pendingScope.writeRiskCount !== new Set(value.approval.resume.writeRisks).size) {
+        throw new Error('compact result input approval.resume.pendingScope.writeRiskCount must match approval.resume.writeRisks.');
+      }
+
+      if (value.approval.resume.pendingScope.writePathCount !== new Set(value.approval.resume.writePaths).size) {
+        throw new Error('compact result input approval.resume.pendingScope.writePathCount must match approval.resume.writePaths.');
+      }
+
+      if (value.approval.resume.pendingScope.toolCategoryCount !== new Set(value.approval.resume.toolCategories).size) {
+        throw new Error('compact result input approval.resume.pendingScope.toolCategoryCount must match approval.resume.toolCategories.');
       }
 
       if (

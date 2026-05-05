@@ -195,6 +195,15 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         additionalWriteRisks: [],
         additionalWritePaths: [],
         additionalToolCategories: [],
+        pendingScope: {
+          signalCount: 0,
+          includedSignalCount: 0,
+          omittedSignalCount: 0,
+          additionalSignalCount: 0,
+          writeRiskCount: 0,
+          writePathCount: 0,
+          toolCategoryCount: 0
+        },
         writeRisks: [],
         writePaths: [],
         toolCategories: [],

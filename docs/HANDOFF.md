@@ -2,6 +2,30 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Pending Scope Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require `approval.resume.pendingScope` in compact parser input.
+- Validate pending-scope count fields and cross-check them against
+  `approval.signals`, `approval.resume.signalCount`,
+  `approval.resume.additionalSignalCount`, and aggregate pending scope arrays.
+- Update hand-authored compact fixtures for report-loader and contract tests.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|approval signals beyond|report CLI commands emit read-only JSON|identity-report loader renders compact conflict reports" ./test/cli-smoke.test.mjs`
+- `npm run smoke`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Pending Scope Output Slice
 
 Files added or updated:

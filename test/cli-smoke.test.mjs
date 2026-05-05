@@ -160,6 +160,18 @@ function buildEmptyApprovalGrantsFixture() {
   };
 }
 
+function buildEmptyApprovalPendingScopeFixture() {
+  return {
+    signalCount: 0,
+    includedSignalCount: 0,
+    omittedSignalCount: 0,
+    additionalSignalCount: 0,
+    writeRiskCount: 0,
+    writePathCount: 0,
+    toolCategoryCount: 0
+  };
+}
+
 function buildGraphSnapshotBaseGraph() {
   const nodes = [
     {
@@ -6861,6 +6873,7 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           additionalWriteRisks: [],
           additionalWritePaths: [],
           additionalToolCategories: [],
+          pendingScope: buildEmptyApprovalPendingScopeFixture(),
           writeRisks: [],
           writePaths: [],
           toolCategories: [],
@@ -8983,6 +8996,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         additionalWriteRisks: [],
         additionalWritePaths: [],
         additionalToolCategories: [],
+        pendingScope: buildEmptyApprovalPendingScopeFixture(),
         writeRisks: [],
         writePaths: [],
         toolCategories: [],
@@ -12109,6 +12123,36 @@ test('compact agent result contract validates shallow handoff shape and validati
     /approval\.resume\.compactCommand.*null/
   );
   assert.throws(
+    () => {
+      const { pendingScope, ...resumeWithoutPendingScope } = validResult.approval.resume;
+      void pendingScope;
+      return parseCompactAgentRunResult({
+        ...validResult,
+        approval: {
+          ...validResult.approval,
+          resume: resumeWithoutPendingScope
+        }
+      });
+    },
+    /approval\.resume\.pendingScope/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        resume: {
+          ...validResult.approval.resume,
+          pendingScope: {
+            ...validResult.approval.resume.pendingScope,
+            signalCount: 1
+          }
+        }
+      }
+    }),
+    /approval\.resume\.pendingScope\.signalCount/
+  );
+  assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
       approval: {
@@ -12836,6 +12880,7 @@ test('identity-report loader renders compact conflict reports from a JSON file',
           additionalWriteRisks: [],
           additionalWritePaths: [],
           additionalToolCategories: [],
+          pendingScope: buildEmptyApprovalPendingScopeFixture(),
           writeRisks: [],
           writePaths: [],
           toolCategories: [],
