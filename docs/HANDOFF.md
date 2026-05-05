@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Work Plan No-Safe-Action Status Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Make `harness.workPlan.status` prefer terminal outcome and active blocker
+  posture before falling back to no-progress `not-started`.
+- Cover a no-safe-action run with no tool progress so compact output remains
+  consistent with parser-enforced blocker semantics.
+- Keep `not-started` reserved for runs with no progress and no active blocker.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact work plan maps" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Agent CLI Work Plan JSON Slice
 
 Files added or updated:

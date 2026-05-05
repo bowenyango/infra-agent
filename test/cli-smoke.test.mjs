@@ -5683,6 +5683,14 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
     step.kind === 'handoff'
     && step.status === 'completed'
   ));
+
+  const noSafeCompact = buildCompactAgentRunResult(makeState({
+    outcome: 'no-safe-action'
+  }));
+  assert.equal(noSafeCompact.harness.workPlan.status, 'blocked');
+  assert.equal(noSafeCompact.harness.workPlan.blockerKind, 'no-safe-action');
+  assert.equal(noSafeCompact.harness.workPlan.nextControlAction, 'inspect-readiness-or-targeting');
+  assert.equal(noSafeCompact.harness.workPlan.currentStepIndex, 5);
 });
 
 test('agent CLI compact JSON includes work plan handoff', async () => {

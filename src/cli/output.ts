@@ -1044,16 +1044,16 @@ function compactWorkPlanStatus(
     || state.runtime.validationResults.length > 0
     || state.runtime.approvalSignals.length > 0;
 
-  if (!hasProgress) {
-    return 'not-started';
-  }
-
   if (state.outcome === 'completed') {
     return 'completed';
   }
 
   if (blockerKind !== 'none') {
     return 'blocked';
+  }
+
+  if (!hasProgress) {
+    return 'not-started';
   }
 
   return 'in-progress';
