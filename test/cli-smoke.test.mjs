@@ -11670,6 +11670,32 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        summary: {
+          ...validResult.handoffCheckpoint.summary,
+          approvalContinuationRequired: true
+        },
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
+          approvalRequired: true,
+          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace"'
+        }
+      },
+      approval: {
+        ...validResult.approval,
+        resume: {
+          ...validResult.approval.resume,
+          continuationRequired: true,
+          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace"'
+        }
+      }
+    }),
+    /approval\.resume\.continuationRequired must match root\.outcome/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
       approval: {
         ...validResult.approval,
         signals: [

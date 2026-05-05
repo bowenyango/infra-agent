@@ -2926,6 +2926,23 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input approval.resume.command must be null when continuationRequired is false.');
       }
 
+      if (value.approval.resume.continuationRequired !== (value.outcome === 'approval-required')) {
+        throw new Error('compact result input approval.resume.continuationRequired must match root.outcome.');
+      }
+
+      if (
+        value.approval.resume.continuationRequired
+        && (
+          !isRecord(value.harness)
+          || !isRecord(value.harness.plannerHandoff)
+          || !isRecord(value.harness.plannerHandoff.activeBlocker)
+          || value.harness.plannerHandoff.activeBlocker.kind !== 'approval'
+          || value.harness.plannerHandoff.nextControlAction !== 'request-approval'
+        )
+      ) {
+        throw new Error('compact result input approval.resume continuation must match approval planner handoff.');
+      }
+
       if (
         Array.isArray(value.approval.signals)
         && (value.approval.resume.signalCount as number) < value.approval.signals.length
