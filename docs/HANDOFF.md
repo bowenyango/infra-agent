@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Additional Approval Command Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `approval.resume.additionalCommands` for non-primary approval signals.
+- Keep each additional command scoped to one signal instead of combining
+  separate approval scopes by default.
+- Include human, compact JSON, and debug JSON command variants for each
+  additional signal.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval signals beyond|approval continuation flags|tool category approval continuation" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Grant CLI JSON Slice
 
 Files added or updated:

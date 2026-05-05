@@ -14450,7 +14450,9 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
         ...compact.approval,
         resume: {
           ...compact.approval.resume,
-          command: compact.approval.resume.command?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null
+          command: compact.approval.resume.command?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null,
+          compactCommand: compact.approval.resume.compactCommand?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null,
+          debugCommand: compact.approval.resume.debugCommand?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null
         }
       }
     }),
@@ -14493,6 +14495,11 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
 
   assert.equal(compact.approval.resume.signalCount, 2);
   assert.equal(compact.approval.resume.additionalSignalCount, 1);
+  assert.equal(compact.approval.resume.additionalCommands.length, 1);
+  assert.equal(compact.approval.resume.additionalCommands[0]?.signal.kind, 'tool-category-approval-required');
+  assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--approve-tool-category native-stack-config-write'));
+  assert.equal(compact.approval.resume.additionalCommands[0]?.compactCommand, `${compact.approval.resume.additionalCommands[0]?.command} --json`);
+  assert.equal(compact.approval.resume.additionalCommands[0]?.debugCommand, `${compact.approval.resume.additionalCommands[0]?.command} --json-full`);
   assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
   assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
   assert.deepEqual(compact.approval.resume.additionalToolCategories, ['native-stack-config-write']);
