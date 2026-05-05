@@ -9116,6 +9116,36 @@ Remaining risks:
 - Durable docs and skill guidance still need to mention the new readiness
   discovery field.
 
+## 2026-05-05 Planner Catalog Discovery Docs Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document `readiness.plannerProviderCatalog` as the compact handoff pointer to
+  the static planner provider catalog.
+- Tell downstream agents to read the compact discovery object before running
+  `infra-agent planner-providers --json` when an agent result already exists.
+- Preserve the no-live-check, read-only, no-credentials boundary across README,
+  rules, architecture notes, and packaged skill guidance.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes only the installable CLI and skill surface" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Need a final secret-safety focused check and full verification before closing
+  this development round.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

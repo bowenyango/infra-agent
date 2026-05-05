@@ -6722,6 +6722,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
   const binContent = await readFile('bin/infra-agent.js', 'utf8');
   const readmeContent = await readFile('README.md', 'utf8');
+  const agentRulesContent = await readFile('docs/AGENT_RULES.md', 'utf8');
+  const claudePatternsContent = await readFile('docs/CLAUDE_CODE_AGENT_PATTERNS.md', 'utf8');
   const infraSkillContent = await readFile('skills/infra-configuration/SKILL.md', 'utf8');
   const infraSkillReferenceContent = await readFile(
     'skills/infra-configuration/references/context-validation-and-impact.md',
@@ -6750,6 +6752,12 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(readmeContent, /infra-agent planner-providers \[--json\]/);
   assert.match(readmeContent, /read-only text or\s+JSON report/);
   assert.match(readmeContent, /does not inspect a workspace/);
+  assert.match(readmeContent, /readiness\.plannerProviderCatalog/);
+  assert.match(readmeContent, /Read compact `readiness\.plannerProviderCatalog` first/);
+  assert.match(agentRulesContent, /readiness\.plannerProviderCatalog/);
+  assert.match(agentRulesContent, /liveProviderCheck=false/);
+  assert.match(agentRulesContent, /Doctor JSON may expose the same static\s+`plannerProviderCatalog` discovery object/);
+  assert.match(claudePatternsContent, /readiness\.plannerProviderCatalog/);
   assert.match(infraSkillContent, /handoffCheckpoint/);
   assert.match(infraSkillContent, /mutationAllowed=false/);
   assert.match(infraSkillContent, /harness\.plannerHandoff/);
@@ -6765,6 +6773,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /harness\.toolPermissionSummary/);
   assert.match(infraSkillContent, /readiness/);
   assert.match(infraSkillContent, /doctorCommand/);
+  assert.match(infraSkillContent, /readiness\.plannerProviderCatalog/);
+  assert.match(infraSkillContent, /read\s+`readiness\.plannerProviderCatalog` first/i);
   assert.match(infraSkillContent, /planner-providers --json/);
   assert.match(infraSkillContent, /static,\s+read-only LLM planner adapter catalog/);
   assert.match(infraSkillContent, /validation\.selectedPlan/);
@@ -6787,6 +6797,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /knowledgeContext/);
   assert.match(infraSkillContent, /references\/context-validation-and-impact\.md/);
   assert.match(infraSkillReferenceContent, /Compact Contract Checklist/);
+  assert.match(infraSkillReferenceContent, /readiness\.plannerProviderCatalog/);
+  assert.match(infraSkillReferenceContent, /prefer\s+`readiness\.plannerProviderCatalog`/i);
   assert.match(infraSkillReferenceContent, /planner-providers --json/);
   assert.match(infraSkillReferenceContent, /liveProviderCheck=false/);
   assert.match(infraSkillReferenceContent, /harness\.targeting/);

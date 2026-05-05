@@ -25,6 +25,10 @@ message is enough.
 - Use `infra-agent planner-providers --json` first when the caller only needs
   static LLM planner adapter capability metadata. This is read-only catalog
   data, not a live provider check or credential report.
+- If a compact agent result already exists, prefer
+  `readiness.plannerProviderCatalog` as the read-only discovery pointer before
+  running the catalog command. Run `infra-agent planner-providers --json` when
+  the pointer is absent or the full catalog report is needed.
 - The `--json` agent output is compact and uses kind
   `infra-agent.agent-result`.
 - Read `readiness` first for planner mode, workspace blocker status, selected
@@ -63,6 +67,10 @@ contract-checked by the parser:
 - `infra-agent.planner-provider-catalog` JSON, when used, must have
   `mutationAllowed=false` and `liveProviderCheck=false`; treat it as static
   adapter metadata only.
+- `readiness.plannerProviderCatalog` for the compact discovery pointer to the
+  static catalog command. Validate schema version, exact command,
+  `mutationAllowed=false`, `liveProviderCheck=false`, `plannerOnly=true`,
+  supported provider ids, and count consistency before using it for handoff.
 - `harness.toolTrace` and `harness.toolPermissionSummary` for permission
   posture before asking for raw tool output or native CLI reruns.
 - `readiness.doctorCommand` when readiness is warn or fail; this is read-only.

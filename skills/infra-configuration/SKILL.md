@@ -16,6 +16,9 @@ The installable package intentionally includes only the CLI runtime, skills,
 installation check before running repository-specific commands. Use
 `infra-agent planner-providers --json` when another agent needs the static,
 read-only LLM planner adapter catalog before choosing model or gateway flags.
+When a compact agent result is already available, read
+`readiness.plannerProviderCatalog` first and run the catalog command only if
+the full catalog is needed or the compact pointer is absent.
 Use `infra-agent doctor <workspace> --json` when another agent needs a
 structured, read-only readiness report before planning edits. Doctor output verifies the
 installed agent-facing surface and may report whether the LLM planner provider
@@ -69,9 +72,11 @@ credentials must still come from environment variables.
    `harness.plannerConfig` for requested/effective planner mode, non-secret
    provider/model/base URL source metadata, and
    `harness.plannerConfig.llm.capabilities` before assuming JSON response
-   support, structured output support, or streaming behavior,
-   or run `infra-agent planner-providers --json` when no agent result exists yet
-   and you only need the static adapter catalog.
+   support, structured output support, or streaming behavior. Read
+   `readiness.plannerProviderCatalog` when present to discover the static,
+   read-only catalog command, or run `infra-agent planner-providers --json`
+   when no agent result exists yet and you only need the static adapter
+   catalog.
    `harness.plannerHandoff` for the
    active blocker and next control action,
    `harness.turnTraceBudget` and
@@ -85,7 +90,10 @@ credentials must still come from environment variables.
    `readiness` for planner mode, workspace blocker status, selected validation
    plan status, and validator availability required by that selected plan before
    asking for a full doctor report. If readiness is warn or fail, run the
-   suggested read-only `doctorCommand` before asking for more raw logs. Read
+   suggested read-only `doctorCommand` before asking for more raw logs. Treat
+   `readiness.plannerProviderCatalog` as static discovery metadata only: it is
+   not a credential report, live provider check, or permission to change
+   planner configuration. Read
    `knowledgeCache` for the resolved cache root/source and `knowledgeContext`
    to see which retrieved docs or schemas were included or omitted by context
    budget; the human result card mirrors that packet, token, and omission

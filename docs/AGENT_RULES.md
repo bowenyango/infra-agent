@@ -163,7 +163,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   Treat its JSON as parser-validated contract data, not as configured,
   authenticated, reachable, or account-supported provider state. Do not expand
   its provider list unless the adapter registry and tests implement the
-  provider.
+  provider. Doctor JSON and compact `readiness.plannerProviderCatalog` may
+  expose a compact discovery pointer to this command; keep that pointer static,
+  read-only, planner-only, live-check disabled, and parser-validated.
 - Follow `docs/CLAUDE_CODE_AGENT_PATTERNS.md` when evolving the harness: prefer compact structured turn traces, tool summaries, and explicit permission/validation state over raw logs or full runtime snapshots in agent-facing output.
 - Validate compact `knowledgeContext` before using retrieved docs/schema
   context in handoff: positive packet/token/excerpt budgets, non-negative
@@ -257,11 +259,20 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `harness.queryConfig.maxRepairAttempts`, remaining-attempt arithmetic, and
   exhausted-state consistency before a downstream agent decides to retry or
   hand off manual repair.
-- Keep compact `agent --json` readiness targeted: include planner mode, workspace blocker status, selected validation-plan status, and validators required by that selected plan, plus a `doctorCommand` for fuller read-only checks. Do not include API keys or unrelated validator noise.
+- Keep compact `agent --json` readiness targeted: include planner mode,
+  workspace blocker status, selected validation-plan status, validators
+  required by that selected plan, a `doctorCommand` for fuller read-only
+  checks, and `plannerProviderCatalog` as a compact pointer to the static
+  planner adapter catalog. Do not include API keys or unrelated validator
+  noise.
 - Validate compact readiness as read-only status data: supported
   pass/warn/fail values, non-negative summary counts, check name/message/detail
   shapes, counts that match checks by status, and summary status derived from
-  check counts.
+  check counts. Validate `readiness.plannerProviderCatalog` as static
+  discovery metadata: schema version 1, `mutationAllowed=false`,
+  `liveProviderCheck=false`, `plannerOnly=true`, the exact
+  `infra-agent planner-providers --json` command, supported provider ids, and
+  count consistency.
 - Surface readiness posture in result cards, and include the read-only
   `doctorCommand` in suggested commands when readiness is warn or fail. Do not
   let this replace approval continuation commands when an approval gate is the
@@ -290,7 +301,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Keep `infra-agent doctor [workspace] --json` read-only. Use it for package,
   installed agent-facing surface, Node engine, LLM planner configuration,
   workspace inspection, validation plan, and external validator readiness checks
-  before deeper agent runs. Never expose API keys or secrets in doctor output.
+  before deeper agent runs. Doctor JSON may expose the same static
+  `plannerProviderCatalog` discovery object as compact readiness. Never expose
+  API keys or secrets in doctor output.
 - Treat `unsafe-validation-command` validation issues as hard safety blockers.
   The validation tool must block deploy, apply, state mutation, Helm release
   mutation, and Kubernetes mutation commands before spawning them. Remove the

@@ -43,7 +43,7 @@ durable design reference for infra-agent development.
 | Streamed compaction without raw tool output | Compact `agent --json` sections plus `handoffCheckpoint.exclusions`, `harness.turnTrace`, `harness.toolTrace`, `validation.commands`, `validation.issues`, and `knowledgeContext` |
 | Preserved current task and routing state | Root task/workspace metadata, `handoffCheckpoint.summary`, `handoffCheckpoint.continuation`, `harness.loopBudget`, `harness.repairBudget`, `harness.targeting`, `harness.workPlan`, `harness.plannerHandoff`, and CLI exit codes |
 | Permission logging before tool execution | `harness.toolTrace.permissionCategoryCounts`, `harness.toolPermissionSummary`, approval signals, and `approval.resume` |
-| Restoring durable context after compaction | `handoffCheckpoint.durableSections`, `handoffCheckpoint.budgets`, `readiness`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, and `knowledgeContext` |
+| Restoring durable context after compaction | `handoffCheckpoint.durableSections`, `handoffCheckpoint.budgets`, `readiness`, `readiness.plannerProviderCatalog`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, and `knowledgeContext` |
 | Skill base-directory references | Packaged `skills/infra-configuration/SKILL.md` with optional detailed references under `skills/infra-configuration/references/` |
 
 - `runQueryLoop` is the current session-owned harness. Keep adding durable state
@@ -218,7 +218,11 @@ durable design reference for infra-agent development.
   marketplace.
 - `planner-providers` is a read-only discovery/reporting surface for this
   adapter metadata. It can help downstream routing, but it must not become a
-  live reachability probe or a provider marketplace.
+  live reachability probe or a provider marketplace. Doctor JSON and compact
+  `readiness.plannerProviderCatalog` may expose only the catalog command,
+  static/read-only/live-check posture, counts, and supported provider ids so a
+  downstream agent can discover the full catalog without bloating handoff
+  payloads.
 
 ## Current Non-Goals
 

@@ -84,7 +84,9 @@ Current behavior is intentionally runtime-foundation oriented:
 
 - `doctor` reports package, installed agent-facing surface, Node engine,
   workspace inspection, validation plan, LLM planner configuration, and
-  Helm/Pulumi/Terraform executable readiness without mutating the workspace
+  Helm/Pulumi/Terraform executable readiness without mutating the workspace.
+  Its JSON also exposes `plannerProviderCatalog` as a compact pointer to the
+  static read-only planner adapter catalog.
 - `inspect` detects Helm charts, Pulumi projects, and Terraform roots
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
@@ -158,7 +160,9 @@ Current behavior is intentionally runtime-foundation oriented:
   is not a general provider platform or multi-agent runtime.
 - `planner-providers` emits the same adapter catalog as a read-only text or
   JSON report. It does not inspect a workspace, resolve environment values,
-  contact a model provider, or prove live reachability.
+  contact a model provider, or prove live reachability. Doctor JSON and compact
+  `readiness.plannerProviderCatalog` point to this command without embedding
+  the full catalog in every handoff payload.
 - LLM planner prompts include compact `runtimeIdentityConflictSummary` and
   `runtimeIdentityConflicts` when native validation reports provider-exclusive
   identity blockers. The summary carries total/included/omitted, engine, and
@@ -250,8 +254,10 @@ Current behavior is intentionally runtime-foundation oriented:
   `readiness` summarizes the planner mode, workspace blockers, selected
   validation plan, and only the validators required by that selected plan. It
   also includes a `doctorCommand` for a fuller read-only package/Node/tool
-  report. Compact consumers validate readiness status enums, summary counts,
-  check entry shapes, and status/count consistency before deriving handoff
+  report plus `plannerProviderCatalog`, a compact discovery pointer for the
+  static read-only LLM planner adapter catalog. Compact consumers validate
+  readiness status enums, summary counts, check entry shapes, status/count
+  consistency, and static catalog discovery posture before deriving handoff
   posture. `validation.selectedPlan` mirrors the selected validation targets and
   commands, including executed and failed command counts, so downstream agents
   can tell what validation was intended before raw tool output is requested.
@@ -454,10 +460,12 @@ by requests and compact handoff: provider id, transport, endpoint path,
 response format, JSON-object support, and streaming support. Unsupported
 providers fail closed at config resolution, and tests use injected transports
 instead of live provider calls.
-Use `infra-agent planner-providers --json` when another agent needs the static
-planner adapter catalog before choosing `--planner llm`, `--model`, or gateway
-flags. Use `infra-agent doctor --json` when it needs package/workspace
-readiness plus selected non-secret planner config posture.
+Read compact `readiness.plannerProviderCatalog` first when an agent result is
+already available. Use `infra-agent planner-providers --json` when another
+agent needs the full static planner adapter catalog before choosing
+`--planner llm`, `--model`, or gateway flags. Use `infra-agent doctor --json`
+when it needs package/workspace readiness plus selected non-secret planner
+config posture.
 
 Development verification commands:
 
