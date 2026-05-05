@@ -10720,6 +10720,19 @@ test('compact agent result contract validates shallow handoff shape and validati
         }
       }
     }),
+    /harness\.toolTrace\.maxEntries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          entries: undefined
+        }
+      }
+    }),
     /harness\.toolTrace\.entries/
   );
   assert.throws(
@@ -10728,6 +10741,20 @@ test('compact agent result contract validates shallow handoff shape and validati
       harness: {
         ...validResult.harness,
         toolTrace: {
+          ...validResult.harness.toolTrace,
+          permissionCategoryCounts: null
+        }
+      }
+    }),
+    /harness\.toolTrace\.permissionCategoryCounts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
           totalCount: '0',
           entries: []
         }

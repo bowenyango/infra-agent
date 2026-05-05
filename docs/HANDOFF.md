@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 ToolTrace Required Field Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require tool-trace budget fields instead of accepting partial optional
+  metadata.
+- Require `harness.toolTrace.entries` and
+  `harness.toolTrace.permissionCategoryCounts`.
+- Add negative parser coverage for missing entries and category count objects.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|capped tool trace tail window" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Capped ToolTrace Generator Test Slice
 
 Files added or updated:

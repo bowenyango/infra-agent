@@ -1568,33 +1568,30 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.toolTrace must be an object when harness is present.');
     }
 
-    if (
-      isRecord(value.harness.toolTrace)
-      && 'entries' in value.harness.toolTrace
-      && !Array.isArray(value.harness.toolTrace.entries)
-    ) {
-      throw new Error('compact result input harness.toolTrace.entries must be an array when present.');
-    }
-
     if (isRecord(value.harness.toolTrace)) {
       for (const field of ['maxEntries', 'totalCount', 'includedCount', 'omittedCount']) {
-        if (field in value.harness.toolTrace && !isNonNegativeInteger(value.harness.toolTrace[field])) {
-          throw new Error(`compact result input harness.toolTrace.${field} must be a non-negative integer when present.`);
-        }
+        assertIntegerField(value.harness.toolTrace, field, 'harness.toolTrace', isNonNegativeInteger, 'a non-negative integer');
       }
 
       for (const field of ['firstIncludedTurnIndex', 'lastIncludedTurnIndex', 'latestTurnIndex']) {
         if (
-          field in value.harness.toolTrace
-          && value.harness.toolTrace[field] !== null
+          value.harness.toolTrace[field] !== null
           && !isNonNegativeInteger(value.harness.toolTrace[field])
         ) {
-          throw new Error(`compact result input harness.toolTrace.${field} must be a non-negative integer or null when present.`);
+          throw new Error(`compact result input harness.toolTrace.${field} must be a non-negative integer or null.`);
         }
       }
 
       if (!isKnownToolTracePreservedWindow(value.harness.toolTrace.preservedWindow)) {
         throw new Error('compact result input harness.toolTrace.preservedWindow must be supported.');
+      }
+
+      if (!Array.isArray(value.harness.toolTrace.entries)) {
+        throw new Error('compact result input harness.toolTrace.entries must be an array.');
+      }
+
+      if (!isRecord(value.harness.toolTrace.permissionCategoryCounts)) {
+        throw new Error('compact result input harness.toolTrace.permissionCategoryCounts must be an object.');
       }
 
       if (
