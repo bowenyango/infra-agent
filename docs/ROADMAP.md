@@ -274,6 +274,10 @@ Status on 2026-04-28:
 - LLM planner mode selection and environment precedence are testable with
   explicit environment maps, avoiding process-wide environment mutation in unit
   tests.
+- Agent and doctor commands can now accept non-secret OpenAI-compatible planner
+  overrides for provider, model, and base URL. API keys remain env-only,
+  compact handoff records `harness.plannerConfig`, and approval continuation
+  commands preserve CLI-selected planner flags.
 - Claude Code harness design notes are persisted in
   `docs/CLAUDE_CODE_AGENT_PATTERNS.md`; compact agent output includes
   `harness.turnTrace` and `harness.toolTrace` for low-noise per-turn and

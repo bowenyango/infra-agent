@@ -8396,3 +8396,27 @@ Remaining risks:
 
 - Provider-specific compatibility beyond OpenAI-compatible chat completions is
   still intentionally out of scope.
+
+## 2026-05-05 Roadmap LLM Planner Override Status Slice
+
+Files added or updated:
+
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Record Phase 10 progress in the active roadmap: agent and doctor now accept
+  non-secret OpenAI-compatible planner overrides.
+- Capture env-only API key posture, compact `harness.plannerConfig`, and
+  planner-flag-preserving approval continuation commands as durable project
+  status.
+
+Known validation:
+
+- `git diff --check`: passed before commit.
+
+Remaining risks:
+
+- Additional provider adapters remain future work and should be added behind
+  the same parser, doctor, and compact handoff contracts.
