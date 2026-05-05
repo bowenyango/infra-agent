@@ -5352,7 +5352,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
       /Targeting: helm charts\/payments-api score=.*candidates .*; ambiguity none; next inspect-selected-target/i.test(line)
     ));
     assert.ok(compact.resultCard.some(line =>
-      /Work plan: blocked; current handoff\/blocked; completed 3\/6; blocked 1; next rerun-with-larger-turn-budget/i.test(line)
+      /Work plan: blocked; current handoff\/blocked; completed 3\/6; blocked 1; skipped 0; next rerun-with-larger-turn-budget/i.test(line)
     ));
     assert.equal(compact.harness.turnTraceLimit, 10);
     assert.equal(compact.harness.turnTraceOmittedCount, 0);
@@ -5782,7 +5782,7 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
     assert.equal(compact.harness.workPlan.nextControlAction, compact.harness.plannerHandoff.nextControlAction);
     assert.equal(compact.handoffCheckpoint.budgets.workPlan.includedCount, compact.harness.workPlan.includedCount);
     assert.equal(compact.handoffCheckpoint.budgets.workPlan.omittedCount, compact.harness.workPlan.omittedCount);
-    assert.ok(compact.resultCard.some(line => /Work plan: blocked; current handoff\/blocked/i.test(line)));
+    assert.ok(compact.resultCard.some(line => /Work plan: blocked; current handoff\/blocked; completed \d+\/6; blocked \d+; skipped \d+; next/i.test(line)));
     assert.equal(process.exitCode, INFRA_AGENT_EXIT_CODES.noSafeAction);
   } finally {
     process.exitCode = previousExitCode;

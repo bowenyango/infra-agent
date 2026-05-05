@@ -54,8 +54,8 @@ configured, but it must not expose API keys.
    Then read
    `harness.stateSummary` for runtime counts, `harness.targeting` for selected
    target, candidate score posture, ambiguity flags, and recommended targeting
-   action, `harness.workPlan` for derived progress steps/current step/next
-   control action, and `harness.turnTrace` for the bounded action flow. Read
+   action, `harness.workPlan` for derived progress steps, skipped-step count,
+   current step, and next control action, and `harness.turnTrace` for the bounded action flow. Read
    `harness.plannerHandoff` for the active blocker and next control action,
    `harness.turnTraceBudget` and
    `harness.lifecycleEvents` for capped lifecycle window/count metadata, and

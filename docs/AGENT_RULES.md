@@ -171,8 +171,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   action, active blocker, and next control action, but it must not include raw
   prompts, rationales, payloads, observations, or file contents.
 - Keep `harness.workPlan` derived and compact. It may expose progress steps,
-  status counts, current step, blocker kind, and next control action, but it
-  must not become a writable todo store or include raw runtime data.
+  status counts including `skippedStepCount`, current step, blocker kind, and
+  next control action, but it must not become a writable todo store or include
+  raw runtime data.
 - Keep `harness.targeting` derived and compact. It may expose selected target,
   candidate score posture, bounded candidate samples, ambiguity flags, and
   recommended targeting action, but it must not include raw preflight state or

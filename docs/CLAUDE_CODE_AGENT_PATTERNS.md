@@ -120,8 +120,9 @@ durable design reference for infra-agent development.
   TodoWrite/compaction idea of preserving current progress and next control
   point, but it is not a writable todo store and does not drive execution. It
   should expose bounded readiness, targeting, inspection, edit, validation, and
-  handoff steps with status counts, current-step routing, blocker metadata, and
-  `mutationAllowed=false`. Contract parsers should validate count arithmetic,
+  handoff steps with status counts including `skippedStepCount`,
+  current-step routing, blocker metadata, and `mutationAllowed=false`.
+  Contract parsers should validate count arithmetic,
   planner-handoff consistency, outcome/blocker status coherence, and blocker
   metadata placement before another agent routes on it.
 - `harness.plannerHandoff` is the compact routing surface. It should derive

@@ -67,8 +67,9 @@ contract-checked by the parser:
 - `handoffCheckpoint.continuation.command` must match `approval.resume.command`
   for approval-required runs; neither field grants approval by itself.
 - `harness.workPlan` is derived progress only. Treat its
-  `mutationAllowed=false`, step budgets, current step, blocker kind, and
-  next-control action as routing metadata; do not edit it as a todo list.
+  `mutationAllowed=false`, step budgets, `skippedStepCount`, current step,
+  blocker kind, and next-control action as routing metadata; do not edit it as
+  a todo list.
 - `harness.targeting` is derived targeting metadata only. Use its selected
   target, candidate budget, score gap, ambiguity flags, and recommended action
   before asking for raw preflight state or rescanning unrelated directories.

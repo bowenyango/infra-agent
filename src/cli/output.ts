@@ -845,7 +845,7 @@ function summarizeWorkPlan(state: AgentRunState): string {
     ? `current ${currentStep.kind}/${currentStep.status}`
     : 'no active step';
 
-  return `${workPlan.status}; ${current}; completed ${workPlan.completedStepCount}/${workPlan.totalStepCount}; blocked ${workPlan.blockedStepCount}; next ${workPlan.nextControlAction}`;
+  return `${workPlan.status}; ${current}; completed ${workPlan.completedStepCount}/${workPlan.totalStepCount}; blocked ${workPlan.blockedStepCount}; skipped ${workPlan.skippedStepCount}; next ${workPlan.nextControlAction}`;
 }
 
 function collectValidationDerivedSemanticBlockers(state: AgentRunState): ValidationDerivedSemanticBlocker[] {

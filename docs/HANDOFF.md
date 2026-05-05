@@ -2,6 +2,31 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 WorkPlan Skipped Count Result Card Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Surface `skippedStepCount` in human-readable result cards.
+- Update rules, Claude Code architecture notes, and the infra skill so handoff
+  consumers treat skipped work-plan steps as routing metadata.
+- Keep compact JSON, result-card prose, and downstream skill guidance aligned.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count|agent CLI compact JSON includes work plan|package metadata exposes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 WorkPlan Skipped Count Contract Slice
 
 Files added or updated:
