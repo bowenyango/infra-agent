@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Additional Signal Count Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require `approval.resume.additionalSignalCount` in compact parser input.
+- Validate that the count equals `signalCount` minus the primary signal when
+  one is present.
+- Add negative coverage for stale additional-signal accounting.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval signals beyond" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Additional Signal Count Output Slice
 
 Files added or updated:

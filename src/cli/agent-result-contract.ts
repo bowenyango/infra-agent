@@ -2972,6 +2972,8 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         assertCompactApprovalSignal(value.approval.resume.primarySignal, 'approval.resume.primarySignal');
       }
 
+      assertIntegerField(value.approval.resume, 'additionalSignalCount', 'approval.resume', isNonNegativeInteger, 'a non-negative integer');
+
       if (!isArrayOf(value.approval.resume.writeRisks, isKnownFileWriteRisk)) {
         throw new Error('compact result input approval.resume.writeRisks must use supported write risks when present.');
       }
@@ -3094,6 +3096,11 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         )
       ) {
         throw new Error('compact result input approval.resume.primarySignal must match the first included approval signal.');
+      }
+
+      const expectedAdditionalSignalCount = Math.max(0, (value.approval.resume.signalCount as number) - (primaryApprovalSignal ? 1 : 0));
+      if (value.approval.resume.additionalSignalCount !== expectedAdditionalSignalCount) {
+        throw new Error('compact result input approval.resume.additionalSignalCount must match signalCount minus the primary signal.');
       }
 
       if (

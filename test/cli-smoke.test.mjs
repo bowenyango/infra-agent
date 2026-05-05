@@ -8809,6 +8809,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         continuationRequired: false,
         command: null,
         primarySignal: null,
+        additionalSignalCount: 0,
         writeRisks: [],
         writePaths: [],
         toolCategories: [],
@@ -14133,6 +14134,19 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
   assert.equal(compact.approval.resume.additionalSignalCount, 1);
   assert.equal(compact.approval.resume.primarySignal?.kind, 'write-approval-required');
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          additionalSignalCount: 0
+        }
+      }
+    }),
+    /approval\.resume\.additionalSignalCount/
+  );
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
