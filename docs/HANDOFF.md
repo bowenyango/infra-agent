@@ -8750,3 +8750,27 @@ Remaining risks:
   but no provider-specific adapters exist yet.
 - Capability metadata is declarative readiness/handoff data; it does not make a
   live network call to prove model availability.
+
+## 2026-05-05 Provider Default Constants Slice
+
+Files added or updated:
+
+- `src/model/providers.ts`
+- `src/model/config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Move the default LLM model and OpenAI-compatible base URL into the provider
+  registry module before adding a public planner provider catalog.
+- Keep runtime config and future catalog output sourced from the same constants
+  instead of duplicating defaults in CLI/report code.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLM planner config resolves" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- The catalog command itself is not implemented yet.

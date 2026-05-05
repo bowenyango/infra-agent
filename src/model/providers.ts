@@ -2,6 +2,9 @@ export type LLMProvider = 'openai-compatible';
 export type LLMProviderTransport = 'chat-completions';
 export type LLMProviderResponseFormat = 'json-object';
 
+export const DEFAULT_LLM_MODEL = 'gpt-5-mini';
+export const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = 'https://api.openai.com/v1';
+
 export interface LLMProviderCapabilities {
   provider: LLMProvider;
   transport: LLMProviderTransport;

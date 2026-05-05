@@ -1,4 +1,9 @@
-import { resolveLLMProviderCapabilities, type LLMProviderCapabilities } from './providers.ts';
+import {
+  DEFAULT_LLM_MODEL,
+  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+  resolveLLMProviderCapabilities,
+  type LLMProviderCapabilities
+} from './providers.ts';
 
 export type PlannerMode = 'auto' | 'llm' | 'rule-based';
 export type { LLMProvider } from './providers.ts';
@@ -37,7 +42,7 @@ function normalizeProvider(value: LLMProvider | string | undefined): LLMProvider
 function normalizeBaseUrl(value: string | undefined): string {
   const trimmed = value?.trim();
   if (!trimmed) {
-    return 'https://api.openai.com/v1';
+    return DEFAULT_OPENAI_COMPATIBLE_BASE_URL;
   }
 
   let parsed: URL;
@@ -76,7 +81,7 @@ export function resolveLLMClientConfig(
     : env.INFRA_AGENT_LLM_PROVIDER?.trim()
       ? 'env'
       : 'default';
-  const model = overrides.model?.trim() || env.INFRA_AGENT_MODEL?.trim() || 'gpt-5-mini';
+  const model = overrides.model?.trim() || env.INFRA_AGENT_MODEL?.trim() || DEFAULT_LLM_MODEL;
   const modelSource = overrides.model?.trim()
     ? 'cli'
     : env.INFRA_AGENT_MODEL?.trim()

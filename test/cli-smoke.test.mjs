@@ -16,7 +16,11 @@ import { LLMModelClient } from '../src/model/LLMModelClient.ts';
 import { createModelClient, createModelClientSelection } from '../src/model/create-model-client.ts';
 import { resolveLLMClientConfig } from '../src/model/config.ts';
 import { createLLMProviderAdapter } from '../src/model/provider-adapter.ts';
-import { resolveLLMProviderCapabilities } from '../src/model/providers.ts';
+import {
+  DEFAULT_LLM_MODEL,
+  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+  resolveLLMProviderCapabilities
+} from '../src/model/providers.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
@@ -13915,9 +13919,9 @@ test('LLM planner config resolves explicit env maps without mutating process env
 
   assert.equal(fallbackConfig?.apiKey, 'openai-key');
   assert.equal(fallbackConfig?.apiKeySource, 'OPENAI_API_KEY');
-  assert.equal(fallbackConfig?.baseUrl, 'https://api.openai.com/v1');
+  assert.equal(fallbackConfig?.baseUrl, DEFAULT_OPENAI_COMPATIBLE_BASE_URL);
   assert.equal(fallbackConfig?.baseUrlSource, 'default');
-  assert.equal(fallbackConfig?.model, 'gpt-5-mini');
+  assert.equal(fallbackConfig?.model, DEFAULT_LLM_MODEL);
   assert.equal(fallbackConfig?.modelSource, 'default');
 });
 
