@@ -6618,6 +6618,7 @@ test('doctor command reports install and workspace readiness', async () => {
   assert.equal(report.schemaVersion, 1);
   assert.equal(report.version, await readPackageVersion());
   assert.ok(report.workspaceRoot.endsWith('fixtures/sample-workspace'));
+  assert.deepEqual(report.plannerProviderCatalog, buildPlannerProviderCatalogDiscovery());
   assert.ok(report.checks.some(check => check.name === 'package' && check.status === 'pass'));
   assert.ok(report.checks.some(check =>
     check.name === 'agent-surface'
@@ -6651,6 +6652,7 @@ test('doctor command reports configured LLM planner without exposing secrets', a
     'provider=openai-compatible, model=doctor-test-model, baseUrl=https://planner.example.test/v1, transport=chat-completions, responseFormat=json-object, streaming=disabled'
   );
   assert.doesNotMatch(JSON.stringify(report), /secret-value/);
+  assert.doesNotMatch(JSON.stringify(report), /authorization|bearer/i);
 });
 
 test('doctor command accepts read-only LLM planner overrides', async () => {

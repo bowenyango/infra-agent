@@ -9063,3 +9063,28 @@ Known validation:
 Remaining risks:
 
 - Doctor and compact readiness do not yet include the discovery object.
+
+## 2026-05-05 Doctor Planner Provider Catalog Discovery Slice
+
+Files added or updated:
+
+- `src/cli/doctor.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add top-level `plannerProviderCatalog` discovery metadata to the read-only
+  doctor report.
+- Point operators and downstream agents at `infra-agent planner-providers
+  --json` without embedding the full catalog or performing live provider
+  checks.
+- Preserve doctor secret-safety assertions.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "doctor command" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact readiness does not yet include the discovery object.

@@ -5,6 +5,7 @@ import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { resolveLLMClientConfig, type LLMClientConfigOverrides, type LLMConfigEnvironment } from '../model/config.ts';
 import { buildValidationPreflight, buildValidatorAvailability } from '../validators/preflight.ts';
 import { readPackageMetadata, type InfraAgentPackageMetadata } from './package-metadata.ts';
+import { buildPlannerProviderCatalogDiscovery, type PlannerProviderCatalogDiscovery } from './planner-provider-catalog.ts';
 
 export type DoctorCheckStatus = 'pass' | 'warn' | 'fail';
 
@@ -24,6 +25,7 @@ export interface DoctorReport {
     required: string | null;
   };
   workspaceRoot: string;
+  plannerProviderCatalog: PlannerProviderCatalogDiscovery;
   summary: {
     status: DoctorCheckStatus;
     passCount: number;
@@ -234,6 +236,7 @@ export async function buildDoctorReport(
       required: packageMetadata.nodeEngine
     },
     workspaceRoot,
+    plannerProviderCatalog: buildPlannerProviderCatalogDiscovery(),
     summary: summarizeChecks(checks),
     checks
   };
