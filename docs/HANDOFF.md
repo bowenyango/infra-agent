@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Result Card Work Plan Summary Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Mirror compact `harness.workPlan` posture in result cards for human
+  operators.
+- Show the current step, completed-step count, blocked-step count, and next
+  control action without exposing raw runtime state.
+- Keep terminal output aligned with the machine-readable compact handoff.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Handoff Work Plan Budget Slice
 
 Files added or updated:

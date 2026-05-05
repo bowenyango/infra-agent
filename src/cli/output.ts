@@ -780,6 +780,18 @@ function summarizeValidationBlockers(state: AgentRunState): string {
   return `${summary.totalCount} issue(s); ${summary.repairableCount} repairable, ${summary.nonRepairableCount} non-repairable${topSummary}${omittedSummary}`;
 }
 
+function summarizeWorkPlan(state: AgentRunState): string {
+  const workPlan = collectWorkPlan(state);
+  const currentStep = workPlan.currentStepIndex === null
+    ? null
+    : workPlan.steps.find(step => step.index === workPlan.currentStepIndex) ?? null;
+  const current = currentStep
+    ? `current ${currentStep.kind}/${currentStep.status}`
+    : 'no active step';
+
+  return `${workPlan.status}; ${current}; completed ${workPlan.completedStepCount}/${workPlan.totalStepCount}; blocked ${workPlan.blockedStepCount}; next ${workPlan.nextControlAction}`;
+}
+
 function collectValidationDerivedSemanticBlockers(state: AgentRunState): ValidationDerivedSemanticBlocker[] {
   return getRuntimeConfigSemantics(state.runtime)
     .flatMap(summary => summary.facts.map(fact => ({
@@ -2155,6 +2167,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Review artifacts: ${summarizeReviewArtifacts(state)}`);
   lines.push(`Review command: ${summarizeReviewCommand(state)}`);
   lines.push(`Next operator step: ${summarizeNextOperatorStep(state)}`);
+  lines.push(`Work plan: ${summarizeWorkPlan(state)}`);
   lines.push(`Tool trace: ${summarizeToolTrace(state)}`);
   lines.push(`Permission posture: ${summarizePermissionPosture(state)}`);
   lines.push(`Changed files: ${changedPaths.length === 0 ? 'none' : changedPaths.slice(0, 3).join(', ')}${changedPaths.length > 3 ? ` (+${changedPaths.length - 3} more)` : ''}`);
