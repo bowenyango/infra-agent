@@ -14797,6 +14797,9 @@ test('buildCompactAgentRunResult exposes explicit approval grants', async () => 
   assert.ok(compact.resultCard.some(line =>
     /Approval grants: write risks high; write paths charts\/payments-api; tool categories native-stack-config-write; write path scope scoped/i.test(line)
   ));
+  assert.ok(compact.suggestedCommands.some(command =>
+    /agent .*--approve-write-risk high .*--approve-write-path "charts\/payments-api" .*--approve-tool-category native-stack-config-write .*--json/.test(command)
+  ));
 });
 
 test('buildCompactAgentRunResult preserves approval grants in continuation commands', async () => {
@@ -14885,6 +14888,37 @@ test('summarizeSuggestedCommands includes review and export commands for complet
 
   assert.ok(commands.some(command => /helm show values "charts\/payments-api"/.test(command)));
   assert.ok(commands.some(command => /agent "add ingress to payments-api dev chart".*--json/.test(command)));
+});
+
+test('summarizeSuggestedCommands preserves approval grants in rerun commands', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
+    approvedWriteRisks: ['high'],
+    approvedWritePaths: ['charts/payments-api'],
+    approvedToolCategories: ['native-stack-config-write']
+  });
+  const commands = summarizeSuggestedCommands({
+    modelName: 'test-model',
+    outcome: 'no-safe-action',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [],
+    config: resolveQueryLoopConfig()
+  });
+
+  const rerunCommand = commands.find(command => / run /.test(command));
+  assert.match(rerunCommand ?? '', /--approve-write-risk high/);
+  assert.match(rerunCommand ?? '', /--approve-write-path "charts\/payments-api"/);
+  assert.match(rerunCommand ?? '', /--approve-tool-category native-stack-config-write/);
 });
 
 test('summarizeRecommendedNextSteps surfaces Terraform validation guidance for blocked runs', async () => {

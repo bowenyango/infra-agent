@@ -2695,6 +2695,10 @@ function buildApprovalSignalFlagParts(signal: ApprovalSignal | null): string[] {
   return [];
 }
 
+function buildFlagSegment(flagParts: string[]): string {
+  return flagParts.length > 0 ? ` ${flagParts.join(' ')}` : '';
+}
+
 function buildTaskFlag(task: string): string {
   return shellQuote(task);
 }
@@ -2727,7 +2731,7 @@ function buildApprovalContinuationCommandForSignal(
     ...buildApprovalGrantFlagParts(state),
     ...buildApprovalSignalFlagParts(signal)
   ]));
-  const approvalFlagSegment = approvalFlags.length > 0 ? ` ${approvalFlags.join(' ')}` : '';
+  const approvalFlagSegment = buildFlagSegment(approvalFlags);
   const outputFlag = outputMode === 'compact-json'
     ? ' --json'
     : outputMode === 'debug-json'
@@ -3018,8 +3022,9 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   const primaryDomain = getPrimaryRequestedDomain(state.preflight.requestedDomains);
   const domainValidateCommand = `${base} validate ${workspaceArg}`;
   const domainInspectCommand = `${base} inspect ${workspaceArg}`;
-  const rerunCommand = `${base} run ${taskFlag} ${workspaceFlag}`;
-  const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag} --json`;
+  const approvalGrantFlagSegment = buildFlagSegment(buildApprovalGrantFlagParts(state));
+  const rerunCommand = `${base} run ${taskFlag} ${workspaceFlag}${approvalGrantFlagSegment}`;
+  const agentJsonCommand = `${base} agent ${taskFlag} ${workspaceFlag}${approvalGrantFlagSegment} --json`;
   const domainNativeCommands = summarizeDomainSuggestedCommands(state);
   const identityReportCommands = summarizeIdentityReportSuggestedCommands(state, agentJsonCommand, base);
   const reviewCommand = summarizeReviewCommand(state);

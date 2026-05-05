@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Grant Suggested Command Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Preserve explicit approval grants in suggested `run` retry commands.
+- Preserve explicit approval grants in suggested `agent --json` export/rerun
+  commands.
+- Keep suggested commands aligned with the approval grant audit data already
+  present in compact output.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "explicit approval grants|preserves approval grants in rerun|review and export commands|compact JSON preserves explicit approval grants" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Grant Continuation Output Slice
 
 Files added or updated:
