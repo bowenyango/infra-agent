@@ -6495,10 +6495,13 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillReferenceContent, /Compact Contract Checklist/);
   assert.match(infraSkillReferenceContent, /harness\.targeting/);
   assert.match(infraSkillReferenceContent, /harness\.workPlan/);
+  assert.match(infraSkillReferenceContent, /harness\.toolTrace/);
+  assert.match(infraSkillReferenceContent, /tail/);
   assert.match(infraSkillReferenceContent, /handoffCheckpoint\.continuation\.command/);
   assert.match(infraSkillReferenceContent, /raw-content exclusions/);
   assert.match(infraSkillReferenceContent, /validation\.identityConflictSummary/);
   assert.match(infraSkillReferenceContent, /approval\.resume/);
+  assert.match(infraSkillReferenceContent, /primary signal/);
 });
 
 test('prefetch CLI args accept bounded source selection flags', () => {

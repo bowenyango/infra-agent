@@ -214,12 +214,13 @@ Current behavior is intentionally runtime-foundation oriented:
   validate supported lifecycle event names, event entry fields, count and
   `maxEntries` consistency, event-kind count totals, and outcome metadata before
   deriving reports.
-  `harness.toolTrace` is a budgeted list of recent deterministic tool summaries
-  plus total, included, omitted, latest-turn, and permission-category counts, so
-  downstream agents can inspect execution evidence and permission posture
-  without loading raw tool output. Compact consumers validate tool trace entry
-  shapes, supported safety and permission categories, boolean mutation flags,
-  entry counts, and permission-category totals.
+  `harness.toolTrace` is a budgeted tail window of recent deterministic tool
+  summaries plus total, included, omitted, first/last included turn indexes,
+  latest-turn, and permission-category counts, so downstream agents can inspect
+  execution evidence and permission posture without loading raw tool output.
+  Compact consumers validate tool trace entry shapes, supported safety and
+  permission categories, boolean mutation flags, ascending turn indexes, entry
+  counts, boundary indexes, and permission-category totals.
   `harness.toolPermissionSummary` aggregates workspace mutations, native CLI
   calls, stack/state mutation-risk tools, approval-required tools, and
   permission category totals. Compact consumers validate that summary counts are
@@ -264,12 +265,13 @@ Current behavior is intentionally runtime-foundation oriented:
   Compact consumers validate sampled issue entry kind, repairability, message,
   optional guidance and metadata, issue-detail budget limits, omitted-count
   arithmetic, and full-sample agreement with `validation.issueSummary`.
-  `approval.resume` carries a structured continuation command, active approval
-  scope, and signal count for approval-required runs so downstream agents do
-  not need to scrape prose before asking for explicit user approval. Compact
-  consumers validate approval signal shapes, write-risk and tool-category
-  enums, resume arrays, continuation command/null consistency, and signal count
-  coverage; this metadata is not approval by itself.
+  `approval.resume` carries a structured continuation command, primary approval
+  signal, additional pending approval scope, and signal count for
+  approval-required runs so downstream agents do not need to scrape prose
+  before asking for explicit user approval. Compact consumers validate approval
+  signal shapes, write-risk and tool-category enums, resume arrays,
+  continuation command/null consistency, primary/additional scope consistency,
+  and signal count coverage; this metadata is not approval by itself.
   readiness report when another agent needs it. Result cards include the same
   readiness posture, and suggested commands surface the read-only doctor command
   first when readiness has warnings or failures.
@@ -327,8 +329,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `--approve-write-path charts/payments-api`, or
   `--approve-tool-category native-stack-config-write` for workspace-configured
   native operation approvals. The compact `approval.resume` block reports the
-  same scoped continuation path; it is reporting only and does not bypass the
-  approval requirement.
+  same scoped continuation path, the primary signal it covers, and any
+  additional pending approval scope; it is reporting only and does not bypass
+  the approval requirement.
 - Runtime validation issue classification recognizes Pulumi and Terraform
   provider exclusive-identity failures including CloudFront
   `CNAMEAlreadyExists`, API Gateway domain `ConflictException`, Route53

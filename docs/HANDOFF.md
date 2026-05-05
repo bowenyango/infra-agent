@@ -2,6 +2,30 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval And ToolTrace Docs Alignment Slice
+
+Files added or updated:
+
+- `README.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document `approval.resume` primary signal and additional pending scope in the
+  README and packaged skill reference.
+- Document tool-trace tail-window boundary semantics in the README and skill
+  reference.
+- Extend package metadata tests so the shipped skill reference keeps mentioning
+  these agent-facing contracts.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 ToolTrace Ordering And Category Contract Slice
 
 Files added or updated:

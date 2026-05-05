@@ -63,7 +63,9 @@ contract-checked by the parser:
 - `validation.identityConflictSummary` before
   `validation.identityConflicts`; the summary is the authoritative total and
   omission surface.
-- `approval.resume` only as approval-request metadata. It is not approval.
+- `approval.resume` only as approval-request metadata. Use its primary signal
+  and additional pending approval scope to decide what to ask the user about,
+  but do not treat either field as approval.
 - `handoffCheckpoint.continuation.command` must match `approval.resume.command`
   for approval-required runs; neither field grants approval by itself.
 - `harness.workPlan` is derived progress only. Treat its
@@ -194,9 +196,10 @@ Current implemented source:
   turn/lifecycle windows with total, included, omitted, and event-kind counts.
   Treat these as contract fields; unsupported lifecycle event names or
   inconsistent counts should block secondary reports.
-- Compact `agent --json` also includes `harness.toolTrace`, a bounded list of
-  recent deterministic tool summaries with `omittedCount`. Prefer it over full
-  tool result payloads when deciding what happened in the run.
+- Compact `agent --json` also includes `harness.toolTrace`, a bounded tail
+  window of recent deterministic tool summaries with first/last included turn
+  indexes, latest tool turn, and `omittedCount`. Prefer it over full tool
+  result payloads when deciding what happened in the run.
 - `harness.toolPermissionSummary` aggregates permission categories such as
   workspace mutations, native CLI calls, and stack/state mutation-risk tools.
   Use it before recommending any follow-up that may mutate state or stacks.
