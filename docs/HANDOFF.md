@@ -8848,3 +8848,27 @@ Known validation:
 Remaining risks:
 
 - CLI dispatch and human text output are still pending.
+
+## 2026-05-05 Planner Provider Catalog Text Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add concise human text output for the planner provider catalog report.
+- Show planner-only/read-only posture, provider capability details, supported
+  commands, defaults, flags, and env variable names.
+- Avoid credentials, bearer headers, live reachability claims, or workspace
+  inspection output.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner provider catalog text" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- CLI dispatch is still pending.

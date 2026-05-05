@@ -35,6 +35,7 @@ import {
   summarizeInfraGraphImpact,
   summarizePreflightSnapshot,
   summarizePreflightSuggestedCommands,
+  printPlannerProviderCatalogReport,
   summarizeRecommendedNextSteps,
   summarizeResultCard,
   summarizeSuggestedCommands
@@ -14122,6 +14123,22 @@ test('planner provider catalog contract validates read-only provider metadata', 
     }),
     /cliFlags\.model/
   );
+});
+
+test('planner provider catalog text output summarizes adapter metadata', async () => {
+  const output = await captureStdout(() => {
+    printPlannerProviderCatalogReport(buildPlannerProviderCatalogReport());
+  });
+
+  assert.match(output, /Planner Providers/);
+  assert.match(output, /scope: planner-only/);
+  assert.match(output, /live provider check: disabled/);
+  assert.match(output, /mutation allowed: false/);
+  assert.match(output, /openai-compatible: transport=chat-completions, endpoint=\/chat\/completions, response=json-object, streaming=disabled/);
+  assert.match(output, /commands: agent, doctor/);
+  assert.match(output, /--llm-provider openai-compatible/);
+  assert.match(output, /INFRA_AGENT_OPENAI_API_KEY or OPENAI_API_KEY/);
+  assert.doesNotMatch(output, /authorization|bearer|secret/i);
 });
 
 test('OpenAI-compatible provider adapter builds JSON chat completion requests', () => {

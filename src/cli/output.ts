@@ -66,6 +66,7 @@ import type { InfraGraph } from '../types/infra-graph.ts';
 import type { DoctorReport } from './doctor.ts';
 import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts';
 import type { InfraGraphImpactReport } from './infra-graph-report.ts';
+import type { PlannerProviderCatalogReport } from './planner-provider-catalog.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
 type ValidationIdentityConflictAggregateSummary = RuntimeIdentityConflictAggregateSummary;
@@ -627,6 +628,39 @@ export function printDoctorReport(report: DoctorReport): void {
   printList(
     report.checks.map(check => `${check.status} ${check.name}: ${check.message}${check.detail ? ` (${check.detail})` : ''}`),
     'No doctor checks recorded.'
+  );
+}
+
+export function printPlannerProviderCatalogReport(report: PlannerProviderCatalogReport): void {
+  printHeader('Planner Providers');
+  process.stdout.write(`scope: ${report.scope.plannerOnly ? 'planner-only' : 'unknown'}\n`);
+  process.stdout.write(`live provider check: ${report.liveProviderCheck ? 'enabled' : 'disabled'}\n`);
+  process.stdout.write(`mutation allowed: ${report.mutationAllowed ? 'true' : 'false'}\n`);
+  process.stdout.write(`supported providers: ${report.summary.supportedProviderCount}/${report.summary.providerCount}\n\n`);
+
+  printList(
+    report.providers.map(provider => {
+      const streaming = provider.capabilities.supportsStreaming ? 'supported' : 'disabled';
+      const flags = [
+        ...provider.cliFlags.provider,
+        provider.cliFlags.model.join(' or '),
+        provider.cliFlags.baseUrl.join(' or ')
+      ].join(', ');
+      const env = [
+        provider.apiKeyEnv.join(' or '),
+        provider.configEnv.model,
+        provider.configEnv.baseUrl.join(' or ')
+      ].join('; ');
+
+      return [
+        `${provider.id}: transport=${provider.capabilities.transport}, endpoint=${provider.capabilities.endpointPath}, response=${provider.capabilities.responseFormat}, streaming=${streaming}`,
+        `  commands: ${report.commands.join(', ')}`,
+        `  defaults: model=${provider.defaults.model}, baseUrl=${provider.defaults.baseUrl}`,
+        `  flags: ${flags}`,
+        `  env: ${env}`
+      ].join('\n');
+    }),
+    'No planner providers are registered.'
   );
 }
 
