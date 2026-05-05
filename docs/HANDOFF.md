@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Grant Pending Signal Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Reject compact approval signals that are already covered by
+  `approval.grants`.
+- Apply the same coverage semantics as runtime approval checks: write risk plus
+  all/scoped path coverage, and exact tool-category grants.
+- Keep pending approval metadata distinct from supplied approval scope.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|tool category approval continuation|explicit approval grants" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Resume Suggested Command Contract Slice
 
 Files added or updated:

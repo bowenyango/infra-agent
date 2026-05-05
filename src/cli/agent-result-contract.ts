@@ -380,6 +380,10 @@ function isStringArray(value: unknown): boolean {
   return Array.isArray(value) && value.every(entry => typeof entry === 'string');
 }
 
+function normalizeApprovalPath(path: string): string {
+  return path.replace(/^\.\/+/, '').replace(/\/+$/, '');
+}
+
 function isArrayOf(value: unknown, validator: (entry: unknown) => boolean): boolean {
   return Array.isArray(value) && value.every(entry => validator(entry));
 }
@@ -469,6 +473,37 @@ function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknow
   if (expectedFlags.some(flag => !command.includes(flag))) {
     throw new Error(`compact result input ${fieldPath} must include query config flags.`);
   }
+}
+
+function approvalGrantsCoverSignal(signal: Record<string, unknown>, grants: Record<string, unknown>): boolean {
+  if (
+    signal.kind === 'tool-category-approval-required'
+    && typeof signal.toolCategory === 'string'
+    && Array.isArray(grants.approvedToolCategories)
+  ) {
+    return grants.approvedToolCategories.includes(signal.toolCategory);
+  }
+
+  if (
+    signal.kind !== 'write-approval-required'
+    || typeof signal.risk !== 'string'
+    || typeof signal.path !== 'string'
+    || !Array.isArray(grants.approvedWriteRisks)
+    || !Array.isArray(grants.approvedWritePaths)
+    || !grants.approvedWriteRisks.includes(signal.risk)
+  ) {
+    return false;
+  }
+
+  if (grants.approvedWritePaths.length === 0) {
+    return true;
+  }
+
+  const signalPath = normalizeApprovalPath(signal.path);
+  return grants.approvedWritePaths
+    .filter((approvedPath): approvedPath is string => typeof approvedPath === 'string')
+    .map(normalizeApprovalPath)
+    .some(approvedPath => signalPath === approvedPath || signalPath.startsWith(`${approvedPath}/`));
 }
 
 function expectedIdentityIssueKind(engine: unknown): string | null {
@@ -3302,6 +3337,12 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       for (const category of includedAdditionalApprovalToolCategories) {
         if (!value.approval.resume.additionalToolCategories.includes(category)) {
           throw new Error('compact result input approval.resume.additionalToolCategories must cover included additional approval signals.');
+        }
+      }
+
+      for (const signal of value.approval.signals) {
+        if (isRecord(signal) && approvalGrantsCoverSignal(signal, value.approval.grants)) {
+          throw new Error('compact result input approval.signals must not repeat approval.grants-covered scope.');
         }
       }
 

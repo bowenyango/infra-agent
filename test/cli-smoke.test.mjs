@@ -14432,6 +14432,22 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,
+      approval: {
+        ...compact.approval,
+        grants: {
+          approvedWriteRisks: ['high'],
+          approvedWritePaths: ['charts/payments-api'],
+          approvedToolCategories: [],
+          writePathScope: 'scoped',
+          hasExplicitApproval: true
+        }
+      }
+    }),
+    /approval\.signals must not repeat approval\.grants-covered scope/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
       suggestedCommands: compact.suggestedCommands.filter(command => command !== compact.approval.resume.command)
     }),
     /suggestedCommands must include approval\.resume\.command/
@@ -14598,6 +14614,22 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.equal(compact.harness.plannerHandoff.activeBlocker.approvalSignalKind, 'tool-category-approval-required');
   assert.equal(compact.harness.plannerHandoff.nextControlAction, 'request-approval');
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      approval: {
+        ...compact.approval,
+        grants: {
+          approvedWriteRisks: [],
+          approvedWritePaths: [],
+          approvedToolCategories: ['native-stack-config-write'],
+          writePathScope: 'all',
+          hasExplicitApproval: true
+        }
+      }
+    }),
+    /approval\.signals must not repeat approval\.grants-covered scope/
+  );
   assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,
