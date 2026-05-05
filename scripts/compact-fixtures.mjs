@@ -51,6 +51,7 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         lifecycleEvents: { includedCount: 0, omittedCount: 0 },
         toolTrace: { includedCount: 0, omittedCount: 0 },
         workPlan: { includedCount: 0, omittedCount: 0 },
+        targeting: { includedCount: 0, omittedCount: 0 },
         validationCommands: { includedCount: 0, omittedCount: 0 },
         validationIssues: { includedCount: 1, omittedCount: 0 },
         validationIssueGroups: { includedCount: 1, omittedCount: 0 },

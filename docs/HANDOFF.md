@@ -2,6 +2,26 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Fixture Targeting Budget Slice
+
+Files added or updated:
+
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `handoffCheckpoint.budgets.targeting` to reusable compact result fixtures.
+- Keep saved fixture payloads aligned with the compact parser after targeting
+  budget validation.
+- Preserve smoke and E2E report fixture compatibility without adding a harness
+  section to this minimal identity-conflict fixture.
+
+Known validation:
+
+- `npm run smoke`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Approval Readiness Command Slice
 
 Files added or updated:
