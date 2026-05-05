@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 State Summary Validation Result Count Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check `harness.stateSummary.validationResultCount` against compact
+  `validation.commands` included plus omitted counts.
+- Preserve the distinction between sampled validation command entries and the
+  total validation-result count captured by runtime state.
+- Reject compact handoff payloads that would let a continuation agent undercount
+  executed validation commands.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 State Summary Tool Count Consistency Slice
 
 Files added or updated:

@@ -9294,6 +9294,13 @@ test('compact agent result contract validates shallow handoff shape and validati
   );
   assert.equal(parseCompactAgentRunResult({
     ...validResult,
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        validationResultCount: 2
+      }
+    },
     handoffCheckpoint: {
       ...validResult.handoffCheckpoint,
       budgets: {
@@ -11017,6 +11024,19 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult,
       harness: {
         ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          validationResultCount: 2
+        }
+      }
+    }),
+    /harness\.stateSummary\.validationResultCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
         toolPermissionSummary: {
           ...validResult.harness.toolPermissionSummary,
           totalToolCount: '1'
@@ -11365,6 +11385,13 @@ test('compact agent result contract validates shallow handoff shape and validati
   );
   assert.equal(parseCompactAgentRunResult({
     ...validResult,
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        validationResultCount: 2
+      }
+    },
     handoffCheckpoint: {
       ...validResult.handoffCheckpoint,
       budgets: {

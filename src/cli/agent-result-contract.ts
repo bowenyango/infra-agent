@@ -2329,6 +2329,15 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         value.validation.commands.omittedCount as number,
         'validation.commands'
       );
+
+      if (
+        isRecord(value.harness)
+        && isRecord(value.harness.stateSummary)
+        && value.harness.stateSummary.validationResultCount
+          !== value.validation.commands.entries.length + (value.validation.commands.omittedCount as number)
+      ) {
+        throw new Error('compact result input harness.stateSummary.validationResultCount must match validation.commands included plus omitted count.');
+      }
     }
   }
 
