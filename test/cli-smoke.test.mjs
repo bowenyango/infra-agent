@@ -6542,6 +6542,42 @@ test('planner-providers command emits catalog JSON through the entrypoint', asyn
   assert.doesNotMatch(output, /authorization|bearer|secret/i);
 });
 
+test('planner-providers command does not expose configured environment secrets', async () => {
+  const previousInfraKey = process.env.INFRA_AGENT_OPENAI_API_KEY;
+  const previousOpenAIKey = process.env.OPENAI_API_KEY;
+  const previousBaseUrl = process.env.INFRA_AGENT_OPENAI_BASE_URL;
+
+  try {
+    process.env.INFRA_AGENT_OPENAI_API_KEY = 'catalog-secret-infra-key';
+    process.env.OPENAI_API_KEY = 'catalog-secret-openai-key';
+    process.env.INFRA_AGENT_OPENAI_BASE_URL = 'https://planner.example.test/v1?token=catalog-secret-token';
+
+    const output = await captureStdout(() => main(['planner-providers', '--json']));
+    const report = parsePlannerProviderCatalogReport(JSON.parse(output));
+
+    assert.equal(report.liveProviderCheck, false);
+    assert.doesNotMatch(output, /catalog-secret-infra-key/);
+    assert.doesNotMatch(output, /catalog-secret-openai-key/);
+    assert.doesNotMatch(output, /catalog-secret-token/);
+  } finally {
+    if (previousInfraKey === undefined) {
+      delete process.env.INFRA_AGENT_OPENAI_API_KEY;
+    } else {
+      process.env.INFRA_AGENT_OPENAI_API_KEY = previousInfraKey;
+    }
+    if (previousOpenAIKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousOpenAIKey;
+    }
+    if (previousBaseUrl === undefined) {
+      delete process.env.INFRA_AGENT_OPENAI_BASE_URL;
+    } else {
+      process.env.INFRA_AGENT_OPENAI_BASE_URL = previousBaseUrl;
+    }
+  }
+});
+
 test('planner-providers command emits text through the entrypoint', async () => {
   const output = await captureStdout(() => main(['planner-providers']));
 

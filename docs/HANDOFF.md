@@ -8948,6 +8948,28 @@ Remaining risks:
 
 - Full verification still needs to run after docs settle.
 
+## 2026-05-05 Planner Provider Catalog Secret-Safety Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Prove `planner-providers --json` remains a static catalog even when LLM
+  environment variables are configured with secret-looking values.
+- Confirm the command does not expose API key values, secret-looking base URL
+  tokens, or live provider check posture.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner-providers command does not expose" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Full verification still needs to run.
+
 ## 2026-05-05 Planner Provider Catalog Help Slice
 
 Files added or updated:
