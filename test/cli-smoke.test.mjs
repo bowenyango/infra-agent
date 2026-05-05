@@ -15285,6 +15285,45 @@ test('planner user prompt budgets retrieved context before model handoff', async
   assert.ok(parsed.retrievedContext.every(packet => packet.excerpt.length <= parsed.retrievedContextBudget.maxExcerptChars));
 });
 
+test('planner user prompt includes budgeted knowledge facts without raw docs', async () => {
+  const preflight = await buildRunPreflight('update helm payments-api image tag', 'fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(preflight.inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 6,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+  const prompt = buildPlannerUserPrompt({
+    task: preflight.task,
+    preflight,
+    knowledgeFacts: pack,
+    retrievedContextBudget: {
+      maxPackets: 5,
+      maxTokens: 1000,
+      maxExcerptChars: 1200,
+      maxFacts: 2
+    },
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.equal(parsed.knowledgeFacts.kind, 'infra-agent.knowledge-facts-summary');
+  assert.equal(parsed.knowledgeFacts.mutationAllowed, false);
+  assert.equal(parsed.knowledgeFacts.maxFacts, 2);
+  assert.equal(parsed.knowledgeFacts.includedFactCount, 2);
+  assert.equal(parsed.knowledgeFacts.omittedFactCount, pack.factCount - 2);
+  assert.ok(parsed.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.replicaCount'));
+  assert.ok(parsed.knowledgeFacts.facts.every(fact => typeof fact.sourceLocator === 'string' && !('source' in fact)));
+  assert.doesNotMatch(prompt, /"content"\s*:|contentHash|"\$schema"|replicaCount":\s*\{/);
+});
+
 test('planner user prompt includes focused Pulumi config semantics', async () => {
   const preflight = await buildRunPreflight('update pulumi payments-api dev image tag to 2.3.4', 'fixtures/sample-workspace');
   const prompt = buildPlannerUserPrompt({

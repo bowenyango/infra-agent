@@ -9625,6 +9625,31 @@ Remaining risks:
 - Planner prompts and compact handoff still need to expose the budgeted fact
   summary.
 
+## 2026-05-05 Planner Knowledge Fact Prompt Slice
+
+Files added or updated:
+
+- `src/model/prompt.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Include budgeted `knowledgeFacts` summaries in the planner user prompt.
+- Add system-prompt rules that extracted facts are advisory and capped, not
+  validator-grade proof.
+- Reuse `budgetKnowledgePackFacts` so prompts include source ids, locators,
+  confidence, and omitted counts without raw docs or cache payloads.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner user prompt includes budgeted knowledge facts" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- CLI flags and compact `agent --json` output still need to expose the fact
+  budget and summaries.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

@@ -6,6 +6,7 @@ import {
   summarizeRuntimeIdentityConflictAggregate
 } from '../agent/identity-conflicts.ts';
 import { budgetRetrievedContext } from '../knowledge/context-budget.ts';
+import { budgetKnowledgePackFacts } from '../knowledge/fact-budget.ts';
 import { aggregateToolPermissions, classifyToolPermission } from '../agent/tool-permissions.ts';
 
 function summarizeValidationResults(runtime: AgentRuntimeState): string[] {
@@ -150,6 +151,8 @@ export function buildPlannerSystemPrompt(): string {
     '- Treat runtimeIdentityConflicts as review-only incident context. Do not propose state moves, imports, aliases, DNS changes, Kubernetes ownership changes, delete-before-create sequencing, or stack mutations as automatic actions.',
     '- Use runtimeIdentityConflictSummary to detect capped runtimeIdentityConflicts details before assuming the sample is exhaustive.',
     '- When runtimeIdentityConflictSummary.totalCount is greater than 0 and no bounded edit plan already exists, prefer stop with stopReason=validation-blocked and summarize the risk category and review steps.',
+    '- Treat knowledgeFacts as bounded advisory context extracted from cache/local sources. Prefer it over raw docs, but do not treat it as validator-grade proof.',
+    '- Use knowledgeFacts.omittedFactCount before assuming the included fact sample is exhaustive.',
     '- If no safe action exists, return stop with stopReason=no-safe-action.',
     'Do not include markdown. Do not include commentary outside the JSON object.'
   ].join('\n');
@@ -157,6 +160,9 @@ export function buildPlannerSystemPrompt(): string {
 
 export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
   const retrievedContext = budgetRetrievedContext(runtime.retrievedContext, runtime.retrievedContextBudget);
+  const knowledgeFacts = budgetKnowledgePackFacts(runtime.knowledgeFacts, {
+    maxFacts: runtime.retrievedContextBudget?.maxFacts
+  });
 
   return JSON.stringify(
     {
@@ -187,6 +193,7 @@ export function buildPlannerUserPrompt(runtime: AgentRuntimeState): string {
       configSemantics: summarizeConfigSemantics(runtime),
       retrievedContextBudget: retrievedContext.budget,
       retrievedContext: retrievedContext.packets,
+      knowledgeFacts,
       validationPlan: runtime.preflight.validation.plan
     },
     null,
