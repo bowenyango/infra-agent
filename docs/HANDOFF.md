@@ -9386,6 +9386,32 @@ Remaining risks:
 - `knowledge extract`, `knowledge validate`, and `knowledge pack` are still
   pending.
 
+## 2026-05-05 Workspace Knowledge Extraction Core Slice
+
+Files added or updated:
+
+- `src/knowledge/extract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add workspace-level knowledge fact extraction over the selected source set.
+- Read local sources directly and external sources only from the existing
+  official-docs cache, preserving the no-live-fetch contract for extraction.
+- Report per-source extraction status, aggregate fact counts, and validated
+  `infra-agent.knowledge-facts` fact sets without embedding raw source content.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "workspace knowledge facts" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- The extraction core is not yet exposed through the `infra-agent knowledge`
+  CLI namespace.
+- Validation and pack creation surfaces are still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

@@ -104,6 +104,7 @@ import {
 } from '../src/types/knowledge.ts';
 import { parseKnowledgeFactSet } from '../src/knowledge/facts-contract.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../src/knowledge/facts.ts';
+import { extractWorkspaceKnowledgeFacts } from '../src/knowledge/extract.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2704,6 +2705,37 @@ test('knowledge fact extractor summarizes Helm values schema from cache', async 
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('workspace knowledge facts extract local Helm schema sources without fetching', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const report = await extractWorkspaceKnowledgeFacts(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+
+  assert.equal(report.kind, 'infra-agent.knowledge-extraction');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.mutationAllowed, false);
+  assert.deepEqual(report.requestedDomains, ['helm']);
+  assert.deepEqual(report.targetPaths, ['charts/payments-api']);
+  assert.equal(report.sourceCount, report.sources.length);
+  assert.equal(report.factSetCount, report.factSets.length);
+  assert.ok(report.factSetCount >= 1);
+  assert.ok(report.factCount >= 5);
+
+  const chartSchemaSource = report.sources.find(source => source.source.kind === 'chart-schema');
+  assert.equal(chartSchemaSource?.status, 'extracted');
+  assert.ok(report.factSets.some(factSet =>
+    factSet.source.kind === 'chart-schema'
+    && factSet.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.path === 'chart.payments-api.image.repository'
+      && fact.required === true
+    )
+  ));
+  assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
 });
 
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {
