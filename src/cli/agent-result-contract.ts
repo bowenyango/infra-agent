@@ -478,6 +478,97 @@ function assertCompactWorkPlan(value: unknown): void {
   }
 }
 
+function assertCompactWorkPlanConsistency(
+  workPlan: unknown,
+  value: Record<string, unknown>
+): void {
+  if (!isRecord(workPlan) || !isRecord(value.harness) || !isRecord(value.harness.plannerHandoff)) {
+    return;
+  }
+
+  const plannerHandoff = value.harness.plannerHandoff;
+  if (!isRecord(plannerHandoff.activeBlocker)) {
+    return;
+  }
+
+  if (workPlan.blockerKind !== plannerHandoff.activeBlocker.kind) {
+    throw new Error('compact result input harness.workPlan.blockerKind must match harness.plannerHandoff.activeBlocker.kind.');
+  }
+
+  if (workPlan.nextControlAction !== plannerHandoff.nextControlAction) {
+    throw new Error('compact result input harness.workPlan.nextControlAction must match harness.plannerHandoff.nextControlAction.');
+  }
+
+  if (value.outcome === 'completed' && workPlan.status !== 'completed') {
+    throw new Error('compact result input harness.workPlan.status must be completed when outcome is completed.');
+  }
+
+  if (plannerHandoff.activeBlocker.kind !== 'none' && workPlan.status !== 'blocked') {
+    throw new Error('compact result input harness.workPlan.status must be blocked when a planner blocker is active.');
+  }
+
+  const steps = Array.isArray(workPlan.steps) ? workPlan.steps : [];
+  const includedStatuses = steps
+    .filter(isRecord)
+    .map(step => step.status);
+  const completedStepCount = includedStatuses.filter(status => status === 'completed').length;
+  const pendingStepCount = includedStatuses.filter(status => status === 'pending').length;
+  const blockedStepCount = includedStatuses.filter(status => status === 'blocked').length;
+
+  if (workPlan.omittedCount === 0) {
+    if (workPlan.completedStepCount !== completedStepCount) {
+      throw new Error('compact result input harness.workPlan.completedStepCount must match included completed steps.');
+    }
+
+    if (workPlan.pendingStepCount !== pendingStepCount) {
+      throw new Error('compact result input harness.workPlan.pendingStepCount must match included pending steps.');
+    }
+
+    if (workPlan.blockedStepCount !== blockedStepCount) {
+      throw new Error('compact result input harness.workPlan.blockedStepCount must match included blocked steps.');
+    }
+  }
+
+  if (workPlan.currentStepIndex !== null) {
+    const currentStep = steps
+      .filter(isRecord)
+      .find(step => step.index === workPlan.currentStepIndex);
+
+    if (!currentStep) {
+      throw new Error('compact result input harness.workPlan.currentStepIndex must point to an included step.');
+    }
+
+    if (currentStep.status !== 'blocked' && currentStep.status !== 'in-progress') {
+      throw new Error('compact result input harness.workPlan.currentStepIndex must point to a blocked or in-progress step.');
+    }
+  }
+
+  for (let index = 0; index < steps.length; index += 1) {
+    const step = steps[index];
+    if (!isRecord(step)) {
+      continue;
+    }
+
+    const stepPath = `harness.workPlan.steps[${index}]`;
+
+    if (step.validationIssueKind !== null && step.kind !== 'validation') {
+      throw new Error(`compact result input ${stepPath}.validationIssueKind must be null unless step kind is validation.`);
+    }
+
+    if (step.validationIssueKind !== null && step.status !== 'blocked') {
+      throw new Error(`compact result input ${stepPath}.validationIssueKind requires blocked step status.`);
+    }
+
+    if (step.approvalSignalKind !== null && step.kind !== 'edit') {
+      throw new Error(`compact result input ${stepPath}.approvalSignalKind must be null unless step kind is edit.`);
+    }
+
+    if (step.approvalSignalKind !== null && step.status !== 'blocked') {
+      throw new Error(`compact result input ${stepPath}.approvalSignalKind requires blocked step status.`);
+    }
+  }
+}
+
 export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResult {
   if (!isRecord(value) || value.kind !== 'infra-agent.agent-result') {
     throw new Error('compact result input must be a compact infra-agent.agent-result JSON payload.');
@@ -1440,6 +1531,8 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input handoffCheckpoint.summary.nextControlAction must match harness.plannerHandoff.nextControlAction.');
       }
     }
+
+    assertCompactWorkPlanConsistency(value.harness.workPlan, value);
 
     if (isRecord(value.harness.turnTraceBudget)) {
       assertHandoffBudgetMatches(

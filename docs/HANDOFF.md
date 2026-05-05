@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Work Plan Consistency Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cross-check `harness.workPlan.blockerKind` and `nextControlAction` against
+  `harness.plannerHandoff`.
+- Reject work-plan status drift from terminal outcome and active blocker state.
+- Validate included step status counts, current-step routing, and approval or
+  validation blocker metadata placement.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Compact Work Plan Contract Shape Slice
 
 Files added or updated:

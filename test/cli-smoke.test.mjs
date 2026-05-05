@@ -8809,6 +8809,98 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          blockerKind: 'approval'
+        }
+      }
+    }),
+    /harness\.workPlan\.blockerKind.*plannerHandoff/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          status: 'completed'
+        }
+      }
+    }),
+    /harness\.workPlan\.status must be blocked/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          blockedStepCount: 1
+        }
+      }
+    }),
+    /harness\.workPlan\.blockedStepCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          currentStepIndex: 1
+        }
+      }
+    }),
+    /harness\.workPlan\.currentStepIndex.*blocked or in-progress/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          steps: [
+            ...validResult.harness.workPlan.steps.slice(0, 3),
+            {
+              ...validResult.harness.workPlan.steps[3],
+              validationIssueKind: 'terraform-create-before-delete-conflict'
+            },
+            ...validResult.harness.workPlan.steps.slice(4)
+          ]
+        }
+      }
+    }),
+    /harness\.workPlan\.steps\[3\]\.validationIssueKind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          steps: [
+            ...validResult.harness.workPlan.steps.slice(0, 4),
+            {
+              ...validResult.harness.workPlan.steps[4],
+              approvalSignalKind: 'write-approval-required'
+            },
+            validResult.harness.workPlan.steps[5]
+          ].flat()
+        }
+      }
+    }),
+    /harness\.workPlan\.steps\[4\]\.approvalSignalKind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
       validation: {
         ...validResult.validation,
         commands: {
