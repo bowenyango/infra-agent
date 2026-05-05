@@ -5801,6 +5801,48 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
   }
 });
 
+test('agent CLI compact JSON preserves explicit approval grants', async () => {
+  const previousExitCode = process.exitCode;
+  process.exitCode = 0;
+
+  try {
+    const output = await captureStdout(() => main([
+      'agent',
+      'update payments-api chart deeply',
+      '--workspace',
+      'fixtures/sample-workspace',
+      '--planner',
+      'rule-based',
+      '--approve-write-risk',
+      'high',
+      '--approve-write-path',
+      'charts/payments-api',
+      '--approve-tool-category',
+      'native-stack-config-write',
+      '--json'
+    ]));
+    const jsonStart = output.indexOf('{');
+    const jsonEnd = output.lastIndexOf('}');
+    const compact = JSON.parse(output.slice(jsonStart, jsonEnd + 1));
+
+    assert.equal(compact.kind, 'infra-agent.agent-result');
+    assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+    assert.deepEqual(compact.approval.grants, {
+      approvedWriteRisks: ['high'],
+      approvedWritePaths: ['charts/payments-api'],
+      approvedToolCategories: ['native-stack-config-write'],
+      writePathScope: 'scoped',
+      hasExplicitApproval: true
+    });
+    assert.ok(compact.resultCard.some(line =>
+      /Approval grants: write risks high; write paths charts\/payments-api; tool categories native-stack-config-write; write path scope scoped/i.test(line)
+    ));
+    assert.equal(process.exitCode, INFRA_AGENT_EXIT_CODES.clarificationRequired);
+  } finally {
+    process.exitCode = previousExitCode;
+  }
+});
+
 test('buildCompactAgentRunResult exposes skipped turn execution reasons', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const runtime = {

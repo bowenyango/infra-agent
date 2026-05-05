@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Grant CLI JSON Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add an entrypoint-level `agent --json` test for explicit approval grants.
+- Verify CLI parsing, compact output generation, parser validation, result-card
+  grant posture, and exit-code preservation through one path.
+- Keep the scenario read-only by using a clarification-blocked task after
+  approval flags are parsed.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent CLI compact JSON preserves explicit approval grants|agent CLI compact JSON includes work plan handoff" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval JSON Continuation Contract Slice
 
 Files added or updated:
