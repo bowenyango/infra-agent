@@ -5,6 +5,7 @@ import type { ConfigSemanticsSummary } from './config-semantics.ts';
 import type { RetrievedContextPacket } from './knowledge.ts';
 import type { QueryLoopContextBudgetConfig } from '../query-config.ts';
 import type { ToolPermissionCategory, ToolPermissionSummary } from '../agent/tool-permissions.ts';
+import type { KnowledgePack } from '../knowledge/pack.ts';
 export type AgentActionKind =
   | 'ask-for-clarification'
   | 'inspect-target-files'
@@ -171,6 +172,7 @@ export interface AgentRuntimeState {
   preflight: RunPreflightState;
   configSemantics?: ConfigSemanticsSummary[];
   retrievedContext: RetrievedContextPacket[];
+  knowledgeFacts: KnowledgePack | null;
   retrievedContextBudget?: QueryLoopContextBudgetConfig;
   observations: ToolResult<unknown>[];
   toolSummaries: ToolExecutionSummary[];

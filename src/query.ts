@@ -24,6 +24,7 @@ import type { RetrievedContextPacket } from './types/knowledge.ts';
 import { retrieveTerraformProviderSchemaContextPackets } from './domain/terraform-provider-schema.ts';
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
 import { retrieveHelmChartContextPackets } from './domain/helm-chart-context.ts';
+import { buildKnowledgePack } from './knowledge/pack.ts';
 import { classifyToolPermission } from './agent/tool-permissions.ts';
 import {
   isApprovalRequiredForToolCategory,
@@ -47,6 +48,7 @@ import type {
 import type { ModelClient } from './model/ModelClient.ts';
 import { RuleBasedModelClient } from './model/RuleBasedModelClient.ts';
 import type { HelmChartSummary } from './types/repository.ts';
+import type { InfraDomainId, TargetCandidate } from './types/repository.ts';
 
 const APPROVAL_GATE_EXECUTION_REASON = 'Approval is required before executing this workspace mutation.';
 
@@ -58,6 +60,13 @@ function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
       facts: [...summary.facts]
     })),
     retrievedContext: [...runtime.retrievedContext],
+    knowledgeFacts: runtime.knowledgeFacts
+      ? {
+          ...runtime.knowledgeFacts,
+          sources: [...runtime.knowledgeFacts.sources],
+          facts: [...runtime.knowledgeFacts.facts]
+        }
+      : null,
     observations: [...runtime.observations],
     toolSummaries: [...(runtime.toolSummaries ?? [])],
     appliedWrites: [...runtime.appliedWrites],
@@ -348,6 +357,44 @@ async function retrieveInitialContext(preflight: RunPreflightState): Promise<Ret
   return packets.slice(0, 5);
 }
 
+function selectKnowledgeFactTargetPaths(preflight: RunPreflightState): string[] {
+  function domainForTargetKind(kind: TargetCandidate['kind']): InfraDomainId {
+    switch (kind) {
+      case 'helm-chart':
+        return 'helm';
+      case 'pulumi-project':
+        return 'pulumi';
+      case 'terraform-root':
+        return 'terraform';
+    }
+  }
+
+  return Array.from(new Set(
+    preflight.targetCandidates
+      .filter(candidate => preflight.requestedDomains.includes(domainForTargetKind(candidate.kind)))
+      .slice(0, 3)
+      .map(candidate => candidate.path)
+  ));
+}
+
+async function retrieveInitialKnowledgeFacts(
+  preflight: RunPreflightState,
+  config: QueryLoopConfig
+): Promise<AgentRuntimeState['knowledgeFacts']> {
+  const targetPaths = selectKnowledgeFactTargetPaths(preflight);
+  if (targetPaths.length === 0 || preflight.requestedDomains.length === 0) {
+    return null;
+  }
+
+  const pack = await buildKnowledgePack(preflight.inspection, {
+    domains: preflight.requestedDomains,
+    targetPaths,
+    maxFacts: config.retrievedContextBudget.maxFacts
+  });
+
+  return pack.factCount > 0 ? pack : null;
+}
+
 async function buildInitialRuntime(
   task: string,
   preflight: RunPreflightState,
@@ -358,6 +405,7 @@ async function buildInitialRuntime(
     preflight,
     configSemantics: [...preflight.inspection.configSemantics],
     retrievedContext: await retrieveInitialContext(preflight),
+    knowledgeFacts: await retrieveInitialKnowledgeFacts(preflight, config),
     retrievedContextBudget: config.retrievedContextBudget,
     observations: [],
     toolSummaries: [],

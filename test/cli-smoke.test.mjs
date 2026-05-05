@@ -3539,7 +3539,11 @@ test('agent runtime loads Helm chart schema context for Helm tasks', async () =>
         '  "properties": {',
         '    "image": {',
         '      "type": "object",',
-        '      "required": ["repository", "tag"]',
+        '      "required": ["repository", "tag"],',
+        '      "properties": {',
+        '        "repository": { "type": "string" },',
+        '        "tag": { "type": "string" }',
+        '      }',
         '    }',
         '  }',
         '}',
@@ -3557,6 +3561,12 @@ test('agent runtime loads Helm chart schema context for Helm tasks', async () =>
           && packet.confidence === 'high'
           && packet.contentType === 'application/json'
           && packet.excerpt.includes('"repository"')
+        ));
+        assert.ok(runtime.knowledgeFacts);
+        assert.ok(runtime.knowledgeFacts.facts.some(fact =>
+          fact.kind === 'chart-value'
+          && fact.path === 'chart.api.image.repository'
+          && fact.required === true
         ));
         return {
           confidence: 'high',
@@ -3577,6 +3587,11 @@ test('agent runtime loads Helm chart schema context for Helm tasks', async () =>
       packet.source.kind === 'chart-schema'
       && packet.source.name === 'api:values.schema.json'
     ));
+    assert.ok(result.runtime.knowledgeFacts);
+    assert.equal(result.runtime.knowledgeFacts.requestedDomains.includes('helm'), true);
+    assert.equal(result.runtime.knowledgeFacts.targetPaths.includes('charts/api'), true);
+    assert.ok(result.runtime.knowledgeFacts.facts.some(fact => fact.path === 'chart.api.image.tag'));
+    assert.doesNotMatch(JSON.stringify(result.runtime.knowledgeFacts), /"content"\s*:|"\$schema"|repository":\s*\{/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

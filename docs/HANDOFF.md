@@ -9598,6 +9598,33 @@ Remaining risks:
 - Runtime loading, planner prompt injection, compact output, and parser
   validation are still pending.
 
+## 2026-05-05 Runtime Knowledge Fact Loading Slice
+
+Files added or updated:
+
+- `src/types/agent.ts`
+- `src/query.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Load an initial bounded `knowledge-pack` into `AgentRuntimeState` after
+  preflight target selection.
+- Keep runtime knowledge fact loading cache/local-only by reusing
+  `buildKnowledgePack` without fetching missing URL sources.
+- Scope fact loading to requested domains and top selected targets, using the
+  existing `retrievedContextBudget.maxFacts` setting.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent runtime loads Helm chart schema context" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Planner prompts and compact handoff still need to expose the budgeted fact
+  summary.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
