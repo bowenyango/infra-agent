@@ -26,28 +26,32 @@ export class LLMModelClient implements ModelClient {
   }
 
   async decideNextAction(runtime: AgentRuntimeState): Promise<AgentDecision> {
-    const response = await this.fetchTransport(`${this.config.baseUrl}/chat/completions`, {
+    const requestBody = {
+      model: this.config.model,
+      response_format: this.config.providerCapabilities.responseFormat === 'json-object'
+        ? {
+            type: 'json_object'
+          }
+        : undefined,
+      stream: this.config.providerCapabilities.supportsStreaming,
+      messages: [
+        {
+          role: 'system',
+          content: buildPlannerSystemPrompt()
+        },
+        {
+          role: 'user',
+          content: buildPlannerUserPrompt(runtime)
+        }
+      ]
+    };
+    const response = await this.fetchTransport(`${this.config.baseUrl}${this.config.providerCapabilities.endpointPath}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${this.config.apiKey}`
       },
-      body: JSON.stringify({
-        model: this.config.model,
-        response_format: {
-          type: 'json_object'
-        },
-        messages: [
-          {
-            role: 'system',
-            content: buildPlannerSystemPrompt()
-          },
-          {
-            role: 'user',
-            content: buildPlannerUserPrompt(runtime)
-          }
-        ]
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {

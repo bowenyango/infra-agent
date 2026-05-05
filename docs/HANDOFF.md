@@ -8469,3 +8469,28 @@ Remaining risks:
 
 - The model client still constructs the endpoint path directly instead of using
   provider capabilities.
+
+## 2026-05-05 LLM Client Capability Request Slice
+
+Files added or updated:
+
+- `src/model/LLMModelClient.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Route the LLM planner request endpoint and response format through provider
+  capabilities instead of hard-coded strings in the client.
+- Keep the OpenAI-compatible adapter non-streaming for planner calls and assert
+  `stream: false` in the injected-transport test.
+- Preserve the existing `/chat/completions` JSON-object request behavior.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLMModelClient" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Planner runtime metadata still does not expose provider capabilities for
+  doctor or compact handoff.

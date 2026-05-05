@@ -13756,7 +13756,9 @@ test('LLMModelClient sends compact planner prompt and parses bounded decisions',
     {
       apiKey: 'test-api-key',
       baseUrl: 'https://llm.example.test/v1',
-      model: 'test-planner-model'
+      model: 'test-planner-model',
+      provider: 'openai-compatible',
+      providerCapabilities: resolveLLMProviderCapabilities('openai-compatible')
     },
     async (url, init) => {
       capturedUrl = String(url);
@@ -13819,6 +13821,7 @@ test('LLMModelClient sends compact planner prompt and parses bounded decisions',
   const body = JSON.parse(String(capturedInit?.body));
   assert.equal(body.model, 'test-planner-model');
   assert.equal(body.response_format.type, 'json_object');
+  assert.equal(body.stream, false);
   assert.match(body.messages[0]?.content ?? '', /Return exactly one JSON object/);
   const userPrompt = JSON.parse(body.messages[1]?.content ?? '{}');
   assert.equal(userPrompt.runtimeIdentityConflicts[0]?.riskCategory, 'create-before-delete-ordering');
