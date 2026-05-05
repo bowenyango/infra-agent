@@ -17,6 +17,7 @@ import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
 import { loadIdentityConflictIncidentReport } from './identity-report.ts';
 import { loadInfraGraphImpactReport } from './infra-graph-report.ts';
 import { buildDoctorReport } from './doctor.ts';
+import { buildPlannerProviderCatalogReport } from './planner-provider-catalog.ts';
 import {
   buildCompactAgentRunResult,
   printIdentityConflictIncidentReport,
@@ -26,6 +27,7 @@ import {
   printInfraGraph,
   printInspection,
   printKnowledgePrefetchResult,
+  printPlannerProviderCatalogReport,
   printRunPreflight,
   printValidationPreflight
 } from './output.ts';
@@ -757,6 +759,17 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     process.exitCode = report.summary.status === 'fail' ? 1 : 0;
+    return;
+  }
+
+  if (parsed.command === 'planner-providers') {
+    const report = buildPlannerProviderCatalogReport();
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      printPlannerProviderCatalogReport(report);
+    }
+
     return;
   }
 

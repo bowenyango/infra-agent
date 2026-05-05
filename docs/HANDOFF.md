@@ -8895,3 +8895,26 @@ Known validation:
 Remaining risks:
 
 - The command is parsed but not yet executable from `main()`.
+
+## 2026-05-05 Planner Provider Catalog Dispatch Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Wire `infra-agent planner-providers` through the CLI entrypoint.
+- Emit text output by default and contract-checked JSON with `--json`.
+- Keep the command independent of workspace inspection, environment config
+  resolution, LLM clients, and network calls.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner-providers command emits" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Durable docs and skill guidance are still pending.

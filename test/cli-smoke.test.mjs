@@ -6533,6 +6533,24 @@ test('planner-providers CLI args parse read-only catalog command', () => {
   assert.equal(parsed.workspace, process.cwd());
 });
 
+test('planner-providers command emits catalog JSON through the entrypoint', async () => {
+  const output = await captureStdout(() => main(['planner-providers', '--json']));
+  const report = parsePlannerProviderCatalogReport(JSON.parse(output));
+
+  assert.equal(report.kind, 'infra-agent.planner-provider-catalog');
+  assert.equal(report.providers[0]?.id, 'openai-compatible');
+  assert.doesNotMatch(output, /authorization|bearer|secret/i);
+});
+
+test('planner-providers command emits text through the entrypoint', async () => {
+  const output = await captureStdout(() => main(['planner-providers']));
+
+  assert.match(output, /Planner Providers/);
+  assert.match(output, /openai-compatible/);
+  assert.match(output, /live provider check: disabled/);
+  assert.doesNotMatch(output, /authorization|bearer|secret/i);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
