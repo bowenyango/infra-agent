@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Resume Primary Signal Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `approval.resume.primarySignal` to generated compact agent results.
+- Make the approval signal used for the continuation command explicit instead
+  of requiring downstream agents to infer it from array order.
+- Cover both write approval and tool-category approval generated output.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|tool category approval continuation" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Section Required Contract Slice
 
 Files added or updated:

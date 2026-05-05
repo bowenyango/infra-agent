@@ -523,6 +523,7 @@ export interface CompactAgentRunResult {
     resume: {
       continuationRequired: boolean;
       command: string | null;
+      primarySignal: CompactApprovalSignal | null;
       writeRisks: string[];
       writePaths: string[];
       toolCategories: string[];
@@ -2633,6 +2634,7 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
   return {
     continuationRequired: state.outcome === 'approval-required',
     command,
+    primarySignal: topApprovalSignal ? compactApprovalSignal(topApprovalSignal) : null,
     writeRisks: Array.from(writeRisks),
     writePaths: Array.from(writePaths),
     toolCategories: Array.from(toolCategories),
