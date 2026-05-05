@@ -8872,3 +8872,26 @@ Known validation:
 Remaining risks:
 
 - CLI dispatch is still pending.
+
+## 2026-05-05 Planner Provider Catalog Parse Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `infra-agent planner-providers [--json]` to CLI parsing and usage text.
+- Keep the command read-only and argument-free except for the existing JSON
+  flag.
+- Reserve runtime dispatch for a separate slice.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "planner-providers CLI args" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- The command is parsed but not yet executable from `main()`.

@@ -6523,6 +6523,16 @@ test('agent CLI args accept explicit LLM option aliases', () => {
   });
 });
 
+test('planner-providers CLI args parse read-only catalog command', () => {
+  const parsed = parseArgs(['planner-providers', '--json']);
+
+  assert.equal(parsed.command, 'planner-providers');
+  assert.equal(parsed.task, null);
+  assert.equal(parsed.json, true);
+  assert.equal(parsed.jsonFull, false);
+  assert.equal(parsed.workspace, process.cwd());
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);

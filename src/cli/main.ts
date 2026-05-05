@@ -35,7 +35,7 @@ import { readPackageVersion } from './package-metadata.ts';
 export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'version' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -67,6 +67,7 @@ function printUsage(): void {
       'Usage:',
       '  infra-agent --version',
       '  infra-agent doctor [workspace] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]',
+      '  infra-agent planner-providers [--json]',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
@@ -255,6 +256,33 @@ export function parseArgs(argv: string[]): ParsedArgs {
       llmProvider,
       llmModel,
       llmBaseUrl,
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains: [],
+      targetPaths: [],
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
+    };
+  }
+
+  if (commandName === 'planner-providers') {
+    if (cleanArgs.length > 0) {
+      fail('planner-providers does not accept positional arguments or options other than --json.');
+    }
+
+    return {
+      command: 'planner-providers',
+      task: null,
+      workspace: cwd(),
+      inputPath: null,
+      json,
+      jsonFull,
+      planner: 'auto',
       approvedWritePaths: [],
       approvedWriteRisks: [],
       approvedToolCategories: [],
