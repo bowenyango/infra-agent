@@ -5542,6 +5542,141 @@ test('runSingleStep respects the configured maximum turn count', async () => {
   }
 });
 
+test('compact work plan maps terminal outcomes to active steps', async () => {
+  const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
+  const readFileSummary = {
+    turnIndex: 0,
+    actionKind: 'inspect-target-files',
+    toolName: 'read_file',
+    safety: 'read_only',
+    permission: {
+      category: 'workspace-read',
+      mutatesWorkspace: false,
+      mutatesExternalState: false,
+      externalCommand: false,
+      approvalRequired: false
+    },
+    summary: 'Read chart values.'
+  };
+  const makeState = runtimeOverrides => ({
+    modelName: 'test-model',
+    outcome: runtimeOverrides.outcome,
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      retrievedContext: [],
+      observations: [],
+      toolSummaries: runtimeOverrides.toolSummaries ?? [],
+      appliedWrites: runtimeOverrides.appliedWrites ?? [],
+      validationResults: runtimeOverrides.validationResults ?? [],
+      validationIssues: runtimeOverrides.validationIssues ?? [],
+      approvalSignals: runtimeOverrides.approvalSignals ?? [],
+      repairAttempts: runtimeOverrides.repairAttempts ?? 0,
+      maxRepairAttempts: 2,
+      lastEditPlan: null
+    },
+    turns: [],
+    config: resolveQueryLoopConfig()
+  });
+
+  const approvalCompact = buildCompactAgentRunResult(makeState({
+    outcome: 'approval-required',
+    toolSummaries: [readFileSummary],
+    approvalSignals: [
+      {
+        kind: 'write-approval-required',
+        path: 'charts/payments-api/values.yaml',
+        risk: 'medium',
+        message: 'Approval required before editing chart values.'
+      }
+    ]
+  }));
+  const approvalStep = approvalCompact.harness.workPlan.steps.find(step => step.kind === 'edit');
+  assert.equal(approvalCompact.harness.workPlan.status, 'blocked');
+  assert.equal(approvalCompact.harness.workPlan.blockerKind, 'approval');
+  assert.equal(approvalCompact.harness.workPlan.currentStepIndex, 3);
+  assert.equal(approvalStep?.status, 'blocked');
+  assert.equal(approvalStep?.approvalSignalKind, 'write-approval-required');
+
+  const validationCompact = buildCompactAgentRunResult(makeState({
+    outcome: 'validation-blocked',
+    validationResults: [
+      {
+        command: 'helm lint charts/payments-api',
+        exitCode: 1,
+        stdout: '',
+        stderr: 'service.port is required'
+      }
+    ],
+    validationIssues: [
+      {
+        kind: 'helm-missing-service-port',
+        repairable: true,
+        sourceCommand: 'helm lint charts/payments-api',
+        message: 'service.port is required'
+      }
+    ]
+  }));
+  const validationStep = validationCompact.harness.workPlan.steps.find(step => step.kind === 'validation');
+  assert.equal(validationCompact.harness.workPlan.status, 'blocked');
+  assert.equal(validationCompact.harness.workPlan.blockerKind, 'validation');
+  assert.equal(validationCompact.harness.workPlan.currentStepIndex, 4);
+  assert.equal(validationStep?.status, 'blocked');
+  assert.equal(validationStep?.validationIssueKind, 'helm-missing-service-port');
+
+  const repairCompact = buildCompactAgentRunResult(makeState({
+    outcome: 'repair-budget-exhausted',
+    repairAttempts: 2,
+    validationResults: [
+      {
+        command: 'terraform -chdir=terraform/payments-api fmt -check',
+        exitCode: 1,
+        stdout: '',
+        stderr: 'main.tf'
+      }
+    ],
+    validationIssues: [
+      {
+        kind: 'terraform-formatting-required',
+        repairable: true,
+        sourceCommand: 'terraform -chdir=terraform/payments-api fmt -check',
+        message: 'Terraform formatting is required.'
+      }
+    ]
+  }));
+  const repairStep = repairCompact.harness.workPlan.steps.find(step => step.kind === 'validation');
+  assert.equal(repairCompact.harness.workPlan.status, 'blocked');
+  assert.equal(repairCompact.harness.workPlan.blockerKind, 'repair-budget');
+  assert.equal(repairCompact.harness.workPlan.nextControlAction, 'manual-repair');
+  assert.equal(repairStep?.status, 'blocked');
+  assert.equal(repairStep?.validationIssueKind, 'terraform-formatting-required');
+
+  const completedCompact = buildCompactAgentRunResult(makeState({
+    outcome: 'completed',
+    toolSummaries: [readFileSummary],
+    validationResults: [
+      {
+        command: 'helm lint charts/payments-api',
+        exitCode: 0,
+        stdout: 'ok',
+        stderr: ''
+      }
+    ]
+  }));
+  assert.equal(completedCompact.harness.workPlan.status, 'completed');
+  assert.equal(completedCompact.harness.workPlan.blockerKind, 'none');
+  assert.equal(completedCompact.harness.workPlan.currentStepIndex, 3);
+  assert.ok(completedCompact.harness.workPlan.steps.some(step =>
+    step.kind === 'validation'
+    && step.status === 'completed'
+  ));
+  assert.ok(completedCompact.harness.workPlan.steps.some(step =>
+    step.kind === 'handoff'
+    && step.status === 'completed'
+  ));
+});
+
 test('buildCompactAgentRunResult exposes skipped turn execution reasons', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const runtime = {

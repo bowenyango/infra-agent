@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Work Plan Blocker Coverage Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Cover `harness.workPlan` mappings for approval-required,
+  validation-blocked, repair-budget-exhausted, and completed outcomes.
+- Assert that active approval signals land on the bounded-edit step and
+  validation issues land on the validation step.
+- Keep the derived work-plan surface tied to `plannerHandoff` blocker and
+  next-control semantics.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact work plan maps" ./test/cli-smoke.test.mjs`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Compact Work Plan Output Shape Slice
 
 Files added or updated:
