@@ -2,6 +2,31 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval JSON Continuation Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate `approval.resume.compactCommand` and `approval.resume.debugCommand`
+  as string-or-null fields.
+- Require JSON continuation commands on approval-required runs and null values
+  when approval continuation is not active.
+- Cross-check JSON commands against the human continuation command plus the
+  expected output-mode flag.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|report CLI commands emit read-only JSON|identity-report loader renders compact conflict reports" ./test/cli-smoke.test.mjs`
+- `npm run smoke`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval JSON Continuation Output Slice
 
 Files added or updated:

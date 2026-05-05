@@ -3046,6 +3046,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input approval.resume.command must be string or null when present.');
       }
 
+      if (!isStringOrNull(value.approval.resume.compactCommand)) {
+        throw new Error('compact result input approval.resume.compactCommand must be string or null when present.');
+      }
+
+      if (!isStringOrNull(value.approval.resume.debugCommand)) {
+        throw new Error('compact result input approval.resume.debugCommand must be string or null when present.');
+      }
+
       if (value.approval.resume.primarySignal !== null) {
         assertCompactApprovalSignal(value.approval.resume.primarySignal, 'approval.resume.primarySignal');
       }
@@ -3094,8 +3102,35 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         throw new Error('compact result input approval.resume.command must be null when continuationRequired is false.');
       }
 
+      if (value.approval.resume.continuationRequired && typeof value.approval.resume.compactCommand !== 'string') {
+        throw new Error('compact result input approval.resume.compactCommand is required when continuationRequired is true.');
+      }
+
+      if (!value.approval.resume.continuationRequired && value.approval.resume.compactCommand !== null) {
+        throw new Error('compact result input approval.resume.compactCommand must be null when continuationRequired is false.');
+      }
+
+      if (value.approval.resume.continuationRequired && typeof value.approval.resume.debugCommand !== 'string') {
+        throw new Error('compact result input approval.resume.debugCommand is required when continuationRequired is true.');
+      }
+
+      if (!value.approval.resume.continuationRequired && value.approval.resume.debugCommand !== null) {
+        throw new Error('compact result input approval.resume.debugCommand must be null when continuationRequired is false.');
+      }
+
       if (value.approval.resume.continuationRequired !== (value.outcome === 'approval-required')) {
         throw new Error('compact result input approval.resume.continuationRequired must match root.outcome.');
+      }
+
+      if (
+        value.approval.resume.continuationRequired
+        && typeof value.approval.resume.command === 'string'
+        && (
+          value.approval.resume.compactCommand !== `${value.approval.resume.command} --json`
+          || value.approval.resume.debugCommand !== `${value.approval.resume.command} --json-full`
+        )
+      ) {
+        throw new Error('compact result input approval.resume JSON commands must match the approval continuation command and output mode.');
       }
 
       if (

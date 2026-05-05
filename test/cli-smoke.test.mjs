@@ -6768,6 +6768,8 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
         resume: {
           continuationRequired: false,
           command: null,
+          compactCommand: null,
+          debugCommand: null,
           primarySignal: null,
           additionalSignalCount: 0,
           additionalWriteRisks: [],
@@ -8885,6 +8887,8 @@ test('compact agent result contract validates shallow handoff shape and validati
       resume: {
         continuationRequired: false,
         command: null,
+        compactCommand: null,
+        debugCommand: null,
         primarySignal: null,
         additionalSignalCount: 0,
         additionalWriteRisks: [],
@@ -11978,6 +11982,19 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult,
       approval: {
         ...validResult.approval,
+        resume: {
+          ...validResult.approval.resume,
+          compactCommand: 'node --experimental-strip-types src/cli/main.ts agent "task" --json'
+        }
+      }
+    }),
+    /approval\.resume\.compactCommand.*null/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
         requiredWriteRisks: ['urgent']
       }
     }),
@@ -12086,7 +12103,9 @@ test('compact agent result contract validates shallow handoff shape and validati
         resume: {
           ...validResult.approval.resume,
           continuationRequired: true,
-          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace"'
+          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace"',
+          compactCommand: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace" --json',
+          debugCommand: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace" --json-full'
         }
       }
     }),
@@ -12687,6 +12706,8 @@ test('identity-report loader renders compact conflict reports from a JSON file',
         resume: {
           continuationRequired: false,
           command: null,
+          compactCommand: null,
+          debugCommand: null,
           primarySignal: null,
           additionalSignalCount: 0,
           additionalWriteRisks: [],
@@ -14298,11 +14319,26 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
         ...compact.approval,
         resume: {
           ...compact.approval.resume,
-          command: compact.approval.resume.command?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null
+          command: compact.approval.resume.command?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null,
+          compactCommand: compact.approval.resume.compactCommand?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null,
+          debugCommand: compact.approval.resume.debugCommand?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null
         }
       }
     }),
     /approval\.resume\.command.*write approval scope/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          compactCommand: compact.approval.resume.command
+        }
+      }
+    }),
+    /approval\.resume JSON commands/
   );
 });
 
