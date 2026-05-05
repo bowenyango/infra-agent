@@ -64,15 +64,16 @@ contract-checked by the parser:
   `validation.identityConflicts`; the summary is the authoritative total and
   omission surface.
 - `approval.resume` only as approval-request metadata. Use its primary signal
-  and additional pending approval scope to decide what to ask the user about,
-  but do not treat either field as approval.
+  `pendingScope` counts, and additional pending approval scope to decide what
+  to ask the user about, but do not treat any of those fields as approval.
 - `approval.resume.compactCommand`, `approval.resume.debugCommand`, and
-  `approval.resume.additionalCommands` only as scoped rerun helpers. Prefer
-  asking the user about each additional command separately instead of combining
-  approval scopes by default.
+  `approval.resume.additionalCommands` only as scoped rerun helpers. They
+  preserve query-loop budget flags. Prefer asking the user about each
+  additional command separately instead of combining approval scopes by default.
 - `approval.grants` only as supplied-scope metadata. It shows approval already
   passed into the current run, not permission to expand write paths, write
-  risks, or native tool categories.
+  risks, or native tool categories. Suggested rerun/export commands preserve
+  those grants for the same task so approved scope is not accidentally dropped.
 - `handoffCheckpoint.continuation.command` must match `approval.resume.command`
   for approval-required runs; neither field grants approval by itself.
 - `harness.workPlan` is derived progress only. Treat its

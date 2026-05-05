@@ -266,14 +266,16 @@ Current behavior is intentionally runtime-foundation oriented:
   optional guidance and metadata, issue-detail budget limits, omitted-count
   arithmetic, and full-sample agreement with `validation.issueSummary`.
   `approval.resume` carries a structured continuation command, primary approval
-  signal, additional pending approval scope, and signal count for
-  approval-required runs so downstream agents do not need to scrape prose
-  before asking for explicit user approval. Compact consumers validate approval
-  signal shapes, write-risk and tool-category enums, resume arrays,
-  continuation command/null consistency, primary/additional scope consistency,
-  and signal count coverage; this metadata is not approval by itself.
+  signal, additional pending approval scope, `pendingScope` count summary, and
+  signal count for approval-required runs so downstream agents do not need to
+  scrape prose before asking for explicit user approval. Compact consumers
+  validate approval signal shapes, write-risk and tool-category enums, resume
+  arrays, continuation command/null consistency, query-budget flag preservation,
+  primary/additional scope consistency, pending-scope counts, and signal count
+  coverage; this metadata is not approval by itself.
   `approval.resume.compactCommand` and `approval.resume.debugCommand` preserve
-  the same approval scope while selecting compact or full JSON output.
+  the same approval scope and query budget while selecting compact or full JSON
+  output.
   `approval.resume.additionalCommands` lists one command per non-primary signal
   so downstream agents can ask about additional approval scopes without
   combining them by default.
@@ -281,7 +283,8 @@ Current behavior is intentionally runtime-foundation oriented:
   current run, including granted write risks, write paths, tool categories, and
   whether write approval was global or path-scoped. Result cards mirror that
   grant posture so human handoff can distinguish supplied approval from pending
-  approval requests.
+  approval requests. Suggested rerun/export commands preserve these grants so a
+  downstream agent does not accidentally re-enter an already-approved gate.
   readiness report when another agent needs it. Result cards include the same
   readiness posture, and suggested commands surface the read-only doctor command
   first when readiness has warnings or failures.

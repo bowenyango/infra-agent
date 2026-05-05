@@ -6591,6 +6591,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /reviewTargetBudget/);
   assert.match(infraSkillContent, /approval\.resume/);
   assert.match(infraSkillContent, /approval\.grants/);
+  assert.match(infraSkillContent, /pendingScope/);
+  assert.match(infraSkillContent, /query-budget-preserving/);
   assert.match(infraSkillContent, /additionalCommands/);
   assert.match(infraSkillContent, /knowledgeCache/);
   assert.match(infraSkillContent, /knowledgeContext/);
@@ -6605,6 +6607,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillReferenceContent, /validation\.identityConflictSummary/);
   assert.match(infraSkillReferenceContent, /approval\.resume/);
   assert.match(infraSkillReferenceContent, /approval\.grants/);
+  assert.match(infraSkillReferenceContent, /pendingScope/);
+  assert.match(infraSkillReferenceContent, /query-loop budget flags/);
   assert.match(infraSkillReferenceContent, /additionalCommands/);
   assert.match(infraSkillReferenceContent, /primary signal/);
 });

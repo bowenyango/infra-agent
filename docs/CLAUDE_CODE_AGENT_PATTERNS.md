@@ -159,11 +159,15 @@ durable design reference for infra-agent development.
   instead of treating native operations as ordinary file writes.
 - `approval.resume` is the compact approval-continuation surface. It may report
   the exact scoped command, primary signal, additional pending scope, write
-  risks, write paths, tool categories, per-signal additional commands, and
-  signal count, but it must not be interpreted as approval by itself.
+  risks, write paths, tool categories, `pendingScope` counts, per-signal
+  additional commands, and signal count, but it must not be interpreted as
+  approval by itself. Continuation commands preserve the query-loop budget flags
+  so resuming keeps the same bounded harness posture.
 - `approval.grants` is the compact supplied-approval surface. It records the
   explicit approval scope passed into the current run for audit and handoff
   explanations, but it must not authorize broader writes or native operations.
+  Suggested rerun and export commands preserve those grants so downstream
+  agents do not accidentally drop approved scope while repeating the same task.
 - `knowledgeCache` and compact `knowledgeContext` summaries are the
   context-compaction boundary for official docs, schemas, and examples. They
   should report resolved cache source, packet/token budgets, token estimates,

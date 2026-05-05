@@ -221,7 +221,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Treat compact `approval.grants` as supplied approval scope for the current
   run only. Validate granted write risks, write paths, tool categories, write
   path scope, and `hasExplicitApproval` consistency before using it for audit or
-  resume explanations.
+  resume explanations. Suggested rerun/export commands should preserve these
+  grants; do not broaden or combine approval scope beyond what the user already
+  supplied.
 - Treat compact `approval.resume.additionalCommands` as per-signal rerun
   metadata. Validate each command against its signal and avoid combining
   multiple approval scopes unless the user explicitly approves that combined
@@ -247,13 +249,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   active blocker.
 - Treat compact `approval.resume` as a structured handoff for the existing
   approval gate. It can show the scoped continuation command and active signal
-  scope, including the primary signal and additional pending scope, but it is
-  not approval and must not authorize writes or native operations without
-  explicit user approval.
+  scope, including the primary signal, `pendingScope` count summary, and
+  additional pending scope, but it is not approval and must not authorize writes
+  or native operations without explicit user approval. Approval continuation
+  commands must preserve query-loop budget flags so resuming does not silently
+  change turn, repair, or retrieved-context limits.
 - Validate compact approval handoff before using it: supported signal kinds,
   write-risk values, tool permission categories, signal path/risk/category
   coherence, resume command/null consistency, resume array shapes, and
-  `signalCount` coverage for included signals.
+  `signalCount`/`pendingScope` coverage for included and omitted signals.
 - Treat CLI exit codes as part of the agent-facing contract: `0` means success, `1` means fatal CLI/runtime failure, `2` means validation blocked, `3` means approval required, `4` means clarification required, `5` means no safe action, `6` means repair budget exhausted, and `7` means `run` preflight blockers.
 - Keep the bounded repair budget in `QueryLoopConfig`. Use
   `--max-repair-attempts <n>` for experiments instead of hard-coding retry

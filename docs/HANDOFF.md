@@ -2,6 +2,34 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Handoff Documentation Refresh Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document `approval.resume.pendingScope`.
+- Document that approval continuation commands preserve query-loop budget
+  flags.
+- Document that suggested rerun/export commands preserve explicit
+  `approval.grants` for the same task without broadening approval scope.
+- Extend package metadata checks so the installable skill keeps exposing these
+  handoff contracts.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Pending Scope Contract Slice
 
 Files added or updated:
