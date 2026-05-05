@@ -2977,6 +2977,29 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         }
       }
 
+      if (
+        Array.isArray(value.approval.signals)
+        && value.approval.resume.signalCount === value.approval.signals.length
+      ) {
+        for (const risk of value.approval.resume.writeRisks) {
+          if (!includedApprovalWriteRisks.has(risk)) {
+            throw new Error('compact result input approval.resume.writeRisks must match included approval signals when none are omitted.');
+          }
+        }
+
+        for (const path of value.approval.resume.writePaths) {
+          if (!includedApprovalWritePaths.has(path)) {
+            throw new Error('compact result input approval.resume.writePaths must match included approval signals when none are omitted.');
+          }
+        }
+
+        for (const category of value.approval.resume.toolCategories) {
+          if (!includedApprovalToolCategories.has(category)) {
+            throw new Error('compact result input approval.resume.toolCategories must match included approval signals when none are omitted.');
+          }
+        }
+      }
+
       if (value.handoffCheckpoint.summary.approvalContinuationRequired !== value.approval.resume.continuationRequired) {
         throw new Error('compact result input handoffCheckpoint.summary.approvalContinuationRequired must match approval.resume.continuationRequired.');
       }

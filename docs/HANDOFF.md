@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Resume Exact Signal Set Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- When no approval signals are omitted, require
+  `approval.resume.writeRisks` to match included write approval signals.
+- Apply the same exact-set rule to `approval.resume.writePaths`.
+- Apply the same exact-set rule to `approval.resume.toolCategories`.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Approval Resume Included Signal Coverage Slice
 
 Files added or updated:

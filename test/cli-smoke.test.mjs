@@ -11850,6 +11850,47 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          approvalSignals: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      },
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          approvalSignalCount: 1
+        }
+      },
+      approval: {
+        ...validResult.approval,
+        signals: [
+          {
+            kind: 'write-approval-required',
+            message: 'Approval required.',
+            path: 'values.yaml',
+            risk: 'medium',
+            toolCategory: null
+          }
+        ],
+        resume: {
+          ...validResult.approval.resume,
+          writeRisks: ['medium', 'high'],
+          writePaths: ['values.yaml'],
+          signalCount: 1
+        }
+      }
+    }),
+    /approval\.resume\.writeRisks must match included approval signals/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
       validation: {
         ...validResult.validation,
         identityConflicts: [
