@@ -8105,3 +8105,29 @@ Remaining risks:
 
 - CLI flags are not wired yet; this slice only adds the config contract that
   later stages will consume.
+
+## 2026-05-05 Planner Client Selection Metadata Slice
+
+Files added or updated:
+
+- `src/model/create-model-client.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a `createModelClientSelection` factory that returns both the planner
+  client and a non-secret runtime planner configuration snapshot.
+- Preserve the existing `createModelClient` helper for callers that only need
+  the client.
+- Record requested planner mode, effective mode, fallback reason, client name,
+  and LLM provider/model/base URL source metadata without exposing API keys.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "createModelClient" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Agent run state does not yet persist this metadata; later slices must carry
+  the snapshot into compact handoff and suggested commands.

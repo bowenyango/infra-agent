@@ -13,7 +13,7 @@ import { buildValidationPreflight } from '../src/validators/preflight.ts';
 import { classifyValidationIssues } from '../src/agent/classify-validation-issues.ts';
 import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { LLMModelClient } from '../src/model/LLMModelClient.ts';
-import { createModelClient } from '../src/model/create-model-client.ts';
+import { createModelClient, createModelClientSelection } from '../src/model/create-model-client.ts';
 import { resolveLLMClientConfig } from '../src/model/config.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/prompt.ts';
@@ -13764,6 +13764,40 @@ test('createModelClient selects planner clients from explicit env maps', () => {
     () => createModelClient('llm', {}),
     /no API key was configured/
   );
+});
+
+test('createModelClientSelection reports non-secret runtime planner metadata', () => {
+  const fallbackSelection = createModelClientSelection('auto', {});
+  const llmSelection = createModelClientSelection(
+    'llm',
+    {
+      INFRA_AGENT_OPENAI_API_KEY: 'secret-key',
+      INFRA_AGENT_MODEL: 'env-model'
+    },
+    {
+      model: 'cli-model',
+      baseUrl: 'https://cli.example.test/v1/'
+    }
+  );
+
+  assert.equal(fallbackSelection.client.name, 'rule-based-fallback');
+  assert.deepEqual(fallbackSelection.plannerConfig, {
+    requestedMode: 'auto',
+    effectiveMode: 'rule-based',
+    clientName: 'rule-based-fallback',
+    fallbackReason: 'No LLM API key is configured.',
+    llm: null
+  });
+  assert.equal(llmSelection.client.name, 'llm-model-client:cli-model');
+  assert.equal(llmSelection.plannerConfig.requestedMode, 'llm');
+  assert.equal(llmSelection.plannerConfig.effectiveMode, 'llm');
+  assert.equal(llmSelection.plannerConfig.llm?.provider, 'openai-compatible');
+  assert.equal(llmSelection.plannerConfig.llm?.model, 'cli-model');
+  assert.equal(llmSelection.plannerConfig.llm?.modelSource, 'cli');
+  assert.equal(llmSelection.plannerConfig.llm?.baseUrl, 'https://cli.example.test/v1');
+  assert.equal(llmSelection.plannerConfig.llm?.baseUrlSource, 'cli');
+  assert.equal(llmSelection.plannerConfig.llm?.apiKeySource, 'INFRA_AGENT_OPENAI_API_KEY');
+  assert.doesNotMatch(JSON.stringify(llmSelection.plannerConfig), /secret-key/);
 });
 
 test('planner user prompt includes focused config semantics', async () => {
