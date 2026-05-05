@@ -8288,3 +8288,29 @@ Remaining risks:
 - The compact parser does not yet require planner flags to be present in
   approval continuation commands when `harness.plannerConfig` says they came
   from CLI.
+
+## 2026-05-05 Approval Planner Flag Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require approval continuation commands to preserve requested planner mode and
+  CLI-sourced LLM provider/model/base URL flags exactly.
+- Apply the same check to per-signal `approval.resume.additionalCommands` so
+  non-primary approval handoffs do not drop model selection.
+- Keep env/default model values out of commands; only CLI-selected values are
+  required in command text.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "tool category approval continuation scope" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Doctor does not yet accept the same model/base URL overrides for read-only
+  readiness checks.

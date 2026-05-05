@@ -484,7 +484,8 @@ function escapeRegExp(value: string): string {
 
 function extractCommandFlagValues(command: string, flag: string): string[] {
   return [...command.matchAll(new RegExp(`(?:^|\\s)${escapeRegExp(flag)}\\s+(\\S+)`, 'g'))]
-    .map(match => match[1] ?? '');
+    .map(match => match[1] ?? '')
+    .map(value => value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value);
 }
 
 function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknown, fieldPath: string): void {
@@ -508,6 +509,38 @@ function assertCommandIncludesQueryConfigFlags(command: unknown, harness: unknow
     const values = extractCommandFlagValues(command, String(flag));
     if (values.length !== 1 || values[0] !== String(expectedValue)) {
       throw new Error(`compact result input ${fieldPath} must include query config flags exactly.`);
+    }
+  }
+}
+
+function assertCommandIncludesPlannerConfigFlags(command: unknown, harness: unknown, fieldPath: string): void {
+  if (typeof command !== 'string' || !isRecord(harness) || !isRecord(harness.plannerConfig)) {
+    return;
+  }
+
+  const plannerConfig = harness.plannerConfig;
+  const expectedFlags: Array<[string, unknown]> = [];
+
+  if (plannerConfig.requestedMode !== 'auto') {
+    expectedFlags.push(['--planner', plannerConfig.requestedMode]);
+  }
+
+  if (isRecord(plannerConfig.llm)) {
+    if (plannerConfig.llm.providerSource === 'cli') {
+      expectedFlags.push(['--llm-provider', plannerConfig.llm.provider]);
+    }
+    if (plannerConfig.llm.modelSource === 'cli') {
+      expectedFlags.push(['--model', plannerConfig.llm.model]);
+    }
+    if (plannerConfig.llm.baseUrlSource === 'cli') {
+      expectedFlags.push(['--openai-base-url', plannerConfig.llm.baseUrl]);
+    }
+  }
+
+  for (const [flag, expectedValue] of expectedFlags) {
+    const values = extractCommandFlagValues(command, flag);
+    if (values.length !== 1 || values[0] !== String(expectedValue)) {
+      throw new Error(`compact result input ${fieldPath} must include planner config flags exactly.`);
     }
   }
 }
@@ -3385,10 +3418,16 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
       if (value.approval.resume.continuationRequired) {
         assertCommandIncludesQueryConfigFlags(value.approval.resume.command, value.harness, 'approval.resume.command');
+        assertCommandIncludesPlannerConfigFlags(value.approval.resume.command, value.harness, 'approval.resume.command');
         for (let index = 0; index < value.approval.resume.additionalCommands.length; index += 1) {
           const additionalCommand = value.approval.resume.additionalCommands[index];
           if (isRecord(additionalCommand)) {
             assertCommandIncludesQueryConfigFlags(
+              additionalCommand.command,
+              value.harness,
+              `approval.resume.additionalCommands[${index}].command`
+            );
+            assertCommandIncludesPlannerConfigFlags(
               additionalCommand.command,
               value.harness,
               `approval.resume.additionalCommands[${index}].command`

@@ -14912,6 +14912,24 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.equal(compact.harness.plannerHandoff.nextControlAction, 'request-approval');
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
   assert.throws(
+    () => {
+      const dropModelFlag = command => command?.replace(/ --model "codex-infra-test"/g, '') ?? null;
+      return parseCompactAgentRunResult({
+        ...compact,
+        approval: {
+          ...compact.approval,
+          resume: {
+            ...compact.approval.resume,
+            command: dropModelFlag(compact.approval.resume.command),
+            compactCommand: dropModelFlag(compact.approval.resume.compactCommand),
+            debugCommand: dropModelFlag(compact.approval.resume.debugCommand)
+          }
+        }
+      });
+    },
+    /approval\.resume\.command must include planner config flags/
+  );
+  assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,
       approval: {
