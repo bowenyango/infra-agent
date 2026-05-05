@@ -14413,6 +14413,15 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
   assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
   assert.deepEqual(compact.approval.resume.additionalToolCategories, []);
+  assert.deepEqual(compact.approval.resume.pendingScope, {
+    signalCount: 1,
+    includedSignalCount: 1,
+    omittedSignalCount: 0,
+    additionalSignalCount: 0,
+    writeRiskCount: 1,
+    writePathCount: 1,
+    toolCategoryCount: 0
+  });
   assert.deepEqual(compact.approval.grants, {
     approvedWriteRisks: [],
     approvedWritePaths: [],
@@ -14607,6 +14616,15 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
   assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
   assert.deepEqual(compact.approval.resume.additionalToolCategories, []);
+  assert.deepEqual(compact.approval.resume.pendingScope, {
+    signalCount: 1,
+    includedSignalCount: 1,
+    omittedSignalCount: 0,
+    additionalSignalCount: 0,
+    writeRiskCount: 0,
+    writePathCount: 0,
+    toolCategoryCount: 1
+  });
   assert.deepEqual(compact.approval.resume.writeRisks, []);
   assert.deepEqual(compact.approval.resume.writePaths, []);
   assert.deepEqual(compact.approval.resume.toolCategories, ['native-stack-config-write']);
@@ -14714,6 +14732,15 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
   assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
   assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
   assert.deepEqual(compact.approval.resume.additionalToolCategories, ['native-stack-config-write']);
+  assert.deepEqual(compact.approval.resume.pendingScope, {
+    signalCount: 2,
+    includedSignalCount: 2,
+    omittedSignalCount: 0,
+    additionalSignalCount: 1,
+    writeRiskCount: 1,
+    writePathCount: 1,
+    toolCategoryCount: 1
+  });
   assert.equal(compact.approval.resume.primarySignal?.kind, 'write-approval-required');
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
   assert.throws(

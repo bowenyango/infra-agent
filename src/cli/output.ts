@@ -545,6 +545,15 @@ export interface CompactAgentRunResult {
       additionalWriteRisks: string[];
       additionalWritePaths: string[];
       additionalToolCategories: string[];
+      pendingScope: {
+        signalCount: number;
+        includedSignalCount: number;
+        omittedSignalCount: number;
+        additionalSignalCount: number;
+        writeRiskCount: number;
+        writePathCount: number;
+        toolCategoryCount: number;
+      };
       writeRisks: string[];
       writePaths: string[];
       toolCategories: string[];
@@ -2769,6 +2778,7 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
   }
 
   const topApprovalSignal = state.runtime.approvalSignals[0];
+  const additionalSignalCount = Math.max(0, state.runtime.approvalSignals.length - (topApprovalSignal ? 1 : 0));
   const additionalCommands = state.outcome === 'approval-required'
     ? state.runtime.approvalSignals.slice(1).map(signal => ({
         signal: compactApprovalSignal(signal),
@@ -2785,10 +2795,19 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
     debugCommand: buildApprovalContinuationCommand(state, 'debug-json'),
     primarySignal: topApprovalSignal ? compactApprovalSignal(topApprovalSignal) : null,
     additionalCommands,
-    additionalSignalCount: Math.max(0, state.runtime.approvalSignals.length - (topApprovalSignal ? 1 : 0)),
+    additionalSignalCount,
     additionalWriteRisks: Array.from(additionalWriteRisks),
     additionalWritePaths: Array.from(additionalWritePaths),
     additionalToolCategories: Array.from(additionalToolCategories),
+    pendingScope: {
+      signalCount: state.runtime.approvalSignals.length,
+      includedSignalCount: Math.min(state.runtime.approvalSignals.length, COMPACT_APPROVAL_SIGNAL_LIMIT),
+      omittedSignalCount: Math.max(0, state.runtime.approvalSignals.length - COMPACT_APPROVAL_SIGNAL_LIMIT),
+      additionalSignalCount,
+      writeRiskCount: writeRisks.size,
+      writePathCount: writePaths.size,
+      toolCategoryCount: toolCategories.size
+    },
     writeRisks: Array.from(writeRisks),
     writePaths: Array.from(writePaths),
     toolCategories: Array.from(toolCategories),
