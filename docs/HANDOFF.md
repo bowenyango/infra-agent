@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Resume CLI Parse Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add CLI parser coverage for a write-approval resume command that includes
+  query budget flags.
+- Verify `--approve-write-risk`, `--approve-write-path`, `--max-turns`,
+  `--max-repair-attempts`, `--context-packet-limit`,
+  `--context-token-budget`, and `--json-full` survive entrypoint parsing.
+- Keep command-generation contract backed by the same parser surface used by
+  resumed operators and downstream agents.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent CLI args accept --max-turns|agent CLI args parse write approval resume scope" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Resume Query Budget Contract Slice
 
 Files added or updated:

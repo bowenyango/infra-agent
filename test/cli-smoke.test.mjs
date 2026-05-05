@@ -6409,6 +6409,41 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
   assert.equal(parsed.jsonFull, false);
 });
 
+test('agent CLI args parse write approval resume scope with query budget flags', () => {
+  const parsed = parseArgs([
+    'agent',
+    'add ingress to payments-api dev chart',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--max-turns',
+    '3',
+    '--max-repair-attempts',
+    '0',
+    '--context-packet-limit',
+    '2',
+    '--context-token-budget',
+    '500',
+    '--approve-write-risk',
+    'high',
+    '--approve-write-path',
+    'charts/payments-api/values.yaml',
+    '--json-full'
+  ]);
+
+  assert.equal(parsed.command, 'agent');
+  assert.equal(parsed.task, 'add ingress to payments-api dev chart');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.maxTurns, 3);
+  assert.equal(parsed.maxRepairAttempts, 0);
+  assert.equal(parsed.contextPacketLimit, 2);
+  assert.equal(parsed.contextTokenBudget, 500);
+  assert.deepEqual(parsed.approvedWriteRisks, ['high']);
+  assert.deepEqual(parsed.approvedWritePaths, ['charts/payments-api/values.yaml']);
+  assert.deepEqual(parsed.approvedToolCategories, []);
+  assert.equal(parsed.json, true);
+  assert.equal(parsed.jsonFull, true);
+});
+
 test('agent CLI args accept --json-full for full debug state output', () => {
   const parsed = parseArgs([
     'agent',
