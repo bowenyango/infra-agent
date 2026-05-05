@@ -1,0 +1,179 @@
+import {
+  KNOWLEDGE_FACT_EXTRACTION_METHODS,
+  KNOWLEDGE_FACT_KINDS,
+  type KnowledgeFactSet,
+  type KnowledgeSource,
+  type KnowledgeSourceKind
+} from '../types/knowledge.ts';
+
+const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
+  'terraform-registry',
+  'pulumi-docs',
+  'helm-docs',
+  'chart-docs',
+  'provider-schema',
+  'chart-schema',
+  'chart-lock',
+  'repo-example',
+  'module-readme'
+];
+const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const;
+const OPTIONAL_STRING_SOURCE_FIELDS = [
+  'version',
+  'url',
+  'localPath',
+  'provider',
+  'module',
+  'chart',
+  'packageName'
+] as const;
+const FACT_OPTIONAL_STRING_FIELDS = ['type', 'defaultValue'] as const;
+const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function assertNonEmptyString(value: unknown, fieldPath: string): void {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`knowledge fact input ${fieldPath} must be a non-empty string.`);
+  }
+}
+
+function assertNoSecretLikeValue(value: string, fieldPath: string): void {
+  if (SECRET_VALUE_PATTERN.test(value)) {
+    throw new Error(`knowledge fact input ${fieldPath} must not include secret-like values.`);
+  }
+}
+
+function assertOptionalString(value: unknown, fieldPath: string): void {
+  if (value !== undefined && typeof value !== 'string') {
+    throw new Error(`knowledge fact input ${fieldPath} must be a string when present.`);
+  }
+}
+
+function assertKnowledgeSource(value: unknown, fieldPath: string): asserts value is KnowledgeSource {
+  if (!isRecord(value)) {
+    throw new Error(`knowledge fact input ${fieldPath} must be an object.`);
+  }
+
+  if (typeof value.kind !== 'string' || !KNOWLEDGE_SOURCE_KINDS.includes(value.kind as KnowledgeSourceKind)) {
+    throw new Error(`knowledge fact input ${fieldPath}.kind must be supported.`);
+  }
+
+  assertNonEmptyString(value.name, `${fieldPath}.name`);
+
+  for (const field of OPTIONAL_STRING_SOURCE_FIELDS) {
+    assertOptionalString(value[field], `${fieldPath}.${field}`);
+  }
+}
+
+function assertStringArray(value: unknown, fieldPath: string): asserts value is string[] {
+  if (!Array.isArray(value) || value.some(entry => typeof entry !== 'string' || entry.length === 0)) {
+    throw new Error(`knowledge fact input ${fieldPath} must be an array of non-empty strings.`);
+  }
+
+  for (let index = 0; index < value.length; index += 1) {
+    assertNoSecretLikeValue(value[index] as string, `${fieldPath}[${index}]`);
+  }
+}
+
+export function parseKnowledgeFactSet(value: unknown): KnowledgeFactSet {
+  if (!isRecord(value) || value.kind !== 'infra-agent.knowledge-facts') {
+    throw new Error('knowledge fact input must be an infra-agent.knowledge-facts JSON payload.');
+  }
+
+  if (value.schemaVersion !== 1) {
+    throw new Error('knowledge fact input schemaVersion must be 1.');
+  }
+
+  if (value.mutationAllowed !== false) {
+    throw new Error('knowledge fact input mutationAllowed must be false.');
+  }
+
+  assertNonEmptyString(value.sourceId, 'sourceId');
+  assertKnowledgeSource(value.source, 'source');
+  assertNonEmptyString(value.sourceContentHash, 'sourceContentHash');
+
+  if (typeof value.sourceStale !== 'boolean') {
+    throw new Error('knowledge fact input sourceStale must be a boolean.');
+  }
+
+  if (!Number.isInteger(value.factCount) || (value.factCount as number) < 0) {
+    throw new Error('knowledge fact input factCount must be a non-negative integer.');
+  }
+
+  if (!Array.isArray(value.facts)) {
+    throw new Error('knowledge fact input facts must be an array.');
+  }
+
+  if (value.factCount !== value.facts.length) {
+    throw new Error('knowledge fact input factCount must match facts length.');
+  }
+
+  for (let index = 0; index < value.facts.length; index += 1) {
+    const fact = value.facts[index];
+    const factPath = `facts[${index}]`;
+
+    if (!isRecord(fact)) {
+      throw new Error(`knowledge fact input ${factPath} must be an object.`);
+    }
+
+    if (typeof fact.kind !== 'string' || !KNOWLEDGE_FACT_KINDS.includes(fact.kind as typeof KNOWLEDGE_FACT_KINDS[number])) {
+      throw new Error(`knowledge fact input ${factPath}.kind must be supported.`);
+    }
+
+    assertNonEmptyString(fact.path, `${factPath}.path`);
+    assertNoSecretLikeValue(fact.path, `${factPath}.path`);
+    assertNonEmptyString(fact.summary, `${factPath}.summary`);
+    assertNoSecretLikeValue(fact.summary, `${factPath}.summary`);
+
+    if (
+      typeof fact.confidence !== 'string'
+      || !RETRIEVED_CONTEXT_CONFIDENCES.includes(fact.confidence as typeof RETRIEVED_CONTEXT_CONFIDENCES[number])
+    ) {
+      throw new Error(`knowledge fact input ${factPath}.confidence must be supported.`);
+    }
+
+    if (
+      typeof fact.extractionMethod !== 'string'
+      || !KNOWLEDGE_FACT_EXTRACTION_METHODS.includes(
+        fact.extractionMethod as typeof KNOWLEDGE_FACT_EXTRACTION_METHODS[number]
+      )
+    ) {
+      throw new Error(`knowledge fact input ${factPath}.extractionMethod must be supported.`);
+    }
+
+    if (fact.values !== undefined) {
+      assertStringArray(fact.values, `${factPath}.values`);
+    }
+
+    if (fact.required !== undefined && typeof fact.required !== 'boolean') {
+      throw new Error(`knowledge fact input ${factPath}.required must be a boolean when present.`);
+    }
+
+    for (const field of FACT_OPTIONAL_STRING_FIELDS) {
+      assertOptionalString(fact[field], `${factPath}.${field}`);
+      if (typeof fact[field] === 'string') {
+        assertNoSecretLikeValue(fact[field] as string, `${factPath}.${field}`);
+      }
+    }
+
+    if (!isRecord(fact.source)) {
+      throw new Error(`knowledge fact input ${factPath}.source must be an object.`);
+    }
+
+    if (fact.source.id !== value.sourceId) {
+      throw new Error(`knowledge fact input ${factPath}.source.id must match sourceId.`);
+    }
+
+    if (fact.source.contentHash !== value.sourceContentHash) {
+      throw new Error(`knowledge fact input ${factPath}.source.contentHash must match sourceContentHash.`);
+    }
+
+    assertKnowledgeSource(fact.source.source, `${factPath}.source.source`);
+    assertNonEmptyString(fact.source.locator, `${factPath}.source.locator`);
+  }
+
+  return value as KnowledgeFactSet;
+}

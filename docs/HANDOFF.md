@@ -9277,6 +9277,31 @@ Remaining risks:
 
 - Parser validation and extractor implementation are still pending.
 
+## 2026-05-05 Knowledge Fact Contract Slice
+
+Files added or updated:
+
+- `src/knowledge/facts-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a parser contract for `infra-agent.knowledge-facts` payloads.
+- Validate source metadata, schema version, mutation-disallowed posture, stale
+  posture, fact counts, supported fact kinds, extraction methods, confidence
+  values, source id/hash consistency, and secret-like value rejection.
+- Keep extracted knowledge agent-facing and compact before adding extractor and
+  CLI surfaces.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge fact contract" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Extractors do not yet produce fact sets.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

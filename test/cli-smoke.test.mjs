@@ -102,6 +102,7 @@ import {
   KNOWLEDGE_FACT_EXTRACTION_METHODS,
   KNOWLEDGE_FACT_KINDS
 } from '../src/types/knowledge.ts';
+import { parseKnowledgeFactSet } from '../src/knowledge/facts-contract.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2308,6 +2309,102 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
     'helm-values-schema',
     'repo-local-static'
   ]);
+});
+
+test('knowledge fact contract validates source-linked fact sets', () => {
+  const source = {
+    kind: 'terraform-registry',
+    name: 'resource:aws_s3_bucket',
+    provider: 'hashicorp/aws',
+    version: '5.37.0',
+    url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket'
+  };
+  const factSet = {
+    kind: 'infra-agent.knowledge-facts',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    sourceId: 'abc123',
+    source,
+    sourceContentHash: 'content-hash',
+    sourceStale: false,
+    factCount: 2,
+    facts: [
+      {
+        kind: 'argument',
+        path: 'resource.aws_s3_bucket.bucket',
+        summary: 'Bucket name argument.',
+        values: ['bucket'],
+        required: false,
+        type: 'string',
+        confidence: 'high',
+        extractionMethod: 'terraform-registry-markdown',
+        source: {
+          id: 'abc123',
+          source,
+          contentHash: 'content-hash',
+          locator: 'Argument Reference: bucket'
+        }
+      },
+      {
+        kind: 'example',
+        path: 'resource.aws_s3_bucket.example',
+        summary: 'Minimal bucket example.',
+        confidence: 'medium',
+        extractionMethod: 'terraform-registry-markdown',
+        source: {
+          id: 'abc123',
+          source,
+          contentHash: 'content-hash',
+          locator: 'Example Usage'
+        }
+      }
+    ]
+  };
+
+  assert.equal(parseKnowledgeFactSet(factSet).kind, 'infra-agent.knowledge-facts');
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      mutationAllowed: true
+    }),
+    /mutationAllowed/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      factCount: 1
+    }),
+    /factCount/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      facts: [
+        {
+          ...factSet.facts[0],
+          source: {
+            ...factSet.facts[0].source,
+            id: 'different'
+          }
+        }
+      ],
+      factCount: 1
+    }),
+    /facts\[0\]\.source\.id/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      facts: [
+        {
+          ...factSet.facts[0],
+          values: ['api token']
+        }
+      ],
+      factCount: 1
+    }),
+    /secret-like/
+  );
 });
 
 test('knowledge cache writes versioned entries and detects staleness', async () => {
