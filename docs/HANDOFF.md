@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Section Required Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `approval` as a durable agent-result section.
+- Require `approval.signals` and `approval.resume` so downstream agents do not
+  route on a partial approval handoff.
+- Add negative parser coverage for missing approval, malformed signals, and
+  malformed resume metadata.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 ToolTrace Window Contract Slice
 
 Files added or updated:

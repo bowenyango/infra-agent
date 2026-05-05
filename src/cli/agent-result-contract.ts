@@ -2867,6 +2867,18 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     'validation.identityConflictSummary'
   );
 
+  if (!isRecord(value.approval)) {
+    throw new Error('compact result input must include approval object.');
+  }
+
+  if (!Array.isArray(value.approval.signals)) {
+    throw new Error('compact result input approval.signals must be an array.');
+  }
+
+  if (!isRecord(value.approval.resume)) {
+    throw new Error('compact result input approval.resume must be an object.');
+  }
+
   if (isRecord(value.approval)) {
     if ('requiredWriteRisks' in value.approval && !isArrayOf(value.approval.requiredWriteRisks, isKnownFileWriteRisk)) {
       throw new Error('compact result input approval.requiredWriteRisks must use supported write risks when present.');
@@ -2877,10 +2889,6 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       && !isArrayOf(value.approval.requiredToolCategories, isKnownToolPermissionCategory)
     ) {
       throw new Error('compact result input approval.requiredToolCategories must use supported tool categories when present.');
-    }
-
-    if ('signals' in value.approval && !Array.isArray(value.approval.signals)) {
-      throw new Error('compact result input approval.signals must be an array when present.');
     }
 
     const includedApprovalWriteRisks = new Set<string>();

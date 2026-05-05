@@ -9386,6 +9386,14 @@ test('compact agent result contract validates shallow handoff shape and validati
     /handoffCheckpoint object/
   );
   assert.throws(
+    () => {
+      const { approval, ...missingApproval } = validResult;
+      void approval;
+      parseCompactAgentRunResult(missingApproval);
+    },
+    /approval object/
+  );
+  assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
       handoffCheckpoint: {
@@ -11650,6 +11658,26 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /validation\.safetyBlockers\.entries/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        signals: {}
+      }
+    }),
+    /approval\.signals/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        resume: null
+      }
+    }),
+    /approval\.resume/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
