@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Primary Signal Consistency Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require `approval.resume.primarySignal` to be null when no approval signals
+  are present.
+- Require approval continuations with signals to include a primary signal.
+- Cross-check the primary signal against the first included approval signal.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Primary Signal Shape Contract Slice
 
 Files added or updated:

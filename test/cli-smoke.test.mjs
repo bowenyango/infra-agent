@@ -11700,6 +11700,25 @@ test('compact agent result contract validates shallow handoff shape and validati
         ...validResult.approval,
         resume: {
           ...validResult.approval.resume,
+          primarySignal: {
+            kind: 'write-approval-required',
+            message: 'Approval required.',
+            path: 'charts/payments-api/values.yaml',
+            risk: 'high',
+            toolCategory: null
+          }
+        }
+      }
+    }),
+    /approval\.resume\.primarySignal.*null/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        resume: {
+          ...validResult.approval.resume,
           continuationRequired: 'yes'
         }
       }
@@ -13969,6 +13988,22 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'payload'), false);
   assert.equal(Object.hasOwn(compact.harness.plannerHandoff, 'runtime'), false);
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      approval: {
+        ...compact.approval,
+        resume: {
+          ...compact.approval.resume,
+          primarySignal: {
+            ...compact.approval.resume.primarySignal,
+            path: 'charts/payments-api/other-values.yaml'
+          }
+        }
+      }
+    }),
+    /approval\.resume\.primarySignal.*first included approval signal/
+  );
   assert.throws(
     () => parseCompactAgentRunResult({
       ...compact,

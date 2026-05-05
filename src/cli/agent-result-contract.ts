@@ -346,6 +346,14 @@ function assertCompactApprovalSignal(value: unknown, signalPath: string): assert
   }
 }
 
+function compactApprovalSignalsMatch(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
+  return left.kind === right.kind
+    && left.message === right.message
+    && left.path === right.path
+    && left.risk === right.risk
+    && left.toolCategory === right.toolCategory;
+}
+
 function isNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -3062,6 +3070,32 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       const firstApprovalSignal = Array.isArray(value.approval.signals)
         ? value.approval.signals.find(isRecord) ?? null
         : null;
+      const primaryApprovalSignal = isRecord(value.approval.resume.primarySignal)
+        ? value.approval.resume.primarySignal
+        : null;
+
+      if ((value.approval.resume.signalCount as number) === 0 && value.approval.resume.primarySignal !== null) {
+        throw new Error('compact result input approval.resume.primarySignal must be null when no approval signals are present.');
+      }
+
+      if (
+        value.approval.resume.continuationRequired
+        && (value.approval.resume.signalCount as number) > 0
+        && !primaryApprovalSignal
+      ) {
+        throw new Error('compact result input approval.resume.primarySignal is required when approval continuation has signals.');
+      }
+
+      if (
+        isRecord(firstApprovalSignal)
+        && (
+          !primaryApprovalSignal
+          || !compactApprovalSignalsMatch(primaryApprovalSignal, firstApprovalSignal)
+        )
+      ) {
+        throw new Error('compact result input approval.resume.primarySignal must match the first included approval signal.');
+      }
+
       if (
         value.approval.resume.continuationRequired
         && isRecord(firstApprovalSignal)
