@@ -743,6 +743,7 @@ function assertCompactWorkPlan(value: unknown): void {
     'completedStepCount',
     'pendingStepCount',
     'blockedStepCount',
+    'skippedStepCount',
     'maxEntries',
     'includedCount',
     'omittedCount'
@@ -859,6 +860,7 @@ function assertCompactWorkPlanConsistency(
   const completedStepCount = includedStatuses.filter(status => status === 'completed').length;
   const pendingStepCount = includedStatuses.filter(status => status === 'pending').length;
   const blockedStepCount = includedStatuses.filter(status => status === 'blocked').length;
+  const skippedStepCount = includedStatuses.filter(status => status === 'skipped').length;
 
   if (workPlan.omittedCount === 0) {
     if (workPlan.completedStepCount !== completedStepCount) {
@@ -871,6 +873,10 @@ function assertCompactWorkPlanConsistency(
 
     if (workPlan.blockedStepCount !== blockedStepCount) {
       throw new Error('compact result input harness.workPlan.blockedStepCount must match included blocked steps.');
+    }
+
+    if (workPlan.skippedStepCount !== skippedStepCount) {
+      throw new Error('compact result input harness.workPlan.skippedStepCount must match included skipped steps.');
     }
   }
 

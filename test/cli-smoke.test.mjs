@@ -8714,6 +8714,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         completedStepCount: 3,
         pendingStepCount: 1,
         blockedStepCount: 2,
+        skippedStepCount: 0,
         maxEntries: 6,
         includedCount: 6,
         omittedCount: 0,
@@ -9174,6 +9175,19 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /harness\.workPlan\.blockedStepCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        workPlan: {
+          ...validResult.harness.workPlan,
+          skippedStepCount: 1
+        }
+      }
+    }),
+    /harness\.workPlan\.skippedStepCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

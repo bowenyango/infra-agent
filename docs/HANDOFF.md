@@ -2,6 +2,26 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 WorkPlan Skipped Count Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require `harness.workPlan.skippedStepCount` in compact result parsing.
+- Validate skipped count consistency when the work plan window is complete.
+- Add a negative parser test to prevent stale or forged skipped accounting.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|compact work plan maps terminal outcomes|maximum turn count" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 WorkPlan Skipped Count Output Slice
 
 Files added or updated:
