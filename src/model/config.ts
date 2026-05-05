@@ -1,5 +1,5 @@
 export type PlannerMode = 'auto' | 'llm' | 'rule-based';
-export type LLMProvider = 'openai-compatible';
+export type { LLMProvider } from './providers.ts';
 export type LLMConfigSource = 'cli' | 'env' | 'default';
 export type LLMApiKeySource = 'INFRA_AGENT_OPENAI_API_KEY' | 'OPENAI_API_KEY';
 

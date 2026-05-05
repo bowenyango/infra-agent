@@ -8420,3 +8420,28 @@ Remaining risks:
 
 - Additional provider adapters remain future work and should be added behind
   the same parser, doctor, and compact handoff contracts.
+
+## 2026-05-05 LLM Provider Capability Registry Slice
+
+Files added or updated:
+
+- `src/model/providers.ts`
+- `src/model/config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a narrow provider capability registry for the existing
+  OpenAI-compatible planner adapter.
+- Describe the current transport as chat completions, JSON-object response
+  format, non-streaming planner calls, and `/chat/completions` endpoint path.
+- Keep this as metadata only; runtime behavior is unchanged in this slice.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLM provider capabilities" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Capabilities are not yet attached to resolved LLM config or compact handoff.

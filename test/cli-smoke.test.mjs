@@ -15,6 +15,7 @@ import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { LLMModelClient } from '../src/model/LLMModelClient.ts';
 import { createModelClient, createModelClientSelection } from '../src/model/create-model-client.ts';
 import { resolveLLMClientConfig } from '../src/model/config.ts';
+import { resolveLLMProviderCapabilities } from '../src/model/providers.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/prompt.ts';
 import { buildEditPlan } from '../src/agent/build-edit-plan.ts';
@@ -13900,6 +13901,17 @@ test('LLM planner config tracks CLI override sources without exposing keys', () 
       /Unsupported LLM planner base URL/
     );
   }
+});
+
+test('LLM provider capabilities describe the OpenAI-compatible adapter boundary', () => {
+  assert.deepEqual(resolveLLMProviderCapabilities('openai-compatible'), {
+    provider: 'openai-compatible',
+    transport: 'chat-completions',
+    endpointPath: '/chat/completions',
+    responseFormat: 'json-object',
+    supportsJsonObject: true,
+    supportsStreaming: false
+  });
 });
 
 test('createModelClient selects planner clients from explicit env maps', () => {
