@@ -2663,6 +2663,15 @@ function buildWorkspaceFlag(workspaceRoot: string): string {
   return `--workspace ${shellQuote(workspaceRoot)}`;
 }
 
+function buildQueryConfigFlags(state: AgentRunState): string {
+  return [
+    `--max-turns ${state.config.maxTurns}`,
+    `--max-repair-attempts ${state.config.maxRepairAttempts}`,
+    `--context-packet-limit ${state.config.retrievedContextBudget.maxPackets}`,
+    `--context-token-budget ${state.config.retrievedContextBudget.maxTokens}`
+  ].join(' ');
+}
+
 function buildTaskFlag(task: string): string {
   return shellQuote(task);
 }
@@ -2690,6 +2699,7 @@ function buildApprovalContinuationCommandForSignal(
   const base = buildCliBaseCommand();
   const taskFlag = buildTaskFlag(state.preflight.task);
   const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
+  const queryConfigFlags = buildQueryConfigFlags(state);
   const outputFlag = outputMode === 'compact-json'
     ? ' --json'
     : outputMode === 'debug-json'
@@ -2697,14 +2707,14 @@ function buildApprovalContinuationCommandForSignal(
       : '';
 
   if (signal?.kind === 'tool-category-approval-required') {
-    return `${base} agent ${taskFlag} ${workspaceFlag} --approve-tool-category ${signal.toolCategory}${outputFlag}`;
+    return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags} --approve-tool-category ${signal.toolCategory}${outputFlag}`;
   }
 
   if (signal?.kind === 'write-approval-required') {
-    return `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${signal.risk} --approve-write-path ${shellQuote(signal.path)}${outputFlag}`;
+    return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags} --approve-write-risk ${signal.risk} --approve-write-path ${shellQuote(signal.path)}${outputFlag}`;
   }
 
-  return `${base} agent ${taskFlag} ${workspaceFlag}${outputFlag}`;
+  return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags}${outputFlag}`;
 }
 
 function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['approval']['resume'] {
@@ -2997,17 +3007,13 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
   switch (state.outcome) {
     case 'approval-required':
       if (topApprovalSignal) {
-        if (topApprovalSignal.kind === 'tool-category-approval-required') {
-          return prefixReadinessSuggestedCommands(state, [
-            `${base} agent ${taskFlag} ${workspaceFlag} --approve-tool-category ${topApprovalSignal.toolCategory}`
-          ]);
-        }
-
         return prefixReadinessSuggestedCommands(state, [
-          `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${topApprovalSignal.risk} --approve-write-path ${shellQuote(topApprovalSignal.path)}`
+          buildApprovalContinuationCommandForSignal(state, topApprovalSignal, 'human')
         ]);
       }
-      return prefixReadinessSuggestedCommands(state, [`${base} agent ${taskFlag} ${workspaceFlag}`]);
+      return prefixReadinessSuggestedCommands(state, [
+        buildApprovalContinuationCommandForSignal(state, null, 'human')
+      ]);
     case 'clarification-required':
       if (primaryDomain === 'terraform') {
         return prefixReadinessSuggestedCommands(

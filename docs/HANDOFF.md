@@ -2,6 +2,30 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Resume Query Budget Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Preserve query-loop config flags in approval continuation commands:
+  `--max-turns`, `--max-repair-attempts`, `--context-packet-limit`, and
+  `--context-token-budget`.
+- Route approval-required `suggestedCommands`, `approval.resume`, additional
+  approval commands, and handoff continuation through the same command builder.
+- Keep continuation commands scoped to approval; the query flags only preserve
+  bounded harness behavior and do not grant additional permission.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|tool category approval continuation|approval signals beyond" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Handoff Continuation JSON Contract Slice
 
 Files added or updated:

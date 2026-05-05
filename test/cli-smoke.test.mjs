@@ -14316,6 +14316,14 @@ test('summarizeRecommendedNextSteps suggests approval continuation for approval-
 
 test('summarizeSuggestedCommands includes approval continuation flags for approval-required runs', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const queryConfig = resolveQueryLoopConfig({
+    maxTurns: 3,
+    maxRepairAttempts: 0,
+    retrievedContextBudget: {
+      maxPackets: 2,
+      maxTokens: 500
+    }
+  });
   const state = {
     modelName: 'test-model',
     outcome: 'approval-required',
@@ -14339,12 +14347,16 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
       lastEditPlan: null
     },
     turns: [],
-    config: resolveQueryLoopConfig()
+    config: queryConfig
   };
   const commands = summarizeSuggestedCommands(state);
   const compact = buildCompactAgentRunResult(state);
 
   assert.ok(commands[0]?.includes('agent'));
+  assert.ok(commands[0]?.includes('--max-turns 3'));
+  assert.ok(commands[0]?.includes('--max-repair-attempts 0'));
+  assert.ok(commands[0]?.includes('--context-packet-limit 2'));
+  assert.ok(commands[0]?.includes('--context-token-budget 500'));
   assert.ok(commands[0]?.includes('--approve-write-risk high'));
   assert.ok(commands[0]?.includes('--approve-write-path "charts/payments-api/values.yaml"'));
   assert.equal(compact.approval.resume.continuationRequired, true);
@@ -14452,6 +14464,14 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
 
 test('summarizeSuggestedCommands includes tool category approval continuation scope', async () => {
   const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
+  const queryConfig = resolveQueryLoopConfig({
+    maxTurns: 4,
+    maxRepairAttempts: 1,
+    retrievedContextBudget: {
+      maxPackets: 3,
+      maxTokens: 700
+    }
+  });
   const state = {
     modelName: 'test-model',
     outcome: 'approval-required',
@@ -14474,11 +14494,15 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
       lastEditPlan: null
     },
     turns: [],
-    config: resolveQueryLoopConfig()
+    config: queryConfig
   };
   const commands = summarizeSuggestedCommands(state);
   const compact = buildCompactAgentRunResult(state);
 
+  assert.ok(commands[0]?.includes('--max-turns 4'));
+  assert.ok(commands[0]?.includes('--max-repair-attempts 1'));
+  assert.ok(commands[0]?.includes('--context-packet-limit 3'));
+  assert.ok(commands[0]?.includes('--context-token-budget 700'));
   assert.ok(commands[0]?.includes('--approve-tool-category native-stack-config-write'));
   assert.equal(compact.approval.resume.continuationRequired, true);
   assert.equal(compact.approval.resume.command, commands[0]);
@@ -14561,7 +14585,14 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
       lastEditPlan: null
     },
     turns: [],
-    config: resolveQueryLoopConfig()
+    config: resolveQueryLoopConfig({
+      maxTurns: 5,
+      maxRepairAttempts: 1,
+      retrievedContextBudget: {
+        maxPackets: 4,
+        maxTokens: 800
+      }
+    })
   });
 
   assert.equal(compact.approval.resume.signalCount, 2);
@@ -14569,6 +14600,14 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
   assert.equal(compact.approval.resume.additionalCommands.length, 1);
   assert.equal(compact.approval.resume.additionalCommands[0]?.signal.kind, 'tool-category-approval-required');
   assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--approve-tool-category native-stack-config-write'));
+  assert.ok(compact.approval.resume.command?.includes('--max-turns 5'));
+  assert.ok(compact.approval.resume.command?.includes('--max-repair-attempts 1'));
+  assert.ok(compact.approval.resume.command?.includes('--context-packet-limit 4'));
+  assert.ok(compact.approval.resume.command?.includes('--context-token-budget 800'));
+  assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--max-turns 5'));
+  assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--max-repair-attempts 1'));
+  assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--context-packet-limit 4'));
+  assert.ok(compact.approval.resume.additionalCommands[0]?.command.includes('--context-token-budget 800'));
   assert.equal(compact.approval.resume.additionalCommands[0]?.compactCommand, `${compact.approval.resume.additionalCommands[0]?.command} --json`);
   assert.equal(compact.approval.resume.additionalCommands[0]?.debugCommand, `${compact.approval.resume.additionalCommands[0]?.command} --json-full`);
   assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
