@@ -15,6 +15,7 @@ import { RuleBasedPlanningModel } from '../src/agent/rule-based-planner.ts';
 import { LLMModelClient } from '../src/model/LLMModelClient.ts';
 import { createModelClient, createModelClientSelection } from '../src/model/create-model-client.ts';
 import { resolveLLMClientConfig } from '../src/model/config.ts';
+import { createLLMProviderAdapter } from '../src/model/provider-adapter.ts';
 import { resolveLLMProviderCapabilities } from '../src/model/providers.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
 import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from '../src/model/prompt.ts';
@@ -13964,6 +13965,53 @@ test('LLM provider capabilities describe the OpenAI-compatible adapter boundary'
     supportsJsonObject: true,
     supportsStreaming: false
   });
+});
+
+test('OpenAI-compatible provider adapter builds JSON chat completion requests', () => {
+  const config = resolveLLMClientConfig(
+    {
+      OPENAI_API_KEY: 'adapter-test-key'
+    },
+    {
+      model: 'adapter-test-model',
+      baseUrl: 'https://adapter.example.test/v1'
+    }
+  );
+  if (!config) {
+    throw new Error('Expected LLM config to resolve for provider adapter test.');
+  }
+
+  const adapter = createLLMProviderAdapter('openai-compatible');
+  const request = adapter.buildRequest(config, [
+    {
+      role: 'system',
+      content: 'system prompt'
+    },
+    {
+      role: 'user',
+      content: 'user prompt'
+    }
+  ]);
+
+  assert.equal(request.url, 'https://adapter.example.test/v1/chat/completions');
+  assert.equal(request.init.method, 'POST');
+  assert.equal(request.init.headers?.authorization, 'Bearer adapter-test-key');
+  const body = JSON.parse(String(request.init.body));
+  assert.equal(body.model, 'adapter-test-model');
+  assert.equal(body.response_format.type, 'json_object');
+  assert.equal(body.stream, false);
+  assert.deepEqual(body.messages.map(message => message.role), ['system', 'user']);
+  assert.equal(adapter.extractMessageContent({
+    choices: [
+      {
+        message: {
+          content: '{"action":{"kind":"stop"}}'
+        }
+      }
+    ]
+  }), '{"action":{"kind":"stop"}}');
+  assert.equal(adapter.extractMessageContent({ choices: [{ message: { content: null } }] }), null);
+  assert.equal(adapter.extractMessageContent({ choices: [] }), null);
 });
 
 test('createModelClient selects planner clients from explicit env maps', () => {

@@ -8667,3 +8667,31 @@ Known validation:
 Remaining risks:
 
 - Durable docs and packaged skill guidance still need capability wording.
+
+## 2026-05-05 Provider Adapter Boundary Slice
+
+Files added or updated:
+
+- `src/model/provider-adapter.ts`
+- `src/model/LLMModelClient.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Move OpenAI-compatible transport details out of `LLMModelClient`.
+- Keep `LLMModelClient` responsible for planner prompt construction and
+  bounded decision parsing only.
+- Add a provider adapter boundary that owns endpoint selection, non-streaming
+  JSON request bodies, bearer auth headers, and response content extraction.
+- Keep the provider registry scoped to the single supported
+  `openai-compatible` planner provider.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLMModelClient|provider adapter|LLM provider capabilities" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Durable docs and package-surface tests still need to describe provider
+  capabilities as planner-only contract metadata.
