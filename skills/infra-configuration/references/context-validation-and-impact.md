@@ -66,6 +66,10 @@ contract-checked by the parser:
 - `approval.resume` only as approval-request metadata. Use its primary signal
   and additional pending approval scope to decide what to ask the user about,
   but do not treat either field as approval.
+- `approval.resume.compactCommand`, `approval.resume.debugCommand`, and
+  `approval.resume.additionalCommands` only as scoped rerun helpers. Prefer
+  asking the user about each additional command separately instead of combining
+  approval scopes by default.
 - `approval.grants` only as supplied-scope metadata. It shows approval already
   passed into the current run, not permission to expand write paths, write
   risks, or native tool categories.

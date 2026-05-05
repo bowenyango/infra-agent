@@ -272,6 +272,11 @@ Current behavior is intentionally runtime-foundation oriented:
   signal shapes, write-risk and tool-category enums, resume arrays,
   continuation command/null consistency, primary/additional scope consistency,
   and signal count coverage; this metadata is not approval by itself.
+  `approval.resume.compactCommand` and `approval.resume.debugCommand` preserve
+  the same approval scope while selecting compact or full JSON output.
+  `approval.resume.additionalCommands` lists one command per non-primary signal
+  so downstream agents can ask about additional approval scopes without
+  combining them by default.
   `approval.grants` reports the explicit approval scope already supplied to the
   current run, including granted write risks, write paths, tool categories, and
   whether write approval was global or path-scoped. Result cards mirror that

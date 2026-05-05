@@ -6541,6 +6541,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /summary\.sourceProvenance/);
   assert.match(infraSkillContent, /reviewTargetBudget/);
   assert.match(infraSkillContent, /approval\.resume/);
+  assert.match(infraSkillContent, /approval\.grants/);
+  assert.match(infraSkillContent, /additionalCommands/);
   assert.match(infraSkillContent, /knowledgeCache/);
   assert.match(infraSkillContent, /knowledgeContext/);
   assert.match(infraSkillContent, /references\/context-validation-and-impact\.md/);
@@ -6553,6 +6555,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillReferenceContent, /raw-content exclusions/);
   assert.match(infraSkillReferenceContent, /validation\.identityConflictSummary/);
   assert.match(infraSkillReferenceContent, /approval\.resume/);
+  assert.match(infraSkillReferenceContent, /approval\.grants/);
+  assert.match(infraSkillReferenceContent, /additionalCommands/);
   assert.match(infraSkillReferenceContent, /primary signal/);
 });
 

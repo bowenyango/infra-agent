@@ -77,8 +77,9 @@ configured, but it must not expose API keys.
    `validation.commands` for executed validation command summaries,
    `validation.issueSummary` for grouped blocker posture, and
    `approval.resume` for the primary approval signal, additional pending
-   approval scopes, and the scoped continuation command; this metadata is not
-   approval by itself. Read `approval.grants` separately to see explicit
+   approval scopes, scoped continuation command, compact/debug JSON
+   continuation commands, and per-signal `additionalCommands`; this metadata is
+   not approval by itself. Read `approval.grants` separately to see explicit
    approval scope already supplied to the current run; supplied grants do not
    approve any future broader operation. Read `validation.issueDetails` before assuming the
    sampled `validation.issues` array is complete; the sample plus omitted count

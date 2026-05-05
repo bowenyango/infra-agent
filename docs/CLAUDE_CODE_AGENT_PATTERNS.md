@@ -159,8 +159,8 @@ durable design reference for infra-agent development.
   instead of treating native operations as ordinary file writes.
 - `approval.resume` is the compact approval-continuation surface. It may report
   the exact scoped command, primary signal, additional pending scope, write
-  risks, write paths, tool categories, and signal count, but it must not be
-  interpreted as approval by itself.
+  risks, write paths, tool categories, per-signal additional commands, and
+  signal count, but it must not be interpreted as approval by itself.
 - `approval.grants` is the compact supplied-approval surface. It records the
   explicit approval scope passed into the current run for audit and handoff
   explanations, but it must not authorize broader writes or native operations.

@@ -222,6 +222,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   run only. Validate granted write risks, write paths, tool categories, write
   path scope, and `hasExplicitApproval` consistency before using it for audit or
   resume explanations.
+- Treat compact `approval.resume.additionalCommands` as per-signal rerun
+  metadata. Validate each command against its signal and avoid combining
+  multiple approval scopes unless the user explicitly approves that combined
+  scope.
 - Treat compact query and loop budgets as contract data. Validate positive
   max-turn and retrieved-context budget integers, non-negative repair attempts,
   root `turnsUsed` consistency, remaining-turn arithmetic, and exhausted-state

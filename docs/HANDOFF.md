@@ -2,6 +2,33 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Handoff Documentation Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document compact/debug continuation commands and per-signal additional
+  approval commands.
+- Document `approval.grants` as supplied-scope metadata, separate from pending
+  approval requests.
+- Extend package metadata tests so the installable skill keeps exposing the new
+  approval handoff fields.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Additional Approval Command Contract Slice
 
 Files added or updated:
