@@ -8543,3 +8543,29 @@ Known validation:
 Remaining risks:
 
 - Compact parser validation for the new capability object is still pending.
+
+## 2026-05-05 Compact Planner Capability Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require LLM compact handoffs to include
+  `harness.plannerConfig.llm.capabilities`.
+- Validate transport, endpoint path, response format, JSON-object support, and
+  non-streaming planner posture against the supported OpenAI-compatible
+  capability contract.
+- Reject compact payloads that claim streaming LLM planner behavior, which is
+  not part of the current bounded planner adapter.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Doctor output still reports only model/base URL, not provider capabilities.

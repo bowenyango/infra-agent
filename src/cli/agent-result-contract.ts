@@ -132,6 +132,9 @@ const PLANNER_EFFECTIVE_MODES = ['llm', 'rule-based', 'custom'] as const;
 const LLM_PLANNER_PROVIDERS = ['openai-compatible'] as const;
 const LLM_CONFIG_SOURCES = ['cli', 'env', 'default', 'unknown'] as const;
 const LLM_API_KEY_SOURCES = ['INFRA_AGENT_OPENAI_API_KEY', 'OPENAI_API_KEY', 'unknown'] as const;
+const LLM_PROVIDER_TRANSPORTS = ['chat-completions'] as const;
+const LLM_PROVIDER_ENDPOINT_PATHS = ['/chat/completions'] as const;
+const LLM_PROVIDER_RESPONSE_FORMATS = ['json-object'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -337,6 +340,19 @@ function isKnownLLMConfigSource(value: unknown): boolean {
 
 function isKnownLLMApiKeySource(value: unknown): boolean {
   return typeof value === 'string' && LLM_API_KEY_SOURCES.includes(value as typeof LLM_API_KEY_SOURCES[number]);
+}
+
+function isKnownLLMProviderTransport(value: unknown): boolean {
+  return typeof value === 'string' && LLM_PROVIDER_TRANSPORTS.includes(value as typeof LLM_PROVIDER_TRANSPORTS[number]);
+}
+
+function isKnownLLMProviderEndpointPath(value: unknown): boolean {
+  return typeof value === 'string' && LLM_PROVIDER_ENDPOINT_PATHS.includes(value as typeof LLM_PROVIDER_ENDPOINT_PATHS[number]);
+}
+
+function isKnownLLMProviderResponseFormat(value: unknown): boolean {
+  return typeof value === 'string'
+    && LLM_PROVIDER_RESPONSE_FORMATS.includes(value as typeof LLM_PROVIDER_RESPONSE_FORMATS[number]);
 }
 
 function assertCompactApprovalSignal(value: unknown, signalPath: string): asserts value is Record<string, unknown> {
@@ -1485,6 +1501,36 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         if (!isKnownLLMConfigSource(value.harness.plannerConfig.llm[field])) {
           throw new Error(`compact result input harness.plannerConfig.llm.${field} must be supported.`);
         }
+      }
+
+      if (!isRecord(value.harness.plannerConfig.llm.capabilities)) {
+        throw new Error('compact result input harness.plannerConfig.llm.capabilities must be an object.');
+      }
+
+      if (!isKnownLLMProviderTransport(value.harness.plannerConfig.llm.capabilities.transport)) {
+        throw new Error('compact result input harness.plannerConfig.llm.capabilities.transport must be supported.');
+      }
+
+      if (!isKnownLLMProviderEndpointPath(value.harness.plannerConfig.llm.capabilities.endpointPath)) {
+        throw new Error('compact result input harness.plannerConfig.llm.capabilities.endpointPath must be supported.');
+      }
+
+      if (!isKnownLLMProviderResponseFormat(value.harness.plannerConfig.llm.capabilities.responseFormat)) {
+        throw new Error('compact result input harness.plannerConfig.llm.capabilities.responseFormat must be supported.');
+      }
+
+      for (const field of ['supportsJsonObject', 'supportsStreaming']) {
+        if (typeof value.harness.plannerConfig.llm.capabilities[field] !== 'boolean') {
+          throw new Error(`compact result input harness.plannerConfig.llm.capabilities.${field} must be a boolean.`);
+        }
+      }
+
+      if (value.harness.plannerConfig.llm.capabilities.supportsJsonObject !== true) {
+        throw new Error('compact result input harness.plannerConfig.llm.capabilities.supportsJsonObject must be true.');
+      }
+
+      if (value.harness.plannerConfig.llm.capabilities.supportsStreaming !== false) {
+        throw new Error('compact result input harness.plannerConfig.llm.capabilities.supportsStreaming must be false.');
       }
 
       if (value.modelName !== `llm-model-client:${value.harness.plannerConfig.llm.model}`) {

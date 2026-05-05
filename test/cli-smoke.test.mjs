@@ -10252,7 +10252,14 @@ test('compact agent result contract validates shallow handoff shape and validati
           apiKeySource: 'OPENAI_API_KEY',
           providerSource: 'default',
           modelSource: 'cli',
-          baseUrlSource: 'cli'
+          baseUrlSource: 'cli',
+          capabilities: {
+            transport: 'chat-completions',
+            endpointPath: '/chat/completions',
+            responseFormat: 'json-object',
+            supportsJsonObject: true,
+            supportsStreaming: false
+          }
         }
       }
     }
@@ -10273,6 +10280,25 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /harness\.plannerConfig\.llm\.model/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...llmResult,
+      harness: {
+        ...llmResult.harness,
+        plannerConfig: {
+          ...llmResult.harness.plannerConfig,
+          llm: {
+            ...llmResult.harness.plannerConfig.llm,
+            capabilities: {
+              ...llmResult.harness.plannerConfig.llm.capabilities,
+              supportsStreaming: true
+            }
+          }
+        }
+      }
+    }),
+    /harness\.plannerConfig\.llm\.capabilities\.supportsStreaming/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
