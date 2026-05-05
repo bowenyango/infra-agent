@@ -71,6 +71,8 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         nextControlAction: 'resolve-validation',
         approvalRequired: false,
         command: null,
+        compactCommand: null,
+        debugCommand: null,
         mutationAllowed: false
       },
       durableSections: [

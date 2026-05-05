@@ -1126,6 +1126,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input handoffCheckpoint.continuation.command must be string or null.');
   }
 
+  if (!isStringOrNull(value.handoffCheckpoint.continuation.compactCommand)) {
+    throw new Error('compact result input handoffCheckpoint.continuation.compactCommand must be string or null.');
+  }
+
+  if (!isStringOrNull(value.handoffCheckpoint.continuation.debugCommand)) {
+    throw new Error('compact result input handoffCheckpoint.continuation.debugCommand must be string or null.');
+  }
+
   if (value.handoffCheckpoint.continuation.mutationAllowed !== false) {
     throw new Error('compact result input handoffCheckpoint.continuation.mutationAllowed must be false.');
   }
@@ -1150,8 +1158,35 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input handoffCheckpoint.continuation.command is required when approvalRequired is true.');
   }
 
+  if (value.handoffCheckpoint.continuation.approvalRequired && typeof value.handoffCheckpoint.continuation.compactCommand !== 'string') {
+    throw new Error('compact result input handoffCheckpoint.continuation.compactCommand is required when approvalRequired is true.');
+  }
+
+  if (value.handoffCheckpoint.continuation.approvalRequired && typeof value.handoffCheckpoint.continuation.debugCommand !== 'string') {
+    throw new Error('compact result input handoffCheckpoint.continuation.debugCommand is required when approvalRequired is true.');
+  }
+
   if (!value.handoffCheckpoint.continuation.approvalRequired && value.handoffCheckpoint.continuation.command !== null) {
     throw new Error('compact result input handoffCheckpoint.continuation.command must be null when approvalRequired is false.');
+  }
+
+  if (!value.handoffCheckpoint.continuation.approvalRequired && value.handoffCheckpoint.continuation.compactCommand !== null) {
+    throw new Error('compact result input handoffCheckpoint.continuation.compactCommand must be null when approvalRequired is false.');
+  }
+
+  if (!value.handoffCheckpoint.continuation.approvalRequired && value.handoffCheckpoint.continuation.debugCommand !== null) {
+    throw new Error('compact result input handoffCheckpoint.continuation.debugCommand must be null when approvalRequired is false.');
+  }
+
+  if (
+    value.handoffCheckpoint.continuation.approvalRequired
+    && typeof value.handoffCheckpoint.continuation.command === 'string'
+    && (
+      value.handoffCheckpoint.continuation.compactCommand !== `${value.handoffCheckpoint.continuation.command} --json`
+      || value.handoffCheckpoint.continuation.debugCommand !== `${value.handoffCheckpoint.continuation.command} --json-full`
+    )
+  ) {
+    throw new Error('compact result input handoffCheckpoint.continuation JSON commands must match the approval continuation command and output mode.');
   }
 
   if (!Array.isArray(value.handoffCheckpoint.durableSections)) {
@@ -3346,6 +3381,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
       if (value.handoffCheckpoint.continuation.command !== value.approval.resume.command) {
         throw new Error('compact result input handoffCheckpoint.continuation.command must match approval.resume.command.');
+      }
+
+      if (value.handoffCheckpoint.continuation.compactCommand !== value.approval.resume.compactCommand) {
+        throw new Error('compact result input handoffCheckpoint.continuation.compactCommand must match approval.resume.compactCommand.');
+      }
+
+      if (value.handoffCheckpoint.continuation.debugCommand !== value.approval.resume.debugCommand) {
+        throw new Error('compact result input handoffCheckpoint.continuation.debugCommand must match approval.resume.debugCommand.');
       }
 
       if (Array.isArray(value.approval.signals)) {

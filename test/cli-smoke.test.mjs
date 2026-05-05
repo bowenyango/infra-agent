@@ -6709,6 +6709,8 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
           nextControlAction: 'resolve-validation',
           approvalRequired: false,
           command: null,
+          compactCommand: null,
+          debugCommand: null,
           mutationAllowed: false
         },
         durableSections: [
@@ -8499,6 +8501,8 @@ test('compact agent result contract validates shallow handoff shape and validati
         nextControlAction: 'resolve-validation',
         approvalRequired: false,
         command: null,
+        compactCommand: null,
+        debugCommand: null,
         mutationAllowed: false
       },
       durableSections: [
@@ -9762,7 +9766,9 @@ test('compact agent result contract validates shallow handoff shape and validati
         continuation: {
           ...validResult.handoffCheckpoint.continuation,
           approvalRequired: true,
-          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority"'
+          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority"',
+          compactCommand: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --json',
+          debugCommand: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --json-full'
         }
       }
     }),
@@ -9886,6 +9892,33 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /handoffCheckpoint\.continuation\.command must be null when approvalRequired is false/
+  );
+  assert.throws(
+    () => {
+      const { compactCommand, ...continuationWithoutCompactCommand } = validResult.handoffCheckpoint.continuation;
+      void compactCommand;
+      return parseCompactAgentRunResult({
+        ...validResult,
+        handoffCheckpoint: {
+          ...validResult.handoffCheckpoint,
+          continuation: continuationWithoutCompactCommand
+        }
+      });
+    },
+    /handoffCheckpoint\.continuation\.compactCommand/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        continuation: {
+          ...validResult.handoffCheckpoint.continuation,
+          compactCommand: 'node --experimental-strip-types src/cli/main.ts agent "retry" --json'
+        }
+      }
+    }),
+    /handoffCheckpoint\.continuation\.compactCommand must be null when approvalRequired is false/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -12145,7 +12178,9 @@ test('compact agent result contract validates shallow handoff shape and validati
         continuation: {
           ...validResult.handoffCheckpoint.continuation,
           approvalRequired: true,
-          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace"'
+          command: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace"',
+          compactCommand: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace" --json',
+          debugCommand: 'node --experimental-strip-types src/cli/main.ts agent "review terraform listener priority" --workspace "/workspace" --json-full'
         }
       },
       approval: {
@@ -12649,6 +12684,8 @@ test('identity-report loader renders compact conflict reports from a JSON file',
           nextControlAction: 'resolve-validation',
           approvalRequired: false,
           command: null,
+          compactCommand: null,
+          debugCommand: null,
           mutationAllowed: false
         },
         durableSections: [
@@ -13049,6 +13086,8 @@ test('identity-report loader rejects non-compact result inputs', async () => {
           nextControlAction: 'resolve-validation',
           approvalRequired: false,
           command: null,
+          compactCommand: null,
+          debugCommand: null,
           mutationAllowed: false
         },
         durableSections: [
@@ -14366,7 +14405,9 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
         ...compact.handoffCheckpoint,
         continuation: {
           ...compact.handoffCheckpoint.continuation,
-          command: compact.approval.resume.command?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null
+          command: compact.approval.resume.command?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null,
+          compactCommand: compact.approval.resume.compactCommand?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null,
+          debugCommand: compact.approval.resume.debugCommand?.replace(/ --approve-write-path "charts\/payments-api\/values\.yaml"/, '') ?? null
         }
       },
       approval: {
@@ -14380,6 +14421,19 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
       }
     }),
     /approval\.resume\.command.*write approval scope/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...compact,
+      handoffCheckpoint: {
+        ...compact.handoffCheckpoint,
+        continuation: {
+          ...compact.handoffCheckpoint.continuation,
+          compactCommand: compact.approval.resume.command
+        }
+      }
+    }),
+    /handoffCheckpoint\.continuation JSON commands/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -14458,7 +14512,9 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
         ...compact.handoffCheckpoint,
         continuation: {
           ...compact.handoffCheckpoint.continuation,
-          command: compact.approval.resume.command?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null
+          command: compact.approval.resume.command?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null,
+          compactCommand: compact.approval.resume.compactCommand?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null,
+          debugCommand: compact.approval.resume.debugCommand?.replace(/ --approve-tool-category native-stack-config-write/, '') ?? null
         }
       },
       approval: {

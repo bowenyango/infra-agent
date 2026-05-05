@@ -2,6 +2,31 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Handoff Continuation JSON Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require `handoffCheckpoint.continuation.compactCommand` and
+  `handoffCheckpoint.continuation.debugCommand` in compact parser input.
+- Enforce null JSON commands when no approval continuation is active and
+  mode-specific strings when approval continuation is active.
+- Cross-check handoff continuation commands against `approval.resume` so resumed
+  agents can trust either recovery surface.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|tool category approval continuation|report CLI commands emit read-only JSON|identity-report loader renders compact conflict reports" ./test/cli-smoke.test.mjs`
+- `npm run smoke`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Handoff Continuation JSON Command Slice
 
 Files added or updated:
