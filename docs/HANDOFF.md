@@ -8569,3 +8569,27 @@ Known validation:
 Remaining risks:
 
 - Doctor output still reports only model/base URL, not provider capabilities.
+
+## 2026-05-05 Doctor Planner Capability Detail Slice
+
+Files added or updated:
+
+- `src/cli/doctor.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extend the read-only doctor planner check with non-secret provider capability
+  detail: provider id, transport, response format, and streaming posture.
+- Keep doctor output secret-safe; tests continue to assert API key values are
+  absent from serialized reports.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "doctor command" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact readiness `doctorCommand` still does not preserve CLI-selected
+  planner flags.

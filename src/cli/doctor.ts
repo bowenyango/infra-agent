@@ -137,6 +137,17 @@ async function buildAgentSurfaceCheck(packageMetadata: InfraAgentPackageMetadata
   };
 }
 
+function summarizeLLMPlannerDetail(llmConfig: NonNullable<ReturnType<typeof resolveLLMClientConfig>>): string {
+  return [
+    `provider=${llmConfig.provider}`,
+    `model=${llmConfig.model}`,
+    `baseUrl=${llmConfig.baseUrl}`,
+    `transport=${llmConfig.providerCapabilities.transport}`,
+    `responseFormat=${llmConfig.providerCapabilities.responseFormat}`,
+    `streaming=${llmConfig.providerCapabilities.supportsStreaming ? 'supported' : 'disabled'}`
+  ].join(', ');
+}
+
 export async function buildDoctorReport(
   workspacePath: string = cwd(),
   env: LLMConfigEnvironment = processEnv,
@@ -168,7 +179,7 @@ export async function buildDoctorReport(
       message: llmConfig
         ? `LLM planner is configured for model ${llmConfig.model}.`
         : 'No LLM API key is configured; auto planner mode will use the rule-based fallback.',
-      detail: llmConfig ? `model=${llmConfig.model}, baseUrl=${llmConfig.baseUrl}` : 'rule-based-fallback'
+      detail: llmConfig ? summarizeLLMPlannerDetail(llmConfig) : 'rule-based-fallback'
     }
   ];
 

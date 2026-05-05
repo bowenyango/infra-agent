@@ -6563,7 +6563,10 @@ test('doctor command reports configured LLM planner without exposing secrets', a
 
   assert.equal(plannerCheck?.status, 'pass');
   assert.match(plannerCheck?.message ?? '', /doctor-test-model/);
-  assert.equal(plannerCheck?.detail, 'model=doctor-test-model, baseUrl=https://planner.example.test/v1');
+  assert.equal(
+    plannerCheck?.detail,
+    'provider=openai-compatible, model=doctor-test-model, baseUrl=https://planner.example.test/v1, transport=chat-completions, responseFormat=json-object, streaming=disabled'
+  );
   assert.doesNotMatch(JSON.stringify(report), /secret-value/);
 });
 
@@ -6595,7 +6598,10 @@ test('doctor command accepts read-only LLM planner overrides', async () => {
   assert.equal(parsed.llmBaseUrl, 'https://doctor-cli.example.test/v1');
   assert.equal(parsed.llmProvider, 'openai-compatible');
   assert.match(plannerCheck?.message ?? '', /doctor-cli-model/);
-  assert.equal(plannerCheck?.detail, 'model=doctor-cli-model, baseUrl=https://doctor-cli.example.test/v1');
+  assert.equal(
+    plannerCheck?.detail,
+    'provider=openai-compatible, model=doctor-cli-model, baseUrl=https://doctor-cli.example.test/v1, transport=chat-completions, responseFormat=json-object, streaming=disabled'
+  );
   assert.doesNotMatch(JSON.stringify(report), /secret-value/);
 });
 
