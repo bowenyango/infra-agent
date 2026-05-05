@@ -19,6 +19,7 @@ import { createLLMProviderAdapter } from '../src/model/provider-adapter.ts';
 import {
   DEFAULT_LLM_MODEL,
   DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+  listLLMProviderCatalog,
   resolveLLMProviderCapabilities
 } from '../src/model/providers.ts';
 import { parsePlannerDecision } from '../src/model/decision-parser.ts';
@@ -13973,6 +13974,34 @@ test('LLM provider capabilities describe the OpenAI-compatible adapter boundary'
     supportsJsonObject: true,
     supportsStreaming: false
   });
+});
+
+test('LLM provider catalog lists deterministic non-secret adapter metadata', () => {
+  const catalog = listLLMProviderCatalog();
+
+  assert.deepEqual(catalog, [
+    {
+      id: 'openai-compatible',
+      displayName: 'OpenAI-compatible chat completions',
+      status: 'supported',
+      capabilities: {
+        provider: 'openai-compatible',
+        transport: 'chat-completions',
+        endpointPath: '/chat/completions',
+        responseFormat: 'json-object',
+        supportsJsonObject: true,
+        supportsStreaming: false
+      },
+      defaults: {
+        model: DEFAULT_LLM_MODEL,
+        baseUrl: DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+      }
+    }
+  ]);
+  assert.doesNotMatch(JSON.stringify(catalog), /apiKey|authorization|bearer|secret/i);
+
+  catalog[0].capabilities.transport = 'mutated';
+  assert.equal(listLLMProviderCatalog()[0]?.capabilities.transport, 'chat-completions');
 });
 
 test('OpenAI-compatible provider adapter builds JSON chat completion requests', () => {

@@ -8774,3 +8774,28 @@ Known validation:
 Remaining risks:
 
 - The catalog command itself is not implemented yet.
+
+## 2026-05-05 Provider Catalog Registry Slice
+
+Files added or updated:
+
+- `src/model/providers.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a deterministic provider catalog builder for the current LLM planner
+  adapter registry.
+- Keep the catalog scoped to `openai-compatible` and limited to non-secret
+  adapter metadata, capabilities, and defaults.
+- Return cloned catalog entries so tests and consumers cannot mutate shared
+  registry state.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLM provider catalog" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- CLI/report surfaces for this catalog are still pending.
