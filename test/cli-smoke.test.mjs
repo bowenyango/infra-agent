@@ -14185,6 +14185,13 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.deepEqual(compact.approval.resume.additionalWriteRisks, []);
   assert.deepEqual(compact.approval.resume.additionalWritePaths, []);
   assert.deepEqual(compact.approval.resume.additionalToolCategories, []);
+  assert.deepEqual(compact.approval.grants, {
+    approvedWriteRisks: [],
+    approvedWritePaths: [],
+    approvedToolCategories: [],
+    writePathScope: 'all',
+    hasExplicitApproval: false
+  });
   assert.deepEqual(compact.approval.resume.writeRisks, ['high']);
   assert.deepEqual(compact.approval.resume.writePaths, ['charts/payments-api/values.yaml']);
   assert.deepEqual(compact.approval.resume.toolCategories, []);
@@ -14370,6 +14377,40 @@ test('buildCompactAgentRunResult counts approval signals beyond the primary cont
     }),
     /approval\.resume\.additionalToolCategories.*additional approval signals/
   );
+});
+
+test('buildCompactAgentRunResult exposes explicit approval grants', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
+    approvedWriteRisks: ['high'],
+    approvedWritePaths: ['charts/payments-api'],
+    approvedToolCategories: ['native-stack-config-write']
+  });
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'completed',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [],
+    config: resolveQueryLoopConfig()
+  });
+
+  assert.deepEqual(compact.approval.grants, {
+    approvedWriteRisks: ['high'],
+    approvedWritePaths: ['charts/payments-api'],
+    approvedToolCategories: ['native-stack-config-write'],
+    writePathScope: 'scoped',
+    hasExplicitApproval: true
+  });
 });
 
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {

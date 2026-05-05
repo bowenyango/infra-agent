@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Grant Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `approval.grants` output for explicit approval scope already
+  supplied to the current run.
+- Keep the data read-only and separate from `approval.resume`, which reports
+  pending approval continuation scope.
+- Cover empty default grants and scoped explicit grants in generated compact
+  agent results.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|explicit approval grants" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Smoke Approval Fixture Alignment Slice
 
 Files added or updated:

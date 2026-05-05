@@ -519,6 +519,13 @@ export interface CompactAgentRunResult {
   approval: {
     requiredWriteRisks: string[];
     requiredToolCategories: string[];
+    grants: {
+      approvedWriteRisks: string[];
+      approvedWritePaths: string[];
+      approvedToolCategories: string[];
+      writePathScope: 'all' | 'scoped';
+      hasExplicitApproval: boolean;
+    };
     signals: CompactApprovalSignal[];
     resume: {
       continuationRequired: boolean;
@@ -2489,6 +2496,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
     approval: {
       requiredWriteRisks: [...state.preflight.effectiveApprovalPolicy.requiredWriteRisks],
       requiredToolCategories: [...state.preflight.effectiveApprovalPolicy.requiredToolCategories],
+      grants: collectApprovalGrants(state),
       signals: state.runtime.approvalSignals.slice(0, COMPACT_APPROVAL_SIGNAL_LIMIT).map(compactApprovalSignal),
       resume: collectApprovalResume(state)
     },
@@ -2684,6 +2692,23 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
     writePaths: Array.from(writePaths),
     toolCategories: Array.from(toolCategories),
     signalCount: state.runtime.approvalSignals.length
+  };
+}
+
+function collectApprovalGrants(state: AgentRunState): CompactAgentRunResult['approval']['grants'] {
+  const approvedWritePaths = [...state.preflight.approval.approvedWritePaths];
+  const approvedWriteRisks = [...state.preflight.approval.approvedWriteRisks];
+  const approvedToolCategories = [...state.preflight.approval.approvedToolCategories];
+
+  return {
+    approvedWriteRisks,
+    approvedWritePaths,
+    approvedToolCategories,
+    writePathScope: approvedWritePaths.length === 0 ? 'all' : 'scoped',
+    hasExplicitApproval:
+      approvedWriteRisks.length > 0
+      || approvedWritePaths.length > 0
+      || approvedToolCategories.length > 0
   };
 }
 
