@@ -2853,16 +2853,16 @@ export function summarizeSuggestedCommands(state: AgentRunState): string[] {
     case 'approval-required':
       if (topApprovalSignal) {
         if (topApprovalSignal.kind === 'tool-category-approval-required') {
-          return [
+          return prefixReadinessSuggestedCommands(state, [
             `${base} agent ${taskFlag} ${workspaceFlag} --approve-tool-category ${topApprovalSignal.toolCategory}`
-          ];
+          ]);
         }
 
-        return [
+        return prefixReadinessSuggestedCommands(state, [
           `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${topApprovalSignal.risk} --approve-write-path ${shellQuote(topApprovalSignal.path)}`
-        ];
+        ]);
       }
-      return [`${base} agent ${taskFlag} ${workspaceFlag}`];
+      return prefixReadinessSuggestedCommands(state, [`${base} agent ${taskFlag} ${workspaceFlag}`]);
     case 'clarification-required':
       if (primaryDomain === 'terraform') {
         return prefixReadinessSuggestedCommands(

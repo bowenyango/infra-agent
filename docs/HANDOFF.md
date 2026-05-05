@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Readiness Command Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Include the read-only readiness `doctorCommand` in approval-required
+  `suggestedCommands` when readiness is warn or fail.
+- Preserve the scoped approval continuation command in suggested commands and
+  keep `approval.resume.command` focused on approval continuation only.
+- Clarify skill reference guidance so doctor output never replaces approval
+  metadata.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact work plan maps|package metadata" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Completed Work Plan Consistency Slice
 
 Files added or updated:

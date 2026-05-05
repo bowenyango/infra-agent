@@ -5613,7 +5613,7 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
     config: resolveQueryLoopConfig()
   });
 
-  const approvalCompact = buildCompactAgentRunResult(makeState({
+  const approvalState = makeState({
     outcome: 'approval-required',
     toolSummaries: [readFileSummary],
     approvalSignals: [
@@ -5624,7 +5624,8 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
         message: 'Approval required before editing chart values.'
       }
     ]
-  }));
+  });
+  const approvalCompact = buildCompactAgentRunResult(approvalState);
   const approvalStep = approvalCompact.harness.workPlan.steps.find(step => step.kind === 'edit');
   assert.equal(approvalCompact.harness.workPlan.status, 'blocked');
   assert.equal(approvalCompact.harness.workPlan.blockerKind, 'approval');
@@ -5632,6 +5633,14 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   assert.equal(approvalStep?.status, 'blocked');
   assert.equal(approvalStep?.approvalSignalKind, 'write-approval-required');
   assert.equal(parseCompactAgentRunResult(approvalCompact).kind, 'infra-agent.agent-result');
+
+  const approvalWarnCompact = buildCompactAgentRunResult({
+    ...approvalState,
+    modelName: 'rule-based-fallback'
+  });
+  assert.match(approvalWarnCompact.suggestedCommands[0] ?? '', / doctor .*--json/);
+  assert.ok(approvalWarnCompact.suggestedCommands.some(command => /--approve-write-risk medium/.test(command)));
+  assert.doesNotMatch(approvalWarnCompact.approval.resume.command ?? '', /doctor/);
 
   const validationCompact = buildCompactAgentRunResult(makeState({
     outcome: 'validation-blocked',
