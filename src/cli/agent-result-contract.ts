@@ -135,6 +135,9 @@ const LLM_API_KEY_SOURCES = ['INFRA_AGENT_OPENAI_API_KEY', 'OPENAI_API_KEY', 'un
 const LLM_PROVIDER_TRANSPORTS = ['chat-completions'] as const;
 const LLM_PROVIDER_ENDPOINT_PATHS = ['/chat/completions'] as const;
 const LLM_PROVIDER_RESPONSE_FORMATS = ['json-object'] as const;
+const PLANNER_PROVIDER_CATALOG_DISCOVERY_SOURCES = ['static-catalog'] as const;
+const PLANNER_PROVIDER_CATALOG_COMMAND = 'infra-agent planner-providers --json';
+const PLANNER_PROVIDER_CATALOG_SUPPORTED_IDS = ['openai-compatible'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -567,6 +570,61 @@ function assertCommandIncludesPlannerConfigFlags(
 
   if (options.includePlannerMode === false && extractCommandFlagValues(command, '--planner').length > 0) {
     throw new Error(`compact result input ${fieldPath} must not include planner mode flags.`);
+  }
+}
+
+function assertPlannerProviderCatalogDiscovery(value: unknown, fieldPath: string): void {
+  if (!isRecord(value)) {
+    throw new Error(`compact result input ${fieldPath} must be an object.`);
+  }
+
+  if (value.schemaVersion !== 1) {
+    throw new Error(`compact result input ${fieldPath}.schemaVersion must be 1.`);
+  }
+
+  if (
+    typeof value.source !== 'string'
+    || !PLANNER_PROVIDER_CATALOG_DISCOVERY_SOURCES.includes(
+      value.source as typeof PLANNER_PROVIDER_CATALOG_DISCOVERY_SOURCES[number]
+    )
+  ) {
+    throw new Error(`compact result input ${fieldPath}.source must be supported.`);
+  }
+
+  if (value.command !== PLANNER_PROVIDER_CATALOG_COMMAND) {
+    throw new Error(`compact result input ${fieldPath}.command must be ${PLANNER_PROVIDER_CATALOG_COMMAND}.`);
+  }
+
+  if (value.mutationAllowed !== false) {
+    throw new Error(`compact result input ${fieldPath}.mutationAllowed must be false.`);
+  }
+
+  if (value.liveProviderCheck !== false) {
+    throw new Error(`compact result input ${fieldPath}.liveProviderCheck must be false.`);
+  }
+
+  if (value.plannerOnly !== true) {
+    throw new Error(`compact result input ${fieldPath}.plannerOnly must be true.`);
+  }
+
+  for (const field of ['providerCount', 'supportedProviderCount']) {
+    assertIntegerField(value, field, fieldPath, isNonNegativeInteger, 'a non-negative integer');
+  }
+
+  if ((value.supportedProviderCount as number) > (value.providerCount as number)) {
+    throw new Error(`compact result input ${fieldPath}.supportedProviderCount must not exceed providerCount.`);
+  }
+
+  if (
+    !Array.isArray(value.supportedProviderIds)
+    || value.supportedProviderIds.length !== PLANNER_PROVIDER_CATALOG_SUPPORTED_IDS.length
+    || value.supportedProviderIds.some((providerId, index) => providerId !== PLANNER_PROVIDER_CATALOG_SUPPORTED_IDS[index])
+  ) {
+    throw new Error(`compact result input ${fieldPath}.supportedProviderIds must match supported planner provider ids.`);
+  }
+
+  if (value.supportedProviderCount !== value.supportedProviderIds.length) {
+    throw new Error(`compact result input ${fieldPath}.supportedProviderCount must match supportedProviderIds length.`);
   }
 }
 
@@ -2412,6 +2470,11 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       value.harness,
       'readiness.doctorCommand',
       { includePlannerMode: false }
+    );
+
+    assertPlannerProviderCatalogDiscovery(
+      value.readiness.plannerProviderCatalog,
+      'readiness.plannerProviderCatalog'
     );
 
     if (!Array.isArray(value.readiness.checks)) {

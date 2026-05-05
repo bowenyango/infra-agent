@@ -9177,6 +9177,7 @@ test('compact agent result contract validates shallow handoff shape and validati
       warnCount: 0,
       failCount: 0,
       doctorCommand: 'infra-agent doctor /workspace --json',
+      plannerProviderCatalog: buildPlannerProviderCatalogDiscovery(),
       checks: [
         {
           name: 'planner',
@@ -12115,6 +12116,68 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /readiness\.doctorCommand/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        plannerProviderCatalog: undefined
+      }
+    }),
+    /readiness\.plannerProviderCatalog must be an object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        plannerProviderCatalog: {
+          ...validResult.readiness.plannerProviderCatalog,
+          command: 'infra-agent planner-providers --json --live'
+        }
+      }
+    }),
+    /readiness\.plannerProviderCatalog\.command/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        plannerProviderCatalog: {
+          ...validResult.readiness.plannerProviderCatalog,
+          liveProviderCheck: true
+        }
+      }
+    }),
+    /readiness\.plannerProviderCatalog\.liveProviderCheck/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        plannerProviderCatalog: {
+          ...validResult.readiness.plannerProviderCatalog,
+          supportedProviderIds: ['openai-compatible', 'other-provider']
+        }
+      }
+    }),
+    /readiness\.plannerProviderCatalog\.supportedProviderIds/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      readiness: {
+        ...validResult.readiness,
+        plannerProviderCatalog: {
+          ...validResult.readiness.plannerProviderCatalog,
+          supportedProviderCount: 2
+        }
+      }
+    }),
+    /readiness\.plannerProviderCatalog\.supportedProviderCount/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

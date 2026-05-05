@@ -9089,6 +9089,33 @@ Remaining risks:
 
 - Compact readiness does not yet include the discovery object.
 
+## 2026-05-05 Compact Readiness Planner Catalog Parser Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Tighten `parseCompactAgentRunResult` validation for
+  `readiness.plannerProviderCatalog`.
+- Require the compact discovery object to stay static, read-only,
+  planner-only, and live-check disabled.
+- Reject command drift, unknown provider ids, and inconsistent discovery
+  counts so downstream handoff agents can trust the catalog pointer.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract validates shallow handoff shape and validation.commands metadata" ./test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test-name-pattern "agent CLI compact JSON includes work plan handoff|agent CLI compact JSON preserves explicit approval grants|tool category approval continuation scope" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Durable docs and skill guidance still need to mention the new readiness
+  discovery field.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
