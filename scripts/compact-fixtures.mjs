@@ -171,6 +171,24 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         }
       ]
     },
+    approval: {
+      requiredWriteRisks: [],
+      requiredToolCategories: [],
+      signals: [],
+      resume: {
+        continuationRequired: false,
+        command: null,
+        primarySignal: null,
+        additionalSignalCount: 0,
+        additionalWriteRisks: [],
+        additionalWritePaths: [],
+        additionalToolCategories: [],
+        writeRisks: [],
+        writePaths: [],
+        toolCategories: [],
+        signalCount: 0
+      }
+    },
     knowledgeCache: {
       root: `${workspaceRoot}/.infra-agent/knowledge-cache`,
       source: 'workspace-config: knowledgeCache.root'

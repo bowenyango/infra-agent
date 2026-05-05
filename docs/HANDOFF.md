@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Smoke Approval Fixture Alignment Slice
+
+Files added or updated:
+
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Align the smoke script's reusable identity-conflict compact agent-result
+  fixture with the now-required `approval` contract.
+- Keep smoke coverage exercising the same strict compact parser as
+  identity-report tests.
+- Preserve the fixture as a read-only validation-blocked report with no pending
+  approval continuation.
+
+Known validation:
+
+- `npm run smoke`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Identity Report Approval Fixture Alignment Slice
 
 Files added or updated:
