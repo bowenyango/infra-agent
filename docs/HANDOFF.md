@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Turn Trace Budget Count Consistency Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require legacy `harness.turnTraceLimit` and
+  `harness.turnTraceOmittedCount` when a harness section is present.
+- Cross-check `harness.turnTraceBudget.totalCount` against root
+  `turnsUsed`.
+- Cross-check the same turn trace total against
+  `harness.loopBudget.turnsUsed`.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Required Turn Trace Contract Slice
 
 Files added or updated:

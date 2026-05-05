@@ -10849,6 +10849,41 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult,
       harness: {
         ...validResult.harness,
+        turnTraceLimit: undefined
+      }
+    }),
+    /harness\.turnTraceLimit/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          turnTrace: {
+            includedCount: 1,
+            omittedCount: 1
+          }
+        }
+      },
+      harness: {
+        ...validResult.harness,
+        turnTraceOmittedCount: 1,
+        turnTraceBudget: {
+          ...validResult.harness.turnTraceBudget,
+          totalCount: 2,
+          omittedCount: 1
+        }
+      }
+    }),
+    /harness\.turnTraceBudget\.totalCount must match root\.turnsUsed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
         lifecycleEvents: {
           events: {}
         }

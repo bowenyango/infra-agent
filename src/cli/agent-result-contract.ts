@@ -1412,16 +1412,24 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       }
     }
 
-    if ('turnTraceLimit' in value.harness && !isNonNegativeInteger(value.harness.turnTraceLimit)) {
-      throw new Error('compact result input harness.turnTraceLimit must be a non-negative integer when present.');
+    if (!isNonNegativeInteger(value.harness.turnTraceLimit)) {
+      throw new Error('compact result input harness.turnTraceLimit must be a non-negative integer when harness is present.');
     }
 
-    if ('turnTraceOmittedCount' in value.harness && !isNonNegativeInteger(value.harness.turnTraceOmittedCount)) {
-      throw new Error('compact result input harness.turnTraceOmittedCount must be a non-negative integer when present.');
+    if (!isNonNegativeInteger(value.harness.turnTraceOmittedCount)) {
+      throw new Error('compact result input harness.turnTraceOmittedCount must be a non-negative integer when harness is present.');
     }
 
     if (Array.isArray(value.harness.turnTrace) && isRecord(value.harness.turnTraceBudget)) {
       const turnTrace = value.harness.turnTrace;
+
+      if (value.harness.turnTraceBudget.totalCount !== value.turnsUsed) {
+        throw new Error('compact result input harness.turnTraceBudget.totalCount must match root.turnsUsed.');
+      }
+
+      if (value.harness.turnTraceBudget.totalCount !== value.harness.loopBudget.turnsUsed) {
+        throw new Error('compact result input harness.turnTraceBudget.totalCount must match harness.loopBudget.turnsUsed.');
+      }
 
       if (
         isNonNegativeInteger(value.harness.turnTraceBudget.includedCount)
