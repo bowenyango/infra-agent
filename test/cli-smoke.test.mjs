@@ -107,6 +107,7 @@ import { extractKnowledgeFactSetFromCacheEntry } from '../src/knowledge/facts.ts
 import { extractWorkspaceKnowledgeFacts } from '../src/knowledge/extract.ts';
 import { validateKnowledgePayload } from '../src/knowledge/validate.ts';
 import { buildKnowledgePack } from '../src/knowledge/pack.ts';
+import { budgetKnowledgePackFacts } from '../src/knowledge/fact-budget.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2793,6 +2794,39 @@ test('knowledge pack builds bounded planner-safe fact packs', async () => {
   ));
   assert.ok(pack.facts.every(fact => typeof fact.sourceId === 'string' && !('source' in fact)));
   assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|replicaCount":\s*\{|"\$schema"|resource "aws_/);
+});
+
+test('knowledge fact budget summarizes packs without raw source payloads', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 6,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+  const summary = budgetKnowledgePackFacts(pack, {
+    maxFacts: 2
+  });
+
+  assert.equal(summary.kind, 'infra-agent.knowledge-facts-summary');
+  assert.equal(summary.schemaVersion, 1);
+  assert.equal(summary.mutationAllowed, false);
+  assert.equal(summary.packId, pack.packId);
+  assert.equal(summary.maxFacts, 2);
+  assert.equal(summary.includedFactCount, 2);
+  assert.equal(summary.omittedFactCount, pack.factCount - 2);
+  assert.equal(summary.sourceCount, pack.sourceCount);
+  assert.ok(summary.sources.some(source =>
+    source.kind === 'chart-schema'
+    && source.domain === 'helm'
+    && source.factCount > 0
+  ));
+  assert.ok(summary.facts.every(fact =>
+    typeof fact.sourceId === 'string'
+    && typeof fact.sourceLocator === 'string'
+    && !('source' in fact)
+  ));
+  assert.doesNotMatch(JSON.stringify(summary), /contentHash|fetchedAt|"content"\s*:|"\$schema"|replicaCount":\s*\{/);
 });
 
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {

@@ -9572,6 +9572,32 @@ Remaining risks:
 - Planner automatic consumption of `knowledge-pack` output is still pending.
 - Remote/team cache backend abstraction is still not implemented.
 
+## 2026-05-05 Knowledge Fact Budget Summary Slice
+
+Files added or updated:
+
+- `src/knowledge/fact-budget.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a compact `infra-agent.knowledge-facts-summary` helper for planner and
+  handoff consumption.
+- Reuse bounded `knowledge-pack` facts while stripping raw source payloads,
+  content hashes, and fetched timestamps from compact prompt/handoff surfaces.
+- Preserve source ids, locators, confidence, extraction method, and omitted
+  fact counts for downstream routing.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge fact budget" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Runtime loading, planner prompt injection, compact output, and parser
+  validation are still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
