@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Capped ToolTrace Generator Test Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add generated compact coverage for more tool summaries than the tool-trace
+  window can include.
+- Verify tail-window preservation, omitted count, first/last included turn
+  indexes, and latest turn index.
+- Parse the generated compact result so output and contract stay aligned.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "capped tool trace tail window|compact agent result contract" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Additional Scope Result Card Slice
 
 Files added or updated:

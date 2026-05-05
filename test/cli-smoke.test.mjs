@@ -5864,6 +5864,50 @@ test('buildCompactAgentRunResult exposes skipped turn execution reasons', async 
   assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
 });
 
+test('buildCompactAgentRunResult preserves capped tool trace tail window', async () => {
+  const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
+  const toolSummaries = Array.from({ length: 10 }, (_, index) => ({
+    turnIndex: index,
+    actionKind: 'inspect-target-files',
+    toolName: 'read_file',
+    safety: 'read_only',
+    summary: `Read target file ${index}.`
+  }));
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'no-safe-action',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      toolSummaries,
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [],
+    config: resolveQueryLoopConfig()
+  });
+
+  assert.equal(compact.harness.toolTrace.totalCount, 10);
+  assert.equal(compact.harness.toolTrace.maxEntries, 8);
+  assert.equal(compact.harness.toolTrace.includedCount, 8);
+  assert.equal(compact.harness.toolTrace.omittedCount, 2);
+  assert.equal(compact.harness.toolTrace.preservedWindow, 'tail');
+  assert.equal(compact.harness.toolTrace.firstIncludedTurnIndex, 2);
+  assert.equal(compact.harness.toolTrace.lastIncludedTurnIndex, 9);
+  assert.equal(compact.harness.toolTrace.latestTurnIndex, 9);
+  assert.deepEqual(
+    compact.harness.toolTrace.entries.map(entry => entry.turnIndex),
+    [2, 3, 4, 5, 6, 7, 8, 9]
+  );
+  assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+});
+
 test('buildCompactAgentRunResult exposes turn trace budget metadata when capped', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const runtime = {
