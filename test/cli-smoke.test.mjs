@@ -36,6 +36,7 @@ import {
   summarizePreflightSnapshot,
   summarizePreflightSuggestedCommands,
   printPlannerProviderCatalogReport,
+  printDoctorReport,
   summarizeRecommendedNextSteps,
   summarizeResultCard,
   summarizeSuggestedCommands
@@ -6635,6 +6636,16 @@ test('doctor command reports install and workspace readiness', async () => {
   assert.ok(report.checks.some(check => check.name === 'validation-plan'));
   assert.ok(report.checks.some(check => check.name === 'validator:helm'));
   assert.equal(report.summary.failCount, report.checks.filter(check => check.status === 'fail').length);
+});
+
+test('doctor text output includes planner provider catalog discovery', async () => {
+  const output = await captureStdout(async () => {
+    const report = await buildDoctorReport('fixtures/sample-workspace', {});
+    printDoctorReport(report);
+  });
+
+  assert.match(output, /planner provider catalog: infra-agent planner-providers --json \(read-only, live check disabled\)/);
+  assert.doesNotMatch(output, /authorization|bearer|secret/i);
 });
 
 test('doctor command reports configured LLM planner without exposing secrets', async () => {

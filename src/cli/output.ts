@@ -622,6 +622,7 @@ export function printDoctorReport(report: DoctorReport): void {
   process.stdout.write(`version: ${report.version}\n`);
   process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
   process.stdout.write(`node: ${report.node.current}${report.node.required ? ` (required ${report.node.required})` : ''}\n`);
+  process.stdout.write(`planner provider catalog: ${report.plannerProviderCatalog.command} (read-only, live check disabled)\n`);
   process.stdout.write(`status: ${report.summary.status} (${report.summary.passCount} pass, ${report.summary.warnCount} warn, ${report.summary.failCount} fail)\n\n`);
 
   printHeader('Checks');

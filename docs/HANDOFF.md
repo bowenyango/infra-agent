@@ -9088,3 +9088,25 @@ Known validation:
 Remaining risks:
 
 - Compact readiness does not yet include the discovery object.
+
+## 2026-05-05 Doctor Planner Provider Catalog Text Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a concise human doctor output line for the planner provider catalog
+  discovery command.
+- Keep text output limited to command and read-only/live-check posture.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "doctor text output" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact readiness does not yet include the discovery object.
