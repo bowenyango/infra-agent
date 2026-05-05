@@ -24,6 +24,13 @@ export interface PlannerRuntimeConfig {
     providerSource: string;
     modelSource: string;
     baseUrlSource: string;
+    capabilities: {
+      transport: string;
+      endpointPath: string;
+      responseFormat: string;
+      supportsJsonObject: boolean;
+      supportsStreaming: boolean;
+    };
   } | null;
 }
 
@@ -64,7 +71,14 @@ function llmSelection(requestedMode: PlannerMode, llmConfig: NonNullable<ReturnT
         apiKeySource: llmConfig.apiKeySource,
         providerSource: llmConfig.providerSource,
         modelSource: llmConfig.modelSource,
-        baseUrlSource: llmConfig.baseUrlSource
+        baseUrlSource: llmConfig.baseUrlSource,
+        capabilities: {
+          transport: llmConfig.providerCapabilities.transport,
+          endpointPath: llmConfig.providerCapabilities.endpointPath,
+          responseFormat: llmConfig.providerCapabilities.responseFormat,
+          supportsJsonObject: llmConfig.providerCapabilities.supportsJsonObject,
+          supportsStreaming: llmConfig.providerCapabilities.supportsStreaming
+        }
       }
     }
   };

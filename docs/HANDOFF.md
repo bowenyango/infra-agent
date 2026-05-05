@@ -8494,3 +8494,27 @@ Remaining risks:
 
 - Planner runtime metadata still does not expose provider capabilities for
   doctor or compact handoff.
+
+## 2026-05-05 Planner Runtime Capability Snapshot Slice
+
+Files added or updated:
+
+- `src/model/create-model-client.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add provider capability metadata to the non-secret `PlannerRuntimeConfig`
+  returned by model client selection.
+- Keep the snapshot tied to the selected provider at query entry, following the
+  immutable query config pattern from the local Claude Code references.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "createModelClientSelection" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact output and doctor reports still need to expose/validate these
+  capabilities for downstream agents.

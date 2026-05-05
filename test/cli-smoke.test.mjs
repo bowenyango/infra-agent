@@ -13975,6 +13975,13 @@ test('createModelClientSelection reports non-secret runtime planner metadata', (
   assert.equal(llmSelection.plannerConfig.llm?.baseUrl, 'https://cli.example.test/v1');
   assert.equal(llmSelection.plannerConfig.llm?.baseUrlSource, 'cli');
   assert.equal(llmSelection.plannerConfig.llm?.apiKeySource, 'INFRA_AGENT_OPENAI_API_KEY');
+  assert.deepEqual(llmSelection.plannerConfig.llm?.capabilities, {
+    transport: 'chat-completions',
+    endpointPath: '/chat/completions',
+    responseFormat: 'json-object',
+    supportsJsonObject: true,
+    supportsStreaming: false
+  });
   assert.doesNotMatch(JSON.stringify(llmSelection.plannerConfig), /secret-key/);
 });
 
