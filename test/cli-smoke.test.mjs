@@ -6566,6 +6566,38 @@ test('doctor command reports configured LLM planner without exposing secrets', a
   assert.doesNotMatch(JSON.stringify(report), /secret-value/);
 });
 
+test('doctor command accepts read-only LLM planner overrides', async () => {
+  const parsed = parseArgs([
+    'doctor',
+    'fixtures/sample-workspace',
+    '--model',
+    'doctor-cli-model',
+    '--openai-base-url',
+    'https://doctor-cli.example.test/v1',
+    '--llm-provider',
+    'openai-compatible',
+    '--json'
+  ]);
+  const report = await buildDoctorReport(
+    parsed.workspace,
+    {
+      INFRA_AGENT_OPENAI_API_KEY: 'secret-value',
+      INFRA_AGENT_MODEL: 'doctor-env-model',
+      INFRA_AGENT_OPENAI_BASE_URL: 'https://doctor-env.example.test/v1'
+    },
+    buildLLMClientConfigOverrides(parsed)
+  );
+  const plannerCheck = report.checks.find(check => check.name === 'planner');
+
+  assert.equal(parsed.command, 'doctor');
+  assert.equal(parsed.llmModel, 'doctor-cli-model');
+  assert.equal(parsed.llmBaseUrl, 'https://doctor-cli.example.test/v1');
+  assert.equal(parsed.llmProvider, 'openai-compatible');
+  assert.match(plannerCheck?.message ?? '', /doctor-cli-model/);
+  assert.equal(plannerCheck?.detail, 'model=doctor-cli-model, baseUrl=https://doctor-cli.example.test/v1');
+  assert.doesNotMatch(JSON.stringify(report), /secret-value/);
+});
+
 test('CLI exit codes map agent outcomes for downstream agents', async () => {
   assert.equal(exitCodeForAgentOutcome('completed'), INFRA_AGENT_EXIT_CODES.success);
   assert.equal(exitCodeForAgentOutcome('validation-blocked'), INFRA_AGENT_EXIT_CODES.validationBlocked);

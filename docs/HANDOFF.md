@@ -8314,3 +8314,30 @@ Remaining risks:
 
 - Doctor does not yet accept the same model/base URL overrides for read-only
   readiness checks.
+
+## 2026-05-05 Doctor LLM Override Slice
+
+Files added or updated:
+
+- `src/cli/doctor.ts`
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Allow read-only `doctor` checks to receive the same model, provider, and
+  OpenAI-compatible base URL overrides as `agent`.
+- Keep API keys env-only and verify doctor output does not expose secret
+  values.
+- Let users validate intended LLM planner configuration before running the
+  bounded agent loop.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "doctor command" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- README, rules, and packaged skill docs still need to describe the new CLI
+  model override path.

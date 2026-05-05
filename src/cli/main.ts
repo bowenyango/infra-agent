@@ -66,7 +66,7 @@ function printUsage(): void {
       '',
       'Usage:',
       '  infra-agent --version',
-      '  infra-agent doctor [workspace] [--json]',
+      '  infra-agent doctor [workspace] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
@@ -184,7 +184,55 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (commandName === 'doctor') {
     const positionalArgs: string[] = [];
-    for (const arg of cleanArgs) {
+    let llmProvider: LLMProvider | null = null;
+    let llmModel: string | null = null;
+    let llmBaseUrl: string | null = null;
+
+    for (let index = 0; index < cleanArgs.length; index += 1) {
+      const arg = cleanArgs[index];
+
+      if (arg === '--model' || arg === '--llm-model') {
+        const modelValue = cleanArgs[index + 1]?.trim();
+        if (!modelValue) {
+          fail(`Missing value for ${arg}.`);
+        }
+        if (llmModel !== null) {
+          fail('LLM model can be provided at most once.');
+        }
+
+        llmModel = modelValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--openai-base-url' || arg === '--llm-base-url') {
+        const baseUrlValue = cleanArgs[index + 1]?.trim();
+        if (!baseUrlValue) {
+          fail(`Missing value for ${arg}.`);
+        }
+        if (llmBaseUrl !== null) {
+          fail('LLM base URL can be provided at most once.');
+        }
+
+        llmBaseUrl = baseUrlValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--llm-provider') {
+        const providerValue = cleanArgs[index + 1];
+        if (providerValue !== 'openai-compatible') {
+          fail('Missing or invalid value for --llm-provider. Expected openai-compatible.');
+        }
+        if (llmProvider !== null) {
+          fail('LLM provider can be provided at most once.');
+        }
+
+        llmProvider = providerValue;
+        index += 1;
+        continue;
+      }
+
       if (arg.startsWith('--')) {
         fail(`Unknown doctor option: ${arg}`);
       }
@@ -204,6 +252,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       json,
       jsonFull,
       planner: 'auto',
+      llmProvider,
+      llmModel,
+      llmBaseUrl,
       approvedWritePaths: [],
       approvedWriteRisks: [],
       approvedToolCategories: [],
@@ -670,7 +721,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   if (parsed.command === 'doctor') {
-    const report = await buildDoctorReport(parsed.workspace);
+    const report = await buildDoctorReport(parsed.workspace, undefined, buildLLMClientConfigOverrides(parsed));
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {

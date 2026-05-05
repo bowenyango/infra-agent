@@ -2,7 +2,7 @@ import { cwd, env as processEnv, version as nodeVersion } from 'node:process';
 import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
-import { resolveLLMClientConfig, type LLMConfigEnvironment } from '../model/config.ts';
+import { resolveLLMClientConfig, type LLMClientConfigOverrides, type LLMConfigEnvironment } from '../model/config.ts';
 import { buildValidationPreflight, buildValidatorAvailability } from '../validators/preflight.ts';
 import { readPackageMetadata, type InfraAgentPackageMetadata } from './package-metadata.ts';
 
@@ -139,10 +139,11 @@ async function buildAgentSurfaceCheck(packageMetadata: InfraAgentPackageMetadata
 
 export async function buildDoctorReport(
   workspacePath: string = cwd(),
-  env: LLMConfigEnvironment = processEnv
+  env: LLMConfigEnvironment = processEnv,
+  plannerOptions: LLMClientConfigOverrides = {}
 ): Promise<DoctorReport> {
   const packageMetadata = await readPackageMetadata();
-  const llmConfig = resolveLLMClientConfig(env);
+  const llmConfig = resolveLLMClientConfig(env, plannerOptions);
   const checks: DoctorCheck[] = [
     {
       name: 'package',
