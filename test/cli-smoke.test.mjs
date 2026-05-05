@@ -6647,6 +6647,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /harness\.plannerHandoff/);
   assert.match(infraSkillContent, /harness\.targeting/);
   assert.match(infraSkillContent, /harness\.workPlan/);
+  assert.match(infraSkillContent, /harness\.plannerConfig/);
   assert.match(infraSkillContent, /harness\.repairBudget/);
   assert.match(infraSkillContent, /harness\.turnTraceBudget/);
   assert.match(infraSkillContent, /harness\.lifecycleEvents/);
@@ -6668,6 +6669,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /approval\.grants/);
   assert.match(infraSkillContent, /pendingScope/);
   assert.match(infraSkillContent, /query-budget-preserving/);
+  assert.match(infraSkillContent, /CLI-selected planner flags/);
   assert.match(infraSkillContent, /additionalCommands/);
   assert.match(infraSkillContent, /knowledgeCache/);
   assert.match(infraSkillContent, /knowledgeContext/);
@@ -6675,6 +6677,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillReferenceContent, /Compact Contract Checklist/);
   assert.match(infraSkillReferenceContent, /harness\.targeting/);
   assert.match(infraSkillReferenceContent, /harness\.workPlan/);
+  assert.match(infraSkillReferenceContent, /harness\.plannerConfig/);
   assert.match(infraSkillReferenceContent, /harness\.toolTrace/);
   assert.match(infraSkillReferenceContent, /tail/);
   assert.match(infraSkillReferenceContent, /handoffCheckpoint\.continuation\.command/);
@@ -6684,6 +6687,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillReferenceContent, /approval\.grants/);
   assert.match(infraSkillReferenceContent, /pendingScope/);
   assert.match(infraSkillReferenceContent, /query-loop budget flags/);
+  assert.match(infraSkillReferenceContent, /CLI-selected planner flags/);
   assert.match(infraSkillReferenceContent, /additionalCommands/);
   assert.match(infraSkillReferenceContent, /primary signal/);
 });

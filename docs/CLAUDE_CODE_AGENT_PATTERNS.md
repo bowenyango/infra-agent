@@ -206,6 +206,10 @@ durable design reference for infra-agent development.
 - LLM and official-doc features must remain testable with injected transports,
   explicit env maps, and cache-first retrieval. Unit/smoke/E2E tests must not
   depend on live provider access.
+- Planner client selection should be snapshotted once at query entry. Compact
+  `harness.plannerConfig` records requested/effective mode plus non-secret LLM
+  provider/model/base URL metadata, and approval continuation commands preserve
+  CLI-selected planner flags so handoff agents do not silently switch models.
 
 ## Current Non-Goals
 

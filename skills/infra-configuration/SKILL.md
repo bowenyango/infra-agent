@@ -17,7 +17,11 @@ installation check before running repository-specific commands. Use
 `infra-agent doctor <workspace> --json` when another agent needs a structured,
 read-only readiness report before planning edits. Doctor output verifies the
 installed agent-facing surface and may report whether the LLM planner is
-configured, but it must not expose API keys.
+configured, but it must not expose API keys. If a caller wants to verify a
+specific OpenAI-compatible model or gateway before running the agent, pass
+`--model <name>`, `--openai-base-url <url>`, and
+`--llm-provider openai-compatible` to `doctor`; credentials must still come
+from environment variables.
 
 ## Workflow
 
@@ -34,6 +38,10 @@ configured, but it must not expose API keys.
    infra-agent agent "<task>" --workspace <workspace>
    ```
 
+   To select an OpenAI-compatible planner model for one run, add
+   `--model <name>` or `--llm-model <name>` plus
+   `--openai-base-url <url>` when using a gateway. Do not pass API keys as CLI
+   arguments; use `INFRA_AGENT_OPENAI_API_KEY` or `OPENAI_API_KEY`.
    Use `--context-packet-limit <n>` or `--context-token-budget <n>` when the
    caller needs a stricter retrieved-doc context budget.
    If the result pauses on a tool-category approval, rerun with
@@ -56,7 +64,9 @@ configured, but it must not expose API keys.
    target, candidate score posture, ambiguity flags, and recommended targeting
    action, `harness.workPlan` for derived progress steps, skipped-step count,
    current step, and next control action, and `harness.turnTrace` for the bounded action flow. Read
-   `harness.plannerHandoff` for the active blocker and next control action,
+   `harness.plannerConfig` for requested/effective planner mode and non-secret
+   provider/model/base URL source metadata, `harness.plannerHandoff` for the
+   active blocker and next control action,
    `harness.turnTraceBudget` and
    `harness.lifecycleEvents` for capped lifecycle window/count metadata, and
    `harness.toolTrace` for budgeted tail-window recent tool summaries, first
@@ -78,8 +88,9 @@ configured, but it must not expose API keys.
    `validation.issueSummary` for grouped blocker posture, and
    `approval.resume` for the primary approval signal, additional pending
    approval scopes, `pendingScope` counts, scoped continuation command,
-   compact/debug JSON continuation commands, query-budget-preserving flags, and
-   per-signal `additionalCommands`; this metadata is not approval by itself.
+   compact/debug JSON continuation commands, query-budget-preserving flags,
+   CLI-selected planner flags, and per-signal `additionalCommands`; this
+   metadata is not approval by itself.
    Read `approval.grants` separately to see explicit approval scope already
    supplied to the current run; supplied grants do not approve any future
    broader operation, but suggested rerun/export commands preserve them for the

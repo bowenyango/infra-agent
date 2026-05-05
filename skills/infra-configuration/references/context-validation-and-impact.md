@@ -51,6 +51,8 @@ contract-checked by the parser:
   `harness.lifecycleEvents`, `harness.turnTrace`, and
   `harness.plannerHandoff` for current run state, selected target posture,
   derived progress, and next control action.
+- `harness.plannerConfig` for requested/effective planner mode and non-secret
+  LLM provider/model/base URL source metadata. It is not credential metadata.
 - `harness.toolTrace` and `harness.toolPermissionSummary` for permission
   posture before asking for raw tool output or native CLI reruns.
 - `readiness.doctorCommand` when readiness is warn or fail; this is read-only.
@@ -68,8 +70,9 @@ contract-checked by the parser:
   to ask the user about, but do not treat any of those fields as approval.
 - `approval.resume.compactCommand`, `approval.resume.debugCommand`, and
   `approval.resume.additionalCommands` only as scoped rerun helpers. They
-  preserve query-loop budget flags. Prefer asking the user about each
-  additional command separately instead of combining approval scopes by default.
+  preserve query-loop budget flags and CLI-selected planner flags. Prefer
+  asking the user about each additional command separately instead of combining
+  approval scopes by default.
 - `approval.grants` only as supplied-scope metadata. It shows approval already
   passed into the current run, not permission to expand write paths, write
   risks, or native tool categories. Suggested rerun/export commands preserve

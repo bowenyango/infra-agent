@@ -70,14 +70,14 @@ If validation fails, the agent should continue iterating until the failure is re
 The current repository includes a minimal TypeScript CLI skeleton with these commands:
 
 - `infra-agent --version`
-- `infra-agent doctor [workspace] [--json]`
+- `infra-agent doctor [workspace] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]`
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
 - `infra-agent identity-report <agent-result.json> [--json]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
 Current behavior is intentionally runtime-foundation oriented:
 
@@ -144,6 +144,10 @@ Current behavior is intentionally runtime-foundation oriented:
   supported values are preserved, and missing or unsupported values fall back to
   deterministic runtime, domain, validation, repair, or stop families.
 - `agent` now prefers an OpenAI-compatible LLM planner when an API key is configured, with rule-based fallback for local testing
+- `agent` and read-only `doctor` accept CLI model overrides through
+  `--model`/`--llm-model`, `--openai-base-url`/`--llm-base-url`, and
+  `--llm-provider openai-compatible`. API keys remain environment-only, and
+  compact handoff records only non-secret planner config metadata.
 - LLM planner prompts include compact `runtimeIdentityConflictSummary` and
   `runtimeIdentityConflicts` when native validation reports provider-exclusive
   identity blockers. The summary carries total/included/omitted, engine, and
@@ -426,10 +430,14 @@ scripts, and handoff history are excluded from the installable package.
 LLM planner environment variables:
 
 - `INFRA_AGENT_OPENAI_API_KEY` or `OPENAI_API_KEY`
+- `INFRA_AGENT_LLM_PROVIDER` default `openai-compatible`
 - `INFRA_AGENT_MODEL` default `gpt-5-mini`
 - `INFRA_AGENT_OPENAI_BASE_URL` or `OPENAI_BASE_URL` default `https://api.openai.com/v1`
 
 When both names are present, `INFRA_AGENT_*` values take precedence.
+Agent and doctor CLI flags override non-secret provider/model/base URL env
+values for that invocation. API keys are intentionally not accepted as CLI
+flags.
 
 Development verification commands:
 

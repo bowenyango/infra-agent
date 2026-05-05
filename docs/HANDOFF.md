@@ -8341,3 +8341,33 @@ Remaining risks:
 
 - README, rules, and packaged skill docs still need to describe the new CLI
   model override path.
+
+## 2026-05-05 LLM Planner Override Documentation Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document agent and doctor model/base URL/provider override flags and the
+  env-only API key boundary.
+- Record `harness.plannerConfig` as the compact non-secret planner handoff
+  surface.
+- Update packaged skill assertions so installable guidance includes
+  model-selection and continuation-command behavior.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Full repository verification and package dry-run still need to run after the
+  complete development round.
