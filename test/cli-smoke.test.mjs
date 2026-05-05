@@ -5769,7 +5769,8 @@ test('runSingleStep respects the configured maximum turn count', async () => {
         maxTurns: 1,
         retrievedContextBudget: {
           maxPackets: 2,
-          maxTokens: 500
+          maxTokens: 500,
+          maxFacts: 3
         }
       }
     );
@@ -5794,6 +5795,18 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.queryConfig.maxRepairAttempts, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxPackets, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxTokens, 500);
+    assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxFacts, 3);
+    assert.equal(compact.knowledgeFacts.kind, 'infra-agent.knowledge-facts-summary');
+    assert.equal(compact.knowledgeFacts.maxFacts, 3);
+    assert.equal(compact.knowledgeFacts.mutationAllowed, false);
+    assert.ok(compact.knowledgeFacts.totalFactCount > 0);
+    assert.ok(compact.knowledgeFacts.includedFactCount <= 3);
+    assert.equal(compact.harness.stateSummary.knowledgeFactCount, compact.knowledgeFacts.totalFactCount);
+    assert.deepEqual(compact.handoffCheckpoint.budgets.knowledgeFacts, {
+      includedCount: compact.knowledgeFacts.includedFactCount,
+      omittedCount: compact.knowledgeFacts.omittedFactCount
+    });
+    assert.doesNotMatch(JSON.stringify(compact.knowledgeFacts), /"content"\s*:|contentHash|fetchedAt|"\$schema"/);
     assert.deepEqual(compact.harness.loopBudget, {
       turnsUsed: 1,
       maxTurns: 1,
@@ -6007,6 +6020,10 @@ test('runSingleStep respects the configured maximum turn count', async () => {
           omittedCount: compact.knowledgeContext.omittedPacketCount,
           includedTokenEstimate: compact.knowledgeContext.includedTokenEstimate,
           omittedTokenEstimate: compact.knowledgeContext.omittedTokenEstimate
+        },
+        knowledgeFacts: {
+          includedCount: compact.knowledgeFacts.includedFactCount,
+          omittedCount: compact.knowledgeFacts.omittedFactCount
         }
       },
       continuation: {

@@ -9678,6 +9678,33 @@ Remaining risks:
 - Compact `agent --json` still needs a root-level `knowledgeFacts` summary and
   dedicated contract checks for the fact payload shape.
 
+## 2026-05-05 Compact Knowledge Facts Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add root-level compact `knowledgeFacts` beside `knowledgeCache` and
+  `knowledgeContext` in `agent --json` output.
+- Reuse `budgetKnowledgePackFacts` against precomputed runtime state, keeping
+  output synchronous and cache/local-only.
+- Add `handoffCheckpoint.budgets.knowledgeFacts` and
+  `harness.stateSummary.knowledgeFactCount` so downstream agents can detect
+  capped or missing fact samples without reading raw docs.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "runSingleStep respects the configured maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- `parseCompactAgentRunResult` still needs dedicated validation for the
+  `knowledgeFacts` payload shape and budget consistency.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

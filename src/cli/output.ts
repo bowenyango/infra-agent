@@ -48,6 +48,10 @@ import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
+  budgetKnowledgePackFacts,
+  type KnowledgeFactBudgetSummary
+} from '../knowledge/fact-budget.ts';
+import {
   aggregateToolPermissions,
   classifyToolPermission,
   type ToolPermissionCategory,
@@ -262,6 +266,7 @@ interface CompactHandoffCheckpoint {
       includedTokenEstimate: number;
       omittedTokenEstimate: number;
     };
+    knowledgeFacts: CompactHandoffBudgetSample;
   };
   continuation: {
     required: boolean;
@@ -424,6 +429,7 @@ export interface CompactAgentRunResult {
       validationIssueCount: number;
       approvalSignalCount: number;
       retrievedContextCount: number;
+      knowledgeFactCount: number;
       semanticFactCount: number;
     };
     targeting: CompactTargetingSummary;
@@ -595,6 +601,7 @@ export interface CompactAgentRunResult {
   };
   knowledgeCache: WorkspaceInspection['knowledgeCache'];
   knowledgeContext: RetrievedContextBudgetSummary;
+  knowledgeFacts: KnowledgeFactBudgetSummary;
   readiness: CompactReadinessSummary;
 }
 
@@ -1137,8 +1144,16 @@ function collectRuntimeStateSummary(state: AgentRunState): CompactAgentRunResult
     validationIssueCount: state.runtime.validationIssues?.length ?? 0,
     approvalSignalCount: state.runtime.approvalSignals?.length ?? 0,
     retrievedContextCount: state.runtime.retrievedContext?.length ?? 0,
+    knowledgeFactCount: state.runtime.knowledgeFacts?.factCount ?? 0,
     semanticFactCount: getRuntimeConfigSemantics(state.runtime).reduce((count, summary) => count + summary.facts.length, 0)
   };
+}
+
+function collectKnowledgeFactsSummary(state: AgentRunState): KnowledgeFactBudgetSummary {
+  const queryConfig = getAgentQueryConfig(state);
+  return budgetKnowledgePackFacts(state.runtime.knowledgeFacts ?? null, {
+    maxFacts: queryConfig.retrievedContextBudget.maxFacts
+  });
 }
 
 function domainForTargetCandidate(kind: TargetCandidate['kind']): InfraDomainId {
@@ -2612,6 +2627,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
   const targetValidationCount = getTargetValidationResults(state).length;
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
   const queryConfig = getAgentQueryConfig(state);
+  const knowledgeFacts = collectKnowledgeFactsSummary(state);
   const identityConflicts = collectValidationIdentityConflicts(state);
   const turnTrace = collectCompactTurnTrace(state);
 
@@ -2698,6 +2714,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
       state.runtime.retrievedContext,
       state.runtime.retrievedContextBudget
     ).budget,
+    knowledgeFacts,
     readiness: collectCompactReadiness(state)
   };
 }
@@ -2716,6 +2733,7 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
     state.runtime.retrievedContext,
     state.runtime.retrievedContextBudget
   ).budget;
+  const knowledgeFacts = collectKnowledgeFactsSummary(state);
   const continuationReason = plannerHandoff.activeBlocker.kind === 'none'
     ? 'none'
     : plannerHandoff.activeBlocker.kind;
@@ -2792,6 +2810,10 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
         omittedCount: knowledgeBudget.omittedPacketCount,
         includedTokenEstimate: knowledgeBudget.includedTokenEstimate,
         omittedTokenEstimate: knowledgeBudget.omittedTokenEstimate
+      },
+      knowledgeFacts: {
+        includedCount: knowledgeFacts.includedFactCount,
+        omittedCount: knowledgeFacts.omittedFactCount
       }
     },
     continuation: {
