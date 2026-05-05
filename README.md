@@ -77,6 +77,11 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
 - `infra-agent identity-report <agent-result.json> [--json]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
+- `infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
+- `infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]`
+- `infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]`
+- `infra-agent knowledge validate <knowledge.json> [--json]`
+- `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -120,6 +125,13 @@ Current behavior is intentionally runtime-foundation oriented:
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm official docs; it is bounded by `--max-sources` and skips
   repo-local schema files that do not require network retrieval
+- `knowledge sources`, `knowledge prefetch`, `knowledge extract`,
+  `knowledge validate`, and `knowledge pack` provide the cache-first knowledge
+  workflow. `sources` lists selected docs/local schemas without fetching,
+  `prefetch` aliases the bounded cache update path, `extract` turns cached
+  docs and local schemas into `infra-agent.knowledge-facts`, `validate` checks
+  facts or extraction reports before use, and `pack` emits a bounded
+  planner-safe `infra-agent.knowledge-pack` without raw source content.
 - Terraform roots may include a read-only local provider schema export at
   `.infra-agent/terraform-provider-schema.json` (or
   `.infra-agent/terraform-providers-schema.json`) generated from
@@ -409,10 +421,9 @@ Current behavior is intentionally runtime-foundation oriented:
   dependency chart names, versions, and HTTP(S) repositories can participate in
   cache selection without fetching non-document URLs such as `file://` or
   `oci://`.
-- Planned knowledge work promotes cache entries into validated fact packs:
-  provider/resource arguments, required/defaulted attributes, examples,
-  replacement-sensitive fields, Helm chart values, Terraform module inputs, and
-  Pulumi component/config parameters. Public facts should default to the user or
+- Knowledge extraction currently promotes selected cache/local entries into
+  validated fact sets and bounded packs for Terraform Registry markdown and Helm
+  `values.schema.json` chart values. Public facts should default to the user or
   team cache, not bulk commits inside every infrastructure repo; private
   repo-derived facts require explicit opt-in before any shared backend is used.
 

@@ -140,6 +140,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   must be schema-versioned, source-linked, versioned or commit-linked,
   confidence-labeled, stale-aware, and parser-validated before a planner uses
   them.
+- Use the `infra-agent knowledge` namespace for reusable knowledge workflows:
+  `sources` to inspect selected sources, `prefetch` to deliberately refresh
+  bounded official-doc cache entries, `extract` to create fact sets from cache
+  or local schema/code sources, `validate` to check facts before use, and
+  `knowledge pack` to build bounded planner-safe fact bundles. Packs are
+  advisory context, not validator-grade proof.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants
@@ -152,7 +158,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
 - For Helm dependency context, prefer repo-local `Chart.lock` over dependency repository prose. Treat HTTP(S) dependency repositories as fetch candidates and skip non-document schemes such as `file://` or `oci://`.
 - Helm planner prompts may include selected chart schema packets by default. External Helm/chart docs must stay cache-only unless a deliberate fetch or prefetch path populated them.
-- Use `infra-agent prefetch` for deliberate official-doc cache updates. Keep prefetch bounded with `--domain`, `--target`, and `--max-sources` when the workspace has many resources.
+- Use `infra-agent knowledge prefetch` or the compatible top-level
+  `infra-agent prefetch` for deliberate official-doc cache updates. Keep
+  prefetch bounded with `--domain`, `--target`, and `--max-sources` when the
+  workspace has many resources.
 - Planner prompts may include cached retrieved-context packets. Keep these compact and targeted; do not inject whole official docs into the prompt.
 - LLM planner client tests must use injected transports or mocked fetchers. Do not make unit, smoke, or E2E tests depend on live LLM providers or external network availability.
 - Test LLM planner mode and environment selection through explicit environment maps. Avoid mutating `process.env` in tests unless a behavior specifically requires process-level integration.

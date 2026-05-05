@@ -97,7 +97,10 @@ credentials must still come from environment variables.
    `knowledgeCache` for the resolved cache root/source and `knowledgeContext`
    to see which retrieved docs or schemas were included or omitted by context
    budget; the human result card mirrors that packet, token, and omission
-   posture without exposing raw excerpts. Read
+   posture without exposing raw excerpts. Use `infra-agent knowledge
+   sources/prefetch/extract/validate/pack` when you need reusable provider,
+   resource, chart, or module facts; validate extracted data before planner use
+   and prefer bounded packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
    `validation.issueSummary` for grouped blocker posture, and

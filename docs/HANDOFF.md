@@ -9518,6 +9518,37 @@ Remaining risks:
 - Documentation and package metadata still need to describe the completed
   knowledge CLI workflow.
 
+## 2026-05-05 Knowledge Workflow Documentation Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document the implemented `infra-agent knowledge
+  sources/prefetch/extract/validate/pack` workflow.
+- Clarify that extracted packs are bounded advisory context, not a replacement
+  for provider schemas, native plan/preview output, or validators.
+- Update the roadmap from planned extraction to partial implementation and keep
+  package metadata tests guarding the installable skill surface.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Planner automatic consumption of `knowledge-pack` output is still pending.
+- Remote/team cache backends remain design-only.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

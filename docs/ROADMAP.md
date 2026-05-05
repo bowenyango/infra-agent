@@ -152,9 +152,9 @@ Current progress as of 2026-05-05:
 | --- | --- | --- | --- |
 | Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, and cache-root resolution | No structured fact index or remote backend |
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock` | Pulumi docs source selection is not implemented; source selection is not yet broad provider/resource coverage |
-| Official docs retrieval | Partial | Explicit `prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only; no extraction after fetch |
-| Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports | No durable repo knowledge pack for modules/components/charts |
-| Structured knowledge extraction | Not started | Existing `ConfigSemanticFact` is a useful pattern for focused repo facts | No normalized `KnowledgeFact` schema for official docs/examples |
+| Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only; planner use of extracted packs is pending |
+| Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, and bounded Helm schema knowledge packs | Terraform module/Pulumi component durable packs are not implemented |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, and bounded packs for Terraform Registry markdown and Helm values schemas | Pulumi docs, provider schema facts, module/component README extraction, and planner pack budgeting are pending |
 | Team storage | Not started | Cache root can be local, environment-selected, or workspace-relative | No S3/GCS/Azure/Postgres backend abstraction |
 
 Target artifact families:
@@ -187,13 +187,13 @@ Extraction rules:
 - Planner prompts should receive budgeted fact summaries, not full cached docs
   or full repo files.
 
-Recommended new CLI surfaces:
+Implemented initial CLI surfaces:
 
 - `infra-agent knowledge sources <workspace> [--domain helm|pulumi|terraform]
   [--target <path>] [--json]`
   - lists selected knowledge sources without fetching.
 - `infra-agent knowledge prefetch <workspace> ...`
-  - can later replace or alias the current top-level `prefetch` command.
+  - aliases the current top-level `prefetch` command.
 - `infra-agent knowledge extract <workspace> [--domain ...] [--target ...]
   [--source <id>] [--json]`
   - extracts normalized `knowledge-facts` from cached docs, repo-local schemas,

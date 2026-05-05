@@ -120,8 +120,8 @@ Use a hybrid cache:
 
 Current cache foundation:
 
-- The CLI has `KnowledgeSource`, `KnowledgeCacheEntry`, and
-  `RetrievedContextPacket` types.
+- The CLI has `KnowledgeSource`, `KnowledgeCacheEntry`,
+  `RetrievedContextPacket`, `KnowledgeFactSet`, and `KnowledgePack` types.
 - The local cache adapter stores JSON entries with source metadata, content hash,
   fetched time, and stale-after policy.
 - The resolved cache root is visible from workspace inspection. Precedence is:
@@ -152,18 +152,22 @@ Current cache foundation:
 - Helm chart dependency context includes local `Chart.lock` packets and
   dependency repository/version sources from `Chart.yaml` and `Chart.lock`.
   Only HTTP(S) repositories should become external fetch candidates.
-- The CLI exposes `infra-agent prefetch` for deliberate official-doc cache
-  updates. Prefer `--domain`, `--target`, and `--max-sources` to keep retrieval
-  bounded before running the agent.
+- The CLI exposes `infra-agent knowledge sources`, `knowledge prefetch`,
+  `knowledge extract`, `knowledge validate`, and `knowledge pack` for the
+  cache-first learning workflow. Prefer `--domain`, `--target`,
+  `--max-sources`, and `--max-facts` to keep retrieval and pack size bounded
+  before running the agent. The top-level `infra-agent prefetch` remains a
+  compatible alias for bounded cache refresh.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.
 
-Planned extraction direction:
+Current extraction direction:
 
 - Convert cached official docs, repo-local schemas, examples, module READMEs,
   Pulumi component/project metadata, and Helm chart metadata into compact
-  `knowledge-facts` before planner use.
+  `knowledge-facts` before planner use. The first implemented extractors cover
+  Terraform Registry markdown and Helm `values.schema.json` chart values.
 - Facts should carry source id, URL or local path, provider/chart/module name,
   version or commit, content hash, extraction method, confidence, stale posture,
   and a short locator back to the source.

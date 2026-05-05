@@ -173,6 +173,11 @@ durable design reference for infra-agent development.
   should report resolved cache source, packet/token budgets, token estimates,
   and omissions without exposing raw cached documents in ordinary handoff
   payloads.
+- `infra-agent knowledge sources/prefetch/extract/validate/pack` is the
+  cache-first learning workflow for reusable infrastructure facts. Treat packs
+  as bounded advisory planner context; validate them before reuse and do not
+  replace provider schemas, plan/preview output, or native validators with pack
+  claims.
 - Result cards should mirror the retrieved context budget posture with packet,
   token, and omission counts so human handoff does not require `--json-full`.
 - Query config owns context budget knobs. Keep packet/token overrides explicit
