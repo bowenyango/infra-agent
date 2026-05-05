@@ -844,6 +844,10 @@ function assertCompactWorkPlanConsistency(
     throw new Error('compact result input harness.workPlan.status must be completed when outcome is completed.');
   }
 
+  if (value.outcome === 'completed' && workPlan.currentStepIndex !== null) {
+    throw new Error('compact result input harness.workPlan.currentStepIndex must be null when outcome is completed.');
+  }
+
   if (plannerHandoff.activeBlocker.kind !== 'none' && workPlan.status !== 'blocked') {
     throw new Error('compact result input harness.workPlan.status must be blocked when a planner blocker is active.');
   }
@@ -882,6 +886,13 @@ function assertCompactWorkPlanConsistency(
     if (currentStep.status !== 'blocked' && currentStep.status !== 'in-progress') {
       throw new Error('compact result input harness.workPlan.currentStepIndex must point to a blocked or in-progress step.');
     }
+  }
+
+  if (
+    value.outcome === 'completed'
+    && includedStatuses.some(status => status === 'pending' || status === 'in-progress' || status === 'blocked')
+  ) {
+    throw new Error('compact result input harness.workPlan steps must be completed or skipped when outcome is completed.');
   }
 
   for (let index = 0; index < steps.length; index += 1) {

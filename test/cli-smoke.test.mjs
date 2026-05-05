@@ -5704,7 +5704,11 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   }));
   assert.equal(completedCompact.harness.workPlan.status, 'completed');
   assert.equal(completedCompact.harness.workPlan.blockerKind, 'none');
-  assert.equal(completedCompact.harness.workPlan.currentStepIndex, 3);
+  assert.equal(completedCompact.harness.workPlan.currentStepIndex, null);
+  assert.ok(completedCompact.harness.workPlan.steps.some(step =>
+    step.kind === 'edit'
+    && step.status === 'skipped'
+  ));
   assert.ok(completedCompact.harness.workPlan.steps.some(step =>
     step.kind === 'validation'
     && step.status === 'completed'
@@ -5714,6 +5718,19 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
     && step.status === 'completed'
   ));
   assert.equal(parseCompactAgentRunResult(completedCompact).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...completedCompact,
+      harness: {
+        ...completedCompact.harness,
+        workPlan: {
+          ...completedCompact.harness.workPlan,
+          currentStepIndex: 3
+        }
+      }
+    }),
+    /harness\.workPlan\.currentStepIndex must be null/
+  );
 
   const noSafeCompact = buildCompactAgentRunResult(makeState({
     outcome: 'no-safe-action'

@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Completed Work Plan Consistency Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Ensure completed compact runs do not keep an active in-progress work-plan
+  step.
+- Mark unneeded completed-run edit or validation steps as `skipped` and leave
+  `currentStepIndex` as `null`.
+- Reject completed compact payloads whose work plan still contains pending,
+  in-progress, blocked, or current-step routing state.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact work plan maps|compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Terminal Outcome Compact Parse Coverage Slice
 
 Files added or updated:

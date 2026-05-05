@@ -1221,6 +1221,7 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
   const validationResults = state.runtime.validationResults ?? [];
   const validationIssues = state.runtime.validationIssues ?? [];
   const approvalSignals = state.runtime.approvalSignals ?? [];
+  const isCompleted = state.outcome === 'completed';
   const hasInspection = toolSummaries.some(summary => summary.actionKind === 'inspect-target-files');
   const hasWrites = appliedWrites.length > 0;
   const hasValidation = validationResults.length > 0;
@@ -1243,7 +1244,13 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
     buildWorkPlanStep({
       index: 1,
       kind: 'targeting',
-      status: primaryTarget ? 'completed' : plannerHandoff.activeBlocker.kind === 'clarification' ? 'blocked' : 'pending',
+      status: primaryTarget
+        ? 'completed'
+        : isCompleted
+          ? 'skipped'
+          : plannerHandoff.activeBlocker.kind === 'clarification'
+            ? 'blocked'
+            : 'pending',
       title: 'Targeting',
       summary: primaryTarget
         ? `${primaryTarget.kind} ${primaryTarget.path} selected for ${formatRequestedDomains(state.preflight.requestedDomains)}.`
@@ -1253,7 +1260,13 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
     buildWorkPlanStep({
       index: 2,
       kind: 'inspection',
-      status: hasInspection ? 'completed' : state.turns.length > 0 ? 'in-progress' : 'pending',
+      status: hasInspection
+        ? 'completed'
+        : isCompleted
+          ? 'skipped'
+          : state.turns.length > 0
+            ? 'in-progress'
+            : 'pending',
       title: 'Inspection',
       summary: hasInspection
         ? `Recorded ${toolSummaries.filter(summary => summary.actionKind === 'inspect-target-files').length} inspection tool summary item(s).`
@@ -1263,7 +1276,15 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
     buildWorkPlanStep({
       index: 3,
       kind: 'edit',
-      status: hasApprovalBlocker ? 'blocked' : hasWrites ? 'completed' : hasInspection ? 'in-progress' : 'pending',
+      status: isCompleted
+        ? hasWrites ? 'completed' : 'skipped'
+        : hasApprovalBlocker
+          ? 'blocked'
+          : hasWrites
+            ? 'completed'
+            : hasInspection
+              ? 'in-progress'
+              : 'pending',
       title: 'Bounded edit',
       summary: hasWrites
         ? `Applied ${appliedWrites.length} bounded write(s).`
@@ -1276,7 +1297,9 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
     buildWorkPlanStep({
       index: 4,
       kind: 'validation',
-      status: validationStatus === 'passed'
+      status: isCompleted
+        ? validationStatus === 'passed' ? 'completed' : 'skipped'
+        : validationStatus === 'passed'
         ? 'completed'
         : hasValidationBlocker
           ? 'blocked'
@@ -1291,7 +1314,7 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
     buildWorkPlanStep({
       index: 5,
       kind: 'handoff',
-      status: state.outcome === 'completed'
+      status: isCompleted
         ? 'completed'
         : plannerHandoff.activeBlocker.kind !== 'none' || hasTurnBudgetBlocker
           ? 'blocked'
