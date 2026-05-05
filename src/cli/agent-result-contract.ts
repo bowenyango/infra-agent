@@ -1676,6 +1676,22 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
 
     if (
+      isRecord(value.harness.toolTrace)
+      && isNonNegativeInteger(value.harness.toolTrace.totalCount)
+      && value.harness.stateSummary.toolSummaryCount !== value.harness.toolTrace.totalCount
+    ) {
+      throw new Error('compact result input harness.stateSummary.toolSummaryCount must match harness.toolTrace.totalCount.');
+    }
+
+    if (
+      isRecord(value.harness.toolPermissionSummary)
+      && isNonNegativeInteger(value.harness.toolPermissionSummary.totalToolCount)
+      && value.harness.stateSummary.toolSummaryCount !== value.harness.toolPermissionSummary.totalToolCount
+    ) {
+      throw new Error('compact result input harness.stateSummary.toolSummaryCount must match harness.toolPermissionSummary.totalToolCount.');
+    }
+
+    if (
       isRecord(value.harness.lifecycleEvents)
       && 'events' in value.harness.lifecycleEvents
       && !Array.isArray(value.harness.lifecycleEvents.events)
