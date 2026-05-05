@@ -9412,6 +9412,33 @@ Remaining risks:
   CLI namespace.
 - Validation and pack creation surfaces are still pending.
 
+## 2026-05-05 Knowledge Extract CLI Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Expose `infra-agent knowledge extract` with domain, target, and source-id
+  filters.
+- Emit `infra-agent.knowledge-extraction` JSON for cache-first fact extraction,
+  including per-source statuses and validated fact sets.
+- Add human-readable extraction output while keeping JSON free of raw source
+  content.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge extract" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- `knowledge prefetch` is still only available as a top-level command.
+- `knowledge validate` and `knowledge pack` are still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

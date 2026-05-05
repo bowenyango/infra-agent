@@ -43,6 +43,7 @@ import {
 } from '../agent/identity-conflicts.ts';
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
 import type { KnowledgeSourcesReport, KnowledgeSourceReportEntry } from '../knowledge/sources.ts';
+import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   aggregateToolPermissions,
@@ -608,6 +609,13 @@ function formatKnowledgeSourceReportEntry(entry: KnowledgeSourceReportEntry): st
   const location = entry.source.url ?? entry.source.localPath ?? 'no source location';
   const fetchPosture = entry.requiresFetch ? 'external' : 'local';
   return `${entry.domain} ${entry.targetPath}: ${entry.source.kind} ${entry.source.name} (${fetchPosture}, id=${entry.id}, ${location})`;
+}
+
+function formatKnowledgeExtractionSourceResult(result: KnowledgeExtractionSourceResult): string {
+  const location = result.source.url ?? result.source.localPath ?? 'no source location';
+  const factLabel = result.factCount > 0 ? `, facts=${result.factCount}` : '';
+  const message = result.message ? ` (${result.message})` : '';
+  return `${result.status} ${result.domain} ${result.targetPath}: ${result.source.kind} ${result.source.name} (id=${result.id}${factLabel}, ${location})${message}`;
 }
 
 function printHeader(title: string): void {
@@ -3404,6 +3412,17 @@ export function printKnowledgeSourcesReport(report: KnowledgeSourcesReport): voi
   process.stdout.write(`summary: sources=${report.sourceCount}, local=${report.summary.local}, external=${report.summary.external}\n\n`);
   printHeader('Sources');
   printList(report.sources.map(formatKnowledgeSourceReportEntry), 'No knowledge sources selected.');
+}
+
+export function printKnowledgeExtractionReport(report: KnowledgeExtractionReport): void {
+  printHeader('Knowledge extraction');
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`knowledge cache: ${report.cacheRoot}\n`);
+  process.stdout.write(`domains: ${report.requestedDomains.length > 0 ? report.requestedDomains.join(', ') : 'none'}\n`);
+  process.stdout.write(`targets: ${report.targetPaths.length > 0 ? report.targetPaths.join(', ') : 'all'}\n`);
+  process.stdout.write(`summary: sources=${report.sourceCount}, factSets=${report.factSetCount}, facts=${report.factCount}, skipped=${report.skippedSourceCount}\n\n`);
+  printHeader('Sources');
+  printList(report.sources.map(formatKnowledgeExtractionSourceResult), 'No knowledge sources selected.');
 }
 
 function formatGraphCounts(counts: Record<string, number | undefined>): string {

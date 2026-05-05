@@ -7184,6 +7184,29 @@ test('knowledge sources CLI args accept bounded source listing flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge extract CLI args accept source filters and bounded targets', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'extract',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--source',
+    'chart-schema:example',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'extract');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge sources command emits read-only source listing JSON', async () => {
   const output = await captureStdout(() => main([
     'knowledge',
@@ -7212,6 +7235,40 @@ test('knowledge sources command emits read-only source listing JSON', async () =
   ));
   assert.ok(report.summary.local >= 1);
   assert.doesNotMatch(output, /contentHash|fetchedAt|# Values|replicaCount:/);
+});
+
+test('knowledge extract command emits cache-first fact sets as JSON', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'extract',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.knowledge-extraction');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.mutationAllowed, false);
+  assert.deepEqual(report.requestedDomains, ['helm']);
+  assert.deepEqual(report.targetPaths, ['charts/payments-api']);
+  assert.equal(report.sourceCount, report.sources.length);
+  assert.equal(report.factSetCount, report.factSets.length);
+  assert.ok(report.factCount >= 5);
+  assert.ok(report.sources.some(source =>
+    source.source.kind === 'chart-schema'
+    && source.status === 'extracted'
+    && source.factCount > 0
+  ));
+  assert.ok(report.factSets.some(factSet =>
+    factSet.kind === 'infra-agent.knowledge-facts'
+    && factSet.source.kind === 'chart-schema'
+    && factSet.facts.some(fact => fact.path === 'chart.payments-api.service.port')
+  ));
+  assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
 });
 
 test('graph CLI args accept workspace and json flags', () => {
