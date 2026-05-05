@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval JSON Continuation Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `approval.resume.compactCommand` for rerunning the approved continuation
+  with compact `--json` output.
+- Add `approval.resume.debugCommand` for rerunning the same continuation with
+  `--json-full` debug output.
+- Preserve the existing human `approval.resume.command` unchanged.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval continuation flags|tool category approval continuation" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Grant Result Card Slice
 
 Files added or updated:

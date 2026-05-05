@@ -14239,6 +14239,8 @@ test('summarizeSuggestedCommands includes approval continuation flags for approv
   assert.equal(compact.approval.resume.continuationRequired, true);
   assert.equal(compact.approval.resume.signalCount, 1);
   assert.equal(compact.approval.resume.command, commands[0]);
+  assert.equal(compact.approval.resume.compactCommand, `${commands[0]} --json`);
+  assert.equal(compact.approval.resume.debugCommand, `${commands[0]} --json-full`);
   assert.deepEqual(compact.approval.resume.primarySignal, {
     kind: 'write-approval-required',
     message: 'Approval required.',
@@ -14336,6 +14338,8 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.ok(commands[0]?.includes('--approve-tool-category native-stack-config-write'));
   assert.equal(compact.approval.resume.continuationRequired, true);
   assert.equal(compact.approval.resume.command, commands[0]);
+  assert.equal(compact.approval.resume.compactCommand, `${commands[0]} --json`);
+  assert.equal(compact.approval.resume.debugCommand, `${commands[0]} --json-full`);
   assert.deepEqual(compact.approval.resume.primarySignal, {
     kind: 'tool-category-approval-required',
     message: 'Approval required.',

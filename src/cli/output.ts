@@ -530,6 +530,8 @@ export interface CompactAgentRunResult {
     resume: {
       continuationRequired: boolean;
       command: string | null;
+      compactCommand: string | null;
+      debugCommand: string | null;
       primarySignal: CompactApprovalSignal | null;
       additionalSignalCount: number;
       additionalWriteRisks: string[];
@@ -2655,6 +2657,35 @@ function buildTaskFlag(task: string): string {
   return shellQuote(task);
 }
 
+function buildApprovalContinuationCommand(
+  state: AgentRunState,
+  outputMode: 'human' | 'compact-json' | 'debug-json'
+): string | null {
+  if (state.outcome !== 'approval-required') {
+    return null;
+  }
+
+  const base = buildCliBaseCommand();
+  const taskFlag = buildTaskFlag(state.preflight.task);
+  const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
+  const topApprovalSignal = state.runtime.approvalSignals[0];
+  const outputFlag = outputMode === 'compact-json'
+    ? ' --json'
+    : outputMode === 'debug-json'
+      ? ' --json-full'
+      : '';
+
+  if (topApprovalSignal?.kind === 'tool-category-approval-required') {
+    return `${base} agent ${taskFlag} ${workspaceFlag} --approve-tool-category ${topApprovalSignal.toolCategory}${outputFlag}`;
+  }
+
+  if (topApprovalSignal?.kind === 'write-approval-required') {
+    return `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${topApprovalSignal.risk} --approve-write-path ${shellQuote(topApprovalSignal.path)}${outputFlag}`;
+  }
+
+  return `${base} agent ${taskFlag} ${workspaceFlag}${outputFlag}`;
+}
+
 function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['approval']['resume'] {
   const writeRisks = new Set<string>();
   const writePaths = new Set<string>();
@@ -2682,25 +2713,13 @@ function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['app
     }
   }
 
-  const base = buildCliBaseCommand();
-  const taskFlag = buildTaskFlag(state.preflight.task);
-  const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
   const topApprovalSignal = state.runtime.approvalSignals[0];
-  let command: string | null = null;
-
-  if (state.outcome === 'approval-required') {
-    if (topApprovalSignal?.kind === 'tool-category-approval-required') {
-      command = `${base} agent ${taskFlag} ${workspaceFlag} --approve-tool-category ${topApprovalSignal.toolCategory}`;
-    } else if (topApprovalSignal?.kind === 'write-approval-required') {
-      command = `${base} agent ${taskFlag} ${workspaceFlag} --approve-write-risk ${topApprovalSignal.risk} --approve-write-path ${shellQuote(topApprovalSignal.path)}`;
-    } else {
-      command = `${base} agent ${taskFlag} ${workspaceFlag}`;
-    }
-  }
 
   return {
     continuationRequired: state.outcome === 'approval-required',
-    command,
+    command: buildApprovalContinuationCommand(state, 'human'),
+    compactCommand: buildApprovalContinuationCommand(state, 'compact-json'),
+    debugCommand: buildApprovalContinuationCommand(state, 'debug-json'),
     primarySignal: topApprovalSignal ? compactApprovalSignal(topApprovalSignal) : null,
     additionalSignalCount: Math.max(0, state.runtime.approvalSignals.length - (topApprovalSignal ? 1 : 0)),
     additionalWriteRisks: Array.from(additionalWriteRisks),
