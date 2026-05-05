@@ -9089,6 +9089,30 @@ Remaining risks:
 
 - Compact readiness does not yet include the discovery object.
 
+## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `readiness.plannerProviderCatalog` to compact agent output.
+- Reuse the same compact discovery object as doctor, without embedding the full
+  provider catalog in every agent result.
+- Keep `doctorCommand` and provider catalog discovery as separate read-only
+  handoff routes.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact JSON preserves explicit approval grants|tool category approval continuation scope" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact parser validation for the new readiness field is still pending.
+
 ## 2026-05-05 Doctor Planner Provider Catalog Text Slice
 
 Files added or updated:

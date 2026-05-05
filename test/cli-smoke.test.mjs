@@ -5597,6 +5597,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     });
     assert.ok(compact.resultCard.some(line => /Readiness: pass/i.test(line)));
     assert.match(compact.readiness.doctorCommand, / doctor /);
+    assert.deepEqual(compact.readiness.plannerProviderCatalog, buildPlannerProviderCatalogDiscovery());
     assert.ok(compact.readiness.checks.some(check =>
       check.name === 'planner'
       && check.status === 'pass'
@@ -15342,6 +15343,7 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.match(compact.readiness.doctorCommand, /--model "codex-infra-test"/);
   assert.match(compact.readiness.doctorCommand, /--openai-base-url "https:\/\/models\.example\.test\/v1"/);
   assert.doesNotMatch(compact.readiness.doctorCommand, /--planner llm/);
+  assert.deepEqual(compact.readiness.plannerProviderCatalog, buildPlannerProviderCatalogDiscovery());
   assert.ok(compact.resultCard.some(line => /Planner config: openai-compatible\/codex-infra-test.*transport=chat-completions.*streaming=disabled/i.test(line)));
   assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
   assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);

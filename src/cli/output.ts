@@ -66,7 +66,11 @@ import type { InfraGraph } from '../types/infra-graph.ts';
 import type { DoctorReport } from './doctor.ts';
 import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts';
 import type { InfraGraphImpactReport } from './infra-graph-report.ts';
-import type { PlannerProviderCatalogReport } from './planner-provider-catalog.ts';
+import {
+  buildPlannerProviderCatalogDiscovery,
+  type PlannerProviderCatalogDiscovery,
+  type PlannerProviderCatalogReport
+} from './planner-provider-catalog.ts';
 
 type ValidationIdentityConflictSummary = RuntimeIdentityConflictSummary;
 type ValidationIdentityConflictAggregateSummary = RuntimeIdentityConflictAggregateSummary;
@@ -159,6 +163,7 @@ interface CompactReadinessSummary {
   warnCount: number;
   failCount: number;
   doctorCommand: string;
+  plannerProviderCatalog: PlannerProviderCatalogDiscovery;
   checks: CompactReadinessCheck[];
 }
 
@@ -1772,7 +1777,7 @@ function compactApprovalSignal(signal: ApprovalSignal): CompactApprovalSignal {
   };
 }
 
-function summarizeReadinessChecks(checks: CompactReadinessCheck[]): Omit<CompactReadinessSummary, 'doctorCommand' | 'checks'> {
+function summarizeReadinessChecks(checks: CompactReadinessCheck[]): Omit<CompactReadinessSummary, 'doctorCommand' | 'plannerProviderCatalog' | 'checks'> {
   const passCount = checks.filter(check => check.status === 'pass').length;
   const warnCount = checks.filter(check => check.status === 'warn').length;
   const failCount = checks.filter(check => check.status === 'fail').length;
@@ -1855,6 +1860,7 @@ function collectCompactReadiness(state: AgentRunState): CompactReadinessSummary 
   return {
     ...summarizeReadinessChecks(checks),
     doctorCommand: buildDoctorCommand(state),
+    plannerProviderCatalog: buildPlannerProviderCatalogDiscovery(),
     checks
   };
 }
