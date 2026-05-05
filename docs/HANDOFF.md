@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Grant Continuation Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Preserve existing explicit approval grants in approval continuation commands.
+- Combine supplied grants with the active pending approval signal without
+  broadening approval beyond the granted and requested scopes.
+- Keep `approval.resume`, compact/debug commands, and
+  `handoffCheckpoint.continuation` aligned for resumed runs that still have a
+  different approval blocker.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "explicit approval grants|preserves approval grants in continuation|approval continuation flags|tool category approval continuation" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Resume CLI Parse Slice
 
 Files added or updated:

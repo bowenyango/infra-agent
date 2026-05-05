@@ -2672,6 +2672,29 @@ function buildQueryConfigFlags(state: AgentRunState): string {
   ].join(' ');
 }
 
+function buildApprovalGrantFlagParts(state: AgentRunState): string[] {
+  return [
+    ...state.preflight.approval.approvedWriteRisks.map(risk => `--approve-write-risk ${risk}`),
+    ...state.preflight.approval.approvedWritePaths.map(path => `--approve-write-path ${shellQuote(path)}`),
+    ...state.preflight.approval.approvedToolCategories.map(category => `--approve-tool-category ${category}`)
+  ];
+}
+
+function buildApprovalSignalFlagParts(signal: ApprovalSignal | null): string[] {
+  if (signal?.kind === 'tool-category-approval-required') {
+    return [`--approve-tool-category ${signal.toolCategory}`];
+  }
+
+  if (signal?.kind === 'write-approval-required') {
+    return [
+      `--approve-write-risk ${signal.risk}`,
+      `--approve-write-path ${shellQuote(signal.path)}`
+    ];
+  }
+
+  return [];
+}
+
 function buildTaskFlag(task: string): string {
   return shellQuote(task);
 }
@@ -2700,21 +2723,18 @@ function buildApprovalContinuationCommandForSignal(
   const taskFlag = buildTaskFlag(state.preflight.task);
   const workspaceFlag = buildWorkspaceFlag(state.preflight.workspaceRoot);
   const queryConfigFlags = buildQueryConfigFlags(state);
+  const approvalFlags = Array.from(new Set([
+    ...buildApprovalGrantFlagParts(state),
+    ...buildApprovalSignalFlagParts(signal)
+  ]));
+  const approvalFlagSegment = approvalFlags.length > 0 ? ` ${approvalFlags.join(' ')}` : '';
   const outputFlag = outputMode === 'compact-json'
     ? ' --json'
     : outputMode === 'debug-json'
       ? ' --json-full'
       : '';
 
-  if (signal?.kind === 'tool-category-approval-required') {
-    return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags} --approve-tool-category ${signal.toolCategory}${outputFlag}`;
-  }
-
-  if (signal?.kind === 'write-approval-required') {
-    return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags} --approve-write-risk ${signal.risk} --approve-write-path ${shellQuote(signal.path)}${outputFlag}`;
-  }
-
-  return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags}${outputFlag}`;
+  return `${base} agent ${taskFlag} ${workspaceFlag} ${queryConfigFlags}${approvalFlagSegment}${outputFlag}`;
 }
 
 function collectApprovalResume(state: AgentRunState): CompactAgentRunResult['approval']['resume'] {

@@ -14799,6 +14799,47 @@ test('buildCompactAgentRunResult exposes explicit approval grants', async () => 
   ));
 });
 
+test('buildCompactAgentRunResult preserves approval grants in continuation commands', async () => {
+  const preflight = await buildRunPreflight('update payments-api chart and stack config', 'fixtures/sample-workspace', {
+    approvedWriteRisks: ['high'],
+    approvedWritePaths: ['charts/payments-api']
+  });
+  const compact = buildCompactAgentRunResult({
+    modelName: 'test-model',
+    outcome: 'approval-required',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      observations: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [
+        {
+          kind: 'tool-category-approval-required',
+          toolCategory: 'native-stack-config-write',
+          message: 'Approval required for native stack config.'
+        }
+      ],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: [],
+    config: resolveQueryLoopConfig()
+  });
+
+  assert.deepEqual(compact.approval.grants.approvedWriteRisks, ['high']);
+  assert.deepEqual(compact.approval.grants.approvedWritePaths, ['charts/payments-api']);
+  assert.match(compact.approval.resume.command ?? '', /--approve-write-risk high/);
+  assert.match(compact.approval.resume.command ?? '', /--approve-write-path "charts\/payments-api"/);
+  assert.match(compact.approval.resume.command ?? '', /--approve-tool-category native-stack-config-write/);
+  assert.match(compact.approval.resume.compactCommand ?? '', /--approve-write-risk high/);
+  assert.match(compact.approval.resume.debugCommand ?? '', /--approve-write-path "charts\/payments-api"/);
+  assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
+  assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
+});
+
 test('summarizeSuggestedCommands includes review and export commands for completed runs', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const commands = summarizeSuggestedCommands({
