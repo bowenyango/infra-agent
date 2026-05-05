@@ -11037,6 +11037,19 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult,
       harness: {
         ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          validationIssueCount: 2
+        }
+      }
+    }),
+    /harness\.stateSummary\.validationIssueCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
         toolPermissionSummary: {
           ...validResult.harness.toolPermissionSummary,
           totalToolCount: '1'

@@ -2372,6 +2372,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input validation.issueSummary repairable counts must sum to totalCount.');
   }
 
+  if (
+    isRecord(value.harness)
+    && isRecord(value.harness.stateSummary)
+    && value.harness.stateSummary.validationIssueCount !== issueSummaryTotalCount
+  ) {
+    throw new Error('compact result input harness.stateSummary.validationIssueCount must match validation.issueSummary.totalCount.');
+  }
+
   if (!Array.isArray(value.validation.issueSummary.groups)) {
     throw new Error('compact result input validation.issueSummary.groups must be an array.');
   }
