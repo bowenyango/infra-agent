@@ -32,7 +32,7 @@ import {
   summarizeResultCard,
   summarizeSuggestedCommands
 } from '../src/cli/output.ts';
-import { main, parseArgs, readPackageVersion } from '../src/cli/main.ts';
+import { buildLLMClientConfigOverrides, main, parseArgs, readPackageVersion } from '../src/cli/main.ts';
 import { buildDoctorReport } from '../src/cli/doctor.ts';
 import {
   exitCodeForAgentOutcome,
@@ -6499,6 +6499,11 @@ test('agent CLI args accept explicit LLM option aliases', () => {
   assert.equal(parsed.llmModel, 'codex-infra-test');
   assert.equal(parsed.llmBaseUrl, 'https://models.example.test/v1');
   assert.equal(parsed.llmProvider, 'openai-compatible');
+  assert.deepEqual(buildLLMClientConfigOverrides(parsed), {
+    provider: 'openai-compatible',
+    model: 'codex-infra-test',
+    baseUrl: 'https://models.example.test/v1'
+  });
 });
 
 test('CLI version command reads package metadata', async () => {

@@ -6,7 +6,7 @@ import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
 import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
-import type { LLMProvider, PlannerMode } from '../model/config.ts';
+import type { LLMClientConfigOverrides, LLMProvider, PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
@@ -95,6 +95,14 @@ function isToolPermissionCategory(value: string | undefined): value is ToolPermi
     || value === 'native-stack-config-write'
     || value === 'approval-required'
     || value === 'unknown';
+}
+
+export function buildLLMClientConfigOverrides(parsed: Pick<ParsedArgs, 'llmProvider' | 'llmModel' | 'llmBaseUrl'>): LLMClientConfigOverrides {
+  return {
+    provider: parsed.llmProvider ?? undefined,
+    model: parsed.llmModel ?? undefined,
+    baseUrl: parsed.llmBaseUrl ?? undefined
+  };
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -787,7 +795,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         maxPackets: parsed.contextPacketLimit ?? undefined,
         maxTokens: parsed.contextTokenBudget ?? undefined
       }
-    });
+    }, buildLLMClientConfigOverrides(parsed));
     if (parsed.json) {
       const payload = parsed.jsonFull ? agentRunState : buildCompactAgentRunResult(agentRunState);
       process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);

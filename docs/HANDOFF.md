@@ -8183,3 +8183,29 @@ Known validation:
 Remaining risks:
 
 - Parsed LLM options are not yet passed into planner construction.
+
+## 2026-05-05 Agent LLM Option Wiring Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Convert parsed agent LLM flags into `LLMClientConfigOverrides` through a
+  small pure helper.
+- Pass the overrides into `runSingleStep` so planner construction can honor
+  user-selected model and OpenAI-compatible base URL values.
+- Keep testing deterministic by validating the pure conversion path instead of
+  calling a live LLM provider.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "explicit LLM option aliases" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Continuation and suggested commands do not yet preserve model selection
+  flags across approval handoff or exported compact JSON reruns.
