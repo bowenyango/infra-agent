@@ -5631,6 +5631,7 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   assert.equal(approvalCompact.harness.workPlan.currentStepIndex, 3);
   assert.equal(approvalStep?.status, 'blocked');
   assert.equal(approvalStep?.approvalSignalKind, 'write-approval-required');
+  assert.equal(parseCompactAgentRunResult(approvalCompact).kind, 'infra-agent.agent-result');
 
   const validationCompact = buildCompactAgentRunResult(makeState({
     outcome: 'validation-blocked',
@@ -5712,6 +5713,7 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
     step.kind === 'handoff'
     && step.status === 'completed'
   ));
+  assert.equal(parseCompactAgentRunResult(completedCompact).kind, 'infra-agent.agent-result');
 
   const noSafeCompact = buildCompactAgentRunResult(makeState({
     outcome: 'no-safe-action'
@@ -5720,6 +5722,7 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   assert.equal(noSafeCompact.harness.workPlan.blockerKind, 'no-safe-action');
   assert.equal(noSafeCompact.harness.workPlan.nextControlAction, 'inspect-readiness-or-targeting');
   assert.equal(noSafeCompact.harness.workPlan.currentStepIndex, 5);
+  assert.equal(parseCompactAgentRunResult(noSafeCompact).kind, 'infra-agent.agent-result');
 });
 
 test('agent CLI compact JSON includes work plan handoff', async () => {

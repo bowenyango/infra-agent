@@ -2,6 +2,26 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Terminal Outcome Compact Parse Coverage Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Parse generated compact results for approval-required, validation-blocked,
+  repair-budget-exhausted, completed, and no-safe-action outcomes.
+- Catch generator/parser drift across terminal outcomes before downstream
+  report commands or continuation agents consume saved payloads.
+- Keep this as a focused test guard with no production behavior changes.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact work plan maps" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+
 ## 2026-05-05 Planner Handoff Blocker Metadata Slice
 
 Files added or updated:
