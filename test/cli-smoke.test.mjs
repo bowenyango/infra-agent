@@ -5434,6 +5434,7 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.harness.workPlan.includedCount, compact.harness.workPlan.steps.length);
     assert.equal(compact.harness.workPlan.omittedCount, 0);
     assert.equal(compact.harness.workPlan.currentStepIndex, 5);
+    assert.equal(compact.harness.workPlan.skippedStepCount, 0);
     assert.deepEqual(
       compact.harness.workPlan.steps.map(step => step.kind),
       ['readiness', 'targeting', 'inspection', 'edit', 'validation', 'handoff']
@@ -5715,6 +5716,7 @@ test('compact work plan maps terminal outcomes to active steps', async () => {
   assert.equal(completedCompact.harness.workPlan.status, 'completed');
   assert.equal(completedCompact.harness.workPlan.blockerKind, 'none');
   assert.equal(completedCompact.harness.workPlan.currentStepIndex, null);
+  assert.equal(completedCompact.harness.workPlan.skippedStepCount, 1);
   assert.ok(completedCompact.harness.workPlan.steps.some(step =>
     step.kind === 'edit'
     && step.status === 'skipped'

@@ -305,6 +305,7 @@ interface CompactWorkPlan {
   completedStepCount: number;
   pendingStepCount: number;
   blockedStepCount: number;
+  skippedStepCount: number;
   maxEntries: number;
   includedCount: number;
   omittedCount: number;
@@ -1344,6 +1345,7 @@ function collectWorkPlan(state: AgentRunState): CompactWorkPlan {
     completedStepCount: steps.filter(step => step.status === 'completed').length,
     pendingStepCount: steps.filter(step => step.status === 'pending').length,
     blockedStepCount: steps.filter(step => step.status === 'blocked').length,
+    skippedStepCount: steps.filter(step => step.status === 'skipped').length,
     maxEntries: COMPACT_WORK_PLAN_STEP_LIMIT,
     includedCount: includedSteps.length,
     omittedCount: Math.max(0, steps.length - includedSteps.length),

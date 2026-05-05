@@ -2,6 +2,28 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 WorkPlan Skipped Count Output Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `harness.workPlan.skippedStepCount` to compact agent results.
+- Count skipped steps from the full derived work plan, not just the displayed
+  included window.
+- Cover both blocked and completed compact result paths so skipped accounting is
+  visible before parser tightening.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "maximum turn count|compact work plan maps terminal outcomes" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Tool Category Approval Resume Command Scope Slice
 
 Files added or updated:
