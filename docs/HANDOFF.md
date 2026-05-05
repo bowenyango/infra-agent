@@ -8079,3 +8079,29 @@ Known validation:
 
 - `npm run test:unit`: passed with 276 tests.
 - `git diff --check`: passed.
+
+## 2026-05-05 LLM Config Source Metadata Slice
+
+Files added or updated:
+
+- `src/model/config.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Extend LLM planner config resolution with explicit provider, model, base URL,
+  and source metadata for future CLI-level model selection.
+- Keep API keys env-only while recording only non-secret source labels for
+  handoff and doctor output.
+- Preserve the current OpenAI-compatible provider boundary and reject
+  unsupported provider labels before model client construction.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "LLM planner config" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- CLI flags are not wired yet; this slice only adds the config contract that
+  later stages will consume.

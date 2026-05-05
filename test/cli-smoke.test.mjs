@@ -13694,16 +13694,52 @@ test('LLM planner config resolves explicit env maps without mutating process env
   });
 
   assert.equal(config?.apiKey, 'infra-agent-key');
+  assert.equal(config?.apiKeySource, 'INFRA_AGENT_OPENAI_API_KEY');
+  assert.equal(config?.provider, 'openai-compatible');
+  assert.equal(config?.providerSource, 'default');
   assert.equal(config?.baseUrl, 'https://infra-agent.example.test/v1');
+  assert.equal(config?.baseUrlSource, 'env');
   assert.equal(config?.model, 'test-model');
+  assert.equal(config?.modelSource, 'env');
 
   const fallbackConfig = resolveLLMClientConfig({
     OPENAI_API_KEY: 'openai-key'
   });
 
   assert.equal(fallbackConfig?.apiKey, 'openai-key');
+  assert.equal(fallbackConfig?.apiKeySource, 'OPENAI_API_KEY');
   assert.equal(fallbackConfig?.baseUrl, 'https://api.openai.com/v1');
+  assert.equal(fallbackConfig?.baseUrlSource, 'default');
   assert.equal(fallbackConfig?.model, 'gpt-5-mini');
+  assert.equal(fallbackConfig?.modelSource, 'default');
+});
+
+test('LLM planner config tracks CLI override sources without exposing keys', () => {
+  const config = resolveLLMClientConfig(
+    {
+      OPENAI_API_KEY: 'openai-key',
+      INFRA_AGENT_MODEL: 'env-model',
+      INFRA_AGENT_OPENAI_BASE_URL: 'https://env.example.test/v1',
+      INFRA_AGENT_LLM_PROVIDER: 'openai-compatible'
+    },
+    {
+      provider: 'openai-compatible',
+      model: ' cli-model ',
+      baseUrl: 'https://cli.example.test/v1/'
+    }
+  );
+
+  assert.equal(config?.apiKey, 'openai-key');
+  assert.equal(config?.provider, 'openai-compatible');
+  assert.equal(config?.providerSource, 'cli');
+  assert.equal(config?.model, 'cli-model');
+  assert.equal(config?.modelSource, 'cli');
+  assert.equal(config?.baseUrl, 'https://cli.example.test/v1');
+  assert.equal(config?.baseUrlSource, 'cli');
+  assert.throws(
+    () => resolveLLMClientConfig({ OPENAI_API_KEY: 'key', INFRA_AGENT_LLM_PROVIDER: 'anthropic' }),
+    /Unsupported LLM planner provider/
+  );
 });
 
 test('createModelClient selects planner clients from explicit env maps', () => {
