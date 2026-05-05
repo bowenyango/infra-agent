@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Resume Included Signal Coverage Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate that `approval.resume.writeRisks` covers included write approval
+  signals.
+- Validate that `approval.resume.writePaths` covers included write approval
+  signals.
+- Validate that `approval.resume.toolCategories` covers included tool-category
+  approval signals.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags" ./test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Approval Resume Outcome Coherence Slice
 
 Files added or updated:

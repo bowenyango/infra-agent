@@ -2844,6 +2844,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input approval.signals must be an array when present.');
     }
 
+    const includedApprovalWriteRisks = new Set<string>();
+    const includedApprovalWritePaths = new Set<string>();
+    const includedApprovalToolCategories = new Set<string>();
+
     if (Array.isArray(value.approval.signals)) {
       for (let index = 0; index < value.approval.signals.length; index += 1) {
         const signal = value.approval.signals[index];
@@ -2873,6 +2877,9 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           if (signal.toolCategory !== null) {
             throw new Error(`compact result input ${signalPath}.toolCategory must be null for write approval signals.`);
           }
+
+          includedApprovalWriteRisks.add(signal.risk as string);
+          includedApprovalWritePaths.add(signal.path as string);
         }
 
         if (signal.kind === 'tool-category-approval-required') {
@@ -2883,6 +2890,8 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           if (signal.path !== null || signal.risk !== null) {
             throw new Error(`compact result input ${signalPath}.path and risk must be null for tool category approval signals.`);
           }
+
+          includedApprovalToolCategories.add(signal.toolCategory as string);
         }
       }
     }
@@ -2948,6 +2957,24 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         && (value.approval.resume.signalCount as number) < value.approval.signals.length
       ) {
         throw new Error('compact result input approval.resume.signalCount must cover included approval signals.');
+      }
+
+      for (const risk of includedApprovalWriteRisks) {
+        if (!value.approval.resume.writeRisks.includes(risk)) {
+          throw new Error('compact result input approval.resume.writeRisks must cover included approval signals.');
+        }
+      }
+
+      for (const path of includedApprovalWritePaths) {
+        if (!value.approval.resume.writePaths.includes(path)) {
+          throw new Error('compact result input approval.resume.writePaths must cover included approval signals.');
+        }
+      }
+
+      for (const category of includedApprovalToolCategories) {
+        if (!value.approval.resume.toolCategories.includes(category)) {
+          throw new Error('compact result input approval.resume.toolCategories must cover included approval signals.');
+        }
       }
 
       if (value.handoffCheckpoint.summary.approvalContinuationRequired !== value.approval.resume.continuationRequired) {

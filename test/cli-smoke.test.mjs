@@ -11621,6 +11621,23 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          approvalSignals: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      },
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          approvalSignalCount: 1
+        }
+      },
       approval: {
         ...validResult.approval,
         signals: [
@@ -11639,6 +11656,23 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          approvalSignals: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      },
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          approvalSignalCount: 1
+        }
+      },
       approval: {
         ...validResult.approval,
         signals: [
@@ -11696,6 +11730,23 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          approvalSignals: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      },
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          approvalSignalCount: 1
+        }
+      },
       approval: {
         ...validResult.approval,
         signals: [
@@ -11714,6 +11765,87 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /approval\.resume\.signalCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          approvalSignals: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      },
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          approvalSignalCount: 1
+        }
+      },
+      approval: {
+        ...validResult.approval,
+        signals: [
+          {
+            kind: 'write-approval-required',
+            message: 'Approval required.',
+            path: 'values.yaml',
+            risk: 'medium',
+            toolCategory: null
+          }
+        ],
+        resume: {
+          ...validResult.approval.resume,
+          writeRisks: [],
+          writePaths: ['values.yaml'],
+          signalCount: 1
+        }
+      }
+    }),
+    /approval\.resume\.writeRisks/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          approvalSignals: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      },
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          approvalSignalCount: 1
+        }
+      },
+      approval: {
+        ...validResult.approval,
+        signals: [
+          {
+            kind: 'tool-category-approval-required',
+            message: 'Approval required.',
+            path: null,
+            risk: null,
+            toolCategory: 'native-stack-config-write'
+          }
+        ],
+        resume: {
+          ...validResult.approval.resume,
+          toolCategories: [],
+          signalCount: 1
+        }
+      }
+    }),
+    /approval\.resume\.toolCategories/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
