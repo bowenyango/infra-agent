@@ -6399,6 +6399,12 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
     'fixtures/sample-workspace',
     '--planner',
     'rule-based',
+    '--model',
+    'gpt-5-mini',
+    '--openai-base-url',
+    'https://planner.example.test/v1',
+    '--llm-provider',
+    'openai-compatible',
     '--max-turns',
     '1',
     '--max-repair-attempts',
@@ -6416,6 +6422,9 @@ test('agent CLI args accept --max-turns for bounded loop control', () => {
   assert.equal(parsed.task, 'add ingress to payments-api dev chart');
   assert.equal(parsed.workspace, 'fixtures/sample-workspace');
   assert.equal(parsed.planner, 'rule-based');
+  assert.equal(parsed.llmModel, 'gpt-5-mini');
+  assert.equal(parsed.llmBaseUrl, 'https://planner.example.test/v1');
+  assert.equal(parsed.llmProvider, 'openai-compatible');
   assert.equal(parsed.maxTurns, 1);
   assert.equal(parsed.maxRepairAttempts, 0);
   assert.equal(parsed.contextPacketLimit, 2);
@@ -6472,6 +6481,24 @@ test('agent CLI args accept --json-full for full debug state output', () => {
   assert.equal(parsed.command, 'agent');
   assert.equal(parsed.json, true);
   assert.equal(parsed.jsonFull, true);
+});
+
+test('agent CLI args accept explicit LLM option aliases', () => {
+  const parsed = parseArgs([
+    'agent',
+    'review terraform plan',
+    '--llm-model',
+    'codex-infra-test',
+    '--llm-base-url',
+    'https://models.example.test/v1',
+    '--llm-provider',
+    'openai-compatible'
+  ]);
+
+  assert.equal(parsed.command, 'agent');
+  assert.equal(parsed.llmModel, 'codex-infra-test');
+  assert.equal(parsed.llmBaseUrl, 'https://models.example.test/v1');
+  assert.equal(parsed.llmProvider, 'openai-compatible');
 });
 
 test('CLI version command reads package metadata', async () => {

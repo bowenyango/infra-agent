@@ -8158,3 +8158,28 @@ Known validation:
 Remaining risks:
 
 - Compact output and CLI flags do not yet expose or consume this snapshot.
+
+## 2026-05-05 Agent LLM CLI Option Parsing Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add agent-only CLI parsing for `--model`/`--llm-model`,
+  `--openai-base-url`/`--llm-base-url`, and
+  `--llm-provider openai-compatible`.
+- Keep API keys out of CLI arguments; model credentials remain env-only.
+- Preserve the current single-provider boundary while creating a clear future
+  extension point for additional model adapters.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent CLI args" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Parsed LLM options are not yet passed into planner construction.

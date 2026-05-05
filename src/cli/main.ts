@@ -6,7 +6,7 @@ import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
 import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
-import type { PlannerMode } from '../model/config.ts';
+import type { LLMProvider, PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
@@ -45,6 +45,9 @@ export interface ParsedArgs {
   approvedWritePaths: string[];
   approvedWriteRisks: FileWriteRisk[];
   approvedToolCategories: ToolPermissionCategory[];
+  llmProvider?: LLMProvider | null;
+  llmModel?: string | null;
+  llmBaseUrl?: string | null;
   maxTurns: number | null;
   maxRepairAttempts?: number | null;
   contextPacketLimit: number | null;
@@ -70,7 +73,7 @@ function printUsage(): void {
       '  infra-agent impact-report <graph.json> [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
+      '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
     ].join('\n')
@@ -439,6 +442,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (commandName === 'run' || commandName === 'agent') {
     let workspace = cwd();
     let planner: PlannerMode = 'auto';
+    let llmProvider: LLMProvider | null = null;
+    let llmModel: string | null = null;
+    let llmBaseUrl: string | null = null;
     let maxTurns: number | null = null;
     let maxRepairAttempts: number | null = null;
     let contextPacketLimit: number | null = null;
@@ -469,6 +475,57 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         planner = plannerValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--model' || arg === '--llm-model') {
+        if (commandName !== 'agent') {
+          fail(`${arg} is only supported for the agent command.`);
+        }
+        const modelValue = cleanArgs[index + 1]?.trim();
+        if (!modelValue) {
+          fail(`Missing value for ${arg}.`);
+        }
+        if (llmModel !== null) {
+          fail('LLM model can be provided at most once.');
+        }
+
+        llmModel = modelValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--openai-base-url' || arg === '--llm-base-url') {
+        if (commandName !== 'agent') {
+          fail(`${arg} is only supported for the agent command.`);
+        }
+        const baseUrlValue = cleanArgs[index + 1]?.trim();
+        if (!baseUrlValue) {
+          fail(`Missing value for ${arg}.`);
+        }
+        if (llmBaseUrl !== null) {
+          fail('LLM base URL can be provided at most once.');
+        }
+
+        llmBaseUrl = baseUrlValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--llm-provider') {
+        if (commandName !== 'agent') {
+          fail('--llm-provider is only supported for the agent command.');
+        }
+        const providerValue = cleanArgs[index + 1];
+        if (providerValue !== 'openai-compatible') {
+          fail('Missing or invalid value for --llm-provider. Expected openai-compatible.');
+        }
+        if (llmProvider !== null) {
+          fail('LLM provider can be provided at most once.');
+        }
+
+        llmProvider = providerValue;
         index += 1;
         continue;
       }
@@ -570,6 +627,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       json,
       jsonFull,
       planner,
+      llmProvider,
+      llmModel,
+      llmBaseUrl,
       approvedWritePaths,
       approvedWriteRisks,
       approvedToolCategories,
