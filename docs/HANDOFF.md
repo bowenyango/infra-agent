@@ -9549,6 +9549,29 @@ Remaining risks:
 - Planner automatic consumption of `knowledge-pack` output is still pending.
 - Remote/team cache backends remain design-only.
 
+## 2026-05-05 Knowledge Workflow Verification Slice
+
+Files added or updated:
+
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Record final verification for the completed knowledge extraction workflow.
+- Confirm the installable package includes the new knowledge modules and docs.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge fact|workspace knowledge|knowledge validation|knowledge pack|knowledge sources|knowledge prefetch|knowledge extract|knowledge validate|package metadata exposes" ./test/cli-smoke.test.mjs`: passed.
+- `npm run verify`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- Planner automatic consumption of `knowledge-pack` output is still pending.
+- Remote/team cache backend abstraction is still not implemented.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
