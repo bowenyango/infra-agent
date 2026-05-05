@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Compact Fixture Work Plan Budget Slice
+
+Files added or updated:
+
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Update compact agent-result fixtures used by smoke and E2E scripts with the
+  current root contract metadata.
+- Add `handoffCheckpoint.budgets.workPlan` to fixture handoff data so report
+  loaders pass the compact parser after work-plan budget validation.
+- Keep reusable script fixtures aligned with the same contract enforced in
+  unit tests.
+
+Known validation:
+
+- `npm run smoke`: passed.
+- `git diff --check`: passed.
+
 ## 2026-05-05 Work Plan Synthetic Runtime Robustness Slice
 
 Files added or updated:
