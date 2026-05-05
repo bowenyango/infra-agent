@@ -385,6 +385,13 @@ export interface CompactAgentRunResult {
         providerSource: string;
         modelSource: string;
         baseUrlSource: string;
+        capabilities: {
+          transport: string;
+          endpointPath: string;
+          responseFormat: string;
+          supportsJsonObject: boolean;
+          supportsStreaming: boolean;
+        };
       } | null;
     };
     loopBudget: {
@@ -1438,11 +1445,26 @@ function collectPlannerConfig(state: AgentRunState): CompactAgentRunResult['harn
             apiKeySource: 'unknown',
             providerSource: 'default',
             modelSource: 'unknown',
-            baseUrlSource: 'default'
+            baseUrlSource: 'default',
+            capabilities: {
+              transport: 'chat-completions',
+              endpointPath: '/chat/completions',
+              responseFormat: 'json-object',
+              supportsJsonObject: true,
+              supportsStreaming: false
+            }
           }
         : null
     };
   }
+
+  const fallbackCapabilities = {
+    transport: 'chat-completions',
+    endpointPath: '/chat/completions',
+    responseFormat: 'json-object',
+    supportsJsonObject: true,
+    supportsStreaming: false
+  };
 
   return {
     requestedMode: plannerConfig.requestedMode,
@@ -1458,7 +1480,8 @@ function collectPlannerConfig(state: AgentRunState): CompactAgentRunResult['harn
           apiKeySource: plannerConfig.llm.apiKeySource,
           providerSource: plannerConfig.llm.providerSource,
           modelSource: plannerConfig.llm.modelSource,
-          baseUrlSource: plannerConfig.llm.baseUrlSource
+          baseUrlSource: plannerConfig.llm.baseUrlSource,
+          capabilities: plannerConfig.llm.capabilities ?? fallbackCapabilities
         }
       : null
   };

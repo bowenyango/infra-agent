@@ -14953,6 +14953,13 @@ test('summarizeSuggestedCommands includes tool category approval continuation sc
   assert.equal(compact.approval.resume.compactCommand, `${commands[0]} --json`);
   assert.equal(compact.approval.resume.debugCommand, `${commands[0]} --json-full`);
   assert.equal(compact.harness.plannerConfig.llm?.modelSource, 'cli');
+  assert.deepEqual(compact.harness.plannerConfig.llm?.capabilities, {
+    transport: 'chat-completions',
+    endpointPath: '/chat/completions',
+    responseFormat: 'json-object',
+    supportsJsonObject: true,
+    supportsStreaming: false
+  });
   assert.equal(compact.handoffCheckpoint.continuation.command, compact.approval.resume.command);
   assert.equal(compact.handoffCheckpoint.continuation.compactCommand, compact.approval.resume.compactCommand);
   assert.equal(compact.handoffCheckpoint.continuation.debugCommand, compact.approval.resume.debugCommand);

@@ -8518,3 +8518,28 @@ Remaining risks:
 
 - Compact output and doctor reports still need to expose/validate these
   capabilities for downstream agents.
+
+## 2026-05-05 Compact Planner Capability Metadata Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Expose provider capability metadata under compact
+  `harness.plannerConfig.llm.capabilities`.
+- Keep capability metadata small: transport, endpoint path, response format,
+  JSON-object support, and streaming posture.
+- Preserve compatibility for hand-authored test states by falling back to the
+  current OpenAI-compatible capability values when old states omit them.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "tool category approval continuation scope" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Compact parser validation for the new capability object is still pending.
