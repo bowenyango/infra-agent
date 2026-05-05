@@ -71,6 +71,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 
 - `infra-agent --version`
 - `infra-agent doctor [workspace] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]`
+- `infra-agent planner-providers [--json]`
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
@@ -155,6 +156,9 @@ Current behavior is intentionally runtime-foundation oriented:
   compact `harness.plannerConfig.llm.capabilities` expose this metadata for
   handoff without API keys, auth headers, or secret-bearing URLs. This registry
   is not a general provider platform or multi-agent runtime.
+- `planner-providers` emits the same adapter catalog as a read-only text or
+  JSON report. It does not inspect a workspace, resolve environment values,
+  contact a model provider, or prove live reachability.
 - LLM planner prompts include compact `runtimeIdentityConflictSummary` and
   `runtimeIdentityConflicts` when native validation reports provider-exclusive
   identity blockers. The summary carries total/included/omitted, engine, and
@@ -450,6 +454,10 @@ by requests and compact handoff: provider id, transport, endpoint path,
 response format, JSON-object support, and streaming support. Unsupported
 providers fail closed at config resolution, and tests use injected transports
 instead of live provider calls.
+Use `infra-agent planner-providers --json` when another agent needs the static
+planner adapter catalog before choosing `--planner llm`, `--model`, or gateway
+flags. Use `infra-agent doctor --json` when it needs package/workspace
+readiness plus selected non-secret planner config posture.
 
 Development verification commands:
 

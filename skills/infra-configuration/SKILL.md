@@ -14,8 +14,10 @@ If the CLI is installed from a local checkout, use `npm link` from the
 The installable package intentionally includes only the CLI runtime, skills,
 `AGENTS.md`, README, and durable docs. Use `infra-agent --version` as a cheap
 installation check before running repository-specific commands. Use
-`infra-agent doctor <workspace> --json` when another agent needs a structured,
-read-only readiness report before planning edits. Doctor output verifies the
+`infra-agent planner-providers --json` when another agent needs the static,
+read-only LLM planner adapter catalog before choosing model or gateway flags.
+Use `infra-agent doctor <workspace> --json` when another agent needs a
+structured, read-only readiness report before planning edits. Doctor output verifies the
 installed agent-facing surface and may report whether the LLM planner provider
 adapter is configured, including non-secret capability metadata, but it must
 not expose API keys. If a caller wants to verify a specific OpenAI-compatible
@@ -68,6 +70,8 @@ credentials must still come from environment variables.
    provider/model/base URL source metadata, and
    `harness.plannerConfig.llm.capabilities` before assuming JSON response
    support, structured output support, or streaming behavior,
+   or run `infra-agent planner-providers --json` when no agent result exists yet
+   and you only need the static adapter catalog.
    `harness.plannerHandoff` for the
    active blocker and next control action,
    `harness.turnTraceBudget` and

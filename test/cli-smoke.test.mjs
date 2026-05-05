@@ -6667,6 +6667,7 @@ test('CLI exit codes map agent outcomes for downstream agents', async () => {
 test('package metadata exposes only the installable CLI and skill surface', async () => {
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
   const binContent = await readFile('bin/infra-agent.js', 'utf8');
+  const readmeContent = await readFile('README.md', 'utf8');
   const infraSkillContent = await readFile('skills/infra-configuration/SKILL.md', 'utf8');
   const infraSkillReferenceContent = await readFile(
     'skills/infra-configuration/references/context-validation-and-impact.md',
@@ -6692,6 +6693,9 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.ok(!packageJson.files.includes('docs/HANDOFF.md'));
   assert.match(binContent, /cwd:\s*process\.cwd\(\)/);
   assert.doesNotMatch(binContent, /cwd:\s*projectRoot/);
+  assert.match(readmeContent, /infra-agent planner-providers \[--json\]/);
+  assert.match(readmeContent, /read-only text or\s+JSON report/);
+  assert.match(readmeContent, /does not inspect a workspace/);
   assert.match(infraSkillContent, /handoffCheckpoint/);
   assert.match(infraSkillContent, /mutationAllowed=false/);
   assert.match(infraSkillContent, /harness\.plannerHandoff/);
@@ -6707,6 +6711,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /harness\.toolPermissionSummary/);
   assert.match(infraSkillContent, /readiness/);
   assert.match(infraSkillContent, /doctorCommand/);
+  assert.match(infraSkillContent, /planner-providers --json/);
+  assert.match(infraSkillContent, /static,\s+read-only LLM planner adapter catalog/);
   assert.match(infraSkillContent, /validation\.selectedPlan/);
   assert.match(infraSkillContent, /validation\.commands/);
   assert.match(infraSkillContent, /validation\.issueSummary/);
@@ -6727,6 +6733,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /knowledgeContext/);
   assert.match(infraSkillContent, /references\/context-validation-and-impact\.md/);
   assert.match(infraSkillReferenceContent, /Compact Contract Checklist/);
+  assert.match(infraSkillReferenceContent, /planner-providers --json/);
+  assert.match(infraSkillReferenceContent, /liveProviderCheck=false/);
   assert.match(infraSkillReferenceContent, /harness\.targeting/);
   assert.match(infraSkillReferenceContent, /harness\.workPlan/);
   assert.match(infraSkillReferenceContent, /harness\.plannerConfig/);

@@ -22,6 +22,9 @@ message is enough.
 - Use `infra-agent doctor <workspace> --json` first when the caller needs to
   confirm package, Node, planner configuration, workspace, validation-plan, and
   external IaC CLI readiness without running the agent loop.
+- Use `infra-agent planner-providers --json` first when the caller only needs
+  static LLM planner adapter capability metadata. This is read-only catalog
+  data, not a live provider check or credential report.
 - The `--json` agent output is compact and uses kind
   `infra-agent.agent-result`.
 - Read `readiness` first for planner mode, workspace blocker status, selected
@@ -57,6 +60,9 @@ contract-checked by the parser:
   streaming posture. It is not credential metadata and does not prove live
   provider reachability unless a read-only doctor report explicitly reports
   configured readiness.
+- `infra-agent.planner-provider-catalog` JSON, when used, must have
+  `mutationAllowed=false` and `liveProviderCheck=false`; treat it as static
+  adapter metadata only.
 - `harness.toolTrace` and `harness.toolPermissionSummary` for permission
   posture before asking for raw tool output or native CLI reruns.
 - `readiness.doctorCommand` when readiness is warn or fail; this is read-only.

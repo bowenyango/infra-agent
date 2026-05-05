@@ -159,6 +159,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   contract data, not credentials and not proof of live provider reachability.
   Keep API keys, bearer headers, tokens, and secret-bearing URLs out of all
   planner metadata and tests.
+- `planner-providers` is the read-only static catalog for LLM planner adapters.
+  Treat its JSON as parser-validated contract data, not as configured,
+  authenticated, reachable, or account-supported provider state. Do not expand
+  its provider list unless the adapter registry and tests implement the
+  provider.
 - Follow `docs/CLAUDE_CODE_AGENT_PATTERNS.md` when evolving the harness: prefer compact structured turn traces, tool summaries, and explicit permission/validation state over raw logs or full runtime snapshots in agent-facing output.
 - Validate compact `knowledgeContext` before using retrieved docs/schema
   context in handoff: positive packet/token/excerpt budgets, non-negative

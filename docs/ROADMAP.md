@@ -282,6 +282,10 @@ Status on 2026-04-28:
   boundary. Request transport details live outside `LLMModelClient`, doctor
   and result-card output summarize non-secret capability posture, and compact
   `harness.plannerConfig.llm.capabilities` is parser-validated before handoff.
+- `planner-providers [--json]` now exposes the declared LLM planner adapter
+  catalog as a read-only, non-secret text/JSON report for downstream agents.
+  It does not inspect workspaces, resolve secrets, or prove live model
+  reachability.
 - Claude Code harness design notes are persisted in
   `docs/CLAUDE_CODE_AGENT_PATTERNS.md`; compact agent output includes
   `harness.turnTrace` and `harness.toolTrace` for low-noise per-turn and

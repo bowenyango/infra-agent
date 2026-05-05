@@ -216,6 +216,9 @@ durable design reference for infra-agent development.
   only a planner request/response client: it is not Claude Code-style
   subagent orchestration, not recursive delegation, and not a general provider
   marketplace.
+- `planner-providers` is a read-only discovery/reporting surface for this
+  adapter metadata. It can help downstream routing, but it must not become a
+  live reachability probe or a provider marketplace.
 
 ## Current Non-Goals
 

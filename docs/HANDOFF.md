@@ -8919,6 +8919,35 @@ Remaining risks:
 
 - Durable docs and skill guidance are still pending.
 
+## 2026-05-05 Planner Provider Catalog Docs Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Document `planner-providers [--json]` as the static, read-only LLM planner
+  adapter catalog surface.
+- Distinguish catalog metadata from selected planner config, doctor readiness,
+  credentials, and live provider reachability.
+- Keep package-facing skill guidance aligned with the new command.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "package metadata exposes" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Full verification still needs to run after docs settle.
+
 ## 2026-05-05 Planner Provider Catalog Help Slice
 
 Files added or updated:
