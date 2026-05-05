@@ -8808,6 +8808,7 @@ test('compact agent result contract validates shallow handoff shape and validati
       resume: {
         continuationRequired: false,
         command: null,
+        primarySignal: null,
         writeRisks: [],
         writePaths: [],
         toolCategories: [],
@@ -11678,6 +11679,19 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /approval\.resume/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      approval: {
+        ...validResult.approval,
+        resume: {
+          ...validResult.approval.resume,
+          primarySignal: {}
+        }
+      }
+    }),
+    /approval\.resume\.primarySignal\.kind/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

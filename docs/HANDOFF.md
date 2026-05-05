@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Primary Signal Shape Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Validate `approval.resume.primarySignal` as either `null` or a compact
+  approval signal.
+- Reuse the same approval signal shape rules for `approval.signals` and
+  `approval.resume.primarySignal`.
+- Update the parser fixture and add negative coverage for malformed primary
+  signal metadata.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|approval continuation flags|tool category approval continuation" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Resume Primary Signal Output Slice
 
 Files added or updated:

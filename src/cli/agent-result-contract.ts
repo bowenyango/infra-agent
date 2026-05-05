@@ -308,6 +308,44 @@ function isKnownWorkPlanStepStatus(value: unknown): boolean {
   return typeof value === 'string' && WORK_PLAN_STEP_STATUSES.includes(value as typeof WORK_PLAN_STEP_STATUSES[number]);
 }
 
+function assertCompactApprovalSignal(value: unknown, signalPath: string): asserts value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(`compact result input ${signalPath} must be an object.`);
+  }
+
+  if (!isKnownApprovalSignalKind(value.kind)) {
+    throw new Error(`compact result input ${signalPath}.kind must be supported.`);
+  }
+
+  if (typeof value.message !== 'string') {
+    throw new Error(`compact result input ${signalPath}.message must be a string.`);
+  }
+
+  if (value.kind === 'write-approval-required') {
+    if (typeof value.path !== 'string' || value.path.length === 0) {
+      throw new Error(`compact result input ${signalPath}.path must be a non-empty string for write approval signals.`);
+    }
+
+    if (!isKnownFileWriteRisk(value.risk)) {
+      throw new Error(`compact result input ${signalPath}.risk must be supported for write approval signals.`);
+    }
+
+    if (value.toolCategory !== null) {
+      throw new Error(`compact result input ${signalPath}.toolCategory must be null for write approval signals.`);
+    }
+  }
+
+  if (value.kind === 'tool-category-approval-required') {
+    if (!isKnownToolPermissionCategory(value.toolCategory)) {
+      throw new Error(`compact result input ${signalPath}.toolCategory must be supported for tool category approval signals.`);
+    }
+
+    if (value.path !== null || value.risk !== null) {
+      throw new Error(`compact result input ${signalPath}.path and risk must be null for tool category approval signals.`);
+    }
+  }
+}
+
 function isNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -2900,44 +2938,14 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         const signal = value.approval.signals[index];
         const signalPath = `approval.signals[${index}]`;
 
-        if (!isRecord(signal)) {
-          throw new Error(`compact result input ${signalPath} must be an object.`);
-        }
-
-        if (!isKnownApprovalSignalKind(signal.kind)) {
-          throw new Error(`compact result input ${signalPath}.kind must be supported.`);
-        }
-
-        if (typeof signal.message !== 'string') {
-          throw new Error(`compact result input ${signalPath}.message must be a string.`);
-        }
+        assertCompactApprovalSignal(signal, signalPath);
 
         if (signal.kind === 'write-approval-required') {
-          if (typeof signal.path !== 'string' || signal.path.length === 0) {
-            throw new Error(`compact result input ${signalPath}.path must be a non-empty string for write approval signals.`);
-          }
-
-          if (!isKnownFileWriteRisk(signal.risk)) {
-            throw new Error(`compact result input ${signalPath}.risk must be supported for write approval signals.`);
-          }
-
-          if (signal.toolCategory !== null) {
-            throw new Error(`compact result input ${signalPath}.toolCategory must be null for write approval signals.`);
-          }
-
           includedApprovalWriteRisks.add(signal.risk as string);
           includedApprovalWritePaths.add(signal.path as string);
         }
 
         if (signal.kind === 'tool-category-approval-required') {
-          if (!isKnownToolPermissionCategory(signal.toolCategory)) {
-            throw new Error(`compact result input ${signalPath}.toolCategory must be supported for tool category approval signals.`);
-          }
-
-          if (signal.path !== null || signal.risk !== null) {
-            throw new Error(`compact result input ${signalPath}.path and risk must be null for tool category approval signals.`);
-          }
-
           includedApprovalToolCategories.add(signal.toolCategory as string);
         }
       }
@@ -2950,6 +2958,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
       if (!isStringOrNull(value.approval.resume.command)) {
         throw new Error('compact result input approval.resume.command must be string or null when present.');
+      }
+
+      if (value.approval.resume.primarySignal !== null) {
+        assertCompactApprovalSignal(value.approval.resume.primarySignal, 'approval.resume.primarySignal');
       }
 
       if (!isArrayOf(value.approval.resume.writeRisks, isKnownFileWriteRisk)) {
