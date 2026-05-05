@@ -8970,6 +8970,30 @@ Remaining risks:
 
 - Full verification still needs to run.
 
+## 2026-05-05 Planner Provider Catalog Verification Slice
+
+Files added or updated:
+
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Record final validation for the `planner-providers` development round.
+- Preserve the completed stage boundary for future continuation agents.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`: passed.
+- `git diff --check`: passed before final verification-record update.
+
+Remaining risks:
+
+- The catalog is static and declarative. It lists supported LLM planner adapter
+  capabilities, defaults, env names, and CLI flags, but it does not prove model
+  reachability or account access.
+- The only supported provider remains `openai-compatible`.
+
 ## 2026-05-05 Planner Provider Catalog Help Slice
 
 Files added or updated:
