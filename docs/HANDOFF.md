@@ -8235,3 +8235,30 @@ Known validation:
 Remaining risks:
 
 - The compact parser does not yet validate `harness.plannerConfig`.
+
+## 2026-05-05 Compact Planner Config Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `harness.plannerConfig` to be structurally valid before
+  downstream agents trust model/provider handoff data.
+- Validate requested/effective planner modes, supported OpenAI-compatible
+  provider labels, non-secret source labels, and client-name consistency with
+  root `modelName`.
+- Keep non-LLM planner runs from carrying stale LLM metadata.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Approval continuation and suggested export commands still need to preserve
+  user-selected planner flags.

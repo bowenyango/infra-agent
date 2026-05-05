@@ -1423,7 +1423,7 @@ function getAgentQueryConfig(state: AgentRunState): AgentRunState['config'] {
 
 function collectPlannerConfig(state: AgentRunState): CompactAgentRunResult['harness']['plannerConfig'] {
   const plannerConfig = state.plannerConfig;
-  if (!plannerConfig) {
+  if (!plannerConfig || plannerConfig.clientName !== state.modelName) {
     return {
       requestedMode: 'auto',
       effectiveMode: state.modelName.startsWith('llm-model-client:') ? 'llm' : 'rule-based',

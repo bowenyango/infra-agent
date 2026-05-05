@@ -127,6 +127,11 @@ const WORK_PLAN_SOURCES = ['derived-agent-run-state'] as const;
 const WORK_PLAN_STATUSES = ['not-started', 'in-progress', 'blocked', 'completed'] as const;
 const WORK_PLAN_STEP_KINDS = ['readiness', 'targeting', 'inspection', 'edit', 'validation', 'handoff'] as const;
 const WORK_PLAN_STEP_STATUSES = ['pending', 'in-progress', 'blocked', 'completed', 'skipped'] as const;
+const PLANNER_MODES = ['auto', 'llm', 'rule-based'] as const;
+const PLANNER_EFFECTIVE_MODES = ['llm', 'rule-based', 'custom'] as const;
+const LLM_PLANNER_PROVIDERS = ['openai-compatible'] as const;
+const LLM_CONFIG_SOURCES = ['cli', 'env', 'default', 'unknown'] as const;
+const LLM_API_KEY_SOURCES = ['INFRA_AGENT_OPENAI_API_KEY', 'OPENAI_API_KEY', 'unknown'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -312,6 +317,26 @@ function isKnownWorkPlanStepKind(value: unknown): boolean {
 
 function isKnownWorkPlanStepStatus(value: unknown): boolean {
   return typeof value === 'string' && WORK_PLAN_STEP_STATUSES.includes(value as typeof WORK_PLAN_STEP_STATUSES[number]);
+}
+
+function isKnownPlannerMode(value: unknown): boolean {
+  return typeof value === 'string' && PLANNER_MODES.includes(value as typeof PLANNER_MODES[number]);
+}
+
+function isKnownPlannerEffectiveMode(value: unknown): boolean {
+  return typeof value === 'string' && PLANNER_EFFECTIVE_MODES.includes(value as typeof PLANNER_EFFECTIVE_MODES[number]);
+}
+
+function isKnownLLMPlannerProvider(value: unknown): boolean {
+  return typeof value === 'string' && LLM_PLANNER_PROVIDERS.includes(value as typeof LLM_PLANNER_PROVIDERS[number]);
+}
+
+function isKnownLLMConfigSource(value: unknown): boolean {
+  return typeof value === 'string' && LLM_CONFIG_SOURCES.includes(value as typeof LLM_CONFIG_SOURCES[number]);
+}
+
+function isKnownLLMApiKeySource(value: unknown): boolean {
+  return typeof value === 'string' && LLM_API_KEY_SOURCES.includes(value as typeof LLM_API_KEY_SOURCES[number]);
 }
 
 function assertCompactApprovalSignal(value: unknown, signalPath: string): asserts value is Record<string, unknown> {
@@ -1374,6 +1399,66 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
         isPositiveInteger,
         'a positive integer'
       );
+    }
+
+    if (!isRecord(value.harness.plannerConfig)) {
+      throw new Error('compact result input harness.plannerConfig must be an object.');
+    }
+
+    if (!isKnownPlannerMode(value.harness.plannerConfig.requestedMode)) {
+      throw new Error('compact result input harness.plannerConfig.requestedMode must be supported.');
+    }
+
+    if (!isKnownPlannerEffectiveMode(value.harness.plannerConfig.effectiveMode)) {
+      throw new Error('compact result input harness.plannerConfig.effectiveMode must be supported.');
+    }
+
+    if (typeof value.harness.plannerConfig.clientName !== 'string') {
+      throw new Error('compact result input harness.plannerConfig.clientName must be a string.');
+    }
+
+    if (value.harness.plannerConfig.clientName !== value.modelName) {
+      throw new Error('compact result input harness.plannerConfig.clientName must match root.modelName.');
+    }
+
+    if (!isStringOrNull(value.harness.plannerConfig.fallbackReason)) {
+      throw new Error('compact result input harness.plannerConfig.fallbackReason must be string or null.');
+    }
+
+    if (value.harness.plannerConfig.effectiveMode === 'llm') {
+      if (!isRecord(value.harness.plannerConfig.llm)) {
+        throw new Error('compact result input harness.plannerConfig.llm is required for LLM planner runs.');
+      }
+
+      if (!isKnownLLMPlannerProvider(value.harness.plannerConfig.llm.provider)) {
+        throw new Error('compact result input harness.plannerConfig.llm.provider must be supported.');
+      }
+
+      for (const field of ['model', 'baseUrl']) {
+        if (typeof value.harness.plannerConfig.llm[field] !== 'string') {
+          throw new Error(`compact result input harness.plannerConfig.llm.${field} must be a string.`);
+        }
+      }
+
+      if (value.harness.plannerConfig.llm.apiKeyConfigured !== true) {
+        throw new Error('compact result input harness.plannerConfig.llm.apiKeyConfigured must be true.');
+      }
+
+      if (!isKnownLLMApiKeySource(value.harness.plannerConfig.llm.apiKeySource)) {
+        throw new Error('compact result input harness.plannerConfig.llm.apiKeySource must be supported.');
+      }
+
+      for (const field of ['providerSource', 'modelSource', 'baseUrlSource']) {
+        if (!isKnownLLMConfigSource(value.harness.plannerConfig.llm[field])) {
+          throw new Error(`compact result input harness.plannerConfig.llm.${field} must be supported.`);
+        }
+      }
+
+      if (value.modelName !== `llm-model-client:${value.harness.plannerConfig.llm.model}`) {
+        throw new Error('compact result input harness.plannerConfig.llm.model must match root.modelName.');
+      }
+    } else if (value.harness.plannerConfig.llm !== null) {
+      throw new Error('compact result input harness.plannerConfig.llm must be null for non-LLM planner runs.');
     }
 
     if (!isRecord(value.harness.loopBudget)) {

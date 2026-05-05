@@ -8729,6 +8729,13 @@ test('compact agent result contract validates shallow handoff shape and validati
           maxFacts: 8
         }
       },
+      plannerConfig: {
+        requestedMode: 'rule-based',
+        effectiveMode: 'rule-based',
+        clientName: 'rule-based',
+        fallbackReason: null,
+        llm: null
+      },
       loopBudget: {
         turnsUsed: 1,
         maxTurns: 6,
@@ -10166,6 +10173,69 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /harness\.queryConfig\.retrievedContextBudget\.maxTokens/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        plannerConfig: null
+      }
+    }),
+    /harness\.plannerConfig/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        plannerConfig: {
+          ...validResult.harness.plannerConfig,
+          clientName: 'different-model'
+        }
+      }
+    }),
+    /harness\.plannerConfig\.clientName/
+  );
+  const llmResult = {
+    ...validResult,
+    modelName: 'llm-model-client:codex-infra-test',
+    harness: {
+      ...validResult.harness,
+      plannerConfig: {
+        requestedMode: 'llm',
+        effectiveMode: 'llm',
+        clientName: 'llm-model-client:codex-infra-test',
+        fallbackReason: null,
+        llm: {
+          provider: 'openai-compatible',
+          model: 'codex-infra-test',
+          baseUrl: 'https://models.example.test/v1',
+          apiKeyConfigured: true,
+          apiKeySource: 'OPENAI_API_KEY',
+          providerSource: 'default',
+          modelSource: 'cli',
+          baseUrlSource: 'cli'
+        }
+      }
+    }
+  };
+  assert.equal(parseCompactAgentRunResult(llmResult).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...llmResult,
+      harness: {
+        ...llmResult.harness,
+        plannerConfig: {
+          ...llmResult.harness.plannerConfig,
+          llm: {
+            ...llmResult.harness.plannerConfig.llm,
+            model: 'wrong-model'
+          }
+        }
+      }
+    }),
+    /harness\.plannerConfig\.llm\.model/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
