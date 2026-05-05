@@ -2673,11 +2673,12 @@ function buildWorkspaceFlag(workspaceRoot: string): string {
 }
 
 function buildQueryConfigFlags(state: AgentRunState): string {
+  const config = state.config ?? DEFAULT_QUERY_LOOP_CONFIG;
   return [
-    `--max-turns ${state.config.maxTurns}`,
-    `--max-repair-attempts ${state.config.maxRepairAttempts}`,
-    `--context-packet-limit ${state.config.retrievedContextBudget.maxPackets}`,
-    `--context-token-budget ${state.config.retrievedContextBudget.maxTokens}`
+    `--max-turns ${config.maxTurns}`,
+    `--max-repair-attempts ${config.maxRepairAttempts}`,
+    `--context-packet-limit ${config.retrievedContextBudget.maxPackets}`,
+    `--context-token-budget ${config.retrievedContextBudget.maxTokens}`
   ].join(' ');
 }
 

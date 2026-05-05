@@ -2,6 +2,26 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 Approval Query Flag Default Fallback Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Use `DEFAULT_QUERY_LOOP_CONFIG` when compact result-card helpers receive a
+  minimal test state without `config`.
+- Preserve query-budget flags in approval continuation commands without making
+  legacy helper tests construct full query-loop state.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "approval-required posture|approval continuation flags" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 Approval Query Flag Exact Contract Slice
 
 Files added or updated:
