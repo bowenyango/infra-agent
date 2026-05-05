@@ -9439,6 +9439,30 @@ Remaining risks:
 - `knowledge prefetch` is still only available as a top-level command.
 - `knowledge validate` and `knowledge pack` are still pending.
 
+## 2026-05-05 Knowledge Prefetch Namespace Slice
+
+Files added or updated:
+
+- `src/cli/main.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add `infra-agent knowledge prefetch` as a namespaced alias for the existing
+  cache prefetch workflow.
+- Preserve the existing `infra-agent.knowledge-prefetch` JSON contract and
+  bounded `--max-sources` behavior.
+- Keep top-level `infra-agent prefetch` intact for compatibility.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "knowledge prefetch" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- `knowledge validate` and `knowledge pack` are still pending.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

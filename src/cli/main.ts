@@ -42,7 +42,7 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'extract' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -83,6 +83,7 @@ function printUsage(): void {
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
+      '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
@@ -538,14 +539,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (commandName === 'knowledge') {
     const knowledgeAction = cleanArgs[0];
-    if (knowledgeAction !== 'sources' && knowledgeAction !== 'extract') {
-      fail('knowledge requires a supported action: sources, extract.');
+    if (knowledgeAction !== 'sources' && knowledgeAction !== 'prefetch' && knowledgeAction !== 'extract') {
+      fail('knowledge requires a supported action: sources, prefetch, extract.');
     }
 
     let workspace = cwd();
     const domains: InfraDomainId[] = [];
     const targetPaths: string[] = [];
     const sourceIds: string[] = [];
+    let maxSources: number | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
 
@@ -570,6 +572,21 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         targetPaths.push(targetValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--max-sources') {
+        const rawMaxSources = actionArgs[index + 1];
+        const parsedMaxSources = Number.parseInt(rawMaxSources ?? '', 10);
+        if (!Number.isInteger(parsedMaxSources) || parsedMaxSources < 1) {
+          fail('Missing or invalid value for --max-sources. Expected a positive integer.');
+        }
+        if (knowledgeAction !== 'prefetch') {
+          fail('--max-sources is only supported for knowledge prefetch.');
+        }
+
+        maxSources = parsedMaxSources;
         index += 1;
         continue;
       }
@@ -619,7 +636,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains,
       targetPaths,
       sourceIds,
-      maxSources: null,
+      maxSources,
       terraformPlanPaths: [],
       pulumiPreviewPaths: []
     };
@@ -985,6 +1002,23 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeSourcesReport(report);
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'prefetch') {
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: parsed.domains,
+      targetPaths: parsed.targetPaths,
+      maxSources: parsed.maxSources ?? undefined
+    });
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgePrefetchResult(result);
     return;
   }
 

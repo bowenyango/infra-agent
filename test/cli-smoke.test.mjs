@@ -7164,6 +7164,29 @@ test('prefetch CLI args accept bounded source selection flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge prefetch CLI args mirror top-level bounded source selection', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'prefetch',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--max-sources',
+    '2',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'prefetch');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.equal(parsed.maxSources, 2);
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge sources CLI args accept bounded source listing flags', () => {
   const parsed = parseArgs([
     'knowledge',
@@ -7235,6 +7258,34 @@ test('knowledge sources command emits read-only source listing JSON', async () =
   ));
   assert.ok(report.summary.local >= 1);
   assert.doesNotMatch(output, /contentHash|fetchedAt|# Values|replicaCount:/);
+});
+
+test('knowledge prefetch command emits existing prefetch JSON contract', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'prefetch',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--max-sources',
+    '1',
+    '--json'
+  ]));
+  const result = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(result.kind, 'infra-agent.knowledge-prefetch');
+  assert.equal(result.schemaVersion, 1);
+  assert.deepEqual(result.requestedDomains, ['helm']);
+  assert.deepEqual(result.targetPaths, ['charts/payments-api']);
+  assert.equal(result.maxSources, 1);
+  assert.ok(result.sources.some(source =>
+    source.domain === 'helm'
+    && source.targetPath === 'charts/payments-api'
+    && source.status === 'local'
+    && source.source.kind === 'chart-schema'
+  ));
 });
 
 test('knowledge extract command emits cache-first fact sets as JSON', async () => {
