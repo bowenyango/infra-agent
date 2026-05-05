@@ -10884,7 +10884,18 @@ test('compact agent result contract validates shallow handoff shape and validati
       ...validResult,
       harness: {
         ...validResult.harness,
+        lifecycleEvents: null
+      }
+    }),
+    /harness\.lifecycleEvents/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
         lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
           events: {}
         }
       }
@@ -10897,6 +10908,20 @@ test('compact agent result contract validates shallow handoff shape and validati
       harness: {
         ...validResult.harness,
         lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
+          eventCounts: null
+        }
+      }
+    }),
+    /harness\.lifecycleEvents\.eventCounts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
           totalCount: '0',
           events: []
         }
@@ -10910,6 +10935,7 @@ test('compact agent result contract validates shallow handoff shape and validati
       harness: {
         ...validResult.harness,
         lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
           maxEntries: 12,
           totalCount: 1,
           includedCount: 1,
@@ -10930,6 +10956,7 @@ test('compact agent result contract validates shallow handoff shape and validati
       harness: {
         ...validResult.harness,
         lifecycleEvents: {
+          ...validResult.harness.lifecycleEvents,
           totalCount: 1,
           includedCount: 1,
           omittedCount: 0,

@@ -1701,12 +1701,16 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error('compact result input harness.stateSummary.toolSummaryCount must match harness.toolPermissionSummary.totalToolCount.');
     }
 
-    if (
-      isRecord(value.harness.lifecycleEvents)
-      && 'events' in value.harness.lifecycleEvents
-      && !Array.isArray(value.harness.lifecycleEvents.events)
-    ) {
-      throw new Error('compact result input harness.lifecycleEvents.events must be an array when present.');
+    if (!isRecord(value.harness.lifecycleEvents)) {
+      throw new Error('compact result input harness.lifecycleEvents must be an object when harness is present.');
+    }
+
+    if (!Array.isArray(value.harness.lifecycleEvents.events)) {
+      throw new Error('compact result input harness.lifecycleEvents.events must be an array when harness is present.');
+    }
+
+    if (!isRecord(value.harness.lifecycleEvents.eventCounts)) {
+      throw new Error('compact result input harness.lifecycleEvents.eventCounts must be an object when harness is present.');
     }
 
     if (isRecord(value.harness.lifecycleEvents)) {
