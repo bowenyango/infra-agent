@@ -8959,7 +8959,57 @@ test('compact agent result contract validates shallow handoff shape and validati
     }
   });
 
+  const resultWithToolEntries = entries => ({
+    ...validResult,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        toolTrace: {
+          includedCount: entries.length,
+          omittedCount: 0
+        }
+      }
+    },
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        toolSummaryCount: entries.length
+      },
+      toolTrace: {
+        ...validResult.harness.toolTrace,
+        totalCount: entries.length,
+        includedCount: entries.length,
+        omittedCount: 0,
+        firstIncludedTurnIndex: entries[0]?.turnIndex ?? null,
+        lastIncludedTurnIndex: entries.at(-1)?.turnIndex ?? null,
+        latestTurnIndex: entries.at(-1)?.turnIndex ?? null,
+        permissionCategoryCounts: {
+          'workspace-read': entries.length
+        },
+        entries
+      },
+      toolPermissionSummary: {
+        ...validResult.harness.toolPermissionSummary,
+        totalToolCount: entries.length,
+        categories: {
+          'workspace-read': entries.length
+        }
+      }
+    }
+  });
+  const twoToolEntries = [
+    validResult.harness.toolTrace.entries[0],
+    {
+      ...validResult.harness.toolTrace.entries[0],
+      turnIndex: 1,
+      summary: 'Read another selected Terraform file.'
+    }
+  ];
+
   assert.equal(parseCompactAgentRunResult(validResult).kind, 'infra-agent.agent-result');
+  assert.equal(parseCompactAgentRunResult(resultWithToolEntries(twoToolEntries)).kind, 'infra-agent.agent-result');
   assert.equal(
     parseCompactAgentRunResult(resultWithSafetyBlockers([validSafetyBlocker, validUnsafeSafetyBlocker])).kind,
     'infra-agent.agent-result'
@@ -10801,6 +10851,44 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /harness\.toolTrace\.lastIncludedTurnIndex/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult(resultWithToolEntries([...twoToolEntries].reverse())),
+    /harness\.toolTrace\.entries turnIndex/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          latestTurnIndex: 99
+        }
+      }
+    }),
+    /harness\.toolTrace\.latestTurnIndex/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        toolTrace: {
+          ...validResult.harness.toolTrace,
+          permissionCategoryCounts: {
+            'workspace-write': 1
+          }
+        },
+        toolPermissionSummary: {
+          ...validResult.harness.toolPermissionSummary,
+          categories: {
+            'workspace-write': 1
+          }
+        }
+      }
+    }),
+    /harness\.toolTrace\.permissionCategoryCounts.*included entries/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

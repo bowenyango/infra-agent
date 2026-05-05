@@ -1610,6 +1610,9 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       }
 
       if (Array.isArray(value.harness.toolTrace.entries)) {
+        let previousToolTurnIndex = -1;
+        const includedToolPermissionCategoryCounts = new Map<string, number>();
+
         for (let index = 0; index < value.harness.toolTrace.entries.length; index += 1) {
           const entry = value.harness.toolTrace.entries[index];
           const entryPath = `harness.toolTrace.entries[${index}]`;
@@ -1619,6 +1622,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           }
 
           assertIntegerField(entry, 'turnIndex', entryPath, isNonNegativeInteger, 'a non-negative integer');
+          if ((entry.turnIndex as number) < previousToolTurnIndex) {
+            throw new Error('compact result input harness.toolTrace.entries turnIndex values must be ascending.');
+          }
+          previousToolTurnIndex = entry.turnIndex as number;
 
           if (!isKnownAgentActionKind(entry.actionKind)) {
             throw new Error(`compact result input ${entryPath}.actionKind must be supported.`);
@@ -1635,6 +1642,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
           if (!isKnownToolPermissionCategory(entry.permissionCategory)) {
             throw new Error(`compact result input ${entryPath}.permissionCategory must be supported.`);
           }
+          includedToolPermissionCategoryCounts.set(
+            entry.permissionCategory as string,
+            (includedToolPermissionCategoryCounts.get(entry.permissionCategory as string) ?? 0) + 1
+          );
 
           for (const field of ['mutatesWorkspace', 'mutatesExternalState', 'externalCommand', 'approvalRequired']) {
             if (typeof entry[field] !== 'boolean') {
@@ -1679,11 +1690,23 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
             throw new Error('compact result input harness.toolTrace.lastIncludedTurnIndex must match last entry turnIndex.');
           }
 
-          if (
-            value.harness.toolTrace.omittedCount === 0
-            && value.harness.toolTrace.latestTurnIndex !== lastToolTurnIndex
-          ) {
-            throw new Error('compact result input harness.toolTrace.latestTurnIndex must match last included entry when none are omitted.');
+          if (value.harness.toolTrace.latestTurnIndex !== lastToolTurnIndex) {
+            throw new Error('compact result input harness.toolTrace.latestTurnIndex must match last included tail entry.');
+          }
+        }
+
+        for (const [category, count] of includedToolPermissionCategoryCounts) {
+          const totalCategoryCount = value.harness.toolTrace.permissionCategoryCounts[category] ?? 0;
+          if (!isNonNegativeInteger(totalCategoryCount) || (totalCategoryCount as number) < count) {
+            throw new Error('compact result input harness.toolTrace.permissionCategoryCounts must cover included entries.');
+          }
+        }
+
+        if (value.harness.toolTrace.omittedCount === 0) {
+          for (const [category, count] of Object.entries(value.harness.toolTrace.permissionCategoryCounts)) {
+            if ((includedToolPermissionCategoryCounts.get(category) ?? 0) !== count) {
+              throw new Error('compact result input harness.toolTrace.permissionCategoryCounts must match included entries when none are omitted.');
+            }
           }
         }
       }

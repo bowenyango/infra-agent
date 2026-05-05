@@ -2,6 +2,27 @@
 
 This document captures current development state for future Codex sessions.
 
+## 2026-05-05 ToolTrace Ordering And Category Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require included tool-trace entries to have ascending `turnIndex` values.
+- Require `latestTurnIndex` to match the last included tail entry.
+- Validate that aggregate permission category counts cover included entries and
+  match exactly when no tool summaries are omitted.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract|capped tool trace tail window" ./test/cli-smoke.test.mjs`
+- `npm run lint`
+- `git diff --check`
+
 ## 2026-05-05 ToolTrace Required Field Contract Slice
 
 Files added or updated:
