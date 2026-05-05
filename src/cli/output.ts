@@ -371,6 +371,22 @@ export interface CompactAgentRunResult {
       maxRepairAttempts: number;
       retrievedContextBudget: AgentRunState['config']['retrievedContextBudget'];
     };
+    plannerConfig: {
+      requestedMode: string;
+      effectiveMode: string;
+      clientName: string;
+      fallbackReason: string | null;
+      llm: {
+        provider: string;
+        model: string;
+        baseUrl: string;
+        apiKeyConfigured: true;
+        apiKeySource: string;
+        providerSource: string;
+        modelSource: string;
+        baseUrlSource: string;
+      } | null;
+    };
     loopBudget: {
       turnsUsed: number;
       maxTurns: number;
@@ -1402,6 +1418,49 @@ function getAgentQueryConfig(state: AgentRunState): AgentRunState['config'] {
     maxTurns: getAgentMaxTurns(state),
     maxRepairAttempts: getAgentMaxRepairAttempts(state),
     retrievedContextBudget: state.runtime.retrievedContextBudget ?? DEFAULT_QUERY_LOOP_CONFIG.retrievedContextBudget
+  };
+}
+
+function collectPlannerConfig(state: AgentRunState): CompactAgentRunResult['harness']['plannerConfig'] {
+  const plannerConfig = state.plannerConfig;
+  if (!plannerConfig) {
+    return {
+      requestedMode: 'auto',
+      effectiveMode: state.modelName.startsWith('llm-model-client:') ? 'llm' : 'rule-based',
+      clientName: state.modelName,
+      fallbackReason: state.modelName === 'rule-based-fallback' ? 'No LLM API key is configured.' : null,
+      llm: state.modelName.startsWith('llm-model-client:')
+        ? {
+            provider: 'openai-compatible',
+            model: state.modelName.replace(/^llm-model-client:/, ''),
+            baseUrl: 'https://api.openai.com/v1',
+            apiKeyConfigured: true,
+            apiKeySource: 'unknown',
+            providerSource: 'default',
+            modelSource: 'unknown',
+            baseUrlSource: 'default'
+          }
+        : null
+    };
+  }
+
+  return {
+    requestedMode: plannerConfig.requestedMode,
+    effectiveMode: plannerConfig.effectiveMode,
+    clientName: plannerConfig.clientName,
+    fallbackReason: plannerConfig.fallbackReason,
+    llm: plannerConfig.llm
+      ? {
+          provider: plannerConfig.llm.provider,
+          model: plannerConfig.llm.model,
+          baseUrl: plannerConfig.llm.baseUrl,
+          apiKeyConfigured: true,
+          apiKeySource: plannerConfig.llm.apiKeySource,
+          providerSource: plannerConfig.llm.providerSource,
+          modelSource: plannerConfig.llm.modelSource,
+          baseUrlSource: plannerConfig.llm.baseUrlSource
+        }
+      : null
   };
 }
 
@@ -2492,6 +2551,7 @@ export function buildCompactAgentRunResult(state: AgentRunState): CompactAgentRu
         maxRepairAttempts: queryConfig.maxRepairAttempts,
         retrievedContextBudget: queryConfig.retrievedContextBudget
       },
+      plannerConfig: collectPlannerConfig(state),
       loopBudget: collectLoopBudget(state),
       repairBudget: collectRepairBudget(state),
       stateSummary: collectRuntimeStateSummary(state),

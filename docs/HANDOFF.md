@@ -8209,3 +8209,29 @@ Remaining risks:
 
 - Continuation and suggested commands do not yet preserve model selection
   flags across approval handoff or exported compact JSON reruns.
+
+## 2026-05-05 Compact Planner Config Handoff Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add compact `harness.plannerConfig` so downstream agents can see requested
+  planner mode, effective mode, client name, fallback reason, and non-secret
+  LLM provider/model/base URL metadata.
+- Preserve API-key secrecy by reporting only `apiKeyConfigured=true` and the
+  source label when an LLM planner is active.
+- Keep compatibility for hand-authored test states that only carry
+  `modelName`.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "runSingleStep respects the configured maximum turn count" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- The compact parser does not yet validate `harness.plannerConfig`.

@@ -5334,6 +5334,13 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.ok(result.runtime.toolSummaries.some(summary => summary.actionKind === 'inspect-target-files'));
     const compact = buildCompactAgentRunResult(result);
     assert.equal(compact.harness.maxTurns, 1);
+    assert.deepEqual(compact.harness.plannerConfig, {
+      requestedMode: 'rule-based',
+      effectiveMode: 'rule-based',
+      clientName: 'rule-based-model-client',
+      fallbackReason: null,
+      llm: null
+    });
     assert.equal(compact.harness.queryConfig.maxTurns, 1);
     assert.equal(compact.harness.queryConfig.maxRepairAttempts, 2);
     assert.equal(compact.harness.queryConfig.retrievedContextBudget.maxPackets, 2);
