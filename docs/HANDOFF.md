@@ -10543,3 +10543,68 @@ Next stage:
 
 - Commit this test hardening slice, then resume Infra-Agent feature work from
   the knowledge/document extraction and persistent cache plan.
+
+## 2026-05-06 Knowledge Artifact Output Slice
+
+Status:
+
+- Completed. This slice adds explicit JSON artifact persistence for generated
+  knowledge extraction and pack outputs.
+
+Core files changed:
+
+- `src/cli/main.ts`
+- `src/cli/write-json-artifact.ts`
+- `test/integration/cli-main.test.mjs`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Added `knowledge extract --out <knowledge.json>` and
+  `knowledge pack --out <pack.json>`.
+- Added an atomic JSON artifact writer for explicit CLI output paths. Relative
+  output paths resolve from the current working directory, matching other input
+  artifact CLI behavior.
+- Kept default behavior stdout-only. No repository or cache writes happen unless
+  the user explicitly provides `--out`.
+- JSON stdout for `--out` includes an `outputPath` convenience field, while the
+  saved artifact remains the original `infra-agent.knowledge-extraction` or
+  `infra-agent.knowledge-pack` payload without that wrapper field.
+
+Design notes:
+
+- This is not a team-cache backend and does not upload public or private facts.
+  It closes the local workflow loop: generate an artifact, store it deliberately,
+  then validate it later with `knowledge validate --workspace`.
+- Persisted artifacts still omit raw source content and preserve the existing
+  knowledge contracts, local fingerprints, content hashes, and staleness fields.
+
+Known validation so far:
+
+- `npm run test:focused -- --test-name-pattern "knowledge extract command writes|knowledge pack command writes|knowledge extract CLI args|knowledge pack CLI args" test/integration/cli-main.test.mjs`:
+  passed with 4 tests.
+- `npm run test:integration`: passed with 63 tests.
+- `npm run lint`: passed with 154 checked files.
+- `npm run test:structure`: passed with 30 checked files.
+- `npm run verify`: passed. This covered lint, test structure enforcement, the
+  full 369-test suite, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed. The package now contains 125 entries; the added entry is the packaged
+  `src/cli/write-json-artifact.ts` helper.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- `knowledge pack --out` artifacts are validated today as bounded pack payloads
+  by consumers, but `knowledge validate` currently focuses on fact sets and
+  extraction reports rather than pack payloads.
+- Remote/team cache publication remains a later architecture slice. The next
+  safe step is a storage interface and local adapter before any S3-compatible
+  backend.
+
+Next stage:
+
+- Commit this artifact output slice, then continue with either pack validation
+  support or the local/team knowledge-store interface.

@@ -543,6 +543,8 @@ test('knowledge extract CLI args accept source filters and bounded targets', () 
     'charts/payments-api',
     '--source',
     'chart-schema:example',
+    '--out',
+    'artifacts/knowledge-extraction.json',
     '--json'
   ]);
 
@@ -552,6 +554,7 @@ test('knowledge extract CLI args accept source filters and bounded targets', () 
   assert.deepEqual(parsed.domains, ['helm']);
   assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
   assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-extraction.json');
   assert.equal(parsed.json, true);
 });
 
@@ -586,6 +589,8 @@ test('knowledge pack CLI args accept bounded fact pack flags', () => {
     'chart-schema:example',
     '--max-facts',
     '5',
+    '--out',
+    'artifacts/knowledge-pack.json',
     '--json'
   ]);
 
@@ -596,6 +601,7 @@ test('knowledge pack CLI args accept bounded fact pack flags', () => {
   assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
   assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
   assert.equal(parsed.maxFacts, 5);
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.json');
   assert.equal(parsed.json, true);
 });
 
@@ -880,6 +886,48 @@ test('knowledge extract command emits Pulumi config facts', async () => {
     )
   ));
   assert.doesNotMatch(output, /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+});
+
+test('knowledge extract command writes a reusable validation artifact with --out', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-out-'));
+
+  try {
+    const outputPath = join(tempRoot, 'artifacts/knowledge-extraction.json');
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'extract',
+      'fixtures/sample-workspace',
+      '--domain',
+      'helm',
+      '--target',
+      'charts/payments-api',
+      '--out',
+      outputPath,
+      '--json'
+    ]));
+    const stdoutReport = JSON.parse(output.slice(output.indexOf('{')));
+    const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+    const validationOutput = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      outputPath,
+      '--workspace',
+      'fixtures/sample-workspace',
+      '--json'
+    ]));
+    const validation = JSON.parse(validationOutput.slice(validationOutput.indexOf('{')));
+
+    assert.equal(stdoutReport.kind, 'infra-agent.knowledge-extraction');
+    assert.equal(stdoutReport.outputPath, outputPath);
+    assert.equal(artifact.kind, 'infra-agent.knowledge-extraction');
+    assert.equal(artifact.outputPath, undefined);
+    assert.equal(artifact.factSetCount, stdoutReport.factSetCount);
+    assert.equal(validation.valid, true);
+    assert.equal(validation.factSetCount, artifact.factSetCount);
+    assert.doesNotMatch(JSON.stringify(artifact), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge validate command validates extraction JSON files', async () => {
@@ -1189,6 +1237,41 @@ test('knowledge pack command emits Pulumi config facts', async () => {
     && fact.path === 'config.payments-api:imageTag'
   ));
   assert.doesNotMatch(output, /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+});
+
+test('knowledge pack command writes a bounded reusable artifact with --out', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-out-'));
+
+  try {
+    const outputPath = join(tempRoot, 'artifacts/knowledge-pack.json');
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      'fixtures/sample-workspace',
+      '--domain',
+      'helm',
+      '--target',
+      'charts/payments-api',
+      '--max-facts',
+      '4',
+      '--out',
+      outputPath,
+      '--json'
+    ]));
+    const stdoutPack = JSON.parse(output.slice(output.indexOf('{')));
+    const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+
+    assert.equal(stdoutPack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(stdoutPack.outputPath, outputPath);
+    assert.equal(artifact.kind, 'infra-agent.knowledge-pack');
+    assert.equal(artifact.outputPath, undefined);
+    assert.equal(artifact.packId, stdoutPack.packId);
+    assert.equal(artifact.maxFacts, 4);
+    assert.equal(artifact.facts.length, artifact.includedFactCount);
+    assert.doesNotMatch(JSON.stringify(artifact), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('graph CLI args accept workspace and json flags', () => {

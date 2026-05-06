@@ -22,6 +22,7 @@ import { loadIdentityConflictIncidentReport } from './identity-report.ts';
 import { loadInfraGraphImpactReport } from './infra-graph-report.ts';
 import { buildDoctorReport } from './doctor.ts';
 import { buildPlannerProviderCatalogReport } from './planner-provider-catalog.ts';
+import { writeJsonArtifact } from './write-json-artifact.ts';
 import {
   buildCompactAgentRunResult,
   printIdentityConflictIncidentReport,
@@ -50,6 +51,7 @@ export interface ParsedArgs {
   task: string | null;
   workspace: string;
   inputPath: string | null;
+  outputPath?: string | null;
   validationWorkspace?: string | null;
   json: boolean;
   jsonFull: boolean;
@@ -91,9 +93,9 @@ function printUsage(): void {
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]',
+      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
-      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--json]',
+      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -558,6 +560,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const sourceIds: string[] = [];
     let maxSources: number | null = null;
     let maxFacts: number | null = null;
+    let outputPath: string | null = null;
     let validationWorkspace: string | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
@@ -622,6 +625,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--out') {
+        const outputValue = actionArgs[index + 1]?.trim();
+        if (!outputValue) {
+          fail('Missing value for --out.');
+        }
+        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack') {
+          fail('--out is only supported for knowledge extract or knowledge pack.');
+        }
+        if (outputPath !== null) {
+          fail('Output path can be provided at most once.');
+        }
+
+        outputPath = outputValue;
+        index += 1;
+        continue;
+      }
+
       if (arg === '--max-facts') {
         const rawMaxFacts = actionArgs[index + 1];
         const parsedMaxFacts = Number.parseInt(rawMaxFacts ?? '', 10);
@@ -674,6 +694,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       task: null,
       workspace: knowledgeAction === 'validate' ? cwd() : workspace,
       inputPath: knowledgeAction === 'validate' ? positionalArgs[0] : null,
+      outputPath,
       validationWorkspace,
       json,
       jsonFull,
@@ -1095,13 +1116,21 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       targetPaths: parsed.targetPaths,
       sourceIds: parsed.sourceIds
     });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
+      : null;
 
     if (parsed.json) {
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? { ...report, outputPath: writtenPath }
+        : report, null, 2)}\n`);
       return;
     }
 
     printKnowledgeExtractionReport(report);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
     return;
   }
 
@@ -1134,13 +1163,21 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       sourceIds: parsed.sourceIds,
       maxFacts: parsed.maxFacts ?? undefined
     });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), pack)
+      : null;
 
     if (parsed.json) {
-      process.stdout.write(`${JSON.stringify(pack, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? { ...pack, outputPath: writtenPath }
+        : pack, null, 2)}\n`);
       return;
     }
 
     printKnowledgePack(pack);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
     return;
   }
 
