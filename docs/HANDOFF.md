@@ -10725,3 +10725,73 @@ Next stage:
 - Commit this slice, then move to the next knowledge persistence feature. The
   likely next step is a local `KnowledgeStore` abstraction before any remote or
   team-cache backend.
+
+## 2026-05-06 Local KnowledgeStore Abstraction Slice
+
+Status:
+
+- Completed. This slice introduces a local-only storage boundary around the
+  existing filesystem knowledge cache.
+
+Core files changed:
+
+- `src/knowledge/knowledge-store.ts`
+- `src/knowledge/retrieve.ts`
+- `src/knowledge/prefetch.ts`
+- `test/unit/knowledge-cache-contracts.test.mjs`
+- `test/unit/knowledge-sources-retrieval.test.mjs`
+- `test/unit/knowledge-runtime-prefetch.test.mjs`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Added `KnowledgeStore` with `root`, `buildId`, `read`, `write`, and `isStale`
+  operations.
+- Added `FileKnowledgeStore` / `createFileKnowledgeStore` as the current
+  filesystem adapter over the existing cache helpers.
+- `retrieveKnowledgeContextPacket` now accepts an injected store while keeping
+  existing `cacheRoot` callers compatible.
+- `prefetchWorkspaceKnowledge` now creates one file store per run by default and
+  can accept an injected store for future team-cache experiments.
+
+Design notes:
+
+- This is intentionally a behavioral abstraction only. Cache IDs, JSON file
+  format, staleness semantics, and `readKnowledgeCacheEntry` /
+  `writeKnowledgeCacheEntry` exports remain unchanged.
+- No remote storage, credentials, S3 code, team cache config, or dependencies
+  were added. This keeps the architecture ready for a later backend slice
+  without widening the current blast radius.
+
+Known validation so far:
+
+- `npm run test:focused -- --test-name-pattern "file knowledge store preserves local cache entry behavior" test/unit/knowledge-cache-contracts.test.mjs`:
+  passed with 1 unit test.
+- `npm run test:focused -- --test-name-pattern "knowledge context retrieval can use an injected knowledge store" test/unit/knowledge-sources-retrieval.test.mjs`:
+  passed with 1 unit test.
+- `npm run test:focused -- --test-name-pattern "knowledge context retrieval checks injected stores before fetching" test/unit/knowledge-sources-retrieval.test.mjs`:
+  passed with 1 unit test.
+- `npm run test:focused -- --test-name-pattern "knowledge prefetch can use an injected knowledge store" test/unit/knowledge-runtime-prefetch.test.mjs`:
+  passed with 1 unit test.
+- `npm run lint`: passed with 155 checked files.
+- `npm run test:unit`: passed with 299 tests.
+- `npm run test:structure`: passed with 30 checked files.
+- `npm run verify`: passed. This covered lint, test structure enforcement, the
+  full 375-test suite, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed. The package now contains 126 entries; the added entry is
+  `src/knowledge/knowledge-store.ts`.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- `extractWorkspaceKnowledgeFacts` still reads from the filesystem cache
+  directly. Migrate it in a later slice after this store boundary is stable.
+- Team cache publication still needs explicit write policy, object identity,
+  and backend validation before any shared writes are introduced.
+
+Next stage:
+
+- Commit this slice, then continue with the next persistence step. A good next
+  candidate is migrating extraction reads to the `KnowledgeStore` interface.

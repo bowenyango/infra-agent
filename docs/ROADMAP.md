@@ -213,7 +213,8 @@ Implemented initial CLI surfaces:
 Recommended storage layers:
 
 - Local default: current filesystem cache under the resolved knowledge-cache
-  root.
+  root. Implemented behind a `KnowledgeStore` interface so retrieval and
+  prefetch can be tested against injected stores before remote backends exist.
 - Repo-curated: small reviewed packs under a workspace-relative configured path,
   never automatic bulk cache commits. Saved repo-derived fact sets should be
   revalidated with `knowledge validate --workspace` so file hash drift is

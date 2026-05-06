@@ -6,16 +6,13 @@ import type {
   RetrievedContextConfidence,
   RetrievedContextPacket
 } from '../types/knowledge.ts';
-import {
-  isKnowledgeCacheEntryStale,
-  readKnowledgeCacheEntry,
-  writeKnowledgeCacheEntry
-} from './cache.ts';
+import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 
 export type KnowledgeFetcher = (source: KnowledgeSource) => Promise<KnowledgeCacheWrite | null>;
 
 interface RetrieveKnowledgeContextInput {
-  cacheRoot: string;
+  cacheRoot?: string;
+  store?: KnowledgeStore;
   source: KnowledgeSource;
   reason: string;
   fetcher?: KnowledgeFetcher;
@@ -73,9 +70,10 @@ export async function retrieveKnowledgeContextPacket(
   input: RetrieveKnowledgeContextInput
 ): Promise<RetrievedContextPacket | null> {
   const maxExcerptChars = input.maxExcerptChars ?? 2000;
-  const cachedEntry = await readKnowledgeCacheEntry(input.cacheRoot, input.source);
+  const store = input.store ?? createFileKnowledgeStore(requireCacheRoot(input.cacheRoot));
+  const cachedEntry = await store.read(input.source);
 
-  if (cachedEntry && !isKnowledgeCacheEntryStale(cachedEntry, input.now)) {
+  if (cachedEntry && !store.isStale(cachedEntry, input.now)) {
     return buildPacket(cachedEntry, 'high', input.reason, maxExcerptChars);
   }
 
@@ -83,7 +81,7 @@ export async function retrieveKnowledgeContextPacket(
     try {
       const fetched = await input.fetcher(input.source);
       if (fetched) {
-        const written = await writeKnowledgeCacheEntry(input.cacheRoot, fetched);
+        const written = await store.write(fetched);
         return buildPacket(written, 'high', input.reason, maxExcerptChars);
       }
     } catch {
@@ -102,6 +100,14 @@ export async function retrieveKnowledgeContextPacket(
   }
 
   return null;
+}
+
+function requireCacheRoot(cacheRoot: string | undefined): string {
+  if (cacheRoot === undefined) {
+    throw new Error('retrieveKnowledgeContextPacket requires cacheRoot when no KnowledgeStore is provided.');
+  }
+
+  return cacheRoot;
 }
 
 function normalizeContentType(contentTypeHeader: string | null): KnowledgeContentType {

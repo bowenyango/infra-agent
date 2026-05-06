@@ -12,12 +12,14 @@ import {
   resolve
 } from 'node:path';
 import {
+  buildKnowledgeCacheEntryPath,
   buildKnowledgeCacheId,
   isKnowledgeCacheEntryStale,
   readKnowledgeCacheEntry,
   writeKnowledgeCacheEntry
 } from '../../src/knowledge/cache.ts';
 import { resolveKnowledgeCacheRoot } from '../../src/knowledge/cache-root.ts';
+import { createFileKnowledgeStore } from '../../src/knowledge/knowledge-store.ts';
 import {
   KNOWLEDGE_FACT_EXTRACTION_METHODS,
   KNOWLEDGE_FACT_KINDS
@@ -392,6 +394,48 @@ test('knowledge cache writes versioned entries and detects staleness', async () 
     assert.deepEqual(readBack?.fingerprint, fingerprint);
     assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-05-01T00:00:00.000Z')), false);
     assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-06-01T00:00:00.000Z')), true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('file knowledge store preserves local cache entry behavior', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-store-'));
+
+  try {
+    const source = {
+      kind: 'terraform-registry',
+      name: 'aws_lb_listener_rule',
+      provider: 'hashicorp/aws',
+      version: '5.37.0',
+      url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule'
+    };
+    const store = createFileKnowledgeStore(tempRoot);
+    const written = await store.write({
+      source,
+      contentType: 'text/markdown',
+      content: '# aws_lb_listener_rule\nListener rule docs.',
+      fetchedAt: '2026-04-28T00:00:00.000Z',
+      staleAfter: '2026-05-28T00:00:00.000Z'
+    });
+    const readBack = await store.read(source);
+    const directRead = await readKnowledgeCacheEntry(tempRoot, source);
+
+    assert.equal(store.root, tempRoot);
+    assert.equal(store.buildId(source), buildKnowledgeCacheId(source));
+    assert.equal(written.id, buildKnowledgeCacheId(source));
+    assert.deepEqual(readBack, directRead);
+    assert.equal(store.isStale(written, new Date('2026-05-01T00:00:00.000Z')), false);
+    assert.equal(store.isStale(written, new Date('2026-06-01T00:00:00.000Z')), true);
+
+    const missingSource = {
+      ...source,
+      name: 'aws_s3_bucket'
+    };
+    assert.equal(await store.read(missingSource), null);
+
+    await writeFile(buildKnowledgeCacheEntryPath(tempRoot, source), '{"invalid":true}\n', 'utf8');
+    assert.equal(await store.read(source), null);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

@@ -14,6 +14,7 @@ import {
 import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import {
+  buildKnowledgeCacheId,
   readKnowledgeCacheEntry,
   writeKnowledgeCacheEntry
 } from '../../src/knowledge/cache.ts';
@@ -110,6 +111,100 @@ test('knowledge context retrieval fetches missing sources and writes cache', asy
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('knowledge context retrieval can use an injected knowledge store', async () => {
+  const source = {
+    kind: 'terraform-registry',
+    name: 'aws_lb_listener_rule',
+    provider: 'hashicorp/aws',
+    version: '5.37.0',
+    url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule'
+  };
+  const calls = [];
+  const writtenEntries = [];
+  const store = {
+    root: 'memory://knowledge-store',
+    buildId: buildKnowledgeCacheId,
+    read: async readSource => {
+      calls.push(`read:${readSource.name}`);
+      return null;
+    },
+    write: async input => {
+      calls.push(`write:${input.source.name}`);
+      const entry = {
+        id: buildKnowledgeCacheId(input.source),
+        source: input.source,
+        contentType: input.contentType,
+        content: input.content,
+        contentHash: 'd'.repeat(64),
+        fetchedAt: input.fetchedAt ?? '2026-04-28T00:00:00.000Z',
+        ...(input.staleAfter !== undefined ? { staleAfter: input.staleAfter } : {})
+      };
+      writtenEntries.push(entry);
+      return entry;
+    },
+    isStale: () => false
+  };
+  const packet = await retrieveKnowledgeContextPacket({
+    store,
+    source,
+    reason: 'Terraform listener rule planning',
+    fetcher: async fetchedSource => ({
+      source: fetchedSource,
+      contentType: 'text/markdown',
+      content: '# aws_lb_listener_rule\nPriority and listener ARN docs.',
+      fetchedAt: '2026-04-28T00:00:00.000Z',
+      staleAfter: '2026-05-28T00:00:00.000Z'
+    })
+  });
+
+  assert.deepEqual(calls, ['read:aws_lb_listener_rule', 'write:aws_lb_listener_rule']);
+  assert.equal(writtenEntries.length, 1);
+  assert.equal(packet?.id, buildKnowledgeCacheId(source));
+  assert.equal(packet?.confidence, 'high');
+  assert.match(packet?.excerpt ?? '', /Priority and listener ARN/);
+});
+
+test('knowledge context retrieval checks injected stores before fetching', async () => {
+  const source = {
+    kind: 'helm-docs',
+    name: 'values.schema.json',
+    chart: 'payments-api',
+    version: '3.14.0',
+    url: 'https://helm.sh/docs/topics/charts/'
+  };
+  let fetchCalled = false;
+  const store = {
+    root: 'memory://knowledge-store',
+    buildId: buildKnowledgeCacheId,
+    read: async readSource => ({
+      id: buildKnowledgeCacheId(readSource),
+      source: readSource,
+      contentType: 'text/markdown',
+      content: '# Helm values schema\nUse JSON Schema for chart values.',
+      contentHash: 'e'.repeat(64),
+      fetchedAt: '2026-04-28T00:00:00.000Z',
+      staleAfter: '2026-05-28T00:00:00.000Z'
+    }),
+    write: async () => {
+      throw new Error('fresh cache should not be rewritten');
+    },
+    isStale: () => false
+  };
+  const packet = await retrieveKnowledgeContextPacket({
+    store,
+    source,
+    reason: 'Helm values planning',
+    fetcher: async () => {
+      fetchCalled = true;
+      return null;
+    }
+  });
+
+  assert.equal(fetchCalled, false);
+  assert.equal(packet?.confidence, 'high');
+  assert.match(packet?.excerpt ?? '', /Helm values schema/);
 });
 
 test('knowledge context retrieval falls back to stale cache when refresh is unavailable', async () => {

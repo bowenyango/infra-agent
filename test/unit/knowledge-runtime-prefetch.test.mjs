@@ -16,6 +16,7 @@ import { runSingleStep } from '../../src/agent/run-single-step.ts';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildTerraformRegistryKnowledgeSources } from '../../src/domain/terraform-registry-context.ts';
 import {
+  buildKnowledgeCacheId,
   readKnowledgeCacheEntry,
   writeKnowledgeCacheEntry
 } from '../../src/knowledge/cache.ts';
@@ -566,6 +567,91 @@ test('knowledge prefetch fetches bounded external docs and skips local schema', 
     assert.ok(fetchedTerraform);
     const cachedTerraform = await readKnowledgeCacheEntry(result.cacheRoot, fetchedTerraform.source);
     assert.match(cachedTerraform?.content ?? '', /Prefetched docs/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge prefetch can use an injected knowledge store', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-prefetch-store-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(terraformRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source = "hashicorp/aws"',
+        '      version = "5.37.0"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_s3_bucket" "logs" {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version = "5.37.0"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const writes = [];
+    const storeBuildId = source => `store-${buildKnowledgeCacheId(source)}`;
+    const store = {
+      root: inspection.knowledgeCache.root,
+      buildId: storeBuildId,
+      read: async () => null,
+      write: async input => {
+        const entry = {
+          id: storeBuildId(input.source),
+          source: input.source,
+          contentType: input.contentType,
+          content: input.content,
+          contentHash: 'c'.repeat(64),
+          fetchedAt: input.fetchedAt ?? '2026-04-28T00:00:00.000Z',
+          ...(input.staleAfter !== undefined ? { staleAfter: input.staleAfter } : {})
+        };
+        writes.push(entry);
+        return entry;
+      },
+      isStale: () => false
+    };
+
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxSources: 1,
+      store,
+      fetcher: async source => ({
+        source,
+        contentType: 'text/markdown',
+        content: `# ${source.name}\nInjected store prefetch.`,
+        fetchedAt: '2026-04-28T00:00:00.000Z',
+        staleAfter: '2026-05-28T00:00:00.000Z'
+      })
+    });
+
+    assert.equal(result.cacheRoot, inspection.knowledgeCache.root);
+    assert.equal(result.summary.fetched, 1);
+    assert.equal(writes.length, 1);
+    assert.ok(result.sources.some(source =>
+      source.status === 'fetched'
+      && source.id.startsWith('store-')
+      && source.source.kind === 'terraform-registry'
+    ));
+    assert.equal(await readKnowledgeCacheEntry(result.cacheRoot, writes[0].source), null);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

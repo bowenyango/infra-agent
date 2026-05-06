@@ -1,6 +1,6 @@
-import { isKnowledgeCacheEntryStale, readKnowledgeCacheEntry } from './cache.ts';
 import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from './retrieve.ts';
 import type { KnowledgeFetcher } from './retrieve.ts';
+import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
 import { buildTerraformLocalModuleKnowledgeSources } from '../domain/terraform-local-modules.ts';
@@ -58,6 +58,7 @@ export interface KnowledgePrefetchOptions {
   targetPaths?: string[];
   maxSources?: number;
   fetcher?: KnowledgeFetcher;
+  store?: KnowledgeStore;
   now?: Date;
 }
 
@@ -169,11 +170,12 @@ function buildSummary(sources: KnowledgePrefetchSourceResult[]): KnowledgePrefet
 function sourceResult(
   candidate: KnowledgePrefetchCandidate,
   status: KnowledgePrefetchStatus,
-  extra: Partial<Omit<KnowledgePrefetchSourceResult, keyof KnowledgePrefetchCandidate | 'id' | 'status'>> = {}
+  extra: Partial<Omit<KnowledgePrefetchSourceResult, keyof KnowledgePrefetchCandidate | 'id' | 'status'>> = {},
+  buildId: (source: KnowledgeSource) => string = buildKnowledgeCacheId
 ): KnowledgePrefetchSourceResult {
   return {
     ...candidate,
-    id: buildKnowledgeCacheId(candidate.source),
+    id: buildId(candidate.source),
     status,
     ...extra
   };
@@ -187,6 +189,8 @@ export async function prefetchWorkspaceKnowledge(
   const targetPaths = options.targetPaths ?? [];
   const maxSources = normalizeMaxSources(options.maxSources);
   const fetcher = options.fetcher ?? fetchOfficialKnowledgeSource;
+  const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
+  const storeBuildId = (source: KnowledgeSource) => store.buildId(source);
   const candidates = await collectWorkspaceKnowledgeSources(inspection, {
     domains: requestedDomains,
     targetPaths
@@ -198,22 +202,22 @@ export async function prefetchWorkspaceKnowledge(
     if (!candidate.source.url) {
       sources.push(sourceResult(candidate, 'local', {
         message: 'Local source does not require prefetch.'
-      }));
+      }, storeBuildId));
       continue;
     }
 
     if (externalSourceCount >= maxSources) {
       sources.push(sourceResult(candidate, 'skipped', {
         message: `Skipped because maxSources=${maxSources} was reached.`
-      }));
+      }, storeBuildId));
       continue;
     }
 
     externalSourceCount += 1;
-    const cachedBefore = await readKnowledgeCacheEntry(inspection.knowledgeCache.root, candidate.source);
-    const hadFreshCache = Boolean(cachedBefore && !isKnowledgeCacheEntryStale(cachedBefore, options.now));
+    const cachedBefore = await store.read(candidate.source);
+    const hadFreshCache = Boolean(cachedBefore && !store.isStale(cachedBefore, options.now));
     const packet = await retrieveKnowledgeContextPacket({
-      cacheRoot: inspection.knowledgeCache.root,
+      store,
       source: candidate.source,
       reason: `Prefetch ${candidate.domain} docs for ${candidate.targetPath}`,
       fetcher,
@@ -223,7 +227,7 @@ export async function prefetchWorkspaceKnowledge(
     if (!packet) {
       sources.push(sourceResult(candidate, 'failed', {
         message: 'No cached entry was available and fetch returned no content.'
-      }));
+      }, storeBuildId));
       continue;
     }
 
@@ -234,7 +238,7 @@ export async function prefetchWorkspaceKnowledge(
         : 'fetched', {
       confidence: packet.confidence,
       contentType: packet.contentType
-    }));
+    }, storeBuildId));
   }
 
   return {
