@@ -107,6 +107,10 @@ export async function writeKnowledgeCacheEntry(
     entry.staleAfter = input.staleAfter;
   }
 
+  if (input.fingerprint !== undefined) {
+    entry.fingerprint = input.fingerprint;
+  }
+
   if (input.summary !== undefined) {
     entry.summary = input.summary;
   }

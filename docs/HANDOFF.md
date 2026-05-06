@@ -10608,3 +10608,56 @@ Next stage:
 
 - Commit this artifact output slice, then continue with either pack validation
   support or the local/team knowledge-store interface.
+
+## 2026-05-06 Knowledge Cache Fingerprint Persistence Slice
+
+Status:
+
+- Completed. This slice closes a storage correctness gap in the knowledge cache
+  contract.
+
+Core files changed:
+
+- `src/knowledge/cache.ts`
+- `test/unit/knowledge-cache-contracts.test.mjs`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- `writeKnowledgeCacheEntry` now persists the optional
+  `KnowledgeCacheWrite.fingerprint` field into the written cache entry.
+- The cache contract test now asserts that fingerprints survive both the writer
+  return value and a disk read through `readKnowledgeCacheEntry`.
+
+Design notes:
+
+- `KnowledgeCacheEntry` and `KnowledgeCacheWrite` already exposed fingerprint
+  fields. The previous writer dropped the field, which made local freshness
+  metadata depend on synthetic extraction paths instead of the cache storage
+  contract.
+- Persisting the fingerprint keeps local cache entries self-contained for later
+  stale checks and is a prerequisite for any future team-cache or artifact
+  publication flow.
+
+Known validation so far:
+
+- `npm run test:focused -- --test-name-pattern "knowledge cache writes versioned entries" test/unit/knowledge-cache-contracts.test.mjs`:
+  passed with 1 test.
+- `npm run test:unit`: passed with 294 tests.
+- `npm run test:structure`: passed with 30 checked files.
+- `npm run verify`: passed. This covered lint, test structure enforcement, the
+  full 369-test suite, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed. The package still contains 125 entries.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- The current cache backend is still filesystem-only. A storage abstraction and
+  team backend should be introduced as a later slice after the local contract is
+  stable.
+
+Next stage:
+
+- Commit this slice, then continue with pack artifact validation so persisted
+  `knowledge pack --out` outputs can be checked before reuse.

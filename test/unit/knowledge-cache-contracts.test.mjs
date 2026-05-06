@@ -366,12 +366,17 @@ test('knowledge cache writes versioned entries and detects staleness', async () 
       version: '1.2.3',
       url: 'https://helm.sh/docs/topics/charts/'
     };
+    const fingerprint = buildKnowledgeSourceFingerprint([{
+      path: 'charts/payments-api/Chart.yaml',
+      contentHash: 'f'.repeat(64)
+    }]);
     const written = await writeKnowledgeCacheEntry(tempRoot, {
       source,
       contentType: 'text/markdown',
       content: '# Values Schema\nUse JSON Schema for chart values.',
       fetchedAt: '2026-04-28T00:00:00.000Z',
       staleAfter: '2026-05-28T00:00:00.000Z',
+      fingerprint,
       summary: 'Helm chart values schema reference.',
       metadata: {
         sourceAuthority: 'official-docs'
@@ -383,6 +388,8 @@ test('knowledge cache writes versioned entries and detects staleness', async () 
     assert.equal(readBack?.id, written.id);
     assert.equal(readBack?.contentHash, written.contentHash);
     assert.equal(readBack?.source.version, '1.2.3');
+    assert.deepEqual(written.fingerprint, fingerprint);
+    assert.deepEqual(readBack?.fingerprint, fingerprint);
     assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-05-01T00:00:00.000Z')), false);
     assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-06-01T00:00:00.000Z')), true);
   } finally {
