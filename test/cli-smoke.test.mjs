@@ -3764,6 +3764,57 @@ test('agent runtime loads Helm chart schema context for Helm tasks', async () =>
   }
 });
 
+test('agent runtime loads focused Terraform provider schema knowledge facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-runtime-provider-schema-facts-'));
+
+  try {
+    await writeTerraformProviderSchemaWorkspace(tempRoot);
+
+    const checkingModel = {
+      name: 'terraform-provider-schema-knowledge-check',
+      async decideNextAction({ runtime }) {
+        assert.ok(runtime.knowledgeFacts);
+        assert.equal(runtime.knowledgeFacts.requestedDomains.includes('terraform'), true);
+        assert.equal(runtime.knowledgeFacts.targetPaths.includes('terraform/app'), true);
+        assert.ok(runtime.knowledgeFacts.facts.some(fact =>
+          fact.extractionMethod === 'terraform-provider-schema'
+          && fact.path === 'resource.aws_lb_listener_rule.listener_arn'
+          && fact.required === true
+        ));
+        assert.ok(runtime.knowledgeFacts.facts.some(fact =>
+          fact.kind === 'nested-block'
+          && fact.path === 'resource.aws_lb_listener_rule.action'
+        ));
+        assert.doesNotMatch(JSON.stringify(runtime.knowledgeFacts), /aws_instance|provider_schemas|"content"\s*:/);
+        return {
+          confidence: 'high',
+          action: {
+            kind: 'stop',
+            summary: 'Provider schema facts checked.',
+            rationale: 'The runtime loaded focused Terraform provider schema facts.',
+            payload: {
+              stopReason: 'no-safe-action'
+            }
+          }
+        };
+      }
+    };
+
+    const result = await runSingleStep(
+      'update terraform app listener rule priority',
+      tempRoot,
+      checkingModel
+    );
+
+    assert.ok(result.runtime.knowledgeFacts?.facts.some(fact =>
+      fact.path === 'resource.aws_lb_listener_rule.priority'
+      && fact.extractionMethod === 'terraform-provider-schema'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('agent runtime loads knowledge facts for generic tasks with selected targets', async () => {
   const checkingModel = {
     name: 'generic-target-knowledge-check',
