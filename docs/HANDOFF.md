@@ -12,18 +12,96 @@ Status as of 2026-05-06:
   shards in stable filename order. Do not manually add shard imports to
   `test/run-unit.mjs`, `test/run-integration.mjs`, or `test/run-contract.mjs`.
 - `npm test` runs `npm run test:structure` before `npm run test:all`.
-- `npm run verify` is the full local gate: lint, structure, all tests, smoke,
-  and e2e.
-- `.github/workflows/verify.yml` runs the same verification gate plus package
-  shape checking in CI.
+- `npm run verify` is the full local gate: lint, structure, explicit unit,
+  integration, and contract suites, smoke, e2e, coverage, and package dry-run.
+- `npm run test:coverage` is the coverage gate over `src/**/*.ts`: minimum 85%
+  lines, 75% branches, and 90% functions.
+- `.github/workflows/verify.yml` reports failures by layer: static
+  lint/structure/package shape, unit, integration, contract, smoke/e2e, and
+  coverage. The workflow uses read-only permissions, concurrency cancellation,
+  and per-job timeouts.
 - `docs/TESTING.md` is the compact extension guide for future test shards.
 
 Current guardrails:
 
 - no root-level or nested `.test.mjs` shards
 - no broad `test/support/cli-smoke-harness.mjs`
-- `.test.mjs` shards at or below 2,000 lines
+- no committed `.only` or `.skip` tests
+- `.test.mjs` shards at or below 1,800 lines
 - `test/support/*.mjs` helpers at or below 1,000 lines
+- no test-like files outside direct `test/unit`, `test/integration`, or
+  `test/contract` `.test.mjs` shards
+- package and CI scripts must keep the expected test, coverage, smoke/e2e, and
+  package dry-run gates wired
+
+## 2026-05-06 Enterprise Test Gate Hardening Slice
+
+Status:
+
+- Implemented. This slice continues the test-system work before resuming
+  feature development.
+
+Core files changed:
+
+- `.github/workflows/verify.yml`
+- `package.json`
+- `scripts/check-test-structure.mjs`
+- `docs/TESTING.md`
+- `README.md`
+- `AGENTS.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Split GitHub Actions verification into separate static, unit, integration,
+  contract, smoke/e2e, and coverage jobs so PR failures identify the broken
+  layer directly.
+- Added read-only workflow permissions, concurrency cancellation, and job
+  timeouts.
+- Added `npm run test:coverage` using Node's native coverage gate with minimum
+  85% lines, 75% branches, and 90% functions over `src/**/*.ts`.
+- Changed `npm run verify` to run unit, integration, and contract suites
+  explicitly instead of hiding them behind `test:all`; it now also includes
+  coverage and package dry-run checks.
+- Added `npm run package:check` and made CI call that script rather than a raw
+  package command.
+- Tightened `test:structure`: `.test.mjs` shards now cap at 1,800 lines, and
+  the guard rejects misplaced test-like files, committed `.only`/`.skip` tests,
+  and missing package/CI gates. The workflow check now parses YAML instead of
+  relying on substring matches.
+- Split the largest near-limit test shards by behavior:
+  `inspect-graph-impact.test.mjs` became workspace, Terraform plan, and Pulumi
+  preview graph impact shards; `workspace-policy-targeting.test.mjs` became
+  profile/targeting, edit-policy, and approval-policy shards; `cli-main.test.mjs`
+  became core, knowledge, and report CLI shards.
+
+Known validation:
+
+- `npm run test:structure`: passed with 32 checked test files after the script,
+  coverage, and workflow guard changes.
+- `npm run test:coverage`: passed before shard splitting with 378 tests and
+  aggregate coverage of 89.12% lines, 79.04% branches, and 96.18% functions.
+- `npm run verify`: passed before shard splitting.
+- `npm run test:structure`: passed with 38 checked test files after shard
+  splitting and repo-level test-file placement checks.
+- `npm run test:unit`: passed after shard splitting (302 tests).
+- `npm run test:integration`: passed after shard splitting (64 tests).
+- `npm run test:contract`: passed after shard splitting (12 tests).
+- `npm run package:check`: passed after pinning npm cache to
+  `/tmp/infra-agent-npm-cache` for sandbox-safe package dry-runs.
+- `npm run verify`: passed after shard splitting and gate hardening. This
+  covered lint (164 files), structure (38 files), unit (302 tests),
+  integration (64 tests), contract (12 tests), smoke, e2e, coverage (378 tests,
+  89.12% lines, 79.04% branches, 96.18% functions), and package dry-run
+  (128 entries).
+- `git diff --check`: passed.
+
+Validation note:
+
+- An earlier `npm run verify` attempt reached `npm run package:check` but
+  returned non-zero because npm tried to write logs under `/home/heathen/.npm`
+  in the sandbox. `package:check` now sets
+  `npm_config_cache=/tmp/infra-agent-npm-cache`, and a clean rerun passed.
 
 ## 2026-05-05 Approval Query Flag Default Fallback Slice
 

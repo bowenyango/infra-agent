@@ -49,10 +49,11 @@ run the layered suites; `npm run test:all` runs the complete regression suite.
 `npm test` runs the structure guard before the complete regression suite.
 Focused checks use `npm run test:focused -- --test-name-pattern "<pattern>"
 <runner-or-shard>`.
-`npm run test:structure` enforces category-runner discovery, blocks nested
-test shards and the old broad smoke harness, and keeps `.test.mjs` shards under
-2,000 lines and support helpers under 1,000 lines. See `docs/TESTING.md` for
-the extension rules.
+`npm run test:structure` enforces category-runner discovery, blocks misplaced
+test-like files, nested test shards, and the old broad smoke harness, and keeps
+`.test.mjs` shards under 1,800 lines and support helpers under 1,000 lines. It
+also blocks committed `.only`/`.skip` tests and protects the expected
+CI/script gates. See `docs/TESTING.md` for the extension rules.
 
 ## Core Design Direction
 
@@ -544,11 +545,15 @@ Development verification commands:
 - `npm run lint`
 - `npm run test:structure`
 - `npm test`
+- `npm run test:coverage`
 - `npm run smoke`
 - `npm run e2e`
+- `npm run package:check`
 - `npm run verify`
 
-Use `npm run verify` as the full local gate before committing broad changes.
+Use `npm run verify` as the full local gate before committing broad changes; it
+includes coverage and package dry-run. Use `npm run test:coverage` when
+changing shared runtime logic or reviewing CI coverage posture.
 
 LLM planner tests use injected transports and do not call live providers.
 

@@ -1,10 +1,15 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 
 const TEST_ROOT = resolve('test');
 const CATEGORY_DIRS = ['unit', 'integration', 'contract'];
-const TEST_SHARD_MAX_LINES = 2000;
+const TEST_SHARD_MAX_LINES = 1800;
 const SUPPORT_HELPER_MAX_LINES = 1000;
+const REPO_SCAN_IGNORED_DIRS = new Set([
+  '.git',
+  'node_modules'
+]);
 const RUNNERS = {
   unit: 'test/run-unit.mjs',
   integration: 'test/run-integration.mjs',
@@ -16,17 +21,36 @@ const BANNED_TEST_PATTERNS = [
   {
     name: 'monolithic cli-smoke harness import',
     pattern: /cli-smoke-harness/
+  },
+  {
+    name: 'committed focused test',
+    pattern: /\b(?:test|describe)\.only\s*\(/
+  },
+  {
+    name: 'committed skipped test',
+    pattern: /\b(?:test|describe)\.skip\s*\(/
+  },
+  {
+    name: 'committed focused test option',
+    pattern: /\bonly\s*:\s*true\b/
+  },
+  {
+    name: 'committed skipped test option',
+    pattern: /\bskip\s*:\s*true\b/
   }
 ];
 
-async function listFiles(directory) {
+async function listFiles(directory, ignoredDirectoryNames = new Set()) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
 
   for (const entry of entries) {
     const fullPath = resolve(directory, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await listFiles(fullPath));
+      if (ignoredDirectoryNames.has(entry.name)) {
+        continue;
+      }
+      files.push(...await listFiles(fullPath, ignoredDirectoryNames));
       continue;
     }
     files.push(fullPath);
@@ -37,6 +61,23 @@ async function listFiles(directory) {
 
 function normalizePath(path) {
   return path.split('\\').join('/');
+}
+
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isAllowedTestShardPath(relativePath) {
+  const parts = normalizePath(relativePath).split('/');
+  return parts.length === 3
+    && parts[0] === 'test'
+    && CATEGORY_DIRS.includes(parts[1])
+    && parts[2].endsWith('.test.mjs');
+}
+
+function isTestLikeFile(relativePath) {
+  const fileName = normalizePath(relativePath).split('/').at(-1) ?? '';
+  return /\.(?:test|spec)\.[^.]+$/.test(fileName);
 }
 
 async function readRunnerImports(runnerPath) {
@@ -64,12 +105,162 @@ async function assertCategoryRunner(category, failures) {
   }
 }
 
+async function assertPackageScripts(failures) {
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+  const scripts = packageJson.scripts ?? {};
+  const testScript = scripts.test ?? '';
+  const verifyScript = scripts.verify ?? '';
+  const coverageScript = scripts['test:coverage'] ?? '';
+  const packageCheckScript = scripts['package:check'] ?? '';
+
+  if (!testScript.includes('npm run test:structure') || !testScript.includes('npm run test:all')) {
+    failures.push('package.json test script must run the structure guard before all tests.');
+  }
+
+  for (const command of [
+    'npm run lint',
+    'npm run test:structure',
+    'npm run test:unit',
+    'npm run test:integration',
+    'npm run test:contract',
+    'npm run smoke',
+    'npm run e2e',
+    'npm run test:coverage',
+    'npm run package:check'
+  ]) {
+    if (!verifyScript.includes(command)) {
+      failures.push(`package.json verify script must include ${command}.`);
+    }
+  }
+  if (verifyScript.includes('npm run test:all')) {
+    failures.push('package.json verify script must run category suites explicitly for clearer CI failures.');
+  }
+
+  for (const flag of [
+    '--experimental-test-coverage',
+    '--test-coverage-include=',
+    '--test-coverage-lines=85',
+    '--test-coverage-branches=75',
+    '--test-coverage-functions=90'
+  ]) {
+    if (!coverageScript.includes(flag)) {
+      failures.push(`package.json test:coverage script must include ${flag}.`);
+    }
+  }
+
+  if (!packageCheckScript.includes('npm pack --dry-run --json')) {
+    failures.push('package.json package:check script must run npm pack --dry-run --json.');
+  }
+}
+
+async function assertVerifyWorkflow(failures) {
+  const workflowPath = '.github/workflows/verify.yml';
+  const workflow = parseYaml(await readFile(workflowPath, 'utf8'));
+
+  if (!isRecord(workflow)) {
+    failures.push(`${workflowPath} must parse as a YAML object.`);
+    return;
+  }
+
+  if (!isRecord(workflow.permissions) || workflow.permissions.contents !== 'read') {
+    failures.push(`${workflowPath} must set read-only contents permissions.`);
+  }
+  if (!isRecord(workflow.concurrency) || workflow.concurrency['cancel-in-progress'] !== true) {
+    failures.push(`${workflowPath} must cancel in-progress runs for the same ref.`);
+  }
+  if (!isRecord(workflow.jobs)) {
+    failures.push(`${workflowPath} must define jobs.`);
+    return;
+  }
+
+  const expectedJobs = {
+    static: {
+      runs: ['npm run lint', 'npm run test:structure', 'npm run package:check'],
+      needs: []
+    },
+    unit: {
+      runs: ['npm run test:unit'],
+      needs: []
+    },
+    integration: {
+      runs: ['npm run test:integration'],
+      needs: []
+    },
+    contract: {
+      runs: ['npm run test:contract'],
+      needs: []
+    },
+    'smoke-e2e': {
+      runs: ['npm run smoke', 'npm run e2e'],
+      needs: ['static', 'unit', 'integration', 'contract']
+    },
+    coverage: {
+      runs: ['npm run test:coverage'],
+      needs: ['static', 'unit', 'integration', 'contract']
+    }
+  };
+
+  for (const [jobName, expectation] of Object.entries(expectedJobs)) {
+    const job = workflow.jobs[jobName];
+    if (!isRecord(job)) {
+      failures.push(`${workflowPath} must define ${jobName} job.`);
+      continue;
+    }
+
+    if (job['runs-on'] !== 'ubuntu-latest') {
+      failures.push(`${workflowPath} ${jobName} job must run on ubuntu-latest.`);
+    }
+    if (typeof job['timeout-minutes'] !== 'number' || job['timeout-minutes'] <= 0) {
+      failures.push(`${workflowPath} ${jobName} job must define a positive timeout-minutes.`);
+    }
+
+    const needs = Array.isArray(job.needs)
+      ? job.needs
+      : typeof job.needs === 'string'
+        ? [job.needs]
+        : [];
+    for (const need of expectation.needs) {
+      if (!needs.includes(need)) {
+        failures.push(`${workflowPath} ${jobName} job must depend on ${need}.`);
+      }
+    }
+
+    const runCommands = Array.isArray(job.steps)
+      ? job.steps
+        .filter(step => isRecord(step) && typeof step.run === 'string')
+        .map(step => step.run)
+      : [];
+    for (const command of expectation.runs) {
+      if (!runCommands.includes(command)) {
+        failures.push(`${workflowPath} ${jobName} job must run ${command}.`);
+      }
+    }
+  }
+}
+
+function assertRepositoryTestFiles(allRepoFiles, failures) {
+  for (const file of allRepoFiles) {
+    const relativePath = normalizePath(relative(process.cwd(), file));
+    if (!isTestLikeFile(relativePath)) {
+      continue;
+    }
+    if (!isAllowedTestShardPath(relativePath)) {
+      failures.push(
+        `${relativePath} looks like a test file but is not a direct test/unit, test/integration, or test/contract .test.mjs shard.`
+      );
+    }
+  }
+}
+
 async function main() {
   const failures = [];
   const allFiles = await listFiles(TEST_ROOT);
+  const allRepoFiles = await listFiles(process.cwd(), REPO_SCAN_IGNORED_DIRS);
   const testShards = allFiles
     .map(file => normalizePath(relative(TEST_ROOT, file)))
     .filter(file => file.endsWith('.test.mjs'));
+
+  assertRepositoryTestFiles(allRepoFiles, failures);
 
   for (const file of testShards) {
     const parts = file.split('/');
@@ -97,6 +288,8 @@ async function main() {
   for (const category of CATEGORY_DIRS) {
     await assertCategoryRunner(category, failures);
   }
+  await assertPackageScripts(failures);
+  await assertVerifyWorkflow(failures);
 
   const runAllContent = await readFile('test/run-all.mjs', 'utf8');
   if (!runAllContent.includes("import { runCategory } from './run-category.mjs';")) {

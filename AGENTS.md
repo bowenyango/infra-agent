@@ -168,8 +168,10 @@ stays focused and unrelated validators or context do not pollute compact output.
   JSON/report contracts, and `test/support/` only for narrow shared fixtures or
   harness helpers. Support files must not become production-code barrels.
 - Keep test files reviewable. `npm run test:structure` fails any
-  `.test.mjs` shard above 2,000 lines or support helper above 1,000 lines;
+  `.test.mjs` shard above 1,800 lines or support helper above 1,000 lines;
   split larger files by behavior or fixture family before adding more cases.
+  The same guard blocks misplaced test-like files, committed `.only`/`.skip`
+  tests, and checks that package/CI gates remain wired.
 - Add new shard files directly under the matching category directory. The
   category runners discover direct `.test.mjs` shards through
   `test/run-category.mjs`; do not create nested shard directories.
@@ -178,6 +180,11 @@ stays focused and unrelated validators or context do not pollute compact output.
   `npm test` runs the structure guard plus the complete regression suite.
   Use `npm run test:focused -- --test-name-pattern "<pattern>" <runner-or-shard>`
   for focused checks.
+- Use `npm run test:coverage` when changing shared runtime paths or reviewing
+  CI coverage posture. It uses Node's native coverage gate with minimum 85%
+  lines, 75% branches, and 90% functions over `src/**/*.ts`.
+- `npm run verify` is the full local gate and includes lint, structure, unit,
+  integration, contract, smoke, e2e, coverage, and package dry-run checks.
 - Do not restore a monolithic `cli-smoke` unit file or broad
   `test/support/cli-smoke-harness.mjs`; `npm run test:structure` enforces the
   test layout.
