@@ -21,6 +21,10 @@ import {
 import { resolveKnowledgeCacheRoot } from '../../src/knowledge/cache-root.ts';
 import { createFileKnowledgeStore } from '../../src/knowledge/knowledge-store.ts';
 import {
+  resolveKnowledgeStoragePolicy,
+  summarizeKnowledgeStoragePolicies
+} from '../../src/knowledge/storage-policy.ts';
+import {
   KNOWLEDGE_FACT_EXTRACTION_METHODS,
   KNOWLEDGE_FACT_KINDS
 } from '../../src/types/knowledge.ts';
@@ -189,6 +193,41 @@ test('knowledge source contracts include local infra sources', () => {
   assert.equal(parseKnowledgeFactSet(terraformModuleFactSet).source.kind, 'terraform-module');
   assert.equal(parseKnowledgeFactSet(pulumiConfigFactSet).source.kind, 'pulumi-config');
   assert.equal(parseKnowledgeFactSet(helmChartMetadataFactSet).source.kind, 'chart-metadata');
+});
+
+test('knowledge storage policy separates public references from workspace-private sources', () => {
+  const publicPolicy = resolveKnowledgeStoragePolicy({
+    kind: 'terraform-registry',
+    name: 'resource:aws_s3_bucket',
+    provider: 'hashicorp/aws',
+    version: '5.37.0',
+    url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket'
+  });
+  const privatePolicy = resolveKnowledgeStoragePolicy({
+    kind: 'terraform-module',
+    name: 'module:queue-worker',
+    localPath: 'terraform/app/modules/queue-worker',
+    module: 'terraform/app/modules/queue-worker'
+  });
+  const unknownPolicy = resolveKnowledgeStoragePolicy({
+    kind: 'repo-example',
+    name: 'example:payments-api'
+  });
+  const summary = summarizeKnowledgeStoragePolicies([publicPolicy, privatePolicy, unknownPolicy]);
+
+  assert.equal(publicPolicy.scope, 'public-reference');
+  assert.equal(publicPolicy.defaultStore, 'local-or-explicit-team-cache');
+  assert.equal(publicPolicy.shareableByDefault, true);
+  assert.equal(publicPolicy.requiresExplicitOptIn, false);
+  assert.equal(privatePolicy.scope, 'workspace-private');
+  assert.equal(privatePolicy.defaultStore, 'local-only');
+  assert.equal(privatePolicy.shareableByDefault, false);
+  assert.equal(privatePolicy.requiresExplicitOptIn, true);
+  assert.equal(unknownPolicy.scope, 'workspace-private');
+  assert.equal(summary.publicReference, 1);
+  assert.equal(summary.workspacePrivate, 2);
+  assert.equal(summary.shareableByDefault, 1);
+  assert.equal(summary.explicitOptInRequired, 2);
 });
 
 test('knowledge fact contract validates source-linked fact sets', () => {

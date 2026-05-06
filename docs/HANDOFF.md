@@ -10995,3 +10995,67 @@ Next stage:
 
 - Commit this slice. After that, test structure is good enough to resume
   feature work.
+
+## 2026-05-06 Knowledge Storage Policy Slice
+
+Status:
+
+- In progress. This slice makes local/team-publication posture explicit in
+  knowledge source listings without adding a remote backend.
+
+Core files changed:
+
+- `src/knowledge/storage-policy.ts`
+- `src/knowledge/sources.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-cache-contracts.test.mjs`
+- `test/integration/cli-main.test.mjs`
+- `README.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Added `resolveKnowledgeStoragePolicy` to classify knowledge sources as
+  `public-reference` or `workspace-private`.
+- Public docs sources such as Terraform Registry, Pulumi docs, Helm docs, and
+  chart docs with URLs are shareable by default into local or explicit team
+  cache.
+- Workspace-local sources such as Terraform modules, Pulumi config, Helm chart
+  metadata/schema/lock data, local provider schemas, and unknown publication
+  posture stay local-only and require explicit opt-in before shared use.
+- `knowledge sources` JSON now includes per-source `storagePolicy` and a
+  summary count for public, private, shareable, and opt-in-required sources.
+- Text output includes the same policy posture beside each source.
+
+Design notes:
+
+- This is a policy boundary only. It does not upload artifacts, add
+  credentials, or introduce S3/object-store code.
+- The policy keeps private repo-derived facts conservative by default while
+  preserving a clear path for public provider/chart docs to move into a team
+  cache later.
+
+Known validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge storage policy" test/unit/knowledge-cache-contracts.test.mjs`:
+  passed with 1 unit test.
+- `npm run test:focused -- --test-name-pattern "knowledge sources command emits read-only source listing JSON" test/integration/cli-main.test.mjs`:
+  passed with 1 integration test.
+- `npm run lint`: passed with 158 checked files.
+- `npm run test:unit`: passed with 301 unit tests.
+- `npm run test:integration`: passed with 64 integration tests.
+- `npm run test:structure`: passed with 32 checked test files.
+- `npm run verify`: passed lint, test structure, 377 all tests, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed with 128 package entries, including `src/knowledge/storage-policy.ts`.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- Future team cache publication still needs explicit backend configuration,
+  object identity, retry/consistency policy, and validation gates.
+
+Next stage:
+
+- Commit this slice. Next feature step should add an explicit artifact manifest
+  or backend planning contract before any remote/team cache writes.

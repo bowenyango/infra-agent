@@ -628,7 +628,7 @@ test('knowledge sources command emits read-only source listing JSON', async () =
   assert.deepEqual(report.requestedDomains, ['helm']);
   assert.deepEqual(report.targetPaths, ['charts/payments-api']);
   assert.equal(report.sourceCount, report.sources.length);
-  assert.ok(report.sources.some(source =>
+  const chartMetadataSource = report.sources.find(source =>
     source.domain === 'helm'
     && source.targetPath === 'charts/payments-api'
     && source.id
@@ -636,7 +636,12 @@ test('knowledge sources command emits read-only source listing JSON', async () =
     && source.source.kind === 'chart-metadata'
     && source.source.localPath === 'charts/payments-api/Chart.yaml'
     && source.source.module === 'charts/payments-api'
-  ));
+  );
+  assert.ok(chartMetadataSource);
+  assert.equal(chartMetadataSource.storagePolicy.scope, 'workspace-private');
+  assert.equal(chartMetadataSource.storagePolicy.defaultStore, 'local-only');
+  assert.equal(chartMetadataSource.storagePolicy.shareableByDefault, false);
+  assert.equal(chartMetadataSource.storagePolicy.requiresExplicitOptIn, true);
   assert.ok(report.sources.some(source =>
     source.domain === 'helm'
     && source.targetPath === 'charts/payments-api'
@@ -645,6 +650,8 @@ test('knowledge sources command emits read-only source listing JSON', async () =
     && source.source.kind === 'chart-schema'
   ));
   assert.ok(report.summary.local >= 1);
+  assert.ok(report.summary.storagePolicy.workspacePrivate >= 1);
+  assert.ok(report.summary.storagePolicy.explicitOptInRequired >= 1);
   assert.doesNotMatch(output, /contentHash|fetchedAt|# Values|replicaCount:/);
 });
 

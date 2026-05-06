@@ -140,7 +140,9 @@ Current behavior is intentionally runtime-foundation oriented:
 - `knowledge sources`, `knowledge prefetch`, `knowledge extract`,
   `knowledge validate`, and `knowledge pack` provide the cache-first knowledge
   workflow. `sources` lists selected docs/local schemas/local config sources
-  without fetching, `prefetch` aliases the bounded cache update path,
+  without fetching and marks each source as either public-reference or
+  workspace-private for future storage/publication policy, `prefetch` aliases
+  the bounded cache update path,
   `extract` turns cached docs, local schemas, local modules, local Helm chart
   metadata, and local Pulumi config summaries into
   `infra-agent.knowledge-facts`, `validate` checks facts, extraction reports,

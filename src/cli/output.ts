@@ -617,7 +617,11 @@ function formatKnowledgeSourceResult(result: KnowledgePrefetchSourceResult): str
 function formatKnowledgeSourceReportEntry(entry: KnowledgeSourceReportEntry): string {
   const location = entry.source.url ?? entry.source.localPath ?? 'no source location';
   const fetchPosture = entry.requiresFetch ? 'external' : 'local';
-  return `${entry.domain} ${entry.targetPath}: ${entry.source.kind} ${entry.source.name} (${fetchPosture}, id=${entry.id}, ${location})`;
+  const storage = entry.storagePolicy.scope === 'public-reference'
+    ? 'public-reference'
+    : 'workspace-private';
+  const sharing = entry.storagePolicy.shareableByDefault ? 'shareable' : 'opt-in';
+  return `${entry.domain} ${entry.targetPath}: ${entry.source.kind} ${entry.source.name} (${fetchPosture}, ${storage}, ${sharing}, id=${entry.id}, ${location})`;
 }
 
 function formatKnowledgeExtractionSourceResult(result: KnowledgeExtractionSourceResult): string {
@@ -3447,7 +3451,8 @@ export function printKnowledgeSourcesReport(report: KnowledgeSourcesReport): voi
   process.stdout.write(`knowledge cache: ${report.cacheRoot}\n`);
   process.stdout.write(`domains: ${report.requestedDomains.length > 0 ? report.requestedDomains.join(', ') : 'none'}\n`);
   process.stdout.write(`targets: ${report.targetPaths.length > 0 ? report.targetPaths.join(', ') : 'all'}\n`);
-  process.stdout.write(`summary: sources=${report.sourceCount}, local=${report.summary.local}, external=${report.summary.external}\n\n`);
+  process.stdout.write(`summary: sources=${report.sourceCount}, local=${report.summary.local}, external=${report.summary.external}\n`);
+  process.stdout.write(`storage: public-reference=${report.summary.storagePolicy.publicReference}, workspace-private=${report.summary.storagePolicy.workspacePrivate}, shareable=${report.summary.storagePolicy.shareableByDefault}, opt-in=${report.summary.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Sources');
   printList(report.sources.map(formatKnowledgeSourceReportEntry), 'No knowledge sources selected.');
 }

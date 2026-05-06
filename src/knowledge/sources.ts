@@ -1,5 +1,11 @@
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { buildKnowledgeCacheId } from './cache.ts';
+import {
+  resolveKnowledgeStoragePolicy,
+  summarizeKnowledgeStoragePolicies,
+  type KnowledgeStoragePolicy,
+  type KnowledgeStoragePolicySummary
+} from './storage-policy.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
 import type { KnowledgeSource } from '../types/knowledge.ts';
 
@@ -8,6 +14,7 @@ export interface KnowledgeSourceReportEntry {
   domain: InfraDomainId;
   targetPath: string;
   requiresFetch: boolean;
+  storagePolicy: KnowledgeStoragePolicy;
   source: KnowledgeSource;
 }
 
@@ -23,6 +30,7 @@ export interface KnowledgeSourcesReport {
   summary: {
     local: number;
     external: number;
+    storagePolicy: KnowledgeStoragePolicySummary;
     byDomain: Partial<Record<InfraDomainId, number>>;
   };
   sources: KnowledgeSourceReportEntry[];
@@ -37,6 +45,7 @@ function summarizeSources(sources: KnowledgeSourceReportEntry[]): KnowledgeSourc
   return {
     local: sources.filter(source => !source.requiresFetch).length,
     external: sources.filter(source => source.requiresFetch).length,
+    storagePolicy: summarizeKnowledgeStoragePolicies(sources.map(source => source.storagePolicy)),
     byDomain
   };
 }
@@ -54,6 +63,7 @@ export async function buildKnowledgeSourcesReport(
     domain: candidate.domain,
     targetPath: candidate.targetPath,
     requiresFetch: Boolean(candidate.source.url),
+    storagePolicy: resolveKnowledgeStoragePolicy(candidate.source),
     source: candidate.source
   }));
 
