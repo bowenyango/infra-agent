@@ -9837,6 +9837,31 @@ Remaining risks:
 - Full `npm run verify`, package dry-run, and `git diff --check` still need to
   run at the end of the milestone.
 
+## 2026-05-05 Compact Fixture Knowledge Facts Repair Slice
+
+Files added or updated:
+
+- `scripts/compact-fixtures.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Update the shared compact identity-conflict fixture used by smoke tests to
+  include empty root-level `knowledgeFacts` and
+  `handoffCheckpoint.budgets.knowledgeFacts` after the compact contract made
+  that section required.
+
+Known validation:
+
+- `npm run verify`: failed at `npm run smoke` before this fix because the
+  shared compact fixture did not include `handoffCheckpoint.budgets.knowledgeFacts`.
+- `npm run smoke`: passed.
+
+Remaining risks:
+
+- Full `npm run verify`, package dry-run, and `git diff --check` still need to
+  be rerun.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

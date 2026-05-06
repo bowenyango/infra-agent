@@ -58,6 +58,7 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
         validationSafetyBlockers: { includedCount: 0, omittedCount: 0 },
         identityConflicts: { includedCount: 1, omittedCount: 0 },
         approvalSignals: { includedCount: 0, omittedCount: 0 },
+        knowledgeFacts: { includedCount: 0, omittedCount: 0 },
         knowledgePackets: {
           includedCount: 0,
           omittedCount: 0,
@@ -226,6 +227,21 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
       omittedByPacketLimit: 0,
       omittedByTokenBudget: 0,
       packets: []
+    },
+    knowledgeFacts: {
+      kind: 'infra-agent.knowledge-facts-summary',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      packId: null,
+      maxFacts: 12,
+      sourceCount: 0,
+      factSetCount: 0,
+      totalFactCount: 0,
+      includedFactCount: 0,
+      omittedFactCount: 0,
+      staleSourceCount: 0,
+      sources: [],
+      facts: []
     }
   };
 }
