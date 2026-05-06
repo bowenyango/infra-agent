@@ -3981,6 +3981,79 @@ test('knowledge pack includes focused Terraform provider schema facts under smal
   }
 });
 
+test('knowledge pack includes Terraform local module inputs under small budgets', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-module-pack-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    const moduleRoot = join(terraformRoot, 'modules/queue-worker');
+    await mkdir(moduleRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'variables.tf'),
+      [
+        'variable "image_tag" {',
+        '  type = string',
+        '}',
+        '',
+        'variable "environment" {',
+        '  type    = string',
+        '  default = "dev"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'outputs.tf'),
+      [
+        'output "queue_name" {',
+        '  value = "queue"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxFacts: 2,
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.includedFactCount, 2);
+    assert.ok(pack.sources.some(source =>
+      source.kind === 'terraform-module'
+      && source.targetPath === 'terraform/app'
+      && source.factCount > 0
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'module-input'
+      && fact.path === 'module.queue_worker.inputs.image_tag'
+      && fact.required === true
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.path === 'module.queue_worker.source'
+      && fact.values?.includes('terraform/app/modules/queue-worker')
+    ));
+    assert.doesNotMatch(JSON.stringify(pack), /variable "image_tag"|output "queue_name"|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('Terraform Registry context packets retrieve selected source docs through the cache layer', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-retrieve-'));
   const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-cache-'));
