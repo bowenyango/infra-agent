@@ -50,6 +50,7 @@ export interface ParsedArgs {
   task: string | null;
   workspace: string;
   inputPath: string | null;
+  validationWorkspace?: string | null;
   json: boolean;
   jsonFull: boolean;
   planner: PlannerMode;
@@ -91,7 +92,7 @@ function printUsage(): void {
       '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]',
-      '  infra-agent knowledge validate <knowledge.json> [--json]',
+      '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
@@ -557,6 +558,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const sourceIds: string[] = [];
     let maxSources: number | null = null;
     let maxFacts: number | null = null;
+    let validationWorkspace: string | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
 
@@ -635,6 +637,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--workspace') {
+        if (knowledgeAction !== 'validate') {
+          fail('--workspace is only supported for knowledge validate.');
+        }
+        const workspaceValue = actionArgs[index + 1]?.trim();
+        if (!workspaceValue) {
+          fail('Missing value for --workspace.');
+        }
+
+        validationWorkspace = resolve(cwd(), workspaceValue);
+        index += 1;
+        continue;
+      }
+
       if (arg.startsWith('--')) {
         fail(`Unknown knowledge ${knowledgeAction} option: ${arg}`);
       }
@@ -658,6 +674,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       task: null,
       workspace: knowledgeAction === 'validate' ? cwd() : workspace,
       inputPath: knowledgeAction === 'validate' ? positionalArgs[0] : null,
+      validationWorkspace,
       json,
       jsonFull,
       planner: 'auto',
@@ -1093,7 +1110,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       fail('knowledge validate requires exactly one knowledge JSON path.');
     }
 
-    const report = await loadKnowledgeValidationReport(parsed.inputPath, cwd());
+    const report = await loadKnowledgeValidationReport(parsed.inputPath, cwd(), parsed.validationWorkspace
+      ? { workspaceRoot: parsed.validationWorkspace }
+      : {});
 
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

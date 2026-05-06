@@ -9478,6 +9478,8 @@ test('knowledge validate CLI args accept a knowledge JSON path', () => {
     'knowledge',
     'validate',
     'knowledge-extraction.json',
+    '--workspace',
+    'fixtures/sample-workspace',
     '--json'
   ]);
 
@@ -9485,6 +9487,7 @@ test('knowledge validate CLI args accept a knowledge JSON path', () => {
   assert.equal(parsed.knowledgeAction, 'validate');
   assert.equal(parsed.inputPath, 'knowledge-extraction.json');
   assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.validationWorkspace, resolve(process.cwd(), 'fixtures/sample-workspace'));
   assert.equal(parsed.json, true);
 });
 
