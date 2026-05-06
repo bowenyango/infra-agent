@@ -348,6 +348,7 @@ export async function buildHelmChartKnowledgeSources(
     name: `${chartName}:Chart.yaml`,
     chart: chartName,
     localPath: join(chart.chartRoot, 'Chart.yaml'),
+    module: chart.chartRoot,
     packageName: chartName
   }, metadata.version));
 

@@ -2421,6 +2421,7 @@ test('knowledge source contracts include local infra sources', () => {
     kind: 'chart-metadata',
     name: 'payments-api:Chart.yaml',
     localPath: 'charts/payments-api/Chart.yaml',
+    module: 'charts/payments-api',
     chart: 'payments-api',
     version: '0.1.0',
     packageName: 'payments-api'
@@ -4607,6 +4608,7 @@ test('Helm chart context sources include local schema and chart docs metadata', 
 
     assert.ok(metadataSource);
     assert.equal(metadataSource.localPath, 'charts/api/Chart.yaml');
+    assert.equal(metadataSource.module, 'charts/api');
     assert.equal(metadataSource.version, '0.2.0');
     assert.equal(metadataSource.packageName, 'api');
     assert.ok(schemaSource);
@@ -9002,6 +9004,7 @@ test('knowledge sources command emits read-only source listing JSON', async () =
     && source.requiresFetch === false
     && source.source.kind === 'chart-metadata'
     && source.source.localPath === 'charts/payments-api/Chart.yaml'
+    && source.source.module === 'charts/payments-api'
   ));
   assert.ok(report.sources.some(source =>
     source.domain === 'helm'
