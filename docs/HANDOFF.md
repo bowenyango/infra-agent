@@ -10337,7 +10337,6 @@ Known validation so far:
 
 Remaining risks:
 
-- Full final verification is still pending for this slice.
 - Pulumi official-doc source selection and Pulumi component facts remain
   planned.
 - External chart-doc extraction beyond local chart metadata/dependency facts
@@ -10352,3 +10351,13 @@ Next stage:
   and record the result below.
 - After that, continue with Pulumi official-doc/component knowledge or the
   opt-in team cache backend design, depending on product priority.
+
+Final verification:
+
+- `npm run verify`: passed after the slice; lint checked 123 files, unit tests
+  reported 362 passing tests, smoke passed, and e2e passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed; dry-run package reports 124 entries and includes
+  `src/knowledge/local-source-fingerprint.ts`, updated knowledge validation,
+  pack, compact contract, docs, and skill guidance.
+- `git diff --check`: passed.
