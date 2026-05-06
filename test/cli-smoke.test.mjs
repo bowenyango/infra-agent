@@ -4582,6 +4582,73 @@ test('knowledge pack includes Pulumi config parameters under small budgets', asy
   assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
 });
 
+test('knowledge pack includes Helm chart metadata and dependency facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-helm-metadata-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.0',
+        '    repository: https://charts.bitnami.com/bitnami',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.lock'),
+      [
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.1',
+        '    repository: https://charts.bitnami.com/bitnami',
+        'digest: sha256:abc123',
+        'generated: "2026-04-28T00:00:00Z"',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['helm'],
+      targetPaths: ['charts/api'],
+      maxFacts: 8,
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.mutationAllowed, false);
+    assert.ok(pack.sources.some(source =>
+      source.kind === 'chart-metadata'
+      && source.domain === 'helm'
+      && source.targetPath === 'charts/api'
+      && source.factCount > 0
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'chart-metadata'
+      && fact.path === 'chart.api.metadata.version'
+      && fact.values?.includes('0.2.0')
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'chart-dependency'
+      && fact.path === 'chart.api.dependencies.redis'
+      && fact.values?.includes('version=17.3.1')
+      && fact.values?.includes('locked=true')
+    ));
+    assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|apiVersion:\s*v2|digest:\s*sha256|generated:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('Terraform Registry context packets retrieve selected source docs through the cache layer', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-retrieve-'));
   const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-cache-'));
