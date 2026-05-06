@@ -162,6 +162,13 @@ Current behavior is intentionally runtime-foundation oriented:
   `pulumi-config-parameter` facts without exposing raw YAML or `secure` values.
   Secret-like config keys and all secure stack entries are skipped; `pulumi
   preview` remains the authoritative validator for missing or invalid config.
+- Helm charts are learned as local `chart-metadata` knowledge sources from
+  `Chart.yaml` and sibling `Chart.lock` files. `knowledge extract`,
+  `knowledge pack`, and the agent runtime convert chart identity, safe metadata,
+  and declared or locked dependencies into ranked `chart-metadata` and
+  `chart-dependency` facts without exposing raw chart YAML. When a dependency is
+  present in `Chart.lock`, that locked version is preferred over the declared
+  range in `Chart.yaml`; native Helm validation remains authoritative.
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model

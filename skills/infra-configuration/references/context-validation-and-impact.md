@@ -152,6 +152,12 @@ Current cache foundation:
 - Helm chart dependency context includes local `Chart.lock` packets and
   dependency repository/version sources from `Chart.yaml` and `Chart.lock`.
   Only HTTP(S) repositories should become external fetch candidates.
+- Helm chart metadata extraction treats `Chart.yaml` and sibling `Chart.lock`
+  files as local `chart-metadata` sources. The extractor emits compact
+  `chart-metadata` and `chart-dependency` facts for safe chart identity,
+  version, app version, type, home/source URLs, and dependencies without raw
+  chart YAML. Prefer locked dependency versions from `Chart.lock` when present,
+  and keep lock digests and generated timestamps out of planner-facing facts.
 - Pulumi project config context includes local `pulumi-config` sources from
   `Pulumi.yaml` and sibling `Pulumi.<stack>.yaml` files. The extractor builds a
   compact JSON summary for declared config keys, safe types/defaults, and safe
@@ -174,14 +180,14 @@ Current extraction direction:
   `knowledge-facts` before planner use. Implemented local extractors now cover
   Terraform Registry markdown, Helm `values.schema.json` chart values, compact
   Terraform provider-schema facts, Terraform local module interfaces, and
-  Pulumi config parameters.
+  Pulumi config parameters, plus Helm chart metadata and dependency facts.
 - Facts should carry source id, URL or local path, provider/chart/module name,
   version or commit, content hash, extraction method, confidence, stale posture,
   and a short locator back to the source.
 - Useful fact families include provider/resource arguments, required/defaulted
   attributes, enum-like values, nested blocks, replacement-sensitive fields,
   identity fields, module inputs/outputs, Pulumi config/component parameters,
-  Helm chart values, and minimal examples.
+  Helm chart values, chart metadata, chart dependencies, and minimal examples.
 - Public provider/chart facts should live in the resolved user cache or an
   explicit team cache by default. User repositories should only commit small
   reviewed curated packs, not bulk generated cache data.

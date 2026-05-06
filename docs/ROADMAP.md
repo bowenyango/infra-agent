@@ -153,8 +153,8 @@ Current progress as of 2026-05-05:
 | Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, and cache-root resolution | No structured fact index or remote backend |
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock` | Pulumi docs source selection is not implemented; source selection is not yet broad provider/resource coverage |
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
-| Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, and bounded Helm schema knowledge packs | Pulumi component durable packs and broader Helm metadata facts are not implemented |
-| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, and local Terraform module input/output facts | Pulumi docs, Pulumi component/config knowledge packs, Helm metadata/dependency facts, and team storage backends are pending |
+| Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, and bounded Helm schema knowledge packs | Pulumi component durable packs and external chart-doc fact extraction are not implemented |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, and local Helm metadata/dependency facts | Pulumi docs, Pulumi component facts, external chart docs beyond local metadata/dependencies, and team storage backends are pending |
 | Team storage | Not started | Cache root can be local, environment-selected, or workspace-relative | No S3/GCS/Azure/Postgres backend abstraction |
 
 Target artifact families:
@@ -166,7 +166,8 @@ Target artifact families:
 - `infra-agent.knowledge-facts`: extracted facts such as provider/resource
   arguments, required attributes, defaults, enum-like values, nested blocks,
   replacement-sensitive fields, identity fields, examples, chart values, module
-  inputs/outputs, and Pulumi component config shape.
+  inputs/outputs, Pulumi component config shape, chart metadata, and chart
+  dependencies.
 - `infra-agent.knowledge-pack`: a bounded, validated bundle of facts for one
   provider version, resource type, chart version, module, component, or repo
   target.
@@ -231,7 +232,8 @@ Measurable milestones:
    - Extract module/component/chart facts from local Terraform modules, Pulumi
      projects/components, Helm charts, examples, and READMEs.
    - Acceptance: fixture workspace produces a bounded pack with module inputs,
-     chart values, Pulumi stack config shape, source locators, and no secrets.
+     chart values, chart metadata/dependencies, Pulumi stack config shape,
+     source locators, and no secrets.
 4. **Planner Consumption**
    - Implemented 2026-05-05: runtime loads bounded `knowledge-pack` facts from
      cache/local sources, planner prompts receive capped `knowledgeFacts`
@@ -255,9 +257,16 @@ Measurable milestones:
      `pulumi-config` sources and converted into ranked
      `pulumi-config-parameter` facts from compact local summaries, without
      exposing raw YAML, secure values, or secret-like keys.
+   - Implemented 2026-05-05: Helm `Chart.yaml` and sibling `Chart.lock` files
+     are discovered as local `chart-metadata` sources and converted into ranked
+     `chart-metadata` and `chart-dependency` facts. Locked dependencies from
+     `Chart.lock` take precedence over declared dependency ranges, and raw chart
+     YAML, lock digests, and generated timestamps stay out of packs, runtime
+     facts, and CLI JSON.
    - Remaining: add Pulumi official-doc source selection, Pulumi component
-     facts, and Helm chart metadata packs after the current local fact
-     contracts settle.
+     facts, external chart-doc extraction beyond local chart
+     metadata/dependencies, local fact refresh/staleness reporting for
+     workspace file changes, and opt-in team storage backends.
 5. **Refresh And Staleness**
    - Add stale/fresh reporting for facts derived from cache entries and local
      files.

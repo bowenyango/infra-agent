@@ -174,6 +174,14 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   or compact handoff output. Treat these facts as advisory; `pulumi preview`
   remains authoritative for missing, invalid, or provider-specific config.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
+- For Helm chart metadata knowledge, use discovered `Chart.yaml` and sibling
+  `Chart.lock` files as local `chart-metadata` sources. Extract compact
+  `chart-metadata` and `chart-dependency` facts for safe chart identity,
+  version, app version, type, home/source URLs, and dependencies. Prefer locked
+  dependency versions from `Chart.lock`, skip secret-like names or unsafe
+  metadata URLs, and do not expose raw chart YAML, lock digests, generated
+  timestamps, or dependency repository prose in packs, prompts, or compact
+  handoff output.
 - For Helm dependency context, prefer repo-local `Chart.lock` over dependency repository prose. Treat HTTP(S) dependency repositories as fetch candidates and skip non-document schemes such as `file://` or `oci://`.
 - Helm planner prompts may include selected chart schema packets by default. External Helm/chart docs must stay cache-only unless a deliberate fetch or prefetch path populated them.
 - Use `infra-agent knowledge prefetch` or the compatible top-level
