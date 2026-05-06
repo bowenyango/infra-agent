@@ -108,6 +108,7 @@ import { extractWorkspaceKnowledgeFacts } from '../src/knowledge/extract.ts';
 import { validateKnowledgePayload } from '../src/knowledge/validate.ts';
 import { buildKnowledgePack } from '../src/knowledge/pack.ts';
 import { budgetKnowledgePackFacts } from '../src/knowledge/fact-budget.ts';
+import { rankKnowledgePackFacts } from '../src/knowledge/fact-ranking.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2847,6 +2848,62 @@ test('knowledge fact budget summarizes packs without raw source payloads', async
     && !('source' in fact)
   ));
   assert.doesNotMatch(JSON.stringify(summary), /contentHash|fetchedAt|"content"\s*:|"\$schema"|replicaCount":\s*\{/);
+});
+
+test('knowledge fact ranking prioritizes local required facts before examples', () => {
+  const sources = [
+    {
+      id: 'provider-schema-source',
+      domain: 'terraform',
+      targetPath: 'terraform/app',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/app',
+      factCount: 2,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'registry-source',
+      domain: 'terraform',
+      targetPath: 'terraform/app',
+      kind: 'terraform-registry',
+      name: 'resource:aws_lb_listener_rule',
+      factCount: 1,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      stale: false
+    }
+  ];
+  const ranked = rankKnowledgePackFacts([
+    {
+      kind: 'example',
+      path: 'resource.aws_lb_listener_rule.example',
+      summary: 'Example listener rule configuration.',
+      confidence: 'medium',
+      extractionMethod: 'terraform-registry-markdown',
+      sourceId: 'registry-source',
+      sourceLocator: 'Example Usage'
+    },
+    {
+      kind: 'argument',
+      path: 'resource.aws_lb_listener_rule.listener_arn',
+      summary: 'resource.aws_lb_listener_rule.listener_arn is required by the Terraform provider schema.',
+      confidence: 'high',
+      extractionMethod: 'terraform-provider-schema',
+      sourceId: 'provider-schema-source',
+      sourceLocator: 'provider schema: resource.aws_lb_listener_rule.listener_arn',
+      required: true,
+      type: 'string'
+    }
+  ], {
+    sources,
+    requestedDomains: ['terraform'],
+    targetPaths: ['terraform/app']
+  });
+
+  assert.equal(ranked[0]?.path, 'resource.aws_lb_listener_rule.listener_arn');
+  assert.equal(ranked[1]?.path, 'resource.aws_lb_listener_rule.example');
 });
 
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {

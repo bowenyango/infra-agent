@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { extractWorkspaceKnowledgeFacts, type KnowledgeExtractionOptions } from './extract.ts';
+import { rankKnowledgePackFacts } from './fact-ranking.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
 import type {
   KnowledgeFact,
@@ -155,7 +156,12 @@ export async function buildKnowledgePack(
   ]));
   const sources = extraction.factSets.map(factSet => toPackSource(factSet, sourceIndex));
   const allFacts = extraction.factSets.flatMap(factSet => factSet.facts.map(toPackFact));
-  const facts = allFacts.slice(0, maxFacts);
+  const rankedFacts = rankKnowledgePackFacts(allFacts, {
+    sources,
+    requestedDomains: extraction.requestedDomains,
+    targetPaths: extraction.targetPaths
+  });
+  const facts = rankedFacts.slice(0, maxFacts);
 
   return {
     kind: 'infra-agent.knowledge-pack',
@@ -171,7 +177,7 @@ export async function buildKnowledgePack(
     factSetCount: extraction.factSetCount,
     factCount: extraction.factCount,
     includedFactCount: facts.length,
-    omittedFactCount: Math.max(0, allFacts.length - facts.length),
+    omittedFactCount: Math.max(0, rankedFacts.length - facts.length),
     maxFacts,
     staleSourceCount: sources.filter(source => source.stale).length,
     sources,
