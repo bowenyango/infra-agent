@@ -10433,6 +10433,113 @@ Remaining risks:
 
 Final notes:
 
-- The largest remaining shard is `test/contract/agent-result-contract.test.mjs`
-  at roughly 4.8k lines. It is now isolated as a contract suite and can be
-  split further later without blocking feature work.
+- Superseded by the test hardening slice below. The 4.8k-line
+  `test/contract/agent-result-contract.test.mjs` shard was split into smaller
+  contract shards before feature work resumed.
+
+## 2026-05-06 Test Suite Hardening Slice
+
+Status:
+
+- Completed. Feature development can resume after this test architecture slice
+  is committed.
+
+Core files changed:
+
+- `scripts/check-test-structure.mjs`
+- `package.json`
+- `test/run-all.mjs`
+- `test/run-unit.mjs`
+- `test/run-integration.mjs`
+- `test/run-contract.mjs`
+- `test/support/capture-stdout.mjs`
+- `test/support/compact-fixtures.mjs`
+- `test/support/agent-result-contract-fixtures.mjs`
+- `test/support/graph-fixtures.mjs`
+- `test/support/terraform-provider-schema-workspace.mjs`
+- `test/unit/knowledge-*.test.mjs`
+- `test/contract/agent-result-*.test.mjs`
+- `test/unit/*.test.mjs`
+- `test/integration/*.test.mjs`
+- `test/contract/*.test.mjs`
+- `AGENTS.md`
+- `README.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Removed the broad `test/support/cli-smoke-harness.mjs` migration barrel.
+  Shards now import Node APIs, production modules, and narrow support helpers
+  directly.
+- Split shared test support into focused helpers for stdout capture, compact
+  fixture objects, graph fixtures, and Terraform provider schema workspace
+  setup.
+- Added layered runners for unit, integration, contract, and all tests.
+  `test:unit` now runs only unit shards, `test:integration` runs CLI/runtime
+  flows, `test:contract` runs JSON/report contracts, and `test:all` runs the
+  complete 367-test regression suite.
+- Added `test:focused` for targeted checks with Node's
+  `--test-name-pattern`, for example:
+  `npm run test:focused -- --test-name-pattern "LLM planner config" test/unit/tools-validation-model.test.mjs`.
+- Added `scripts/check-test-structure.mjs` and `npm run test:structure` to
+  enforce runner coverage, prevent root-level `.test.mjs` shards, and block
+  the old broad harness from returning. `npm run verify` now includes this
+  structure check before `test:all`.
+- Split the former 3.5k-line `test/unit/knowledge-core.test.mjs` into six
+  thematic knowledge shards covering cache/contracts, extraction/content,
+  inspection semantics, pack/ranking, runtime/prefetch, and sources/retrieval.
+- Split the former 4.7k-line compact agent result contract into six focused
+  contract shards plus `test/support/agent-result-contract-fixtures.mjs`.
+- Added size guardrails to `test:structure`: `.test.mjs` shards must stay at or
+  below 2,000 lines, and support helpers must stay at or below 1,000 lines.
+
+Design notes:
+
+- Direct `node --test` multi-file execution was evaluated, but it is not the
+  default here because CLI tests that intentionally capture stdout can interfere
+  with child-process TAP output. The ordered direct runners preserve the suite's
+  stable single-process behavior while still supporting focused patterns when
+  the Node flag is passed before the runner or shard path.
+- Support modules now own test fixtures and harness utilities, not broad
+  production re-exports. This keeps shard dependencies reviewable and makes
+  future test ownership boundaries clearer.
+- The current largest test shard is
+  `test/unit/agent-output-approval.test.mjs` at 1,914 lines. The current
+  largest support helper is `test/support/agent-result-contract-fixtures.mjs`
+  at 750 lines.
+
+Known validation so far:
+
+- `npm run test:unit`: passed with 294 tests.
+- `npm run test:integration`: passed with 61 tests.
+- `npm run test:contract`: passed with 12 tests.
+- `npm run test:all`: passed with 367 tests.
+- `npm run test:focused -- --test-name-pattern "package metadata exposes only" test/run-all.mjs`:
+  passed with 1 matching test.
+- `npm run test:focused -- --test-name-pattern "LLM planner config" test/unit/tools-validation-model.test.mjs`:
+  passed with 2 matching tests.
+- Independent shard loop passed for every file under `test/unit/`,
+  `test/integration/`, and `test/contract/`.
+- `npm run test:structure`: passed with 30 checked files after adding runner
+  coverage and file-size guardrails.
+- `npm run verify`: passed. This covered lint across 153 files, test
+  structure enforcement, the full 367-test suite, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed. The installable package still contains 124 entries and excludes the
+  test-only files from the package surface.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- `test/unit/agent-output-approval.test.mjs` is close to the 2,000-line
+  guardrail. It passes the current standard but should be the next candidate if
+  approval/output coverage grows.
+- Some CLI/runtime tests still touch process-global state such as stdout,
+  environment variables, or exit codes. They are stable under the ordered
+  runner, but they should stay in integration shards rather than moving into
+  pure unit shards.
+
+Next stage:
+
+- Commit this test hardening slice, then resume Infra-Agent feature work from
+  the knowledge/document extraction and persistent cache plan.

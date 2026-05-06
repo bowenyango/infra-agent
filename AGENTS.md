@@ -160,11 +160,23 @@ stays focused and unrelated validators or context do not pollute compact output.
 
 - Unit tests must not depend on external network, live LLM providers, live cloud
   accounts, or mutable user-global state.
-- Keep the unit test suite split by responsibility. Use `test/unit/` for
-  domain and planner helpers, `test/integration/` for CLI/runtime flows,
-  `test/contract/` for JSON/report contracts, and `test/support/` for shared
-  test harness helpers. Add new shard files to `test/run-unit.mjs` so
-  `npm run test:unit` continues to exercise the complete suite.
+- Keep tests split by responsibility. Use `test/unit/` for domain and planner
+  helpers, `test/integration/` for CLI/runtime flows, `test/contract/` for
+  JSON/report contracts, and `test/support/` only for narrow shared fixtures or
+  harness helpers. Support files must not become production-code barrels.
+- Keep test files reviewable. `npm run test:structure` fails any
+  `.test.mjs` shard above 2,000 lines or support helper above 1,000 lines;
+  split larger files by behavior or fixture family before adding more cases.
+- Add new shard files to the matching ordered runner:
+  `test/run-unit.mjs`, `test/run-integration.mjs`, or
+  `test/run-contract.mjs`. `test/run-all.mjs` must include every category.
+- Use `npm run test:unit`, `npm run test:integration`,
+  `npm run test:contract`, or `npm run test:all` for layered regression.
+  Use `npm run test:focused -- --test-name-pattern "<pattern>" <runner-or-shard>`
+  for focused checks.
+- Do not restore a monolithic `cli-smoke` unit file or broad
+  `test/support/cli-smoke-harness.mjs`; `npm run test:structure` enforces the
+  test layout.
 - Mock or inject transports for LLM and official-doc fetch tests.
 - Smoke and E2E tests must exercise expected behavior through realistic CLI or
   harness flows, not only internal helpers.

@@ -1,135 +1,56 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import {
-  test,
-  assert,
   mkdtemp,
   cp,
   mkdir,
   readFile,
-  rm,
-  writeFile,
-  tmpdir,
+  rm
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import {
   resolve,
-  join,
-  inspectWorkspace,
-  runSingleStep,
-  executeDecision,
-  buildTargetCandidates,
-  detectRequestedService,
-  buildRunPreflight,
-  selectValidationCommands,
-  buildValidationPreflight,
-  classifyValidationIssues,
-  RuleBasedPlanningModel,
-  LLMModelClient,
+  join
+} from 'node:path';
+import { captureStdout } from '../support/capture-stdout.mjs';
+import { executeDecision } from '../../src/agent/execute-decision.ts';
+import { buildRunPreflight } from '../../src/agent/build-run-preflight.ts';
+import { selectValidationCommands } from '../../src/agent/select-validation-commands.ts';
+import { classifyValidationIssues } from '../../src/agent/classify-validation-issues.ts';
+import { LLMModelClient } from '../../src/model/LLMModelClient.ts';
+import {
   createModelClient,
-  createModelClientSelection,
-  resolveLLMClientConfig,
-  createLLMProviderAdapter,
+  createModelClientSelection
+} from '../../src/model/create-model-client.ts';
+import { resolveLLMClientConfig } from '../../src/model/config.ts';
+import { createLLMProviderAdapter } from '../../src/model/provider-adapter.ts';
+import {
   DEFAULT_LLM_MODEL,
   DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
   listLLMProviderCatalog,
-  resolveLLMProviderCapabilities,
-  parsePlannerDecision,
+  resolveLLMProviderCapabilities
+} from '../../src/model/providers.ts';
+import { parsePlannerDecision } from '../../src/model/decision-parser.ts';
+import {
   buildPlannerSystemPrompt,
-  buildPlannerUserPrompt,
-  buildEditPlan,
-  collectApprovalSignals,
-  buildCompactAgentRunResult,
-  buildIdentityConflictIncidentReport,
-  summarizeAgentSnapshot,
-  summarizeFocusedDomainCapabilities,
-  summarizeFocusedValidationPlan,
-  summarizeInfraGraphImpact,
-  summarizePreflightSnapshot,
-  summarizePreflightSuggestedCommands,
-  printPlannerProviderCatalogReport,
-  printDoctorReport,
-  summarizeRecommendedNextSteps,
-  summarizeResultCard,
-  summarizeSuggestedCommands,
-  buildLLMClientConfigOverrides,
-  main,
-  parseArgs,
-  readPackageVersion,
-  buildDoctorReport,
+  buildPlannerUserPrompt
+} from '../../src/model/prompt.ts';
+import { printPlannerProviderCatalogReport } from '../../src/cli/output.ts';
+import {
   buildPlannerProviderCatalogDiscovery,
   buildPlannerProviderCatalogReport,
-  PLANNER_PROVIDER_CATALOG_COMMAND,
-  parsePlannerProviderCatalogReport,
-  exitCodeForAgentOutcome,
-  exitCodeForRunPreflight,
-  INFRA_AGENT_EXIT_CODES,
-  parseCompactAgentRunResult,
-  parseInfraGraphResult,
-  buildInfraGraphImpactReport,
-  loadInfraGraphImpactReport,
-  parseInfraGraphImpactReport,
-  loadIdentityConflictIncidentReport,
-  parseIdentityConflictIncidentReport,
-  executeTool,
-  PulumiConfigSetTool,
-  SearchWorkspaceTool,
-  ValidateTargetsTool,
-  classifyUnsafeValidationCommand,
-  resolveEffectiveApprovalPolicy,
-  resolveEffectiveEditPolicy,
-  inferRequestedDomains,
-  prioritizeEditPlanKinds,
-  buildInspectionCandidateFiles,
-  buildInspectionSearchPattern,
+  PLANNER_PROVIDER_CATALOG_COMMAND
+} from '../../src/cli/planner-provider-catalog.ts';
+import { parsePlannerProviderCatalogReport } from '../../src/cli/planner-provider-catalog-contract.ts';
+import { executeTool } from '../../src/services/tools/execute-tool.ts';
+import { PulumiConfigSetTool } from '../../src/tools/PulumiConfigSetTool/PulumiConfigSetTool.ts';
+import { ValidateTargetsTool } from '../../src/tools/ValidateTargetsTool/ValidateTargetsTool.ts';
+import { classifyUnsafeValidationCommand } from '../../src/validators/command-safety.ts';
+import {
   deriveConfigSemanticsFromValidationIssues,
-  mergeConfigSemantics,
-  resolveQueryLoopConfig,
-  buildKnowledgeCacheId,
-  isKnowledgeCacheEntryStale,
-  readKnowledgeCacheEntry,
-  writeKnowledgeCacheEntry,
-  resolveKnowledgeCacheRoot,
-  fetchOfficialKnowledgeSource,
-  retrieveKnowledgeContextPacket,
-  buildTerraformRegistryKnowledgeSources,
-  retrieveTerraformRegistryContextPackets,
-  buildTerraformLocalModuleKnowledgeContent,
-  buildTerraformLocalModuleKnowledgeSources,
-  buildTerraformProviderSchemaKnowledgeSources,
-  retrieveTerraformProviderSchemaContextPackets,
-  buildPulumiConfigKnowledgeContent,
-  buildPulumiConfigKnowledgeSources,
-  buildHelmChartMetadataKnowledgeContent,
-  buildHelmChartKnowledgeSources,
-  retrieveHelmChartContextPackets,
-  prefetchWorkspaceKnowledge,
-  KNOWLEDGE_FACT_EXTRACTION_METHODS,
-  KNOWLEDGE_FACT_KINDS,
-  parseKnowledgeFactSet,
-  extractKnowledgeFactSetFromCacheEntry,
-  extractWorkspaceKnowledgeFacts,
-  validateKnowledgePayload,
-  validateKnowledgePayloadWithLocalSources,
-  buildKnowledgePack,
-  budgetKnowledgePackFacts,
-  rankKnowledgePackFacts,
-  buildKnowledgeSourceFingerprint,
-  checkKnowledgeSourceFingerprint,
-  fingerprintWorkspaceFiles,
-  buildStableInfraGraphSnapshot,
-  normalizeInfraGraphImpactReviewTargets,
-  buildWorkspaceInfraGraph,
-  summarizeInfraGraph,
-  attachTerraformPlanToGraph,
-  parseTerraformPlanResourceChanges,
-  attachPulumiPreviewToGraph,
-  parsePulumiPreviewResourceChanges,
-  captureStdout,
-  buildCompactHandoffBudgetsFixture,
-  buildEmptyKnowledgeFactsFixture,
-  buildEmptyApprovalGrantsFixture,
-  buildEmptyApprovalPendingScopeFixture,
-  buildGraphSnapshotBaseGraph,
-  buildGraphSnapshotTerraformPlan,
-  buildGraphSnapshotPulumiPreview,
-  writeTerraformProviderSchemaWorkspace
-} from '../support/cli-smoke-harness.mjs';
+  mergeConfigSemantics
+} from '../../src/agent/config-semantics-state.ts';
+import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 
 test('apply-edit-plan execution uses append_file for append-mode writes', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-append-'));

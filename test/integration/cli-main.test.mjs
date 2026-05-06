@@ -1,135 +1,44 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import {
-  test,
-  assert,
   mkdtemp,
   cp,
   mkdir,
   readFile,
   rm,
-  writeFile,
-  tmpdir,
+  writeFile
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import {
   resolve,
-  join,
-  inspectWorkspace,
-  runSingleStep,
-  executeDecision,
-  buildTargetCandidates,
-  detectRequestedService,
-  buildRunPreflight,
-  selectValidationCommands,
-  buildValidationPreflight,
-  classifyValidationIssues,
-  RuleBasedPlanningModel,
-  LLMModelClient,
-  createModelClient,
-  createModelClientSelection,
-  resolveLLMClientConfig,
-  createLLMProviderAdapter,
-  DEFAULT_LLM_MODEL,
-  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-  listLLMProviderCatalog,
-  resolveLLMProviderCapabilities,
-  parsePlannerDecision,
-  buildPlannerSystemPrompt,
-  buildPlannerUserPrompt,
-  buildEditPlan,
-  collectApprovalSignals,
-  buildCompactAgentRunResult,
-  buildIdentityConflictIncidentReport,
-  summarizeAgentSnapshot,
-  summarizeFocusedDomainCapabilities,
-  summarizeFocusedValidationPlan,
-  summarizeInfraGraphImpact,
-  summarizePreflightSnapshot,
-  summarizePreflightSuggestedCommands,
-  printPlannerProviderCatalogReport,
-  printDoctorReport,
-  summarizeRecommendedNextSteps,
-  summarizeResultCard,
-  summarizeSuggestedCommands,
-  buildLLMClientConfigOverrides,
-  main,
-  parseArgs,
-  readPackageVersion,
-  buildDoctorReport,
-  buildPlannerProviderCatalogDiscovery,
-  buildPlannerProviderCatalogReport,
-  PLANNER_PROVIDER_CATALOG_COMMAND,
-  parsePlannerProviderCatalogReport,
-  exitCodeForAgentOutcome,
-  exitCodeForRunPreflight,
-  INFRA_AGENT_EXIT_CODES,
-  parseCompactAgentRunResult,
-  parseInfraGraphResult,
-  buildInfraGraphImpactReport,
-  loadInfraGraphImpactReport,
-  parseInfraGraphImpactReport,
-  loadIdentityConflictIncidentReport,
-  parseIdentityConflictIncidentReport,
-  executeTool,
-  PulumiConfigSetTool,
-  SearchWorkspaceTool,
-  ValidateTargetsTool,
-  classifyUnsafeValidationCommand,
-  resolveEffectiveApprovalPolicy,
-  resolveEffectiveEditPolicy,
-  inferRequestedDomains,
-  prioritizeEditPlanKinds,
-  buildInspectionCandidateFiles,
-  buildInspectionSearchPattern,
-  deriveConfigSemanticsFromValidationIssues,
-  mergeConfigSemantics,
-  resolveQueryLoopConfig,
-  buildKnowledgeCacheId,
-  isKnowledgeCacheEntryStale,
-  readKnowledgeCacheEntry,
-  writeKnowledgeCacheEntry,
-  resolveKnowledgeCacheRoot,
-  fetchOfficialKnowledgeSource,
-  retrieveKnowledgeContextPacket,
-  buildTerraformRegistryKnowledgeSources,
-  retrieveTerraformRegistryContextPackets,
-  buildTerraformLocalModuleKnowledgeContent,
-  buildTerraformLocalModuleKnowledgeSources,
-  buildTerraformProviderSchemaKnowledgeSources,
-  retrieveTerraformProviderSchemaContextPackets,
-  buildPulumiConfigKnowledgeContent,
-  buildPulumiConfigKnowledgeSources,
-  buildHelmChartMetadataKnowledgeContent,
-  buildHelmChartKnowledgeSources,
-  retrieveHelmChartContextPackets,
-  prefetchWorkspaceKnowledge,
-  KNOWLEDGE_FACT_EXTRACTION_METHODS,
-  KNOWLEDGE_FACT_KINDS,
-  parseKnowledgeFactSet,
-  extractKnowledgeFactSetFromCacheEntry,
-  extractWorkspaceKnowledgeFacts,
-  validateKnowledgePayload,
-  validateKnowledgePayloadWithLocalSources,
-  buildKnowledgePack,
-  budgetKnowledgePackFacts,
-  rankKnowledgePackFacts,
-  buildKnowledgeSourceFingerprint,
-  checkKnowledgeSourceFingerprint,
-  fingerprintWorkspaceFiles,
-  buildStableInfraGraphSnapshot,
-  normalizeInfraGraphImpactReviewTargets,
-  buildWorkspaceInfraGraph,
-  summarizeInfraGraph,
-  attachTerraformPlanToGraph,
-  parseTerraformPlanResourceChanges,
-  attachPulumiPreviewToGraph,
-  parsePulumiPreviewResourceChanges,
-  captureStdout,
+  join
+} from 'node:path';
+import { captureStdout } from '../support/capture-stdout.mjs';
+import {
   buildCompactHandoffBudgetsFixture,
   buildEmptyKnowledgeFactsFixture,
   buildEmptyApprovalGrantsFixture,
-  buildEmptyApprovalPendingScopeFixture,
-  buildGraphSnapshotBaseGraph,
-  buildGraphSnapshotTerraformPlan,
-  buildGraphSnapshotPulumiPreview,
-  writeTerraformProviderSchemaWorkspace
-} from '../support/cli-smoke-harness.mjs';
+  buildEmptyApprovalPendingScopeFixture
+} from '../support/compact-fixtures.mjs';
+import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
+import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
+import { buildRunPreflight } from '../../src/agent/build-run-preflight.ts';
+import { printDoctorReport } from '../../src/cli/output.ts';
+import {
+  buildLLMClientConfigOverrides,
+  main,
+  parseArgs,
+  readPackageVersion
+} from '../../src/cli/main.ts';
+import { buildDoctorReport } from '../../src/cli/doctor.ts';
+import { buildPlannerProviderCatalogDiscovery } from '../../src/cli/planner-provider-catalog.ts';
+import { parsePlannerProviderCatalogReport } from '../../src/cli/planner-provider-catalog-contract.ts';
+import {
+  exitCodeForAgentOutcome,
+  exitCodeForRunPreflight,
+  INFRA_AGENT_EXIT_CODES
+} from '../../src/cli/exit-codes.ts';
+import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
 
 test('agent CLI args accept --max-turns for bounded loop control', () => {
   const parsed = parseArgs([

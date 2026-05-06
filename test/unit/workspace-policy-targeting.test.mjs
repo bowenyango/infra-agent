@@ -1,135 +1,43 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import {
-  test,
-  assert,
   mkdtemp,
   cp,
-  mkdir,
   readFile,
   rm,
-  writeFile,
-  tmpdir,
+  writeFile
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import {
   resolve,
-  join,
-  inspectWorkspace,
-  runSingleStep,
-  executeDecision,
-  buildTargetCandidates,
-  detectRequestedService,
-  buildRunPreflight,
-  selectValidationCommands,
-  buildValidationPreflight,
-  classifyValidationIssues,
-  RuleBasedPlanningModel,
-  LLMModelClient,
-  createModelClient,
-  createModelClientSelection,
-  resolveLLMClientConfig,
-  createLLMProviderAdapter,
-  DEFAULT_LLM_MODEL,
-  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-  listLLMProviderCatalog,
-  resolveLLMProviderCapabilities,
-  parsePlannerDecision,
-  buildPlannerSystemPrompt,
-  buildPlannerUserPrompt,
-  buildEditPlan,
-  collectApprovalSignals,
-  buildCompactAgentRunResult,
-  buildIdentityConflictIncidentReport,
-  summarizeAgentSnapshot,
+  join
+} from 'node:path';
+import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
+import { runSingleStep } from '../../src/agent/run-single-step.ts';
+import { buildTargetCandidates } from '../../src/domain/task-targeting.ts';
+import { buildRunPreflight } from '../../src/agent/build-run-preflight.ts';
+import { selectValidationCommands } from '../../src/agent/select-validation-commands.ts';
+import { buildValidationPreflight } from '../../src/validators/preflight.ts';
+import { RuleBasedPlanningModel } from '../../src/agent/rule-based-planner.ts';
+import { buildEditPlan } from '../../src/agent/build-edit-plan.ts';
+import { collectApprovalSignals } from '../../src/agent/collect-approval-signals.ts';
+import {
   summarizeFocusedDomainCapabilities,
   summarizeFocusedValidationPlan,
-  summarizeInfraGraphImpact,
   summarizePreflightSnapshot,
-  summarizePreflightSuggestedCommands,
-  printPlannerProviderCatalogReport,
-  printDoctorReport,
-  summarizeRecommendedNextSteps,
-  summarizeResultCard,
-  summarizeSuggestedCommands,
-  buildLLMClientConfigOverrides,
-  main,
-  parseArgs,
-  readPackageVersion,
-  buildDoctorReport,
-  buildPlannerProviderCatalogDiscovery,
-  buildPlannerProviderCatalogReport,
-  PLANNER_PROVIDER_CATALOG_COMMAND,
-  parsePlannerProviderCatalogReport,
-  exitCodeForAgentOutcome,
-  exitCodeForRunPreflight,
-  INFRA_AGENT_EXIT_CODES,
-  parseCompactAgentRunResult,
-  parseInfraGraphResult,
-  buildInfraGraphImpactReport,
-  loadInfraGraphImpactReport,
-  parseInfraGraphImpactReport,
-  loadIdentityConflictIncidentReport,
-  parseIdentityConflictIncidentReport,
-  executeTool,
-  PulumiConfigSetTool,
-  SearchWorkspaceTool,
-  ValidateTargetsTool,
-  classifyUnsafeValidationCommand,
-  resolveEffectiveApprovalPolicy,
-  resolveEffectiveEditPolicy,
-  inferRequestedDomains,
-  prioritizeEditPlanKinds,
+  summarizePreflightSuggestedCommands
+} from '../../src/cli/output.ts';
+import { main } from '../../src/cli/main.ts';
+import { executeTool } from '../../src/services/tools/execute-tool.ts';
+import { SearchWorkspaceTool } from '../../src/tools/SearchWorkspaceTool/SearchWorkspaceTool.ts';
+import { resolveEffectiveApprovalPolicy } from '../../src/domain/workspace-policy.ts';
+import { resolveEffectiveEditPolicy } from '../../src/domain/edit-policy.ts';
+import { inferRequestedDomains } from '../../src/domain/domain-focus.ts';
+import { prioritizeEditPlanKinds } from '../../src/agent/edit-plan-priority.ts';
+import {
   buildInspectionCandidateFiles,
-  buildInspectionSearchPattern,
-  deriveConfigSemanticsFromValidationIssues,
-  mergeConfigSemantics,
-  resolveQueryLoopConfig,
-  buildKnowledgeCacheId,
-  isKnowledgeCacheEntryStale,
-  readKnowledgeCacheEntry,
-  writeKnowledgeCacheEntry,
-  resolveKnowledgeCacheRoot,
-  fetchOfficialKnowledgeSource,
-  retrieveKnowledgeContextPacket,
-  buildTerraformRegistryKnowledgeSources,
-  retrieveTerraformRegistryContextPackets,
-  buildTerraformLocalModuleKnowledgeContent,
-  buildTerraformLocalModuleKnowledgeSources,
-  buildTerraformProviderSchemaKnowledgeSources,
-  retrieveTerraformProviderSchemaContextPackets,
-  buildPulumiConfigKnowledgeContent,
-  buildPulumiConfigKnowledgeSources,
-  buildHelmChartMetadataKnowledgeContent,
-  buildHelmChartKnowledgeSources,
-  retrieveHelmChartContextPackets,
-  prefetchWorkspaceKnowledge,
-  KNOWLEDGE_FACT_EXTRACTION_METHODS,
-  KNOWLEDGE_FACT_KINDS,
-  parseKnowledgeFactSet,
-  extractKnowledgeFactSetFromCacheEntry,
-  extractWorkspaceKnowledgeFacts,
-  validateKnowledgePayload,
-  validateKnowledgePayloadWithLocalSources,
-  buildKnowledgePack,
-  budgetKnowledgePackFacts,
-  rankKnowledgePackFacts,
-  buildKnowledgeSourceFingerprint,
-  checkKnowledgeSourceFingerprint,
-  fingerprintWorkspaceFiles,
-  buildStableInfraGraphSnapshot,
-  normalizeInfraGraphImpactReviewTargets,
-  buildWorkspaceInfraGraph,
-  summarizeInfraGraph,
-  attachTerraformPlanToGraph,
-  parseTerraformPlanResourceChanges,
-  attachPulumiPreviewToGraph,
-  parsePulumiPreviewResourceChanges,
-  captureStdout,
-  buildCompactHandoffBudgetsFixture,
-  buildEmptyKnowledgeFactsFixture,
-  buildEmptyApprovalGrantsFixture,
-  buildEmptyApprovalPendingScopeFixture,
-  buildGraphSnapshotBaseGraph,
-  buildGraphSnapshotTerraformPlan,
-  buildGraphSnapshotPulumiPreview,
-  writeTerraformProviderSchemaWorkspace
-} from '../support/cli-smoke-harness.mjs';
+  buildInspectionSearchPattern
+} from '../../src/agent/inspection-priority.ts';
 
 test('inspectWorkspace detects scrawlr infra-apps profile', async () => {
   const inspection = await inspectWorkspace('fixtures/scrawlr-infra-apps-workspace');

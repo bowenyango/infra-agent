@@ -24,11 +24,16 @@
     "validate": "node --experimental-strip-types ./src/cli/main.ts validate",
     "run": "node --experimental-strip-types ./src/cli/main.ts run",
     "lint": "node ./scripts/lint.mjs",
+    "test:structure": "node ./scripts/check-test-structure.mjs",
     "test:unit": "node --experimental-strip-types ./test/run-unit.mjs",
-    "test": "npm run test:unit",
+    "test:integration": "node --experimental-strip-types ./test/run-integration.mjs",
+    "test:contract": "node --experimental-strip-types ./test/run-contract.mjs",
+    "test:all": "node --experimental-strip-types ./test/run-all.mjs",
+    "test:focused": "node --experimental-strip-types",
+    "test": "npm run test:all",
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
     "e2e": "node --experimental-strip-types ./scripts/e2e.mjs",
-    "verify": "npm run lint && npm run test:unit && npm run smoke && npm run e2e"
+    "verify": "npm run lint && npm run test:structure && npm run test:all && npm run smoke && npm run e2e"
   },
   "engines": {
     "node": ">=24.0.0"

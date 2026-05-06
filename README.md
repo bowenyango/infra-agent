@@ -42,10 +42,15 @@ before making changes. It defines the required workflow, safety boundaries,
 validation policy, context discipline, documentation rules, and commit
 expectations for this project.
 
-Unit tests are split by responsibility under `test/unit/`,
-`test/integration/`, and `test/contract/`, with shared harness helpers under
-`test/support/`. `npm run test:unit` runs `test/run-unit.mjs`, which imports
-every unit shard in a stable order.
+Tests are split by responsibility under `test/unit/`, `test/integration/`,
+and `test/contract/`, with narrow shared fixtures under `test/support/`.
+`npm run test:unit`, `npm run test:integration`, and `npm run test:contract`
+run the layered suites; `npm run test:all` runs the complete regression suite.
+Focused checks use `npm run test:focused -- --test-name-pattern "<pattern>"
+<runner-or-shard>`.
+`npm run test:structure` enforces runner coverage, blocks the old broad smoke
+harness, and keeps `.test.mjs` shards under 2,000 lines and support helpers
+under 1,000 lines.
 
 ## Core Design Direction
 
