@@ -102,6 +102,7 @@ import {
   buildPulumiConfigKnowledgeSources
 } from '../src/domain/pulumi-config-knowledge.ts';
 import {
+  buildHelmChartMetadataKnowledgeContent,
   buildHelmChartKnowledgeSources,
   retrieveHelmChartContextPackets
 } from '../src/domain/helm-chart-context.ts';
@@ -4695,6 +4696,106 @@ test('Helm chart context sources include chart lock and dependency repositories'
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
     await rm(cacheRoot, { recursive: true, force: true });
+  }
+});
+
+test('Helm chart metadata knowledge content summarizes safe metadata and dependencies', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-metadata-content-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'description: api token should not be retained',
+        'type: application',
+        'version: 0.2.0',
+        'appVersion: "1.4.0"',
+        'kubeVersion: ">=1.27.0"',
+        'home: https://example.com/api-chart?token=bad',
+        'sources:',
+        '  - https://example.com/api-chart/source',
+        '  - https://example.com/api-chart/source?token=bad',
+        'dependencies:',
+        '  - name: redis',
+        '    alias: cache',
+        '    version: 17.3.0',
+        '    repository: https://charts.bitnami.com/bitnami',
+        '  - name: api-token-helper',
+        '    version: 0.1.0',
+        '    repository: https://example.com/secret-helper',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.lock'),
+      [
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.1',
+        '    repository: https://charts.bitnami.com/bitnami',
+        '  - name: postgresql',
+        '    version: 12.1.0',
+        '    repository: oci://registry.example.com/charts',
+        'digest: sha256:abc123',
+        'generated: "2026-04-28T00:00:00Z"',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
+    assert.ok(chart);
+    const source = (await buildHelmChartKnowledgeSources(tempRoot, chart))
+      .find(candidate => candidate.kind === 'chart-metadata');
+    assert.ok(source);
+    const content = await buildHelmChartMetadataKnowledgeContent({
+      workspaceRoot: tempRoot,
+      chart,
+      source
+    });
+    assert.ok(content);
+    const summary = JSON.parse(content);
+
+    assert.equal(summary.kind, 'infra-agent.helm-chart-metadata-summary');
+    assert.equal(summary.schemaVersion, 1);
+    assert.equal(summary.mutationAllowed, false);
+    assert.equal(summary.chartRoot, 'charts/api');
+    assert.equal(summary.chartFile, 'charts/api/Chart.yaml');
+    assert.equal(summary.lockFile, 'charts/api/Chart.lock');
+    assert.equal(summary.chartName, 'api');
+    assert.equal(summary.apiVersion, 'v2');
+    assert.equal(summary.version, '0.2.0');
+    assert.equal(summary.appVersion, '1.4.0');
+    assert.equal(summary.kubeVersion, '>=1.27.0');
+    assert.equal(summary.chartType, 'application');
+    assert.equal(summary.lockDigest, 'sha256:abc123');
+    assert.equal(summary.lockGenerated, '2026-04-28T00:00:00Z');
+    assert.deepEqual(summary.sources, ['https://example.com/api-chart/source']);
+    assert.ok(summary.dependencies.some(dependency =>
+      dependency.name === 'redis'
+      && dependency.version === '17.3.0'
+      && dependency.alias === 'cache'
+      && dependency.locked === false
+    ));
+    assert.ok(summary.dependencies.some(dependency =>
+      dependency.name === 'redis'
+      && dependency.version === '17.3.1'
+      && dependency.locked === true
+    ));
+    assert.ok(summary.dependencies.some(dependency =>
+      dependency.name === 'postgresql'
+      && dependency.locked === true
+      && dependency.repository === 'oci://registry.example.com/charts'
+    ));
+    assert.doesNotMatch(content, /api-token-helper|secret-helper|token=bad|api token should not be retained/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
   }
 });
 
