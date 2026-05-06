@@ -10240,3 +10240,13 @@ Next stage:
   schema exports can downgrade or refresh derived facts deterministically.
 - After local staleness is stable, design the opt-in team cache backend around
   content-addressed packs and source-provenance metadata.
+
+Final verification:
+
+- `npm run verify`: passed after the slice; lint checked 122 files, unit tests
+  reported 358 passing tests, smoke passed, and e2e passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed; dry-run package reports 123 entries and includes
+  `src/domain/helm-chart-context.ts`, updated knowledge extractors, contracts,
+  docs, and skill guidance.
+- `git diff --check`: passed.
