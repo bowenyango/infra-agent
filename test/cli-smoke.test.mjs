@@ -4900,6 +4900,45 @@ test('agent runtime loads Terraform local module knowledge facts', async () => {
   }
 });
 
+test('agent runtime loads Pulumi config knowledge facts', async () => {
+  const checkingModel = {
+    name: 'pulumi-config-knowledge-check',
+    async decideNextAction({ runtime }) {
+      assert.ok(runtime.knowledgeFacts);
+      assert.equal(runtime.knowledgeFacts.requestedDomains.includes('pulumi'), true);
+      assert.equal(runtime.knowledgeFacts.targetPaths.includes('infra/payments-api'), true);
+      assert.ok(runtime.knowledgeFacts.facts.some(fact =>
+        fact.kind === 'pulumi-config-parameter'
+        && fact.path === 'config.payments-api:imageTag'
+        && fact.type === 'string'
+        && fact.values?.includes('latest')
+      ));
+      assert.doesNotMatch(JSON.stringify(runtime.knowledgeFacts), /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'stop',
+          summary: 'Pulumi config facts checked.',
+          rationale: 'The runtime loaded local Pulumi config facts.',
+          payload: {
+            stopReason: 'no-safe-action'
+          }
+        }
+      };
+    }
+  };
+
+  const result = await runSingleStep(
+    'update pulumi payments-api dev image tag',
+    'fixtures/sample-workspace',
+    checkingModel
+  );
+
+  assert.ok(result.runtime.knowledgeFacts?.facts.some(fact =>
+    fact.path === 'config.payments-api:environment'
+  ));
+});
+
 test('agent runtime loads knowledge facts for generic tasks with selected targets', async () => {
   const checkingModel = {
     name: 'generic-target-knowledge-check',
