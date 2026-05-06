@@ -9,6 +9,7 @@ export type KnowledgeSourceKind =
   | 'chart-schema'
   | 'chart-lock'
   | 'repo-example'
+  | 'terraform-module'
   | 'module-readme';
 
 export type KnowledgeContentType =

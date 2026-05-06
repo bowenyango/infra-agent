@@ -2338,6 +2338,48 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
   ]);
 });
 
+test('knowledge source contracts include Terraform module sources', () => {
+  const source = {
+    kind: 'terraform-module',
+    name: 'terraform-module:terraform/app:queue-worker',
+    localPath: 'terraform/app/modules/queue-worker',
+    module: 'terraform/app',
+    packageName: 'queue-worker'
+  };
+  const sourceId = buildKnowledgeCacheId(source);
+  const factSet = {
+    kind: 'infra-agent.knowledge-facts',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    sourceId,
+    source,
+    sourceContentHash: 'b'.repeat(64),
+    sourceFetchedAt: '2026-05-05T00:00:00.000Z',
+    sourceStale: false,
+    extractedAt: '2026-05-05T01:00:00.000Z',
+    factCount: 1,
+    facts: [
+      {
+        kind: 'module-input',
+        path: 'module.queue-worker.input.image_tag',
+        summary: 'module.queue-worker.input.image_tag is required by the Terraform module interface.',
+        required: true,
+        type: 'string',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: {
+          id: sourceId,
+          source,
+          contentHash: 'b'.repeat(64),
+          locator: 'variables.tf: variable.image_tag'
+        }
+      }
+    ]
+  };
+
+  assert.equal(parseKnowledgeFactSet(factSet).source.kind, 'terraform-module');
+});
+
 test('knowledge fact contract validates source-linked fact sets', () => {
   const source = {
     kind: 'terraform-registry',

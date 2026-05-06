@@ -29,6 +29,7 @@ const SOURCE_KIND_SCORE: Record<KnowledgePackSource['kind'], number> = {
   'provider-schema': 35,
   'chart-schema': 35,
   'chart-lock': 30,
+  'terraform-module': 30,
   'module-readme': 28,
   'repo-example': 24,
   'terraform-registry': 20,

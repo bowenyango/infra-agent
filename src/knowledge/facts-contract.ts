@@ -16,6 +16,7 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'chart-schema',
   'chart-lock',
   'repo-example',
+  'terraform-module',
   'module-readme'
 ];
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const;

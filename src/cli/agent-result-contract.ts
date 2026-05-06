@@ -101,6 +101,7 @@ const KNOWLEDGE_FACT_SOURCE_KINDS = [
   'chart-schema',
   'chart-lock',
   'repo-example',
+  'terraform-module',
   'module-readme'
 ] as const;
 const KNOWLEDGE_FACT_KINDS = [
