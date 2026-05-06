@@ -165,6 +165,10 @@ credentials must still come from environment variables.
 - Prefer structured CLI output and validation results over long prose docs.
 - Treat official docs as version-sensitive; use cached or fetched official
   context only for the provider, chart, module, or package version in the repo.
+- Treat `knowledgeFacts` as a ranked compact summary: local schemas and required
+  fields should appear before examples under small budgets, but facts remain
+  advisory and do not replace native validation, plan, preview, or provider
+  schema context.
 
 For detailed strategy, read
 `references/context-validation-and-impact.md` only when the task involves

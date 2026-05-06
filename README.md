@@ -130,7 +130,7 @@ Current behavior is intentionally runtime-foundation oriented:
   workflow. `sources` lists selected docs/local schemas without fetching,
   `prefetch` aliases the bounded cache update path, `extract` turns cached
   docs and local schemas into `infra-agent.knowledge-facts`, `validate` checks
-  facts or extraction reports before use, and `pack` emits a bounded
+  facts or extraction reports before use, and `pack` ranks and emits a bounded
   planner-safe `infra-agent.knowledge-pack` without raw source content.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,

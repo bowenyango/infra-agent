@@ -154,7 +154,7 @@ Current progress as of 2026-05-05:
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock` | Pulumi docs source selection is not implemented; source selection is not yet broad provider/resource coverage |
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, and bounded Helm schema knowledge packs | Terraform module/Pulumi component durable packs are not implemented |
-| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, and result-card counts | Pulumi docs, provider schema facts, module/component README extraction, and fact ranking are pending |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, and focused Terraform provider schema facts | Pulumi docs, Terraform module/Pulumi component README extraction, broader local code knowledge packs, and team storage backends are pending |
 | Team storage | Not started | Cache root can be local, environment-selected, or workspace-relative | No S3/GCS/Azure/Postgres backend abstraction |
 
 Target artifact families:
@@ -239,8 +239,17 @@ Measurable milestones:
      `agent --json` exposes root-level `knowledgeFacts`, and the compact parser
      validates fact counts, omitted counts, source provenance, stale counts,
      handoff budgets, and raw-field exclusion.
-   - Remaining: add fact ranking so small budgets select the most useful facts
-     before simple extraction-order truncation.
+   - Implemented 2026-05-05: `knowledge-pack` now ranks facts before truncation
+     so small budgets prefer local schema facts, required inputs, type/default
+     constraints, identity/replacement signals, target-local sources, and fresh
+     high-confidence facts before examples or low-value attributes.
+   - Implemented 2026-05-05: local Terraform provider schema exports are
+     compacted to the selected root's used resources/data sources, then
+     converted into provider-versioned `argument`, `attribute`, and
+     `nested-block` facts without exposing the full `provider_schemas` JSON.
+   - Remaining: add durable local Terraform module, Pulumi component/config,
+     and Helm chart metadata packs after the current schema/local cache
+     contract settles.
 5. **Refresh And Staleness**
    - Add stale/fresh reporting for facts derived from cache entries and local
      files.
