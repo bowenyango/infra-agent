@@ -10945,3 +10945,53 @@ Remaining risks:
 Next stage:
 
 - Commit this slice before continuing feature development.
+
+## 2026-05-06 Agent Output Unit Shard Split Slice
+
+Status:
+
+- In progress. This slice splits the remaining near-limit unit shard before
+  resuming feature development.
+
+Core files changed:
+
+- `test/unit/agent-output-approval.test.mjs`
+- `test/unit/agent-output-result-card.test.mjs`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Moved result-card and terminal suggested-command output tests into
+  `test/unit/agent-output-result-card.test.mjs`.
+- Kept approval, approval-continuation, compact approval summary, and snapshot
+  tests in `test/unit/agent-output-approval.test.mjs`.
+- The split is mechanical test movement only; production code was not changed.
+
+Design notes:
+
+- `test/unit/agent-output-approval.test.mjs` is now 999 lines.
+- `test/unit/agent-output-result-card.test.mjs` is now 932 lines.
+- The automatic category runner from the previous slice discovers the new shard
+  without manual runner changes.
+
+Known validation so far:
+
+- `npm run test:focused -- --test-name-pattern "approval continuation flags|summarizeResultCard highlights" test/run-unit.mjs`:
+  passed with 2 focused tests across both shards.
+- `npm run test:structure`: passed with 32 checked test files.
+- `npm run test:unit`: passed with 300 unit tests.
+- `npm run verify`: passed lint, test structure, 376 all tests, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed with 127 package entries.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- Some other unit and integration shards are still large enough to warrant
+  future thematic splits if they grow, but none are now immediately near the
+  hard 2,000-line cap.
+
+Next stage:
+
+- Commit this slice. After that, test structure is good enough to resume
+  feature work.
