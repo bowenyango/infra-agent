@@ -5158,6 +5158,88 @@ test('agent runtime loads Helm chart schema context for Helm tasks', async () =>
   }
 });
 
+test('agent runtime loads Helm chart metadata and dependency knowledge facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-metadata-runtime-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.0',
+        '    repository: https://charts.bitnami.com/bitnami',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.lock'),
+      [
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.1',
+        '    repository: https://charts.bitnami.com/bitnami',
+        'digest: sha256:abc123',
+        'generated: "2026-04-28T00:00:00Z"',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const checkingModel = {
+      name: 'helm-metadata-knowledge-check',
+      async decideNextAction({ runtime }) {
+        assert.ok(runtime.knowledgeFacts);
+        assert.equal(runtime.knowledgeFacts.requestedDomains.includes('helm'), true);
+        assert.equal(runtime.knowledgeFacts.targetPaths.includes('charts/api'), true);
+        assert.ok(runtime.knowledgeFacts.sources.some(source =>
+          source.kind === 'chart-metadata'
+          && source.targetPath === 'charts/api'
+          && source.factCount > 0
+        ));
+        assert.ok(runtime.knowledgeFacts.facts.some(fact =>
+          fact.kind === 'chart-metadata'
+          && fact.path === 'chart.api.metadata.version'
+          && fact.values?.includes('0.2.0')
+        ));
+        assert.ok(runtime.knowledgeFacts.facts.some(fact =>
+          fact.kind === 'chart-dependency'
+          && fact.path === 'chart.api.dependencies.redis'
+          && fact.values?.includes('version=17.3.1')
+          && fact.values?.includes('locked=true')
+        ));
+        assert.doesNotMatch(JSON.stringify(runtime.knowledgeFacts), /"content"\s*:|apiVersion:\s*v2|digest:\s*sha256|generated:/);
+        return {
+          confidence: 'high',
+          action: {
+            kind: 'stop',
+            summary: 'Helm metadata facts checked.',
+            rationale: 'The runtime loaded compact Helm chart metadata and dependency facts.',
+            payload: {
+              stopReason: 'no-safe-action'
+            }
+          }
+        };
+      }
+    };
+
+    const result = await runSingleStep('update helm dependency redis version', tempRoot, checkingModel);
+
+    assert.ok(result.runtime.knowledgeFacts?.facts.some(fact =>
+      fact.kind === 'chart-dependency'
+      && fact.path === 'chart.api.dependencies.redis'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('agent runtime loads focused Terraform provider schema knowledge facts', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-runtime-provider-schema-facts-'));
 
