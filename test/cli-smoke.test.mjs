@@ -3141,6 +3141,8 @@ test('workspace knowledge facts extract local Helm schema sources without fetchi
 
   const chartSchemaSource = report.sources.find(source => source.source.kind === 'chart-schema');
   assert.equal(chartSchemaSource?.status, 'extracted');
+  const chartMetadataSource = report.sources.find(source => source.source.kind === 'chart-metadata');
+  assert.equal(chartMetadataSource?.status, 'unsupported');
   assert.ok(report.factSets.some(factSet =>
     factSet.source.kind === 'chart-schema'
     && factSet.facts.some(fact =>
@@ -3149,7 +3151,7 @@ test('workspace knowledge facts extract local Helm schema sources without fetchi
       && fact.required === true
     )
   ));
-  assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+  assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|apiVersion:\s*v2|replicaCount":\s*\{|"\$schema"/);
 });
 
 test('knowledge validation accepts extraction reports and rejects count drift', async () => {

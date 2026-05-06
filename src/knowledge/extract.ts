@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildKnowledgeCacheId, readKnowledgeCacheEntry } from './cache.ts';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { buildHelmChartMetadataKnowledgeContent } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeContent } from '../domain/pulumi-config-knowledge.ts';
 import { buildTerraformLocalModuleKnowledgeContent } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeContent } from '../domain/terraform-provider-schema.ts';
@@ -59,6 +60,7 @@ function sha256Hex(value: string): string {
 function localContentType(source: KnowledgeSource): KnowledgeContentType {
   if (
     source.kind === 'chart-schema'
+    || source.kind === 'chart-metadata'
     || source.kind === 'provider-schema'
     || source.kind === 'pulumi-config'
     || source.kind === 'terraform-module'
@@ -117,6 +119,21 @@ async function readSourceEntry(
 
       if (content === null) {
         throw new Error('Pulumi config source could not be summarized.');
+      }
+    }
+
+    if (source.kind === 'chart-metadata' && source.module) {
+      const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === source.module);
+      if (chart) {
+        content = await buildHelmChartMetadataKnowledgeContent({
+          workspaceRoot: inspection.workspaceRoot,
+          chart,
+          source
+        });
+      }
+
+      if (content === null) {
+        throw new Error('Helm chart metadata source could not be summarized.');
       }
     }
 
