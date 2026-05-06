@@ -16,6 +16,7 @@ interface ExtractKnowledgeFactSetOptions {
 const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const IDENTITY_FIELD_NAMES = new Set(['bucket', 'domain_name', 'name', 'priority']);
 const MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS = 120;
+const MAX_TERRAFORM_MODULE_FACTS = 140;
 
 interface CompactTerraformProviderSchemaAttribute {
   name: string;
@@ -35,6 +36,31 @@ interface CompactTerraformProviderSchemaBlock {
   configuredAttributes?: CompactTerraformProviderSchemaAttribute[];
   requiredBlocks?: string[];
   configuredBlocks?: string[];
+}
+
+interface TerraformLocalModuleInputFactSource {
+  name: string;
+  sourcePath: string;
+  required: boolean;
+  type?: string;
+  defaultValue?: string;
+  description?: string;
+  values?: string[];
+}
+
+interface TerraformLocalModuleOutputFactSource {
+  name: string;
+  sourcePath: string;
+  description?: string;
+}
+
+interface TerraformLocalModuleFactSource {
+  callName: string;
+  modulePath: string;
+  callSourcePaths: string[];
+  moduleSourcePaths: string[];
+  inputs: TerraformLocalModuleInputFactSource[];
+  outputs: TerraformLocalModuleOutputFactSource[];
 }
 
 function factSource(entry: KnowledgeCacheEntry, locator: string): KnowledgeFactSourceRef {
@@ -495,6 +521,174 @@ function extractTerraformProviderSchemaFacts(entry: KnowledgeCacheEntry): Knowle
   }
 }
 
+function asTerraformLocalModuleInput(value: unknown): TerraformLocalModuleInputFactSource | null {
+  if (!isRecord(value) || typeof value.name !== 'string' || typeof value.sourcePath !== 'string') {
+    return null;
+  }
+
+  if (SECRET_PATH_PATTERN.test(value.name) || SECRET_PATH_PATTERN.test(value.sourcePath)) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    sourcePath: value.sourcePath,
+    required: value.required === true,
+    ...(typeof value.type === 'string' && !SECRET_PATH_PATTERN.test(value.type) ? { type: value.type } : {}),
+    ...(typeof value.defaultValue === 'string' && !SECRET_PATH_PATTERN.test(value.defaultValue)
+      ? { defaultValue: value.defaultValue }
+      : {}),
+    ...(typeof value.description === 'string' && !SECRET_PATH_PATTERN.test(value.description)
+      ? { description: value.description }
+      : {}),
+    values: asStringArray(value.values).filter(entryValue => !SECRET_PATH_PATTERN.test(entryValue))
+  };
+}
+
+function asTerraformLocalModuleOutput(value: unknown): TerraformLocalModuleOutputFactSource | null {
+  if (!isRecord(value) || typeof value.name !== 'string' || typeof value.sourcePath !== 'string') {
+    return null;
+  }
+
+  if (SECRET_PATH_PATTERN.test(value.name) || SECRET_PATH_PATTERN.test(value.sourcePath)) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    sourcePath: value.sourcePath,
+    ...(typeof value.description === 'string' && !SECRET_PATH_PATTERN.test(value.description)
+      ? { description: value.description }
+      : {})
+  };
+}
+
+function asTerraformLocalModuleFactSource(value: unknown): TerraformLocalModuleFactSource | null {
+  if (
+    !isRecord(value)
+    || value.kind !== 'infra-agent.terraform-local-module-summary'
+    || value.schemaVersion !== 1
+    || value.mutationAllowed !== false
+    || typeof value.callName !== 'string'
+    || typeof value.modulePath !== 'string'
+    || SECRET_PATH_PATTERN.test(value.callName)
+    || SECRET_PATH_PATTERN.test(value.modulePath)
+  ) {
+    return null;
+  }
+
+  const inputs = Array.isArray(value.inputs)
+    ? value.inputs.map(asTerraformLocalModuleInput)
+      .filter((input): input is TerraformLocalModuleInputFactSource => Boolean(input))
+    : [];
+  const outputs = Array.isArray(value.outputs)
+    ? value.outputs.map(asTerraformLocalModuleOutput)
+      .filter((output): output is TerraformLocalModuleOutputFactSource => Boolean(output))
+    : [];
+
+  return {
+    callName: value.callName,
+    modulePath: value.modulePath,
+    callSourcePaths: asStringArray(value.callSourcePaths),
+    moduleSourcePaths: asStringArray(value.moduleSourcePaths),
+    inputs,
+    outputs
+  };
+}
+
+function moduleFactPath(callName: string, group: 'inputs' | 'outputs' | 'source', name?: string): string {
+  const safeCallName = callName.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  if (group === 'source') {
+    return `module.${safeCallName}.source`;
+  }
+
+  const safeName = (name ?? '').replace(/[^A-Za-z0-9_.-]+/g, '_');
+  return `module.${safeCallName}.${group}.${safeName}`;
+}
+
+function relatedModulePaths(module: TerraformLocalModuleFactSource, sourcePath?: string): string[] {
+  return Array.from(new Set([
+    ...module.callSourcePaths,
+    ...(sourcePath ? [sourcePath] : []),
+    module.modulePath
+  ])).filter(path => !SECRET_PATH_PATTERN.test(path)).sort();
+}
+
+function extractTerraformLocalModuleFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
+  try {
+    const module = asTerraformLocalModuleFactSource(JSON.parse(entry.content) as unknown);
+    if (!module) {
+      return [];
+    }
+
+    const facts: KnowledgeFact[] = [{
+      kind: 'argument',
+      path: moduleFactPath(module.callName, 'source'),
+      summary: `module.${module.callName} uses a local Terraform module source.`,
+      values: [module.modulePath],
+      required: true,
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      source: factSource(entry, `module call: ${module.callName}.source`),
+      relatedPaths: relatedModulePaths(module)
+    }];
+
+    for (const input of module.inputs) {
+      if (facts.length >= MAX_TERRAFORM_MODULE_FACTS) {
+        return facts;
+      }
+
+      const path = moduleFactPath(module.callName, 'inputs', input.name);
+      const summary = input.required
+        ? `${path} is required by the local Terraform module interface.`
+        : `${path} is optional in the local Terraform module interface.`;
+      if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+        continue;
+      }
+
+      facts.push({
+        kind: 'module-input',
+        path,
+        summary: input.description ? `${summary} ${input.description}` : summary,
+        required: input.required,
+        ...(input.type ? { type: input.type } : {}),
+        ...(input.defaultValue !== undefined ? { defaultValue: input.defaultValue } : {}),
+        ...(input.values && input.values.length > 0 ? { values: input.values } : {}),
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${input.sourcePath}: variable.${input.name}`),
+        relatedPaths: relatedModulePaths(module, input.sourcePath)
+      });
+    }
+
+    for (const output of module.outputs) {
+      if (facts.length >= MAX_TERRAFORM_MODULE_FACTS) {
+        return facts;
+      }
+
+      const path = moduleFactPath(module.callName, 'outputs', output.name);
+      const summary = `${path} is declared by the local Terraform module interface.`;
+      if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+        continue;
+      }
+
+      facts.push({
+        kind: 'module-output',
+        path,
+        summary: output.description ? `${summary} ${output.description}` : summary,
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${output.sourcePath}: output.${output.name}`),
+        relatedPaths: relatedModulePaths(module, output.sourcePath)
+      });
+    }
+
+    return facts;
+  } catch {
+    return [];
+  }
+}
+
 export function extractKnowledgeFactSetFromCacheEntry(
   entry: KnowledgeCacheEntry,
   options: ExtractKnowledgeFactSetOptions = {}
@@ -511,6 +705,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
 
     if (entry.source.kind === 'provider-schema' && entry.contentType === 'application/json') {
       return extractTerraformProviderSchemaFacts(entry);
+    }
+
+    if (entry.source.kind === 'terraform-module' && entry.contentType === 'application/json') {
+      return extractTerraformLocalModuleFacts(entry);
     }
 
     return [];

@@ -2846,6 +2846,102 @@ test('knowledge fact extractor summarizes compact Terraform provider schema cont
   }
 });
 
+test('knowledge fact extractor summarizes Terraform local module interfaces', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-terraform-module-'));
+
+  try {
+    const source = {
+      kind: 'terraform-module',
+      name: 'terraform-module:terraform/app:queue_worker',
+      localPath: 'terraform/app/modules/queue-worker',
+      module: 'terraform/app',
+      packageName: 'queue_worker'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'application/json',
+      content: JSON.stringify({
+        kind: 'infra-agent.terraform-local-module-summary',
+        schemaVersion: 1,
+        mutationAllowed: false,
+        rootPath: 'terraform/app',
+        callName: 'queue_worker',
+        modulePath: 'terraform/app/modules/queue-worker',
+        callSourcePaths: ['terraform/app/main.tf'],
+        moduleSourcePaths: [
+          'terraform/app/modules/queue-worker/variables.tf',
+          'terraform/app/modules/queue-worker/outputs.tf'
+        ],
+        inputs: [
+          {
+            name: 'image_tag',
+            sourcePath: 'terraform/app/modules/queue-worker/variables.tf',
+            required: true,
+            type: 'string',
+            description: 'Container image tag.'
+          },
+          {
+            name: 'environment',
+            sourcePath: 'terraform/app/modules/queue-worker/variables.tf',
+            required: false,
+            type: 'string',
+            defaultValue: 'dev',
+            values: ['dev', 'stage', 'prod']
+          },
+          {
+            name: 'api_token',
+            sourcePath: 'terraform/app/modules/queue-worker/variables.tf',
+            required: true,
+            type: 'string'
+          }
+        ],
+        outputs: [
+          {
+            name: 'queue_name',
+            sourcePath: 'terraform/app/modules/queue-worker/outputs.tf',
+            description: 'Queue name.'
+          },
+          {
+            name: 'secret_value',
+            sourcePath: 'terraform/app/modules/queue-worker/outputs.tf'
+          }
+        ]
+      }),
+      fetchedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry);
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.path === 'module.queue_worker.source'
+      && fact.values?.includes('terraform/app/modules/queue-worker')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'module-input'
+      && fact.path === 'module.queue_worker.inputs.image_tag'
+      && fact.required === true
+      && fact.type === 'string'
+      && fact.relatedPaths?.includes('terraform/app/main.tf')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'module-input'
+      && fact.path === 'module.queue_worker.inputs.environment'
+      && fact.required === false
+      && fact.defaultValue === 'dev'
+      && fact.values?.includes('prod')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'module-output'
+      && fact.path === 'module.queue_worker.outputs.queue_name'
+    ));
+    assert.doesNotMatch(JSON.stringify(factSet), /api_token|secret_value/);
+    assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('workspace knowledge facts extract local Helm schema sources without fetching', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const report = await extractWorkspaceKnowledgeFacts(inspection, {
