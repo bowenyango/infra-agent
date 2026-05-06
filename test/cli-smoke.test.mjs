@@ -3996,7 +3996,7 @@ test('agent runtime loads knowledge facts for generic tasks with selected target
       assert.ok(runtime.knowledgeFacts);
       assert.deepEqual(runtime.knowledgeFacts.requestedDomains, ['helm']);
       assert.equal(runtime.knowledgeFacts.targetPaths.includes('charts/payments-api'), true);
-      assert.ok(runtime.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.replicaCount'));
+      assert.ok(runtime.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.image.repository'));
       return {
         confidence: 'high',
         action: {
@@ -8015,7 +8015,8 @@ test('knowledge pack command emits bounded fact pack JSON', async () => {
   assert.equal(pack.includedFactCount, Math.min(4, pack.factCount));
   assert.equal(pack.facts.length, pack.includedFactCount);
   assert.ok(pack.sources.some(source => source.kind === 'chart-schema'));
-  assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.replicaCount'));
+  assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.image.repository'));
+  assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.service.port'));
   assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
 });
 
@@ -16065,7 +16066,8 @@ test('planner user prompt includes budgeted knowledge facts without raw docs', a
   assert.equal(parsed.knowledgeFacts.maxFacts, 2);
   assert.equal(parsed.knowledgeFacts.includedFactCount, 2);
   assert.equal(parsed.knowledgeFacts.omittedFactCount, pack.factCount - 2);
-  assert.ok(parsed.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.replicaCount'));
+  assert.ok(parsed.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.image.repository'));
+  assert.ok(parsed.knowledgeFacts.facts.every(fact => fact.required === true));
   assert.ok(parsed.knowledgeFacts.facts.every(fact => typeof fact.sourceLocator === 'string' && !('source' in fact)));
   assert.doesNotMatch(prompt, /"content"\s*:|contentHash|"\$schema"|replicaCount":\s*\{/);
 });
