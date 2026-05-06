@@ -10003,3 +10003,71 @@ Remaining risks:
 - Provider schema knowledge facts are local/export dependent; missing or stale
   schema exports should still be handled by native validators and docs cache
   paths.
+
+## 2026-05-05 Terraform Local Module Knowledge Facts Slice
+
+Files added or updated:
+
+- `src/domain/terraform-local-modules.ts`
+- `src/knowledge/prefetch.ts`
+- `src/knowledge/extract.ts`
+- `src/knowledge/facts.ts`
+- `src/types/knowledge.ts`
+- `src/knowledge/facts-contract.ts`
+- `src/cli/agent-result-contract.ts`
+- `src/knowledge/fact-ranking.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+
+Purpose:
+
+- Add `terraform-module` as a precise local knowledge source kind for Terraform
+  module interfaces derived from `.tf` declarations, rather than overloading
+  `module-readme`.
+- Discover literal local module calls from selected Terraform roots. Accepted
+  sources are workspace-contained `./...` or `../...` paths. Registry, git, URL,
+  interpolated, absolute, and out-of-workspace module sources are ignored.
+- Build compact module interface summaries from module variables and outputs,
+  then extract `argument`, `module-input`, and `module-output` facts with
+  `repo-local-static` provenance.
+- Keep raw `.tf` content out of knowledge extraction reports, packs, runtime
+  facts, and CLI JSON.
+
+Design notes:
+
+- The module extractor intentionally uses the existing lightweight HCL block
+  parser. It covers ordinary `module`, `variable`, `output`, `type`, `default`,
+  `description`, `sensitive`, and simple `contains([...], var.name)` validation
+  shapes, not full Terraform expression evaluation.
+- Secret-like variable/output names, secret-like defaults, and sensitive outputs
+  are omitted before fact-set validation.
+- Missing local module directories are reported as unreadable source results
+  during extraction and do not fail the whole report.
+- Ranking treats `terraform-module` as a local interface source: below required
+  provider/chart schema facts, above docs examples and generic prose.
+
+Known validation:
+
+- `node --experimental-strip-types --test --test-name-pattern "Terraform local module knowledge sources" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "Terraform local module knowledge content" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge fact extractor summarizes Terraform local module interfaces" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "workspace knowledge facts extract Terraform local module facts" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge fact ranking places required module inputs" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge pack includes Terraform local module inputs" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "agent runtime loads Terraform local module knowledge facts" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge sources command lists Terraform local module sources" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge extract command emits Terraform local module facts" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge pack command emits Terraform local module facts" test/cli-smoke.test.mjs`: passed.
+- `npm run lint`: passed during the slice.
+
+Remaining risks:
+
+- Full `npm run verify`, package dry-run, and `git diff --check` still need to
+  run after this slice.
+- Pulumi config/component facts and Helm chart metadata/dependency facts remain
+  deferred.
+- Module facts are advisory interface facts. Native Terraform validation and
+  plan output remain authoritative for actual module behavior.
