@@ -2975,6 +2975,110 @@ test('knowledge fact ranking prioritizes local required facts before examples', 
   assert.equal(ranked[1]?.path, 'resource.aws_lb_listener_rule.example');
 });
 
+test('knowledge fact ranking is deterministic across target order and staleness', () => {
+  const sources = [
+    {
+      id: 'target-b',
+      domain: 'terraform',
+      targetPath: 'terraform/b',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/b',
+      factCount: 1,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'target-a',
+      domain: 'terraform',
+      targetPath: 'terraform/a',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/a',
+      factCount: 1,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'stale-schema',
+      domain: 'terraform',
+      targetPath: 'terraform/a',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/a-stale',
+      factCount: 1,
+      contentHash: 'c'.repeat(64),
+      fetchedAt: '2026-04-01T00:00:00.000Z',
+      stale: true
+    },
+    {
+      id: 'fresh-registry',
+      domain: 'terraform',
+      targetPath: 'terraform/a',
+      kind: 'terraform-registry',
+      name: 'resource:aws_lb_listener_rule',
+      factCount: 1,
+      contentHash: 'd'.repeat(64),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      stale: false
+    }
+  ];
+  const ranked = rankKnowledgePackFacts([
+    {
+      kind: 'argument',
+      path: 'resource.aws_lb_listener_rule.listener_arn',
+      summary: 'listener_arn is required.',
+      confidence: 'high',
+      extractionMethod: 'terraform-provider-schema',
+      sourceId: 'target-b',
+      sourceLocator: 'provider schema: listener_arn',
+      required: true,
+      type: 'string'
+    },
+    {
+      kind: 'argument',
+      path: 'resource.aws_lb_listener_rule.listener_arn',
+      summary: 'listener_arn is required.',
+      confidence: 'high',
+      extractionMethod: 'terraform-provider-schema',
+      sourceId: 'target-a',
+      sourceLocator: 'provider schema: listener_arn',
+      required: true,
+      type: 'string'
+    },
+    {
+      kind: 'argument',
+      path: 'resource.aws_lb_listener_rule.priority',
+      summary: 'priority is required.',
+      confidence: 'medium',
+      extractionMethod: 'terraform-provider-schema',
+      sourceId: 'stale-schema',
+      sourceLocator: 'provider schema: priority',
+      required: true,
+      type: 'number'
+    },
+    {
+      kind: 'example',
+      path: 'resource.aws_lb_listener_rule.example',
+      summary: 'Example listener rule configuration.',
+      confidence: 'high',
+      extractionMethod: 'terraform-registry-markdown',
+      sourceId: 'fresh-registry',
+      sourceLocator: 'Example Usage'
+    }
+  ], {
+    sources,
+    requestedDomains: ['terraform'],
+    targetPaths: ['terraform/a', 'terraform/b']
+  });
+
+  assert.equal(ranked[0]?.sourceId, 'target-a');
+  assert.equal(ranked[1]?.sourceId, 'target-b');
+  assert.ok(
+    ranked.findIndex(fact => fact.sourceId === 'stale-schema')
+    < ranked.findIndex(fact => fact.sourceId === 'fresh-registry')
+  );
+});
+
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-retrieve-fetch-'));
 
