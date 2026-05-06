@@ -9814,6 +9814,29 @@ Remaining risks:
 
 - Full verification still needs to run after the remaining test/package slices.
 
+## 2026-05-05 Compact Knowledge Facts CLI Smoke Slice
+
+Files added or updated:
+
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Strengthen the real `infra-agent agent --json` entrypoint smoke test so it
+  exercises `--context-fact-limit 2`, contract parses the emitted compact JSON,
+  and asserts root-level `knowledgeFacts`, handoff budget alignment, result-card
+  fact counts, and raw-field exclusion.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent CLI compact JSON includes work plan handoff" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Full `npm run verify`, package dry-run, and `git diff --check` still need to
+  run at the end of the milestone.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

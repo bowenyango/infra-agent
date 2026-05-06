@@ -6334,6 +6334,8 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
       'rule-based',
       '--max-turns',
       '1',
+      '--context-fact-limit',
+      '2',
       '--json'
     ]));
     const jsonStart = output.indexOf('{');
@@ -6343,6 +6345,16 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
     assert.equal(compact.kind, 'infra-agent.agent-result');
     assert.equal(parseCompactAgentRunResult(compact).kind, 'infra-agent.agent-result');
     assert.equal(compact.outcome, 'no-safe-action');
+    assert.equal(compact.knowledgeFacts.kind, 'infra-agent.knowledge-facts-summary');
+    assert.equal(compact.knowledgeFacts.maxFacts, 2);
+    assert.ok(compact.knowledgeFacts.totalFactCount > 0);
+    assert.ok(compact.knowledgeFacts.includedFactCount <= 2);
+    assert.deepEqual(compact.handoffCheckpoint.budgets.knowledgeFacts, {
+      includedCount: compact.knowledgeFacts.includedFactCount,
+      omittedCount: compact.knowledgeFacts.omittedFactCount
+    });
+    assert.ok(compact.resultCard.some(line => /Knowledge facts: \d+\/\d+ fact\(s\) included; max 2/i.test(line)));
+    assert.doesNotMatch(JSON.stringify(compact.knowledgeFacts), /"content"\s*:|contentHash|fetchedAt|"\$schema"/);
     assert.equal(compact.harness.workPlan.schemaVersion, 1);
     assert.equal(compact.harness.workPlan.blockerKind, compact.harness.plannerHandoff.activeBlocker.kind);
     assert.equal(compact.harness.workPlan.nextControlAction, compact.harness.plannerHandoff.nextControlAction);
