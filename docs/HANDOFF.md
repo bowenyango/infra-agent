@@ -9705,6 +9705,34 @@ Remaining risks:
 - `parseCompactAgentRunResult` still needs dedicated validation for the
   `knowledgeFacts` payload shape and budget consistency.
 
+## 2026-05-05 Compact Knowledge Facts Contract Slice
+
+Files added or updated:
+
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Require compact `knowledgeFacts` as a contract-validated root section.
+- Validate schema marker, advisory mutation posture, pack id shape, source and
+  fact enums, count consistency, source/fact linkage, stale source counts, and
+  `harness.queryConfig.retrievedContextBudget.maxFacts` alignment.
+- Reject raw cache/doc fields such as `source`, `content`, `contentHash`,
+  `fetchedAt`, `url`, and `localPath` anywhere under `knowledgeFacts`.
+- Validate `handoffCheckpoint.budgets.knowledgeFacts` and
+  `harness.stateSummary.knowledgeFactCount` against the root summary.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "compact agent result contract validates shallow handoff shape and validation.commands metadata|identity-report loader renders compact conflict reports|report CLI commands emit read-only JSON" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Result-card summaries and durable docs still need to teach downstream agents
+  how to read `knowledgeFacts` before raw documents.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

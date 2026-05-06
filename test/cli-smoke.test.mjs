@@ -156,6 +156,7 @@ function buildCompactHandoffBudgetsFixture(overrides = {}) {
     validationSafetyBlockers: { includedCount: 0, omittedCount: 0 },
     identityConflicts: { includedCount: 1, omittedCount: 0 },
     approvalSignals: { includedCount: 0, omittedCount: 0 },
+    knowledgeFacts: { includedCount: 0, omittedCount: 0 },
     knowledgePackets: {
       includedCount: 0,
       omittedCount: 0,
@@ -173,6 +174,25 @@ function buildCompactHandoffBudgetsFixture(overrides = {}) {
       }
     ])
   );
+}
+
+function buildEmptyKnowledgeFactsFixture(overrides = {}) {
+  return {
+    kind: 'infra-agent.knowledge-facts-summary',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    packId: null,
+    maxFacts: 8,
+    sourceCount: 0,
+    factSetCount: 0,
+    totalFactCount: 0,
+    includedFactCount: 0,
+    omittedFactCount: 0,
+    staleSourceCount: 0,
+    sources: [],
+    facts: [],
+    ...overrides
+  };
 }
 
 function buildEmptyApprovalGrantsFixture() {
@@ -7840,7 +7860,8 @@ test('report CLI commands emit read-only JSON through the entrypoint', async () 
         omittedByPacketLimit: 0,
         omittedByTokenBudget: 0,
         packets: []
-      }
+      },
+      knowledgeFacts: buildEmptyKnowledgeFactsFixture()
     }), 'utf8');
 
     await writeFile(graphInputPath, JSON.stringify({
@@ -9485,6 +9506,10 @@ test('compact agent result contract validates shallow handoff shape and validati
           omittedCount: 1,
           includedTokenEstimate: 40,
           omittedTokenEstimate: 80
+        },
+        knowledgeFacts: {
+          includedCount: 2,
+          omittedCount: 0
         }
       }),
       continuation: {
@@ -9682,6 +9707,7 @@ test('compact agent result contract validates shallow handoff shape and validati
         validationIssueCount: 1,
         approvalSignalCount: 0,
         retrievedContextCount: 2,
+        knowledgeFactCount: 2,
         semanticFactCount: 0
       },
       targeting: {
@@ -9996,6 +10022,53 @@ test('compact agent result contract validates shallow handoff shape and validati
           omittedReason: 'token-budget'
         }
       ]
+    },
+    knowledgeFacts: {
+      kind: 'infra-agent.knowledge-facts-summary',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      packId: '1234567890abcdef12345678',
+      maxFacts: 8,
+      sourceCount: 1,
+      factSetCount: 1,
+      totalFactCount: 2,
+      includedFactCount: 2,
+      omittedFactCount: 0,
+      staleSourceCount: 0,
+      sources: [
+        {
+          id: 'terraform-registry/aws-lb-listener-rule',
+          domain: 'terraform',
+          targetPath: 'terraform/payments-api',
+          kind: 'terraform-registry',
+          name: 'aws_lb_listener_rule',
+          factCount: 2,
+          stale: false
+        }
+      ],
+      facts: [
+        {
+          kind: 'argument',
+          path: 'resource.aws_lb_listener_rule.priority',
+          summary: 'Listener rule priority must be unique per listener.',
+          confidence: 'high',
+          extractionMethod: 'terraform-registry-markdown',
+          sourceId: 'terraform-registry/aws-lb-listener-rule',
+          sourceLocator: 'terraform-registry/aws-lb-listener-rule#priority',
+          required: true,
+          type: 'number',
+          relatedPaths: ['resource.aws_lb_listener_rule.listener_arn']
+        },
+        {
+          kind: 'attribute',
+          path: 'resource.aws_lb_listener_rule.arn',
+          summary: 'ARN is assigned by AWS after creation.',
+          confidence: 'medium',
+          extractionMethod: 'terraform-registry-markdown',
+          sourceId: 'terraform-registry/aws-lb-listener-rule',
+          sourceLocator: 'terraform-registry/aws-lb-listener-rule#arn'
+        }
+      ]
     }
   };
   const validSafetyBlocker = {
@@ -10039,6 +10112,10 @@ test('compact agent result contract validates shallow handoff shape and validati
           omittedCount: 1,
           includedTokenEstimate: 40,
           omittedTokenEstimate: 80
+        },
+        knowledgeFacts: {
+          includedCount: validResult.knowledgeFacts.includedFactCount,
+          omittedCount: validResult.knowledgeFacts.omittedFactCount
         }
       })
     },
@@ -13813,6 +13890,176 @@ test('compact agent result contract validates shallow handoff shape and validati
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      knowledgeFacts: null
+    }),
+    /knowledgeFacts object/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        kind: 'infra-agent.knowledge-pack'
+      }
+    }),
+    /knowledgeFacts\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        mutationAllowed: true
+      }
+    }),
+    /knowledgeFacts\.mutationAllowed/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        totalFactCount: 3
+      }
+    }),
+    /knowledgeFacts fact counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        includedFactCount: 3
+      }
+    }),
+    /knowledgeFacts fact counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        includedFactCount: 9,
+        omittedFactCount: 0,
+        totalFactCount: 9,
+        sources: [
+          {
+            ...validResult.knowledgeFacts.sources[0],
+            factCount: 9
+          }
+        ],
+        facts: validResult.knowledgeFacts.facts
+      }
+    }),
+    /knowledgeFacts\.includedFactCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        packId: 'not-a-pack-id'
+      }
+    }),
+    /knowledgeFacts\.packId/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        sources: [
+          {
+            ...validResult.knowledgeFacts.sources[0],
+            kind: 'blog-post'
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.sources\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        facts: [
+          {
+            ...validResult.knowledgeFacts.facts[0],
+            sourceId: 'missing-source'
+          },
+          validResult.knowledgeFacts.facts[1]
+        ]
+      }
+    }),
+    /knowledgeFacts\.facts\[0\]\.sourceId/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        facts: [
+          {
+            ...validResult.knowledgeFacts.facts[0],
+            extractionMethod: 'manual-copy'
+          },
+          validResult.knowledgeFacts.facts[1]
+        ]
+      }
+    }),
+    /knowledgeFacts\.facts\[0\]\.extractionMethod/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        facts: [
+          {
+            ...validResult.knowledgeFacts.facts[0],
+            source: {
+              contentHash: 'raw-hash'
+            }
+          },
+          validResult.knowledgeFacts.facts[1]
+        ]
+      }
+    }),
+    /knowledgeFacts\.facts\[0\]\.source/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          knowledgeFacts: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.knowledgeFacts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      harness: {
+        ...validResult.harness,
+        stateSummary: {
+          ...validResult.harness.stateSummary,
+          knowledgeFactCount: 1
+        }
+      }
+    }),
+    /harness\.stateSummary\.knowledgeFactCount/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
       knowledgeCache: null
     }),
     /knowledgeCache object/
@@ -14033,7 +14280,8 @@ test('identity-report loader renders compact conflict reports from a JSON file',
         omittedByPacketLimit: 0,
         omittedByTokenBudget: 0,
         packets: []
-      }
+      },
+      knowledgeFacts: buildEmptyKnowledgeFactsFixture()
     }), 'utf8');
 
     const report = await loadIdentityConflictIncidentReport(inputPath);
