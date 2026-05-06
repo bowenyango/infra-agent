@@ -8650,6 +8650,35 @@ test('knowledge sources command lists Terraform local module sources', async () 
   }
 });
 
+test('knowledge sources command lists Pulumi config sources', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'sources',
+    'fixtures/sample-workspace',
+    '--domain',
+    'pulumi',
+    '--target',
+    'infra/payments-api',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.knowledge-sources');
+  assert.equal(report.mutationAllowed, false);
+  assert.deepEqual(report.requestedDomains, ['pulumi']);
+  assert.deepEqual(report.targetPaths, ['infra/payments-api']);
+  assert.ok(report.sources.some(source =>
+    source.domain === 'pulumi'
+    && source.targetPath === 'infra/payments-api'
+    && source.requiresFetch === false
+    && source.source.kind === 'pulumi-config'
+    && source.source.localPath === 'infra/payments-api'
+    && source.source.packageName === 'payments-api'
+  ));
+  assert.ok(report.summary.local >= 1);
+  assert.doesNotMatch(output, /imageTag:\s*latest|runtime:\s*yaml|"content"\s*:/);
+});
+
 test('knowledge prefetch command emits existing prefetch JSON contract', async () => {
   const output = await captureStdout(() => main([
     'knowledge',

@@ -2,6 +2,7 @@ import { isKnowledgeCacheEntryStale, readKnowledgeCacheEntry } from './cache.ts'
 import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from './retrieve.ts';
 import type { KnowledgeFetcher } from './retrieve.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
+import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
 import { buildTerraformLocalModuleKnowledgeSources } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeSources } from '../domain/terraform-provider-schema.ts';
 import { buildTerraformRegistryKnowledgeSources } from '../domain/terraform-registry-context.ts';
@@ -131,6 +132,21 @@ export async function collectWorkspaceKnowledgeSources(
       candidates.push(...sources.map(source => ({
         domain: 'helm' as const,
         targetPath: chart.chartRoot,
+        source
+      })));
+    }
+  }
+
+  if (requestedDomains.has('pulumi')) {
+    for (const project of inspection.pulumiProjects) {
+      if (!targetAllowed(project.projectRoot, targetPaths)) {
+        continue;
+      }
+
+      const sources = await buildPulumiConfigKnowledgeSources(workspaceRoot, project);
+      candidates.push(...sources.map(source => ({
+        domain: 'pulumi' as const,
+        targetPath: project.projectRoot,
         source
       })));
     }
