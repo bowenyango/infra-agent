@@ -7,6 +7,7 @@ import type {
   RetrievedContextPacket
 } from '../types/knowledge.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
+import { isPublicReferenceCapableSourceKind } from './storage-policy.ts';
 
 export type KnowledgeFetcher = (source: KnowledgeSource) => Promise<KnowledgeCacheWrite | null>;
 
@@ -35,6 +36,8 @@ export interface FetchOfficialKnowledgeSourceOptions {
   fetchedAt?: string;
   staleAfter?: string;
 }
+
+const OFFICIAL_KNOWLEDGE_STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 
 function estimateTokens(value: string): number {
   return Math.ceil(value.length / 4);
@@ -128,6 +131,22 @@ function normalizeContentType(contentTypeHeader: string | null): KnowledgeConten
   return 'text/plain';
 }
 
+function defaultStaleAfterForSource(
+  source: KnowledgeSource,
+  fetchedAt: string | undefined
+): string | undefined {
+  if (!source.url || !isPublicReferenceCapableSourceKind(source.kind)) {
+    return undefined;
+  }
+
+  const fetchedAtTime = fetchedAt !== undefined ? Date.parse(fetchedAt) : Date.now();
+  if (!Number.isFinite(fetchedAtTime)) {
+    return undefined;
+  }
+
+  return new Date(fetchedAtTime + OFFICIAL_KNOWLEDGE_STALE_AFTER_MS).toISOString();
+}
+
 export async function fetchOfficialKnowledgeSource(
   source: KnowledgeSource,
   options: FetchOfficialKnowledgeSourceOptions = {}
@@ -156,8 +175,9 @@ export async function fetchOfficialKnowledgeSource(
     write.fetchedAt = options.fetchedAt;
   }
 
-  if (options.staleAfter !== undefined) {
-    write.staleAfter = options.staleAfter;
+  const staleAfter = options.staleAfter ?? defaultStaleAfterForSource(source, options.fetchedAt);
+  if (staleAfter !== undefined) {
+    write.staleAfter = staleAfter;
   }
 
   return write;

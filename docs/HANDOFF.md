@@ -39,6 +39,78 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-06 Pulumi Official Docs Source Slice
+
+Status:
+
+- Implemented locally. This slice resumes feature development after test
+  structure hardening and fills the first Pulumi official-doc source-selection
+  gap without changing the cache-only agent loop policy.
+
+Core files changed:
+
+- `src/domain/pulumi-docs-context.ts`
+- `src/knowledge/prefetch.ts`
+- `src/knowledge/retrieve.ts`
+- `test/unit/knowledge-pulumi-docs-sources.test.mjs`
+- `test/integration/cli-knowledge-sources-main.test.mjs`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Pulumi projects now emit bounded public `pulumi-docs` sources for Pulumi
+  official configuration docs when project config or stack-file evidence is
+  present.
+- Pulumi YAML projects now emit a second public `pulumi-docs` source for the
+  official Pulumi YAML docs when `Pulumi.yaml` declares `runtime: yaml` or
+  `runtime.name: yaml`.
+- `collectWorkspaceKnowledgeSources` wires these docs sources alongside the
+  existing local `pulumi-config` source, so `knowledge sources` and
+  `knowledge prefetch` can list/prefetch them with target filtering.
+- URL-backed public knowledge fetches now receive a default 30-day
+  `staleAfter` value when the caller does not provide one, preventing official
+  docs cache entries from becoming permanently fresh by omission.
+
+Design notes:
+
+- This intentionally does not parse Pulumi language package manifests or source
+  imports yet. The current inspection model only guarantees Pulumi project and
+  stack metadata, so this slice stays inside that boundary.
+- `pulumi-docs` sources have no `localPath`, are classified as
+  `public-reference`, and do not contain raw project YAML, stack config values,
+  backend URLs, or secrets.
+- Fact extraction for `pulumi-docs` remains a later dedicated extractor; this
+  slice is source selection, listing/prefetch, and refresh policy only.
+- New coverage lives in a focused unit shard rather than extending the
+  near-threshold knowledge retrieval/extraction tests.
+
+Known validation:
+
+- Focused direct checks passed for
+  `test/unit/knowledge-pulumi-docs-sources.test.mjs` and
+  `test/integration/cli-knowledge-sources-main.test.mjs`.
+- `npm run test:structure`: passed with 59 checked test files.
+- `npm run lint`: passed with 189 checked files.
+- `npm run test:unit`: passed with 314 tests.
+- `npm run test:integration`: passed with 67 tests.
+- `npm run test:contract`: passed with 17 tests.
+- `npm run test:isolated`: passed with 47 checked shards.
+- `npm run verify`: passed. This includes lint, structure, layered suites,
+  isolated shards, smoke, e2e, coverage, and package dry-run.
+- Coverage gate passed at 88.98% lines, 78.55% branches, and 96.15% functions.
+- Package dry-run passed with 132 entries in the installable package surface.
+
+Remaining work:
+
+- Add Pulumi resource/package docs source selection once inspection records the
+  relevant language package manifests or resource type usage.
+- Add a Pulumi docs fact extractor only after source selection and cache
+  freshness behavior remain stable.
+- Extend team-cache backend contracts later; public `pulumi-docs` entries can
+  be shareable, but workspace-private Pulumi config facts still require
+  explicit opt-in.
+
 ## 2026-05-06 Local Knowledge Cache Reuse Slice
 
 Status:

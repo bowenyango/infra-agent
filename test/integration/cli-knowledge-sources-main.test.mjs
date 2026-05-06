@@ -156,7 +156,18 @@ test('knowledge sources command lists Pulumi config sources', async () => {
     && source.source.localPath === 'infra/payments-api'
     && source.source.packageName === 'payments-api'
   ));
+  const docsSource = report.sources.find(source =>
+    source.domain === 'pulumi'
+    && source.targetPath === 'infra/payments-api'
+    && source.requiresFetch === true
+    && source.source.kind === 'pulumi-docs'
+    && source.source.name === 'pulumi-docs:config'
+  );
+  assert.ok(docsSource);
+  assert.equal(docsSource.storagePolicy.scope, 'public-reference');
+  assert.equal(docsSource.storagePolicy.shareableByDefault, true);
   assert.ok(report.summary.local >= 1);
+  assert.ok(report.summary.external >= 1);
   assert.doesNotMatch(output, /imageTag:\s*latest|runtime:\s*yaml|"content"\s*:/);
 });
 
