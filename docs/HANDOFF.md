@@ -10062,11 +10062,16 @@ Known validation:
 - `node --experimental-strip-types --test --test-name-pattern "knowledge extract command emits Terraform local module facts" test/cli-smoke.test.mjs`: passed.
 - `node --experimental-strip-types --test --test-name-pattern "knowledge pack command emits Terraform local module facts" test/cli-smoke.test.mjs`: passed.
 - `npm run lint`: passed during the slice.
+- `npm run verify`: passed; lint, 342 unit tests, smoke, and e2e completed
+  successfully.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed; dry-run package reports 122 files and includes
+  `src/domain/terraform-local-modules.ts`, updated knowledge extractors,
+  contracts, docs, and skill guidance.
+- `git diff --check`: passed.
 
 Remaining risks:
 
-- Full `npm run verify`, package dry-run, and `git diff --check` still need to
-  run after this slice.
 - Pulumi config/component facts and Helm chart metadata/dependency facts remain
   deferred.
 - Module facts are advisory interface facts. Native Terraform validation and
