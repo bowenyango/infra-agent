@@ -18,6 +18,7 @@ const IDENTITY_FIELD_NAMES = new Set(['bucket', 'domain_name', 'name', 'priority
 const MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS = 120;
 const MAX_TERRAFORM_MODULE_FACTS = 140;
 const MAX_PULUMI_CONFIG_FACTS = 140;
+const MAX_HELM_CHART_METADATA_FACTS = 140;
 
 interface CompactTerraformProviderSchemaAttribute {
   name: string;
@@ -87,6 +88,32 @@ interface PulumiConfigFactSource {
   stackFiles: string[];
   declarations: PulumiConfigDeclarationFactSource[];
   stackValues: PulumiStackConfigValueFactSource[];
+}
+
+interface HelmChartMetadataDependencyFactSource {
+  name: string;
+  sourcePath: string;
+  locked: boolean;
+  version?: string;
+  repository?: string;
+  alias?: string;
+}
+
+interface HelmChartMetadataFactSource {
+  chartRoot: string;
+  chartFile: string;
+  lockFile?: string;
+  chartName: string;
+  apiVersion?: string;
+  version?: string;
+  appVersion?: string;
+  kubeVersion?: string;
+  chartType?: string;
+  home?: string;
+  sources: string[];
+  lockDigest?: string;
+  lockGenerated?: string;
+  dependencies: HelmChartMetadataDependencyFactSource[];
 }
 
 function factSource(entry: KnowledgeCacheEntry, locator: string): KnowledgeFactSourceRef {
@@ -877,6 +904,217 @@ function extractPulumiConfigFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
   }
 }
 
+function asHelmChartMetadataDependency(value: unknown): HelmChartMetadataDependencyFactSource | null {
+  if (
+    !isRecord(value)
+    || typeof value.name !== 'string'
+    || typeof value.sourcePath !== 'string'
+    || typeof value.locked !== 'boolean'
+  ) {
+    return null;
+  }
+
+  if (SECRET_PATH_PATTERN.test(value.name) || SECRET_PATH_PATTERN.test(value.sourcePath)) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    sourcePath: value.sourcePath,
+    locked: value.locked,
+    ...(typeof value.version === 'string' && !SECRET_PATH_PATTERN.test(value.version) ? { version: value.version } : {}),
+    ...(typeof value.repository === 'string' && !SECRET_PATH_PATTERN.test(value.repository)
+      ? { repository: value.repository }
+      : {}),
+    ...(typeof value.alias === 'string' && !SECRET_PATH_PATTERN.test(value.alias) ? { alias: value.alias } : {})
+  };
+}
+
+function asHelmChartMetadataFactSource(value: unknown): HelmChartMetadataFactSource | null {
+  if (
+    !isRecord(value)
+    || value.kind !== 'infra-agent.helm-chart-metadata-summary'
+    || value.schemaVersion !== 1
+    || value.mutationAllowed !== false
+    || typeof value.chartRoot !== 'string'
+    || typeof value.chartFile !== 'string'
+    || typeof value.chartName !== 'string'
+    || SECRET_PATH_PATTERN.test(value.chartRoot)
+    || SECRET_PATH_PATTERN.test(value.chartFile)
+    || SECRET_PATH_PATTERN.test(value.chartName)
+  ) {
+    return null;
+  }
+
+  const dependencies = Array.isArray(value.dependencies)
+    ? value.dependencies.map(asHelmChartMetadataDependency)
+      .filter((dependency): dependency is HelmChartMetadataDependencyFactSource => Boolean(dependency))
+    : [];
+
+  return {
+    chartRoot: value.chartRoot,
+    chartFile: value.chartFile,
+    ...(typeof value.lockFile === 'string' && !SECRET_PATH_PATTERN.test(value.lockFile) ? { lockFile: value.lockFile } : {}),
+    chartName: value.chartName,
+    ...(typeof value.apiVersion === 'string' && !SECRET_PATH_PATTERN.test(value.apiVersion) ? { apiVersion: value.apiVersion } : {}),
+    ...(typeof value.version === 'string' && !SECRET_PATH_PATTERN.test(value.version) ? { version: value.version } : {}),
+    ...(typeof value.appVersion === 'string' && !SECRET_PATH_PATTERN.test(value.appVersion) ? { appVersion: value.appVersion } : {}),
+    ...(typeof value.kubeVersion === 'string' && !SECRET_PATH_PATTERN.test(value.kubeVersion) ? { kubeVersion: value.kubeVersion } : {}),
+    ...(typeof value.chartType === 'string' && !SECRET_PATH_PATTERN.test(value.chartType) ? { chartType: value.chartType } : {}),
+    ...(typeof value.home === 'string' && !SECRET_PATH_PATTERN.test(value.home) ? { home: value.home } : {}),
+    sources: asStringArray(value.sources).filter(source => !SECRET_PATH_PATTERN.test(source)),
+    ...(typeof value.lockDigest === 'string' && !SECRET_PATH_PATTERN.test(value.lockDigest) ? { lockDigest: value.lockDigest } : {}),
+    ...(typeof value.lockGenerated === 'string' && !SECRET_PATH_PATTERN.test(value.lockGenerated) ? { lockGenerated: value.lockGenerated } : {}),
+    dependencies
+  };
+}
+
+function helmChartMetadataPath(chartName: string, name: string): string {
+  const safeChartName = chartName.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  return `chart.${safeChartName}.metadata.${name}`;
+}
+
+function helmChartDependencyPath(chartName: string, dependencyName: string): string {
+  const safeChartName = chartName.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  const safeDependencyName = dependencyName.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  return `chart.${safeChartName}.dependencies.${safeDependencyName}`;
+}
+
+function relatedHelmMetadataPaths(chart: HelmChartMetadataFactSource, sourcePath?: string): string[] {
+  return Array.from(new Set([
+    chart.chartFile,
+    ...(chart.lockFile ? [chart.lockFile] : []),
+    ...(sourcePath ? [sourcePath] : [])
+  ])).filter(path => !SECRET_PATH_PATTERN.test(path)).sort();
+}
+
+function pushHelmChartMetadataFact(params: {
+  entry: KnowledgeCacheEntry;
+  chart: HelmChartMetadataFactSource;
+  name: string;
+  value: string | undefined;
+  facts: KnowledgeFact[];
+}): void {
+  if (
+    params.facts.length >= MAX_HELM_CHART_METADATA_FACTS
+    || !params.value
+    || SECRET_PATH_PATTERN.test(params.name)
+    || SECRET_PATH_PATTERN.test(params.value)
+  ) {
+    return;
+  }
+
+  const path = helmChartMetadataPath(params.chart.chartName, params.name);
+  const summary = `chart.${params.chart.chartName} declares Helm chart ${params.name} ${params.value}.`;
+  if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+    return;
+  }
+
+  params.facts.push({
+    kind: 'chart-metadata',
+    path,
+    summary,
+    values: [params.value],
+    confidence: 'high',
+    extractionMethod: 'repo-local-static',
+    source: factSource(params.entry, `${params.chart.chartFile}: ${params.name}`),
+    relatedPaths: relatedHelmMetadataPaths(params.chart, params.chart.chartFile)
+  });
+}
+
+function extractHelmChartMetadataFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
+  try {
+    const chart = asHelmChartMetadataFactSource(JSON.parse(entry.content) as unknown);
+    if (!chart) {
+      return [];
+    }
+
+    const facts: KnowledgeFact[] = [];
+    const metadataFields: Array<[string, string | undefined]> = [
+      ['name', chart.chartName],
+      ['apiVersion', chart.apiVersion],
+      ['version', chart.version],
+      ['appVersion', chart.appVersion],
+      ['kubeVersion', chart.kubeVersion],
+      ['type', chart.chartType],
+      ['home', chart.home],
+      ['lockDigest', chart.lockDigest],
+      ['lockGenerated', chart.lockGenerated]
+    ];
+
+    for (const [name, value] of metadataFields) {
+      pushHelmChartMetadataFact({
+        entry,
+        chart,
+        name,
+        value,
+        facts
+      });
+    }
+
+    for (const source of chart.sources) {
+      if (facts.length >= MAX_HELM_CHART_METADATA_FACTS || SECRET_PATH_PATTERN.test(source)) {
+        continue;
+      }
+
+      const path = helmChartMetadataPath(chart.chartName, 'source');
+      facts.push({
+        kind: 'chart-metadata',
+        path,
+        summary: `chart.${chart.chartName} declares a safe source URL.`,
+        values: [source],
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${chart.chartFile}: sources`),
+        relatedPaths: relatedHelmMetadataPaths(chart, chart.chartFile)
+      });
+    }
+
+    const dependenciesByName = new Map<string, HelmChartMetadataDependencyFactSource>();
+    for (const dependency of chart.dependencies) {
+      const existing = dependenciesByName.get(dependency.name);
+      if (!existing || (!existing.locked && dependency.locked)) {
+        dependenciesByName.set(dependency.name, dependency);
+      }
+    }
+
+    for (const dependency of Array.from(dependenciesByName.values())
+      .sort((left, right) => left.name.localeCompare(right.name))) {
+      if (facts.length >= MAX_HELM_CHART_METADATA_FACTS || SECRET_PATH_PATTERN.test(dependency.name)) {
+        continue;
+      }
+
+      const path = helmChartDependencyPath(chart.chartName, dependency.name);
+      const values = [
+        dependency.version ? `version=${dependency.version}` : undefined,
+        dependency.repository ? `repository=${dependency.repository}` : undefined,
+        dependency.alias ? `alias=${dependency.alias}` : undefined,
+        dependency.locked ? 'locked=true' : 'locked=false'
+      ].filter((value): value is string => Boolean(value) && !SECRET_PATH_PATTERN.test(value));
+      const sourceLabel = dependency.locked ? 'locked' : 'declared';
+      const summary = `chart.${chart.chartName} ${sourceLabel} Helm dependency ${dependency.name}.`;
+      if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+        continue;
+      }
+
+      facts.push({
+        kind: 'chart-dependency',
+        path,
+        summary,
+        ...(values.length > 0 ? { values } : {}),
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${dependency.sourcePath}: dependencies.${dependency.name}`),
+        relatedPaths: relatedHelmMetadataPaths(chart, dependency.sourcePath)
+      });
+    }
+
+    return facts;
+  } catch {
+    return [];
+  }
+}
+
 export function extractKnowledgeFactSetFromCacheEntry(
   entry: KnowledgeCacheEntry,
   options: ExtractKnowledgeFactSetOptions = {}
@@ -901,6 +1139,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
 
     if (entry.source.kind === 'pulumi-config' && entry.contentType === 'application/json') {
       return extractPulumiConfigFacts(entry);
+    }
+
+    if (entry.source.kind === 'chart-metadata' && entry.contentType === 'application/json') {
+      return extractHelmChartMetadataFacts(entry);
     }
 
     return [];

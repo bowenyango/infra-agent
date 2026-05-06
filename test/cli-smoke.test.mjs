@@ -2862,6 +2862,95 @@ test('knowledge fact extractor summarizes Helm values schema from cache', async 
   }
 });
 
+test('knowledge fact extractor summarizes Helm chart metadata and dependencies', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-helm-metadata-'));
+
+  try {
+    const source = {
+      kind: 'chart-metadata',
+      name: 'api:Chart.yaml',
+      chart: 'api',
+      module: 'charts/api',
+      version: '0.2.0',
+      localPath: 'charts/api/Chart.yaml',
+      packageName: 'api'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'application/json',
+      content: JSON.stringify({
+        kind: 'infra-agent.helm-chart-metadata-summary',
+        schemaVersion: 1,
+        mutationAllowed: false,
+        chartRoot: 'charts/api',
+        chartFile: 'charts/api/Chart.yaml',
+        lockFile: 'charts/api/Chart.lock',
+        chartName: 'api',
+        apiVersion: 'v2',
+        version: '0.2.0',
+        appVersion: '1.4.0',
+        kubeVersion: '>=1.27.0',
+        chartType: 'application',
+        home: 'https://example.com/api-chart',
+        sources: ['https://example.com/api-chart/source'],
+        lockDigest: 'sha256:abc123',
+        lockGenerated: '2026-04-28T00:00:00Z',
+        dependencies: [
+          {
+            name: 'redis',
+            sourcePath: 'charts/api/Chart.yaml',
+            locked: false,
+            version: '17.3.0',
+            repository: 'https://charts.bitnami.com/bitnami',
+            alias: 'cache'
+          },
+          {
+            name: 'redis',
+            sourcePath: 'charts/api/Chart.lock',
+            locked: true,
+            version: '17.3.1',
+            repository: 'https://charts.bitnami.com/bitnami'
+          },
+          {
+            name: 'api_token_helper',
+            sourcePath: 'charts/api/Chart.yaml',
+            locked: false,
+            version: '0.1.0'
+          }
+        ]
+      }),
+      fetchedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry);
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-metadata'
+      && fact.path === 'chart.api.metadata.version'
+      && fact.values?.includes('0.2.0')
+      && fact.relatedPaths?.includes('charts/api/Chart.yaml')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-metadata'
+      && fact.path === 'chart.api.metadata.lockDigest'
+      && fact.values?.includes('sha256:abc123')
+      && fact.relatedPaths?.includes('charts/api/Chart.lock')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-dependency'
+      && fact.path === 'chart.api.dependencies.redis'
+      && fact.summary.includes('locked')
+      && fact.values?.includes('version=17.3.1')
+      && fact.values?.includes('locked=true')
+      && fact.relatedPaths?.includes('charts/api/Chart.lock')
+    ));
+    assert.doesNotMatch(JSON.stringify(factSet), /api_token_helper|"content"\s*:|apiVersion:\s*v2|generated:/);
+    assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge fact extractor summarizes compact Terraform provider schema context', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-provider-schema-'));
 
@@ -3142,13 +3231,21 @@ test('workspace knowledge facts extract local Helm schema sources without fetchi
   const chartSchemaSource = report.sources.find(source => source.source.kind === 'chart-schema');
   assert.equal(chartSchemaSource?.status, 'extracted');
   const chartMetadataSource = report.sources.find(source => source.source.kind === 'chart-metadata');
-  assert.equal(chartMetadataSource?.status, 'unsupported');
+  assert.equal(chartMetadataSource?.status, 'extracted');
   assert.ok(report.factSets.some(factSet =>
     factSet.source.kind === 'chart-schema'
     && factSet.facts.some(fact =>
       fact.kind === 'chart-value'
       && fact.path === 'chart.payments-api.image.repository'
       && fact.required === true
+    )
+  ));
+  assert.ok(report.factSets.some(factSet =>
+    factSet.source.kind === 'chart-metadata'
+    && factSet.facts.some(fact =>
+      fact.kind === 'chart-metadata'
+      && fact.path === 'chart.payments-api.metadata.version'
+      && fact.values?.includes('0.1.0')
     )
   ));
   assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|apiVersion:\s*v2|replicaCount":\s*\{|"\$schema"/);
