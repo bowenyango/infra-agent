@@ -8591,6 +8591,67 @@ test('knowledge extract command emits cache-first fact sets as JSON', async () =
   assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
 });
 
+test('knowledge extract command emits Terraform local module facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-terraform-module-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    const moduleRoot = join(terraformRoot, 'modules/queue-worker');
+    await mkdir(moduleRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'variables.tf'),
+      [
+        'variable "image_tag" {',
+        '  type = string',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'extract',
+      tempRoot,
+      '--domain',
+      'terraform',
+      '--target',
+      'terraform/app',
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-extraction');
+    assert.equal(report.mutationAllowed, false);
+    assert.ok(report.sources.some(source =>
+      source.source.kind === 'terraform-module'
+      && source.status === 'extracted'
+      && source.factCount > 0
+    ));
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'terraform-module'
+      && factSet.facts.some(fact =>
+        fact.kind === 'module-input'
+        && fact.path === 'module.queue_worker.inputs.image_tag'
+        && fact.required === true
+      )
+    ));
+    assert.doesNotMatch(output, /variable "image_tag"|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge validate command validates extraction JSON files', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-validate-'));
 
