@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildKnowledgeCacheId, readKnowledgeCacheEntry } from './cache.ts';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { buildPulumiConfigKnowledgeContent } from '../domain/pulumi-config-knowledge.ts';
 import { buildTerraformLocalModuleKnowledgeContent } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeContent } from '../domain/terraform-provider-schema.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
@@ -56,7 +57,12 @@ function sha256Hex(value: string): string {
 }
 
 function localContentType(source: KnowledgeSource): KnowledgeContentType {
-  if (source.kind === 'chart-schema' || source.kind === 'provider-schema' || source.kind === 'terraform-module') {
+  if (
+    source.kind === 'chart-schema'
+    || source.kind === 'provider-schema'
+    || source.kind === 'pulumi-config'
+    || source.kind === 'terraform-module'
+  ) {
     return 'application/json';
   }
 
@@ -96,6 +102,21 @@ async function readSourceEntry(
 
       if (content === null) {
         throw new Error('Terraform local module source could not be summarized.');
+      }
+    }
+
+    if (source.kind === 'pulumi-config' && source.module) {
+      const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === source.module);
+      if (project) {
+        content = await buildPulumiConfigKnowledgeContent({
+          workspaceRoot: inspection.workspaceRoot,
+          project,
+          source
+        });
+      }
+
+      if (content === null) {
+        throw new Error('Pulumi config source could not be summarized.');
       }
     }
 

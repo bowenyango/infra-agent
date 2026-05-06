@@ -4064,6 +4064,24 @@ test('workspace knowledge facts extract Terraform local module facts without fet
   }
 });
 
+test('workspace knowledge extraction reads Pulumi config summaries locally', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const report = await extractWorkspaceKnowledgeFacts(inspection, {
+    domains: ['pulumi'],
+    targetPaths: ['infra/payments-api'],
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+
+  const pulumiConfigResult = report.sources.find(source =>
+    source.source.kind === 'pulumi-config'
+    && source.targetPath === 'infra/payments-api'
+  );
+  assert.equal(pulumiConfigResult?.status, 'unsupported');
+  assert.equal(pulumiConfigResult?.factCount, 0);
+  assert.equal(report.factSetCount, 0);
+  assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+});
+
 test('knowledge pack includes focused Terraform provider schema facts under small budgets', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-provider-schema-pack-'));
 
