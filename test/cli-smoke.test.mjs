@@ -3332,6 +3332,14 @@ test('workspace knowledge facts extract local Helm schema sources without fetchi
   assert.equal(chartSchemaSource?.status, 'extracted');
   const chartMetadataSource = report.sources.find(source => source.source.kind === 'chart-metadata');
   assert.equal(chartMetadataSource?.status, 'extracted');
+  const chartSchemaFactSet = report.factSets.find(factSet => factSet.source.kind === 'chart-schema');
+  assert.equal(chartSchemaFactSet?.sourceFingerprint?.fileCount, 1);
+  assert.equal(chartSchemaFactSet?.sourceFingerprint?.files[0]?.path, 'charts/payments-api/values.schema.json');
+  assert.equal(chartSchemaFactSet?.sourceFingerprint?.files[0]?.stale, false);
+  const chartMetadataFactSet = report.factSets.find(factSet => factSet.source.kind === 'chart-metadata');
+  assert.equal(chartMetadataFactSet?.sourceFingerprint?.fileCount, 1);
+  assert.equal(chartMetadataFactSet?.sourceFingerprint?.files[0]?.path, 'charts/payments-api/Chart.yaml');
+  assert.equal(chartMetadataFactSet?.sourceFingerprint?.files[0]?.stale, false);
   assert.ok(report.factSets.some(factSet =>
     factSet.source.kind === 'chart-schema'
     && factSet.facts.some(fact =>
@@ -4401,6 +4409,14 @@ test('workspace knowledge facts extract focused Terraform provider schema facts'
       && source.targetPath === 'terraform/app'
     );
     assert.equal(providerSchemaResult?.status, 'extracted');
+    const providerSchemaFactSet = report.factSets.find(factSet => factSet.source.kind === 'provider-schema');
+    assert.ok(providerSchemaFactSet?.sourceFingerprint);
+    assert.equal(providerSchemaFactSet.sourceFingerprint.fileCount, 3);
+    assert.deepEqual(providerSchemaFactSet.sourceFingerprint.files.map(file => file.path), [
+      'terraform/app/.infra-agent/terraform-provider-schema.json',
+      'terraform/app/.terraform.lock.hcl',
+      'terraform/app/main.tf'
+    ]);
     assert.ok(report.factSets.some(factSet =>
       factSet.source.kind === 'provider-schema'
       && factSet.source.version === 'hashicorp/aws@5.37.0'
@@ -4500,6 +4516,14 @@ test('workspace knowledge facts extract Terraform local module facts without fet
       && source.source.packageName === 'missing_module'
       && source.status === 'unreadable'
     ));
+    const moduleFactSet = report.factSets.find(factSet => factSet.source.kind === 'terraform-module');
+    assert.ok(moduleFactSet?.sourceFingerprint);
+    assert.equal(moduleFactSet.sourceFingerprint.fileCount, 3);
+    assert.deepEqual(moduleFactSet.sourceFingerprint.files.map(file => file.path), [
+      'terraform/app/main.tf',
+      'terraform/app/modules/queue-worker/outputs.tf',
+      'terraform/app/modules/queue-worker/variables.tf'
+    ]);
     assert.ok(report.factSets.some(factSet =>
       factSet.source.kind === 'terraform-module'
       && factSet.facts.some(fact =>
@@ -4532,6 +4556,12 @@ test('workspace knowledge facts extract Pulumi config parameters locally', async
   );
   assert.equal(pulumiConfigResult?.status, 'extracted');
   assert.ok((pulumiConfigResult?.factCount ?? 0) > 0);
+  const pulumiConfigFactSet = report.factSets.find(factSet => factSet.source.kind === 'pulumi-config');
+  assert.ok(pulumiConfigFactSet?.sourceFingerprint);
+  assert.deepEqual(pulumiConfigFactSet.sourceFingerprint.files.map(file => file.path), [
+    'infra/payments-api/Pulumi.dev.yaml',
+    'infra/payments-api/Pulumi.yaml'
+  ]);
   assert.ok(report.factSets.some(factSet =>
     factSet.source.kind === 'pulumi-config'
     && factSet.facts.some(fact =>

@@ -1162,6 +1162,8 @@ export function extractKnowledgeFactSetFromCacheEntry(
     sourceFetchedAt: entry.fetchedAt,
     ...(entry.staleAfter !== undefined ? { sourceStaleAfter: entry.staleAfter } : {}),
     sourceStale,
+    ...(sourceStale ? { sourceStaleReason: 'time-expired' } : {}),
+    ...(entry.fingerprint !== undefined ? { sourceFingerprint: entry.fingerprint } : {}),
     extractedAt: options.extractedAt ?? new Date().toISOString(),
     factCount: facts.length,
     facts

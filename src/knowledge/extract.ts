@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildKnowledgeCacheId, readKnowledgeCacheEntry } from './cache.ts';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { fingerprintWorkspaceFiles } from './local-source-fingerprint.ts';
 import { buildHelmChartMetadataKnowledgeContent } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeContent } from '../domain/pulumi-config-knowledge.ts';
 import { buildTerraformLocalModuleKnowledgeContent } from '../domain/terraform-local-modules.ts';
@@ -75,6 +76,106 @@ function localContentType(source: KnowledgeSource): KnowledgeContentType {
   return 'text/plain';
 }
 
+async function workspaceFileExists(workspaceRoot: string, path: string): Promise<boolean> {
+  try {
+    await readFile(join(workspaceRoot, path), 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function stringArrayFromRecord(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+    : [];
+}
+
+function localFingerprintPaths(source: KnowledgeSource, content: string): string[] {
+  if (!source.localPath) {
+    return [];
+  }
+
+  if (source.kind === 'chart-metadata') {
+    try {
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      return [
+        typeof parsed.chartFile === 'string' ? parsed.chartFile : source.localPath,
+        typeof parsed.lockFile === 'string' ? parsed.lockFile : null
+      ].filter((path): path is string => Boolean(path));
+    } catch {
+      return [source.localPath];
+    }
+  }
+
+  if (source.kind === 'terraform-module') {
+    try {
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      return [
+        ...stringArrayFromRecord(parsed.callSourcePaths),
+        ...stringArrayFromRecord(parsed.moduleSourcePaths)
+      ];
+    } catch {
+      return [source.localPath];
+    }
+  }
+
+  if (source.kind === 'pulumi-config') {
+    try {
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      return [
+        typeof parsed.projectFile === 'string' ? parsed.projectFile : null,
+        ...stringArrayFromRecord(parsed.stackFiles)
+      ].filter((path): path is string => Boolean(path));
+    } catch {
+      return [source.localPath];
+    }
+  }
+
+  if (source.kind === 'provider-schema') {
+    try {
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      const blocks = Array.isArray(parsed.blocks) ? parsed.blocks : [];
+      const usagePaths = blocks.flatMap(block =>
+        typeof block === 'object'
+        && block !== null
+        && Array.isArray((block as Record<string, unknown>).sourcePaths)
+          ? stringArrayFromRecord((block as Record<string, unknown>).sourcePaths)
+          : []
+      );
+      const paths = [
+        typeof parsed.schemaFile === 'string' ? parsed.schemaFile : source.localPath,
+        ...usagePaths
+      ];
+      if (source.module) {
+        paths.push(`${source.module}/.terraform.lock.hcl`);
+      }
+      return paths;
+    } catch {
+      return [source.localPath];
+    }
+  }
+
+  return [source.localPath];
+}
+
+async function buildLocalSourceFingerprint(
+  inspection: WorkspaceInspection,
+  source: KnowledgeSource,
+  content: string
+): Promise<KnowledgeCacheEntry['fingerprint']> {
+  const paths = [];
+  for (const path of localFingerprintPaths(source, content)) {
+    if (await workspaceFileExists(inspection.workspaceRoot, path)) {
+      paths.push(path);
+    }
+  }
+
+  return paths.length > 0
+    ? fingerprintWorkspaceFiles(inspection.workspaceRoot, paths)
+    : undefined;
+}
+
 async function readSourceEntry(
   inspection: WorkspaceInspection,
   source: KnowledgeSource
@@ -138,13 +239,15 @@ async function readSourceEntry(
     }
 
     content ??= await readFile(join(inspection.workspaceRoot, source.localPath), 'utf8');
+    const fingerprint = await buildLocalSourceFingerprint(inspection, source, content);
     return {
       id: buildKnowledgeCacheId(source),
       source,
       contentType: localContentType(source),
       content,
       contentHash: sha256Hex(content),
-      fetchedAt: new Date(0).toISOString()
+      fetchedAt: new Date(0).toISOString(),
+      ...(fingerprint ? { fingerprint } : {})
     };
   }
 
