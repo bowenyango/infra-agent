@@ -3221,6 +3221,86 @@ test('knowledge fact ranking is deterministic across target order and staleness'
   );
 });
 
+test('knowledge fact ranking places required module inputs before examples', () => {
+  const sources = [
+    {
+      id: 'provider-schema-source',
+      domain: 'terraform',
+      targetPath: 'terraform/app',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/app',
+      factCount: 1,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'module-source',
+      domain: 'terraform',
+      targetPath: 'terraform/app',
+      kind: 'terraform-module',
+      name: 'terraform-module:terraform/app:queue_worker',
+      factCount: 1,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'registry-source',
+      domain: 'terraform',
+      targetPath: 'terraform/app',
+      kind: 'terraform-registry',
+      name: 'resource:aws_sqs_queue',
+      factCount: 1,
+      contentHash: 'c'.repeat(64),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      stale: false
+    }
+  ];
+  const ranked = rankKnowledgePackFacts([
+    {
+      kind: 'example',
+      path: 'resource.aws_sqs_queue.example',
+      summary: 'Queue example.',
+      confidence: 'high',
+      extractionMethod: 'terraform-registry-markdown',
+      sourceId: 'registry-source',
+      sourceLocator: 'Example Usage'
+    },
+    {
+      kind: 'module-input',
+      path: 'module.queue_worker.inputs.image_tag',
+      summary: 'module.queue_worker.inputs.image_tag is required by the local Terraform module interface.',
+      required: true,
+      type: 'string',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'module-source',
+      sourceLocator: 'variables.tf: variable.image_tag'
+    },
+    {
+      kind: 'argument',
+      path: 'resource.aws_sqs_queue.name',
+      summary: 'resource.aws_sqs_queue.name is required by the Terraform provider schema.',
+      required: true,
+      type: 'string',
+      confidence: 'high',
+      extractionMethod: 'terraform-provider-schema',
+      sourceId: 'provider-schema-source',
+      sourceLocator: 'provider schema: resource.aws_sqs_queue.name'
+    }
+  ], {
+    sources,
+    requestedDomains: ['terraform'],
+    targetPaths: ['terraform/app']
+  });
+
+  assert.equal(ranked[0]?.path, 'resource.aws_sqs_queue.name');
+  assert.equal(ranked[1]?.path, 'module.queue_worker.inputs.image_tag');
+  assert.equal(ranked[2]?.path, 'resource.aws_sqs_queue.example');
+  assert.ok(ranked.every(fact => !('rank' in fact)));
+});
+
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-retrieve-fetch-'));
 
