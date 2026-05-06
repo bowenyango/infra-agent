@@ -9733,6 +9733,30 @@ Remaining risks:
 - Result-card summaries and durable docs still need to teach downstream agents
   how to read `knowledgeFacts` before raw documents.
 
+## 2026-05-05 Knowledge Facts Result Card Slice
+
+Files added or updated:
+
+- `src/cli/output.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Add a `Knowledge facts:` result-card line summarizing included/total facts,
+  max fact budget, omitted facts, source count, and stale source count.
+- Reuse the compact budget helper so result-card counts match planner prompt
+  and compact JSON output.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "summarizeResultCard includes retrieved knowledge context budget|summarizeResultCard includes budgeted knowledge fact counts" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Durable docs still need to describe `knowledgeFacts` as advisory,
+  contract-validated, and preferred over raw docs for downstream agents.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

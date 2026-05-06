@@ -17207,6 +17207,46 @@ test('summarizeResultCard includes retrieved knowledge context budget', async ()
   assert.ok(summary.some(line => /Knowledge context: 1\/3 packet\(s\) included; \d+\/500 token estimate used; omitted 2 \(packet-limit=2\)/i.test(line)));
 });
 
+test('summarizeResultCard includes budgeted knowledge fact counts', async () => {
+  const preflight = await buildRunPreflight('update helm payments-api image tag', 'fixtures/sample-workspace');
+  const knowledgeFacts = await buildKnowledgePack(preflight.inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 8,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+  const summary = summarizeResultCard({
+    modelName: 'test-model',
+    outcome: 'no-safe-action',
+    preflight,
+    runtime: {
+      task: preflight.task,
+      preflight,
+      knowledgeFacts,
+      retrievedContext: [],
+      retrievedContextBudget: {
+        maxPackets: 5,
+        maxTokens: 1000,
+        maxExcerptChars: 1200,
+        maxFacts: 2
+      },
+      observations: [],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    },
+    turns: []
+  });
+
+  assert.ok(summary.some(line =>
+    new RegExp(`Knowledge facts: 2/${knowledgeFacts.factCount} fact\\(s\\) included; max 2; omitted ${knowledgeFacts.factCount - 2}; sources ${knowledgeFacts.sourceCount}; stale sources ${knowledgeFacts.staleSourceCount}`, 'i').test(line)
+  ));
+});
+
 test('summarizeResultCard includes Helm CLI usage when helm_show_values is executed', async () => {
   const preflight = await buildRunPreflight('add ingress to payments-api dev chart', 'fixtures/sample-workspace');
   const summary = summarizeResultCard({

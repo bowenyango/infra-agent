@@ -2571,6 +2571,18 @@ function summarizeKnowledgeContext(state: AgentRunState): string {
   ].join('; ');
 }
 
+function summarizeKnowledgeFacts(state: AgentRunState): string {
+  const summary = collectKnowledgeFactsSummary(state);
+  const omittedSummary = summary.omittedFactCount === 0 ? 'none' : String(summary.omittedFactCount);
+  return [
+    `${summary.includedFactCount}/${summary.totalFactCount} fact(s) included`,
+    `max ${summary.maxFacts}`,
+    `omitted ${omittedSummary}`,
+    `sources ${summary.sourceCount}`,
+    `stale sources ${summary.staleSourceCount}`
+  ].join('; ');
+}
+
 function summarizePlannerConfig(state: AgentRunState): string {
   const plannerConfig = collectPlannerConfig(state);
   if (!plannerConfig.llm) {
@@ -2609,6 +2621,7 @@ export function summarizeResultCard(state: AgentRunState): string[] {
   lines.push(`Native CLI operations: ${summarizeNativeCliTools(state)}`);
   lines.push(`Native CLI findings: ${summarizeNativeCliFindings(state)}`);
   lines.push(`Knowledge context: ${summarizeKnowledgeContext(state)}`);
+  lines.push(`Knowledge facts: ${summarizeKnowledgeFacts(state)}`);
   const targetValidationCount = getTargetValidationResults(state).length;
   const yamlGuardCount = state.runtime.validationResults.filter(result => isYamlSyntaxValidationCommand(result.command)).length;
   lines.push(`Validators executed: ${targetValidationCount} command(s) across ${summarizeValidatorFamilies(state)}${yamlGuardCount > 0 ? `; ${yamlGuardCount} YAML syntax guard(s)` : ''}`);
