@@ -3323,6 +3323,44 @@ test('workspace knowledge facts extract focused Terraform provider schema facts'
   }
 });
 
+test('knowledge pack includes focused Terraform provider schema facts under small budgets', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-provider-schema-pack-'));
+
+  try {
+    await writeTerraformProviderSchemaWorkspace(tempRoot);
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxFacts: 2,
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.includedFactCount, 2);
+    assert.ok(pack.sources.some(source =>
+      source.kind === 'provider-schema'
+      && source.domain === 'terraform'
+      && source.targetPath === 'terraform/app'
+      && source.factCount > 0
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.extractionMethod === 'terraform-provider-schema'
+      && fact.path === 'resource.aws_lb_listener_rule.listener_arn'
+      && fact.required === true
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.extractionMethod === 'terraform-provider-schema'
+      && fact.path === 'resource.aws_lb_listener_rule.action'
+      && fact.required === true
+    ));
+    assert.doesNotMatch(JSON.stringify(pack), /aws_instance|provider_schemas|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('Terraform Registry context packets retrieve selected source docs through the cache layer', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-retrieve-'));
   const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-cache-'));
