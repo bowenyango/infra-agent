@@ -9448,12 +9448,26 @@ test('knowledge extract command emits cache-first fact sets as JSON', async () =
     && source.status === 'extracted'
     && source.factCount > 0
   ));
+  assert.ok(report.sources.some(source =>
+    source.source.kind === 'chart-metadata'
+    && source.status === 'extracted'
+    && source.factCount > 0
+  ));
   assert.ok(report.factSets.some(factSet =>
     factSet.kind === 'infra-agent.knowledge-facts'
     && factSet.source.kind === 'chart-schema'
     && factSet.facts.some(fact => fact.path === 'chart.payments-api.service.port')
   ));
-  assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+  assert.ok(report.factSets.some(factSet =>
+    factSet.kind === 'infra-agent.knowledge-facts'
+    && factSet.source.kind === 'chart-metadata'
+    && factSet.facts.some(fact =>
+      fact.kind === 'chart-metadata'
+      && fact.path === 'chart.payments-api.metadata.version'
+      && fact.values?.includes('0.1.0')
+    )
+  ));
+  assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"|apiVersion:\s*v2/);
 });
 
 test('knowledge extract command emits Terraform local module facts', async () => {
@@ -9610,6 +9624,79 @@ test('knowledge pack command emits bounded fact pack JSON', async () => {
   assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.image.repository'));
   assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.service.port'));
   assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+});
+
+test('knowledge pack command emits Helm chart metadata and dependency facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-helm-metadata-cli-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.0',
+        '    repository: https://charts.bitnami.com/bitnami',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.lock'),
+      [
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.1',
+        '    repository: https://charts.bitnami.com/bitnami',
+        'digest: sha256:abc123',
+        'generated: "2026-04-28T00:00:00Z"',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--target',
+      'charts/api',
+      '--max-facts',
+      '6',
+      '--json'
+    ]));
+    const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.mutationAllowed, false);
+    assert.equal(pack.maxFacts, 6);
+    assert.ok(pack.sources.some(source =>
+      source.kind === 'chart-metadata'
+      && source.targetPath === 'charts/api'
+      && source.factCount > 0
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'chart-metadata'
+      && fact.path === 'chart.api.metadata.version'
+      && fact.values?.includes('0.2.0')
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'chart-dependency'
+      && fact.path === 'chart.api.dependencies.redis'
+      && fact.values?.includes('version=17.3.1')
+      && fact.values?.includes('locked=true')
+    ));
+    assert.doesNotMatch(output, /"content"\s*:|apiVersion:\s*v2|digest:\s*sha256|generated:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge pack command emits focused Terraform provider schema facts', async () => {
