@@ -10250,3 +10250,105 @@ Final verification:
   `src/domain/helm-chart-context.ts`, updated knowledge extractors, contracts,
   docs, and skill guidance.
 - `git diff --check`: passed.
+
+## 2026-05-05 Local Knowledge Source Freshness Slice
+
+Status:
+
+- Completed the local source hash/staleness tracking stage for repo-derived
+  knowledge facts.
+- Created 10 meaningful commits in this slice before final verification:
+  `1c0e24b`, `cf96668`, `1dc49c0`, `954198c`, `0fe0ce6`, `caff431`,
+  `8420ca9`, `25933ce`, `475105a`, and `793741b`.
+
+Core files changed:
+
+- `src/types/knowledge.ts`
+- `src/knowledge/local-source-fingerprint.ts`
+- `src/knowledge/extract.ts`
+- `src/knowledge/facts.ts`
+- `src/knowledge/facts-contract.ts`
+- `src/knowledge/pack.ts`
+- `src/knowledge/fact-budget.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+What changed:
+
+- Added a `KnowledgeSourceFingerprint` contract with deterministic SHA-256
+  digest, file count, and safe workspace-relative per-file hashes.
+- Attached fingerprints to local synthetic knowledge cache entries and
+  fact sets for Helm chart schema/metadata, Terraform provider schema exports,
+  Terraform local modules, and Pulumi config sources.
+- Extended fact-set contract validation to reject unsafe paths, bad hashes,
+  digest drift, unsupported stale reasons, and high-confidence facts from stale
+  sources.
+- Added pack and compact `knowledgeFacts` source freshness summaries:
+  `freshness`, `staleReason`, `fingerprintDigest`, and `fingerprintFileCount`.
+  Compact output still excludes raw source content, raw cache payloads, and
+  per-file source lists.
+- Added workspace-aware local fingerprint rechecks through
+  `infra-agent knowledge validate <knowledge.json> --workspace <workspace>`.
+  Default `knowledge validate <knowledge.json>` remains a schema/contract check
+  for backwards-compatible saved JSON validation.
+- Tightened compact agent result parsing so stale knowledge sources cannot
+  carry high-confidence facts into downstream handoff.
+- Updated README, roadmap, agent rules, and infra skill guidance so future
+  agents know when to revalidate saved repo-derived facts.
+
+Design notes:
+
+- Fingerprints live outside `KnowledgeSource` and do not affect source IDs.
+  This avoids source ID churn when local files change while still allowing
+  deterministic drift checks before reuse.
+- Public docs/provider/chart data still belongs in the resolved cache or an
+  explicit team cache; generated bulk cache data should not be committed to user
+  repos by default.
+- Private repo-derived module, component, chart, and config facts are compact
+  advisory data. Shared storage for them must remain opt-in and secret-safe.
+
+Known validation so far:
+
+- `npm run test:unit -- --test-name-pattern "knowledge source fingerprints"`:
+  passed.
+- `npm run test:unit -- --test-name-pattern "workspace knowledge facts extract"`:
+  passed.
+- `npm run test:unit -- --test-name-pattern "knowledge fact contract"`:
+  passed.
+- `npm run test:unit -- --test-name-pattern "knowledge pack"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge fact budget|compact agent result contract"`:
+  passed.
+- `npm run test:unit -- --test-name-pattern "knowledge validation|knowledge validate"`:
+  passed.
+- `npm run test:unit -- --test-name-pattern "knowledge validate CLI args|knowledge validate command"`:
+  passed.
+- `npm run test:unit -- --test-name-pattern "knowledge validate command"`:
+  passed.
+- `npm run test:unit -- --test-name-pattern "package metadata exposes"`:
+  passed.
+
+Remaining risks:
+
+- Full final verification is still pending for this slice.
+- Pulumi official-doc source selection and Pulumi component facts remain
+  planned.
+- External chart-doc extraction beyond local chart metadata/dependency facts
+  remains pending.
+- Team-scale shared knowledge storage is still an architecture item. The
+  current implementation supports local files and saved JSON revalidation, not
+  an S3-compatible remote backend.
+
+Next stage:
+
+- Run full verification (`npm run verify`, package dry-run, and `git diff --check`)
+  and record the result below.
+- After that, continue with Pulumi official-doc/component knowledge or the
+  opt-in team cache backend design, depending on product priority.
