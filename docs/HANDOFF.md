@@ -13,13 +13,14 @@ Status as of 2026-05-06:
   `test/run-unit.mjs`, `test/run-integration.mjs`, or `test/run-contract.mjs`.
 - `npm test` runs `npm run test:structure` before `npm run test:all`.
 - `npm run verify` is the full local gate: lint, structure, explicit unit,
-  integration, and contract suites, smoke, e2e, coverage, and package dry-run.
+  integration, and contract suites, isolated shard execution, smoke, e2e,
+  coverage, and package dry-run.
 - `npm run test:coverage` is the coverage gate over `src/**/*.ts`: minimum 85%
   lines, 75% branches, and 90% functions.
 - `.github/workflows/verify.yml` reports failures by layer: static
-  lint/structure/package shape, unit, integration, contract, smoke/e2e, and
-  coverage. The workflow uses read-only permissions, concurrency cancellation,
-  and per-job timeouts.
+  lint/structure/package shape, unit, integration, contract, isolated shards,
+  smoke/e2e, and coverage. The workflow uses read-only permissions,
+  concurrency cancellation, and per-job timeouts.
 - `docs/TESTING.md` is the compact extension guide for future test shards.
 
 Current guardrails:
@@ -27,12 +28,82 @@ Current guardrails:
 - no root-level or nested `.test.mjs` shards
 - no broad `test/support/cli-smoke-harness.mjs`
 - no committed `.only` or `.skip` tests
-- `.test.mjs` shards at or below 1,800 lines
+- `.test.mjs` shards at or below 1,200 lines
 - `test/support/*.mjs` helpers at or below 1,000 lines
 - no test-like files outside direct `test/unit`, `test/integration`, or
   `test/contract` `.test.mjs` shards
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
+
+## 2026-05-06 Process-Isolated Test Gate Slice
+
+Status:
+
+- Implemented. This slice continues test-system optimization before feature
+  development resumes.
+
+Core files changed:
+
+- `.github/workflows/verify.yml`
+- `package.json`
+- `scripts/check-test-structure.mjs`
+- `test/run-isolated.mjs`
+- `test/unit/*.test.mjs`
+- `test/integration/*.test.mjs`
+- `test/contract/*.test.mjs`
+- `docs/TESTING.md`
+- `README.md`
+- `AGENTS.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Split the remaining 1500-line-class shards by behavior:
+  `domain-terraform-pulumi-tail.test.mjs` became domain planner routing,
+  Terraform edit-plan routing, and validation issue classification shards;
+  `tools-validation-model.test.mjs` became tool execution validation,
+  planner/provider model, and planner decision parser shards;
+  `agent-runtime-compact.test.mjs` became runtime execution, handoff, and trace
+  validation shards; `infra-graph-contracts.test.mjs` became graph shape and
+  graph report contract shards.
+- Lowered the test shard size cap from 1,800 to 1,200 lines. The largest shard
+  is now `test/contract/infra-graph-shape-contract.test.mjs`, under the new
+  cap.
+- Added `test/run-isolated.mjs` and `npm run test:isolated` to execute every
+  unit, integration, and contract shard in a fresh Node process.
+- Added the `isolated-shards` CI job and made smoke/e2e depend on it, so broad
+  runtime checks only run after normal category execution and process-isolated
+  execution both pass.
+- Extended `test:structure` to enforce the isolated runner, the lower shard
+  cap, the local `verify` gate, and the CI isolated-shards job.
+
+Design notes:
+
+- The normal category runners remain single-process imports because they are
+  fast and preserve existing focused-test ergonomics.
+- The isolated runner is a second gate, not a replacement. It catches hidden
+  dependencies on import order, process globals, exit code state, stdout
+  capture, and CLI mocks.
+- This keeps test organization file-based and reviewable without introducing a
+  new test framework or nested shard hierarchy.
+
+Known validation:
+
+- `npm run test:structure`: passed with 46 checked test files after the shard
+  split, lower cap, and isolated-runner wiring.
+- `npm run lint`: passed with 172 checked files.
+- `npm run test:unit`: passed with 302 tests.
+- `npm run test:integration`: passed with 64 tests.
+- `npm run test:contract`: passed with 12 tests.
+- `npm run test:isolated`: passed with 35 independently spawned shards.
+- `npm run verify`: passed. This covered lint, structure, explicit category
+  suites, process-isolated shard execution, smoke, e2e, coverage, and package
+  dry-run.
+- Coverage remained above gates: 89.12% lines, 79.04% branches, and 96.18%
+  functions.
+- Package dry-run passed with 128 entries in the installable package surface.
+- Pending after documentation update: `git diff --check`, cached diff review,
+  and commit.
 
 ## 2026-05-06 Enterprise Test Gate Hardening Slice
 
@@ -10581,7 +10652,7 @@ What changed:
   complete 367-test regression suite.
 - Added `test:focused` for targeted checks with Node's
   `--test-name-pattern`, for example:
-  `npm run test:focused -- --test-name-pattern "LLM planner config" test/unit/tools-validation-model.test.mjs`.
+  `npm run test:focused -- --test-name-pattern "LLM planner config" test/unit/planner-provider-model.test.mjs`.
 - Added `scripts/check-test-structure.mjs` and `npm run test:structure` to
   enforce runner coverage, prevent root-level `.test.mjs` shards, and block
   the old broad harness from returning. `npm run verify` now includes this
@@ -10617,7 +10688,7 @@ Known validation so far:
 - `npm run test:all`: passed with 367 tests.
 - `npm run test:focused -- --test-name-pattern "package metadata exposes only" test/run-all.mjs`:
   passed with 1 matching test.
-- `npm run test:focused -- --test-name-pattern "LLM planner config" test/unit/tools-validation-model.test.mjs`:
+- `npm run test:focused -- --test-name-pattern "LLM planner config" test/unit/planner-provider-model.test.mjs`:
   passed with 2 matching tests.
 - Independent shard loop passed for every file under `test/unit/`,
   `test/integration/`, and `test/contract/`.

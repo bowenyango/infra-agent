@@ -45,9 +45,11 @@ new direct shard files do not need manual runner imports.
   `test/contract` `.test.mjs` shards
 - no broad smoke harness helper imports
 - no committed `.only` or `.skip` tests
-- `.test.mjs` shards at or below 1,800 lines
+- `.test.mjs` shards at or below 1,200 lines
 - `test/support/*.mjs` helpers at or below 1,000 lines
 - category runners must use `test/run-category.mjs`
+- `test/run-isolated.mjs` must reuse category discovery and execute each shard
+  in a separate Node process
 - `package.json` must keep category, coverage, and verification scripts wired
   into the expected gates
 - `.github/workflows/verify.yml` must keep read-only permissions, concurrency,
@@ -64,5 +66,7 @@ behind one aggregate job:
 
 - `static`: lint, test-structure guard, and package dry-run.
 - `unit`, `integration`, `contract`: category-specific test jobs.
+- `isolated-shards`: reruns every shard in an independent Node process after
+  the category gates.
 - `smoke-e2e`: realistic CLI smoke and E2E checks after the category gates.
 - `coverage`: native Node coverage thresholds after static and category gates.

@@ -30,13 +30,14 @@
     "test:integration": "node --experimental-strip-types ./test/run-integration.mjs",
     "test:contract": "node --experimental-strip-types ./test/run-contract.mjs",
     "test:all": "node --experimental-strip-types ./test/run-all.mjs",
+    "test:isolated": "node --experimental-strip-types ./test/run-isolated.mjs",
     "test:coverage": "node --experimental-strip-types --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/types/**/*.ts' --test-coverage-lines=85 --test-coverage-branches=75 --test-coverage-functions=90 ./test/run-all.mjs",
     "test:focused": "node --experimental-strip-types",
     "test": "npm run test:structure && npm run test:all",
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
     "e2e": "node --experimental-strip-types ./scripts/e2e.mjs",
     "package:check": "npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json",
-    "verify": "npm run lint && npm run test:structure && npm run test:unit && npm run test:integration && npm run test:contract && npm run smoke && npm run e2e && npm run test:coverage && npm run package:check"
+    "verify": "npm run lint && npm run test:structure && npm run test:unit && npm run test:integration && npm run test:contract && npm run test:isolated && npm run smoke && npm run e2e && npm run test:coverage && npm run package:check"
   },
   "engines": {
     "node": ">=24.0.0"

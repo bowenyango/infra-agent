@@ -101,6 +101,31 @@ jobs:
       - name: Run contract tests
         run: npm run test:contract
 
+  isolated-shards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - static
+      - unit
+      - integration
+      - contract
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run shards in isolated processes
+        run: npm run test:isolated
+
   smoke-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -109,6 +134,7 @@ jobs:
       - unit
       - integration
       - contract
+      - isolated-shards
 
     steps:
       - name: Check out repository

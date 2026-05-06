@@ -4,7 +4,7 @@ import { parse as parseYaml } from 'yaml';
 
 const TEST_ROOT = resolve('test');
 const CATEGORY_DIRS = ['unit', 'integration', 'contract'];
-const TEST_SHARD_MAX_LINES = 1800;
+const TEST_SHARD_MAX_LINES = 1200;
 const SUPPORT_HELPER_MAX_LINES = 1000;
 const REPO_SCAN_IGNORED_DIRS = new Set([
   '.git',
@@ -16,6 +16,7 @@ const RUNNERS = {
   contract: 'test/run-contract.mjs'
 };
 const RUN_CATEGORY_PATH = 'test/run-category.mjs';
+const RUN_ISOLATED_PATH = 'test/run-isolated.mjs';
 const SUPPORT_DIR = 'test/support';
 const BANNED_TEST_PATTERNS = [
   {
@@ -111,6 +112,7 @@ async function assertPackageScripts(failures) {
   const testScript = scripts.test ?? '';
   const verifyScript = scripts.verify ?? '';
   const coverageScript = scripts['test:coverage'] ?? '';
+  const isolatedScript = scripts['test:isolated'] ?? '';
   const packageCheckScript = scripts['package:check'] ?? '';
 
   if (!testScript.includes('npm run test:structure') || !testScript.includes('npm run test:all')) {
@@ -123,6 +125,7 @@ async function assertPackageScripts(failures) {
     'npm run test:unit',
     'npm run test:integration',
     'npm run test:contract',
+    'npm run test:isolated',
     'npm run smoke',
     'npm run e2e',
     'npm run test:coverage',
@@ -134,6 +137,10 @@ async function assertPackageScripts(failures) {
   }
   if (verifyScript.includes('npm run test:all')) {
     failures.push('package.json verify script must run category suites explicitly for clearer CI failures.');
+  }
+
+  if (!isolatedScript.includes('./test/run-isolated.mjs')) {
+    failures.push('package.json test:isolated script must run test/run-isolated.mjs.');
   }
 
   for (const flag of [
@@ -190,9 +197,13 @@ async function assertVerifyWorkflow(failures) {
       runs: ['npm run test:contract'],
       needs: []
     },
+    'isolated-shards': {
+      runs: ['npm run test:isolated'],
+      needs: ['static', 'unit', 'integration', 'contract']
+    },
     'smoke-e2e': {
       runs: ['npm run smoke', 'npm run e2e'],
-      needs: ['static', 'unit', 'integration', 'contract']
+      needs: ['static', 'unit', 'integration', 'contract', 'isolated-shards']
     },
     coverage: {
       runs: ['npm run test:coverage'],
@@ -283,6 +294,17 @@ async function main() {
   }
   if (!runCategoryContent.includes('.sort(')) {
     failures.push(`${RUN_CATEGORY_PATH} must sort discovered shard files for stable execution order.`);
+  }
+
+  const runIsolatedContent = await readFile(RUN_ISOLATED_PATH, 'utf8');
+  if (!runIsolatedContent.includes("import { spawn } from 'node:child_process';")) {
+    failures.push(`${RUN_ISOLATED_PATH} must execute shards in separate Node processes.`);
+  }
+  if (!runIsolatedContent.includes("import { listCategoryTestFiles } from './run-category.mjs';")) {
+    failures.push(`${RUN_ISOLATED_PATH} must reuse category shard discovery from run-category.`);
+  }
+  if (!runIsolatedContent.includes("'--experimental-strip-types'")) {
+    failures.push(`${RUN_ISOLATED_PATH} must preserve the TypeScript strip-types runtime flag.`);
   }
 
   for (const category of CATEGORY_DIRS) {

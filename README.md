@@ -46,12 +46,14 @@ Tests are split by responsibility under `test/unit/`, `test/integration/`,
 and `test/contract/`, with narrow shared fixtures under `test/support/`.
 `npm run test:unit`, `npm run test:integration`, and `npm run test:contract`
 run the layered suites; `npm run test:all` runs the complete regression suite.
+`npm run test:isolated` reruns every unit, integration, and contract shard in
+its own Node process to catch cross-shard state coupling.
 `npm test` runs the structure guard before the complete regression suite.
 Focused checks use `npm run test:focused -- --test-name-pattern "<pattern>"
 <runner-or-shard>`.
 `npm run test:structure` enforces category-runner discovery, blocks misplaced
 test-like files, nested test shards, and the old broad smoke harness, and keeps
-`.test.mjs` shards under 1,800 lines and support helpers under 1,000 lines. It
+`.test.mjs` shards under 1,200 lines and support helpers under 1,000 lines. It
 also blocks committed `.only`/`.skip` tests and protects the expected
 CI/script gates. See `docs/TESTING.md` for the extension rules.
 
