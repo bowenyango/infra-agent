@@ -97,6 +97,7 @@ import {
   buildTerraformProviderSchemaKnowledgeSources,
   retrieveTerraformProviderSchemaContextPackets
 } from '../src/domain/terraform-provider-schema.ts';
+import { buildPulumiConfigKnowledgeSources } from '../src/domain/pulumi-config-knowledge.ts';
 import {
   buildHelmChartKnowledgeSources,
   retrieveHelmChartContextPackets
@@ -3648,6 +3649,21 @@ test('Terraform local module knowledge sources include only literal workspace mo
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('Pulumi config knowledge sources summarize discovered project metadata', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/payments-api');
+  assert.ok(project);
+
+  const sources = await buildPulumiConfigKnowledgeSources(inspection.workspaceRoot, project);
+
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0]?.kind, 'pulumi-config');
+  assert.equal(sources[0]?.name, 'pulumi-config:infra/payments-api');
+  assert.equal(sources[0]?.localPath, 'infra/payments-api');
+  assert.equal(sources[0]?.module, 'infra/payments-api');
+  assert.equal(sources[0]?.packageName, 'payments-api');
 });
 
 test('Terraform local module knowledge content summarizes variables and outputs', async () => {
