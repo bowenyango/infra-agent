@@ -147,6 +147,13 @@ Current behavior is intentionally runtime-foundation oriented:
   context is tagged with locked provider versions such as
   `hashicorp/aws@5.37.0`. Replacement and ForceNew behavior still comes from
   native plan output plus provider-specific impact rules.
+- Terraform roots with literal local module calls such as
+  `source = "./modules/worker"` are learned as local `terraform-module`
+  knowledge sources. `knowledge extract`, `knowledge pack`, and the agent
+  runtime convert the module's variable/output interface into ranked
+  `module-input` and `module-output` facts without exposing raw `.tf` content.
+  Registry, git, URL, interpolated, absolute, and out-of-workspace module
+  sources are ignored by this local extractor.
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model

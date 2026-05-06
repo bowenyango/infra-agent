@@ -169,6 +169,10 @@ credentials must still come from environment variables.
   fields should appear before examples under small budgets, but facts remain
   advisory and do not replace native validation, plan, preview, or provider
   schema context.
+- For Terraform local modules, prefer `terraform-module` knowledge facts over
+  raw module file reads when the module source is literal and workspace-local.
+  These facts describe inputs and outputs only; remote, registry, git, dynamic,
+  absolute, and out-of-workspace module sources are outside this local fact path.
 
 For detailed strategy, read
 `references/context-validation-and-impact.md` only when the task involves

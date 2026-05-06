@@ -153,8 +153,8 @@ Current progress as of 2026-05-05:
 | Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, and cache-root resolution | No structured fact index or remote backend |
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock` | Pulumi docs source selection is not implemented; source selection is not yet broad provider/resource coverage |
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
-| Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, and bounded Helm schema knowledge packs | Terraform module/Pulumi component durable packs are not implemented |
-| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, and focused Terraform provider schema facts | Pulumi docs, Terraform module/Pulumi component README extraction, broader local code knowledge packs, and team storage backends are pending |
+| Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, and bounded Helm schema knowledge packs | Pulumi component durable packs and broader Helm metadata facts are not implemented |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, and local Terraform module input/output facts | Pulumi docs, Pulumi component/config knowledge packs, Helm metadata/dependency facts, and team storage backends are pending |
 | Team storage | Not started | Cache root can be local, environment-selected, or workspace-relative | No S3/GCS/Azure/Postgres backend abstraction |
 
 Target artifact families:
@@ -247,9 +247,12 @@ Measurable milestones:
      compacted to the selected root's used resources/data sources, then
      converted into provider-versioned `argument`, `attribute`, and
      `nested-block` facts without exposing the full `provider_schemas` JSON.
-   - Remaining: add durable local Terraform module, Pulumi component/config,
-     and Helm chart metadata packs after the current schema/local cache
-     contract settles.
+   - Implemented 2026-05-05: literal local Terraform module calls are
+     discovered as `terraform-module` sources and converted into ranked
+     `module-input` / `module-output` facts from compact module interface
+     summaries, without exposing raw `.tf` content.
+   - Remaining: add Pulumi config/component and Helm chart metadata packs after
+     the current Terraform local module contract settles.
 5. **Refresh And Staleness**
    - Add stale/fresh reporting for facts derived from cache entries and local
      files.

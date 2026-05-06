@@ -159,6 +159,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   be opt-in and secret-safe.
 - For Terraform Registry docs, prefer provider source and locked provider version from `required_providers` and `.terraform.lock.hcl` before falling back to local-name heuristics.
 - For local Terraform provider schema context, use only root-scoped exports such as `.infra-agent/terraform-provider-schema.json` or `.infra-agent/terraform-providers-schema.json`. Extract compact facts for resources used by the selected root, preserve `.terraform.lock.hcl` provider version labels when available, do not pass full provider schema JSON into planner prompts, and do not infer replacement safety from schema shape alone.
+- For local Terraform modules, use only literal workspace-contained module
+  sources (`./...` or `../...`) as `terraform-module` knowledge sources.
+  Extract compact `module-input` and `module-output` facts from module
+  variable/output declarations, skip secret-like fields, and do not read
+  registry, git, URL, interpolated, absolute, or out-of-workspace sources as
+  local module facts.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
 - For Helm dependency context, prefer repo-local `Chart.lock` over dependency repository prose. Treat HTTP(S) dependency repositories as fetch candidates and skip non-document schemes such as `file://` or `oci://`.
 - Helm planner prompts may include selected chart schema packets by default. External Helm/chart docs must stay cache-only unless a deliberate fetch or prefetch path populated them.
