@@ -3617,6 +3617,48 @@ test('agent runtime loads Helm chart schema context for Helm tasks', async () =>
   }
 });
 
+test('agent runtime loads knowledge facts for generic tasks with selected targets', async () => {
+  const checkingModel = {
+    name: 'generic-target-knowledge-check',
+    async decideNextAction({ runtime }) {
+      assert.deepEqual(runtime.preflight.requestedDomains, []);
+      assert.ok(runtime.knowledgeFacts);
+      assert.deepEqual(runtime.knowledgeFacts.requestedDomains, ['helm']);
+      assert.equal(runtime.knowledgeFacts.targetPaths.includes('charts/payments-api'), true);
+      assert.ok(runtime.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.replicaCount'));
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'stop',
+          summary: 'Generic target facts checked.',
+          rationale: 'Knowledge facts loaded from the selected target domain.',
+          payload: {
+            stopReason: 'no-safe-action'
+          }
+        }
+      };
+    }
+  };
+
+  const result = await runSingleStep(
+    'update api image repository',
+    'fixtures/sample-workspace',
+    checkingModel,
+    'rule-based',
+    undefined,
+    {
+      retrievedContextBudget: {
+        maxFacts: 2
+      }
+    }
+  );
+
+  assert.deepEqual(result.preflight.requestedDomains, []);
+  assert.ok(result.runtime.knowledgeFacts);
+  assert.deepEqual(result.runtime.knowledgeFacts.requestedDomains, ['helm']);
+  assert.ok(result.runtime.knowledgeFacts.targetPaths.includes('charts/payments-api'));
+});
+
 test('knowledge prefetch fetches bounded external docs and skips local schema', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-prefetch-'));
 

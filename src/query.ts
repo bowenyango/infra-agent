@@ -357,38 +357,51 @@ async function retrieveInitialContext(preflight: RunPreflightState): Promise<Ret
   return packets.slice(0, 5);
 }
 
-function selectKnowledgeFactTargetPaths(preflight: RunPreflightState): string[] {
-  function domainForTargetKind(kind: TargetCandidate['kind']): InfraDomainId {
-    switch (kind) {
-      case 'helm-chart':
-        return 'helm';
-      case 'pulumi-project':
-        return 'pulumi';
-      case 'terraform-root':
-        return 'terraform';
-    }
+function knowledgeDomainForTargetKind(kind: TargetCandidate['kind']): InfraDomainId {
+  switch (kind) {
+    case 'helm-chart':
+      return 'helm';
+    case 'pulumi-project':
+      return 'pulumi';
+    case 'terraform-root':
+      return 'terraform';
   }
+}
 
-  return Array.from(new Set(
-    preflight.targetCandidates
-      .filter(candidate => preflight.requestedDomains.includes(domainForTargetKind(candidate.kind)))
-      .slice(0, 3)
-      .map(candidate => candidate.path)
-  ));
+function selectKnowledgeFactScope(preflight: RunPreflightState): {
+  domains: InfraDomainId[];
+  targetPaths: string[];
+} {
+  const maxCandidates = preflight.requestedDomains.length === 0 ? 1 : 3;
+  const selectedCandidates = preflight.targetCandidates
+    .filter(candidate => {
+      const candidateDomain = knowledgeDomainForTargetKind(candidate.kind);
+      return preflight.requestedDomains.length === 0
+        || preflight.requestedDomains.includes(candidateDomain);
+    })
+    .slice(0, maxCandidates);
+  const domains = preflight.requestedDomains.length > 0
+    ? preflight.requestedDomains
+    : Array.from(new Set(selectedCandidates.map(candidate => knowledgeDomainForTargetKind(candidate.kind))));
+
+  return {
+    domains,
+    targetPaths: Array.from(new Set(selectedCandidates.map(candidate => candidate.path)))
+  };
 }
 
 async function retrieveInitialKnowledgeFacts(
   preflight: RunPreflightState,
   config: QueryLoopConfig
 ): Promise<AgentRuntimeState['knowledgeFacts']> {
-  const targetPaths = selectKnowledgeFactTargetPaths(preflight);
-  if (targetPaths.length === 0 || preflight.requestedDomains.length === 0) {
+  const scope = selectKnowledgeFactScope(preflight);
+  if (scope.targetPaths.length === 0 || scope.domains.length === 0) {
     return null;
   }
 
   const pack = await buildKnowledgePack(preflight.inspection, {
-    domains: preflight.requestedDomains,
-    targetPaths,
+    domains: scope.domains,
+    targetPaths: scope.targetPaths,
     maxFacts: config.retrievedContextBudget.maxFacts
   });
 

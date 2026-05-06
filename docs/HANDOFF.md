@@ -9757,6 +9757,32 @@ Remaining risks:
 - Durable docs still need to describe `knowledgeFacts` as advisory,
   contract-validated, and preferred over raw docs for downstream agents.
 
+## 2026-05-05 Generic Target Knowledge Fact Scope Slice
+
+Files added or updated:
+
+- `src/query.ts`
+- `test/cli-smoke.test.mjs`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Load knowledge facts for generic tasks when preflight still selected concrete
+  target candidates but `requestedDomains` is empty.
+- Derive fact domains from the top target candidate for generic tasks instead
+  of scanning the whole workspace.
+- Keep explicit domain requests unchanged: when `requestedDomains` is present,
+  only matching target candidates contribute fact scope.
+
+Known validation:
+
+- `node --experimental-strip-types --test-name-pattern "agent runtime loads Helm chart schema context|agent runtime loads knowledge facts for generic tasks" ./test/cli-smoke.test.mjs`: passed.
+
+Remaining risks:
+
+- Fact ranking remains extraction-order based; small `--context-fact-limit`
+  values may omit more useful facts until a ranking slice is added.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
