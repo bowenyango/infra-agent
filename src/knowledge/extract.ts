@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildKnowledgeCacheId, readKnowledgeCacheEntry } from './cache.ts';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { buildTerraformProviderSchemaKnowledgeContent } from '../domain/terraform-provider-schema.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
 import type { KnowledgeCacheEntry, KnowledgeContentType, KnowledgeFactSet, KnowledgeSource } from '../types/knowledge.ts';
 
@@ -70,7 +71,19 @@ async function readSourceEntry(
   source: KnowledgeSource
 ): Promise<KnowledgeCacheEntry | null> {
   if (source.localPath) {
-    const content = await readFile(join(inspection.workspaceRoot, source.localPath), 'utf8');
+    let content: string | null = null;
+    if (source.kind === 'provider-schema' && source.module) {
+      const root = inspection.terraformRoots.find(candidate => candidate.rootPath === source.module);
+      if (root) {
+        content = await buildTerraformProviderSchemaKnowledgeContent({
+          workspaceRoot: inspection.workspaceRoot,
+          root,
+          schemaFile: source.localPath
+        });
+      }
+    }
+
+    content ??= await readFile(join(inspection.workspaceRoot, source.localPath), 'utf8');
     return {
       id: buildKnowledgeCacheId(source),
       source,

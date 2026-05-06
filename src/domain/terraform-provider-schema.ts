@@ -625,6 +625,15 @@ async function buildCompactProviderSchemaContext(
   };
 }
 
+export async function buildTerraformProviderSchemaKnowledgeContent(input: {
+  workspaceRoot: string;
+  root: TerraformRootSummary;
+  schemaFile: string;
+}): Promise<string | null> {
+  const compactContext = await buildCompactProviderSchemaContext(input.workspaceRoot, input.root, input.schemaFile);
+  return compactContext ? JSON.stringify(compactContext, null, 2) : null;
+}
+
 function buildProviderVersionMap(
   schemaFile: TerraformProvidersSchemaFile,
   lockedBySource: Map<string, TerraformLockedProvider>

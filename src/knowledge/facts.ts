@@ -15,6 +15,27 @@ interface ExtractKnowledgeFactSetOptions {
 
 const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const IDENTITY_FIELD_NAMES = new Set(['bucket', 'domain_name', 'name', 'priority']);
+const MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS = 120;
+
+interface CompactTerraformProviderSchemaAttribute {
+  name: string;
+  type?: string;
+  required?: boolean;
+  optional?: boolean;
+  computed?: boolean;
+  sensitive?: boolean;
+  deprecated?: boolean;
+}
+
+interface CompactTerraformProviderSchemaBlock {
+  type: string;
+  kind: 'resource' | 'data-source';
+  sourcePaths?: string[];
+  requiredAttributes?: CompactTerraformProviderSchemaAttribute[];
+  configuredAttributes?: CompactTerraformProviderSchemaAttribute[];
+  requiredBlocks?: string[];
+  configuredBlocks?: string[];
+}
 
 function factSource(entry: KnowledgeCacheEntry, locator: string): KnowledgeFactSourceRef {
   return {
@@ -253,6 +274,227 @@ function isRecordWithArray(value: unknown, field: string): value is Record<strin
     && Array.isArray((value as Record<string, unknown>)[field]);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+    : [];
+}
+
+function asCompactTerraformProviderSchemaAttribute(value: unknown): CompactTerraformProviderSchemaAttribute | null {
+  if (!isRecord(value) || typeof value.name !== 'string' || value.name.length === 0) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    ...(typeof value.type === 'string' ? { type: value.type } : {}),
+    ...(typeof value.required === 'boolean' ? { required: value.required } : {}),
+    ...(typeof value.optional === 'boolean' ? { optional: value.optional } : {}),
+    ...(typeof value.computed === 'boolean' ? { computed: value.computed } : {}),
+    ...(typeof value.sensitive === 'boolean' ? { sensitive: value.sensitive } : {}),
+    ...(typeof value.deprecated === 'boolean' ? { deprecated: value.deprecated } : {})
+  };
+}
+
+function asCompactTerraformProviderSchemaBlock(value: unknown): CompactTerraformProviderSchemaBlock | null {
+  if (
+    !isRecord(value)
+    || typeof value.type !== 'string'
+    || (value.kind !== 'resource' && value.kind !== 'data-source')
+  ) {
+    return null;
+  }
+
+  const requiredAttributes = Array.isArray(value.requiredAttributes)
+    ? value.requiredAttributes.map(asCompactTerraformProviderSchemaAttribute)
+      .filter((attribute): attribute is CompactTerraformProviderSchemaAttribute => Boolean(attribute))
+    : [];
+  const configuredAttributes = Array.isArray(value.configuredAttributes)
+    ? value.configuredAttributes.map(asCompactTerraformProviderSchemaAttribute)
+      .filter((attribute): attribute is CompactTerraformProviderSchemaAttribute => Boolean(attribute))
+    : [];
+
+  return {
+    type: value.type,
+    kind: value.kind,
+    sourcePaths: asStringArray(value.sourcePaths),
+    requiredAttributes,
+    configuredAttributes,
+    requiredBlocks: asStringArray(value.requiredBlocks),
+    configuredBlocks: asStringArray(value.configuredBlocks)
+  };
+}
+
+function providerSchemaBlockPath(block: CompactTerraformProviderSchemaBlock, fieldPath: string): string {
+  return `${block.kind === 'resource' ? 'resource' : 'data'}.${block.type}.${fieldPath}`;
+}
+
+function relationValuesFromBlockEntry(blockEntry: string): { name: string; values: string[] } | null {
+  const [name, ...values] = blockEntry.split(/\s+/).filter(Boolean);
+  if (!name || SECRET_PATH_PATTERN.test(name)) {
+    return null;
+  }
+
+  return {
+    name,
+    values: values.filter(value => !SECRET_PATH_PATTERN.test(value))
+  };
+}
+
+function pushTerraformProviderSchemaAttributeFact(params: {
+  entry: KnowledgeCacheEntry;
+  block: CompactTerraformProviderSchemaBlock;
+  attribute: CompactTerraformProviderSchemaAttribute;
+  required: boolean;
+  emittedPaths: Set<string>;
+  facts: KnowledgeFact[];
+}): void {
+  if (params.facts.length >= MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS) {
+    return;
+  }
+
+  const attribute = params.attribute;
+  if (attribute.sensitive || SECRET_PATH_PATTERN.test(attribute.name)) {
+    return;
+  }
+
+  const path = providerSchemaBlockPath(params.block, attribute.name);
+  if (SECRET_PATH_PATTERN.test(path) || params.emittedPaths.has(path)) {
+    return;
+  }
+
+  const computedOnly = Boolean(attribute.computed && !attribute.optional && !attribute.required);
+  const summary = computedOnly
+    ? `${path} is computed by the Terraform provider schema; do not set it in configuration.`
+    : params.required
+      ? `${path} is required by the Terraform provider schema.`
+      : `${path} is configured in this Terraform root and typed by the provider schema.`;
+  if (SECRET_PATH_PATTERN.test(summary)) {
+    return;
+  }
+
+  params.emittedPaths.add(path);
+  params.facts.push({
+    kind: computedOnly ? 'attribute' : 'argument',
+    path,
+    summary,
+    ...(attribute.type ? { type: attribute.type, values: [attribute.type] } : {}),
+    required: params.required,
+    confidence: 'high',
+    extractionMethod: 'terraform-provider-schema',
+    source: factSource(params.entry, `provider schema: ${path}`),
+    ...(params.block.sourcePaths && params.block.sourcePaths.length > 0 ? { relatedPaths: params.block.sourcePaths } : {})
+  });
+}
+
+function pushTerraformProviderSchemaNestedBlockFact(params: {
+  entry: KnowledgeCacheEntry;
+  block: CompactTerraformProviderSchemaBlock;
+  blockEntry: string;
+  required: boolean;
+  emittedPaths: Set<string>;
+  facts: KnowledgeFact[];
+}): void {
+  if (params.facts.length >= MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS) {
+    return;
+  }
+
+  const relation = relationValuesFromBlockEntry(params.blockEntry);
+  if (!relation) {
+    return;
+  }
+
+  const path = providerSchemaBlockPath(params.block, relation.name);
+  if (SECRET_PATH_PATTERN.test(path) || params.emittedPaths.has(path)) {
+    return;
+  }
+
+  params.emittedPaths.add(path);
+  params.facts.push({
+    kind: 'nested-block',
+    path,
+    summary: params.required
+      ? `${path} block is required by the Terraform provider schema.`
+      : `${path} block is configured in this Terraform root and constrained by the provider schema.`,
+    required: params.required,
+    ...(relation.values.length > 0 ? { values: relation.values } : {}),
+    confidence: 'high',
+    extractionMethod: 'terraform-provider-schema',
+    source: factSource(params.entry, `provider schema: ${path}`),
+    ...(params.block.sourcePaths && params.block.sourcePaths.length > 0 ? { relatedPaths: params.block.sourcePaths } : {})
+  });
+}
+
+function extractTerraformProviderSchemaFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
+  try {
+    const parsed = JSON.parse(entry.content) as unknown;
+    const blocks = isRecord(parsed) && Array.isArray(parsed.blocks)
+      ? parsed.blocks.map(asCompactTerraformProviderSchemaBlock)
+        .filter((block): block is CompactTerraformProviderSchemaBlock => Boolean(block))
+      : [];
+    const facts: KnowledgeFact[] = [];
+
+    for (const block of blocks) {
+      const emittedPaths = new Set<string>();
+      for (const attribute of block.requiredAttributes ?? []) {
+        pushTerraformProviderSchemaAttributeFact({
+          entry,
+          block,
+          attribute,
+          required: true,
+          emittedPaths,
+          facts
+        });
+      }
+
+      for (const attribute of block.configuredAttributes ?? []) {
+        pushTerraformProviderSchemaAttributeFact({
+          entry,
+          block,
+          attribute,
+          required: Boolean(attribute.required),
+          emittedPaths,
+          facts
+        });
+      }
+
+      for (const blockEntry of block.requiredBlocks ?? []) {
+        pushTerraformProviderSchemaNestedBlockFact({
+          entry,
+          block,
+          blockEntry,
+          required: true,
+          emittedPaths,
+          facts
+        });
+      }
+
+      for (const blockEntry of block.configuredBlocks ?? []) {
+        pushTerraformProviderSchemaNestedBlockFact({
+          entry,
+          block,
+          blockEntry,
+          required: false,
+          emittedPaths,
+          facts
+        });
+      }
+
+      if (facts.length >= MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS) {
+        break;
+      }
+    }
+
+    return facts;
+  } catch {
+    return [];
+  }
+}
+
 export function extractKnowledgeFactSetFromCacheEntry(
   entry: KnowledgeCacheEntry,
   options: ExtractKnowledgeFactSetOptions = {}
@@ -265,6 +507,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
 
     if (entry.source.kind === 'chart-schema' && entry.contentType === 'application/json') {
       return extractHelmValuesSchemaFacts(entry);
+    }
+
+    if (entry.source.kind === 'provider-schema' && entry.contentType === 'application/json') {
+      return extractTerraformProviderSchemaFacts(entry);
     }
 
     return [];

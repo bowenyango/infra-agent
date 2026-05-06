@@ -3271,6 +3271,58 @@ test('Terraform provider schema context stays local and compact', async () => {
   }
 });
 
+test('workspace knowledge facts extract focused Terraform provider schema facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-provider-schema-facts-'));
+
+  try {
+    await writeTerraformProviderSchemaWorkspace(tempRoot);
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const report = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    const providerSchemaResult = report.sources.find(source =>
+      source.source.kind === 'provider-schema'
+      && source.targetPath === 'terraform/app'
+    );
+    assert.equal(providerSchemaResult?.status, 'extracted');
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'provider-schema'
+      && factSet.source.version === 'hashicorp/aws@5.37.0'
+      && factSet.facts.some(fact =>
+        fact.kind === 'argument'
+        && fact.path === 'resource.aws_lb_listener_rule.listener_arn'
+        && fact.required === true
+        && fact.type === 'string'
+      )
+    ));
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'provider-schema'
+      && factSet.facts.some(fact =>
+        fact.kind === 'argument'
+        && fact.path === 'resource.aws_lb_listener_rule.priority'
+        && fact.required === false
+        && fact.type === 'number'
+      )
+    ));
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'provider-schema'
+      && factSet.facts.some(fact =>
+        fact.kind === 'nested-block'
+        && fact.path === 'resource.aws_lb_listener_rule.action'
+        && fact.required === true
+        && fact.values?.includes('max_items=1')
+      )
+    ));
+    assert.doesNotMatch(JSON.stringify(report.factSets), /aws_instance|provider_schemas|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('Terraform Registry context packets retrieve selected source docs through the cache layer', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-retrieve-'));
   const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-cache-'));
