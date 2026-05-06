@@ -9834,6 +9834,51 @@ test('knowledge validate command validates extraction JSON files', async () => {
   }
 });
 
+test('knowledge validate command detects stale local source fingerprints with workspace', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-validate-stale-'));
+  const previousExitCode = process.exitCode;
+
+  try {
+    process.exitCode = undefined;
+    await cp(resolve('fixtures/sample-workspace'), tempRoot, { recursive: true });
+    const inspection = await inspectWorkspace(tempRoot);
+    const extraction = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['helm'],
+      targetPaths: ['charts/payments-api'],
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+    const inputPath = join(tempRoot, 'knowledge-extraction.json');
+    await writeFile(inputPath, JSON.stringify(extraction, null, 2));
+    await writeFile(
+      join(tempRoot, 'charts/payments-api/Chart.yaml'),
+      `${await readFile(join(tempRoot, 'charts/payments-api/Chart.yaml'), 'utf8')}\n# changed after extraction\n`
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      inputPath,
+      '--workspace',
+      tempRoot,
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-validation');
+    assert.equal(report.valid, false);
+    assert.equal(report.workspaceRoot, resolve(process.cwd(), tempRoot));
+    assert.equal(report.staleSourceCount, 1);
+    assert.equal(process.exitCode, 1);
+    assert.ok(report.issues.some(issue =>
+      issue.severity === 'error'
+      && /local-file-hash-mismatch/.test(issue.message)
+    ));
+  } finally {
+    process.exitCode = previousExitCode;
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge pack command emits bounded fact pack JSON', async () => {
   const output = await captureStdout(() => main([
     'knowledge',
