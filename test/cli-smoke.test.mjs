@@ -8755,6 +8755,65 @@ test('knowledge pack command emits focused Terraform provider schema facts', asy
   }
 });
 
+test('knowledge pack command emits Terraform local module facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-terraform-module-cli-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    const moduleRoot = join(terraformRoot, 'modules/queue-worker');
+    await mkdir(moduleRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'variables.tf'),
+      [
+        'variable "image_tag" {',
+        '  type = string',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'terraform',
+      '--target',
+      'terraform/app',
+      '--max-facts',
+      '2',
+      '--json'
+    ]));
+    const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.mutationAllowed, false);
+    assert.equal(pack.maxFacts, 2);
+    assert.ok(pack.sources.some(source =>
+      source.kind === 'terraform-module'
+      && source.targetPath === 'terraform/app'
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'module-input'
+      && fact.path === 'module.queue_worker.inputs.image_tag'
+    ));
+    assert.doesNotMatch(output, /variable "image_tag"|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('graph CLI args accept workspace and json flags', () => {
   const parsed = parseArgs([
     'graph',
