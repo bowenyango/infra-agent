@@ -10076,3 +10076,78 @@ Remaining risks:
   deferred.
 - Module facts are advisory interface facts. Native Terraform validation and
   plan output remain authoritative for actual module behavior.
+
+## 2026-05-05 Pulumi Config Knowledge Facts Slice
+
+Files added or updated:
+
+- `src/domain/pulumi-config-knowledge.ts`
+- `src/knowledge/prefetch.ts`
+- `src/knowledge/extract.ts`
+- `src/knowledge/facts.ts`
+- `src/knowledge/pack.ts`
+- `src/knowledge/fact-ranking.ts`
+- `src/types/knowledge.ts`
+- `src/knowledge/facts-contract.ts`
+- `src/cli/agent-result-contract.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `pulumi-config` as a local knowledge source kind for Pulumi project and
+  stack configuration context discovered from `Pulumi.yaml` and sibling
+  `Pulumi.<stack>.yaml` files.
+- Build compact JSON summaries for project config declarations, safe defaults,
+  stack files, and safe stack config values. The source reader never passes raw
+  Pulumi YAML into extraction reports, packs, runtime prompts, or compact
+  handoff output.
+- Extract ranked `pulumi-config-parameter` facts with
+  `repo-local-static` provenance so the planner can choose known config keys,
+  types, defaults, and existing safe stack values before relying on generic
+  examples.
+- Wire the source through `knowledge sources`, `knowledge extract`,
+  `knowledge pack`, and runtime `knowledgeFacts` for selected Pulumi targets.
+
+Design notes:
+
+- Secret-like config keys are omitted. All stack entries represented with
+  Pulumi `secure` values are skipped entirely so secure ciphertext and
+  redacted-looking payloads do not become durable facts.
+- The extractor does not infer `required: true` from a project declaration
+  alone. It only records `required: false` when a safe default exists; missing
+  and invalid config remains a `pulumi preview` responsibility.
+- Local Pulumi config facts are advisory planner context. They sit below native
+  Pulumi CLI validation and above external docs/examples in ranking.
+- This slice implements repo-local public/config knowledge persistence. Team
+  cache backends and cross-repo shared knowledge storage remain future work.
+
+Known validation:
+
+- `npm run test:unit -- --test-name-pattern "knowledge source contracts include local infra sources"`: passed.
+- `npm run test:unit -- --test-name-pattern "Pulumi config knowledge sources summarize discovered project metadata"`: passed.
+- `npm run test:unit -- --test-name-pattern "Pulumi config knowledge content summarizes safe project and stack config"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge fact extractor summarizes Pulumi config parameters"`: passed.
+- `npm run test:unit -- --test-name-pattern "workspace knowledge facts extract Pulumi config parameters locally"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge pack includes Pulumi config parameters under small budgets"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge fact ranking places Pulumi config parameters before examples"`: passed.
+- `npm run test:unit -- --test-name-pattern "agent runtime loads Pulumi config knowledge facts"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge extract command emits Pulumi config facts"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge pack command emits Pulumi config facts"`: passed.
+- `npm run test:unit -- --test-name-pattern "package metadata exposes only the installable CLI and skill surface"`: passed; due the current Node test harness this command executed the full unit test file and reported 352 passing tests.
+
+Remaining risks:
+
+- Pulumi official-doc source selection, Pulumi component facts, Helm chart
+  metadata facts, and Helm dependency fact extraction are still planned.
+- Local fact refresh and staleness reporting for workspace file changes is not
+  yet implemented.
+- Public provider/chart knowledge should remain cache-first and normally should
+  not be committed to the repo. Team-scale shared knowledge storage, such as an
+  explicit S3-compatible cache backend, is still an architecture item.
+- `pulumi preview` remains the authoritative validation step for real stack
+  behavior, provider-specific defaults, and missing/invalid configuration.
