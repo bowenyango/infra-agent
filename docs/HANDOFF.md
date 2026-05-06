@@ -9988,11 +9988,16 @@ Known validation:
   failed only the old `replicaCount` assertion in the generic target knowledge
   facts test. That assertion has since been updated to expect the ranked
   required Helm schema fact.
+- `npm run verify`: passed after the expectation repair; lint, 331 unit tests,
+  smoke, and e2e completed successfully.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed; dry-run package reports 121 files and includes
+  `src/knowledge/fact-ranking.ts`, focused provider schema extraction, and the
+  updated docs/skill guidance.
+- `git diff --check`: passed.
 
 Remaining risks:
 
-- Full `npm run verify`, package dry-run, and `git diff --check` still need to
-  run after this slice.
 - Terraform module facts, Pulumi component/config facts, Helm metadata/default
   facts, and team/shared storage backends remain future work.
 - Provider schema knowledge facts are local/export dependent; missing or stale
