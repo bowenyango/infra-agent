@@ -4508,6 +4508,74 @@ test('agent runtime loads focused Terraform provider schema knowledge facts', as
   }
 });
 
+test('agent runtime loads Terraform local module knowledge facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-runtime-terraform-module-facts-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    const moduleRoot = join(terraformRoot, 'modules/queue-worker');
+    await mkdir(moduleRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'variables.tf'),
+      [
+        'variable "image_tag" {',
+        '  type = string',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const checkingModel = {
+      name: 'terraform-module-knowledge-check',
+      async decideNextAction({ runtime }) {
+        assert.ok(runtime.knowledgeFacts);
+        assert.equal(runtime.knowledgeFacts.requestedDomains.includes('terraform'), true);
+        assert.equal(runtime.knowledgeFacts.targetPaths.includes('terraform/app'), true);
+        assert.ok(runtime.knowledgeFacts.facts.some(fact =>
+          fact.kind === 'module-input'
+          && fact.path === 'module.queue_worker.inputs.image_tag'
+          && fact.required === true
+        ));
+        assert.doesNotMatch(JSON.stringify(runtime.knowledgeFacts), /variable "image_tag"|"content"\s*:/);
+        return {
+          confidence: 'high',
+          action: {
+            kind: 'stop',
+            summary: 'Terraform module facts checked.',
+            rationale: 'The runtime loaded local Terraform module facts.',
+            payload: {
+              stopReason: 'no-safe-action'
+            }
+          }
+        };
+      }
+    };
+
+    const result = await runSingleStep(
+      'update terraform app queue worker image tag',
+      tempRoot,
+      checkingModel
+    );
+
+    assert.ok(result.runtime.knowledgeFacts?.facts.some(fact =>
+      fact.path === 'module.queue_worker.source'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('agent runtime loads knowledge facts for generic tasks with selected targets', async () => {
   const checkingModel = {
     name: 'generic-target-knowledge-check',
