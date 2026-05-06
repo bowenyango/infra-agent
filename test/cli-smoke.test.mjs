@@ -8484,6 +8484,51 @@ test('knowledge sources command emits read-only source listing JSON', async () =
   assert.doesNotMatch(output, /contentHash|fetchedAt|# Values|replicaCount:/);
 });
 
+test('knowledge sources command lists Terraform local module sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-sources-terraform-module-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(join(terraformRoot, 'modules/queue-worker'), { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'terraform',
+      '--target',
+      'terraform/app',
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-sources');
+    assert.equal(report.mutationAllowed, false);
+    assert.ok(report.sources.some(source =>
+      source.domain === 'terraform'
+      && source.targetPath === 'terraform/app'
+      && source.requiresFetch === false
+      && source.source.kind === 'terraform-module'
+      && source.source.localPath === 'terraform/app/modules/queue-worker'
+    ));
+    assert.ok(report.summary.local >= 1);
+    assert.doesNotMatch(output, /variable "image_tag"|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge prefetch command emits existing prefetch JSON contract', async () => {
   const output = await captureStdout(() => main([
     'knowledge',
