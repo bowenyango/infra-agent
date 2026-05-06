@@ -141,8 +141,8 @@ Current behavior is intentionally runtime-foundation oriented:
   without fetching, `prefetch` aliases the bounded cache update path,
   `extract` turns cached docs, local schemas, local modules, local Helm chart
   metadata, and local Pulumi config summaries into
-  `infra-agent.knowledge-facts`, `validate` checks facts or extraction reports
-  before use, and `pack` ranks and emits a bounded planner-safe
+  `infra-agent.knowledge-facts`, `validate` checks facts, extraction reports,
+  and compact packs before use, and `pack` ranks and emits a bounded planner-safe
   `infra-agent.knowledge-pack` without raw source content. `extract --out`
   explicitly persists reusable fact artifacts for later validation, and
   `pack --out` persists bounded packs for handoff or team-cache staging without

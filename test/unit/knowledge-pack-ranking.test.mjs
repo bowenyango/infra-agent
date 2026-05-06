@@ -16,6 +16,7 @@ import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
 import { rankKnowledgePackFacts } from '../../src/knowledge/fact-ranking.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 test('knowledge pack builds bounded planner-safe fact packs', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
@@ -48,6 +49,92 @@ test('knowledge pack builds bounded planner-safe fact packs', async () => {
   assert.ok(localSource && !('sourceFingerprint' in localSource));
   assert.ok(pack.facts.every(fact => typeof fact.sourceId === 'string' && !('source' in fact)));
   assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|replicaCount":\s*\{|"\$schema"|resource "aws_/);
+});
+
+test('knowledge validation accepts packs and rejects compact pack drift', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 3,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+
+  const validReport = validateKnowledgePayload(pack, 'inline');
+  assert.equal(validReport.kind, 'infra-agent.knowledge-validation');
+  assert.equal(validReport.inputKind, 'infra-agent.knowledge-pack');
+  assert.equal(validReport.valid, true);
+  assert.equal(validReport.factSetCount, pack.factSetCount);
+  assert.equal(validReport.factCount, pack.factCount);
+  assert.equal(validReport.staleSourceCount, pack.staleSourceCount);
+
+  const countDriftReport = validateKnowledgePayload({
+    ...pack,
+    sourceCount: pack.sourceCount + 1,
+    factSetCount: pack.factSetCount + 1,
+    factCount: pack.factCount + 1,
+    includedFactCount: pack.includedFactCount + 1,
+    omittedFactCount: pack.omittedFactCount + 1,
+    staleSourceCount: pack.staleSourceCount + 1
+  }, 'inline');
+  assert.equal(countDriftReport.valid, false);
+  for (const path of [
+    '$.sourceCount',
+    '$.factSetCount',
+    '$.factCount',
+    '$.includedFactCount',
+    '$.omittedFactCount',
+    '$.staleSourceCount'
+  ]) {
+    assert.ok(countDriftReport.issues.some(issue => issue.path === path), path);
+  }
+
+  const missingSourceReport = validateKnowledgePayload({
+    ...pack,
+    facts: [{
+      ...pack.facts[0],
+      sourceId: 'missing-source'
+    }]
+  }, 'inline');
+  assert.equal(missingSourceReport.valid, false);
+  assert.ok(missingSourceReport.issues.some(issue => issue.path === '$.facts[0].sourceId'));
+
+  const sourceShapeReport = validateKnowledgePayload({
+    ...pack,
+    sources: [{
+      ...pack.sources[0],
+      stale: false,
+      staleReason: 'time-expired',
+      freshness: 'stale',
+      fingerprintDigest: 'not-a-sha',
+      fingerprintFileCount: '1'
+    }],
+    sourceIds: [pack.sources[0]?.id],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: pack.sources[0]?.factCount ?? 0,
+    includedFactCount: 0,
+    omittedFactCount: pack.sources[0]?.factCount ?? 0,
+    staleSourceCount: 0,
+    facts: []
+  }, 'inline');
+  assert.equal(sourceShapeReport.valid, false);
+  assert.ok(sourceShapeReport.issues.some(issue => issue.path === '$.sources[0].staleReason'));
+  assert.ok(sourceShapeReport.issues.some(issue => issue.path === '$.sources[0].freshness'));
+  assert.ok(sourceShapeReport.issues.some(issue => issue.path === '$.sources[0].fingerprintDigest'));
+  assert.ok(sourceShapeReport.issues.some(issue => issue.path === '$.sources[0].fingerprintFileCount'));
+
+  const secretLikeFactReport = validateKnowledgePayload({
+    ...pack,
+    facts: [{
+      ...pack.facts[0],
+      summary: 'contains password-like planner context'
+    }],
+    includedFactCount: 1,
+    omittedFactCount: pack.factCount - 1
+  }, 'inline');
+  assert.equal(secretLikeFactReport.valid, false);
+  assert.ok(secretLikeFactReport.issues.some(issue => issue.path === '$.facts[0].summary'));
 });
 
 test('knowledge fact budget summarizes packs without raw source payloads', async () => {

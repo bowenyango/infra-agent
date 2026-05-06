@@ -1260,6 +1260,13 @@ test('knowledge pack command writes a bounded reusable artifact with --out', asy
     ]));
     const stdoutPack = JSON.parse(output.slice(output.indexOf('{')));
     const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+    const validationOutput = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      outputPath,
+      '--json'
+    ]));
+    const validation = JSON.parse(validationOutput.slice(validationOutput.indexOf('{')));
 
     assert.equal(stdoutPack.kind, 'infra-agent.knowledge-pack');
     assert.equal(stdoutPack.outputPath, outputPath);
@@ -1268,8 +1275,62 @@ test('knowledge pack command writes a bounded reusable artifact with --out', asy
     assert.equal(artifact.packId, stdoutPack.packId);
     assert.equal(artifact.maxFacts, 4);
     assert.equal(artifact.facts.length, artifact.includedFactCount);
+    assert.equal(validation.inputKind, 'infra-agent.knowledge-pack');
+    assert.equal(validation.valid, true);
+    assert.equal(validation.factSetCount, artifact.factSetCount);
+    assert.equal(validation.factCount, artifact.factCount);
     assert.doesNotMatch(JSON.stringify(artifact), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
   } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge validate command rejects forged pack JSON files', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-validate-forged-'));
+  const previousExitCode = process.exitCode;
+
+  try {
+    process.exitCode = undefined;
+    const outputPath = join(tempRoot, 'knowledge-pack.json');
+    await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      'fixtures/sample-workspace',
+      '--domain',
+      'helm',
+      '--target',
+      'charts/payments-api',
+      '--max-facts',
+      '4',
+      '--out',
+      outputPath,
+      '--json'
+    ]));
+    const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+    await writeFile(outputPath, JSON.stringify({
+      ...artifact,
+      includedFactCount: artifact.includedFactCount + 1,
+      facts: [{
+        ...artifact.facts[0],
+        sourceId: 'forged-source'
+      }]
+    }, null, 2));
+
+    const validationOutput = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      outputPath,
+      '--json'
+    ]));
+    const validation = JSON.parse(validationOutput.slice(validationOutput.indexOf('{')));
+
+    assert.equal(validation.inputKind, 'infra-agent.knowledge-pack');
+    assert.equal(validation.valid, false);
+    assert.equal(process.exitCode, 1);
+    assert.ok(validation.issues.some(issue => issue.path === '$.includedFactCount'));
+    assert.ok(validation.issues.some(issue => issue.path === '$.facts[0].sourceId'));
+  } finally {
+    process.exitCode = previousExitCode;
     await rm(tempRoot, { recursive: true, force: true });
   }
 });

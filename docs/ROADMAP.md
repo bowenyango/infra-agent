@@ -200,10 +200,10 @@ Implemented initial CLI surfaces:
   - extracts normalized `knowledge-facts` from cached docs, repo-local schemas,
     examples, and module/component/chart code. `--out` explicitly persists the
     generated artifact for later validation or handoff.
-- `infra-agent knowledge validate <facts.json> [--workspace <workspace>] --json`
+- `infra-agent knowledge validate <facts.json|pack.json> [--workspace <workspace>] --json`
   - validates schema, source links, count consistency, stale policy, confidence
-    labels, local source fingerprints, and secret safety before facts are used
-    by the planner.
+    labels, compact pack freshness metadata, local source fingerprints, and
+    secret safety before facts are used by the planner.
 - `infra-agent knowledge pack <workspace> [--target <path>] [--out <pack.json>]
   --json`
   - builds a bounded `knowledge-pack` for handoff or team cache publication.
@@ -217,7 +217,8 @@ Recommended storage layers:
 - Repo-curated: small reviewed packs under a workspace-relative configured path,
   never automatic bulk cache commits. Saved repo-derived fact sets should be
   revalidated with `knowledge validate --workspace` so file hash drift is
-  detected before reuse.
+  detected before reuse. Saved compact packs should also pass
+  `knowledge validate` before handoff or team-cache publication.
 - Team cache: content-addressed object store plus metadata index. S3-compatible
   storage is a good first remote backend for blobs; add DynamoDB/Postgres only
   when query/index requirements justify it.

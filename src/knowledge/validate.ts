@@ -2,7 +2,17 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseKnowledgeFactSet } from './facts-contract.ts';
 import { checkKnowledgeSourceFingerprint } from './local-source-fingerprint.ts';
-import type { KnowledgeFactSet } from '../types/knowledge.ts';
+import type { KnowledgePackFact, KnowledgePackSource } from './pack.ts';
+import {
+  KNOWLEDGE_FACT_EXTRACTION_METHODS,
+  KNOWLEDGE_FACT_KINDS,
+  type KnowledgeFactExtractionMethod,
+  type KnowledgeFactKind,
+  type KnowledgeFactSet,
+  type KnowledgeSourceKind,
+  type KnowledgeSourceStaleReason,
+  type RetrievedContextConfidence
+} from '../types/knowledge.ts';
 
 export interface KnowledgeValidationIssue {
   severity: 'error' | 'warning';
@@ -40,6 +50,38 @@ interface LocalSourceValidationStats {
   uncheckedLocalSourceCount: number;
 }
 
+interface KnowledgeValidationCountOverrides {
+  factSetCount?: number;
+  factCount?: number;
+  staleSourceCount?: number;
+}
+
+const KNOWLEDGE_SOURCE_KINDS = [
+  'terraform-registry',
+  'pulumi-docs',
+  'helm-docs',
+  'chart-docs',
+  'chart-metadata',
+  'provider-schema',
+  'chart-schema',
+  'chart-lock',
+  'repo-example',
+  'pulumi-config',
+  'terraform-module',
+  'module-readme'
+] as const satisfies readonly KnowledgeSourceKind[];
+const KNOWLEDGE_SOURCE_STALE_REASONS = [
+  'time-expired',
+  'local-file-hash-mismatch',
+  'local-file-missing'
+] as const satisfies readonly KnowledgeSourceStaleReason[];
+const KNOWLEDGE_PACK_SOURCE_FRESHNESS = ['fresh', 'stale', 'unchecked'] as const;
+const INFRA_DOMAINS = ['helm', 'pulumi', 'terraform'] as const;
+const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];
+const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
+const PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -53,9 +95,11 @@ function createReport(
   localSourceStats: LocalSourceValidationStats = {
     staleSourceIds: new Set(),
     uncheckedLocalSourceCount: 0
-  }
+  },
+  countOverrides: KnowledgeValidationCountOverrides = {}
 ): KnowledgeValidationReport {
-  const factCount = factSets.reduce((total, factSet) => total + factSet.factCount, 0);
+  const factCount = countOverrides.factCount
+    ?? factSets.reduce((total, factSet) => total + factSet.factCount, 0);
   const staleSourceIds = new Set([
     ...factSets.filter(factSet => factSet.sourceStale).map(factSet => factSet.sourceId),
     ...localSourceStats.staleSourceIds
@@ -68,9 +112,9 @@ function createReport(
     inputKind,
     ...(options.workspaceRoot !== undefined ? { workspaceRoot: options.workspaceRoot } : {}),
     valid: issues.every(issue => issue.severity !== 'error'),
-    factSetCount: factSets.length,
+    factSetCount: countOverrides.factSetCount ?? factSets.length,
     factCount,
-    staleSourceCount: staleSourceIds.size,
+    staleSourceCount: countOverrides.staleSourceCount ?? staleSourceIds.size,
     uncheckedLocalSourceCount: localSourceStats.uncheckedLocalSourceCount,
     issueCount: issues.length,
     issues
@@ -93,6 +137,104 @@ function warning(path: string, message: string): KnowledgeValidationIssue {
   };
 }
 
+function readNonEmptyString(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  message = 'must be a non-empty string.'
+): string | null {
+  if (typeof value !== 'string' || value.length === 0) {
+    issues.push(error(path, message));
+    return null;
+  }
+
+  return value;
+}
+
+function readString(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  message = 'must be a string.'
+): string | null {
+  if (typeof value !== 'string') {
+    issues.push(error(path, message));
+    return null;
+  }
+
+  return value;
+}
+
+function readBoolean(value: unknown, path: string, issues: KnowledgeValidationIssue[]): boolean | null {
+  if (typeof value !== 'boolean') {
+    issues.push(error(path, 'must be a boolean.'));
+    return null;
+  }
+
+  return value;
+}
+
+function readNonNegativeInteger(value: unknown, path: string, issues: KnowledgeValidationIssue[]): number | null {
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    issues.push(error(path, 'must be a non-negative integer.'));
+    return null;
+  }
+
+  return value as number;
+}
+
+function readPositiveInteger(value: unknown, path: string, issues: KnowledgeValidationIssue[]): number | null {
+  if (!Number.isInteger(value) || (value as number) < 1) {
+    issues.push(error(path, 'must be a positive integer.'));
+    return null;
+  }
+
+  return value as number;
+}
+
+function validateIsoDateString(value: unknown, path: string, issues: KnowledgeValidationIssue[]): void {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+    issues.push(error(path, 'must be an ISO date string.'));
+  }
+}
+
+function readStringArray(value: unknown, path: string, issues: KnowledgeValidationIssue[]): string[] | null {
+  if (!Array.isArray(value)) {
+    issues.push(error(path, 'must be an array.'));
+    return null;
+  }
+
+  const strings: string[] = [];
+  value.forEach((entry, index) => {
+    if (typeof entry !== 'string' || entry.length === 0) {
+      issues.push(error(`${path}[${index}]`, 'must be a non-empty string.'));
+      return;
+    }
+
+    strings.push(entry);
+  });
+
+  return strings;
+}
+
+function validateOptionalStringArray(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (value !== undefined) {
+    readStringArray(value, path, issues)?.forEach((entry, index) => {
+      validateNoSecretLikeValue(entry, `${path}[${index}]`, issues);
+    });
+  }
+}
+
+function validateNoSecretLikeValue(value: string, path: string, issues: KnowledgeValidationIssue[]): void {
+  if (SECRET_VALUE_PATTERN.test(value)) {
+    issues.push(error(path, 'must not include secret-like values.'));
+  }
+}
+
 function validateFactSet(value: unknown, path: string, issues: KnowledgeValidationIssue[]): KnowledgeFactSet | null {
   try {
     return parseKnowledgeFactSet(value);
@@ -102,6 +244,271 @@ function validateFactSet(value: unknown, path: string, issues: KnowledgeValidati
       : 'Knowledge fact set is invalid.'));
     return null;
   }
+}
+
+function validateKnowledgePackSource(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale'> | null {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge pack source must be an object.'));
+    return null;
+  }
+
+  const id = readNonEmptyString(value.id, `${path}.id`, issues);
+  if (typeof value.domain !== 'string' || !INFRA_DOMAINS.includes(value.domain as typeof INFRA_DOMAINS[number])) {
+    issues.push(error(`${path}.domain`, 'Knowledge pack source domain must be supported.'));
+  }
+  readString(value.targetPath, `${path}.targetPath`, issues);
+  if (typeof value.kind !== 'string' || !KNOWLEDGE_SOURCE_KINDS.includes(value.kind as KnowledgeSourceKind)) {
+    issues.push(error(`${path}.kind`, 'Knowledge pack source kind must be supported.'));
+  }
+  readNonEmptyString(value.name, `${path}.name`, issues);
+  const factCount = readNonNegativeInteger(value.factCount, `${path}.factCount`, issues);
+
+  if (typeof value.contentHash !== 'string' || !SHA256_HEX_PATTERN.test(value.contentHash)) {
+    issues.push(error(`${path}.contentHash`, 'Knowledge pack source contentHash must be a SHA-256 hex string.'));
+  }
+
+  if (value.fetchedAt !== null) {
+    validateIsoDateString(value.fetchedAt, `${path}.fetchedAt`, issues);
+  }
+  if (value.staleAfter !== undefined) {
+    validateIsoDateString(value.staleAfter, `${path}.staleAfter`, issues);
+  }
+
+  const stale = readBoolean(value.stale, `${path}.stale`, issues);
+  if (value.staleReason !== undefined) {
+    if (
+      typeof value.staleReason !== 'string'
+      || !KNOWLEDGE_SOURCE_STALE_REASONS.includes(value.staleReason as KnowledgeSourceStaleReason)
+    ) {
+      issues.push(error(`${path}.staleReason`, 'Knowledge pack source staleReason must be supported.'));
+    }
+    if (stale !== true) {
+      issues.push(error(`${path}.staleReason`, 'Knowledge pack source staleReason requires stale=true.'));
+    }
+  }
+
+  if (
+    typeof value.freshness !== 'string'
+    || !KNOWLEDGE_PACK_SOURCE_FRESHNESS.includes(value.freshness as typeof KNOWLEDGE_PACK_SOURCE_FRESHNESS[number])
+  ) {
+    issues.push(error(`${path}.freshness`, 'Knowledge pack source freshness must be supported.'));
+  } else if (stale === true && value.freshness !== 'stale') {
+    issues.push(error(`${path}.freshness`, 'Knowledge pack stale sources must use freshness=stale.'));
+  } else if (stale === false && value.freshness === 'stale') {
+    issues.push(error(`${path}.freshness`, 'Knowledge pack fresh sources must not use freshness=stale.'));
+  }
+
+  const hasFingerprintDigest = value.fingerprintDigest !== undefined;
+  const hasFingerprintFileCount = value.fingerprintFileCount !== undefined;
+  if (hasFingerprintDigest !== hasFingerprintFileCount) {
+    issues.push(error(`${path}.fingerprintDigest`, 'Knowledge pack source fingerprint digest and file count must be present together.'));
+  }
+  if (hasFingerprintDigest && (typeof value.fingerprintDigest !== 'string' || !SHA256_HEX_PATTERN.test(value.fingerprintDigest))) {
+    issues.push(error(`${path}.fingerprintDigest`, 'Knowledge pack source fingerprintDigest must be a SHA-256 hex string.'));
+  }
+  if (hasFingerprintFileCount) {
+    readNonNegativeInteger(value.fingerprintFileCount, `${path}.fingerprintFileCount`, issues);
+  }
+
+  if (id === null || factCount === null || stale === null) {
+    return null;
+  }
+
+  return {
+    id,
+    factCount,
+    stale
+  };
+}
+
+function validateKnowledgePackFact(
+  value: unknown,
+  path: string,
+  sourceIds: Set<string>,
+  issues: KnowledgeValidationIssue[]
+): Pick<KnowledgePackFact, 'sourceId'> | null {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge pack fact must be an object.'));
+    return null;
+  }
+
+  if (typeof value.kind !== 'string' || !KNOWLEDGE_FACT_KINDS.includes(value.kind as KnowledgeFactKind)) {
+    issues.push(error(`${path}.kind`, 'Knowledge pack fact kind must be supported.'));
+  }
+  const factPath = readNonEmptyString(value.path, `${path}.path`, issues);
+  if (factPath !== null) {
+    validateNoSecretLikeValue(factPath, `${path}.path`, issues);
+  }
+  const summary = readNonEmptyString(value.summary, `${path}.summary`, issues);
+  if (summary !== null) {
+    validateNoSecretLikeValue(summary, `${path}.summary`, issues);
+  }
+  if (
+    typeof value.confidence !== 'string'
+    || !RETRIEVED_CONTEXT_CONFIDENCES.includes(value.confidence as RetrievedContextConfidence)
+  ) {
+    issues.push(error(`${path}.confidence`, 'Knowledge pack fact confidence must be supported.'));
+  }
+  if (
+    typeof value.extractionMethod !== 'string'
+    || !KNOWLEDGE_FACT_EXTRACTION_METHODS.includes(value.extractionMethod as KnowledgeFactExtractionMethod)
+  ) {
+    issues.push(error(`${path}.extractionMethod`, 'Knowledge pack fact extractionMethod must be supported.'));
+  }
+
+  const sourceId = readNonEmptyString(value.sourceId, `${path}.sourceId`, issues);
+  if (sourceId !== null && !sourceIds.has(sourceId)) {
+    issues.push(error(`${path}.sourceId`, 'Knowledge pack fact sourceId must reference a source in sources.'));
+  }
+  const sourceLocator = readNonEmptyString(value.sourceLocator, `${path}.sourceLocator`, issues);
+  if (sourceLocator !== null) {
+    validateNoSecretLikeValue(sourceLocator, `${path}.sourceLocator`, issues);
+  }
+
+  if (value.required !== undefined && typeof value.required !== 'boolean') {
+    issues.push(error(`${path}.required`, 'Knowledge pack fact required must be a boolean when present.'));
+  }
+  if (value.type !== undefined) {
+    const type = readString(value.type, `${path}.type`, issues);
+    if (type !== null) {
+      validateNoSecretLikeValue(type, `${path}.type`, issues);
+    }
+  }
+  if (value.defaultValue !== undefined) {
+    const defaultValue = readString(value.defaultValue, `${path}.defaultValue`, issues);
+    if (defaultValue !== null) {
+      validateNoSecretLikeValue(defaultValue, `${path}.defaultValue`, issues);
+    }
+  }
+  validateOptionalStringArray(value.values, `${path}.values`, issues);
+  validateOptionalStringArray(value.relatedPaths, `${path}.relatedPaths`, issues);
+
+  return sourceId === null ? null : { sourceId };
+}
+
+function validateKnowledgePackPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Knowledge pack schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Knowledge pack mutationAllowed must be false.'));
+  }
+  if (typeof payload.packId !== 'string' || !PACK_ID_PATTERN.test(payload.packId)) {
+    issues.push(error('$.packId', 'Knowledge pack packId must be a 24-character hex string.'));
+  }
+  readNonEmptyString(payload.workspaceRoot, '$.workspaceRoot', issues);
+  readNonEmptyString(payload.cacheRoot, '$.cacheRoot', issues);
+
+  const requestedDomains = readStringArray(payload.requestedDomains, '$.requestedDomains', issues);
+  requestedDomains?.forEach((domain, index) => {
+    if (!INFRA_DOMAINS.includes(domain as typeof INFRA_DOMAINS[number])) {
+      issues.push(error(`$.requestedDomains[${index}]`, 'Knowledge pack requested domain must be supported.'));
+    }
+  });
+  readStringArray(payload.targetPaths, '$.targetPaths', issues);
+  const declaredSourceIds = readStringArray(payload.sourceIds, '$.sourceIds', issues);
+
+  const maxFacts = readPositiveInteger(payload.maxFacts, '$.maxFacts', issues);
+  const sourceCount = readNonNegativeInteger(payload.sourceCount, '$.sourceCount', issues);
+  const factSetCount = readNonNegativeInteger(payload.factSetCount, '$.factSetCount', issues);
+  const factCount = readNonNegativeInteger(payload.factCount, '$.factCount', issues);
+  const includedFactCount = readNonNegativeInteger(payload.includedFactCount, '$.includedFactCount', issues);
+  const omittedFactCount = readNonNegativeInteger(payload.omittedFactCount, '$.omittedFactCount', issues);
+  const staleSourceCount = readNonNegativeInteger(payload.staleSourceCount, '$.staleSourceCount', issues);
+
+  const sources: Array<Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale'>> = [];
+  if (!Array.isArray(payload.sources)) {
+    issues.push(error('$.sources', 'Knowledge pack sources must be an array.'));
+  } else {
+    payload.sources.forEach((source, index) => {
+      const validated = validateKnowledgePackSource(source, `$.sources[${index}]`, issues);
+      if (validated) {
+        sources.push(validated);
+      }
+    });
+  }
+
+  const sourceIds = new Set(sources.map(source => source.id));
+  if (sourceIds.size !== sources.length) {
+    issues.push(error('$.sources', 'Knowledge pack source ids must be unique.'));
+  }
+  if (declaredSourceIds !== null) {
+    const declaredIdSet = new Set(declaredSourceIds);
+    if (declaredIdSet.size !== declaredSourceIds.length) {
+      issues.push(error('$.sourceIds', 'Knowledge pack sourceIds must be unique.'));
+    }
+  }
+
+  const facts: Array<Pick<KnowledgePackFact, 'sourceId'>> = [];
+  if (!Array.isArray(payload.facts)) {
+    issues.push(error('$.facts', 'Knowledge pack facts must be an array.'));
+  } else {
+    payload.facts.forEach((fact, index) => {
+      const validated = validateKnowledgePackFact(fact, `$.facts[${index}]`, sourceIds, issues);
+      if (validated) {
+        facts.push(validated);
+      }
+    });
+  }
+
+  const actualSourceCount = sources.length;
+  const actualFactSetCount = sources.length;
+  const actualFactCount = sources.reduce((total, source) => total + source.factCount, 0);
+  const actualIncludedFactCount = facts.length;
+  const actualOmittedFactCount = Math.max(0, actualFactCount - actualIncludedFactCount);
+  const actualStaleSourceCount = sources.filter(source => source.stale).length;
+
+  if (sourceCount !== null && sourceCount !== actualSourceCount) {
+    issues.push(error('$.sourceCount', 'Knowledge pack sourceCount must match sources.length.'));
+  }
+  if (factSetCount !== null && factSetCount !== actualFactSetCount) {
+    issues.push(error('$.factSetCount', 'Knowledge pack factSetCount must match sources.length.'));
+  }
+  if (factCount !== null && factCount !== actualFactCount) {
+    issues.push(error('$.factCount', 'Knowledge pack factCount must match the sum of source fact counts.'));
+  }
+  if (includedFactCount !== null && includedFactCount !== actualIncludedFactCount) {
+    issues.push(error('$.includedFactCount', 'Knowledge pack includedFactCount must match facts.length.'));
+  }
+  if (includedFactCount !== null && factCount !== null && includedFactCount > factCount) {
+    issues.push(error('$.includedFactCount', 'Knowledge pack includedFactCount must not exceed factCount.'));
+  }
+  if (includedFactCount !== null && maxFacts !== null && includedFactCount > maxFacts) {
+    issues.push(error('$.includedFactCount', 'Knowledge pack includedFactCount must not exceed maxFacts.'));
+  }
+  if (omittedFactCount !== null && omittedFactCount !== actualOmittedFactCount) {
+    issues.push(error('$.omittedFactCount', 'Knowledge pack omittedFactCount must match factCount - includedFactCount.'));
+  }
+  if (staleSourceCount !== null && staleSourceCount !== actualStaleSourceCount) {
+    issues.push(error('$.staleSourceCount', 'Knowledge pack staleSourceCount must match stale sources.'));
+  }
+
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    [],
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0
+    },
+    {
+      factSetCount: factSetCount ?? actualFactSetCount,
+      factCount: factCount ?? actualFactCount,
+      staleSourceCount: staleSourceCount ?? actualStaleSourceCount
+    }
+  );
 }
 
 async function validateLocalSourceFingerprints(
@@ -166,6 +573,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
       factSets.push(factSet);
     }
     return createReport(inputPath, inputKind, issues, factSets);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-pack') {
+    return validateKnowledgePackPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

@@ -10598,8 +10598,8 @@ Known validation so far:
 Remaining risks:
 
 - `knowledge pack --out` artifacts are validated today as bounded pack payloads
-  by consumers, but `knowledge validate` currently focuses on fact sets and
-  extraction reports rather than pack payloads.
+  by consumers. Direct `knowledge validate` support for pack payloads was added
+  later in the 2026-05-06 Pack Artifact Validation Slice.
 - Remote/team cache publication remains a later architecture slice. The next
   safe step is a storage interface and local adapter before any S3-compatible
   backend.
@@ -10661,3 +10661,67 @@ Next stage:
 
 - Commit this slice, then continue with pack artifact validation so persisted
   `knowledge pack --out` outputs can be checked before reuse.
+
+## 2026-05-06 Pack Artifact Validation Slice
+
+Status:
+
+- Completed. This slice lets persisted compact knowledge packs be validated
+  before reuse or handoff.
+
+Core files changed:
+
+- `src/knowledge/validate.ts`
+- `test/unit/knowledge-pack-ranking.test.mjs`
+- `test/integration/cli-main.test.mjs`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- `knowledge validate` now accepts `infra-agent.knowledge-pack` payloads in
+  addition to fact sets and extraction reports.
+- Pack validation checks schema version, mutation posture, source/fact shape,
+  source freshness metadata, fingerprint digest/file-count summaries, count
+  consistency, and fact `sourceId` references.
+- The validator does not require raw source content or full local fingerprint
+  file lists for packs. Local file hash rechecks remain tied to fact-set and
+  extraction payloads that carry full `sourceFingerprint` details.
+
+Design notes:
+
+- This closes the loop created by `knowledge pack --out`: a user or future team
+  cache can now persist a bounded pack, validate it, and only then hand it to a
+  planner or another agent.
+- The slice stays within the existing filesystem/artifact model and does not
+  introduce remote storage, automatic repo writes, or network behavior.
+
+Known validation so far:
+
+- `npm run test:focused -- --test-name-pattern "knowledge validation accepts packs and rejects compact pack drift" test/unit/knowledge-pack-ranking.test.mjs`:
+  passed with 1 unit test.
+- `npm run test:focused -- --test-name-pattern "knowledge pack command writes a bounded reusable artifact with --out|knowledge validate command rejects forged pack JSON files" test/integration/cli-main.test.mjs`:
+  passed with 2 CLI integration tests.
+- `npm run lint`: passed with 154 checked files.
+- `npm run test:unit`: passed with 295 tests.
+- `npm run test:integration`: passed with 64 tests.
+- `npm run test:structure`: passed with 30 checked files.
+- `npm run verify`: passed. This covered lint, test structure enforcement, the
+  full 371-test suite, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed. The package still contains 125 entries.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- Pack validation checks compact metadata only. It cannot rehash local source
+  files because packs intentionally omit full fingerprint file lists.
+- Remote/team cache publication still needs a storage abstraction and backend
+  policy before any shared cache writes are introduced.
+
+Next stage:
+
+- Commit this slice, then move to the next knowledge persistence feature. The
+  likely next step is a local `KnowledgeStore` abstraction before any remote or
+  team-cache backend.
