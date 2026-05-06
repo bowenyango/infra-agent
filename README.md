@@ -94,9 +94,9 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
 - `infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]`
-- `infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--json]`
+- `infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--manifest-out <manifest.json>] [--json]`
 - `infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]`
-- `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--json]`
+- `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -155,7 +155,11 @@ Current behavior is intentionally runtime-foundation oriented:
   workspace-private facts that require opt-in before team-cache publication.
   `extract --out` explicitly persists reusable fact artifacts for later
   validation, and `pack --out` persists bounded packs for handoff or
-  team-cache staging without changing the default stdout-only behavior. Pass
+  team-cache staging without changing the default stdout-only behavior. Add
+  `--manifest-out <manifest.json>` alongside `--out` to persist a
+  plan-only `infra-agent.knowledge-artifact-manifest` with artifact hash,
+  storage-policy summary, publishable/blocked source ids, and remote-write
+  disabled publication posture before any future team-cache backend is used. Pass
   `knowledge validate --workspace <workspace>` to recheck repo-derived fact
   fingerprints against current files and reject stale local knowledge before it
   reaches a planner.
@@ -481,9 +485,11 @@ Current behavior is intentionally runtime-foundation oriented:
   `oci://`.
 - Knowledge extraction currently promotes selected cache/local entries into
   validated fact sets and bounded packs for Terraform Registry markdown and Helm
-  `values.schema.json` chart values. Public facts should default to the user or
-  team cache, not bulk commits inside every infrastructure repo; private
-  repo-derived facts require explicit opt-in before any shared backend is used.
+  `values.schema.json` chart values. Optional artifact manifests record the
+  publication plan without credentials or upload commands. Public facts should
+  default to the user or team cache, not bulk commits inside every
+  infrastructure repo; private repo-derived facts require explicit opt-in before
+  any shared backend is used.
 
 CLI exit codes for downstream agents:
 

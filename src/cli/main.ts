@@ -15,6 +15,7 @@ import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
 import { loadKnowledgeValidationReport } from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
+import { buildKnowledgeArtifactManifest } from '../knowledge/artifact-manifest.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -52,6 +53,7 @@ export interface ParsedArgs {
   workspace: string;
   inputPath: string | null;
   outputPath?: string | null;
+  manifestOutputPath?: string | null;
   validationWorkspace?: string | null;
   json: boolean;
   jsonFull: boolean;
@@ -93,9 +95,9 @@ function printUsage(): void {
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--json]',
+      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
-      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--json]',
+      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -561,6 +563,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let maxSources: number | null = null;
     let maxFacts: number | null = null;
     let outputPath: string | null = null;
+    let manifestOutputPath: string | null = null;
     let validationWorkspace: string | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
@@ -642,6 +645,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--manifest-out') {
+        const outputValue = actionArgs[index + 1]?.trim();
+        if (!outputValue) {
+          fail('Missing value for --manifest-out.');
+        }
+        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack') {
+          fail('--manifest-out is only supported for knowledge extract or knowledge pack.');
+        }
+        if (manifestOutputPath !== null) {
+          fail('Manifest output path can be provided at most once.');
+        }
+
+        manifestOutputPath = outputValue;
+        index += 1;
+        continue;
+      }
+
       if (arg === '--max-facts') {
         const rawMaxFacts = actionArgs[index + 1];
         const parsedMaxFacts = Number.parseInt(rawMaxFacts ?? '', 10);
@@ -685,6 +705,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'validate' && positionalArgs.length !== 1) {
       fail('knowledge validate requires exactly one knowledge JSON path.');
     }
+    if (manifestOutputPath !== null && outputPath === null) {
+      fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
+    }
 
     workspace = positionalArgs[0] ?? workspace;
 
@@ -695,6 +718,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       workspace: knowledgeAction === 'validate' ? cwd() : workspace,
       inputPath: knowledgeAction === 'validate' ? positionalArgs[0] : null,
       outputPath,
+      manifestOutputPath,
       validationWorkspace,
       json,
       jsonFull,
@@ -1119,10 +1143,19 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
       : null;
+    const manifestPath = writtenPath && parsed.manifestOutputPath
+      ? await writeJsonArtifact(parsed.manifestOutputPath, cwd(), buildKnowledgeArtifactManifest(report, {
+          artifactPath: writtenPath
+        }))
+      : null;
 
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(writtenPath
-        ? { ...report, outputPath: writtenPath }
+        ? {
+            ...report,
+            outputPath: writtenPath,
+            ...(manifestPath ? { manifestPath } : {})
+          }
         : report, null, 2)}\n`);
       return;
     }
@@ -1130,6 +1163,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     printKnowledgeExtractionReport(report);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    if (manifestPath) {
+      process.stdout.write(`manifest: ${manifestPath}\n`);
     }
     return;
   }
@@ -1166,10 +1202,19 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), pack)
       : null;
+    const manifestPath = writtenPath && parsed.manifestOutputPath
+      ? await writeJsonArtifact(parsed.manifestOutputPath, cwd(), buildKnowledgeArtifactManifest(pack, {
+          artifactPath: writtenPath
+        }))
+      : null;
 
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(writtenPath
-        ? { ...pack, outputPath: writtenPath }
+        ? {
+            ...pack,
+            outputPath: writtenPath,
+            ...(manifestPath ? { manifestPath } : {})
+          }
         : pack, null, 2)}\n`);
       return;
     }
@@ -1177,6 +1222,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     printKnowledgePack(pack);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    if (manifestPath) {
+      process.stdout.write(`manifest: ${manifestPath}\n`);
     }
     return;
   }

@@ -14,6 +14,7 @@ import {
 import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildKnowledgeCacheId } from '../../src/knowledge/cache.ts';
+import { buildKnowledgeArtifactManifest } from '../../src/knowledge/artifact-manifest.ts';
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
 import { rankKnowledgePackFacts } from '../../src/knowledge/fact-ranking.ts';
@@ -167,6 +168,87 @@ test('knowledge validation accepts packs and rejects compact pack drift', async 
   }, 'inline');
   assert.equal(secretLikeFactReport.valid, false);
   assert.ok(secretLikeFactReport.issues.some(issue => issue.path === '$.facts[0].summary'));
+});
+
+test('knowledge artifact manifests require validation before team-cache publication', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 3,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+  const manifest = buildKnowledgeArtifactManifest(pack, {
+    artifactPath: '/tmp/knowledge-pack.json',
+    createdAt: '2026-05-06T00:00:00.000Z'
+  });
+
+  assert.equal(manifest.kind, 'infra-agent.knowledge-artifact-manifest');
+  assert.equal(manifest.mutationAllowed, false);
+  assert.match(manifest.manifestId, /^[a-f0-9]{24}$/);
+  assert.equal(manifest.artifact.kind, 'infra-agent.knowledge-pack');
+  assert.equal(manifest.artifact.id, pack.packId);
+  assert.equal(manifest.artifact.path, '/tmp/knowledge-pack.json');
+  assert.match(manifest.artifact.sha256, /^[a-f0-9]{64}$/);
+  assert.deepEqual(manifest.artifact.sourceIds, pack.sources.map(source => source.id));
+  assert.equal(manifest.artifact.sourceCount, pack.sourceCount);
+  assert.equal(manifest.artifact.factCount, pack.factCount);
+  assert.equal(manifest.artifact.storagePolicy.workspacePrivate, pack.storagePolicy.workspacePrivate);
+  assert.equal(manifest.publication.executionMode, 'plan-only');
+  assert.equal(manifest.publication.remoteWriteAllowed, false);
+  assert.equal(manifest.publication.credentialRequired, false);
+  assert.equal(manifest.publication.uploadCommand, null);
+  assert.equal(manifest.publication.defaultStore, 'local-only');
+  assert.equal(manifest.publication.shareableByDefault, false);
+  assert.equal(manifest.publication.requiresExplicitOptIn, true);
+  assert.deepEqual(manifest.publication.publishableByDefaultSourceIds, []);
+  assert.ok(manifest.publication.blockedSources.some(source =>
+    source.reason === 'workspace-private-source'
+    && source.storageScope === 'workspace-private'
+  ));
+  assert.ok(manifest.publication.requiredValidations.some(command => /knowledge validate/.test(command)));
+
+  const validReport = validateKnowledgePayload(manifest, 'inline');
+  assert.equal(validReport.inputKind, 'infra-agent.knowledge-artifact-manifest');
+  assert.equal(validReport.valid, true);
+  assert.equal(validReport.factCount, pack.factCount);
+
+  const forgedReport = validateKnowledgePayload({
+    ...manifest,
+    publication: {
+      ...manifest.publication,
+      executionMode: 'execute',
+      remoteWriteAllowed: true,
+      credentialRequired: true,
+      uploadCommand: 'aws s3 cp knowledge-pack.json s3://example',
+      defaultStore: 'local-or-explicit-team-cache',
+      shareableByDefault: true,
+      requiresExplicitOptIn: false,
+      publishableByDefaultSourceIds: ['missing-source'],
+      blockedSources: [{
+        sourceId: 'missing-source',
+        storageScope: 'workspace-private',
+        stale: false,
+        reason: 'workspace-private-source'
+      }],
+      requiredValidations: []
+    }
+  }, 'inline');
+  assert.equal(forgedReport.valid, false);
+  for (const path of [
+    '$.publication.executionMode',
+    '$.publication.remoteWriteAllowed',
+    '$.publication.credentialRequired',
+    '$.publication.uploadCommand',
+    '$.publication.defaultStore',
+    '$.publication.shareableByDefault',
+    '$.publication.requiresExplicitOptIn',
+    '$.publication.publishableByDefaultSourceIds[0]',
+    '$.publication.blockedSources[0].sourceId',
+    '$.publication.requiredValidations'
+  ]) {
+    assert.ok(forgedReport.issues.some(issue => issue.path === path), path);
+  }
 });
 
 test('knowledge fact budget summarizes packs without raw source payloads', async () => {

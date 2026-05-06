@@ -117,6 +117,8 @@ test('knowledge extract CLI args accept source filters and bounded targets', () 
     'chart-schema:example',
     '--out',
     'artifacts/knowledge-extraction.json',
+    '--manifest-out',
+    'artifacts/knowledge-extraction.manifest.json',
     '--json'
   ]);
 
@@ -127,6 +129,7 @@ test('knowledge extract CLI args accept source filters and bounded targets', () 
   assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
   assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
   assert.equal(parsed.outputPath, 'artifacts/knowledge-extraction.json');
+  assert.equal(parsed.manifestOutputPath, 'artifacts/knowledge-extraction.manifest.json');
   assert.equal(parsed.json, true);
 });
 
@@ -163,6 +166,8 @@ test('knowledge pack CLI args accept bounded fact pack flags', () => {
     '5',
     '--out',
     'artifacts/knowledge-pack.json',
+    '--manifest-out',
+    'artifacts/knowledge-pack.manifest.json',
     '--json'
   ]);
 
@@ -174,6 +179,7 @@ test('knowledge pack CLI args accept bounded fact pack flags', () => {
   assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
   assert.equal(parsed.maxFacts, 5);
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.json');
+  assert.equal(parsed.manifestOutputPath, 'artifacts/knowledge-pack.manifest.json');
   assert.equal(parsed.json, true);
 });
 
@@ -472,6 +478,7 @@ test('knowledge extract command writes a reusable validation artifact with --out
 
   try {
     const outputPath = join(tempRoot, 'artifacts/knowledge-extraction.json');
+    const manifestPath = join(tempRoot, 'artifacts/knowledge-extraction.manifest.json');
     const output = await captureStdout(() => main([
       'knowledge',
       'extract',
@@ -482,10 +489,13 @@ test('knowledge extract command writes a reusable validation artifact with --out
       'charts/payments-api',
       '--out',
       outputPath,
+      '--manifest-out',
+      manifestPath,
       '--json'
     ]));
     const stdoutReport = JSON.parse(output.slice(output.indexOf('{')));
     const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
     const validationOutput = await captureStdout(() => main([
       'knowledge',
       'validate',
@@ -498,9 +508,15 @@ test('knowledge extract command writes a reusable validation artifact with --out
 
     assert.equal(stdoutReport.kind, 'infra-agent.knowledge-extraction');
     assert.equal(stdoutReport.outputPath, outputPath);
+    assert.equal(stdoutReport.manifestPath, manifestPath);
     assert.equal(artifact.kind, 'infra-agent.knowledge-extraction');
     assert.equal(artifact.outputPath, undefined);
     assert.equal(artifact.factSetCount, stdoutReport.factSetCount);
+    assert.equal(manifest.kind, 'infra-agent.knowledge-artifact-manifest');
+    assert.equal(manifest.artifact.kind, 'infra-agent.knowledge-extraction');
+    assert.equal(manifest.artifact.path, outputPath);
+    assert.equal(manifest.artifact.factCount, artifact.factCount);
+    assert.equal(manifest.publication.remoteWriteAllowed, false);
     assert.equal(validation.valid, true);
     assert.equal(validation.factSetCount, artifact.factSetCount);
     assert.doesNotMatch(JSON.stringify(artifact), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
@@ -864,6 +880,66 @@ test('knowledge pack command writes a bounded reusable artifact with --out', asy
     assert.equal(validation.factSetCount, artifact.factSetCount);
     assert.equal(validation.factCount, artifact.factCount);
     assert.doesNotMatch(JSON.stringify(artifact), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge pack command writes an artifact manifest for publication planning', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-manifest-'));
+
+  try {
+    const outputPath = join(tempRoot, 'artifacts/knowledge-pack.json');
+    const manifestPath = join(tempRoot, 'artifacts/knowledge-pack.manifest.json');
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      'fixtures/sample-workspace',
+      '--domain',
+      'helm',
+      '--target',
+      'charts/payments-api',
+      '--max-facts',
+      '4',
+      '--out',
+      outputPath,
+      '--manifest-out',
+      manifestPath,
+      '--json'
+    ]));
+    const stdoutPack = JSON.parse(output.slice(output.indexOf('{')));
+    const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    const validationOutput = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      manifestPath,
+      '--json'
+    ]));
+    const validation = JSON.parse(validationOutput.slice(validationOutput.indexOf('{')));
+
+    assert.equal(stdoutPack.outputPath, outputPath);
+    assert.equal(stdoutPack.manifestPath, manifestPath);
+    assert.equal(manifest.kind, 'infra-agent.knowledge-artifact-manifest');
+    assert.equal(manifest.artifact.kind, 'infra-agent.knowledge-pack');
+    assert.equal(manifest.artifact.id, artifact.packId);
+    assert.equal(manifest.artifact.path, outputPath);
+    assert.match(manifest.artifact.sha256, /^[a-f0-9]{64}$/);
+    assert.deepEqual(manifest.artifact.sourceIds, artifact.sources.map(source => source.id));
+    assert.equal(manifest.artifact.storagePolicy.workspacePrivate, artifact.storagePolicy.workspacePrivate);
+    assert.equal(manifest.publication.executionMode, 'plan-only');
+    assert.equal(manifest.publication.remoteWriteAllowed, false);
+    assert.equal(manifest.publication.credentialRequired, false);
+    assert.equal(manifest.publication.uploadCommand, null);
+    assert.equal(manifest.publication.defaultStore, 'local-only');
+    assert.equal(manifest.publication.requiresExplicitOptIn, true);
+    assert.deepEqual(manifest.publication.publishableByDefaultSourceIds, []);
+    assert.ok(manifest.publication.blockedSources.length >= 1);
+    assert.ok(manifest.publication.requiredValidations.some(command => command.includes(outputPath)));
+    assert.equal(validation.inputKind, 'infra-agent.knowledge-artifact-manifest');
+    assert.equal(validation.valid, true);
+    assert.equal(validation.factCount, artifact.factCount);
+    assert.doesNotMatch(JSON.stringify(manifest), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

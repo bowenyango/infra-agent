@@ -85,11 +85,17 @@ const KNOWLEDGE_SOURCE_STALE_REASONS = [
 const KNOWLEDGE_PACK_SOURCE_FRESHNESS = ['fresh', 'stale', 'unchecked'] as const;
 const KNOWLEDGE_STORAGE_SCOPES = ['public-reference', 'workspace-private'] as const satisfies readonly KnowledgeStorageScope[];
 const KNOWLEDGE_STORAGE_DEFAULTS = ['local-or-explicit-team-cache', 'local-only'] as const satisfies readonly KnowledgeStorageDefault[];
+const KNOWLEDGE_ARTIFACT_BLOCK_REASONS = [
+  'explicit-opt-in-required',
+  'stale-source',
+  'workspace-private-source'
+] as const;
 const INFRA_DOMAINS = ['helm', 'pulumi', 'terraform'] as const;
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
+const MANIFEST_ID_PATTERN = PACK_ID_PATTERN;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -627,6 +633,185 @@ function validateKnowledgePackPayload(
   );
 }
 
+function validateKnowledgeArtifactManifestPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Knowledge artifact manifest schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Knowledge artifact manifest mutationAllowed must be false.'));
+  }
+  if (typeof payload.manifestId !== 'string' || !MANIFEST_ID_PATTERN.test(payload.manifestId)) {
+    issues.push(error('$.manifestId', 'Knowledge artifact manifest manifestId must be a 24-character hex string.'));
+  }
+  validateIsoDateString(payload.createdAt, '$.createdAt', issues);
+
+  let sourceCount: number | null = null;
+  let factCount: number | null = null;
+  let staleSourceCount: number | null = null;
+  let storagePolicySummary: KnowledgeStoragePolicySummary | null = null;
+  let sourceIds: string[] | null = null;
+
+  if (!isRecord(payload.artifact)) {
+    issues.push(error('$.artifact', 'Knowledge artifact manifest artifact must be an object.'));
+  } else {
+    if (
+      payload.artifact.kind !== 'infra-agent.knowledge-extraction'
+      && payload.artifact.kind !== 'infra-agent.knowledge-pack'
+    ) {
+      issues.push(error('$.artifact.kind', 'Knowledge artifact manifest artifact kind must be supported.'));
+    }
+    readNonEmptyString(payload.artifact.id, '$.artifact.id', issues);
+    readNonEmptyString(payload.artifact.path, '$.artifact.path', issues);
+    if (typeof payload.artifact.sha256 !== 'string' || !SHA256_HEX_PATTERN.test(payload.artifact.sha256)) {
+      issues.push(error('$.artifact.sha256', 'Knowledge artifact manifest artifact sha256 must be a SHA-256 hex string.'));
+    }
+    sourceIds = readStringArray(payload.artifact.sourceIds, '$.artifact.sourceIds', issues);
+    if (sourceIds !== null) {
+      const uniqueSourceIds = new Set(sourceIds);
+      if (uniqueSourceIds.size !== sourceIds.length) {
+        issues.push(error('$.artifact.sourceIds', 'Knowledge artifact manifest sourceIds must be unique.'));
+      }
+    }
+    readNonEmptyString(payload.artifact.workspaceRoot, '$.artifact.workspaceRoot', issues);
+    readNonEmptyString(payload.artifact.cacheRoot, '$.artifact.cacheRoot', issues);
+    sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
+    factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
+    storagePolicySummary = validateKnowledgeStoragePolicySummary(
+      payload.artifact.storagePolicy,
+      '$.artifact.storagePolicy',
+      issues
+    );
+    if (sourceIds !== null && sourceCount !== null && sourceIds.length !== sourceCount) {
+      issues.push(error('$.artifact.sourceIds', 'Knowledge artifact manifest sourceIds length must match sourceCount.'));
+    }
+  }
+
+  if (!isRecord(payload.publication)) {
+    issues.push(error('$.publication', 'Knowledge artifact manifest publication must be an object.'));
+  } else {
+    if (payload.publication.executionMode !== 'plan-only') {
+      issues.push(error('$.publication.executionMode', 'Knowledge artifact manifest publication must use plan-only execution.'));
+    }
+    if (payload.publication.remoteWriteAllowed !== false) {
+      issues.push(error('$.publication.remoteWriteAllowed', 'Knowledge artifact manifest must not allow remote writes.'));
+    }
+    if (payload.publication.credentialRequired !== false) {
+      issues.push(error('$.publication.credentialRequired', 'Knowledge artifact manifest must not require credentials.'));
+    }
+    if (payload.publication.uploadCommand !== null) {
+      issues.push(error('$.publication.uploadCommand', 'Knowledge artifact manifest must not include an upload command.'));
+    }
+    if (
+      typeof payload.publication.defaultStore !== 'string'
+      || !KNOWLEDGE_STORAGE_DEFAULTS.includes(payload.publication.defaultStore as KnowledgeStorageDefault)
+    ) {
+      issues.push(error('$.publication.defaultStore', 'Knowledge artifact manifest publication defaultStore must be supported.'));
+    }
+    const shareableByDefault = readBoolean(
+      payload.publication.shareableByDefault,
+      '$.publication.shareableByDefault',
+      issues
+    );
+    const requiresExplicitOptIn = readBoolean(
+      payload.publication.requiresExplicitOptIn,
+      '$.publication.requiresExplicitOptIn',
+      issues
+    );
+    const requiredValidations = readStringArray(
+      payload.publication.requiredValidations,
+      '$.publication.requiredValidations',
+      issues
+    );
+    if (
+      requiredValidations !== null
+      && !requiredValidations.some(command => command.includes('knowledge validate'))
+    ) {
+      issues.push(error('$.publication.requiredValidations', 'Knowledge artifact manifest must require knowledge validate before publication.'));
+    }
+    readNonEmptyString(payload.publication.reason, '$.publication.reason', issues);
+
+    const publishableIds = readStringArray(
+      payload.publication.publishableByDefaultSourceIds,
+      '$.publication.publishableByDefaultSourceIds',
+      issues
+    );
+    if (publishableIds !== null && sourceIds !== null) {
+      const sourceIdSet = new Set(sourceIds);
+      for (const [index, sourceId] of publishableIds.entries()) {
+        if (!sourceIdSet.has(sourceId)) {
+          issues.push(error(`$.publication.publishableByDefaultSourceIds[${index}]`, 'Publishable source id must reference artifact.sourceIds.'));
+        }
+      }
+    }
+    if (!Array.isArray(payload.publication.blockedSources)) {
+      issues.push(error('$.publication.blockedSources', 'Knowledge artifact manifest blockedSources must be an array.'));
+    } else {
+      const sourceIdSet = new Set(sourceIds ?? []);
+      payload.publication.blockedSources.forEach((entry, index) => {
+        const path = `$.publication.blockedSources[${index}]`;
+        if (!isRecord(entry)) {
+          issues.push(error(path, 'Knowledge artifact manifest blocked source must be an object.'));
+          return;
+        }
+        const sourceId = readNonEmptyString(entry.sourceId, `${path}.sourceId`, issues);
+        if (sourceId !== null && sourceIds !== null && !sourceIdSet.has(sourceId)) {
+          issues.push(error(`${path}.sourceId`, 'Blocked source id must reference artifact.sourceIds.'));
+        }
+        if (typeof entry.storageScope !== 'string' || !KNOWLEDGE_STORAGE_SCOPES.includes(entry.storageScope as KnowledgeStorageScope)) {
+          issues.push(error(`${path}.storageScope`, 'Blocked source storageScope must be supported.'));
+        }
+        readBoolean(entry.stale, `${path}.stale`, issues);
+        if (
+          typeof entry.reason !== 'string'
+          || !KNOWLEDGE_ARTIFACT_BLOCK_REASONS.includes(entry.reason as typeof KNOWLEDGE_ARTIFACT_BLOCK_REASONS[number])
+        ) {
+          issues.push(error(`${path}.reason`, 'Blocked source reason must be supported.'));
+        }
+      });
+    }
+
+    if (storagePolicySummary !== null) {
+      const hasPrivateSources = storagePolicySummary.explicitOptInRequired > 0;
+      if (hasPrivateSources && requiresExplicitOptIn !== true) {
+        issues.push(error('$.publication.requiresExplicitOptIn', 'Workspace-private artifact manifests must require explicit opt-in.'));
+      }
+      if (hasPrivateSources && shareableByDefault !== false) {
+        issues.push(error('$.publication.shareableByDefault', 'Workspace-private artifact manifests must not be shareable by default.'));
+      }
+      if (hasPrivateSources && payload.publication.defaultStore !== 'local-only') {
+        issues.push(error('$.publication.defaultStore', 'Workspace-private artifact manifests must default to local-only storage.'));
+      }
+      if (!hasPrivateSources && sourceCount !== null && sourceCount > 0 && payload.publication.defaultStore !== 'local-or-explicit-team-cache') {
+        issues.push(error('$.publication.defaultStore', 'Public-reference artifact manifests must default to local or explicit team cache storage.'));
+      }
+    }
+  }
+
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    [],
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0
+    },
+    {
+      factSetCount: 0,
+      factCount: factCount ?? 0,
+      staleSourceCount: staleSourceCount ?? 0
+    }
+  );
+}
+
 async function validateLocalSourceFingerprints(
   factSets: ValidatedKnowledgeFactSet[],
   workspaceRoot: string | undefined,
@@ -693,6 +878,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-pack') {
     return validateKnowledgePackPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-artifact-manifest') {
+    return validateKnowledgeArtifactManifestPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

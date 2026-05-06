@@ -155,7 +155,7 @@ Current progress as of 2026-05-05:
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, and bounded Helm schema knowledge packs | Pulumi component durable packs and external chart-doc fact extraction are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, and local Helm metadata/dependency facts | Pulumi docs, Pulumi component facts, external chart docs beyond local metadata/dependencies, and team storage backends are pending |
-| Team storage | Not started | Cache root can be local, environment-selected, or workspace-relative | No S3/GCS/Azure/Postgres backend abstraction |
+| Team storage | Planned | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with artifact hashes, storage policy, publishable/blocked source ids, and remote writes disabled | No S3/GCS/Azure/Postgres backend implementation |
 
 Target artifact families:
 
@@ -171,6 +171,10 @@ Target artifact families:
 - `infra-agent.knowledge-pack`: a bounded, validated bundle of facts for one
   provider version, resource type, chart version, module, component, or repo
   target.
+- `infra-agent.knowledge-artifact-manifest`: a plan-only publication manifest
+  for persisted extraction or pack artifacts. It records artifact hash,
+  storage-policy summary, publishable-by-default source ids, blocked source ids
+  and reasons, required validation commands, and `remoteWriteAllowed=false`.
 
 Extraction rules:
 
@@ -202,15 +206,17 @@ Implemented initial CLI surfaces:
   - extracts normalized `knowledge-facts` from cached docs, repo-local schemas,
     examples, and module/component/chart code. `--out` explicitly persists the
     generated artifact for later validation or handoff.
-- `infra-agent knowledge validate <facts.json|pack.json> [--workspace <workspace>] --json`
+- `infra-agent knowledge validate <facts.json|pack.json|manifest.json> [--workspace <workspace>] --json`
   - validates schema, source links, count consistency, stale policy, confidence
-    labels, compact pack freshness metadata, local source fingerprints, and
-    secret safety before facts are used by the planner.
+    labels, compact pack freshness metadata, artifact manifest publication
+    posture, local source fingerprints, and secret safety before facts are used
+    by the planner or considered for team-cache staging.
 - `infra-agent knowledge pack <workspace> [--target <path>] [--out <pack.json>]
-  --json`
+  [--manifest-out <manifest.json>] --json`
   - builds a bounded `knowledge-pack` for handoff or team cache publication.
     `--out` explicitly persists the bounded artifact without changing the
-    default stdout-only behavior.
+    default stdout-only behavior. `--manifest-out` writes a plan-only manifest
+    that still contains no backend URL, bucket, credential, or upload command.
 
 Recommended storage layers:
 
@@ -221,7 +227,9 @@ Recommended storage layers:
   never automatic bulk cache commits. Saved repo-derived fact sets should be
   revalidated with `knowledge validate --workspace` so file hash drift is
   detected before reuse. Saved compact packs should also pass
-  `knowledge validate` before handoff or team-cache publication.
+  `knowledge validate` before handoff or team-cache publication. Optional
+  manifests should be validated too; manifests with workspace-private or stale
+  sources are planning artifacts only until explicit opt-in is recorded.
 - Team cache: content-addressed object store plus metadata index. S3-compatible
   storage is a good first remote backend for blobs; add DynamoDB/Postgres only
   when query/index requirements justify it.

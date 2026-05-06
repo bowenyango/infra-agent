@@ -102,8 +102,89 @@ Known validation:
 - Coverage remained above gates: 89.12% lines, 79.04% branches, and 96.18%
   functions.
 - Package dry-run passed with 128 entries in the installable package surface.
-- Pending after documentation update: `git diff --check`, cached diff review,
-  and commit.
+- `git diff --check` and `git diff --cached --check` passed.
+- Committed as `9c972b6 Tighten test shard isolation`.
+
+## 2026-05-06 Knowledge Artifact Manifest Slice
+
+Status:
+
+- Implemented locally. This slice resumes feature development after the test
+  architecture hardening work and adds a plan-only manifest before any
+  remote/team-cache backend exists.
+
+Core files changed:
+
+- `src/knowledge/artifact-manifest.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `test/unit/knowledge-pack-ranking.test.mjs`
+- `test/integration/cli-knowledge-main.test.mjs`
+- `README.md`
+- `AGENTS.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Added `infra-agent.knowledge-artifact-manifest`, built from persisted
+  knowledge extraction or pack artifacts.
+- Added `--manifest-out <manifest.json>` for `knowledge extract` and
+  `knowledge pack`. The flag requires `--out`, so manifests always reference a
+  persisted artifact path.
+- Manifest content records artifact kind/id/path/hash, actual source ids,
+  source/fact/stale counts, storage-policy summary, and a plan-only publication
+  section.
+- Publication planning is deliberately non-mutating:
+  `executionMode=plan-only`, `remoteWriteAllowed=false`,
+  `credentialRequired=false`, and `uploadCommand=null`.
+- Publication planning separates `publishableByDefaultSourceIds` from
+  `blockedSources` with explicit reasons such as workspace-private source,
+  stale source, or explicit-opt-in-required.
+- `knowledge validate` now accepts artifact manifests and rejects forged
+  manifests that enable remote writes, require credentials, include upload
+  commands, omit validation requirements, or reference source ids outside the
+  artifact.
+
+Design notes:
+
+- This is a backend planning contract, not a backend implementation. It adds no
+  S3/GCS/Azure/Postgres config, credentials, network behavior, upload command,
+  or dependency.
+- The manifest derives storage posture from existing source/pack
+  `storagePolicy` fields and stale flags instead of re-inferring source safety.
+- Manifests do not include raw docs, raw local file content, source fingerprint
+  file lists, backend URLs, buckets, profiles, or tokens.
+
+Known validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge artifact manifests" test/unit/knowledge-pack-ranking.test.mjs`:
+  passed with 1 unit test.
+- `npm run test:focused -- --test-name-pattern "knowledge pack command writes an artifact manifest|knowledge pack CLI args accept bounded" test/integration/cli-knowledge-main.test.mjs`:
+  passed with 2 integration tests.
+- `npm run test:focused -- --test-name-pattern "knowledge extract command writes a reusable validation artifact|knowledge pack command writes an artifact manifest|knowledge artifact manifests" test/run-all.mjs`:
+  passed with 3 focused tests across unit and integration shards.
+- `npm run lint`: passed with 173 checked files.
+- `npm run test:structure`: passed with 46 checked test files.
+- `npm run test:unit`: passed with 303 tests.
+- `npm run test:integration`: passed with 65 tests.
+- `npm run verify`: passed. This covered lint, structure, unit,
+  integration, contract, process-isolated shard execution, smoke, e2e,
+  coverage, and package dry-run.
+- Coverage remained above gates: 89.14% lines, 78.86% branches, and 96.17%
+  functions.
+- Package dry-run passed with 129 entries, including
+  `src/knowledge/artifact-manifest.ts`.
+
+Remaining validation before commit:
+
+- `git diff --check`, cached diff review, and commit.
+
+Remaining risks:
+
+- Manifest validation checks the manifest contract and publication posture. It
+  does not yet re-read the referenced artifact and compare `artifact.sha256`.
+  That can be added before any actual remote backend writes are introduced.
 
 ## 2026-05-06 Enterprise Test Gate Hardening Slice
 
