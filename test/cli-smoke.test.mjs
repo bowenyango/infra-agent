@@ -3461,6 +3461,11 @@ test('knowledge pack builds bounded planner-safe fact packs', async () => {
     && source.domain === 'helm'
     && source.factCount > 0
   ));
+  const localSource = pack.sources.find(source => source.kind === 'chart-schema');
+  assert.equal(localSource?.freshness, 'fresh');
+  assert.match(localSource?.fingerprintDigest ?? '', /^[a-f0-9]{64}$/);
+  assert.equal(localSource?.fingerprintFileCount, 1);
+  assert.ok(localSource && !('sourceFingerprint' in localSource));
   assert.ok(pack.facts.every(fact => typeof fact.sourceId === 'string' && !('source' in fact)));
   assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|replicaCount":\s*\{|"\$schema"|resource "aws_/);
 });
@@ -4645,6 +4650,9 @@ test('knowledge pack includes focused Terraform provider schema facts under smal
       source.kind === 'provider-schema'
       && source.domain === 'terraform'
       && source.targetPath === 'terraform/app'
+      && source.freshness === 'fresh'
+      && typeof source.fingerprintDigest === 'string'
+      && source.fingerprintFileCount === 3
       && source.factCount > 0
     ));
     assert.ok(pack.facts.some(fact =>

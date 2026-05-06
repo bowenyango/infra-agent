@@ -7,8 +7,12 @@ import type {
   KnowledgeFactExtractionMethod,
   KnowledgeFactKind,
   KnowledgeSource,
+  KnowledgeSourceFingerprint,
+  KnowledgeSourceStaleReason,
   RetrievedContextConfidence
 } from '../types/knowledge.ts';
+
+export type KnowledgePackSourceFreshness = 'fresh' | 'stale' | 'unchecked';
 
 export interface KnowledgePackSource {
   id: string;
@@ -21,6 +25,10 @@ export interface KnowledgePackSource {
   fetchedAt: string | null;
   staleAfter?: string;
   stale: boolean;
+  staleReason?: KnowledgeSourceStaleReason;
+  freshness: KnowledgePackSourceFreshness;
+  fingerprintDigest?: string;
+  fingerprintFileCount?: number;
 }
 
 export interface KnowledgePackFact {
@@ -80,7 +88,11 @@ function packHash(input: {
       sources: input.sources.map(source => ({
         id: source.id,
         contentHash: source.contentHash,
-        stale: source.stale
+        stale: source.stale,
+        staleReason: source.staleReason,
+        freshness: source.freshness,
+        fingerprintDigest: source.fingerprintDigest,
+        fingerprintFileCount: source.fingerprintFileCount
       })),
       facts: input.facts.map(fact => ({
         kind: fact.kind,
@@ -94,6 +106,23 @@ function packHash(input: {
     .slice(0, 24);
 }
 
+function sourceFreshness(input: {
+  sourceFetchedAt: string | null;
+  sourceStaleAfter?: string;
+  sourceStale: boolean;
+  sourceFingerprint?: KnowledgeSourceFingerprint;
+}): KnowledgePackSourceFreshness {
+  if (input.sourceStale) {
+    return 'stale';
+  }
+
+  if (input.sourceFingerprint !== undefined || input.sourceStaleAfter !== undefined || input.sourceFetchedAt !== null) {
+    return 'fresh';
+  }
+
+  return 'unchecked';
+}
+
 function toPackSource(factSet: {
   sourceId: string;
   source: KnowledgeSource;
@@ -101,6 +130,8 @@ function toPackSource(factSet: {
   sourceFetchedAt: string | null;
   sourceStaleAfter?: string;
   sourceStale: boolean;
+  sourceStaleReason?: KnowledgeSourceStaleReason;
+  sourceFingerprint?: KnowledgeSourceFingerprint;
   factCount: number;
 }, sourceIndex: Map<string, { domain: InfraDomainId; targetPath: string }>): KnowledgePackSource {
   const sourceContext = sourceIndex.get(factSet.sourceId);
@@ -119,7 +150,15 @@ function toPackSource(factSet: {
     contentHash: factSet.sourceContentHash,
     fetchedAt: factSet.sourceFetchedAt,
     ...(factSet.sourceStaleAfter !== undefined ? { staleAfter: factSet.sourceStaleAfter } : {}),
-    stale: factSet.sourceStale
+    stale: factSet.sourceStale,
+    ...(factSet.sourceStaleReason !== undefined ? { staleReason: factSet.sourceStaleReason } : {}),
+    freshness: sourceFreshness(factSet),
+    ...(factSet.sourceFingerprint !== undefined
+      ? {
+          fingerprintDigest: factSet.sourceFingerprint.digest,
+          fingerprintFileCount: factSet.sourceFingerprint.fileCount
+        }
+      : {})
   };
 }
 
