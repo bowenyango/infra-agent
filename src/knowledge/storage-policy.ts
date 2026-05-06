@@ -23,6 +23,27 @@ const PUBLIC_REFERENCE_KINDS = new Set<KnowledgeSourceKind>([
   'chart-docs'
 ]);
 
+export function isPublicReferenceCapableSourceKind(kind: KnowledgeSourceKind): boolean {
+  return PUBLIC_REFERENCE_KINDS.has(kind);
+}
+
+export function isKnowledgeStoragePolicyCompatibleWithSourceKind(
+  kind: KnowledgeSourceKind,
+  policy: KnowledgeStoragePolicy
+): boolean {
+  if (policy.scope === 'public-reference') {
+    return isPublicReferenceCapableSourceKind(kind)
+      && policy.defaultStore === 'local-or-explicit-team-cache'
+      && policy.shareableByDefault === true
+      && policy.requiresExplicitOptIn === false;
+  }
+
+  return policy.scope === 'workspace-private'
+    && policy.defaultStore === 'local-only'
+    && policy.shareableByDefault === false
+    && policy.requiresExplicitOptIn === true;
+}
+
 export function resolveKnowledgeStoragePolicy(source: KnowledgeSource): KnowledgeStoragePolicy {
   if (source.localPath) {
     return {

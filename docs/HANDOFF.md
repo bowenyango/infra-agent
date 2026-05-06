@@ -11059,3 +11059,65 @@ Next stage:
 
 - Commit this slice. Next feature step should add an explicit artifact manifest
   or backend planning contract before any remote/team cache writes.
+
+## 2026-05-06 Knowledge Pack Storage Policy Slice
+
+Status:
+
+- Implemented and validated. This slice extends storage/publication policy
+  metadata from source listings onto `infra-agent.knowledge-pack` artifacts.
+
+Core files changed:
+
+- `src/knowledge/pack.ts`
+- `src/knowledge/storage-policy.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-pack-ranking.test.mjs`
+- `test/integration/cli-main.test.mjs`
+- `README.md`
+- `AGENTS.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Each pack source now carries `storagePolicy`.
+- Pack top-level metadata now includes a storage-policy summary.
+- Pack text output includes public/private/shareable/opt-in source counts.
+- Pack validation now rejects incompatible policy/source-kind combinations,
+  such as a workspace-local source being forged as public/shareable.
+
+Design notes:
+
+- This remains metadata-only. No publish command, remote backend, credentials,
+  upload path, dependency, or implicit cache write was added.
+- The policy makes handoff/team-cache staging safer before any future backend
+  code exists.
+
+Known validation:
+
+- Focused pack-policy tests passed:
+  `npm run test:focused -- --test-name-pattern "knowledge pack (builds bounded|marks cached public|validates packs|includes Terraform local module|includes Pulumi config)" test/unit/knowledge-pack-ranking.test.mjs`
+  (4 tests).
+- Focused CLI validation-forgery tests passed:
+  `npm run test:focused -- --test-name-pattern "knowledge pack command emits bounded|knowledge validate command rejects forged pack" test/integration/cli-main.test.mjs`
+  (2 tests).
+- `npm run lint` passed (158 files checked).
+- `npm run test:unit` passed (302 tests).
+- `npm run test:integration` passed (64 tests).
+- `npm run test:structure` passed (32 checked test files).
+- `npm run verify` passed (378 tests, smoke, and e2e).
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`
+  passed (128 package entries).
+- `git diff --check` passed.
+
+Remaining risks:
+
+- Team cache publication still needs an explicit artifact manifest, backend
+  configuration, object identity, and consistency policy before writes.
+
+Next stage:
+
+- Commit this slice. The next feature step should add an explicit artifact
+  manifest or backend planning contract before any remote/team cache writes.

@@ -1042,7 +1042,12 @@ test('knowledge pack command emits bounded fact pack JSON', async () => {
   assert.equal(pack.maxFacts, 4);
   assert.equal(pack.includedFactCount, Math.min(4, pack.factCount));
   assert.equal(pack.facts.length, pack.includedFactCount);
-  assert.ok(pack.sources.some(source => source.kind === 'chart-schema'));
+  const chartSchemaSource = pack.sources.find(source => source.kind === 'chart-schema');
+  assert.ok(chartSchemaSource);
+  assert.equal(chartSchemaSource.storagePolicy.scope, 'workspace-private');
+  assert.equal(chartSchemaSource.storagePolicy.requiresExplicitOptIn, true);
+  assert.equal(pack.storagePolicy.workspacePrivate, pack.sources.length);
+  assert.equal(pack.storagePolicy.explicitOptInRequired, pack.sources.length);
   assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.image.repository'));
   assert.ok(pack.facts.some(fact => fact.path === 'chart.payments-api.service.port'));
   assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
@@ -1321,6 +1326,16 @@ test('knowledge validate command rejects forged pack JSON files', async () => {
     await writeFile(outputPath, JSON.stringify({
       ...artifact,
       includedFactCount: artifact.includedFactCount + 1,
+      sources: [{
+        ...artifact.sources[0],
+        storagePolicy: {
+          scope: 'public-reference',
+          defaultStore: 'local-or-explicit-team-cache',
+          shareableByDefault: true,
+          requiresExplicitOptIn: false,
+          reason: 'Forged public posture.'
+        }
+      }],
       facts: [{
         ...artifact.facts[0],
         sourceId: 'forged-source'
@@ -1339,6 +1354,7 @@ test('knowledge validate command rejects forged pack JSON files', async () => {
     assert.equal(validation.valid, false);
     assert.equal(process.exitCode, 1);
     assert.ok(validation.issues.some(issue => issue.path === '$.includedFactCount'));
+    assert.ok(validation.issues.some(issue => issue.path === '$.sources[0].storagePolicy'));
     assert.ok(validation.issues.some(issue => issue.path === '$.facts[0].sourceId'));
   } finally {
     process.exitCode = previousExitCode;

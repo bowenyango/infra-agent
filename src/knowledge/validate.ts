@@ -4,6 +4,13 @@ import { parseKnowledgeFactSet } from './facts-contract.ts';
 import { checkKnowledgeSourceFingerprint } from './local-source-fingerprint.ts';
 import type { KnowledgePackFact, KnowledgePackSource } from './pack.ts';
 import {
+  isKnowledgeStoragePolicyCompatibleWithSourceKind,
+  type KnowledgeStorageDefault,
+  type KnowledgeStoragePolicy,
+  type KnowledgeStoragePolicySummary,
+  type KnowledgeStorageScope
+} from './storage-policy.ts';
+import {
   KNOWLEDGE_FACT_EXTRACTION_METHODS,
   KNOWLEDGE_FACT_KINDS,
   type KnowledgeFactExtractionMethod,
@@ -76,6 +83,8 @@ const KNOWLEDGE_SOURCE_STALE_REASONS = [
   'local-file-missing'
 ] as const satisfies readonly KnowledgeSourceStaleReason[];
 const KNOWLEDGE_PACK_SOURCE_FRESHNESS = ['fresh', 'stale', 'unchecked'] as const;
+const KNOWLEDGE_STORAGE_SCOPES = ['public-reference', 'workspace-private'] as const satisfies readonly KnowledgeStorageScope[];
+const KNOWLEDGE_STORAGE_DEFAULTS = ['local-or-explicit-team-cache', 'local-only'] as const satisfies readonly KnowledgeStorageDefault[];
 const INFRA_DOMAINS = ['helm', 'pulumi', 'terraform'] as const;
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
@@ -246,11 +255,91 @@ function validateFactSet(value: unknown, path: string, issues: KnowledgeValidati
   }
 }
 
+function validateKnowledgeStoragePolicy(
+  value: unknown,
+  path: string,
+  sourceKind: KnowledgeSourceKind | null,
+  issues: KnowledgeValidationIssue[]
+): KnowledgeStoragePolicy | null {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge storage policy must be an object.'));
+    return null;
+  }
+
+  if (typeof value.scope !== 'string' || !KNOWLEDGE_STORAGE_SCOPES.includes(value.scope as KnowledgeStorageScope)) {
+    issues.push(error(`${path}.scope`, 'Knowledge storage policy scope must be supported.'));
+  }
+  if (typeof value.defaultStore !== 'string' || !KNOWLEDGE_STORAGE_DEFAULTS.includes(value.defaultStore as KnowledgeStorageDefault)) {
+    issues.push(error(`${path}.defaultStore`, 'Knowledge storage policy defaultStore must be supported.'));
+  }
+  const shareableByDefault = readBoolean(value.shareableByDefault, `${path}.shareableByDefault`, issues);
+  const requiresExplicitOptIn = readBoolean(value.requiresExplicitOptIn, `${path}.requiresExplicitOptIn`, issues);
+  readNonEmptyString(value.reason, `${path}.reason`, issues);
+
+  if (
+    typeof value.scope !== 'string'
+    || !KNOWLEDGE_STORAGE_SCOPES.includes(value.scope as KnowledgeStorageScope)
+    || typeof value.defaultStore !== 'string'
+    || !KNOWLEDGE_STORAGE_DEFAULTS.includes(value.defaultStore as KnowledgeStorageDefault)
+    || shareableByDefault === null
+    || requiresExplicitOptIn === null
+    || typeof value.reason !== 'string'
+  ) {
+    return null;
+  }
+
+  const policy = {
+    scope: value.scope as KnowledgeStorageScope,
+    defaultStore: value.defaultStore as KnowledgeStorageDefault,
+    shareableByDefault,
+    requiresExplicitOptIn,
+    reason: value.reason
+  };
+
+  if (!isKnowledgeStoragePolicyCompatibleWithSourceKind(sourceKind ?? 'repo-example', policy)) {
+    issues.push(error(path, 'Knowledge storage policy is not compatible with the source kind.'));
+  }
+
+  return policy;
+}
+
+function validateKnowledgeStoragePolicySummary(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): KnowledgeStoragePolicySummary | null {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge storage policy summary must be an object.'));
+    return null;
+  }
+
+  const publicReference = readNonNegativeInteger(value.publicReference, `${path}.publicReference`, issues);
+  const workspacePrivate = readNonNegativeInteger(value.workspacePrivate, `${path}.workspacePrivate`, issues);
+  const shareableByDefault = readNonNegativeInteger(value.shareableByDefault, `${path}.shareableByDefault`, issues);
+  const explicitOptInRequired = readNonNegativeInteger(value.explicitOptInRequired, `${path}.explicitOptInRequired`, issues);
+
+  if (
+    publicReference === null
+    || workspacePrivate === null
+    || shareableByDefault === null
+    || explicitOptInRequired === null
+  ) {
+    return null;
+  }
+
+  return {
+    publicReference,
+    workspacePrivate,
+    shareableByDefault,
+    explicitOptInRequired
+  };
+}
+
 function validateKnowledgePackSource(
   value: unknown,
   path: string,
   issues: KnowledgeValidationIssue[]
-): Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale'> | null {
+): Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy'> | null {
   if (!isRecord(value)) {
     issues.push(error(path, 'Knowledge pack source must be an object.'));
     return null;
@@ -261,7 +350,10 @@ function validateKnowledgePackSource(
     issues.push(error(`${path}.domain`, 'Knowledge pack source domain must be supported.'));
   }
   readString(value.targetPath, `${path}.targetPath`, issues);
-  if (typeof value.kind !== 'string' || !KNOWLEDGE_SOURCE_KINDS.includes(value.kind as KnowledgeSourceKind)) {
+  const sourceKind = typeof value.kind === 'string' && KNOWLEDGE_SOURCE_KINDS.includes(value.kind as KnowledgeSourceKind)
+    ? value.kind as KnowledgeSourceKind
+    : null;
+  if (sourceKind === null) {
     issues.push(error(`${path}.kind`, 'Knowledge pack source kind must be supported.'));
   }
   readNonEmptyString(value.name, `${path}.name`, issues);
@@ -302,6 +394,8 @@ function validateKnowledgePackSource(
     issues.push(error(`${path}.freshness`, 'Knowledge pack fresh sources must not use freshness=stale.'));
   }
 
+  const storagePolicy = validateKnowledgeStoragePolicy(value.storagePolicy, `${path}.storagePolicy`, sourceKind, issues);
+
   const hasFingerprintDigest = value.fingerprintDigest !== undefined;
   const hasFingerprintFileCount = value.fingerprintFileCount !== undefined;
   if (hasFingerprintDigest !== hasFingerprintFileCount) {
@@ -314,14 +408,15 @@ function validateKnowledgePackSource(
     readNonNegativeInteger(value.fingerprintFileCount, `${path}.fingerprintFileCount`, issues);
   }
 
-  if (id === null || factCount === null || stale === null) {
+  if (id === null || factCount === null || stale === null || storagePolicy === null) {
     return null;
   }
 
   return {
     id,
     factCount,
-    stale
+    stale,
+    storagePolicy
   };
 }
 
@@ -426,7 +521,8 @@ function validateKnowledgePackPayload(
   const omittedFactCount = readNonNegativeInteger(payload.omittedFactCount, '$.omittedFactCount', issues);
   const staleSourceCount = readNonNegativeInteger(payload.staleSourceCount, '$.staleSourceCount', issues);
 
-  const sources: Array<Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale'>> = [];
+  const storagePolicySummary = validateKnowledgeStoragePolicySummary(payload.storagePolicy, '$.storagePolicy', issues);
+  const sources: Array<Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy'>> = [];
   if (!Array.isArray(payload.sources)) {
     issues.push(error('$.sources', 'Knowledge pack sources must be an array.'));
   } else {
@@ -467,6 +563,12 @@ function validateKnowledgePackPayload(
   const actualIncludedFactCount = facts.length;
   const actualOmittedFactCount = Math.max(0, actualFactCount - actualIncludedFactCount);
   const actualStaleSourceCount = sources.filter(source => source.stale).length;
+  const actualStoragePolicy = {
+    publicReference: sources.filter(source => source.storagePolicy.scope === 'public-reference').length,
+    workspacePrivate: sources.filter(source => source.storagePolicy.scope === 'workspace-private').length,
+    shareableByDefault: sources.filter(source => source.storagePolicy.shareableByDefault).length,
+    explicitOptInRequired: sources.filter(source => source.storagePolicy.requiresExplicitOptIn).length
+  };
 
   if (sourceCount !== null && sourceCount !== actualSourceCount) {
     issues.push(error('$.sourceCount', 'Knowledge pack sourceCount must match sources.length.'));
@@ -491,6 +593,20 @@ function validateKnowledgePackPayload(
   }
   if (staleSourceCount !== null && staleSourceCount !== actualStaleSourceCount) {
     issues.push(error('$.staleSourceCount', 'Knowledge pack staleSourceCount must match stale sources.'));
+  }
+  if (storagePolicySummary !== null) {
+    if (storagePolicySummary.publicReference !== actualStoragePolicy.publicReference) {
+      issues.push(error('$.storagePolicy.publicReference', 'Knowledge pack storagePolicy publicReference must match source policies.'));
+    }
+    if (storagePolicySummary.workspacePrivate !== actualStoragePolicy.workspacePrivate) {
+      issues.push(error('$.storagePolicy.workspacePrivate', 'Knowledge pack storagePolicy workspacePrivate must match source policies.'));
+    }
+    if (storagePolicySummary.shareableByDefault !== actualStoragePolicy.shareableByDefault) {
+      issues.push(error('$.storagePolicy.shareableByDefault', 'Knowledge pack storagePolicy shareableByDefault must match source policies.'));
+    }
+    if (storagePolicySummary.explicitOptInRequired !== actualStoragePolicy.explicitOptInRequired) {
+      issues.push(error('$.storagePolicy.explicitOptInRequired', 'Knowledge pack storagePolicy explicitOptInRequired must match source policies.'));
+    }
   }
 
   return createReport(

@@ -147,10 +147,12 @@ Current behavior is intentionally runtime-foundation oriented:
   metadata, and local Pulumi config summaries into
   `infra-agent.knowledge-facts`, `validate` checks facts, extraction reports,
   and compact packs before use, and `pack` ranks and emits a bounded planner-safe
-  `infra-agent.knowledge-pack` without raw source content. `extract --out`
-  explicitly persists reusable fact artifacts for later validation, and
-  `pack --out` persists bounded packs for handoff or team-cache staging without
-  changing the default stdout-only behavior. Pass
+  `infra-agent.knowledge-pack` without raw source content. Packs carry the same
+  storage-policy summary so downstream agents can see when a handoff includes
+  workspace-private facts that require opt-in before team-cache publication.
+  `extract --out` explicitly persists reusable fact artifacts for later
+  validation, and `pack --out` persists bounded packs for handoff or
+  team-cache staging without changing the default stdout-only behavior. Pass
   `knowledge validate --workspace <workspace>` to recheck repo-derived fact
   fingerprints against current files and reject stale local knowledge before it
   reaches a planner.

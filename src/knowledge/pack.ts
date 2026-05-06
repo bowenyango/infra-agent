@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import { extractWorkspaceKnowledgeFacts, type KnowledgeExtractionOptions } from './extract.ts';
 import { rankKnowledgePackFacts } from './fact-ranking.ts';
+import {
+  resolveKnowledgeStoragePolicy,
+  summarizeKnowledgeStoragePolicies,
+  type KnowledgeStoragePolicy,
+  type KnowledgeStoragePolicySummary
+} from './storage-policy.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
 import type {
   KnowledgeFact,
@@ -27,6 +33,7 @@ export interface KnowledgePackSource {
   stale: boolean;
   staleReason?: KnowledgeSourceStaleReason;
   freshness: KnowledgePackSourceFreshness;
+  storagePolicy: KnowledgeStoragePolicy;
   fingerprintDigest?: string;
   fingerprintFileCount?: number;
 }
@@ -63,6 +70,7 @@ export interface KnowledgePack {
   omittedFactCount: number;
   maxFacts: number;
   staleSourceCount: number;
+  storagePolicy: KnowledgeStoragePolicySummary;
   sources: KnowledgePackSource[];
   facts: KnowledgePackFact[];
 }
@@ -91,6 +99,7 @@ function packHash(input: {
         stale: source.stale,
         staleReason: source.staleReason,
         freshness: source.freshness,
+        storagePolicy: source.storagePolicy,
         fingerprintDigest: source.fingerprintDigest,
         fingerprintFileCount: source.fingerprintFileCount
       })),
@@ -153,6 +162,7 @@ function toPackSource(factSet: {
     stale: factSet.sourceStale,
     ...(factSet.sourceStaleReason !== undefined ? { staleReason: factSet.sourceStaleReason } : {}),
     freshness: sourceFreshness(factSet),
+    storagePolicy: resolveKnowledgeStoragePolicy(factSet.source),
     ...(factSet.sourceFingerprint !== undefined
       ? {
           fingerprintDigest: factSet.sourceFingerprint.digest,
@@ -194,6 +204,7 @@ export async function buildKnowledgePack(
     }
   ]));
   const sources = extraction.factSets.map(factSet => toPackSource(factSet, sourceIndex));
+  const storagePolicy = summarizeKnowledgeStoragePolicies(sources.map(source => source.storagePolicy));
   const allFacts = extraction.factSets.flatMap(factSet => factSet.facts.map(toPackFact));
   const rankedFacts = rankKnowledgePackFacts(allFacts, {
     sources,
@@ -219,6 +230,7 @@ export async function buildKnowledgePack(
     omittedFactCount: Math.max(0, rankedFacts.length - facts.length),
     maxFacts,
     staleSourceCount: sources.filter(source => source.stale).length,
+    storagePolicy,
     sources,
     facts
   };

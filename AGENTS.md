@@ -102,6 +102,9 @@ format-only churn, unrelated cleanup, and behavior changes in one commit.
   full official docs into the package.
 - Fetching official docs belongs in deliberate prefetch/retrieval paths, not in
   uncontrolled agent loops.
+- Knowledge source and pack artifacts must preserve storage/publication posture:
+  public reference facts may be staged for an explicit team cache, while
+  workspace-private repo facts require opt-in before shared use.
 - If context is stale or inferred, mark confidence appropriately and do not
   treat it as validator-grade authority.
 

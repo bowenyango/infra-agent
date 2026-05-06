@@ -183,6 +183,8 @@ Extraction rules:
   default. Store them in the user cache or a team cache. Repos may commit small
   curated packs only when the team intentionally wants reviewed policy or module
   knowledge in version control.
+- Knowledge packs must carry storage/publication metadata so future publication
+  gates can distinguish public-reference facts from workspace-private facts.
 - Private repo facts must be opt-in. Do not upload or share user module,
   component, chart, or code-derived facts without explicit configuration.
 - Planner prompts should receive budgeted fact summaries, not full cached docs

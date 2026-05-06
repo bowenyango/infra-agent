@@ -13,6 +13,7 @@ import {
 } from 'node:path';
 import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
+import { buildKnowledgeCacheId } from '../../src/knowledge/cache.ts';
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
 import { rankKnowledgePackFacts } from '../../src/knowledge/fact-ranking.ts';
@@ -44,6 +45,11 @@ test('knowledge pack builds bounded planner-safe fact packs', async () => {
   ));
   const localSource = pack.sources.find(source => source.kind === 'chart-schema');
   assert.equal(localSource?.freshness, 'fresh');
+  assert.equal(localSource?.storagePolicy.scope, 'workspace-private');
+  assert.equal(localSource?.storagePolicy.defaultStore, 'local-only');
+  assert.equal(localSource?.storagePolicy.requiresExplicitOptIn, true);
+  assert.equal(pack.storagePolicy.workspacePrivate, pack.sources.length);
+  assert.equal(pack.storagePolicy.explicitOptInRequired, pack.sources.length);
   assert.match(localSource?.fingerprintDigest ?? '', /^[a-f0-9]{64}$/);
   assert.equal(localSource?.fingerprintFileCount, 1);
   assert.ok(localSource && !('sourceFingerprint' in localSource));
@@ -88,6 +94,32 @@ test('knowledge validation accepts packs and rejects compact pack drift', async 
   ]) {
     assert.ok(countDriftReport.issues.some(issue => issue.path === path), path);
   }
+
+  const policyDriftReport = validateKnowledgePayload({
+    ...pack,
+    storagePolicy: {
+      ...pack.storagePolicy,
+      publicReference: pack.storagePolicy.publicReference + 1
+    }
+  }, 'inline');
+  assert.equal(policyDriftReport.valid, false);
+  assert.ok(policyDriftReport.issues.some(issue => issue.path === '$.storagePolicy.publicReference'));
+
+  const forgedStoragePolicyReport = validateKnowledgePayload({
+    ...pack,
+    sources: [{
+      ...pack.sources[0],
+      storagePolicy: {
+        scope: 'public-reference',
+        defaultStore: 'local-or-explicit-team-cache',
+        shareableByDefault: true,
+        requiresExplicitOptIn: false,
+        reason: 'Forged public posture.'
+      }
+    }]
+  }, 'inline');
+  assert.equal(forgedStoragePolicyReport.valid, false);
+  assert.ok(forgedStoragePolicyReport.issues.some(issue => issue.path === '$.sources[0].storagePolicy'));
 
   const missingSourceReport = validateKnowledgePayload({
     ...pack,
@@ -171,6 +203,86 @@ test('knowledge fact budget summarizes packs without raw source payloads', async
     && !('source' in fact)
   ));
   assert.doesNotMatch(JSON.stringify(summary), /contentHash|fetchedAt|"content"\s*:|"\$schema"|replicaCount":\s*\{/);
+});
+
+test('knowledge pack marks cached public registry docs as shareable references', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-public-policy-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(terraformRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source = "hashicorp/aws"',
+        '      version = "5.37.0"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_s3_bucket" "logs" {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version = "5.37.0"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const store = {
+      root: join(tempRoot, '.infra-agent/knowledge-cache'),
+      buildId: buildKnowledgeCacheId,
+      read: async source => ({
+        id: buildKnowledgeCacheId(source),
+        source,
+        contentType: 'text/markdown',
+        content: [
+          '# aws_s3_bucket',
+          '',
+          '## Argument Reference',
+          '',
+          '* `bucket` - (Optional) Bucket name.',
+          ''
+        ].join('\n'),
+        contentHash: 'd'.repeat(64),
+        fetchedAt: '2026-05-05T00:00:00.000Z',
+        staleAfter: '2026-06-05T00:00:00.000Z'
+      }),
+      write: async () => {
+        throw new Error('pack extraction should not write in this test');
+      },
+      isStale: () => false
+    };
+    const inspection = await inspectWorkspace(tempRoot);
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxFacts: 2,
+      store,
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+    const registrySource = pack.sources.find(source => source.kind === 'terraform-registry');
+
+    assert.ok(registrySource);
+    assert.equal(registrySource.storagePolicy.scope, 'public-reference');
+    assert.equal(registrySource.storagePolicy.defaultStore, 'local-or-explicit-team-cache');
+    assert.equal(registrySource.storagePolicy.shareableByDefault, true);
+    assert.equal(registrySource.storagePolicy.requiresExplicitOptIn, false);
+    assert.equal(pack.storagePolicy.publicReference, 1);
+    assert.equal(pack.storagePolicy.shareableByDefault, 1);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge fact ranking prioritizes local required facts before examples', () => {
@@ -621,6 +733,8 @@ test('knowledge pack includes Terraform local module inputs under small budgets'
     assert.ok(pack.sources.some(source =>
       source.kind === 'terraform-module'
       && source.targetPath === 'terraform/app'
+      && source.storagePolicy.scope === 'workspace-private'
+      && source.storagePolicy.requiresExplicitOptIn === true
       && source.factCount > 0
     ));
     assert.ok(pack.facts.some(fact =>
@@ -654,6 +768,7 @@ test('knowledge pack includes Pulumi config parameters under small budgets', asy
     source.kind === 'pulumi-config'
     && source.domain === 'pulumi'
     && source.targetPath === 'infra/payments-api'
+    && source.storagePolicy.scope === 'workspace-private'
     && source.factCount > 0
   ));
   assert.ok(pack.facts.every(fact => fact.kind === 'pulumi-config-parameter'));
