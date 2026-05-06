@@ -1,0 +1,11 @@
+import './unit/inspect-graph-impact.test.mjs';
+import './unit/knowledge-core.test.mjs';
+import './unit/workspace-policy-targeting.test.mjs';
+import './integration/agent-runtime-compact.test.mjs';
+import './integration/cli-main.test.mjs';
+import './contract/infra-graph-contracts.test.mjs';
+import './contract/agent-result-contract.test.mjs';
+import './contract/identity-report.test.mjs';
+import './unit/tools-validation-model.test.mjs';
+import './unit/agent-output-approval.test.mjs';
+import './unit/domain-terraform-pulumi-tail.test.mjs';

@@ -24,7 +24,7 @@
     "validate": "node --experimental-strip-types ./src/cli/main.ts validate",
     "run": "node --experimental-strip-types ./src/cli/main.ts run",
     "lint": "node ./scripts/lint.mjs",
-    "test:unit": "node --experimental-strip-types ./test/cli-smoke.test.mjs",
+    "test:unit": "node --experimental-strip-types ./test/run-unit.mjs",
     "test": "npm run test:unit",
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
     "e2e": "node --experimental-strip-types ./scripts/e2e.mjs",
