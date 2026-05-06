@@ -2530,6 +2530,15 @@ test('knowledge fact contract validates source-linked fact sets', () => {
   };
 
   assert.equal(parseKnowledgeFactSet(factSet).kind, 'infra-agent.knowledge-facts');
+  const sourceFingerprint = buildKnowledgeSourceFingerprint([{
+    path: 'charts/payments-api/Chart.yaml',
+    contentHash: 'c'.repeat(64),
+    stale: false
+  }]);
+  assert.equal(parseKnowledgeFactSet({
+    ...factSet,
+    sourceFingerprint
+  }).sourceFingerprint.fileCount, 1);
   assert.throws(
     () => parseKnowledgeFactSet({
       ...factSet,
@@ -2586,6 +2595,48 @@ test('knowledge fact contract validates source-linked fact sets', () => {
       factCount: 1
     }),
     /secret-like/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      sourceFingerprint: {
+        ...sourceFingerprint,
+        digest: 'd'.repeat(64)
+      }
+    }),
+    /digest/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      sourceFingerprint: {
+        ...sourceFingerprint,
+        digest: 'd'.repeat(64),
+        files: [{
+          path: '/tmp/provider-schema.json',
+          contentHash: 'c'.repeat(64)
+        }]
+      }
+    }),
+    /Invalid local knowledge source path/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      sourceStaleReason: 'local-file-hash-mismatch'
+    }),
+    /sourceStaleReason/
+  );
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...factSet,
+      sourceFingerprint: buildKnowledgeSourceFingerprint([{
+        path: 'charts/payments-api/Chart.yaml',
+        contentHash: 'c'.repeat(64),
+        stale: true
+      }])
+    }),
+    /stale files/
   );
 });
 

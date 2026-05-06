@@ -1,8 +1,11 @@
 import { buildKnowledgeCacheId } from './cache.ts';
+import { buildKnowledgeSourceFingerprint } from './local-source-fingerprint.ts';
 import {
   KNOWLEDGE_FACT_EXTRACTION_METHODS,
   KNOWLEDGE_FACT_KINDS,
   type KnowledgeFactSet,
+  type KnowledgeSourceFileFingerprint,
+  type KnowledgeSourceFingerprint,
   type KnowledgeSource,
   type KnowledgeSourceKind
 } from '../types/knowledge.ts';
@@ -22,6 +25,11 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'module-readme'
 ];
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const;
+const KNOWLEDGE_SOURCE_STALE_REASONS = [
+  'time-expired',
+  'local-file-hash-mismatch',
+  'local-file-missing'
+] as const;
 const OPTIONAL_STRING_SOURCE_FIELDS = [
   'version',
   'url',
@@ -102,6 +110,66 @@ function assertStringArray(value: unknown, fieldPath: string): asserts value is 
   }
 }
 
+function assertKnowledgeSourceFingerprint(
+  value: unknown,
+  fieldPath: string
+): asserts value is KnowledgeSourceFingerprint {
+  if (!isRecord(value)) {
+    throw new Error(`knowledge fact input ${fieldPath} must be an object.`);
+  }
+
+  if (value.algorithm !== 'sha256') {
+    throw new Error(`knowledge fact input ${fieldPath}.algorithm must be sha256.`);
+  }
+
+  if (typeof value.digest !== 'string' || !SHA256_HEX_PATTERN.test(value.digest)) {
+    throw new Error(`knowledge fact input ${fieldPath}.digest must be a SHA-256 hex string.`);
+  }
+
+  if (!Number.isInteger(value.fileCount) || (value.fileCount as number) < 0) {
+    throw new Error(`knowledge fact input ${fieldPath}.fileCount must be a non-negative integer.`);
+  }
+
+  if (!Array.isArray(value.files)) {
+    throw new Error(`knowledge fact input ${fieldPath}.files must be an array.`);
+  }
+
+  if (value.fileCount !== value.files.length) {
+    throw new Error(`knowledge fact input ${fieldPath}.fileCount must match files length.`);
+  }
+
+  const files: KnowledgeSourceFileFingerprint[] = [];
+  for (let index = 0; index < value.files.length; index += 1) {
+    const file = value.files[index];
+    const filePath = `${fieldPath}.files[${index}]`;
+    if (!isRecord(file)) {
+      throw new Error(`knowledge fact input ${filePath} must be an object.`);
+    }
+
+    assertNonEmptyString(file.path, `${filePath}.path`);
+    assertNoSecretLikeValue(file.path as string, `${filePath}.path`);
+
+    if (typeof file.contentHash !== 'string' || !SHA256_HEX_PATTERN.test(file.contentHash)) {
+      throw new Error(`knowledge fact input ${filePath}.contentHash must be a SHA-256 hex string.`);
+    }
+
+    if (file.stale !== undefined && typeof file.stale !== 'boolean') {
+      throw new Error(`knowledge fact input ${filePath}.stale must be a boolean when present.`);
+    }
+
+    files.push({
+      path: file.path as string,
+      contentHash: file.contentHash,
+      ...(file.stale !== undefined ? { stale: file.stale } : {})
+    });
+  }
+
+  const expected = buildKnowledgeSourceFingerprint(files);
+  if (value.fileCount !== expected.fileCount || value.digest !== expected.digest) {
+    throw new Error(`knowledge fact input ${fieldPath} digest must match files.`);
+  }
+}
+
 export function parseKnowledgeFactSet(value: unknown): KnowledgeFactSet {
   if (!isRecord(value) || value.kind !== 'infra-agent.knowledge-facts') {
     throw new Error('knowledge fact input must be an infra-agent.knowledge-facts JSON payload.');
@@ -137,6 +205,31 @@ export function parseKnowledgeFactSet(value: unknown): KnowledgeFactSet {
 
   if (typeof value.sourceStale !== 'boolean') {
     throw new Error('knowledge fact input sourceStale must be a boolean.');
+  }
+
+  if (value.sourceStaleReason !== undefined) {
+    if (
+      typeof value.sourceStaleReason !== 'string'
+      || !KNOWLEDGE_SOURCE_STALE_REASONS.includes(
+        value.sourceStaleReason as typeof KNOWLEDGE_SOURCE_STALE_REASONS[number]
+      )
+    ) {
+      throw new Error('knowledge fact input sourceStaleReason must be supported.');
+    }
+
+    if (value.sourceStale !== true) {
+      throw new Error('knowledge fact input sourceStaleReason requires sourceStale to be true.');
+    }
+  }
+
+  if (value.sourceFingerprint !== undefined) {
+    assertKnowledgeSourceFingerprint(value.sourceFingerprint, 'sourceFingerprint');
+    if (
+      value.sourceStale !== true
+      && value.sourceFingerprint.files.some(file => file.stale === true)
+    ) {
+      throw new Error('knowledge fact input sourceFingerprint stale files require sourceStale to be true.');
+    }
   }
 
   if (!Number.isInteger(value.factCount) || (value.factCount as number) < 0) {
