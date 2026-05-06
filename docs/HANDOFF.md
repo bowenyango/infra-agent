@@ -9862,6 +9862,37 @@ Remaining risks:
 - Full `npm run verify`, package dry-run, and `git diff --check` still need to
   be rerun.
 
+## 2026-05-05 Planner Knowledge Facts Final Verification
+
+Files added or updated:
+
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Record final verification for the planner knowledge-facts milestone after
+  runtime loading, planner prompt consumption, CLI budget controls, compact
+  output, parser validation, result-card summaries, generic target scoping,
+  durable docs, and compact fixture repair were committed.
+
+Known validation:
+
+- `npm run verify`: passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed; dry-run package reports 120 files and includes
+  `src/knowledge/fact-budget.ts`, updated compact parser/output, docs, and the
+  infra skill.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- Fact ranking remains extraction-order based.
+- Pulumi docs extraction, broad Terraform provider-schema fact extraction, and
+  durable Terraform module/Pulumi component/Helm chart team-pack storage remain
+  roadmap work.
+- Remote/team cache backends are still not implemented; current automatic agent
+  runs stay cache/local-only and deliberate refresh remains `knowledge prefetch`.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:
