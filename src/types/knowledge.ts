@@ -55,6 +55,24 @@ export interface KnowledgeFactSourceRef {
   locator: string;
 }
 
+export type KnowledgeSourceStaleReason =
+  | 'time-expired'
+  | 'local-file-hash-mismatch'
+  | 'local-file-missing';
+
+export interface KnowledgeSourceFileFingerprint {
+  path: string;
+  contentHash: string;
+  stale?: boolean;
+}
+
+export interface KnowledgeSourceFingerprint {
+  algorithm: 'sha256';
+  digest: string;
+  fileCount: number;
+  files: KnowledgeSourceFileFingerprint[];
+}
+
 export interface KnowledgeFact {
   kind: KnowledgeFactKind;
   path: string;
@@ -79,6 +97,8 @@ export interface KnowledgeFactSet {
   sourceFetchedAt: string | null;
   sourceStaleAfter?: string;
   sourceStale: boolean;
+  sourceStaleReason?: KnowledgeSourceStaleReason;
+  sourceFingerprint?: KnowledgeSourceFingerprint;
   extractedAt: string;
   factCount: number;
   facts: KnowledgeFact[];
@@ -104,6 +124,7 @@ export interface KnowledgeCacheEntry {
   contentHash: string;
   fetchedAt: string;
   staleAfter?: string;
+  fingerprint?: KnowledgeSourceFingerprint;
   summary?: string;
   metadata?: Record<string, string>;
 }
@@ -114,6 +135,7 @@ export interface KnowledgeCacheWrite {
   content: string;
   fetchedAt?: string;
   staleAfter?: string;
+  fingerprint?: KnowledgeSourceFingerprint;
   summary?: string;
   metadata?: Record<string, string>;
 }

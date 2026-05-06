@@ -118,6 +118,11 @@ import { validateKnowledgePayload } from '../src/knowledge/validate.ts';
 import { buildKnowledgePack } from '../src/knowledge/pack.ts';
 import { budgetKnowledgePackFacts } from '../src/knowledge/fact-budget.ts';
 import { rankKnowledgePackFacts } from '../src/knowledge/fact-ranking.ts';
+import {
+  buildKnowledgeSourceFingerprint,
+  checkKnowledgeSourceFingerprint,
+  fingerprintWorkspaceFiles
+} from '../src/knowledge/local-source-fingerprint.ts';
 import { buildStableInfraGraphSnapshot } from '../src/impact/graph-snapshot.ts';
 import { normalizeInfraGraphImpactReviewTargets } from '../src/impact/graph-impact-summary.ts';
 import { buildWorkspaceInfraGraph, summarizeInfraGraph } from '../src/impact/workspace-graph.ts';
@@ -2614,6 +2619,101 @@ test('knowledge cache writes versioned entries and detects staleness', async () 
     assert.equal(readBack?.source.version, '1.2.3');
     assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-05-01T00:00:00.000Z')), false);
     assert.equal(isKnowledgeCacheEntryStale(written, new Date('2026-06-01T00:00:00.000Z')), true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge source fingerprints are deterministic and path-safe', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-fingerprint-'));
+
+  try {
+    await mkdir(join(tempRoot, 'charts/api'), { recursive: true });
+    await writeFile(join(tempRoot, 'charts/api/Chart.yaml'), 'name: api\nversion: 0.1.0\n', 'utf8');
+    await writeFile(join(tempRoot, 'charts/api/Chart.lock'), 'dependencies: []\n', 'utf8');
+
+    const first = await fingerprintWorkspaceFiles(tempRoot, [
+      'charts/api/Chart.lock',
+      'charts/api/Chart.yaml'
+    ]);
+    const second = await fingerprintWorkspaceFiles(tempRoot, [
+      'charts/api/Chart.yaml',
+      'charts/api/Chart.lock'
+    ]);
+
+    assert.equal(first.algorithm, 'sha256');
+    assert.equal(first.digest, second.digest);
+    assert.equal(first.fileCount, 2);
+    assert.deepEqual(first.files.map(file => file.path), [
+      'charts/api/Chart.lock',
+      'charts/api/Chart.yaml'
+    ]);
+    assert.ok(first.files.every(file => /^[a-f0-9]{64}$/.test(file.contentHash)));
+    assert.ok(first.files.every(file => file.stale === false));
+
+    assert.throws(
+      () => buildKnowledgeSourceFingerprint([
+        {
+          path: '/abs/Chart.yaml',
+          contentHash: 'a'.repeat(64)
+        }
+      ]),
+      /Invalid local knowledge source path/
+    );
+    assert.throws(
+      () => buildKnowledgeSourceFingerprint([
+        {
+          path: 'charts/api/secret-values.yaml',
+          contentHash: 'a'.repeat(64)
+        }
+      ]),
+      /Invalid local knowledge source path/
+    );
+    assert.throws(
+      () => buildKnowledgeSourceFingerprint([
+        {
+          path: 'charts/api/Chart.yaml',
+          contentHash: 'bad'
+        }
+      ]),
+      /Invalid local knowledge source hash/
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge source fingerprints detect local file changes and missing files', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-fingerprint-check-'));
+
+  try {
+    await mkdir(join(tempRoot, 'charts/api'), { recursive: true });
+    await writeFile(join(tempRoot, 'charts/api/Chart.yaml'), 'name: api\nversion: 0.1.0\n', 'utf8');
+    await writeFile(join(tempRoot, 'charts/api/Chart.lock'), 'dependencies: []\n', 'utf8');
+    const fingerprint = await fingerprintWorkspaceFiles(tempRoot, [
+      'charts/api/Chart.yaml',
+      'charts/api/Chart.lock'
+    ]);
+
+    assert.equal((await checkKnowledgeSourceFingerprint(tempRoot, fingerprint)).sourceStale, false);
+
+    await writeFile(join(tempRoot, 'charts/api/Chart.yaml'), 'name: api\nversion: 0.2.0\n', 'utf8');
+    const changed = await checkKnowledgeSourceFingerprint(tempRoot, fingerprint);
+    assert.equal(changed.sourceStale, true);
+    assert.equal(changed.sourceStaleReason, 'local-file-hash-mismatch');
+    assert.ok(changed.fingerprint.files.some(file =>
+      file.path === 'charts/api/Chart.yaml'
+      && file.stale === true
+    ));
+
+    await rm(join(tempRoot, 'charts/api/Chart.lock'), { force: true });
+    const missing = await checkKnowledgeSourceFingerprint(tempRoot, fingerprint);
+    assert.equal(missing.sourceStale, true);
+    assert.equal(missing.sourceStaleReason, 'local-file-missing');
+    assert.ok(missing.fingerprint.files.some(file =>
+      file.path === 'charts/api/Chart.lock'
+      && file.stale === true
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
