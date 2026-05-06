@@ -2731,6 +2731,75 @@ test('knowledge fact extractor summarizes Helm values schema from cache', async 
   }
 });
 
+test('knowledge fact extractor summarizes compact Terraform provider schema context', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-provider-schema-'));
+
+  try {
+    const source = {
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/app',
+      version: 'hashicorp/aws@5.37.0',
+      localPath: 'terraform/app/.infra-agent/terraform-provider-schema.json',
+      module: 'terraform/app'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'application/json',
+      content: JSON.stringify({
+        schemaFile: 'terraform/app/.infra-agent/terraform-provider-schema.json',
+        blocks: [
+          {
+            type: 'aws_lb_listener_rule',
+            kind: 'resource',
+            sourcePaths: ['terraform/app/main.tf'],
+            requiredAttributes: [
+              { name: 'listener_arn', type: 'string', required: true }
+            ],
+            configuredAttributes: [
+              { name: 'priority', type: 'number', optional: true },
+              { name: 'arn', type: 'string', computed: true },
+              { name: 'api_token', type: 'string', optional: true, sensitive: true }
+            ],
+            requiredBlocks: ['action nesting_mode=list min_items=1 max_items=1'],
+            configuredBlocks: ['condition nesting_mode=list min_items=1']
+          }
+        ]
+      }),
+      fetchedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry);
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.path === 'resource.aws_lb_listener_rule.listener_arn'
+      && fact.required === true
+      && fact.type === 'string'
+      && fact.relatedPaths?.includes('terraform/app/main.tf')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.path === 'resource.aws_lb_listener_rule.priority'
+      && fact.required === false
+      && fact.type === 'number'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'attribute'
+      && fact.path === 'resource.aws_lb_listener_rule.arn'
+      && fact.summary.includes('do not set')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'nested-block'
+      && fact.path === 'resource.aws_lb_listener_rule.action'
+      && fact.values?.includes('min_items=1')
+    ));
+    assert.doesNotMatch(JSON.stringify(factSet), /api_token/);
+    assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('workspace knowledge facts extract local Helm schema sources without fetching', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const report = await extractWorkspaceKnowledgeFacts(inspection, {
