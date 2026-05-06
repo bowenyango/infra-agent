@@ -3635,6 +3635,61 @@ test('knowledge fact ranking places Pulumi config parameters before examples', (
   assert.equal(ranked[1]?.path, 'pulumi.config.example');
 });
 
+test('knowledge fact ranking places Helm dependency facts before chart docs examples', () => {
+  const sources = [
+    {
+      id: 'chart-metadata-source',
+      domain: 'helm',
+      targetPath: 'charts/api',
+      kind: 'chart-metadata',
+      name: 'api:Chart.yaml',
+      factCount: 1,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'chart-docs-source',
+      domain: 'helm',
+      targetPath: 'charts/api',
+      kind: 'chart-docs',
+      name: 'api:dependency:redis',
+      factCount: 1,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      stale: false
+    }
+  ];
+  const ranked = rankKnowledgePackFacts([
+    {
+      kind: 'example',
+      path: 'chart.api.example',
+      summary: 'Helm chart dependency example.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'chart-docs-source',
+      sourceLocator: 'chart docs'
+    },
+    {
+      kind: 'chart-dependency',
+      path: 'chart.api.dependencies.redis',
+      summary: 'chart.api locked Helm dependency redis.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'chart-metadata-source',
+      sourceLocator: 'charts/api/Chart.lock: dependencies.redis',
+      values: ['version=17.3.1', 'locked=true']
+    }
+  ], {
+    sources,
+    requestedDomains: ['helm'],
+    targetPaths: ['charts/api']
+  });
+
+  assert.equal(ranked[0]?.path, 'chart.api.dependencies.redis');
+  assert.equal(ranked[1]?.path, 'chart.api.example');
+});
+
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-retrieve-fetch-'));
 
