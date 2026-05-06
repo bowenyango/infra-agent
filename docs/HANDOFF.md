@@ -10161,3 +10161,82 @@ Final verification:
   `src/domain/pulumi-config-knowledge.ts`, updated knowledge pipeline files,
   docs, and skill guidance.
 - `git diff --check`: passed.
+
+## 2026-05-05 Helm Chart Metadata/Dependency Knowledge Facts Slice
+
+Files added or updated:
+
+- `src/types/knowledge.ts`
+- `src/knowledge/facts-contract.ts`
+- `src/cli/agent-result-contract.ts`
+- `src/domain/helm-chart-context.ts`
+- `src/knowledge/extract.ts`
+- `src/knowledge/facts.ts`
+- `src/knowledge/fact-ranking.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `skills/infra-configuration/SKILL.md`
+- `skills/infra-configuration/references/context-validation-and-impact.md`
+
+Purpose:
+
+- Add `chart-metadata` as a repo-local Helm knowledge source kind for
+  `Chart.yaml` plus sibling `Chart.lock` metadata.
+- Build compact Helm chart metadata summaries that preserve safe chart identity,
+  chart version, app version, type, home/source URLs, and declared or locked
+  dependencies without passing raw chart YAML into fact sets, packs, runtime
+  prompts, or CLI JSON.
+- Extract ranked `chart-metadata` and `chart-dependency` facts with
+  `repo-local-static` provenance so the planner can reason about chart identity
+  and dependency versions before using external chart docs or generic examples.
+- Wire the source through `knowledge sources`, `knowledge extract`,
+  `knowledge pack`, runtime `knowledgeFacts`, and compact docs/skill guidance.
+
+Design notes:
+
+- `Chart.lock` dependency versions take precedence over declared dependency
+  ranges from `Chart.yaml`, and facts include `locked=true` when the locked
+  dependency was selected.
+- The summary intentionally omits raw `apiVersion: v2` YAML, lock digests,
+  generated timestamps, secret-like dependency names, unsafe metadata URLs, and
+  raw dependency repository prose.
+- `chart-dependency` facts rank above chart-doc examples but remain advisory.
+  Helm schema packets, `helm lint`, `helm template`, and chart validators are
+  still authoritative for rendered behavior and valid values.
+- This slice implements local Helm chart facts only. It does not implement
+  external chart-doc extraction beyond already selected cache-first docs.
+
+Known validation:
+
+- `npm run test:unit -- --test-name-pattern "knowledge source contracts include local infra sources"`: passed.
+- `npm run test:unit -- --test-name-pattern "Helm chart context sources include local schema and chart docs metadata"`: passed.
+- `npm run test:unit -- --test-name-pattern "Helm chart metadata knowledge content summarizes safe metadata and dependencies"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge fact extractor summarizes Helm chart metadata and dependencies"`: passed.
+- `npm run test:unit -- --test-name-pattern "workspace knowledge facts extract local Helm schema sources without fetching"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge fact ranking places Helm dependency facts before chart docs examples"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge pack includes Helm chart metadata"`: passed.
+- `npm run test:unit -- --test-name-pattern "agent runtime loads Helm chart metadata"`: passed.
+- `npm run test:unit -- --test-name-pattern "knowledge (extract command emits cache-first fact sets|pack command emits Helm chart metadata)"`: passed.
+- `npm run test:unit -- --test-name-pattern "package metadata exposes"`: passed. Due the current Node test harness behavior, these targeted commands execute the full unit test file; the latest targeted run reported 358 passing tests.
+
+Remaining risks:
+
+- Pulumi official-doc source selection and Pulumi component facts are still
+  planned.
+- External chart-doc extraction beyond local chart metadata/dependency facts is
+  still pending.
+- Local fact refresh/staleness reporting for workspace file changes is not yet
+  implemented.
+- Team-scale shared knowledge storage, such as an explicit S3-compatible cache
+  backend, remains an architecture item. Generated public provider/chart cache
+  data should still stay out of user repos unless intentionally curated.
+
+Next stage:
+
+- Add local file hash/staleness tracking for repo-derived fact sources so edits
+  to `Chart.yaml`, `Chart.lock`, Terraform modules, Pulumi config, or provider
+  schema exports can downgrade or refresh derived facts deterministically.
+- After local staleness is stable, design the opt-in team cache backend around
+  content-addressed packs and source-provenance metadata.
