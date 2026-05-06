@@ -9,6 +9,7 @@ export type KnowledgeSourceKind =
   | 'chart-schema'
   | 'chart-lock'
   | 'repo-example'
+  | 'pulumi-config'
   | 'terraform-module'
   | 'module-readme';
 

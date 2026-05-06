@@ -2342,21 +2342,21 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
   ]);
 });
 
-test('knowledge source contracts include Terraform module sources', () => {
-  const source = {
+test('knowledge source contracts include local infra sources', () => {
+  const terraformModuleSource = {
     kind: 'terraform-module',
     name: 'terraform-module:terraform/app:queue-worker',
     localPath: 'terraform/app/modules/queue-worker',
     module: 'terraform/app',
     packageName: 'queue-worker'
   };
-  const sourceId = buildKnowledgeCacheId(source);
-  const factSet = {
+  const terraformModuleSourceId = buildKnowledgeCacheId(terraformModuleSource);
+  const terraformModuleFactSet = {
     kind: 'infra-agent.knowledge-facts',
     schemaVersion: 1,
     mutationAllowed: false,
-    sourceId,
-    source,
+    sourceId: terraformModuleSourceId,
+    source: terraformModuleSource,
     sourceContentHash: 'b'.repeat(64),
     sourceFetchedAt: '2026-05-05T00:00:00.000Z',
     sourceStale: false,
@@ -2372,16 +2372,47 @@ test('knowledge source contracts include Terraform module sources', () => {
         confidence: 'high',
         extractionMethod: 'repo-local-static',
         source: {
-          id: sourceId,
-          source,
+          id: terraformModuleSourceId,
+          source: terraformModuleSource,
           contentHash: 'b'.repeat(64),
           locator: 'variables.tf: variable.image_tag'
         }
       }
     ]
   };
+  const pulumiConfigSource = {
+    kind: 'pulumi-config',
+    name: 'pulumi-config:infra/payments-api',
+    localPath: 'infra/payments-api',
+    module: 'infra/payments-api',
+    packageName: 'payments-api'
+  };
+  const pulumiConfigSourceId = buildKnowledgeCacheId(pulumiConfigSource);
+  const pulumiConfigFactSet = {
+    ...terraformModuleFactSet,
+    sourceId: pulumiConfigSourceId,
+    source: pulumiConfigSource,
+    facts: [
+      {
+        kind: 'pulumi-config-parameter',
+        path: 'config.payments-api:imageTag',
+        summary: 'config.payments-api:imageTag is declared by Pulumi project config and has no default.',
+        required: true,
+        type: 'string',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: {
+          id: pulumiConfigSourceId,
+          source: pulumiConfigSource,
+          contentHash: 'b'.repeat(64),
+          locator: 'infra/payments-api/Pulumi.yaml: config.payments-api:imageTag'
+        }
+      }
+    ]
+  };
 
-  assert.equal(parseKnowledgeFactSet(factSet).source.kind, 'terraform-module');
+  assert.equal(parseKnowledgeFactSet(terraformModuleFactSet).source.kind, 'terraform-module');
+  assert.equal(parseKnowledgeFactSet(pulumiConfigFactSet).source.kind, 'pulumi-config');
 });
 
 test('knowledge fact contract validates source-linked fact sets', () => {

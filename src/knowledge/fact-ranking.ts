@@ -28,6 +28,7 @@ const CONFIDENCE_SCORE: Record<KnowledgePackFact['confidence'], number> = {
 const SOURCE_KIND_SCORE: Record<KnowledgePackSource['kind'], number> = {
   'provider-schema': 35,
   'chart-schema': 35,
+  'pulumi-config': 32,
   'chart-lock': 30,
   'terraform-module': 30,
   'module-readme': 28,
