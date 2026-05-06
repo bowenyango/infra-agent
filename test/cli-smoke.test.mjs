@@ -3430,6 +3430,62 @@ test('knowledge fact ranking places required module inputs before examples', () 
   assert.ok(ranked.every(fact => !('rank' in fact)));
 });
 
+test('knowledge fact ranking places Pulumi config parameters before examples', () => {
+  const sources = [
+    {
+      id: 'pulumi-config-source',
+      domain: 'pulumi',
+      targetPath: 'infra/payments-api',
+      kind: 'pulumi-config',
+      name: 'pulumi-config:infra/payments-api',
+      factCount: 1,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'pulumi-docs-source',
+      domain: 'pulumi',
+      targetPath: 'infra/payments-api',
+      kind: 'pulumi-docs',
+      name: 'pulumi-config-docs',
+      factCount: 1,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      stale: false
+    }
+  ];
+  const ranked = rankKnowledgePackFacts([
+    {
+      kind: 'example',
+      path: 'pulumi.config.example',
+      summary: 'Pulumi config example.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'pulumi-docs-source',
+      sourceLocator: 'Pulumi config docs'
+    },
+    {
+      kind: 'pulumi-config-parameter',
+      path: 'config.payments-api:imageTag',
+      summary: 'config.payments-api:imageTag is declared by Pulumi project config.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'pulumi-config-source',
+      sourceLocator: 'infra/payments-api/Pulumi.yaml: config.payments-api:imageTag',
+      type: 'string',
+      values: ['latest']
+    }
+  ], {
+    sources,
+    requestedDomains: ['pulumi'],
+    targetPaths: ['infra/payments-api']
+  });
+
+  assert.equal(ranked[0]?.path, 'config.payments-api:imageTag');
+  assert.equal(ranked[1]?.path, 'pulumi.config.example');
+});
+
 test('knowledge context retrieval fetches missing sources and writes cache', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-retrieve-fetch-'));
 
