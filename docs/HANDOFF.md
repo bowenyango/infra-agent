@@ -35,6 +35,62 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-06 Local Knowledge Cache Reuse Slice
+
+Status:
+
+- Implemented locally. This slice follows the artifact integrity work by
+  reducing repeated repo-local learning when cached local facts are still
+  fingerprint-fresh.
+
+Core files changed:
+
+- `src/knowledge/extract.ts`
+- `test/unit/knowledge-extraction-cache-reuse.test.mjs`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Local source extraction now checks the `KnowledgeStore` before regenerating
+  Helm chart schemas, Helm chart metadata, Terraform provider schema summaries,
+  Terraform local module facts, and Pulumi config facts.
+- A cached local source entry is reused only when it has a fingerprint, the
+  content hash matches its content, the content type matches the source kind,
+  the entry is not time-stale, and the current workspace files still match the
+  recorded fingerprint.
+- Stale, missing, corrupt, or unfingerprinted local entries are regenerated and
+  written back through the store with `metadata.retrieval=workspace-local`.
+- If cache persistence fails, extraction falls back to an in-memory entry so
+  read-only local extraction is not blocked by cache filesystem permissions.
+
+Design notes:
+
+- This remains a local cache optimization, not a remote/team-cache feature.
+- Cache reuse is validation-first: stale local files never silently produce
+  high-confidence fresh facts.
+- The dedicated unit shard keeps cache-reuse assertions separate from the
+  already-large knowledge extraction content tests.
+
+Known validation:
+
+- Focused direct check passed for
+  `test/unit/knowledge-extraction-cache-reuse.test.mjs`.
+- `npm run test:structure`: passed with 58 checked test files.
+- `npm run lint`: passed with 187 checked files.
+- `npm run test:unit`: passed with 309 tests.
+- `npm run verify`: passed. This includes lint, structure, layered suites,
+  isolated shards, smoke, e2e, coverage, and package dry-run.
+- Coverage gate passed at 88.96% lines, 78.53% branches, and 96.13% functions.
+- Package dry-run passed with 131 entries in the installable package surface.
+
+Remaining work:
+
+- Extend the same reuse pattern to official docs refresh policy once Pulumi docs
+  and broader provider/resource coverage are implemented.
+- Add team-cache backend contracts later; they should reuse the same artifact
+  and fingerprint validation gates before accepting uploads.
+
 ## 2026-05-06 Knowledge Artifact Integrity Slice
 
 Status:

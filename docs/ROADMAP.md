@@ -122,6 +122,8 @@ large install, and can mismatch provider versions. Instead:
   cache
 - dynamically fetch or refresh official sources when the cache is missing, stale,
   or for a different provider/chart/package version
+- reuse repo-local cached facts only after path/hash fingerprints still match
+  the current workspace
 - always prefer repo-local files, lockfiles, installed provider schemas, chart
   schemas, and validator output over generic docs prose
 
@@ -150,7 +152,7 @@ Current progress as of 2026-05-06:
 
 | Area | Status | Current capability | Main gap |
 | --- | --- | --- | --- |
-| Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, and cache-root resolution | No structured fact index or remote backend |
+| Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, cache-root resolution, and fingerprint-checked reuse for repo-local extraction outputs | No structured fact index or remote backend |
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock` | Pulumi docs source selection is not implemented; source selection is not yet broad provider/resource coverage |
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, and bounded Helm schema knowledge packs | Pulumi component durable packs and external chart-doc fact extraction are not implemented |

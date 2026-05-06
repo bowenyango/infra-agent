@@ -4,7 +4,10 @@ import { join } from 'node:path';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
-import { fingerprintWorkspaceFiles } from './local-source-fingerprint.ts';
+import {
+  checkKnowledgeSourceFingerprint,
+  fingerprintWorkspaceFiles
+} from './local-source-fingerprint.ts';
 import { buildHelmChartMetadataKnowledgeContent } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeContent } from '../domain/pulumi-config-knowledge.ts';
 import { buildTerraformLocalModuleKnowledgeContent } from '../domain/terraform-local-modules.ts';
@@ -177,12 +180,77 @@ async function buildLocalSourceFingerprint(
     : undefined;
 }
 
+async function readFreshLocalSourceEntry(
+  inspection: WorkspaceInspection,
+  source: KnowledgeSource,
+  store: KnowledgeStore,
+  now: Date | undefined
+): Promise<KnowledgeCacheEntry | null> {
+  const cached = await store.read(source);
+  if (
+    cached === null
+    || cached.fingerprint === undefined
+    || cached.contentType !== localContentType(source)
+    || cached.contentHash !== sha256Hex(cached.content)
+    || store.isStale(cached, now)
+  ) {
+    return null;
+  }
+
+  try {
+    const freshness = await checkKnowledgeSourceFingerprint(inspection.workspaceRoot, cached.fingerprint);
+    return freshness.sourceStale ? null : cached;
+  } catch {
+    return null;
+  }
+}
+
+async function writeLocalSourceEntry(
+  source: KnowledgeSource,
+  contentType: KnowledgeCacheEntry['contentType'],
+  content: string,
+  fingerprint: KnowledgeCacheEntry['fingerprint'],
+  store: KnowledgeStore
+): Promise<KnowledgeCacheEntry> {
+  const fallbackEntry: KnowledgeCacheEntry = {
+    id: store.buildId(source),
+    source,
+    contentType,
+    content,
+    contentHash: sha256Hex(content),
+    fetchedAt: new Date(0).toISOString(),
+    ...(fingerprint ? { fingerprint } : {}),
+    metadata: {
+      retrieval: 'workspace-local'
+    }
+  };
+
+  try {
+    return await store.write({
+      source,
+      contentType,
+      content,
+      fetchedAt: fallbackEntry.fetchedAt,
+      ...(fingerprint ? { fingerprint } : {}),
+      metadata: fallbackEntry.metadata
+    });
+  } catch {
+    return fallbackEntry;
+  }
+}
+
 async function readSourceEntry(
   inspection: WorkspaceInspection,
   source: KnowledgeSource,
-  store: KnowledgeStore
+  store: KnowledgeStore,
+  now: Date | undefined
 ): Promise<KnowledgeCacheEntry | null> {
   if (source.localPath) {
+    const cached = await readFreshLocalSourceEntry(inspection, source, store, now);
+    if (cached !== null) {
+      return cached;
+    }
+
     let content: string | null = null;
     if (source.kind === 'provider-schema' && source.module) {
       const root = inspection.terraformRoots.find(candidate => candidate.rootPath === source.module);
@@ -242,15 +310,13 @@ async function readSourceEntry(
 
     content ??= await readFile(join(inspection.workspaceRoot, source.localPath), 'utf8');
     const fingerprint = await buildLocalSourceFingerprint(inspection, source, content);
-    return {
-      id: store.buildId(source),
+    return writeLocalSourceEntry(
       source,
-      contentType: localContentType(source),
+      localContentType(source),
       content,
-      contentHash: sha256Hex(content),
-      fetchedAt: new Date(0).toISOString(),
-      ...(fingerprint ? { fingerprint } : {})
-    };
+      fingerprint,
+      store
+    );
   }
 
   if (source.url) {
@@ -309,7 +375,7 @@ export async function extractWorkspaceKnowledgeFacts(
 
     let entry: KnowledgeCacheEntry | null;
     try {
-      entry = await readSourceEntry(inspection, candidate.source, store);
+      entry = await readSourceEntry(inspection, candidate.source, store, options.now);
     } catch {
       sources.push(sourceResult(base, 'unreadable', {
         message: 'Source could not be read.'
