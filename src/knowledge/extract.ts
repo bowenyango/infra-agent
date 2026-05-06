@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildKnowledgeCacheId, readKnowledgeCacheEntry } from './cache.ts';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { buildTerraformLocalModuleKnowledgeContent } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeContent } from '../domain/terraform-provider-schema.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
 import type { KnowledgeCacheEntry, KnowledgeContentType, KnowledgeFactSet, KnowledgeSource } from '../types/knowledge.ts';
@@ -55,7 +56,7 @@ function sha256Hex(value: string): string {
 }
 
 function localContentType(source: KnowledgeSource): KnowledgeContentType {
-  if (source.kind === 'chart-schema' || source.kind === 'provider-schema') {
+  if (source.kind === 'chart-schema' || source.kind === 'provider-schema' || source.kind === 'terraform-module') {
     return 'application/json';
   }
 
@@ -80,6 +81,21 @@ async function readSourceEntry(
           root,
           schemaFile: source.localPath
         });
+      }
+    }
+
+    if (source.kind === 'terraform-module' && source.module) {
+      const root = inspection.terraformRoots.find(candidate => candidate.rootPath === source.module);
+      if (root) {
+        content = await buildTerraformLocalModuleKnowledgeContent({
+          workspaceRoot: inspection.workspaceRoot,
+          root,
+          source
+        });
+      }
+
+      if (content === null) {
+        throw new Error('Terraform local module source could not be summarized.');
       }
     }
 

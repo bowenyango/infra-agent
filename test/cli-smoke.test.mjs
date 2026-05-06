@@ -89,7 +89,10 @@ import {
   buildTerraformRegistryKnowledgeSources,
   retrieveTerraformRegistryContextPackets
 } from '../src/domain/terraform-registry-context.ts';
-import { buildTerraformLocalModuleKnowledgeSources } from '../src/domain/terraform-local-modules.ts';
+import {
+  buildTerraformLocalModuleKnowledgeContent,
+  buildTerraformLocalModuleKnowledgeSources
+} from '../src/domain/terraform-local-modules.ts';
 import {
   buildTerraformProviderSchemaKnowledgeSources,
   retrieveTerraformProviderSchemaContextPackets
@@ -3435,6 +3438,99 @@ test('Terraform local module knowledge sources include only literal workspace mo
     assert.equal(sources[0]?.localPath, 'terraform/app/modules/queue-worker');
     assert.equal(sources[0]?.module, 'terraform/app');
     assert.equal(sources[0]?.packageName, 'queue_worker');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Terraform local module knowledge content summarizes variables and outputs', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-local-module-content-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    const moduleRoot = join(terraformRoot, 'modules/queue-worker');
+    await mkdir(moduleRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'variables.tf'),
+      [
+        'variable "image_tag" {',
+        '  type        = string',
+        '  description = "Container image tag."',
+        '}',
+        '',
+        'variable "environment" {',
+        '  type    = string',
+        '  default = "dev"',
+        '  validation {',
+        '    condition     = contains(["dev", "stage", "prod"], var.environment)',
+        '    error_message = "Environment must be supported."',
+        '  }',
+        '}',
+        '',
+        'variable "api_token" {',
+        '  type = string',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'outputs.tf'),
+      [
+        'output "queue_name" {',
+        '  description = "Queue name."',
+        '  value       = aws_sqs_queue.worker.name',
+        '}',
+        '',
+        'output "secret_value" {',
+        '  sensitive = true',
+        '  value     = random_password.secret.result',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === 'terraform/app');
+    assert.ok(root);
+    const source = (await buildTerraformLocalModuleKnowledgeSources(tempRoot, root))[0];
+    assert.ok(source);
+    const content = await buildTerraformLocalModuleKnowledgeContent({
+      workspaceRoot: tempRoot,
+      root,
+      source
+    });
+    assert.ok(content);
+    const summary = JSON.parse(content);
+
+    assert.equal(summary.kind, 'infra-agent.terraform-local-module-summary');
+    assert.equal(summary.mutationAllowed, false);
+    assert.deepEqual(summary.callSourcePaths, ['terraform/app/main.tf']);
+    assert.ok(summary.inputs.some(input =>
+      input.name === 'image_tag'
+      && input.required === true
+      && input.type === 'string'
+      && input.description === 'Container image tag.'
+    ));
+    assert.ok(summary.inputs.some(input =>
+      input.name === 'environment'
+      && input.required === false
+      && input.defaultValue === 'dev'
+      && input.values.includes('prod')
+    ));
+    assert.ok(summary.outputs.some(output => output.name === 'queue_name'));
+    assert.doesNotMatch(content, /api_token|secret_value|random_password/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
