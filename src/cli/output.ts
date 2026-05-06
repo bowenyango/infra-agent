@@ -3466,9 +3466,12 @@ export function printKnowledgeExtractionReport(report: KnowledgeExtractionReport
 export function printKnowledgeValidationReport(report: KnowledgeValidationReport): void {
   printHeader('Knowledge validation');
   process.stdout.write(`input: ${report.inputPath}\n`);
+  if (report.workspaceRoot !== undefined) {
+    process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  }
   process.stdout.write(`kind: ${report.inputKind ?? 'unknown'}\n`);
   process.stdout.write(`valid: ${report.valid ? 'yes' : 'no'}\n`);
-  process.stdout.write(`summary: factSets=${report.factSetCount}, facts=${report.factCount}, issues=${report.issueCount}\n\n`);
+  process.stdout.write(`summary: factSets=${report.factSetCount}, facts=${report.factCount}, issues=${report.issueCount}, staleSources=${report.staleSourceCount}, uncheckedLocalSources=${report.uncheckedLocalSourceCount}\n\n`);
   printHeader('Issues');
   printList(report.issues.map(issue => `${issue.severity} ${issue.path}: ${issue.message}`), 'No knowledge validation issues.');
 }
