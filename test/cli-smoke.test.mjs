@@ -4295,6 +4295,33 @@ test('knowledge pack includes Terraform local module inputs under small budgets'
   }
 });
 
+test('knowledge pack includes Pulumi config parameters under small budgets', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(inspection, {
+    domains: ['pulumi'],
+    targetPaths: ['infra/payments-api'],
+    maxFacts: 2,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+
+  assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+  assert.equal(pack.mutationAllowed, false);
+  assert.equal(pack.includedFactCount, 2);
+  assert.ok(pack.sources.some(source =>
+    source.kind === 'pulumi-config'
+    && source.domain === 'pulumi'
+    && source.targetPath === 'infra/payments-api'
+    && source.factCount > 0
+  ));
+  assert.ok(pack.facts.every(fact => fact.kind === 'pulumi-config-parameter'));
+  assert.ok(pack.facts.some(fact =>
+    fact.path === 'config.payments-api:imageTag'
+    && fact.type === 'string'
+    && fact.values?.includes('latest')
+  ));
+  assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+});
+
 test('Terraform Registry context packets retrieve selected source docs through the cache layer', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-retrieve-'));
   const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-registry-cache-'));

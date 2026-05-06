@@ -106,7 +106,7 @@ function toPackSource(factSet: {
   const sourceContext = sourceIndex.get(factSet.sourceId);
   const fallbackDomain: InfraDomainId = factSet.source.kind.startsWith('chart') || factSet.source.kind === 'helm-docs'
     ? 'helm'
-    : factSet.source.kind === 'pulumi-docs'
+    : factSet.source.kind === 'pulumi-docs' || factSet.source.kind === 'pulumi-config'
       ? 'pulumi'
       : 'terraform';
   return {
