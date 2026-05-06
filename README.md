@@ -42,6 +42,11 @@ before making changes. It defines the required workflow, safety boundaries,
 validation policy, context discipline, documentation rules, and commit
 expectations for this project.
 
+Unit tests are split by responsibility under `test/unit/`,
+`test/integration/`, and `test/contract/`, with shared harness helpers under
+`test/support/`. `npm run test:unit` runs `test/run-unit.mjs`, which imports
+every unit shard in a stable order.
+
 ## Core Design Direction
 
 The agent will follow a tool-driven loop rather than a prompt-only workflow.

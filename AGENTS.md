@@ -160,6 +160,11 @@ stays focused and unrelated validators or context do not pollute compact output.
 
 - Unit tests must not depend on external network, live LLM providers, live cloud
   accounts, or mutable user-global state.
+- Keep the unit test suite split by responsibility. Use `test/unit/` for
+  domain and planner helpers, `test/integration/` for CLI/runtime flows,
+  `test/contract/` for JSON/report contracts, and `test/support/` for shared
+  test harness helpers. Add new shard files to `test/run-unit.mjs` so
+  `npm run test:unit` continues to exercise the complete suite.
 - Mock or inject transports for LLM and official-doc fetch tests.
 - Smoke and E2E tests must exercise expected behavior through realistic CLI or
   harness flows, not only internal helpers.

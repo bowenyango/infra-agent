@@ -10361,3 +10361,78 @@ Final verification:
   `src/knowledge/local-source-fingerprint.ts`, updated knowledge validation,
   pack, compact contract, docs, and skill guidance.
 - `git diff --check`: passed.
+
+## 2026-05-05 Split Unit Test Suite Structure
+
+Status:
+
+- Completed. Feature development was paused while the oversized monolithic unit
+  test file was split into responsibility-based shards.
+
+Core files changed:
+
+- `test/support/cli-smoke-harness.mjs`
+- `test/run-unit.mjs`
+- `test/unit/*.test.mjs`
+- `test/integration/*.test.mjs`
+- `test/contract/*.test.mjs`
+- `package.json`
+- `AGENTS.md`
+- `README.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Replaced the 22,074-line `test/cli-smoke.test.mjs` file with explicit
+  responsibility-based shards under `test/unit/`, `test/integration/`, and
+  `test/contract/`.
+- Moved shared imports and fixture helpers into
+  `test/support/cli-smoke-harness.mjs`. The split uses explicit ESM
+  imports/exports instead of `globalThis` so each shard has normal lexical
+  dependencies.
+- Added `test/run-unit.mjs` as the stable ordered unit-suite entrypoint and
+  updated `npm run test:unit` to execute it.
+- Preserved the existing 362 `node:test` cases and their assertions during the
+  mechanical split.
+- Documented the test layout rule in `AGENTS.md` and the development overview
+  in `README.md`.
+
+Design notes:
+
+- The split intentionally does not change `src/` behavior or test assertions.
+  It only changes test organization and the unit-suite entrypoint.
+- Tests with process-global surfaces such as `captureStdout`,
+  `process.exitCode`, and `process.env` still run in the same stable import
+  order as before. A future cleanup can narrow per-file imports and isolate
+  global-state CLI tests further.
+- The old `cli-smoke` name was misleading because the file contained unit,
+  integration, and contract coverage. Real smoke coverage remains in
+  `scripts/smoke.mjs`.
+
+Known validation so far:
+
+- Test registration count before and after the split: 362 tests.
+- `npm run test:unit`: passed with 362 passing tests.
+- `npm run lint`: passed and checked 135 files.
+- `npm run verify`: passed; lint checked 135 files, unit tests reported 362
+  passing tests, smoke passed, and e2e passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed; package dry-run still reports 124 entries and excludes `test/`,
+  `fixtures/`, `scripts/`, and `docs/HANDOFF.md` from the installable surface.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- `npm run test:unit -- --test-name-pattern ...` remains an inherited weak
+  spot because the current unit entrypoint is a direct `node:test` module
+  runner. Focused checks can still be run with explicit Node flags or by
+  invoking specific shards directly.
+- Shared harness imports are intentionally broad for the mechanical migration.
+  Future test maintenance should narrow imports per shard when touching those
+  files.
+
+Final notes:
+
+- The largest remaining shard is `test/contract/agent-result-contract.test.mjs`
+  at roughly 4.8k lines. It is now isolated as a contract suite and can be
+  split further later without blocking feature work.
