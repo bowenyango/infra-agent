@@ -89,6 +89,7 @@ import {
   buildTerraformRegistryKnowledgeSources,
   retrieveTerraformRegistryContextPackets
 } from '../src/domain/terraform-registry-context.ts';
+import { buildTerraformLocalModuleKnowledgeSources } from '../src/domain/terraform-local-modules.ts';
 import {
   buildTerraformProviderSchemaKnowledgeSources,
   retrieveTerraformProviderSchemaContextPackets
@@ -3385,6 +3386,55 @@ test('Terraform Registry context sources use provider requirements and lockfile 
     assert.match(instanceSource.url ?? '', /providers\/hashicorp\/aws\/latest\/docs\/resources\/instance$/);
     assert.ok(amiSource);
     assert.match(amiSource.url ?? '', /providers\/hashicorp\/aws\/latest\/docs\/data-sources\/ami$/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Terraform local module knowledge sources include only literal workspace modules', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-local-module-sources-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(join(terraformRoot, 'modules/queue-worker'), { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        '',
+        'module "registry_module" {',
+        '  source = "hashicorp/consul/aws"',
+        '}',
+        '',
+        'module "git_module" {',
+        '  source = "git::https://example.com/org/mod.git"',
+        '}',
+        '',
+        'module "dynamic_module" {',
+        '  source = var.module_source',
+        '}',
+        '',
+        'module "outside_workspace" {',
+        '  source = "../../../outside-workspace"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === 'terraform/app');
+    assert.ok(root);
+    const sources = await buildTerraformLocalModuleKnowledgeSources(tempRoot, root);
+
+    assert.equal(sources.length, 1);
+    assert.equal(sources[0]?.kind, 'terraform-module');
+    assert.equal(sources[0]?.name, 'terraform-module:terraform/app:queue_worker');
+    assert.equal(sources[0]?.localPath, 'terraform/app/modules/queue-worker');
+    assert.equal(sources[0]?.module, 'terraform/app');
+    assert.equal(sources[0]?.packageName, 'queue_worker');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

@@ -2,6 +2,7 @@ import { isKnowledgeCacheEntryStale, readKnowledgeCacheEntry } from './cache.ts'
 import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from './retrieve.ts';
 import type { KnowledgeFetcher } from './retrieve.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
+import { buildTerraformLocalModuleKnowledgeSources } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeSources } from '../domain/terraform-provider-schema.ts';
 import { buildTerraformRegistryKnowledgeSources } from '../domain/terraform-registry-context.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
@@ -99,6 +100,13 @@ export async function collectWorkspaceKnowledgeSources(
 
       const providerSchemaSources = await buildTerraformProviderSchemaKnowledgeSources(workspaceRoot, root);
       candidates.push(...providerSchemaSources.map(source => ({
+        domain: 'terraform' as const,
+        targetPath: root.rootPath,
+        source
+      })));
+
+      const moduleSources = await buildTerraformLocalModuleKnowledgeSources(workspaceRoot, root);
+      candidates.push(...moduleSources.map(source => ({
         domain: 'terraform' as const,
         targetPath: root.rootPath,
         source
