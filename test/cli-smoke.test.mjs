@@ -3493,6 +3493,9 @@ test('knowledge fact budget summarizes packs without raw source payloads', async
   assert.ok(summary.sources.some(source =>
     source.kind === 'chart-schema'
     && source.domain === 'helm'
+    && source.freshness === 'fresh'
+    && typeof source.fingerprintDigest === 'string'
+    && source.fingerprintFileCount === 1
     && source.factCount > 0
   ));
   assert.ok(summary.facts.every(fact =>
@@ -12466,7 +12469,8 @@ test('compact agent result contract validates shallow handoff shape and validati
           kind: 'terraform-registry',
           name: 'aws_lb_listener_rule',
           factCount: 2,
-          stale: false
+          stale: false,
+          freshness: 'fresh'
         }
       ],
       facts: [
@@ -16400,6 +16404,55 @@ test('compact agent result contract validates shallow handoff shape and validati
       }
     }),
     /knowledgeFacts\.sources\[0\]\.kind/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        sources: [
+          {
+            ...validResult.knowledgeFacts.sources[0],
+            freshness: 'unknown'
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.sources\[0\]\.freshness/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        sources: [
+          {
+            ...validResult.knowledgeFacts.sources[0],
+            fingerprintDigest: 'not-a-sha',
+            fingerprintFileCount: 1
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.sources\[0\]\.fingerprintDigest/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        staleSourceCount: 1,
+        sources: [
+          {
+            ...validResult.knowledgeFacts.sources[0],
+            stale: true,
+            staleReason: 'local-file-hash-mismatch',
+            freshness: 'stale'
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.facts\[0\]\.confidence/
   );
   assert.throws(
     () => parseCompactAgentRunResult({

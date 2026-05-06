@@ -126,6 +126,12 @@ const KNOWLEDGE_FACT_EXTRACTION_METHODS = [
   'helm-values-schema',
   'repo-local-static'
 ] as const;
+const KNOWLEDGE_SOURCE_FRESHNESS = ['fresh', 'stale', 'unchecked'] as const;
+const KNOWLEDGE_SOURCE_STALE_REASONS = [
+  'time-expired',
+  'local-file-hash-mismatch',
+  'local-file-missing'
+] as const;
 const KNOWLEDGE_FACT_RAW_FIELDS = new Set([
   'source',
   'content',
@@ -138,6 +144,7 @@ const KNOWLEDGE_FACT_RAW_FIELDS = new Set([
   'sourceFetchedAt'
 ]);
 const KNOWLEDGE_PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const KNOWLEDGE_CACHE_SOURCES = [
   'environment: INFRA_AGENT_KNOWLEDGE_CACHE',
   'workspace-config: knowledgeCache.root',
@@ -361,6 +368,16 @@ function isKnownKnowledgeFactKind(value: unknown): boolean {
 function isKnownKnowledgeFactExtractionMethod(value: unknown): boolean {
   return typeof value === 'string'
     && KNOWLEDGE_FACT_EXTRACTION_METHODS.includes(value as typeof KNOWLEDGE_FACT_EXTRACTION_METHODS[number]);
+}
+
+function isKnownKnowledgeSourceFreshness(value: unknown): boolean {
+  return typeof value === 'string'
+    && KNOWLEDGE_SOURCE_FRESHNESS.includes(value as typeof KNOWLEDGE_SOURCE_FRESHNESS[number]);
+}
+
+function isKnownKnowledgeSourceStaleReason(value: unknown): boolean {
+  return typeof value === 'string'
+    && KNOWLEDGE_SOURCE_STALE_REASONS.includes(value as typeof KNOWLEDGE_SOURCE_STALE_REASONS[number]);
 }
 
 function isKnownTargetingSource(value: unknown): boolean {
@@ -4194,6 +4211,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   }
 
   const knowledgeFactSourceIds = new Set<string>();
+  const staleKnowledgeFactSourceIds = new Set<string>();
   let derivedKnowledgeFactStaleSourceCount = 0;
   let derivedKnowledgeFactTotalCount = 0;
 
@@ -4235,8 +4253,43 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error(`compact result input ${sourcePath}.stale must be a boolean.`);
     }
 
+    if (!isKnownKnowledgeSourceFreshness(source.freshness)) {
+      throw new Error(`compact result input ${sourcePath}.freshness must be supported.`);
+    }
+
+    if (source.stale === true && source.freshness !== 'stale') {
+      throw new Error(`compact result input ${sourcePath}.freshness must be stale when stale is true.`);
+    }
+
+    if (source.stale === false && source.freshness === 'stale') {
+      throw new Error(`compact result input ${sourcePath}.freshness must not be stale when stale is false.`);
+    }
+
+    if ('staleReason' in source) {
+      if (!isKnownKnowledgeSourceStaleReason(source.staleReason)) {
+        throw new Error(`compact result input ${sourcePath}.staleReason must be supported.`);
+      }
+
+      if (source.stale !== true) {
+        throw new Error(`compact result input ${sourcePath}.staleReason requires stale to be true.`);
+      }
+    }
+
+    if ('fingerprintDigest' in source) {
+      if (typeof source.fingerprintDigest !== 'string' || !SHA256_HEX_PATTERN.test(source.fingerprintDigest)) {
+        throw new Error(`compact result input ${sourcePath}.fingerprintDigest must be a SHA-256 hex string.`);
+      }
+
+      assertIntegerField(source, 'fingerprintFileCount', sourcePath, isNonNegativeInteger, 'a non-negative integer');
+    }
+
+    if ('fingerprintFileCount' in source && !('fingerprintDigest' in source)) {
+      throw new Error(`compact result input ${sourcePath}.fingerprintFileCount requires fingerprintDigest.`);
+    }
+
     if (source.stale) {
       derivedKnowledgeFactStaleSourceCount += 1;
+      staleKnowledgeFactSourceIds.add(source.id as string);
     }
   }
 
@@ -4276,6 +4329,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
     if (!knowledgeFactSourceIds.has(fact.sourceId as string)) {
       throw new Error(`compact result input ${factPath}.sourceId must reference knowledgeFacts.sources.`);
+    }
+
+    if (staleKnowledgeFactSourceIds.has(fact.sourceId as string) && fact.confidence === 'high') {
+      throw new Error(`compact result input ${factPath}.confidence must not be high when source is stale.`);
     }
 
     if ('required' in fact && typeof fact.required !== 'boolean') {

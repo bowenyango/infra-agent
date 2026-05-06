@@ -23,6 +23,10 @@ export interface BudgetedKnowledgeFactSource {
   name: string;
   factCount: number;
   stale: boolean;
+  staleReason?: KnowledgePackSource['staleReason'];
+  freshness: KnowledgePackSource['freshness'];
+  fingerprintDigest?: string;
+  fingerprintFileCount?: number;
 }
 
 export interface KnowledgeFactBudgetSummary {
@@ -73,7 +77,11 @@ function compactSource(source: KnowledgePackSource): BudgetedKnowledgeFactSource
     kind: source.kind,
     name: source.name,
     factCount: source.factCount,
-    stale: source.stale
+    stale: source.stale,
+    ...(source.staleReason !== undefined ? { staleReason: source.staleReason } : {}),
+    freshness: source.freshness,
+    ...(source.fingerprintDigest !== undefined ? { fingerprintDigest: source.fingerprintDigest } : {}),
+    ...(source.fingerprintFileCount !== undefined ? { fingerprintFileCount: source.fingerprintFileCount } : {})
   };
 }
 
