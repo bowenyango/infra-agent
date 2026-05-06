@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseKnowledgeFactSet } from './facts-contract.ts';
+import { checkKnowledgeSourceFingerprint } from './local-source-fingerprint.ts';
 import type { KnowledgeFactSet } from '../types/knowledge.ts';
 
 export interface KnowledgeValidationIssue {
@@ -15,28 +16,62 @@ export interface KnowledgeValidationReport {
   mutationAllowed: false;
   inputPath: string;
   inputKind: string | null;
+  workspaceRoot?: string;
   valid: boolean;
   factSetCount: number;
   factCount: number;
+  staleSourceCount: number;
+  uncheckedLocalSourceCount: number;
   issueCount: number;
   issues: KnowledgeValidationIssue[];
+}
+
+export interface KnowledgeValidationOptions {
+  workspaceRoot?: string;
+}
+
+interface ValidatedKnowledgeFactSet {
+  path: string;
+  factSet: KnowledgeFactSet;
+}
+
+interface LocalSourceValidationStats {
+  staleSourceIds: Set<string>;
+  uncheckedLocalSourceCount: number;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function createReport(inputPath: string, inputKind: string | null, issues: KnowledgeValidationIssue[], factSets: KnowledgeFactSet[]): KnowledgeValidationReport {
+function createReport(
+  inputPath: string,
+  inputKind: string | null,
+  issues: KnowledgeValidationIssue[],
+  factSets: KnowledgeFactSet[],
+  options: KnowledgeValidationOptions = {},
+  localSourceStats: LocalSourceValidationStats = {
+    staleSourceIds: new Set(),
+    uncheckedLocalSourceCount: 0
+  }
+): KnowledgeValidationReport {
   const factCount = factSets.reduce((total, factSet) => total + factSet.factCount, 0);
+  const staleSourceIds = new Set([
+    ...factSets.filter(factSet => factSet.sourceStale).map(factSet => factSet.sourceId),
+    ...localSourceStats.staleSourceIds
+  ]);
   return {
     kind: 'infra-agent.knowledge-validation',
     schemaVersion: 1,
     mutationAllowed: false,
     inputPath,
     inputKind,
+    ...(options.workspaceRoot !== undefined ? { workspaceRoot: options.workspaceRoot } : {}),
     valid: issues.every(issue => issue.severity !== 'error'),
     factSetCount: factSets.length,
     factCount,
+    staleSourceCount: staleSourceIds.size,
+    uncheckedLocalSourceCount: localSourceStats.uncheckedLocalSourceCount,
     issueCount: issues.length,
     issues
   };
@@ -45,6 +80,14 @@ function createReport(inputPath: string, inputKind: string | null, issues: Knowl
 function error(path: string, message: string): KnowledgeValidationIssue {
   return {
     severity: 'error',
+    path,
+    message
+  };
+}
+
+function warning(path: string, message: string): KnowledgeValidationIssue {
+  return {
+    severity: 'warning',
     path,
     message
   };
@@ -59,6 +102,53 @@ function validateFactSet(value: unknown, path: string, issues: KnowledgeValidati
       : 'Knowledge fact set is invalid.'));
     return null;
   }
+}
+
+async function validateLocalSourceFingerprints(
+  factSets: ValidatedKnowledgeFactSet[],
+  workspaceRoot: string | undefined,
+  issues: KnowledgeValidationIssue[]
+): Promise<LocalSourceValidationStats> {
+  const stats: LocalSourceValidationStats = {
+    staleSourceIds: new Set(),
+    uncheckedLocalSourceCount: 0
+  };
+
+  for (const { factSet, path } of factSets) {
+    if (factSet.sourceFingerprint === undefined) {
+      continue;
+    }
+
+    if (workspaceRoot === undefined) {
+      stats.uncheckedLocalSourceCount += 1;
+      issues.push(warning(
+        `${path}.sourceFingerprint`,
+        'Local source fingerprint was not rechecked because no workspace root was provided.'
+      ));
+      continue;
+    }
+
+    try {
+      const check = await checkKnowledgeSourceFingerprint(workspaceRoot, factSet.sourceFingerprint);
+      if (check.sourceStale) {
+        stats.staleSourceIds.add(factSet.sourceId);
+        issues.push(error(
+          `${path}.sourceFingerprint`,
+          `Local source fingerprint is stale: ${check.sourceStaleReason ?? 'local-file-hash-mismatch'}.`
+        ));
+      }
+    } catch (validationError) {
+      stats.staleSourceIds.add(factSet.sourceId);
+      issues.push(error(
+        `${path}.sourceFingerprint`,
+        validationError instanceof Error
+          ? validationError.message
+          : 'Local source fingerprint could not be rechecked.'
+      ));
+    }
+  }
+
+  return stats;
 }
 
 export function validateKnowledgePayload(payload: unknown, inputPath = 'inline'): KnowledgeValidationReport {
@@ -116,14 +206,66 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
   return createReport(inputPath, inputKind, issues, factSets);
 }
 
-export async function loadKnowledgeValidationReport(inputPath: string, baseDir: string): Promise<KnowledgeValidationReport> {
+export async function validateKnowledgePayloadWithLocalSources(
+  payload: unknown,
+  inputPath = 'inline',
+  options: KnowledgeValidationOptions = {}
+): Promise<KnowledgeValidationReport> {
+  const report = validateKnowledgePayload(payload, inputPath);
+  if (options.workspaceRoot === undefined) {
+    return report;
+  }
+
+  if (!isRecord(payload)) {
+    return { ...report, workspaceRoot: options.workspaceRoot };
+  }
+
+  const factSets: ValidatedKnowledgeFactSet[] = [];
+  if (payload.kind === 'infra-agent.knowledge-facts') {
+    const factSet = validateFactSet(payload, '$', []);
+    if (factSet) {
+      factSets.push({ path: '$', factSet });
+    }
+  } else if (payload.kind === 'infra-agent.knowledge-extraction' && Array.isArray(payload.factSets)) {
+    payload.factSets.forEach((factSetPayload, index) => {
+      const factSet = validateFactSet(factSetPayload, `$.factSets[${index}]`, []);
+      if (factSet) {
+        factSets.push({
+          path: `$.factSets[${index}]`,
+          factSet
+        });
+      }
+    });
+  }
+
+  if (factSets.length === 0) {
+    return { ...report, workspaceRoot: options.workspaceRoot };
+  }
+
+  const issues = [...report.issues];
+  const localSourceStats = await validateLocalSourceFingerprints(factSets, options.workspaceRoot, issues);
+  return createReport(
+    inputPath,
+    report.inputKind,
+    issues,
+    factSets.map(factSet => factSet.factSet),
+    options,
+    localSourceStats
+  );
+}
+
+export async function loadKnowledgeValidationReport(
+  inputPath: string,
+  baseDir: string,
+  options: KnowledgeValidationOptions = {}
+): Promise<KnowledgeValidationReport> {
   const resolvedPath = resolve(baseDir, inputPath);
   try {
     const payload = JSON.parse(await readFile(resolvedPath, 'utf8')) as unknown;
-    return validateKnowledgePayload(payload, resolvedPath);
+    return validateKnowledgePayloadWithLocalSources(payload, resolvedPath, options);
   } catch (loadError) {
     return createReport(resolvedPath, null, [error('$', loadError instanceof Error
       ? loadError.message
-      : 'Knowledge payload could not be loaded.')], []);
+      : 'Knowledge payload could not be loaded.')], [], options);
   }
 }

@@ -114,7 +114,10 @@ import {
 import { parseKnowledgeFactSet } from '../src/knowledge/facts-contract.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../src/knowledge/facts.ts';
 import { extractWorkspaceKnowledgeFacts } from '../src/knowledge/extract.ts';
-import { validateKnowledgePayload } from '../src/knowledge/validate.ts';
+import {
+  validateKnowledgePayload,
+  validateKnowledgePayloadWithLocalSources
+} from '../src/knowledge/validate.ts';
 import { buildKnowledgePack } from '../src/knowledge/pack.ts';
 import { budgetKnowledgePackFacts } from '../src/knowledge/fact-budget.ts';
 import { rankKnowledgePackFacts } from '../src/knowledge/fact-ranking.ts';
@@ -3435,6 +3438,44 @@ test('knowledge validation accepts extraction reports and rejects count drift', 
     issue.severity === 'error'
     && issue.path === '$.factCount'
   ));
+});
+
+test('knowledge validation rechecks local source fingerprints against a workspace', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-stale-'));
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), tempRoot, { recursive: true });
+    const inspection = await inspectWorkspace(tempRoot);
+    const extraction = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['helm'],
+      targetPaths: ['charts/payments-api'],
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    const freshReport = await validateKnowledgePayloadWithLocalSources(extraction, 'inline', {
+      workspaceRoot: tempRoot
+    });
+    assert.equal(freshReport.valid, true);
+    assert.equal(freshReport.staleSourceCount, 0);
+    assert.equal(freshReport.uncheckedLocalSourceCount, 0);
+
+    await writeFile(
+      join(tempRoot, 'charts/payments-api/Chart.yaml'),
+      `${await readFile(join(tempRoot, 'charts/payments-api/Chart.yaml'), 'utf8')}\n# changed after extraction\n`
+    );
+    const staleReport = await validateKnowledgePayloadWithLocalSources(extraction, 'inline', {
+      workspaceRoot: tempRoot
+    });
+    assert.equal(staleReport.valid, false);
+    assert.equal(staleReport.staleSourceCount, 1);
+    assert.ok(staleReport.issues.some(issue =>
+      issue.severity === 'error'
+      && issue.path.endsWith('.sourceFingerprint')
+      && /local-file-hash-mismatch/.test(issue.message)
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge pack builds bounded planner-safe fact packs', async () => {
