@@ -9044,6 +9044,39 @@ test('knowledge extract command emits Terraform local module facts', async () =>
   }
 });
 
+test('knowledge extract command emits Pulumi config facts', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'extract',
+    'fixtures/sample-workspace',
+    '--domain',
+    'pulumi',
+    '--target',
+    'infra/payments-api',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.knowledge-extraction');
+  assert.equal(report.mutationAllowed, false);
+  assert.deepEqual(report.requestedDomains, ['pulumi']);
+  assert.deepEqual(report.targetPaths, ['infra/payments-api']);
+  assert.ok(report.sources.some(source =>
+    source.source.kind === 'pulumi-config'
+    && source.status === 'extracted'
+    && source.factCount > 0
+  ));
+  assert.ok(report.factSets.some(factSet =>
+    factSet.source.kind === 'pulumi-config'
+    && factSet.facts.some(fact =>
+      fact.kind === 'pulumi-config-parameter'
+      && fact.path === 'config.payments-api:imageTag'
+      && fact.values?.includes('latest')
+    )
+  ));
+  assert.doesNotMatch(output, /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+});
+
 test('knowledge validate command validates extraction JSON files', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-validate-'));
 
@@ -9204,6 +9237,35 @@ test('knowledge pack command emits Terraform local module facts', async () => {
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('knowledge pack command emits Pulumi config facts', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'pack',
+    'fixtures/sample-workspace',
+    '--domain',
+    'pulumi',
+    '--target',
+    'infra/payments-api',
+    '--max-facts',
+    '2',
+    '--json'
+  ]));
+  const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+  assert.equal(pack.mutationAllowed, false);
+  assert.equal(pack.maxFacts, 2);
+  assert.ok(pack.sources.some(source =>
+    source.kind === 'pulumi-config'
+    && source.targetPath === 'infra/payments-api'
+  ));
+  assert.ok(pack.facts.some(fact =>
+    fact.kind === 'pulumi-config-parameter'
+    && fact.path === 'config.payments-api:imageTag'
+  ));
+  assert.doesNotMatch(output, /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
 });
 
 test('graph CLI args accept workspace and json flags', () => {
