@@ -10795,3 +10795,61 @@ Next stage:
 
 - Commit this slice, then continue with the next persistence step. A good next
   candidate is migrating extraction reads to the `KnowledgeStore` interface.
+
+## 2026-05-06 Extraction KnowledgeStore Migration Slice
+
+Status:
+
+- Completed. This slice migrates extraction cache reads to the local
+  `KnowledgeStore` boundary.
+
+Core files changed:
+
+- `src/knowledge/extract.ts`
+- `test/unit/knowledge-extraction-content.test.mjs`
+- `test/unit/knowledge-runtime-prefetch.test.mjs`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- `extractWorkspaceKnowledgeFacts` now accepts an optional `store`.
+- Default extraction behavior creates a `FileKnowledgeStore` from the resolved
+  workspace knowledge cache root, preserving existing CLI behavior.
+- External document sources are read through `store.read`.
+- Local repo-derived sources still read the workspace files directly, but their
+  generated cache-entry IDs now flow through `store.buildId`, keeping source
+  IDs consistent with the storage boundary.
+
+Design notes:
+
+- This completes the first local store migration across retrieve, prefetch, and
+  extract while keeping the cache file format unchanged.
+- The slice remains local-only. No remote backend, credentials, team cache
+  writes, or new dependencies were added.
+
+Known validation:
+
+- `npm run test:focused -- --test-name-pattern "workspace knowledge extraction can use an injected knowledge store" test/unit/knowledge-extraction-content.test.mjs`:
+  passed with 1 unit test.
+- `npm run test:focused -- --test-name-pattern "knowledge prefetch can use an injected knowledge store" test/unit/knowledge-runtime-prefetch.test.mjs`:
+  passed with 1 unit test.
+- `npm run lint`: passed with 155 checked files.
+- `npm run test:unit`: passed with 300 unit tests.
+- `npm run test:structure`: passed with 30 checked test files.
+- `npm run verify`: passed lint, test structure, 376 all tests, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed with 126 package entries.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- The store abstraction is still synchronous to local execution semantics and
+  assumes immediate `read` / `write` consistency. Remote stores will need
+  explicit consistency and retry policy tests.
+- Pack publication remains artifact-only. Shared/team cache publication is not
+  implemented yet.
+
+Next stage:
+
+- Commit this slice, then continue with a storage policy or
+  publication-planning slice.

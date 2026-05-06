@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildKnowledgeCacheId, readKnowledgeCacheEntry } from './cache.ts';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 import { fingerprintWorkspaceFiles } from './local-source-fingerprint.ts';
 import { buildHelmChartMetadataKnowledgeContent } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeContent } from '../domain/pulumi-config-knowledge.ts';
@@ -50,6 +50,7 @@ export interface KnowledgeExtractionOptions {
   domains?: InfraDomainId[];
   targetPaths?: string[];
   sourceIds?: string[];
+  store?: KnowledgeStore;
   now?: Date;
   extractedAt?: string;
 }
@@ -178,7 +179,8 @@ async function buildLocalSourceFingerprint(
 
 async function readSourceEntry(
   inspection: WorkspaceInspection,
-  source: KnowledgeSource
+  source: KnowledgeSource,
+  store: KnowledgeStore
 ): Promise<KnowledgeCacheEntry | null> {
   if (source.localPath) {
     let content: string | null = null;
@@ -241,7 +243,7 @@ async function readSourceEntry(
     content ??= await readFile(join(inspection.workspaceRoot, source.localPath), 'utf8');
     const fingerprint = await buildLocalSourceFingerprint(inspection, source, content);
     return {
-      id: buildKnowledgeCacheId(source),
+      id: store.buildId(source),
       source,
       contentType: localContentType(source),
       content,
@@ -252,7 +254,7 @@ async function readSourceEntry(
   }
 
   if (source.url) {
-    return readKnowledgeCacheEntry(inspection.knowledgeCache.root, source);
+    return store.read(source);
   }
 
   return null;
@@ -280,6 +282,7 @@ export async function extractWorkspaceKnowledgeFacts(
   inspection: WorkspaceInspection,
   options: KnowledgeExtractionOptions = {}
 ): Promise<KnowledgeExtractionReport> {
+  const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
   const candidates = await collectWorkspaceKnowledgeSources(inspection, {
     domains: options.domains,
     targetPaths: options.targetPaths
@@ -289,7 +292,7 @@ export async function extractWorkspaceKnowledgeFacts(
   const sources: KnowledgeExtractionSourceResult[] = [];
 
   for (const candidate of candidates) {
-    const id = buildKnowledgeCacheId(candidate.source);
+    const id = store.buildId(candidate.source);
     const base = {
       id,
       domain: candidate.domain,
@@ -306,7 +309,7 @@ export async function extractWorkspaceKnowledgeFacts(
 
     let entry: KnowledgeCacheEntry | null;
     try {
-      entry = await readSourceEntry(inspection, candidate.source);
+      entry = await readSourceEntry(inspection, candidate.source, store);
     } catch {
       sources.push(sourceResult(base, 'unreadable', {
         message: 'Source could not be read.'

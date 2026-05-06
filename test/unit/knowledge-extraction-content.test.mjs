@@ -15,7 +15,10 @@ import {
 } from 'node:path';
 import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
-import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
+import {
+  buildKnowledgeCacheId,
+  writeKnowledgeCacheEntry
+} from '../../src/knowledge/cache.ts';
 import { parseKnowledgeFactSet } from '../../src/knowledge/facts-contract.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../../src/knowledge/facts.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
@@ -591,6 +594,99 @@ test('knowledge validation accepts extraction reports and rejects count drift', 
     issue.severity === 'error'
     && issue.path === '$.factCount'
   ));
+});
+
+test('workspace knowledge extraction can use an injected knowledge store', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-store-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(terraformRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source = "hashicorp/aws"',
+        '      version = "5.37.0"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_s3_bucket" "logs" {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version = "5.37.0"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const reads = [];
+    const store = {
+      root: join(tempRoot, '.infra-agent/knowledge-cache'),
+      buildId: buildKnowledgeCacheId,
+      read: async source => {
+        reads.push(source);
+        return {
+          id: buildKnowledgeCacheId(source),
+          source,
+          contentType: 'text/markdown',
+          content: [
+            '# aws_s3_bucket',
+            '',
+            '## Argument Reference',
+            '',
+            '* `bucket` - (Optional) Bucket name.',
+            '',
+            '## Attribute Reference',
+            '',
+            '* `id` - Bucket identifier.',
+            ''
+          ].join('\n'),
+          contentHash: 'b'.repeat(64),
+          fetchedAt: '2026-04-28T00:00:00.000Z',
+          staleAfter: '2026-05-28T00:00:00.000Z'
+        };
+      },
+      write: async () => {
+        throw new Error('extraction should not write through the knowledge store');
+      },
+      isStale: () => false
+    };
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const extraction = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      store,
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+    const validation = validateKnowledgePayload(extraction, 'inline');
+
+    assert.ok(reads.some(source => source.kind === 'terraform-registry'));
+    assert.equal(extraction.cacheRoot, inspection.knowledgeCache.root);
+    assert.ok(extraction.sources.some(source =>
+      source.status === 'extracted'
+      && source.id === buildKnowledgeCacheId(source.source)
+    ));
+    assert.ok(extraction.factSets.some(factSet =>
+      factSet.source.kind === 'terraform-registry'
+      && factSet.sourceId === buildKnowledgeCacheId(factSet.source)
+      && factSet.facts.some(fact => fact.path === 'resource.aws_s3_bucket.bucket')
+    ));
+    assert.equal(validation.valid, true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge validation rechecks local source fingerprints against a workspace', async () => {

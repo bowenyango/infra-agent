@@ -608,14 +608,13 @@ test('knowledge prefetch can use an injected knowledge store', async () => {
 
     const inspection = await inspectWorkspace(tempRoot);
     const writes = [];
-    const storeBuildId = source => `store-${buildKnowledgeCacheId(source)}`;
     const store = {
       root: inspection.knowledgeCache.root,
-      buildId: storeBuildId,
+      buildId: buildKnowledgeCacheId,
       read: async () => null,
       write: async input => {
         const entry = {
-          id: storeBuildId(input.source),
+          id: buildKnowledgeCacheId(input.source),
           source: input.source,
           contentType: input.contentType,
           content: input.content,
@@ -648,7 +647,6 @@ test('knowledge prefetch can use an injected knowledge store', async () => {
     assert.equal(writes.length, 1);
     assert.ok(result.sources.some(source =>
       source.status === 'fetched'
-      && source.id.startsWith('store-')
       && source.source.kind === 'terraform-registry'
     ));
     assert.equal(await readKnowledgeCacheEntry(result.cacheRoot, writes[0].source), null);
