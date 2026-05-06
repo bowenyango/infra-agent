@@ -4599,10 +4599,15 @@ test('Helm chart context sources include local schema and chart docs metadata', 
     const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
     assert.ok(chart);
     const sources = await buildHelmChartKnowledgeSources(tempRoot, chart);
+    const metadataSource = sources.find(source => source.kind === 'chart-metadata');
     const schemaSource = sources.find(source => source.kind === 'chart-schema');
     const helmDocsSource = sources.find(source => source.kind === 'helm-docs');
     const chartDocsSource = sources.find(source => source.kind === 'chart-docs' && source.name === 'api:home');
 
+    assert.ok(metadataSource);
+    assert.equal(metadataSource.localPath, 'charts/api/Chart.yaml');
+    assert.equal(metadataSource.version, '0.2.0');
+    assert.equal(metadataSource.packageName, 'api');
     assert.ok(schemaSource);
     assert.equal(schemaSource.localPath, 'charts/api/values.schema.json');
     assert.equal(schemaSource.version, '0.2.0');
@@ -5105,7 +5110,7 @@ test('knowledge prefetch fetches bounded external docs and skips local schema', 
 
     assert.equal(result.kind, 'infra-agent.knowledge-prefetch');
     assert.equal(result.summary.fetched, 2);
-    assert.equal(result.summary.local, 1);
+    assert.equal(result.summary.local, 2);
     assert.equal(result.summary.skipped, 1);
     assert.equal(result.summary.failed, 0);
     assert.equal(result.cacheRoot, join(tempRoot, '.infra-agent/knowledge-cache'));
@@ -5113,6 +5118,11 @@ test('knowledge prefetch fetches bounded external docs and skips local schema', 
       source.status === 'local'
       && source.source.kind === 'chart-schema'
       && source.source.localPath === 'charts/api/values.schema.json'
+    ));
+    assert.ok(result.sources.some(source =>
+      source.status === 'local'
+      && source.source.kind === 'chart-metadata'
+      && source.source.localPath === 'charts/api/Chart.yaml'
     ));
     const fetchedTerraform = result.sources.find(source =>
       source.status === 'fetched'
@@ -8884,6 +8894,14 @@ test('knowledge sources command emits read-only source listing JSON', async () =
   assert.deepEqual(report.requestedDomains, ['helm']);
   assert.deepEqual(report.targetPaths, ['charts/payments-api']);
   assert.equal(report.sourceCount, report.sources.length);
+  assert.ok(report.sources.some(source =>
+    source.domain === 'helm'
+    && source.targetPath === 'charts/payments-api'
+    && source.id
+    && source.requiresFetch === false
+    && source.source.kind === 'chart-metadata'
+    && source.source.localPath === 'charts/payments-api/Chart.yaml'
+  ));
   assert.ok(report.sources.some(source =>
     source.domain === 'helm'
     && source.targetPath === 'charts/payments-api'

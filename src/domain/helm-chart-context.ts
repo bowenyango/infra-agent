@@ -200,6 +200,14 @@ export async function buildHelmChartKnowledgeSources(
   const chartName = metadata.name ?? chart.chartName;
   const sources: KnowledgeSource[] = [];
 
+  sources.push(withOptionalVersion({
+    kind: 'chart-metadata',
+    name: `${chartName}:Chart.yaml`,
+    chart: chartName,
+    localPath: join(chart.chartRoot, 'Chart.yaml'),
+    packageName: chartName
+  }, metadata.version));
+
   if (chart.valuesSchemaFile) {
     sources.push(withOptionalVersion({
       kind: 'chart-schema',
@@ -265,12 +273,16 @@ function contentTypeForLocalHelmSource(source: KnowledgeSource): 'application/js
   return source.kind === 'chart-schema' ? 'application/json' : 'application/yaml';
 }
 
+function isLocalHelmContextPacketSource(source: KnowledgeSource): boolean {
+  return source.kind === 'chart-schema' || source.kind === 'chart-lock';
+}
+
 async function buildLocalHelmPacket(
   workspaceRoot: string,
   source: KnowledgeSource,
   reason: string
 ): Promise<RetrievedContextPacket | null> {
-  if ((source.kind !== 'chart-schema' && source.kind !== 'chart-lock') || !source.localPath) {
+  if (!isLocalHelmContextPacketSource(source) || !source.localPath) {
     return null;
   }
 
@@ -296,9 +308,9 @@ export async function retrieveHelmChartContextPackets(
 ): Promise<RetrievedContextPacket[]> {
   const sources = await buildHelmChartKnowledgeSources(input.workspaceRoot, input.chart);
   const packets: RetrievedContextPacket[] = [];
-  const externalSources = sources.filter(source => source.kind !== 'chart-schema' && source.kind !== 'chart-lock');
+  const externalSources = sources.filter(source => !isLocalHelmContextPacketSource(source) && source.url);
 
-  for (const source of sources.filter(candidate => candidate.kind === 'chart-schema' || candidate.kind === 'chart-lock')) {
+  for (const source of sources.filter(isLocalHelmContextPacketSource)) {
     const packet = await buildLocalHelmPacket(input.workspaceRoot, source, input.reason);
     if (packet) {
       packets.push(packet);
