@@ -5,6 +5,7 @@ export type KnowledgeSourceKind =
   | 'pulumi-docs'
   | 'helm-docs'
   | 'chart-docs'
+  | 'chart-metadata'
   | 'provider-schema'
   | 'chart-schema'
   | 'chart-lock'
@@ -30,6 +31,8 @@ export const KNOWLEDGE_FACT_KINDS = [
   'replacement-sensitive-field',
   'module-input',
   'module-output',
+  'chart-metadata',
+  'chart-dependency',
   'chart-value',
   'pulumi-config-parameter'
 ] as const;

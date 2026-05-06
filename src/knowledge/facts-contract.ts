@@ -12,6 +12,7 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'pulumi-docs',
   'helm-docs',
   'chart-docs',
+  'chart-metadata',
   'provider-schema',
   'chart-schema',
   'chart-lock',

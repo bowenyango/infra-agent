@@ -35,6 +35,7 @@ const SOURCE_KIND_SCORE: Record<KnowledgePackSource['kind'], number> = {
   'repo-example': 24,
   'terraform-registry': 20,
   'helm-docs': 18,
+  'chart-metadata': 32,
   'pulumi-docs': 18,
   'chart-docs': 16
 };
@@ -48,6 +49,8 @@ const FACT_KIND_SCORE: Record<KnowledgePackFact['kind'], number> = {
   'replacement-sensitive-field': 28,
   'module-input': 24,
   'module-output': 12,
+  'chart-metadata': 18,
+  'chart-dependency': 22,
   'chart-value': 26,
   'pulumi-config-parameter': 24
 };

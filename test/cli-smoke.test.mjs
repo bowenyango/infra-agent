@@ -2335,6 +2335,8 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
     'replacement-sensitive-field',
     'module-input',
     'module-output',
+    'chart-metadata',
+    'chart-dependency',
     'chart-value',
     'pulumi-config-parameter'
   ]);
@@ -2414,9 +2416,55 @@ test('knowledge source contracts include local infra sources', () => {
       }
     ]
   };
+  const helmChartMetadataSource = {
+    kind: 'chart-metadata',
+    name: 'payments-api:Chart.yaml',
+    localPath: 'charts/payments-api/Chart.yaml',
+    chart: 'payments-api',
+    version: '0.1.0',
+    packageName: 'payments-api'
+  };
+  const helmChartMetadataSourceId = buildKnowledgeCacheId(helmChartMetadataSource);
+  const helmChartMetadataFactSet = {
+    ...terraformModuleFactSet,
+    sourceId: helmChartMetadataSourceId,
+    source: helmChartMetadataSource,
+    factCount: 2,
+    facts: [
+      {
+        kind: 'chart-metadata',
+        path: 'chart.payments-api.metadata.version',
+        summary: 'chart.payments-api declares Helm chart version 0.1.0.',
+        values: ['0.1.0'],
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: {
+          id: helmChartMetadataSourceId,
+          source: helmChartMetadataSource,
+          contentHash: 'b'.repeat(64),
+          locator: 'charts/payments-api/Chart.yaml: version'
+        }
+      },
+      {
+        kind: 'chart-dependency',
+        path: 'chart.payments-api.dependencies.redis',
+        summary: 'chart.payments-api declares Helm dependency redis.',
+        values: ['version=17.3.0', 'repository=https://charts.bitnami.com/bitnami'],
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: {
+          id: helmChartMetadataSourceId,
+          source: helmChartMetadataSource,
+          contentHash: 'b'.repeat(64),
+          locator: 'charts/payments-api/Chart.yaml: dependencies.redis'
+        }
+      }
+    ]
+  };
 
   assert.equal(parseKnowledgeFactSet(terraformModuleFactSet).source.kind, 'terraform-module');
   assert.equal(parseKnowledgeFactSet(pulumiConfigFactSet).source.kind, 'pulumi-config');
+  assert.equal(parseKnowledgeFactSet(helmChartMetadataFactSet).source.kind, 'chart-metadata');
 });
 
 test('knowledge fact contract validates source-linked fact sets', () => {
