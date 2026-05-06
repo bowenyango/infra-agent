@@ -152,9 +152,9 @@ Current progress as of 2026-05-05:
 | --- | --- | --- | --- |
 | Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, and cache-root resolution | No structured fact index or remote backend |
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock` | Pulumi docs source selection is not implemented; source selection is not yet broad provider/resource coverage |
-| Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only; planner use of extracted packs is pending |
+| Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, and bounded Helm schema knowledge packs | Terraform module/Pulumi component durable packs are not implemented |
-| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, and bounded packs for Terraform Registry markdown and Helm values schemas | Pulumi docs, provider schema facts, module/component README extraction, and planner pack budgeting are pending |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, and result-card counts | Pulumi docs, provider schema facts, module/component README extraction, and fact ranking are pending |
 | Team storage | Not started | Cache root can be local, environment-selected, or workspace-relative | No S3/GCS/Azure/Postgres backend abstraction |
 
 Target artifact families:
@@ -233,10 +233,14 @@ Measurable milestones:
    - Acceptance: fixture workspace produces a bounded pack with module inputs,
      chart values, Pulumi stack config shape, source locators, and no secrets.
 4. **Planner Consumption**
-   - Budget knowledge facts separately from raw retrieved excerpts and expose
-     compact `knowledgeFacts` metadata in `agent --json`.
-   - Acceptance: planner prompt includes only capped fact summaries; compact
-     parser validates fact counts, omitted counts, and source provenance.
+   - Implemented 2026-05-05: runtime loads bounded `knowledge-pack` facts from
+     cache/local sources, planner prompts receive capped `knowledgeFacts`
+     summaries, `--context-fact-limit` controls the budget, compact
+     `agent --json` exposes root-level `knowledgeFacts`, and the compact parser
+     validates fact counts, omitted counts, source provenance, stale counts,
+     handoff budgets, and raw-field exclusion.
+   - Remaining: add fact ranking so small budgets select the most useful facts
+     before simple extraction-order truncation.
 5. **Refresh And Staleness**
    - Add stale/fresh reporting for facts derived from cache entries and local
      files.

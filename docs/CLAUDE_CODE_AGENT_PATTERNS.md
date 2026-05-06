@@ -40,10 +40,10 @@ durable design reference for infra-agent development.
 
 | Claude Code pattern | Infra-agent surface |
 | --- | --- |
-| Streamed compaction without raw tool output | Compact `agent --json` sections plus `handoffCheckpoint.exclusions`, `harness.turnTrace`, `harness.toolTrace`, `validation.commands`, `validation.issues`, and `knowledgeContext` |
+| Streamed compaction without raw tool output | Compact `agent --json` sections plus `handoffCheckpoint.exclusions`, `harness.turnTrace`, `harness.toolTrace`, `validation.commands`, `validation.issues`, `knowledgeContext`, and `knowledgeFacts` |
 | Preserved current task and routing state | Root task/workspace metadata, `handoffCheckpoint.summary`, `handoffCheckpoint.continuation`, `harness.loopBudget`, `harness.repairBudget`, `harness.targeting`, `harness.workPlan`, `harness.plannerHandoff`, and CLI exit codes |
 | Permission logging before tool execution | `harness.toolTrace.permissionCategoryCounts`, `harness.toolPermissionSummary`, approval signals, and `approval.resume` |
-| Restoring durable context after compaction | `handoffCheckpoint.durableSections`, `handoffCheckpoint.budgets`, `readiness`, `readiness.plannerProviderCatalog`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, and `knowledgeContext` |
+| Restoring durable context after compaction | `handoffCheckpoint.durableSections`, `handoffCheckpoint.budgets`, `readiness`, `readiness.plannerProviderCatalog`, `validation.selectedPlan`, `validation.issueSummary`, `validation.identityConflictSummary`, `knowledgeCache`, `knowledgeContext`, and `knowledgeFacts` |
 | Skill base-directory references | Packaged `skills/infra-configuration/SKILL.md` with optional detailed references under `skills/infra-configuration/references/` |
 
 - `runQueryLoop` is the current session-owned harness. Keep adding durable state
@@ -168,18 +168,23 @@ durable design reference for infra-agent development.
   explanations, but it must not authorize broader writes or native operations.
   Suggested rerun and export commands preserve those grants so downstream
   agents do not accidentally drop approved scope while repeating the same task.
-- `knowledgeCache` and compact `knowledgeContext` summaries are the
-  context-compaction boundary for official docs, schemas, and examples. They
-  should report resolved cache source, packet/token budgets, token estimates,
-  and omissions without exposing raw cached documents in ordinary handoff
-  payloads.
+- `knowledgeCache`, compact `knowledgeContext`, and compact `knowledgeFacts`
+  summaries are the context-compaction boundary for official docs, schemas,
+  examples, and extracted provider/chart facts. They should report resolved
+  cache source, packet/token/fact budgets, source counts, stale counts, and
+  omissions without exposing raw cached documents in ordinary handoff payloads.
 - `infra-agent knowledge sources/prefetch/extract/validate/pack` is the
   cache-first learning workflow for reusable infrastructure facts. Treat packs
   as bounded advisory planner context; validate them before reuse and do not
   replace provider schemas, plan/preview output, or native validators with pack
   claims.
+- Planner prompts and compact output must consume `knowledgeFacts` summaries,
+  not raw `KnowledgePack` payloads. `knowledgeFacts.omittedFactCount` and
+  `knowledgeFacts.staleSourceCount` are routing signals for asking for a larger
+  budget or a deliberate cache refresh.
 - Result cards should mirror the retrieved context budget posture with packet,
-  token, and omission counts so human handoff does not require `--json-full`.
+  token, fact, stale-source, and omission counts so human handoff does not
+  require `--json-full`.
 - Query config owns context budget knobs. Keep packet/token overrides explicit
   in the harness and CLI instead of adding per-prompt one-off limits.
 - `validation.identityConflicts`, `runtimeIdentityConflicts`, and

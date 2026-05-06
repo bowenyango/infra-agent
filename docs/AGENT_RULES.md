@@ -146,6 +146,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   or local schema/code sources, `validate` to check facts before use, and
   `knowledge pack` to build bounded planner-safe fact bundles. Packs are
   advisory context, not validator-grade proof.
+- Treat compact `knowledgeFacts` as the validated handoff surface for extracted
+  provider/resource/chart facts. Read it before asking for raw docs, honor
+  `includedFactCount`, `omittedFactCount`, `staleSourceCount`, and
+  `--context-fact-limit`, and never treat omitted samples as exhaustive.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants
@@ -193,6 +197,14 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   counts, packet summary shape, confidence enums, included/omitted reason
   coherence, derived token totals, excerpt-char limits, and no raw excerpts,
   facts, or source payloads.
+- Validate compact `knowledgeFacts` before using extracted fact summaries in
+  handoff: schema marker, `mutationAllowed=false`, pack-id shape, max-fact
+  budget alignment with `harness.queryConfig.retrievedContextBudget.maxFacts`,
+  source/fact count arithmetic, source/fact linkage, stale source counts,
+  supported domain/source/fact/extraction enums, `harness.stateSummary`
+  alignment, `handoffCheckpoint.budgets.knowledgeFacts`, and no raw cache/doc
+  fields such as `source`, `content`, `contentHash`, `fetchedAt`, `url`, or
+  `localPath`.
 - Validate compact `knowledgeCache` as handoff metadata only: non-empty root
   string and one of the supported source labels for environment override,
   workspace config, or default user cache. Do not re-derive workspace path

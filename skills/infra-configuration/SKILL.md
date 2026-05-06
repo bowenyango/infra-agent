@@ -59,7 +59,7 @@ credentials must still come from environment variables.
    handoff data: root task/workspace metadata, `handoffCheckpoint`, query/loop/
    repair budgets, lifecycle/turn/tool trace entries, tool permission summaries,
    readiness checks, validation plan/command/issue/safety/identity summaries,
-   knowledge cache/context summaries, approval resume metadata, and planner
+   knowledge cache/context/fact summaries, approval resume metadata, and planner
    handoff routing must be structurally valid before another agent acts on
    them. Read `handoffCheckpoint` first for compact/read-only posture, raw
    content exclusions, routing summary, section budgets, continuation reason,
@@ -94,13 +94,15 @@ credentials must still come from environment variables.
    `readiness.plannerProviderCatalog` as static discovery metadata only: it is
    not a credential report, live provider check, or permission to change
    planner configuration. Read
-   `knowledgeCache` for the resolved cache root/source and `knowledgeContext`
+   `knowledgeCache` for the resolved cache root/source, `knowledgeContext`
    to see which retrieved docs or schemas were included or omitted by context
-   budget; the human result card mirrors that packet, token, and omission
-   posture without exposing raw excerpts. Use `infra-agent knowledge
+   budget, and `knowledgeFacts` for bounded extracted facts, omitted fact
+   counts, source counts, and stale source counts. The human result card mirrors
+   packet, token, fact, stale-source, and omission posture without exposing raw
+   excerpts or cache payloads. Use `infra-agent knowledge
    sources/prefetch/extract/validate/pack` when you need reusable provider,
    resource, chart, or module facts; validate extracted data before planner use
-   and prefer bounded packs over raw docs. Read
+   and prefer bounded `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
    `validation.issueSummary` for grouped blocker posture, and

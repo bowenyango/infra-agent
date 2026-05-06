@@ -9783,6 +9783,37 @@ Remaining risks:
 - Fact ranking remains extraction-order based; small `--context-fact-limit`
   values may omit more useful facts until a ranking slice is added.
 
+## 2026-05-05 Knowledge Facts Durable Docs Slice
+
+Files added or updated:
+
+- `README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/ROADMAP.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `skills/infra-configuration/SKILL.md`
+- `docs/HANDOFF.md`
+
+Purpose:
+
+- Record planner consumption of `knowledgeFacts` as implemented and move the
+  roadmap gap to ranking and provider/module/component extraction coverage.
+- Document `--context-fact-limit`, compact `knowledgeFacts`, advisory-only use,
+  stale/omitted count handling, and raw-field exclusion for downstream agents.
+- Update the packaged infra skill so other agents read `knowledgeFacts` before
+  requesting raw docs.
+
+Known validation:
+
+- `npm run validate:content`: failed because `package.json` does not define
+  that script.
+- `npm run lint`: passed.
+
+Remaining risks:
+
+- Full verification still needs to run after the remaining test/package slices.
+
 ## 2026-05-05 Compact Readiness Planner Catalog Discovery Slice
 
 Files added or updated:

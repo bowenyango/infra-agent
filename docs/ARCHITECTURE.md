@@ -32,13 +32,22 @@ The compact result preserves durable routing state:
 - selected validation plan, executed validation summaries, grouped issue
   posture, capped issue samples, safety blockers, and identity conflict
   aggregates
-- knowledge cache source and retrieved context budget summaries
+- knowledge cache source, retrieved context budget summaries, and extracted
+  knowledge fact summaries
 - approval resume metadata that records required scope but does not grant
   approval
 
 Report commands are read-only transformations over saved handoff artifacts:
 `identity-report` consumes compact agent results, and `impact-report` consumes
 infra graph JSON. Neither command reruns validators or authorizes remediation.
+
+`knowledgeFacts` is the compact extracted-fact surface. Runtime builds it from
+cache/local `knowledge-pack` data for selected targets, planner prompts receive
+only budgeted summaries, and `agent --json` exposes the same bounded counts,
+source metadata, stale-source counts, and omitted-fact counts without raw docs,
+cache content, or full schemas. `--context-fact-limit` belongs to the immutable
+query config beside packet/token context budgets so approval resume commands can
+preserve the same planner context shape.
 
 ## Runtime Shape
 

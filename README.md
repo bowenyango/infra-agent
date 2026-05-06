@@ -83,7 +83,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge validate <knowledge.json> [--json]`
 - `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
-- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
+- `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
 Current behavior is intentionally runtime-foundation oriented:
 
@@ -132,6 +132,11 @@ Current behavior is intentionally runtime-foundation oriented:
   docs and local schemas into `infra-agent.knowledge-facts`, `validate` checks
   facts or extraction reports before use, and `pack` emits a bounded
   planner-safe `infra-agent.knowledge-pack` without raw source content.
+- `agent` loads bounded knowledge facts from cache/local sources for selected
+  targets, injects only compact `knowledgeFacts` summaries into planner prompts,
+  and exposes the same summary in `agent --json`. `--context-fact-limit`
+  controls the fact budget; facts remain advisory and do not replace provider
+  schemas, plan/preview output, or validators.
 - Terraform roots may include a read-only local provider schema export at
   `.infra-agent/terraform-provider-schema.json` (or
   `.infra-agent/terraform-providers-schema.json`) generated from
@@ -327,6 +332,11 @@ Current behavior is intentionally runtime-foundation oriented:
   positive budget limits, packet/omission count arithmetic, packet summary
   entry shape, omitted-reason coherence, derived token totals, excerpt-char
   limits, and the absence of raw context fields.
+  Extracted provider/resource/chart facts are budgeted separately as
+  `knowledgeFacts`, with source counts, stale-source counts, included/omitted
+  fact counts, and raw-field exclusion. Compact consumers validate those counts
+  against `handoffCheckpoint.budgets.knowledgeFacts` and
+  `harness.stateSummary.knowledgeFactCount`.
   `knowledgeCache` records the resolved cache root and whether it came from the
   environment, workspace config, or the default user cache. Compact consumers
   validate those fields as handoff metadata; path-safety policy stays in the
