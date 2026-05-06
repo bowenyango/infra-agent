@@ -7846,6 +7846,47 @@ test('knowledge pack command emits bounded fact pack JSON', async () => {
   assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
 });
 
+test('knowledge pack command emits focused Terraform provider schema facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-provider-schema-cli-'));
+
+  try {
+    await writeTerraformProviderSchemaWorkspace(tempRoot);
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'terraform',
+      '--target',
+      'terraform/app',
+      '--max-facts',
+      '2',
+      '--json'
+    ]));
+    const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.mutationAllowed, false);
+    assert.equal(pack.maxFacts, 2);
+    assert.ok(pack.sources.some(source =>
+      source.kind === 'provider-schema'
+      && source.targetPath === 'terraform/app'
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.extractionMethod === 'terraform-provider-schema'
+      && fact.path === 'resource.aws_lb_listener_rule.listener_arn'
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'nested-block'
+      && fact.path === 'resource.aws_lb_listener_rule.action'
+    ));
+    assert.doesNotMatch(output, /aws_instance|provider_schemas|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('graph CLI args accept workspace and json flags', () => {
   const parsed = parseArgs([
     'graph',
