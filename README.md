@@ -127,10 +127,11 @@ Current behavior is intentionally runtime-foundation oriented:
   repo-local schema files that do not require network retrieval
 - `knowledge sources`, `knowledge prefetch`, `knowledge extract`,
   `knowledge validate`, and `knowledge pack` provide the cache-first knowledge
-  workflow. `sources` lists selected docs/local schemas without fetching,
-  `prefetch` aliases the bounded cache update path, `extract` turns cached
-  docs and local schemas into `infra-agent.knowledge-facts`, `validate` checks
-  facts or extraction reports before use, and `pack` ranks and emits a bounded
+  workflow. `sources` lists selected docs/local schemas/local config sources
+  without fetching, `prefetch` aliases the bounded cache update path,
+  `extract` turns cached docs, local schemas, local modules, and local Pulumi
+  config summaries into `infra-agent.knowledge-facts`, `validate` checks facts
+  or extraction reports before use, and `pack` ranks and emits a bounded
   planner-safe `infra-agent.knowledge-pack` without raw source content.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
@@ -154,6 +155,13 @@ Current behavior is intentionally runtime-foundation oriented:
   `module-input` and `module-output` facts without exposing raw `.tf` content.
   Registry, git, URL, interpolated, absolute, and out-of-workspace module
   sources are ignored by this local extractor.
+- Pulumi projects are learned as local `pulumi-config` knowledge sources from
+  `Pulumi.yaml` and sibling `Pulumi.<stack>.yaml` files. `knowledge extract`,
+  `knowledge pack`, and the agent runtime convert declared config keys,
+  project config types/defaults, and safe stack config values into ranked
+  `pulumi-config-parameter` facts without exposing raw YAML or `secure` values.
+  Secret-like config keys and all secure stack entries are skipped; `pulumi
+  preview` remains the authoritative validator for missing or invalid config.
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model

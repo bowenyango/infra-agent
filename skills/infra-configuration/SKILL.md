@@ -173,6 +173,10 @@ credentials must still come from environment variables.
   raw module file reads when the module source is literal and workspace-local.
   These facts describe inputs and outputs only; remote, registry, git, dynamic,
   absolute, and out-of-workspace module sources are outside this local fact path.
+- For Pulumi projects, prefer `pulumi-config` knowledge facts over raw
+  `Pulumi.yaml` or stack file dumps when choosing config keys, known types,
+  defaults, and existing safe values. These facts intentionally omit secure
+  stack entries and secret-like keys, and they do not replace `pulumi preview`.
 
 For detailed strategy, read
 `references/context-validation-and-impact.md` only when the task involves

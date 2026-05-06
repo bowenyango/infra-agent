@@ -147,9 +147,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `knowledge pack` to build bounded planner-safe fact bundles. Packs are
   advisory context, not validator-grade proof.
 - Treat compact `knowledgeFacts` as the validated handoff surface for extracted
-  provider/resource/chart facts. Read it before asking for raw docs, honor
-  `includedFactCount`, `omittedFactCount`, `staleSourceCount`, and
-  `--context-fact-limit`, and never treat omitted samples as exhaustive.
+  provider/resource/chart/module/Pulumi-config facts. Read it before asking
+  for raw docs, honor `includedFactCount`, `omittedFactCount`,
+  `staleSourceCount`, and `--context-fact-limit`, and never treat omitted
+  samples as exhaustive.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants
@@ -165,6 +166,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   variable/output declarations, skip secret-like fields, and do not read
   registry, git, URL, interpolated, absolute, or out-of-workspace sources as
   local module facts.
+- For Pulumi config knowledge, use only discovered `Pulumi.yaml` and sibling
+  `Pulumi.<stack>.yaml` files as `pulumi-config` knowledge sources. Extract
+  compact `pulumi-config-parameter` facts for project config declarations and
+  safe stack config values, skip secret-like keys, skip all `secure` stack
+  entries, and do not expose raw YAML or secure ciphertext in packs, prompts,
+  or compact handoff output. Treat these facts as advisory; `pulumi preview`
+  remains authoritative for missing, invalid, or provider-specific config.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
 - For Helm dependency context, prefer repo-local `Chart.lock` over dependency repository prose. Treat HTTP(S) dependency repositories as fetch candidates and skip non-document schemes such as `file://` or `oci://`.
 - Helm planner prompts may include selected chart schema packets by default. External Helm/chart docs must stay cache-only unless a deliberate fetch or prefetch path populated them.

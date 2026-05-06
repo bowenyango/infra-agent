@@ -251,8 +251,13 @@ Measurable milestones:
      discovered as `terraform-module` sources and converted into ranked
      `module-input` / `module-output` facts from compact module interface
      summaries, without exposing raw `.tf` content.
-   - Remaining: add Pulumi config/component and Helm chart metadata packs after
-     the current Terraform local module contract settles.
+   - Implemented 2026-05-05: Pulumi project and stack config are discovered as
+     `pulumi-config` sources and converted into ranked
+     `pulumi-config-parameter` facts from compact local summaries, without
+     exposing raw YAML, secure values, or secret-like keys.
+   - Remaining: add Pulumi official-doc source selection, Pulumi component
+     facts, and Helm chart metadata packs after the current local fact
+     contracts settle.
 5. **Refresh And Staleness**
    - Add stale/fresh reporting for facts derived from cache entries and local
      files.

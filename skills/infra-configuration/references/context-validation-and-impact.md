@@ -152,6 +152,11 @@ Current cache foundation:
 - Helm chart dependency context includes local `Chart.lock` packets and
   dependency repository/version sources from `Chart.yaml` and `Chart.lock`.
   Only HTTP(S) repositories should become external fetch candidates.
+- Pulumi project config context includes local `pulumi-config` sources from
+  `Pulumi.yaml` and sibling `Pulumi.<stack>.yaml` files. The extractor builds a
+  compact JSON summary for declared config keys, safe types/defaults, and safe
+  stack values, then emits `pulumi-config-parameter` facts without raw YAML,
+  `secure` entries, or secret-like keys.
 - The CLI exposes `infra-agent knowledge sources`, `knowledge prefetch`,
   `knowledge extract`, `knowledge validate`, and `knowledge pack` for the
   cache-first learning workflow. Prefer `--domain`, `--target`,
@@ -165,9 +170,11 @@ Terraform, Pulumi, Helm, or provider documentation.
 Current extraction direction:
 
 - Convert cached official docs, repo-local schemas, examples, module READMEs,
-  Pulumi component/project metadata, and Helm chart metadata into compact
-  `knowledge-facts` before planner use. The first implemented extractors cover
-  Terraform Registry markdown and Helm `values.schema.json` chart values.
+  Pulumi config/component metadata, and Helm chart metadata into compact
+  `knowledge-facts` before planner use. Implemented local extractors now cover
+  Terraform Registry markdown, Helm `values.schema.json` chart values, compact
+  Terraform provider-schema facts, Terraform local module interfaces, and
+  Pulumi config parameters.
 - Facts should carry source id, URL or local path, provider/chart/module name,
   version or commit, content hash, extraction method, confidence, stale posture,
   and a short locator back to the source.
