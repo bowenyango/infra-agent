@@ -102,7 +102,9 @@ credentials must still come from environment variables.
    excerpts or cache payloads. Use `infra-agent knowledge
    sources/prefetch/extract/validate/pack` when you need reusable provider,
    resource, chart, or module facts; validate extracted data before planner use
-   and prefer bounded `knowledgeFacts`/packs over raw docs. Read
+   and use `knowledge validate --workspace <workspace>` before reusing saved
+   repo-derived facts after local files may have changed. Prefer bounded
+   `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
    `validation.issueSummary` for grouped blocker posture, and
@@ -168,7 +170,8 @@ credentials must still come from environment variables.
 - Treat `knowledgeFacts` as a ranked compact summary: local schemas and required
   fields should appear before examples under small budgets, but facts remain
   advisory and do not replace native validation, plan, preview, or provider
-  schema context.
+  schema context. Source freshness and fingerprint digest fields are handoff
+  signals; stale sources should not be used as high-confidence guidance.
 - For Terraform local modules, prefer `terraform-module` knowledge facts over
   raw module file reads when the module source is literal and workspace-local.
   These facts describe inputs and outputs only; remote, registry, git, dynamic,

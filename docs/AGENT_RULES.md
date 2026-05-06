@@ -140,6 +140,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   must be schema-versioned, source-linked, versioned or commit-linked,
   confidence-labeled, stale-aware, and parser-validated before a planner uses
   them.
+- Repo-derived knowledge fact sets must carry safe workspace-relative local
+  source fingerprints instead of raw file content. Recheck those fingerprints
+  with `infra-agent knowledge validate <knowledge.json> --workspace <workspace>`
+  before reusing saved extraction output after workspace files may have
+  changed.
 - Use the `infra-agent knowledge` namespace for reusable knowledge workflows:
   `sources` to inspect selected sources, `prefetch` to deliberately refresh
   bounded official-doc cache entries, `extract` to create fact sets from cache

@@ -80,7 +80,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
 - `infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]`
 - `infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--json]`
-- `infra-agent knowledge validate <knowledge.json> [--json]`
+- `infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]`
 - `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
@@ -129,10 +129,14 @@ Current behavior is intentionally runtime-foundation oriented:
   `knowledge validate`, and `knowledge pack` provide the cache-first knowledge
   workflow. `sources` lists selected docs/local schemas/local config sources
   without fetching, `prefetch` aliases the bounded cache update path,
-  `extract` turns cached docs, local schemas, local modules, and local Pulumi
-  config summaries into `infra-agent.knowledge-facts`, `validate` checks facts
-  or extraction reports before use, and `pack` ranks and emits a bounded
-  planner-safe `infra-agent.knowledge-pack` without raw source content.
+  `extract` turns cached docs, local schemas, local modules, local Helm chart
+  metadata, and local Pulumi config summaries into
+  `infra-agent.knowledge-facts`, `validate` checks facts or extraction reports
+  before use, and `pack` ranks and emits a bounded planner-safe
+  `infra-agent.knowledge-pack` without raw source content. Pass
+  `knowledge validate --workspace <workspace>` to recheck repo-derived fact
+  fingerprints against current files and reject stale local knowledge before it
+  reaches a planner.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

@@ -169,6 +169,11 @@ Current cache foundation:
   `--max-sources`, and `--max-facts` to keep retrieval and pack size bounded
   before running the agent. The top-level `infra-agent prefetch` remains a
   compatible alias for bounded cache refresh.
+- Repo-derived fact sets include local source fingerprints for files such as
+  `values.schema.json`, `Chart.yaml`, `Chart.lock`, Terraform module files,
+  provider schema exports, and Pulumi project/stack YAML. Use
+  `infra-agent knowledge validate <knowledge.json> --workspace <workspace>` to
+  recheck those fingerprints before reusing saved knowledge after code changes.
 
 The CLI package should bundle retrieval logic and small durable rules, not full
 Terraform, Pulumi, Helm, or provider documentation.
@@ -183,7 +188,8 @@ Current extraction direction:
   Pulumi config parameters, plus Helm chart metadata and dependency facts.
 - Facts should carry source id, URL or local path, provider/chart/module name,
   version or commit, content hash, extraction method, confidence, stale posture,
-  and a short locator back to the source.
+  local source fingerprint metadata for repo-derived sources, and a short
+  locator back to the source.
 - Useful fact families include provider/resource arguments, required/defaulted
   attributes, enum-like values, nested blocks, replacement-sensitive fields,
   identity fields, module inputs/outputs, Pulumi config/component parameters,
