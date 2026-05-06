@@ -97,7 +97,10 @@ import {
   buildTerraformProviderSchemaKnowledgeSources,
   retrieveTerraformProviderSchemaContextPackets
 } from '../src/domain/terraform-provider-schema.ts';
-import { buildPulumiConfigKnowledgeSources } from '../src/domain/pulumi-config-knowledge.ts';
+import {
+  buildPulumiConfigKnowledgeContent,
+  buildPulumiConfigKnowledgeSources
+} from '../src/domain/pulumi-config-knowledge.ts';
 import {
   buildHelmChartKnowledgeSources,
   retrieveHelmChartContextPackets
@@ -3664,6 +3667,77 @@ test('Pulumi config knowledge sources summarize discovered project metadata', as
   assert.equal(sources[0]?.localPath, 'infra/payments-api');
   assert.equal(sources[0]?.module, 'infra/payments-api');
   assert.equal(sources[0]?.packageName, 'payments-api');
+});
+
+test('Pulumi config knowledge content summarizes safe project and stack config', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-config-content-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/payments-api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: payments-api',
+        'runtime: yaml',
+        'config:',
+        '  payments-api:imageTag:',
+        '    type: string',
+        '    default: latest',
+        '  payments-api:replicas:',
+        '    type: integer',
+        '  payments-api:apiToken:',
+        '    type: string',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'Pulumi.dev.yaml'),
+      [
+        'config:',
+        '  payments-api:imageTag: dev-2026',
+        '  payments-api:replicas: 2',
+        '  payments-api:databasePassword:',
+        '    secure: ciphertext',
+        '  payments-api:signingKey:',
+        '    secure: redacted',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/payments-api');
+    assert.ok(project);
+    const source = (await buildPulumiConfigKnowledgeSources(tempRoot, project))[0];
+    assert.ok(source);
+    const content = await buildPulumiConfigKnowledgeContent({
+      workspaceRoot: tempRoot,
+      project,
+      source
+    });
+    assert.ok(content);
+    const summary = JSON.parse(content);
+
+    assert.equal(summary.kind, 'infra-agent.pulumi-config-summary');
+    assert.equal(summary.mutationAllowed, false);
+    assert.equal(summary.projectRoot, 'infra/payments-api');
+    assert.deepEqual(summary.stackFiles, ['infra/payments-api/Pulumi.dev.yaml']);
+    assert.ok(summary.declarations.some(declaration =>
+      declaration.key === 'payments-api:imageTag'
+      && declaration.type === 'string'
+      && declaration.defaultValue === 'latest'
+    ));
+    assert.ok(summary.stackValues.some(value =>
+      value.key === 'payments-api:replicas'
+      && value.value === '2'
+      && value.stackName === 'dev'
+    ));
+    assert.doesNotMatch(content, /apiToken|databasePassword|signingKey|ciphertext|redacted/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('Terraform local module knowledge content summarizes variables and outputs', async () => {
