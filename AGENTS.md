@@ -170,7 +170,7 @@ stays focused and unrelated validators or context do not pollute compact output.
   JSON/report contracts, and `test/support/` only for narrow shared fixtures or
   harness helpers. Support files must not become production-code barrels.
 - Keep test files reviewable. `npm run test:structure` fails any
-  `.test.mjs` shard above 1,200 lines or support helper above 1,000 lines;
+  `.test.mjs` shard above 1,000 lines or support helper above 1,000 lines;
   split larger files by behavior or fixture family before adding more cases.
   The same guard blocks misplaced test-like files, committed `.only`/`.skip`
   tests, and checks that package/CI gates remain wired.

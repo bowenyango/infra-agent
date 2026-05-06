@@ -4,7 +4,7 @@ import { parse as parseYaml } from 'yaml';
 
 const TEST_ROOT = resolve('test');
 const CATEGORY_DIRS = ['unit', 'integration', 'contract'];
-const TEST_SHARD_MAX_LINES = 1200;
+const TEST_SHARD_MAX_LINES = 1000;
 const SUPPORT_HELPER_MAX_LINES = 1000;
 const REPO_SCAN_IGNORED_DIRS = new Set([
   '.git',

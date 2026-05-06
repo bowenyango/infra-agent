@@ -45,7 +45,7 @@ new direct shard files do not need manual runner imports.
   `test/contract` `.test.mjs` shards
 - no broad smoke harness helper imports
 - no committed `.only` or `.skip` tests
-- `.test.mjs` shards at or below 1,200 lines
+- `.test.mjs` shards at or below 1,000 lines
 - `test/support/*.mjs` helpers at or below 1,000 lines
 - category runners must use `test/run-category.mjs`
 - `test/run-isolated.mjs` must reuse category discovery and execute each shard

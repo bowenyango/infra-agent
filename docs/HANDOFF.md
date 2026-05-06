@@ -28,12 +28,72 @@ Current guardrails:
 - no root-level or nested `.test.mjs` shards
 - no broad `test/support/cli-smoke-harness.mjs`
 - no committed `.only` or `.skip` tests
-- `.test.mjs` shards at or below 1,200 lines
+- `.test.mjs` shards at or below 1,000 lines
 - `test/support/*.mjs` helpers at or below 1,000 lines
 - no test-like files outside direct `test/unit`, `test/integration`, or
   `test/contract` `.test.mjs` shards
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
+
+## 2026-05-06 Near-1000 Test Shard Split Slice
+
+Status:
+
+- Implemented. This slice continues test-system optimization before feature
+  development resumes.
+
+Core files changed:
+
+- `scripts/check-test-structure.mjs`
+- `test/contract/infra-graph-*-contract.test.mjs`
+- `test/support/infra-graph-contract-fixtures.mjs`
+- `test/integration/cli-knowledge-*-main.test.mjs`
+- `test/unit/agent-output-approval-*.test.mjs`
+- `docs/TESTING.md`
+- `README.md`
+- `AGENTS.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Split the remaining near-threshold CLI knowledge integration shard into args,
+  source listing/prefetch, extraction, and knowledge-pack command shards.
+- Split approval-output unit coverage into approval-required behavior and
+  explicit approval grant/snapshot/suggested-command behavior.
+- Split the large infra graph shape contract into envelope, source provenance,
+  kind totals, node/edge shape, impact summary, and review-target shards.
+- Moved the reusable valid infra graph payload to
+  `test/support/infra-graph-contract-fixtures.mjs`.
+- Lowered the structure guard shard cap from 1,200 to 1,000 lines.
+
+Design notes:
+
+- These splits preserve existing assertions while giving each shard a clear
+  contract or behavior boundary.
+- The graph fixture is shared from `test/support/` because it is a stable
+  contract payload reused across small contract shards, not a broad harness.
+
+Known validation:
+
+- `node --check` passed for all new split shards.
+- `npm run test:structure`: passed with 56 checked test files.
+- Focused regression passed with 12 tests covering the split infra graph
+  contracts, knowledge artifact commands, and approval-required output.
+- `npm run test:unit`: passed with 303 tests.
+- `npm run test:integration`: passed with 65 tests.
+- `npm run test:contract`: passed with 17 tests.
+- `npm run test:isolated`: passed with 44 isolated shards.
+- `npm run verify`: passed. This includes lint, structure, layered suites,
+  isolated shards, smoke, e2e, coverage, and package dry-run.
+- Coverage gate passed at 89.14% lines, 78.86% branches, and 96.17% functions.
+- Package dry-run passed with 129 entries in the installable package surface.
+
+Remaining work:
+
+- Continue monitoring the largest remaining shards before adding cases:
+  `knowledge-sources-retrieval`, `agent-output-result-card`, and
+  `knowledge-pack-ranking` are under the hard cap but should be split before
+  they grow further.
 
 ## 2026-05-06 Process-Isolated Test Gate Slice
 
@@ -66,9 +126,8 @@ What changed:
   `agent-runtime-compact.test.mjs` became runtime execution, handoff, and trace
   validation shards; `infra-graph-contracts.test.mjs` became graph shape and
   graph report contract shards.
-- Lowered the test shard size cap from 1,800 to 1,200 lines. The largest shard
-  is now `test/contract/infra-graph-shape-contract.test.mjs`, under the new
-  cap.
+- Lowered the test shard size cap from 1,800 to 1,200 lines for that slice.
+  A later near-threshold split lowered the active cap to 1,000 lines.
 - Added `test/run-isolated.mjs` and `npm run test:isolated` to execute every
   unit, integration, and contract shard in a fresh Node process.
 - Added the `isolated-shards` CI job and made smoke/e2e depend on it, so broad
@@ -119,7 +178,7 @@ Core files changed:
 - `src/knowledge/validate.ts`
 - `src/cli/main.ts`
 - `test/unit/knowledge-pack-ranking.test.mjs`
-- `test/integration/cli-knowledge-main.test.mjs`
+- `test/integration/cli-knowledge-{args,sources,extract,pack}-main.test.mjs`
 - `README.md`
 - `AGENTS.md`
 - `docs/ROADMAP.md`
@@ -160,7 +219,7 @@ Known validation:
 
 - `npm run test:focused -- --test-name-pattern "knowledge artifact manifests" test/unit/knowledge-pack-ranking.test.mjs`:
   passed with 1 unit test.
-- `npm run test:focused -- --test-name-pattern "knowledge pack command writes an artifact manifest|knowledge pack CLI args accept bounded" test/integration/cli-knowledge-main.test.mjs`:
+- `npm run test:focused -- --test-name-pattern "knowledge pack command writes an artifact manifest|knowledge pack CLI args accept bounded" test/run-all.mjs`:
   passed with 2 integration tests.
 - `npm run test:focused -- --test-name-pattern "knowledge extract command writes a reusable validation artifact|knowledge pack command writes an artifact manifest|knowledge artifact manifests" test/run-all.mjs`:
   passed with 3 focused tests across unit and integration shards.
@@ -11180,12 +11239,14 @@ Next stage:
 
 Status:
 
-- In progress. This slice splits the remaining near-limit unit shard before
-  resuming feature development.
+- Superseded. This slice first split result-card coverage out of approval
+  output tests; the later near-1000 split divided approval output coverage
+  again.
 
 Core files changed:
 
-- `test/unit/agent-output-approval.test.mjs`
+- `test/unit/agent-output-approval-required.test.mjs`
+- `test/unit/agent-output-approval-grants.test.mjs`
 - `test/unit/agent-output-result-card.test.mjs`
 - `docs/HANDOFF.md`
 
@@ -11193,13 +11254,14 @@ What changed:
 
 - Moved result-card and terminal suggested-command output tests into
   `test/unit/agent-output-result-card.test.mjs`.
-- Kept approval, approval-continuation, compact approval summary, and snapshot
-  tests in `test/unit/agent-output-approval.test.mjs`.
+- Later split approval, approval-continuation, compact approval summary, and
+  snapshot tests into approval-required and approval-grant shards.
 - The split is mechanical test movement only; production code was not changed.
 
 Design notes:
 
-- `test/unit/agent-output-approval.test.mjs` is now 999 lines.
+- `test/unit/agent-output-approval-required.test.mjs` is now under 700 lines.
+- `test/unit/agent-output-approval-grants.test.mjs` is now under 350 lines.
 - `test/unit/agent-output-result-card.test.mjs` is now 932 lines.
 - The automatic category runner from the previous slice discovers the new shard
   without manual runner changes.

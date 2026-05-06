@@ -53,7 +53,7 @@ Focused checks use `npm run test:focused -- --test-name-pattern "<pattern>"
 <runner-or-shard>`.
 `npm run test:structure` enforces category-runner discovery, blocks misplaced
 test-like files, nested test shards, and the old broad smoke harness, and keeps
-`.test.mjs` shards under 1,200 lines and support helpers under 1,000 lines. It
+`.test.mjs` shards under 1,000 lines and support helpers under 1,000 lines. It
 also blocks committed `.only`/`.skip` tests and protects the expected
 CI/script gates. See `docs/TESTING.md` for the extension rules.
 
