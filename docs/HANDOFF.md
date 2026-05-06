@@ -10151,3 +10151,13 @@ Remaining risks:
   explicit S3-compatible cache backend, is still an architecture item.
 - `pulumi preview` remains the authoritative validation step for real stack
   behavior, provider-specific defaults, and missing/invalid configuration.
+
+Final verification:
+
+- `npm run verify`: passed after the slice; lint checked 122 files, unit tests
+  reported 352 passing tests, smoke passed, and e2e passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed; dry-run package reports 123 entries and includes
+  `src/domain/pulumi-config-knowledge.ts`, updated knowledge pipeline files,
+  docs, and skill guidance.
+- `git diff --check`: passed.
