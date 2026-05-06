@@ -1,3 +1,5 @@
-import './run-unit.mjs';
-import './run-integration.mjs';
-import './run-contract.mjs';
+import { runCategory } from './run-category.mjs';
+
+await runCategory('unit');
+await runCategory('integration');
+await runCategory('contract');

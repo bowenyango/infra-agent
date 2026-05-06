@@ -15,7 +15,8 @@
     "README.md",
     "docs/AGENT_RULES.md",
     "docs/CLAUDE_CODE_AGENT_PATTERNS.md",
-    "docs/ROADMAP.md"
+    "docs/ROADMAP.md",
+    "docs/TESTING.md"
   ],
   "scripts": {
     "dev": "node --experimental-strip-types ./src/cli/main.ts",
@@ -30,7 +31,7 @@
     "test:contract": "node --experimental-strip-types ./test/run-contract.mjs",
     "test:all": "node --experimental-strip-types ./test/run-all.mjs",
     "test:focused": "node --experimental-strip-types",
-    "test": "npm run test:all",
+    "test": "npm run test:structure && npm run test:all",
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
     "e2e": "node --experimental-strip-types ./scripts/e2e.mjs",
     "verify": "npm run lint && npm run test:structure && npm run test:all && npm run smoke && npm run e2e"

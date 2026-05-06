@@ -167,11 +167,12 @@ stays focused and unrelated validators or context do not pollute compact output.
 - Keep test files reviewable. `npm run test:structure` fails any
   `.test.mjs` shard above 2,000 lines or support helper above 1,000 lines;
   split larger files by behavior or fixture family before adding more cases.
-- Add new shard files to the matching ordered runner:
-  `test/run-unit.mjs`, `test/run-integration.mjs`, or
-  `test/run-contract.mjs`. `test/run-all.mjs` must include every category.
+- Add new shard files directly under the matching category directory. The
+  category runners discover direct `.test.mjs` shards through
+  `test/run-category.mjs`; do not create nested shard directories.
 - Use `npm run test:unit`, `npm run test:integration`,
   `npm run test:contract`, or `npm run test:all` for layered regression.
+  `npm test` runs the structure guard plus the complete regression suite.
   Use `npm run test:focused -- --test-name-pattern "<pattern>" <runner-or-shard>`
   for focused checks.
 - Do not restore a monolithic `cli-smoke` unit file or broad

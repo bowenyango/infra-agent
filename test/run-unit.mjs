@@ -1,11 +1,3 @@
-import './unit/inspect-graph-impact.test.mjs';
-import './unit/knowledge-cache-contracts.test.mjs';
-import './unit/knowledge-extraction-content.test.mjs';
-import './unit/knowledge-inspection-semantics.test.mjs';
-import './unit/knowledge-pack-ranking.test.mjs';
-import './unit/knowledge-runtime-prefetch.test.mjs';
-import './unit/knowledge-sources-retrieval.test.mjs';
-import './unit/workspace-policy-targeting.test.mjs';
-import './unit/tools-validation-model.test.mjs';
-import './unit/agent-output-approval.test.mjs';
-import './unit/domain-terraform-pulumi-tail.test.mjs';
+import { runCategory } from './run-category.mjs';
+
+await runCategory('unit');

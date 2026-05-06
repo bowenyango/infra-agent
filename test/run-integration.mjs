@@ -1,2 +1,3 @@
-import './integration/agent-runtime-compact.test.mjs';
-import './integration/cli-main.test.mjs';
+import { runCategory } from './run-category.mjs';
+
+await runCategory('integration');

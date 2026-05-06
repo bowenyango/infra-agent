@@ -10,6 +10,7 @@ const RUNNERS = {
   integration: 'test/run-integration.mjs',
   contract: 'test/run-contract.mjs'
 };
+const RUN_CATEGORY_PATH = 'test/run-category.mjs';
 const SUPPORT_DIR = 'test/support';
 const BANNED_TEST_PATTERNS = [
   {
@@ -44,50 +45,66 @@ async function readRunnerImports(runnerPath) {
     .map(match => match[1]);
 }
 
-async function assertRunnerCoverage(category, failures) {
-  const categoryDir = resolve(TEST_ROOT, category);
-  const discovered = (await readdir(categoryDir))
-    .filter(file => file.endsWith('.test.mjs'))
-    .map(file => `./${category}/${file}`)
-    .sort();
-  const imports = (await readRunnerImports(RUNNERS[category])).sort();
+async function assertCategoryRunner(category, failures) {
+  const runnerPath = RUNNERS[category];
+  const content = await readFile(runnerPath, 'utf8');
 
-  for (const file of discovered) {
-    if (!imports.includes(file)) {
-      failures.push(`${RUNNERS[category]} does not import ${file}.`);
-    }
+  if (!content.includes("import { runCategory } from './run-category.mjs';")) {
+    failures.push(`${runnerPath} must import the shared category runner.`);
   }
 
-  for (const imported of imports) {
-    if (!discovered.includes(imported)) {
-      failures.push(`${RUNNERS[category]} imports unknown shard ${imported}.`);
-    }
+  if (!content.includes(`await runCategory('${category}');`)) {
+    failures.push(`${runnerPath} must run the ${category} category through runCategory.`);
   }
 
-  if (new Set(imports).size !== imports.length) {
-    failures.push(`${RUNNERS[category]} imports at least one shard more than once.`);
+  const manualShardImports = (await readRunnerImports(runnerPath))
+    .filter(importPath => importPath.includes(`./${category}/`));
+  for (const importPath of manualShardImports) {
+    failures.push(`${runnerPath} must not manually import shard ${importPath}; use runCategory.`);
   }
 }
 
 async function main() {
   const failures = [];
   const allFiles = await listFiles(TEST_ROOT);
-  const rootTestFiles = allFiles
+  const testShards = allFiles
     .map(file => normalizePath(relative(TEST_ROOT, file)))
-    .filter(file => file.endsWith('.test.mjs') && !file.includes('/'));
+    .filter(file => file.endsWith('.test.mjs'));
 
-  for (const file of rootTestFiles) {
-    failures.push(`test root must not contain shard file ${file}; use test/unit, test/integration, or test/contract.`);
+  for (const file of testShards) {
+    const parts = file.split('/');
+    if (parts.length === 1) {
+      failures.push(`test root must not contain shard file ${file}; use test/unit, test/integration, or test/contract.`);
+      continue;
+    }
+    if (!CATEGORY_DIRS.includes(parts[0])) {
+      failures.push(`${file} must live under one of ${CATEGORY_DIRS.map(category => `test/${category}`).join(', ')}.`);
+      continue;
+    }
+    if (parts.length > 2) {
+      failures.push(`${file} is nested too deeply; category runners discover direct .test.mjs shards only.`);
+    }
+  }
+
+  const runCategoryContent = await readFile(RUN_CATEGORY_PATH, 'utf8');
+  if (!runCategoryContent.includes("entry.name.endsWith('.test.mjs')")) {
+    failures.push(`${RUN_CATEGORY_PATH} must discover only .test.mjs shard files.`);
+  }
+  if (!runCategoryContent.includes('.sort(')) {
+    failures.push(`${RUN_CATEGORY_PATH} must sort discovered shard files for stable execution order.`);
   }
 
   for (const category of CATEGORY_DIRS) {
-    await assertRunnerCoverage(category, failures);
+    await assertCategoryRunner(category, failures);
   }
 
-  const runAllImports = await readRunnerImports('test/run-all.mjs');
-  for (const requiredRunner of ['./run-unit.mjs', './run-integration.mjs', './run-contract.mjs']) {
-    if (!runAllImports.includes(requiredRunner)) {
-      failures.push(`test/run-all.mjs does not import ${requiredRunner}.`);
+  const runAllContent = await readFile('test/run-all.mjs', 'utf8');
+  if (!runAllContent.includes("import { runCategory } from './run-category.mjs';")) {
+    failures.push('test/run-all.mjs must import the shared category runner.');
+  }
+  for (const category of CATEGORY_DIRS) {
+    if (!runAllContent.includes(`await runCategory('${category}');`)) {
+      failures.push(`test/run-all.mjs must run the ${category} category through runCategory.`);
     }
   }
 

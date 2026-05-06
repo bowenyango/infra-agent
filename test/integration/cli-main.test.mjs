@@ -360,6 +360,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   const readmeContent = await readFile('README.md', 'utf8');
   const agentRulesContent = await readFile('docs/AGENT_RULES.md', 'utf8');
   const claudePatternsContent = await readFile('docs/CLAUDE_CODE_AGENT_PATTERNS.md', 'utf8');
+  const testingContent = await readFile('docs/TESTING.md', 'utf8');
   const infraSkillContent = await readFile('skills/infra-configuration/SKILL.md', 'utf8');
   const infraSkillReferenceContent = await readFile(
     'skills/infra-configuration/references/context-validation-and-impact.md',
@@ -376,7 +377,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
     'README.md',
     'docs/AGENT_RULES.md',
     'docs/CLAUDE_CODE_AGENT_PATTERNS.md',
-    'docs/ROADMAP.md'
+    'docs/ROADMAP.md',
+    'docs/TESTING.md'
   ]);
   assert.ok(!packageJson.files.includes('fixtures/'));
   assert.ok(!packageJson.files.includes('test/'));
@@ -400,6 +402,8 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(agentRulesContent, /Doctor JSON may expose the same static\s+`plannerProviderCatalog` discovery object/);
   assert.match(claudePatternsContent, /readiness\.plannerProviderCatalog/);
   assert.match(claudePatternsContent, /knowledge sources\/prefetch\/extract\/validate\/pack/);
+  assert.match(testingContent, /test\/run-category\.mjs/);
+  assert.match(testingContent, /no nested category shards/i);
   assert.match(infraSkillContent, /handoffCheckpoint/);
   assert.match(infraSkillContent, /mutationAllowed=false/);
   assert.match(infraSkillContent, /harness\.plannerHandoff/);

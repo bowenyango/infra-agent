@@ -389,8 +389,10 @@ local-only and read the graph JSON. It should start with high-value views:
 
 - Review staged and unstaged work in `docs/HANDOFF.md`.
 - Commit or otherwise preserve the current slices intentionally.
-- Keep verification passing: `npm run lint`, `npm run test`, `npm run smoke`,
-  `npm run e2e`, and `git diff --check`.
+- Keep the full local gate passing with `npm run verify` and `git diff --check`.
+  For test-only changes, also run the affected layer (`npm run test:unit`,
+  `npm run test:integration`, or `npm run test:contract`) and
+  `npm run test:structure`.
 
 ### Step 2: Make The Agent-Facing Surface Real
 

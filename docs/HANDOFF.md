@@ -2,6 +2,29 @@
 
 This document captures current development state for future Codex sessions.
 
+## Current Test Architecture
+
+Status as of 2026-05-06:
+
+- Tests are split into `test/unit/`, `test/integration/`, and
+  `test/contract/`; shared helpers live under `test/support/`.
+- Category runners use `test/run-category.mjs` to discover direct `.test.mjs`
+  shards in stable filename order. Do not manually add shard imports to
+  `test/run-unit.mjs`, `test/run-integration.mjs`, or `test/run-contract.mjs`.
+- `npm test` runs `npm run test:structure` before `npm run test:all`.
+- `npm run verify` is the full local gate: lint, structure, all tests, smoke,
+  and e2e.
+- `.github/workflows/verify.yml` runs the same verification gate plus package
+  shape checking in CI.
+- `docs/TESTING.md` is the compact extension guide for future test shards.
+
+Current guardrails:
+
+- no root-level or nested `.test.mjs` shards
+- no broad `test/support/cli-smoke-harness.mjs`
+- `.test.mjs` shards at or below 2,000 lines
+- `test/support/*.mjs` helpers at or below 1,000 lines
+
 ## 2026-05-05 Approval Query Flag Default Fallback Slice
 
 Files added or updated:
@@ -10853,3 +10876,72 @@ Next stage:
 
 - Commit this slice, then continue with a storage policy or
   publication-planning slice.
+
+## 2026-05-06 Test Infrastructure Gate Hardening Slice
+
+Status:
+
+- In progress. This slice addresses the remaining test-process gaps found after
+  the large smoke-test split.
+
+Core files changed:
+
+- `.github/workflows/verify.yml`
+- `scripts/check-test-structure.mjs`
+- `test/run-category.mjs`
+- `test/run-unit.mjs`
+- `test/run-integration.mjs`
+- `test/run-contract.mjs`
+- `test/run-all.mjs`
+- `package.json`
+- `README.md`
+- `AGENTS.md`
+- `docs/ROADMAP.md`
+- `docs/TESTING.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Category runners now use shared stable discovery through
+  `test/run-category.mjs`, so new direct shard files cannot be skipped because
+  a manual runner import was missed.
+- `npm test` now runs `test:structure` before `test:all`.
+- `test:structure` rejects nested category shards because the category runners
+  intentionally discover only direct `.test.mjs` files.
+- Added a GitHub Actions verification workflow that runs `npm ci`,
+  `npm run verify`, and package shape checking.
+- Added `docs/TESTING.md` and lifted current test architecture guidance to the
+  top of this handoff file.
+
+Design notes:
+
+- The suite remains single-process and direct-import based through dynamic ESM
+  imports, avoiding child-process TAP aggregation changes.
+- The CI workflow is intentionally small and mirrors the local gate instead of
+  introducing a separate policy surface.
+
+Known validation:
+
+- `npm run test:structure`: passed with 31 checked test files.
+- `npm run test:focused -- --test-name-pattern "knowledge source contracts include local infra sources" test/run-unit.mjs`:
+  passed with 1 unit test, confirming the dynamic category runner preserves
+  focused execution.
+- Initial `npm test`: failed on package metadata contract after adding
+  `docs/TESTING.md` to the package surface. The contract was updated to make
+  the packaging change explicit.
+- `npm run test:focused -- --test-name-pattern "package metadata exposes only" test/integration/cli-main.test.mjs`:
+  passed with 1 integration test after the package contract update.
+- `npm test`: passed structure plus 376 tests.
+- `npm run verify`: passed lint, test structure, 376 all tests, smoke, and e2e.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`:
+  passed with 127 package entries, including `docs/TESTING.md`.
+- `git diff --check`: passed.
+
+Remaining risks:
+
+- The largest remaining unit shard is still near the 2,000-line guardrail.
+  Split it before adding more approval/output coverage.
+
+Next stage:
+
+- Commit this slice before continuing feature development.
