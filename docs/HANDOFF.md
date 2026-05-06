@@ -9938,3 +9938,63 @@ Known validation:
 Remaining risks:
 
 - Compact readiness does not yet include the discovery object.
+
+## 2026-05-05 Ranked Provider Schema Knowledge Facts Slice
+
+Files added or updated:
+
+- `src/knowledge/fact-ranking.ts`
+- `src/knowledge/pack.ts`
+- `src/domain/terraform-provider-schema.ts`
+- `src/knowledge/extract.ts`
+- `src/knowledge/facts.ts`
+- `test/cli-smoke.test.mjs`
+- `README.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Purpose:
+
+- Add deterministic knowledge fact ranking before `knowledge-pack` truncates
+  facts. Ranking is local and schema-aware, not LLM-based: it prefers selected
+  targets, fresh high-confidence facts, provider/chart schemas, required fields,
+  type/default/value constraints, identity/replacement signals, and nested block
+  shape before examples.
+- Convert local Terraform provider schema exports into focused knowledge facts
+  by first reusing the compact provider-schema context for the selected root.
+  This keeps extraction scoped to resources/data sources used by that root and
+  avoids placing full `provider_schemas` JSON into packs or prompts.
+- Preserve compact output schema version 1. The observable behavior change is
+  fact ordering/selection under small budgets, not new rank metadata.
+
+Design notes:
+
+- Provider schema facts currently emit `argument`, `attribute`, and
+  `nested-block` facts only. They do not infer replacement or ForceNew behavior;
+  those signals remain plan/preview/provider-rule responsibilities.
+- Sensitive or secret-like provider fields are filtered before contract
+  validation.
+- Provider version labels continue to come from `.terraform.lock.hcl` when
+  present, e.g. `hashicorp/aws@5.37.0`.
+
+Known validation:
+
+- `node --experimental-strip-types --test --test-name-pattern "knowledge fact ranking" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge fact extractor summarizes compact Terraform provider schema context" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge pack includes focused Terraform provider schema facts" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "agent runtime loads focused Terraform provider schema knowledge facts" test/cli-smoke.test.mjs`: passed.
+- `node --experimental-strip-types --test --test-name-pattern "knowledge pack command emits focused Terraform provider schema facts" test/cli-smoke.test.mjs`: passed.
+- `npm run test:unit` was run before the ranked Helm expectation repair and
+  failed only the old `replicaCount` assertion in the generic target knowledge
+  facts test. That assertion has since been updated to expect the ranked
+  required Helm schema fact.
+
+Remaining risks:
+
+- Full `npm run verify`, package dry-run, and `git diff --check` still need to
+  run after this slice.
+- Terraform module facts, Pulumi component/config facts, Helm metadata/default
+  facts, and team/shared storage backends remain future work.
+- Provider schema knowledge facts are local/export dependent; missing or stale
+  schema exports should still be handled by native validators and docs cache
+  paths.
