@@ -17,6 +17,7 @@ const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|be
 const IDENTITY_FIELD_NAMES = new Set(['bucket', 'domain_name', 'name', 'priority']);
 const MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS = 120;
 const MAX_TERRAFORM_MODULE_FACTS = 140;
+const MAX_PULUMI_CONFIG_FACTS = 140;
 
 interface CompactTerraformProviderSchemaAttribute {
   name: string;
@@ -61,6 +62,31 @@ interface TerraformLocalModuleFactSource {
   moduleSourcePaths: string[];
   inputs: TerraformLocalModuleInputFactSource[];
   outputs: TerraformLocalModuleOutputFactSource[];
+}
+
+interface PulumiConfigDeclarationFactSource {
+  key: string;
+  sourcePath: string;
+  type?: string;
+  defaultValue?: string;
+}
+
+interface PulumiStackConfigValueFactSource {
+  key: string;
+  sourcePath: string;
+  stackName: string;
+  configured: true;
+  secure: false;
+  value?: string;
+}
+
+interface PulumiConfigFactSource {
+  projectRoot: string;
+  projectFile: string;
+  projectName: string;
+  stackFiles: string[];
+  declarations: PulumiConfigDeclarationFactSource[];
+  stackValues: PulumiStackConfigValueFactSource[];
 }
 
 function factSource(entry: KnowledgeCacheEntry, locator: string): KnowledgeFactSourceRef {
@@ -689,6 +715,168 @@ function extractTerraformLocalModuleFacts(entry: KnowledgeCacheEntry): Knowledge
   }
 }
 
+function asPulumiConfigDeclaration(value: unknown): PulumiConfigDeclarationFactSource | null {
+  if (!isRecord(value) || typeof value.key !== 'string' || typeof value.sourcePath !== 'string') {
+    return null;
+  }
+
+  if (SECRET_PATH_PATTERN.test(value.key) || SECRET_PATH_PATTERN.test(value.sourcePath)) {
+    return null;
+  }
+
+  return {
+    key: value.key,
+    sourcePath: value.sourcePath,
+    ...(typeof value.type === 'string' && !SECRET_PATH_PATTERN.test(value.type) ? { type: value.type } : {}),
+    ...(typeof value.defaultValue === 'string' && !SECRET_PATH_PATTERN.test(value.defaultValue)
+      ? { defaultValue: value.defaultValue }
+      : {})
+  };
+}
+
+function asPulumiStackConfigValue(value: unknown): PulumiStackConfigValueFactSource | null {
+  if (
+    !isRecord(value)
+    || typeof value.key !== 'string'
+    || typeof value.sourcePath !== 'string'
+    || typeof value.stackName !== 'string'
+    || value.configured !== true
+    || value.secure !== false
+  ) {
+    return null;
+  }
+
+  if (
+    SECRET_PATH_PATTERN.test(value.key)
+    || SECRET_PATH_PATTERN.test(value.sourcePath)
+    || SECRET_PATH_PATTERN.test(value.stackName)
+  ) {
+    return null;
+  }
+
+  return {
+    key: value.key,
+    sourcePath: value.sourcePath,
+    stackName: value.stackName,
+    configured: true,
+    secure: false,
+    ...(typeof value.value === 'string' && !SECRET_PATH_PATTERN.test(value.value) ? { value: value.value } : {})
+  };
+}
+
+function asPulumiConfigFactSource(value: unknown): PulumiConfigFactSource | null {
+  if (
+    !isRecord(value)
+    || value.kind !== 'infra-agent.pulumi-config-summary'
+    || value.schemaVersion !== 1
+    || value.mutationAllowed !== false
+    || typeof value.projectRoot !== 'string'
+    || typeof value.projectFile !== 'string'
+    || typeof value.projectName !== 'string'
+    || SECRET_PATH_PATTERN.test(value.projectRoot)
+    || SECRET_PATH_PATTERN.test(value.projectFile)
+    || SECRET_PATH_PATTERN.test(value.projectName)
+  ) {
+    return null;
+  }
+
+  const declarations = Array.isArray(value.declarations)
+    ? value.declarations.map(asPulumiConfigDeclaration)
+      .filter((declaration): declaration is PulumiConfigDeclarationFactSource => Boolean(declaration))
+    : [];
+  const stackValues = Array.isArray(value.stackValues)
+    ? value.stackValues.map(asPulumiStackConfigValue)
+      .filter((stackValue): stackValue is PulumiStackConfigValueFactSource => Boolean(stackValue))
+    : [];
+
+  return {
+    projectRoot: value.projectRoot,
+    projectFile: value.projectFile,
+    projectName: value.projectName,
+    stackFiles: asStringArray(value.stackFiles).filter(path => !SECRET_PATH_PATTERN.test(path)),
+    declarations,
+    stackValues
+  };
+}
+
+function pulumiConfigFactPath(key: string): string {
+  return `config.${key}`;
+}
+
+function relatedPulumiConfigPaths(
+  project: PulumiConfigFactSource,
+  sourcePaths: string[]
+): string[] {
+  return Array.from(new Set([
+    project.projectFile,
+    ...sourcePaths
+  ])).filter(path => !SECRET_PATH_PATTERN.test(path)).sort();
+}
+
+function extractPulumiConfigFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
+  try {
+    const project = asPulumiConfigFactSource(JSON.parse(entry.content) as unknown);
+    if (!project) {
+      return [];
+    }
+
+    const declarationsByKey = new Map(project.declarations.map(declaration => [declaration.key, declaration]));
+    const stackValuesByKey = new Map<string, PulumiStackConfigValueFactSource[]>();
+    for (const stackValue of project.stackValues) {
+      stackValuesByKey.set(stackValue.key, [
+        ...(stackValuesByKey.get(stackValue.key) ?? []),
+        stackValue
+      ]);
+    }
+
+    const keys = Array.from(new Set([
+      ...declarationsByKey.keys(),
+      ...stackValuesByKey.keys()
+    ])).sort();
+    const facts: KnowledgeFact[] = [];
+    for (const key of keys) {
+      if (facts.length >= MAX_PULUMI_CONFIG_FACTS || SECRET_PATH_PATTERN.test(key)) {
+        continue;
+      }
+
+      const declaration = declarationsByKey.get(key);
+      const stackValues = stackValuesByKey.get(key) ?? [];
+      const path = pulumiConfigFactPath(key);
+      const values = Array.from(new Set(stackValues.map(value => value.value)
+        .filter((value): value is string => Boolean(value) && !SECRET_PATH_PATTERN.test(value)))).sort();
+      const relatedPaths = relatedPulumiConfigPaths(project, [
+        ...(declaration ? [declaration.sourcePath] : []),
+        ...stackValues.map(value => value.sourcePath)
+      ]);
+      const sourcePath = declaration?.sourcePath ?? stackValues[0]?.sourcePath ?? project.projectFile;
+      const summary = declaration
+        ? `${path} is declared by Pulumi project config.`
+        : `${path} is configured in Pulumi stack config.`;
+
+      if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+        continue;
+      }
+
+      facts.push({
+        kind: 'pulumi-config-parameter',
+        path,
+        summary,
+        ...(values.length > 0 ? { values } : {}),
+        ...(declaration?.type ? { type: declaration.type } : {}),
+        ...(declaration?.defaultValue !== undefined ? { defaultValue: declaration.defaultValue, required: false } : {}),
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${sourcePath}: config.${key}`),
+        relatedPaths
+      });
+    }
+
+    return facts;
+  } catch {
+    return [];
+  }
+}
+
 export function extractKnowledgeFactSetFromCacheEntry(
   entry: KnowledgeCacheEntry,
   options: ExtractKnowledgeFactSetOptions = {}
@@ -709,6 +897,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
 
     if (entry.source.kind === 'terraform-module' && entry.contentType === 'application/json') {
       return extractTerraformLocalModuleFacts(entry);
+    }
+
+    if (entry.source.kind === 'pulumi-config' && entry.contentType === 'application/json') {
+      return extractPulumiConfigFacts(entry);
     }
 
     return [];

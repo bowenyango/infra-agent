@@ -2977,6 +2977,100 @@ test('knowledge fact extractor summarizes Terraform local module interfaces', as
   }
 });
 
+test('knowledge fact extractor summarizes Pulumi config parameters', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-pulumi-config-'));
+
+  try {
+    const source = {
+      kind: 'pulumi-config',
+      name: 'pulumi-config:infra/payments-api',
+      localPath: 'infra/payments-api',
+      module: 'infra/payments-api',
+      packageName: 'payments-api'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'application/json',
+      content: JSON.stringify({
+        kind: 'infra-agent.pulumi-config-summary',
+        schemaVersion: 1,
+        mutationAllowed: false,
+        projectRoot: 'infra/payments-api',
+        projectFile: 'infra/payments-api/Pulumi.yaml',
+        projectName: 'payments-api',
+        stackFiles: ['infra/payments-api/Pulumi.dev.yaml'],
+        declarations: [
+          {
+            key: 'payments-api:imageTag',
+            sourcePath: 'infra/payments-api/Pulumi.yaml',
+            type: 'string',
+            defaultValue: 'latest'
+          },
+          {
+            key: 'payments-api:replicas',
+            sourcePath: 'infra/payments-api/Pulumi.yaml',
+            type: 'integer'
+          },
+          {
+            key: 'payments-api:apiToken',
+            sourcePath: 'infra/payments-api/Pulumi.yaml',
+            type: 'string'
+          }
+        ],
+        stackValues: [
+          {
+            key: 'payments-api:imageTag',
+            sourcePath: 'infra/payments-api/Pulumi.dev.yaml',
+            stackName: 'dev',
+            configured: true,
+            secure: false,
+            value: 'dev-2026'
+          },
+          {
+            key: 'payments-api:replicas',
+            sourcePath: 'infra/payments-api/Pulumi.dev.yaml',
+            stackName: 'dev',
+            configured: true,
+            secure: false,
+            value: '2'
+          },
+          {
+            key: 'payments-api:signingKey',
+            sourcePath: 'infra/payments-api/Pulumi.dev.yaml',
+            stackName: 'dev',
+            configured: true,
+            secure: true,
+            value: 'ciphertext'
+          }
+        ]
+      }),
+      fetchedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry);
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'pulumi-config-parameter'
+      && fact.path === 'config.payments-api:imageTag'
+      && fact.type === 'string'
+      && fact.defaultValue === 'latest'
+      && fact.required === false
+      && fact.values?.includes('dev-2026')
+      && fact.relatedPaths?.includes('infra/payments-api/Pulumi.dev.yaml')
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'pulumi-config-parameter'
+      && fact.path === 'config.payments-api:replicas'
+      && fact.type === 'integer'
+      && fact.values?.includes('2')
+    ));
+    assert.doesNotMatch(JSON.stringify(factSet), /apiToken|signingKey|ciphertext/);
+    assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('workspace knowledge facts extract local Helm schema sources without fetching', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const report = await extractWorkspaceKnowledgeFacts(inspection, {
@@ -4064,7 +4158,7 @@ test('workspace knowledge facts extract Terraform local module facts without fet
   }
 });
 
-test('workspace knowledge extraction reads Pulumi config summaries locally', async () => {
+test('workspace knowledge facts extract Pulumi config parameters locally', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const report = await extractWorkspaceKnowledgeFacts(inspection, {
     domains: ['pulumi'],
@@ -4076,9 +4170,17 @@ test('workspace knowledge extraction reads Pulumi config summaries locally', asy
     source.source.kind === 'pulumi-config'
     && source.targetPath === 'infra/payments-api'
   );
-  assert.equal(pulumiConfigResult?.status, 'unsupported');
-  assert.equal(pulumiConfigResult?.factCount, 0);
-  assert.equal(report.factSetCount, 0);
+  assert.equal(pulumiConfigResult?.status, 'extracted');
+  assert.ok((pulumiConfigResult?.factCount ?? 0) > 0);
+  assert.ok(report.factSets.some(factSet =>
+    factSet.source.kind === 'pulumi-config'
+    && factSet.facts.some(fact =>
+      fact.kind === 'pulumi-config-parameter'
+      && fact.path === 'config.payments-api:imageTag'
+      && fact.type === 'string'
+      && fact.values?.includes('latest')
+    )
+  ));
   assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
 });
 
