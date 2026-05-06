@@ -441,3 +441,98 @@ test('knowledge validate command rejects forged pack JSON files', async () => {
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('knowledge validate command rejects manifests when referenced artifacts drift', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-manifest-drift-cli-'));
+  const previousExitCode = process.exitCode;
+
+  try {
+    process.exitCode = undefined;
+    const outputPath = join(tempRoot, 'knowledge-pack.json');
+    const manifestPath = join(tempRoot, 'knowledge-pack.manifest.json');
+    await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      'fixtures/sample-workspace',
+      '--domain',
+      'helm',
+      '--target',
+      'charts/payments-api',
+      '--max-facts',
+      '4',
+      '--out',
+      outputPath,
+      '--manifest-out',
+      manifestPath,
+      '--json'
+    ]));
+    const artifact = await readFile(outputPath, 'utf8');
+    await writeFile(outputPath, `${artifact}\n`, 'utf8');
+
+    const validationOutput = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      manifestPath,
+      '--json'
+    ]));
+    const validation = JSON.parse(validationOutput.slice(validationOutput.indexOf('{')));
+
+    assert.equal(validation.inputKind, 'infra-agent.knowledge-artifact-manifest');
+    assert.equal(validation.valid, false);
+    assert.equal(process.exitCode, 1);
+    assert.ok(validation.issues.some(issue => issue.path === '$.artifact.sha256'));
+  } finally {
+    process.exitCode = previousExitCode;
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge validate command rejects stale pack local fingerprints with workspace', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-stale-cli-'));
+  const previousExitCode = process.exitCode;
+
+  try {
+    process.exitCode = undefined;
+    const workspaceRoot = join(tempRoot, 'workspace');
+    const outputPath = join(tempRoot, 'knowledge-pack.json');
+    await cp('fixtures/sample-workspace', workspaceRoot, { recursive: true });
+    await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      workspaceRoot,
+      '--domain',
+      'helm',
+      '--target',
+      'charts/payments-api',
+      '--max-facts',
+      '4',
+      '--out',
+      outputPath,
+      '--json'
+    ]));
+    const chartPath = join(workspaceRoot, 'charts/payments-api/Chart.yaml');
+    const chartContent = await readFile(chartPath, 'utf8');
+    await writeFile(chartPath, `${chartContent}\n# drift\n`, 'utf8');
+
+    const validationOutput = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      outputPath,
+      '--workspace',
+      workspaceRoot,
+      '--json'
+    ]));
+    const validation = JSON.parse(validationOutput.slice(validationOutput.indexOf('{')));
+
+    assert.equal(validation.inputKind, 'infra-agent.knowledge-pack');
+    assert.equal(validation.valid, false);
+    assert.equal(process.exitCode, 1);
+    assert.ok(validation.issues.some(issue =>
+      issue.path.startsWith('$.sources[')
+      && /local-file-hash-mismatch/.test(issue.message)
+    ));
+  } finally {
+    process.exitCode = previousExitCode;
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});

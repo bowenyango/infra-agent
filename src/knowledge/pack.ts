@@ -36,6 +36,7 @@ export interface KnowledgePackSource {
   storagePolicy: KnowledgeStoragePolicy;
   fingerprintDigest?: string;
   fingerprintFileCount?: number;
+  fingerprint?: KnowledgeSourceFingerprint;
 }
 
 export interface KnowledgePackFact {
@@ -101,7 +102,8 @@ function packHash(input: {
         freshness: source.freshness,
         storagePolicy: source.storagePolicy,
         fingerprintDigest: source.fingerprintDigest,
-        fingerprintFileCount: source.fingerprintFileCount
+        fingerprintFileCount: source.fingerprintFileCount,
+        fingerprint: source.fingerprint
       })),
       facts: input.facts.map(fact => ({
         kind: fact.kind,
@@ -166,7 +168,8 @@ function toPackSource(factSet: {
     ...(factSet.sourceFingerprint !== undefined
       ? {
           fingerprintDigest: factSet.sourceFingerprint.digest,
-          fingerprintFileCount: factSet.sourceFingerprint.fileCount
+          fingerprintFileCount: factSet.sourceFingerprint.fileCount,
+          fingerprint: factSet.sourceFingerprint
         }
       : {})
   };

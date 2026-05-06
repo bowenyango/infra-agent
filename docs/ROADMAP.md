@@ -146,7 +146,7 @@ when they can reuse source-linked, versioned, validated facts about providers,
 resources, modules, components, and charts instead of relearning the same public
 or repository-local material on every run.
 
-Current progress as of 2026-05-05:
+Current progress as of 2026-05-06:
 
 | Area | Status | Current capability | Main gap |
 | --- | --- | --- | --- |
@@ -155,7 +155,7 @@ Current progress as of 2026-05-05:
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, and bounded Helm schema knowledge packs | Pulumi component durable packs and external chart-doc fact extraction are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, and local Helm metadata/dependency facts | Pulumi docs, Pulumi component facts, external chart docs beyond local metadata/dependencies, and team storage backends are pending |
-| Team storage | Planned | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with artifact hashes, storage policy, publishable/blocked source ids, and remote writes disabled | No S3/GCS/Azure/Postgres backend implementation |
+| Team storage | Planned | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints | No S3/GCS/Azure/Postgres backend implementation |
 
 Target artifact families:
 
@@ -170,11 +170,14 @@ Target artifact families:
   dependencies.
 - `infra-agent.knowledge-pack`: a bounded, validated bundle of facts for one
   provider version, resource type, chart version, module, component, or repo
-  target.
+  target. Repo-local pack sources carry compact safe path/hash fingerprints so
+  reuse can be rejected when local files change.
 - `infra-agent.knowledge-artifact-manifest`: a plan-only publication manifest
-  for persisted extraction or pack artifacts. It records artifact hash,
-  storage-policy summary, publishable-by-default source ids, blocked source ids
-  and reasons, required validation commands, and `remoteWriteAllowed=false`.
+  for persisted extraction or pack artifacts. It records byte-level artifact
+  hash, storage-policy summary, publishable-by-default source ids, blocked
+  source ids and reasons, required validation commands, and
+  `remoteWriteAllowed=false`. Validation re-reads the referenced artifact and
+  rejects byte-hash or metadata drift before reuse/publication planning.
 
 Extraction rules:
 

@@ -20,6 +20,12 @@ import {
   type KnowledgeSourceStaleReason,
   type RetrievedContextConfidence
 } from '../types/knowledge.ts';
+import { validateKnowledgeArtifactReference } from './validation-artifact-reference.ts';
+import {
+  validateKnowledgeSourceFingerprintContract,
+  validatePackSourceFingerprints,
+  type LocalSourceValidationStats
+} from './validation-source-fingerprints.ts';
 
 export interface KnowledgeValidationIssue {
   severity: 'error' | 'warning';
@@ -52,15 +58,11 @@ interface ValidatedKnowledgeFactSet {
   factSet: KnowledgeFactSet;
 }
 
-interface LocalSourceValidationStats {
-  staleSourceIds: Set<string>;
-  uncheckedLocalSourceCount: number;
-}
-
 interface KnowledgeValidationCountOverrides {
   factSetCount?: number;
   factCount?: number;
   staleSourceCount?: number;
+  uncheckedLocalSourceCount?: number;
 }
 
 const KNOWLEDGE_SOURCE_KINDS = [
@@ -345,7 +347,7 @@ function validateKnowledgePackSource(
   value: unknown,
   path: string,
   issues: KnowledgeValidationIssue[]
-): Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy'> | null {
+): Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy' | 'fingerprint'> | null {
   if (!isRecord(value)) {
     issues.push(error(path, 'Knowledge pack source must be an object.'));
     return null;
@@ -410,8 +412,28 @@ function validateKnowledgePackSource(
   if (hasFingerprintDigest && (typeof value.fingerprintDigest !== 'string' || !SHA256_HEX_PATTERN.test(value.fingerprintDigest))) {
     issues.push(error(`${path}.fingerprintDigest`, 'Knowledge pack source fingerprintDigest must be a SHA-256 hex string.'));
   }
-  if (hasFingerprintFileCount) {
-    readNonNegativeInteger(value.fingerprintFileCount, `${path}.fingerprintFileCount`, issues);
+  const fingerprintFileCount = hasFingerprintFileCount
+    ? readNonNegativeInteger(value.fingerprintFileCount, `${path}.fingerprintFileCount`, issues)
+    : null;
+  const fingerprint = value.fingerprint !== undefined
+    ? validateKnowledgeSourceFingerprintContract(value.fingerprint, `${path}.fingerprint`, issues)
+    : null;
+
+  if (fingerprint !== null) {
+    if (hasFingerprintDigest && value.fingerprintDigest !== fingerprint.digest) {
+      issues.push(error(`${path}.fingerprintDigest`, 'Knowledge pack source fingerprintDigest must match fingerprint.digest.'));
+    }
+    if (fingerprintFileCount !== null && fingerprintFileCount !== fingerprint.fileCount) {
+      issues.push(error(`${path}.fingerprintFileCount`, 'Knowledge pack source fingerprintFileCount must match fingerprint.fileCount.'));
+    }
+  }
+  if (
+    storagePolicy?.scope === 'workspace-private'
+    && value.freshness !== 'unchecked'
+    && !hasFingerprintDigest
+    && fingerprint === null
+  ) {
+    issues.push(error(`${path}.fingerprint`, 'Fresh workspace-private knowledge pack sources must include a recheckable fingerprint.'));
   }
 
   if (id === null || factCount === null || stale === null || storagePolicy === null) {
@@ -422,7 +444,8 @@ function validateKnowledgePackSource(
     id,
     factCount,
     stale,
-    storagePolicy
+    storagePolicy,
+    ...(fingerprint !== null ? { fingerprint } : {})
   };
 }
 
@@ -528,7 +551,7 @@ function validateKnowledgePackPayload(
   const staleSourceCount = readNonNegativeInteger(payload.staleSourceCount, '$.staleSourceCount', issues);
 
   const storagePolicySummary = validateKnowledgeStoragePolicySummary(payload.storagePolicy, '$.storagePolicy', issues);
-  const sources: Array<Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy'>> = [];
+  const sources: Array<Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy' | 'fingerprint'>> = [];
   if (!Array.isArray(payload.sources)) {
     issues.push(error('$.sources', 'Knowledge pack sources must be an array.'));
   } else {
@@ -928,12 +951,41 @@ export async function validateKnowledgePayloadWithLocalSources(
   options: KnowledgeValidationOptions = {}
 ): Promise<KnowledgeValidationReport> {
   const report = validateKnowledgePayload(payload, inputPath);
-  if (options.workspaceRoot === undefined) {
-    return report;
-  }
 
   if (!isRecord(payload)) {
-    return { ...report, workspaceRoot: options.workspaceRoot };
+    return options.workspaceRoot === undefined
+      ? report
+      : { ...report, workspaceRoot: options.workspaceRoot };
+  }
+
+  if (payload.kind === 'infra-agent.knowledge-artifact-manifest') {
+    const issues = [...report.issues];
+    const countOverrides = await validateKnowledgeArtifactReference(
+      payload,
+      inputPath,
+      options,
+      issues,
+      (artifactPayload, artifactPath, validationOptions) =>
+        isRecord(artifactPayload) && artifactPayload.kind === 'infra-agent.knowledge-artifact-manifest'
+          ? validateKnowledgePayload(artifactPayload, artifactPath)
+          : validateKnowledgePayloadWithLocalSources(artifactPayload, artifactPath, validationOptions)
+    );
+    return createReport(
+      inputPath,
+      report.inputKind,
+      issues,
+      [],
+      options,
+      {
+        staleSourceIds: new Set(),
+        uncheckedLocalSourceCount: countOverrides.uncheckedLocalSourceCount ?? report.uncheckedLocalSourceCount
+      },
+      {
+        factSetCount: countOverrides.factSetCount ?? report.factSetCount,
+        factCount: countOverrides.factCount ?? report.factCount,
+        staleSourceCount: countOverrides.staleSourceCount ?? report.staleSourceCount
+      }
+    );
   }
 
   const factSets: ValidatedKnowledgeFactSet[] = [];
@@ -954,8 +1006,39 @@ export async function validateKnowledgePayloadWithLocalSources(
     });
   }
 
-  if (factSets.length === 0) {
-    return { ...report, workspaceRoot: options.workspaceRoot };
+  if (payload.kind === 'infra-agent.knowledge-pack' && Array.isArray(payload.sources)) {
+    const sources: Array<Pick<KnowledgePackSource, 'id' | 'stale' | 'storagePolicy' | 'fingerprint'>> = [];
+    payload.sources.forEach((source, index) => {
+      const validated = validateKnowledgePackSource(source, `$.sources[${index}]`, []);
+      if (validated) {
+        sources.push(validated);
+      }
+    });
+    const issues = [...report.issues];
+    const localSourceStats = await validatePackSourceFingerprints(
+      sources,
+      options.workspaceRoot,
+      issues
+    );
+    return createReport(
+      inputPath,
+      report.inputKind,
+      issues,
+      [],
+      options,
+      localSourceStats,
+      {
+        factSetCount: report.factSetCount,
+        factCount: report.factCount,
+        staleSourceCount: localSourceStats.staleSourceIds.size
+      }
+    );
+  }
+
+  if (factSets.length === 0 || options.workspaceRoot === undefined) {
+    return options.workspaceRoot === undefined
+      ? report
+      : { ...report, workspaceRoot: options.workspaceRoot };
   }
 
   const issues = [...report.issues];

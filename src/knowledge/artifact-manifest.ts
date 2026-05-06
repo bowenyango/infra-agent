@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import type { KnowledgeExtractionReport } from './extract.ts';
 import type { KnowledgePack } from './pack.ts';
 import {
@@ -60,6 +61,7 @@ export interface KnowledgeArtifactManifest {
 
 export interface KnowledgeArtifactManifestOptions {
   artifactPath: string;
+  artifactSha256?: string;
   createdAt?: string;
 }
 
@@ -67,6 +69,16 @@ function sha256Json(payload: unknown): string {
   return createHash('sha256')
     .update(JSON.stringify(payload))
     .digest('hex');
+}
+
+export function hashKnowledgeArtifactContent(content: string | Buffer): string {
+  return createHash('sha256')
+    .update(content)
+    .digest('hex');
+}
+
+export async function hashKnowledgeArtifactFile(artifactPath: string): Promise<string> {
+  return hashKnowledgeArtifactContent(await readFile(artifactPath));
 }
 
 function artifactStoragePolicy(payload: KnowledgeArtifactPayload): KnowledgeStoragePolicySummary {
@@ -141,7 +153,7 @@ export function buildKnowledgeArtifactManifest(
   payload: KnowledgeArtifactPayload,
   options: KnowledgeArtifactManifestOptions
 ): KnowledgeArtifactManifest {
-  const artifactHash = sha256Json(payload);
+  const artifactHash = options.artifactSha256 ?? sha256Json(payload);
   const storagePolicy = artifactStoragePolicy(payload);
   const sourcePolicies = artifactSourcePolicies(payload);
   const requiresExplicitOptIn = storagePolicy.explicitOptInRequired > 0;

@@ -35,6 +35,90 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-06 Knowledge Artifact Integrity Slice
+
+Status:
+
+- Implemented locally. This slice continues feature development after the test
+  architecture hardening work and closes the first integrity gap for persisted
+  knowledge artifacts.
+
+Core files changed:
+
+- `src/knowledge/artifact-manifest.ts`
+- `src/knowledge/validation-artifact-reference.ts`
+- `src/knowledge/validation-source-fingerprints.ts`
+- `src/knowledge/validate.ts`
+- `src/knowledge/pack.ts`
+- `src/cli/main.ts`
+- `test/unit/knowledge-artifact-integrity.test.mjs`
+- `test/integration/cli-knowledge-pack-main.test.mjs`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- `knowledge extract --out ... --manifest-out ...` and
+  `knowledge pack --out ... --manifest-out ...` now store the manifest
+  `artifact.sha256` as the hash of the persisted artifact bytes, not only the
+  in-memory payload shape.
+- `knowledge validate <manifest.json>` re-reads the referenced artifact and
+  rejects missing files, byte-hash drift, and manifest metadata drift for
+  artifact kind, id, source ids, source count, fact count, and stale source
+  count.
+- `knowledge-pack` sources now preserve a compact local fingerprint object
+  alongside digest/file-count summaries, so repo-local facts can be rechecked
+  later without storing raw local file contents.
+- `knowledge validate <pack.json> --workspace <workspace>` rechecks pack source
+  fingerprints and fails when local files changed or disappeared.
+- Manifest validation delegates to referenced artifact validation, so stale
+  repo-local facts surface through the manifest path as well.
+
+Design notes:
+
+- This is still local-only and read-only validation. It adds no backend config,
+  credentials, uploads, remote writes, or network refresh.
+- Persisted fingerprints include safe workspace-relative paths and SHA-256
+  hashes only; they do not include raw docs, schemas, examples, file contents,
+  backend URLs, buckets, profiles, or tokens.
+- The validator logic was split into focused helper modules for artifact
+  reference checks and source fingerprint checks instead of growing one large
+  validation file further.
+- This slice prepares cache/team-cache reuse policy: a pack can be reused only
+  after its artifact bytes and local source freshness still match the recorded
+  manifest/fingerprints.
+
+Known validation:
+
+- `npm run test:structure`: passed with 57 checked test files.
+- `npm run lint`: passed with 186 checked files.
+- `npm run test:unit`: passed with 307 tests.
+- `npm run test:integration`: passed with 67 tests.
+- `npm run test:contract`: passed.
+- `npm run test:isolated`: passed with 45 checked shards.
+- `npm run verify`: passed. This includes lint, structure, layered suites,
+  isolated shards, smoke, e2e, coverage, and package dry-run.
+- Coverage gate passed at 88.95% lines, 78.52% branches, and 96.12% functions.
+- Package dry-run passed with 131 entries in the installable package surface.
+- Focused direct checks passed for
+  `test/unit/knowledge-artifact-integrity.test.mjs` and
+  `test/integration/cli-knowledge-pack-main.test.mjs`.
+- `npx tsc --noEmit` was attempted but not used as a gate because `npx`
+  tried to resolve `tsc` from `registry.npmjs.org` and failed under restricted
+  network (`EAI_AGAIN`). This repo currently has no local TypeScript compiler
+  dependency; validation uses the existing `node --experimental-strip-types`
+  gates.
+
+Remaining work:
+
+- Add cache reuse for extraction: local source extraction should read a
+  fingerprinted cache entry first, verify freshness, and only regenerate stale
+  or missing local content.
+- Add a team-cache backend contract only after the local integrity gate remains
+  stable; the backend should refuse artifacts that fail `knowledge validate`.
+- Consider a later validator module split if `src/knowledge/validate.ts` grows
+  substantially beyond its current contract-validation role.
+
 ## 2026-05-06 Near-1000 Test Shard Split Slice
 
 Status:

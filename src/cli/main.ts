@@ -15,7 +15,10 @@ import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
 import { loadKnowledgeValidationReport } from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
-import { buildKnowledgeArtifactManifest } from '../knowledge/artifact-manifest.ts';
+import {
+  buildKnowledgeArtifactManifest,
+  hashKnowledgeArtifactFile
+} from '../knowledge/artifact-manifest.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -1145,7 +1148,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       : null;
     const manifestPath = writtenPath && parsed.manifestOutputPath
       ? await writeJsonArtifact(parsed.manifestOutputPath, cwd(), buildKnowledgeArtifactManifest(report, {
-          artifactPath: writtenPath
+          artifactPath: writtenPath,
+          artifactSha256: await hashKnowledgeArtifactFile(writtenPath)
         }))
       : null;
 
@@ -1204,7 +1208,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       : null;
     const manifestPath = writtenPath && parsed.manifestOutputPath
       ? await writeJsonArtifact(parsed.manifestOutputPath, cwd(), buildKnowledgeArtifactManifest(pack, {
-          artifactPath: writtenPath
+          artifactPath: writtenPath,
+          artifactSha256: await hashKnowledgeArtifactFile(writtenPath)
         }))
       : null;
 
