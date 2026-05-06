@@ -3780,6 +3780,89 @@ test('workspace knowledge facts extract focused Terraform provider schema facts'
   }
 });
 
+test('workspace knowledge facts extract Terraform local module facts without fetching', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-module-facts-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    const moduleRoot = join(terraformRoot, 'modules/queue-worker');
+    await mkdir(moduleRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'module "queue_worker" {',
+        '  source = "./modules/queue-worker"',
+        '}',
+        '',
+        'module "missing_module" {',
+        '  source = "./modules/missing-module"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'variables.tf'),
+      [
+        'variable "image_tag" {',
+        '  type = string',
+        '}',
+        '',
+        'variable "environment" {',
+        '  type    = string',
+        '  default = "dev"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(moduleRoot, 'outputs.tf'),
+      [
+        'output "queue_name" {',
+        '  value = "queue"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const report = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    assert.ok(report.sources.some(source =>
+      source.source.kind === 'terraform-module'
+      && source.source.packageName === 'queue_worker'
+      && source.status === 'extracted'
+      && source.factCount > 0
+    ));
+    assert.ok(report.sources.some(source =>
+      source.source.kind === 'terraform-module'
+      && source.source.packageName === 'missing_module'
+      && source.status === 'unreadable'
+    ));
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'terraform-module'
+      && factSet.facts.some(fact =>
+        fact.kind === 'module-input'
+        && fact.path === 'module.queue_worker.inputs.image_tag'
+        && fact.required === true
+      )
+      && factSet.facts.some(fact =>
+        fact.kind === 'module-output'
+        && fact.path === 'module.queue_worker.outputs.queue_name'
+      )
+    ));
+    assert.doesNotMatch(JSON.stringify(report), /"content"\s*:|variable "image_tag"|output "queue_name"/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge pack includes focused Terraform provider schema facts under small budgets', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-provider-schema-pack-'));
 
