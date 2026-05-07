@@ -411,3 +411,89 @@ test('compact agent result contract rejects knowledge context and cache drift', 
     /knowledgeCache\.source/
   );
 });
+
+test('compact agent result contract accepts Pulumi resource docs facts without raw source fields', () => {
+  const { validResult } = buildAgentResultContractFixtures();
+  const resourceKnowledgeFacts = {
+    ...validResult.knowledgeFacts,
+    packId: 'abcdefabcdefabcdefabcdef',
+    sourceCount: 1,
+    factSetCount: 1,
+    totalFactCount: 2,
+    includedFactCount: 2,
+    omittedFactCount: 0,
+    staleSourceCount: 0,
+    sources: [
+      {
+        id: 'pulumi-docs/aws-s3-bucket',
+        domain: 'pulumi',
+        targetPath: 'infra/api',
+        kind: 'pulumi-docs',
+        name: 'pulumi-docs:resource:aws:s3/bucket',
+        factCount: 2,
+        stale: false,
+        freshness: 'fresh'
+      }
+    ],
+    facts: [
+      {
+        kind: 'argument',
+        path: 'pulumi.resource.aws.s3.bucket.Bucket.bucket',
+        summary: 'Name of the bucket to create.',
+        confidence: 'medium',
+        extractionMethod: 'pulumi-docs-markdown',
+        sourceId: 'pulumi-docs/aws-s3-bucket',
+        sourceLocator: 'Pulumi resource docs: bucket',
+        type: 'string'
+      },
+      {
+        kind: 'argument',
+        path: 'pulumi.resource.aws.s3.bucket.Bucket.acl',
+        summary: 'Canned ACL to apply to the bucket.',
+        confidence: 'medium',
+        extractionMethod: 'pulumi-docs-markdown',
+        sourceId: 'pulumi-docs/aws-s3-bucket',
+        sourceLocator: 'Pulumi resource docs: acl',
+        type: 'string'
+      }
+    ]
+  };
+  const result = {
+    ...validResult,
+    knowledgeFacts: resourceKnowledgeFacts,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        knowledgeFacts: {
+          includedCount: 2,
+          omittedCount: 0
+        }
+      }
+    },
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        knowledgeFactCount: 2
+      }
+    }
+  };
+
+  assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...result,
+      knowledgeFacts: {
+        ...resourceKnowledgeFacts,
+        sources: [
+          {
+            ...resourceKnowledgeFacts.sources[0],
+            url: 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.sources\[0\]\.url.*raw source fields/
+  );
+});

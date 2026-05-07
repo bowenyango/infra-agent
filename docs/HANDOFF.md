@@ -124,6 +124,11 @@ Progress log:
   are selected for a Pulumi YAML resource target and remain public-reference
   advisory facts. Focused validation:
   `node --experimental-strip-types test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
+- Commit 8 strengthened compact handoff coverage for Pulumi resource docs
+  facts. The contract accepts compact resource `argument` facts and rejects raw
+  source fields such as resource docs URLs inside `knowledgeFacts`. Focused
+  validation:
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 
