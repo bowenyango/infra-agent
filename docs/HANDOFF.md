@@ -154,6 +154,11 @@ Progress log:
   compact `argument` facts without raw source code, raw markdown, or
   secret-looking doc fields. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`.
+- Commit 10 added CLI `knowledge pack` coverage for language-derived Pulumi
+  resource docs. Bounded packs now prove cached public resource docs selected
+  from Node.js/TypeScript constructor evidence preserve `public-reference`
+  source posture and include only compact facts. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 

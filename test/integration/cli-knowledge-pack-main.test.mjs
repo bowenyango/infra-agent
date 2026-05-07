@@ -55,6 +55,19 @@ const PULUMI_AWS_PACKAGE_MARKDOWN = [
   ''
 ].join('\n');
 
+const PULUMI_BUCKET_RESOURCE_MARKDOWN = [
+  '# Bucket',
+  '',
+  '## Inputs',
+  '',
+  '| Name | Type | Description |',
+  '| --- | --- | --- |',
+  '| `bucket` | string | Name of the bucket to create. |',
+  '| `acl` | string | Canned ACL to apply to the bucket. |',
+  '| `secretToken` | string | Secret token that must not become a reusable fact. |',
+  ''
+].join('\n');
+
 const API_CHART_DOCS_MARKDOWN = [
   '# API chart',
   '',
@@ -368,6 +381,99 @@ test('knowledge pack command emits cached Pulumi package docs facts', async () =
       && fact.sourceLocator === 'Pulumi package docs: s3'
     ));
     assert.doesNotMatch(output, /"content"\s*:|# AWS|dependencies/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge pack command emits language-derived Pulumi resource docs facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-pulumi-language-docs-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'package.json'),
+      `${JSON.stringify({
+        dependencies: {
+          '@pulumi/aws': '^7.0.0'
+        }
+      }, null, 2)}\n`,
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+    const source = (await buildPulumiDocsKnowledgeSources(inspection.workspaceRoot, project))
+      .find(candidate => candidate.name === 'pulumi-docs:resource:aws:s3/bucket');
+    assert.ok(source);
+    const entry = await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source,
+      contentType: 'text/markdown',
+      content: PULUMI_BUCKET_RESOURCE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/api',
+      '--source',
+      entry.id,
+      '--max-facts',
+      '2',
+      '--json'
+    ]));
+    const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.mutationAllowed, false);
+    assert.equal(pack.maxFacts, 2);
+    assert.ok(pack.sources.some(sourceResult =>
+      sourceResult.kind === 'pulumi-docs'
+      && sourceResult.name === 'pulumi-docs:resource:aws:s3/bucket'
+      && sourceResult.storagePolicy.scope === 'public-reference'
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.extractionMethod === 'pulumi-docs-markdown'
+      && fact.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+      && fact.sourceLocator === 'Pulumi resource docs: bucket'
+    ));
+    assert.doesNotMatch(output, /"content"\s*:|# Bucket|api-bucket|new aws\.s3\.Bucket|secretToken|Secret token/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
