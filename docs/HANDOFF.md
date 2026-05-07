@@ -39,11 +39,71 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
-## 2026-05-07 Active Multi-Stage Development Plan
+## 2026-05-07 Active Pulumi Package Docs Fact Plan
 
 Status:
 
 - In progress. This session continues `infra-agent` development under the
+  existing architecture and safety rules, with a minimum of 10 meaningful
+  commits planned for this slice.
+- The selected product slice is Pulumi package-level docs fact extraction:
+  parse already-cached Pulumi Registry package docs markdown, emit compact
+  package guidance facts, and prove the facts flow through workspace
+  extraction, bounded packs, CLI output, planner prompts, and compact
+  `knowledgeFacts`.
+
+Why this direction:
+
+- The previous Pulumi package docs source slice already emits
+  `pulumi-docs:package:<slug>` sources from safe project-root `@pulumi/*`
+  dependencies.
+- The previous Pulumi resource docs slice already added deterministic YAML
+  resource docs facts. The roadmap still lists Pulumi package docs fact
+  extraction as pending.
+- This follows the Claude Code agent-architecture patterns already captured in
+  this repo: cache-first retrieval, budgeted fact summaries, compact handoff,
+  parser-enforced contracts, and no raw docs in ordinary agent context.
+
+Subagent plan:
+
+- `Lorentz` is the read-only architecture explorer for
+  `learning-claude-code` patterns relevant to this slice.
+- `Bacon` is the read-only codebase explorer for the current knowledge
+  extraction/pack/CLI/contract surfaces and the concrete 10-commit breakdown.
+- The main agent owns edits, staged validation, durable handoff updates, and
+  commits.
+
+Planned commits and checkpoints:
+
+1. Record this active execution plan in `docs/HANDOFF.md`.
+2. Add package docs markdown extraction helpers and direct unit coverage.
+3. Cover workspace extraction from cached Pulumi package docs sources.
+4. Cover package docs facts entering bounded public-reference packs.
+5. Add CLI `knowledge extract` coverage for cached Pulumi package docs facts.
+6. Add CLI `knowledge pack` coverage for cached Pulumi package docs facts.
+7. Strengthen compact `knowledgeFacts` contract coverage for package docs
+   facts.
+8. Cover planner prompt budgeting for package docs facts without raw docs.
+9. Update durable roadmap, rules, and bundled skill guidance.
+10. Run full verification and record the validation outcome in this handoff.
+
+Current risks and constraints:
+
+- This slice only consumes explicit package docs sources selected from safe
+  project-root `package.json` dependencies. It does not parse TypeScript,
+  Python, Go, .NET, or Java imports, and it does not infer components.
+- Cached package docs facts are medium-confidence public-reference guidance.
+  They remain advisory and do not replace `pulumi preview`, provider schemas,
+  or stack config inspection.
+- The extractor must skip HTML-shaped cache entries and secret-looking package
+  sections, values, descriptions, paths, and summaries.
+- No deploy/apply/state mutation behavior is allowed.
+
+## 2026-05-07 Active Multi-Stage Development Plan
+
+Status:
+
+- Completed. This session continued `infra-agent` development under the
   current `AGENTS.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
   `docs/CLAUDE_CODE_AGENT_PATTERNS.md` constraints.
 - The selected product slice is Pulumi resource-level knowledge support:
