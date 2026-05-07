@@ -663,6 +663,63 @@ test('knowledge fact ranking places Pulumi config parameters before examples', (
   assert.equal(ranked[1]?.path, 'pulumi.config.example');
 });
 
+test('knowledge fact ranking places Pulumi config before package docs guidance', () => {
+  const sources = [
+    {
+      id: 'pulumi-config-source',
+      domain: 'pulumi',
+      targetPath: 'infra/payments-api',
+      kind: 'pulumi-config',
+      name: 'pulumi-config:infra/payments-api',
+      factCount: 1,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'pulumi-package-docs-source',
+      domain: 'pulumi',
+      targetPath: 'infra/payments-api',
+      kind: 'pulumi-docs',
+      name: 'pulumi-docs:package:aws',
+      factCount: 1,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      stale: false
+    }
+  ];
+  const ranked = rankKnowledgePackFacts([
+    {
+      kind: 'pulumi-docs-guidance',
+      path: 'pulumi.package.aws.s3',
+      summary: 'S3 resources for buckets and objects.',
+      confidence: 'medium',
+      extractionMethod: 'pulumi-docs-markdown',
+      sourceId: 'pulumi-package-docs-source',
+      sourceLocator: 'Pulumi package docs: s3',
+      values: ['s3']
+    },
+    {
+      kind: 'pulumi-config-parameter',
+      path: 'config.payments-api:imageTag',
+      summary: 'config.payments-api:imageTag is declared by Pulumi project config.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'pulumi-config-source',
+      sourceLocator: 'infra/payments-api/Pulumi.yaml: config.payments-api:imageTag',
+      type: 'string',
+      values: ['latest']
+    }
+  ], {
+    sources,
+    requestedDomains: ['pulumi'],
+    targetPaths: ['infra/payments-api']
+  });
+
+  assert.equal(ranked[0]?.path, 'config.payments-api:imageTag');
+  assert.equal(ranked[1]?.path, 'pulumi.package.aws.s3');
+});
+
 test('knowledge fact ranking places Helm dependency facts before chart docs examples', () => {
   const sources = [
     {

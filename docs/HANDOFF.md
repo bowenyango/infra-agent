@@ -130,6 +130,11 @@ Progress log:
   package docs facts enter bounded public-reference packs through the real
   command path without raw cached markdown. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
+- Commit 7 added ranking posture coverage for package docs guidance. Local
+  high-confidence Pulumi config facts continue to outrank medium-confidence
+  public package docs guidance under the deterministic fact ranking path.
+  Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 
