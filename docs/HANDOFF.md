@@ -140,6 +140,11 @@ Progress log:
   and still rejects raw source fields such as package docs URLs inside
   `knowledgeFacts`. Focused validation:
   `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
+- Commit 9 added focused planner prompt budgeting coverage for Pulumi package
+  docs facts. The prompt includes only bounded `knowledgeFacts` summaries,
+  respects `maxFacts`, and excludes raw markdown, URL, cache timestamp, and
+  content-hash fields. Focused validation:
+  `node --experimental-strip-types test/unit/planner-knowledge-facts-prompt.test.mjs`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 
