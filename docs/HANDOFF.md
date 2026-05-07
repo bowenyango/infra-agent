@@ -39,11 +39,71 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
-## 2026-05-07 Active Pulumi Package Docs Fact Plan
+## 2026-05-07 Active Helm Chart Docs Fact Plan
 
 Status:
 
 - In progress. This session continues `infra-agent` development under the
+  existing architecture and safety rules, with a minimum of 10 meaningful
+  commits planned for this slice.
+- The selected product slice is external Helm chart-doc markdown fact
+  extraction: parse already-cached public `chart-docs` markdown, emit compact
+  chart-value facts, and prove those facts flow through workspace extraction,
+  bounded packs, CLI output, planner prompts, and compact `knowledgeFacts`.
+
+Why this direction:
+
+- The roadmap still lists external chart-doc extraction beyond local
+  `Chart.yaml`/`Chart.lock` metadata as pending.
+- Existing Helm chart source selection already emits `chart-docs` sources from
+  safe `Chart.yaml` `home`, `sources`, and dependency repository URLs.
+- This follows the Claude Code architecture patterns already adopted here:
+  cache-first retrieval, budgeted facts, compact handoff, parser-enforced
+  contracts, and no raw docs in ordinary planner context.
+
+Subagent plan:
+
+- `Meitner` is the read-only architecture explorer for
+  `learning-claude-code` patterns and slice-fit risks.
+- `Peirce` is the read-only codebase explorer for current knowledge extraction,
+  Helm chart-doc source selection, CLI, pack, contract, and prompt surfaces.
+- The main agent owns edits, staged validation, durable handoff updates, and
+  commits.
+
+Planned commits and checkpoints:
+
+1. Record this active execution plan in `docs/HANDOFF.md`.
+2. Add the chart-doc markdown extraction method to shared contracts.
+3. Add cached chart-doc markdown extraction helpers and direct unit coverage.
+4. Cover workspace extraction from cached chart-doc sources.
+5. Cover chart-doc facts entering bounded public-reference packs.
+6. Add CLI `knowledge extract` coverage for cached chart-doc facts.
+7. Add CLI `knowledge pack` coverage for cached chart-doc facts.
+8. Cover ranking posture so local Helm schema/metadata facts outrank public
+   chart-doc guidance under tight budgets.
+9. Strengthen compact `knowledgeFacts` contract coverage for chart-doc facts.
+10. Cover planner prompt budgeting for chart-doc facts without raw docs.
+11. Update durable roadmap, rules, README, and bundled skill guidance.
+12. Run full verification and record the validation outcome in this handoff.
+
+Current risks and constraints:
+
+- This slice only consumes cached markdown for existing `chart-docs` URL
+  sources. It does not add live fetches to the agent loop and does not parse
+  non-document repository schemes.
+- Chart docs facts are medium-confidence public-reference guidance. They do
+  not replace `values.schema.json`, `helm lint`, `helm template`, or chart
+  schema validation.
+- The extractor must skip HTML-shaped cache entries and secret-looking values,
+  descriptions, paths, defaults, and summaries.
+- No Helm upgrade/install, Kubernetes mutation, deploy, or state mutation
+  behavior is allowed.
+
+## 2026-05-07 Active Pulumi Package Docs Fact Plan
+
+Status:
+
+- Completed. This session continued `infra-agent` development under the
   existing architecture and safety rules, with a minimum of 10 meaningful
   commits planned for this slice.
 - The selected product slice is Pulumi package-level docs fact extraction:
