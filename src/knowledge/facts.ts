@@ -6,6 +6,7 @@ import type {
   RetrievedContextConfidence
 } from '../types/knowledge.ts';
 import { isKnowledgeCacheEntryStale } from './cache.ts';
+import { extractPulumiDocsMarkdownFacts } from './fact-extractors/pulumi-docs-markdown.ts';
 import { parseKnowledgeFactSet } from './facts-contract.ts';
 
 interface ExtractKnowledgeFactSetOptions {
@@ -1123,6 +1124,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
   const extractedFacts = (() => {
     if (entry.source.kind === 'terraform-registry' && entry.contentType === 'text/markdown') {
       return extractTerraformRegistryFacts(entry);
+    }
+
+    if (entry.source.kind === 'pulumi-docs' && entry.contentType === 'text/markdown') {
+      return extractPulumiDocsMarkdownFacts(entry);
     }
 
     if (entry.source.kind === 'chart-schema' && entry.contentType === 'application/json') {

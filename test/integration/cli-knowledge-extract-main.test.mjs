@@ -21,6 +21,7 @@ import {
   buildEmptyApprovalPendingScopeFixture
 } from '../support/compact-fixtures.mjs';
 import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
+import { buildPulumiDocsKnowledgeSources } from '../../src/domain/pulumi-docs-context.ts';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../../src/agent/build-run-preflight.ts';
 import { printDoctorReport } from '../../src/cli/output.ts';
@@ -38,6 +39,7 @@ import {
   exitCodeForRunPreflight,
   INFRA_AGENT_EXIT_CODES
 } from '../../src/cli/exit-codes.ts';
+import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
 
 test('knowledge extract command emits cache-first fact sets as JSON', async () => {
@@ -180,6 +182,75 @@ test('knowledge extract command emits Pulumi config facts', async () => {
     )
   ));
   assert.doesNotMatch(output, /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+});
+
+test('knowledge extract command emits cached Pulumi docs facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-pulumi-docs-'));
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), tempRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/payments-api');
+    assert.ok(project);
+    const source = (await buildPulumiDocsKnowledgeSources(inspection.workspaceRoot, project))
+      .find(candidate => candidate.name === 'pulumi-docs:config');
+    assert.ok(source);
+    const entry = await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source,
+      contentType: 'text/markdown',
+      content: [
+        '# Configuration',
+        '',
+        '- `pulumi config set` - Sets a stack configuration value.',
+        '- `pulumi config get` - Reads a stack configuration value.',
+        ''
+      ].join('\n'),
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'extract',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/payments-api',
+      '--source',
+      entry.id,
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-extraction');
+    assert.equal(report.mutationAllowed, false);
+    assert.ok(report.sources.some(result =>
+      result.source.kind === 'pulumi-docs'
+      && result.status === 'extracted'
+      && result.factCount > 0
+    ));
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'pulumi-docs'
+      && factSet.facts.some(fact =>
+        fact.kind === 'pulumi-docs-guidance'
+        && fact.extractionMethod === 'pulumi-docs-markdown'
+        && fact.path === 'pulumi.docs.config.pulumi_config_set'
+      )
+    ));
+    assert.doesNotMatch(output, /"content"\s*:|# Configuration/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge extract command writes a reusable validation artifact with --out', async () => {

@@ -65,10 +65,12 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
     'chart-metadata',
     'chart-dependency',
     'chart-value',
-    'pulumi-config-parameter'
+    'pulumi-config-parameter',
+    'pulumi-docs-guidance'
   ]);
   assert.deepEqual(KNOWLEDGE_FACT_EXTRACTION_METHODS, [
     'terraform-registry-markdown',
+    'pulumi-docs-markdown',
     'terraform-provider-schema',
     'helm-values-schema',
     'repo-local-static'

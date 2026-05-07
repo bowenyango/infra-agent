@@ -39,6 +39,81 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-06 Pulumi Docs Guidance Extraction Slice
+
+Status:
+
+- Implemented locally. This slice follows Pulumi official-doc source selection
+  by extracting small advisory facts from already-cached official Pulumi docs
+  markdown, without adding live fetches or changing the cache-only agent loop.
+
+Core files changed:
+
+- `src/knowledge/fact-extractors/pulumi-docs-markdown.ts`
+- `src/knowledge/facts.ts`
+- `src/types/knowledge.ts`
+- `src/cli/agent-result-contract.ts`
+- `src/knowledge/fact-ranking.ts`
+- `test/unit/knowledge-pulumi-docs-extraction.test.mjs`
+- `test/integration/cli-knowledge-extract-main.test.mjs`
+- `test/unit/knowledge-cache-contracts.test.mjs`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- Cached `pulumi-docs:config` and `pulumi-docs:yaml` markdown entries now
+  extract bounded `pulumi-docs-guidance` facts with
+  `pulumi-docs-markdown` as the extraction method.
+- The extractor only accepts `text/markdown` cache entries and ignores
+  HTML-shaped content, so live official pages still require a deliberate
+  retrieval/normalization step before extraction.
+- Extracted docs guidance is medium-confidence and advisory; repo-local Pulumi
+  project and stack config facts remain the stronger high-confidence source for
+  actual workspace edits.
+- Secret-looking command names, descriptions, paths, and summaries are skipped.
+- `knowledge extract --source <pulumi-docs source>` can report the source as
+  `extracted` when the matching cache entry already exists, and
+  `knowledge pack` can include the facts as public-reference knowledge without
+  embedding raw docs or example bodies.
+
+Design notes:
+
+- The extractor is isolated under `src/knowledge/fact-extractors/` so
+  `src/knowledge/facts.ts` stays a dispatcher instead of absorbing every
+  source-specific parser.
+- This intentionally covers only the Pulumi config and YAML docs sources that
+  the project inspector can already select. Pulumi resource/package docs still
+  need source selection based on package manifests, imports, or resource usage.
+- The facts are guidance-shaped command/runtime facts, not examples. This keeps
+  the first Pulumi docs extractor small and avoids leaking large prose snippets
+  into planner context.
+
+Known validation:
+
+- Focused direct checks passed for
+  `test/unit/knowledge-pulumi-docs-extraction.test.mjs`,
+  `test/unit/knowledge-cache-contracts.test.mjs`, and
+  `test/integration/cli-knowledge-extract-main.test.mjs`.
+- `npm run test:structure`: passed with 60 checked test files.
+- `npm run lint`: passed with 191 checked files.
+- `npm run verify`: passed. This includes lint, structure, layered unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run.
+- Isolated shard execution passed with 48 checked shards.
+- Coverage gate passed at 89.01% lines, 78.59% branches, and 96.16% functions.
+- Package dry-run passed with 133 entries in the installable package surface.
+
+Remaining work:
+
+- Add a markdown normalization path for live Pulumi official docs only if the
+  explicit prefetch flow continues to need HTML-backed pages.
+- Add Pulumi resource/package docs source selection once inspection records the
+  relevant language package manifests, imports, or resource type usage.
+- Extend team-cache backend contracts later; public Pulumi docs facts can be
+  shareable, but workspace-private Pulumi config facts still require explicit
+  opt-in.
+
 ## 2026-05-06 Pulumi Official Docs Source Slice
 
 Status:
@@ -80,8 +155,9 @@ Design notes:
 - `pulumi-docs` sources have no `localPath`, are classified as
   `public-reference`, and do not contain raw project YAML, stack config values,
   backend URLs, or secrets.
-- Fact extraction for `pulumi-docs` remains a later dedicated extractor; this
-  slice is source selection, listing/prefetch, and refresh policy only.
+- Fact extraction for cached `pulumi-docs` markdown now exists in the later
+  Pulumi docs guidance extraction slice; this source-selection slice remains
+  scoped to listing, prefetch wiring, and refresh policy.
 - New coverage lives in a focused unit shard rather than extending the
   near-threshold knowledge retrieval/extraction tests.
 
@@ -105,8 +181,8 @@ Remaining work:
 
 - Add Pulumi resource/package docs source selection once inspection records the
   relevant language package manifests or resource type usage.
-- Add a Pulumi docs fact extractor only after source selection and cache
-  freshness behavior remain stable.
+- Broaden Pulumi docs fact extraction only after resource/package docs source
+  selection and cache freshness behavior remain stable.
 - Extend team-cache backend contracts later; public `pulumi-docs` entries can
   be shareable, but workspace-private Pulumi config facts still require
   explicit opt-in.

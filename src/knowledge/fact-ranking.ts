@@ -52,7 +52,8 @@ const FACT_KIND_SCORE: Record<KnowledgePackFact['kind'], number> = {
   'chart-metadata': 18,
   'chart-dependency': 22,
   'chart-value': 26,
-  'pulumi-config-parameter': 24
+  'pulumi-config-parameter': 24,
+  'pulumi-docs-guidance': 12
 };
 
 function sourceDomainScore(source: KnowledgePackSource | undefined, requestedDomains: InfraDomainId[]): number {
