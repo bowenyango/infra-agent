@@ -89,6 +89,7 @@ export interface HelmChartSummary {
 export interface PulumiProjectSummary {
   projectRoot: string;
   projectFile: string;
+  packageFiles: string[];
   stackFiles: string[];
   stackNames: string[];
   environmentHints: string[];

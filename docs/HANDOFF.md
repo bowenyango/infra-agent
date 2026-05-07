@@ -39,6 +39,82 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-06 Pulumi Package Docs Source Slice
+
+Status:
+
+- Implemented locally. This slice extends Pulumi official-doc source selection
+  from config/YAML docs to package-level Pulumi Registry docs using explicit
+  project-root `package.json` dependencies.
+
+Core files changed:
+
+- `src/domain/inspect-workspace.ts`
+- `src/domain/pulumi-docs-context.ts`
+- `src/types/repository.ts`
+- `test/unit/knowledge-pulumi-docs-sources.test.mjs`
+- `test/integration/cli-knowledge-sources-main.test.mjs`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+
+What changed:
+
+- `PulumiProjectSummary` now records project-root `package.json` files as
+  `packageFiles`.
+- Pulumi docs source selection reads those manifests and emits one deduped
+  public `pulumi-docs:package:<slug>` source for each safe `@pulumi/*`
+  dependency except `@pulumi/pulumi`.
+- Package docs sources point at Pulumi Registry API docs, for example
+  `https://www.pulumi.com/registry/packages/aws/api-docs/`.
+- Safe public semver constraints are stored as `source.version`, so cache ids
+  can distinguish package major/range changes. Local, workspace, git, HTTP, and
+  secret-looking dependency specs are not copied into source metadata.
+- `knowledge sources --domain pulumi --target <project> --json` now exposes the
+  package docs sources as public-reference, URL-backed sources without exposing
+  raw `package.json` or Pulumi YAML content.
+
+Design notes:
+
+- This is package-level source selection only. It does not parse TypeScript,
+  Python, Go, .NET, or Java source imports, and it does not infer individual
+  resource docs from preview events or source code.
+- Package docs remain advisory public-reference knowledge. The agent loop still
+  does not fetch docs automatically; explicit `knowledge prefetch` owns any
+  network retrieval.
+- `packageFiles` is intentionally narrow and records only the Pulumi project
+  directory's manifest. Ancestor/workspace package manifests need a separate
+  project/package ownership design before they can be used safely.
+
+Known validation:
+
+- Focused direct check passed for
+  `test/unit/knowledge-pulumi-docs-sources.test.mjs`.
+- Focused direct check passed for
+  `test/integration/cli-knowledge-sources-main.test.mjs`.
+- `npm run test:structure`: passed with 60 checked test files.
+- `npm run lint`: passed with 191 checked files.
+- `npm run test:unit`: passed with 321 tests.
+- `npm run test:integration`: passed with 68 tests.
+- `npm run verify`: passed. This includes lint, structure, layered unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run.
+- Isolated shard execution passed with 48 checked shards.
+- Coverage gate passed at 89.01% lines, 78.60% branches, and 96.12% functions.
+- Package dry-run passed with 133 entries in the installable package surface.
+
+Remaining work:
+
+- Add resource-level Pulumi docs source selection only after deterministic
+  resource evidence is available, such as YAML resource tokens or parsed
+  language AST/import usage.
+- Add package/resource docs fact extraction after source selection and cache
+  freshness behavior remain stable.
+- Add a markdown normalization path for live Pulumi official docs only if the
+  explicit prefetch flow continues to need HTML-backed pages.
+- Extend team-cache backend contracts later; public Pulumi docs facts can be
+  shareable, but workspace-private Pulumi config/package ownership evidence
+  still requires explicit opt-in before remote publication.
+
 ## 2026-05-06 Pulumi Docs Guidance Extraction Slice
 
 Status:
@@ -83,8 +159,9 @@ Design notes:
   `src/knowledge/facts.ts` stays a dispatcher instead of absorbing every
   source-specific parser.
 - This intentionally covers only the Pulumi config and YAML docs sources that
-  the project inspector can already select. Pulumi resource/package docs still
-  need source selection based on package manifests, imports, or resource usage.
+  the project inspector can already select. Package-level source selection now
+  exists in the Pulumi package docs source slice; resource-level source
+  selection still needs deterministic resource evidence.
 - The facts are guidance-shaped command/runtime facts, not examples. This keeps
   the first Pulumi docs extractor small and avoids leaking large prose snippets
   into planner context.
@@ -108,8 +185,8 @@ Remaining work:
 
 - Add a markdown normalization path for live Pulumi official docs only if the
   explicit prefetch flow continues to need HTML-backed pages.
-- Add Pulumi resource/package docs source selection once inspection records the
-  relevant language package manifests, imports, or resource type usage.
+- Add resource-level Pulumi docs source selection once inspection records the
+  relevant imports, YAML resource tokens, or resource type usage.
 - Extend team-cache backend contracts later; public Pulumi docs facts can be
   shareable, but workspace-private Pulumi config facts still require explicit
   opt-in.
@@ -149,9 +226,9 @@ What changed:
 
 Design notes:
 
-- This intentionally does not parse Pulumi language package manifests or source
-  imports yet. The current inspection model only guarantees Pulumi project and
-  stack metadata, so this slice stays inside that boundary.
+- This intentionally does not parse Pulumi language source imports yet. Package
+  manifest source selection now exists in the Pulumi package docs source slice;
+  this slice stays focused on project/stack metadata.
 - `pulumi-docs` sources have no `localPath`, are classified as
   `public-reference`, and do not contain raw project YAML, stack config values,
   backend URLs, or secrets.
@@ -179,9 +256,9 @@ Known validation:
 
 Remaining work:
 
-- Add Pulumi resource/package docs source selection once inspection records the
-  relevant language package manifests or resource type usage.
-- Broaden Pulumi docs fact extraction only after resource/package docs source
+- Add resource-level Pulumi docs source selection once inspection records the
+  relevant YAML resource tokens, language imports, or resource type usage.
+- Broaden Pulumi docs fact extraction only after package/resource docs source
   selection and cache freshness behavior remain stable.
 - Extend team-cache backend contracts later; public `pulumi-docs` entries can
   be shareable, but workspace-private Pulumi config facts still require

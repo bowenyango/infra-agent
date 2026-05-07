@@ -42,6 +42,10 @@ function isPulumiStackFile(fileName: string): boolean {
   return /^Pulumi\..+\.(yaml|yml)$/i.test(fileName);
 }
 
+function isPulumiPackageFile(fileName: string): boolean {
+  return fileName === 'package.json';
+}
+
 function isTerraformFile(fileName: string): boolean {
   return /\.tf$/i.test(fileName);
 }
@@ -105,6 +109,9 @@ function buildPulumiProjectSummary(
   return {
     projectRoot: relative(workspaceRoot, dirPath) || '.',
     projectFile: relative(workspaceRoot, join(dirPath, projectFileName)),
+    packageFiles: entryNames
+      .filter(isPulumiPackageFile)
+      .map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
     stackFiles,
     stackNames,
     environmentHints: extractEnvironmentHints([relative(workspaceRoot, dirPath) || '.', ...stackNames])

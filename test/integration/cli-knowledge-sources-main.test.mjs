@@ -132,43 +132,72 @@ test('knowledge sources command lists Terraform local module sources', async () 
 });
 
 test('knowledge sources command lists Pulumi config sources', async () => {
-  const output = await captureStdout(() => main([
-    'knowledge',
-    'sources',
-    'fixtures/sample-workspace',
-    '--domain',
-    'pulumi',
-    '--target',
-    'infra/payments-api',
-    '--json'
-  ]));
-  const report = JSON.parse(output.slice(output.indexOf('{')));
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-sources-pulumi-'));
 
-  assert.equal(report.kind, 'infra-agent.knowledge-sources');
-  assert.equal(report.mutationAllowed, false);
-  assert.deepEqual(report.requestedDomains, ['pulumi']);
-  assert.deepEqual(report.targetPaths, ['infra/payments-api']);
-  assert.ok(report.sources.some(source =>
-    source.domain === 'pulumi'
-    && source.targetPath === 'infra/payments-api'
-    && source.requiresFetch === false
-    && source.source.kind === 'pulumi-config'
-    && source.source.localPath === 'infra/payments-api'
-    && source.source.packageName === 'payments-api'
-  ));
-  const docsSource = report.sources.find(source =>
-    source.domain === 'pulumi'
-    && source.targetPath === 'infra/payments-api'
-    && source.requiresFetch === true
-    && source.source.kind === 'pulumi-docs'
-    && source.source.name === 'pulumi-docs:config'
-  );
-  assert.ok(docsSource);
-  assert.equal(docsSource.storagePolicy.scope, 'public-reference');
-  assert.equal(docsSource.storagePolicy.shareableByDefault, true);
-  assert.ok(report.summary.local >= 1);
-  assert.ok(report.summary.external >= 1);
-  assert.doesNotMatch(output, /imageTag:\s*latest|runtime:\s*yaml|"content"\s*:/);
+  try {
+    await cp('fixtures/sample-workspace', tempRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra/payments-api/package.json'),
+      `${JSON.stringify({
+        dependencies: {
+          '@pulumi/pulumi': '^3.118.0',
+          '@pulumi/aws': '^7.0.0'
+        }
+      }, null, 2)}\n`,
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/payments-api',
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-sources');
+    assert.equal(report.mutationAllowed, false);
+    assert.deepEqual(report.requestedDomains, ['pulumi']);
+    assert.deepEqual(report.targetPaths, ['infra/payments-api']);
+    assert.ok(report.sources.some(source =>
+      source.domain === 'pulumi'
+      && source.targetPath === 'infra/payments-api'
+      && source.requiresFetch === false
+      && source.source.kind === 'pulumi-config'
+      && source.source.localPath === 'infra/payments-api'
+      && source.source.packageName === 'payments-api'
+    ));
+    const docsSource = report.sources.find(source =>
+      source.domain === 'pulumi'
+      && source.targetPath === 'infra/payments-api'
+      && source.requiresFetch === true
+      && source.source.kind === 'pulumi-docs'
+      && source.source.name === 'pulumi-docs:config'
+    );
+    assert.ok(docsSource);
+    assert.equal(docsSource.storagePolicy.scope, 'public-reference');
+    assert.equal(docsSource.storagePolicy.shareableByDefault, true);
+    assert.ok(report.sources.some(source =>
+      source.domain === 'pulumi'
+      && source.targetPath === 'infra/payments-api'
+      && source.requiresFetch === true
+      && source.source.kind === 'pulumi-docs'
+      && source.source.name === 'pulumi-docs:package:aws'
+      && source.source.packageName === '@pulumi/aws'
+      && source.source.version === '^7.0.0'
+      && source.source.url === 'https://www.pulumi.com/registry/packages/aws/api-docs/'
+      && source.storagePolicy.scope === 'public-reference'
+    ));
+    assert.ok(report.summary.local >= 1);
+    assert.ok(report.summary.external >= 2);
+    assert.doesNotMatch(output, /imageTag:\s*latest|runtime:\s*yaml|"content"\s*:|"dependencies"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge prefetch command emits existing prefetch JSON contract', async () => {

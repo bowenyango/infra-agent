@@ -28,6 +28,14 @@ async function writePulumiProject(root, projectPath, projectContent, stackConten
   }
 }
 
+async function writePulumiPackageJson(root, projectPath, packageJson) {
+  await writeFile(
+    join(root, projectPath, 'package.json'),
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8'
+  );
+}
+
 function createMemoryKnowledgeStore() {
   const entries = new Map();
 
@@ -73,6 +81,102 @@ test('Pulumi docs source selection derives bounded public docs from project meta
     && source.packageName === '@pulumi/pulumi'
     && source.url === 'https://www.pulumi.com/docs/iac/languages-sdks/yaml/'
   ));
+});
+
+test('Pulumi docs source selection derives package docs from project package manifests', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-packages-'));
+
+  try {
+    await writePulumiProject(
+      tempRoot,
+      'infra/api',
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n')
+    );
+    await writePulumiPackageJson(tempRoot, 'infra/api', {
+      dependencies: {
+        '@pulumi/pulumi': '^3.118.0',
+        '@pulumi/aws': '^7.0.0',
+        '@pulumi/kubernetes': '4.20.1'
+      },
+      devDependencies: {
+        '@pulumi/aws': '^6.0.0',
+        '@private/internal': '1.0.0'
+      }
+    });
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+    assert.deepEqual(project.packageFiles, ['infra/api/package.json']);
+
+    const sources = await buildPulumiDocsKnowledgeSources(tempRoot, project);
+
+    assert.equal(sources.filter(source => source.name === 'pulumi-docs:package:aws').length, 1);
+    assert.ok(sources.some(source =>
+      source.kind === 'pulumi-docs'
+      && source.name === 'pulumi-docs:package:aws'
+      && source.packageName === '@pulumi/aws'
+      && source.version === '^7.0.0'
+      && source.url === 'https://www.pulumi.com/registry/packages/aws/api-docs/'
+      && source.localPath === undefined
+    ));
+    assert.ok(sources.some(source =>
+      source.name === 'pulumi-docs:package:kubernetes'
+      && source.packageName === '@pulumi/kubernetes'
+      && source.version === '4.20.1'
+      && source.url === 'https://www.pulumi.com/registry/packages/kubernetes/api-docs/'
+    ));
+    assert.equal(sources.some(source => source.packageName === '@pulumi/pulumi'), false);
+    assert.equal(sources.some(source => source.packageName === '@private/internal'), false);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Pulumi docs source selection omits private or local package versions from public docs ids', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-local-package-'));
+
+  try {
+    await writePulumiProject(
+      tempRoot,
+      'infra/api',
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n')
+    );
+    await writePulumiPackageJson(tempRoot, 'infra/api', {
+      dependencies: {
+        '@pulumi/aws': 'file:../private-provider',
+        '@pulumi/random': 'workspace:*'
+      }
+    });
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+
+    const sources = await buildPulumiDocsKnowledgeSources(tempRoot, project);
+
+    assert.ok(sources.some(source =>
+      source.name === 'pulumi-docs:package:aws'
+      && source.packageName === '@pulumi/aws'
+      && source.version === undefined
+    ));
+    assert.ok(sources.some(source =>
+      source.name === 'pulumi-docs:package:random'
+      && source.packageName === '@pulumi/random'
+      && source.version === undefined
+    ));
+    assert.doesNotMatch(JSON.stringify(sources), /private-provider|workspace:\*/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('Pulumi docs source selection skips non-YAML projects without config evidence', async () => {
