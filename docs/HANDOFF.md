@@ -121,6 +121,10 @@ Progress log:
   `chart-docs` cache entries become extracted chart-value facts for a Helm
   target. Focused validation:
   `node --experimental-strip-types test/unit/knowledge-helm-chart-docs-extraction.test.mjs`.
+- Commit 5 covered the chart-docs-to-pack path. Bounded `KnowledgePack`
+  output now has a regression proving chart docs facts retain public-reference
+  source posture and omit raw cached markdown. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-helm-chart-docs-extraction.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 
