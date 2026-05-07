@@ -119,6 +119,11 @@ Progress log:
   medium-confidence `argument` facts while skipping HTML and secret-looking
   fields. Focused validation:
   `node --experimental-strip-types test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
+- Commit 7 covered the end-to-end cache-to-pack resource docs path. Workspace
+  extraction and bounded pack tests now prove cached Pulumi resource docs facts
+  are selected for a Pulumi YAML resource target and remain public-reference
+  advisory facts. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 

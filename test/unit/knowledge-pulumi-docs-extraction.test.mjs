@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  mkdir,
   mkdtemp,
-  rm
+  rm,
+  writeFile
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { buildPulumiDocsKnowledgeSources } from '../../src/domain/pulumi-docs-context.ts';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import {
@@ -55,6 +57,32 @@ function pulumiDocsSource() {
     packageName: '@pulumi/pulumi',
     url: 'https://www.pulumi.com/docs/iac/concepts/config/'
   };
+}
+
+async function writePulumiResourceDocsWorkspace(root) {
+  const projectRoot = join(root, 'infra/api');
+  await mkdir(projectRoot, { recursive: true });
+  await writeFile(
+    join(projectRoot, 'Pulumi.yaml'),
+    [
+      'name: api',
+      'runtime: yaml',
+      'resources:',
+      '  apiBucket:',
+      '    type: aws:s3/bucket:Bucket',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(projectRoot, 'package.json'),
+    `${JSON.stringify({
+      dependencies: {
+        '@pulumi/aws': '^7.0.0'
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
 }
 
 test('Pulumi docs markdown extraction emits compact guidance facts', async () => {
@@ -232,6 +260,54 @@ test('workspace knowledge extraction reads cached Pulumi docs sources', async ()
   }
 });
 
+test('workspace knowledge extraction reads cached Pulumi resource docs sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-resource-docs-extract-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-resource-docs-cache-'));
+
+  try {
+    await writePulumiResourceDocsWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+    const source = (await buildPulumiDocsKnowledgeSources(inspection.workspaceRoot, project))
+      .find(candidate => candidate.name === 'pulumi-docs:resource:aws:s3/bucket');
+    assert.ok(source);
+    const store = createFileKnowledgeStore(cacheRoot);
+    const entry = await store.write({
+      source,
+      contentType: 'text/markdown',
+      content: PULUMI_BUCKET_RESOURCE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const report = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      sourceIds: [entry.id],
+      store,
+      now: new Date('2026-05-07T00:00:00.000Z'),
+      extractedAt: '2026-05-07T00:00:00.000Z'
+    });
+
+    assert.equal(report.factSetCount, 1);
+    assert.ok(report.sources.some(result =>
+      result.id === entry.id
+      && result.source.kind === 'pulumi-docs'
+      && result.status === 'extracted'
+      && result.factCount > 0
+    ));
+    assert.ok(report.factSets[0]?.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.extractionMethod === 'pulumi-docs-markdown'
+      && fact.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
+});
+
 test('Pulumi docs facts enter bounded packs as public-reference sources', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-pack-'));
 
@@ -270,5 +346,49 @@ test('Pulumi docs facts enter bounded packs as public-reference sources', async 
     assert.equal(pack.facts.some(fact => fact.kind === 'example'), false);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Pulumi resource docs facts enter bounded packs as public-reference sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-resource-docs-pack-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-resource-docs-pack-cache-'));
+
+  try {
+    await writePulumiResourceDocsWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+    const source = (await buildPulumiDocsKnowledgeSources(inspection.workspaceRoot, project))
+      .find(candidate => candidate.name === 'pulumi-docs:resource:aws:s3/bucket');
+    assert.ok(source);
+    const store = createFileKnowledgeStore(cacheRoot);
+    const entry = await store.write({
+      source,
+      contentType: 'text/markdown',
+      content: PULUMI_BUCKET_RESOURCE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      sourceIds: [entry.id],
+      store,
+      now: new Date('2026-05-07T00:00:00.000Z'),
+      maxFacts: 10
+    });
+
+    assert.equal(pack.sourceCount, 1);
+    assert.equal(pack.sources[0]?.kind, 'pulumi-docs');
+    assert.equal(pack.sources[0]?.storagePolicy.scope, 'public-reference');
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.sourceId === entry.id
+      && fact.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
   }
 });
