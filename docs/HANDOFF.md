@@ -150,6 +150,25 @@ Progress log:
   implemented, public-reference/advisory, ranked below local Pulumi config
   facts, and still do not cover language imports or components. Focused
   validation: `git diff --check` and `npm run test:structure`.
+- Commit 11 recorded final validation for the Pulumi package docs fact slice.
+  `npm run verify` passed across lint, test structure, unit, integration,
+  contract, isolated shard execution, smoke, e2e, coverage, and package
+  dry-run.
+
+Final validation on 2026-05-07:
+
+- `npm run lint`: passed with 194 checked files.
+- `npm run test:structure`: passed with 62 checked test files.
+- `npm run test:unit`: passed.
+- `npm run test:integration`: passed.
+- `npm run test:contract`: passed.
+- `npm run test:isolated`: passed with 50 checked shards.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm run test:coverage`: passed at 89.03% lines, 78.59% branches, and
+  96.20% functions.
+- `npm run package:check`: passed with 134 packed entries in the installable
+  package surface.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 
