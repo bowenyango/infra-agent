@@ -127,6 +127,11 @@ Progress log:
   size, and merges YAML and language resource token evidence deterministically.
   Focused validation:
   `node --experimental-strip-types test/unit/pulumi-resource-token-inspection.test.mjs`.
+- Commit 5 covered targeting behavior for language-derived Pulumi resource
+  tokens. Explicit Node.js/TypeScript resource constructor evidence now feeds
+  the same Pulumi project candidate hint and detail path as YAML resource
+  tokens. Focused validation:
+  `node --experimental-strip-types test/unit/pulumi-resource-token-inspection.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 

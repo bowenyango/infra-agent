@@ -275,3 +275,40 @@ test('inspectWorkspace extracts Pulumi language resource tokens from project sou
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('Pulumi language resource tokens participate in targeting details', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-language-targeting-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const targeting = buildTargetCandidates('update Pulumi bucket configuration', inspection);
+    const candidate = targeting.targetCandidates.find(item => item.path === 'infra/api');
+
+    assert.ok(candidate);
+    assert.ok(candidate.reasons.some(reason => /repository hints matched service token "bucket"/i.test(reason)));
+    assert.deepEqual(candidate.details, ['pulumi resources: aws:s3/bucket:Bucket']);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
