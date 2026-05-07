@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This session continues `infra-agent` development under the
-  existing architecture and safety rules, with a minimum of 10 meaningful
-  commits planned for this slice.
+- Completed. This session continued `infra-agent` development under the
+  existing architecture and safety rules, with 12 meaningful commits completed
+  for this slice.
 - The selected product slice is conservative Pulumi Node.js/TypeScript resource
   discovery beyond YAML: parse workspace-contained Pulumi project source files
   for explicit `new <pulumi-provider>.<module>.<Type>(...)` constructor
@@ -54,8 +54,9 @@ Status:
 
 Why this direction:
 
-- The roadmap still lists Pulumi language-import/resource discovery beyond YAML
-  as pending.
+- The roadmap listed Pulumi language-import/resource discovery beyond YAML as
+  pending, and the completed slice implements the first conservative
+  Node.js/TypeScript portion of that gap.
 - Existing Pulumi Registry package docs and resource docs source selection is
   already cache-first, bounded, public-reference, and contract-tested.
 - This follows the Claude Code architecture patterns already adopted here:
@@ -166,6 +167,28 @@ Progress log:
   supported; package-only inference, components, dynamic alias/dataflow,
   generated/test files, and non-Node languages remain out of scope. Focused
   validation: `git diff --check` and `npm run test:structure`.
+- Commit 12 recorded final verification for the Pulumi language resource
+  discovery slice. Full validation passed with `npm run verify`, including
+  lint over 198 files, test structure over 65 files, unit/integration/contract
+  suites, isolated shard execution over 53 files, smoke, e2e, coverage
+  thresholds, and `npm pack --dry-run --json` with `entryCount=135`.
+
+Final validation:
+
+- `npm run verify` passed.
+- Coverage gate passed at 89.07% lines, 78.39% branches, and 96.38% functions
+  over `src/**/*.ts`.
+- Smoke passed with `/tmp/infra-agent-smoke-i9Nz9a`.
+- E2E passed with `/tmp/infra-agent-e2e-ngazhQ`.
+- Package dry-run passed for `infra-agent@0.1.0` with 135 packaged entries.
+
+Remaining follow-ups:
+
+- Pulumi component facts and durable component packs.
+- Non-Node Pulumi language discovery for Python, Go, .NET, and Java.
+- Optional markdown normalization for live official-doc fetches.
+- Local fact refresh/staleness reporting for workspace file changes.
+- Opt-in team storage backends.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 
