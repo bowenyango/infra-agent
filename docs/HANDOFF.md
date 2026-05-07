@@ -130,6 +130,11 @@ Progress log:
   an integration regression proving chart docs facts are extracted through the
   real command path without raw cached markdown. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`.
+- Commit 7 added CLI pack coverage for cached Helm chart docs.
+  `knowledge pack --domain helm --target ... --source ... --json` now proves
+  chart docs facts enter bounded public-reference packs through the real
+  command path without raw cached markdown. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 

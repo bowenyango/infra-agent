@@ -21,6 +21,7 @@ import {
   buildEmptyApprovalPendingScopeFixture
 } from '../support/compact-fixtures.mjs';
 import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
+import { buildHelmChartKnowledgeSources } from '../../src/domain/helm-chart-context.ts';
 import { buildPulumiDocsKnowledgeSources } from '../../src/domain/pulumi-docs-context.ts';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../../src/agent/build-run-preflight.ts';
@@ -51,6 +52,16 @@ const PULUMI_AWS_PACKAGE_MARKDOWN = [
   '| --- | --- |',
   '| [s3](./s3/) | S3 resources for buckets and objects. |',
   '| [lambda](./lambda/) | Lambda resources manage functions. |',
+  ''
+].join('\n');
+
+const API_CHART_DOCS_MARKDOWN = [
+  '# API chart',
+  '',
+  '| Parameter | Type | Default | Description | Required |',
+  '| --- | --- | --- | --- | --- |',
+  '| `image.repository` | string | `ghcr.io/example/api` | Container image repository. | yes |',
+  '| `service.port` | int | `8080` | Service port exposed by the chart. | no |',
   ''
 ].join('\n');
 
@@ -357,6 +368,82 @@ test('knowledge pack command emits cached Pulumi package docs facts', async () =
       && fact.sourceLocator === 'Pulumi package docs: s3'
     ));
     assert.doesNotMatch(output, /"content"\s*:|# AWS|dependencies/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge pack command emits cached Helm chart docs facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-chart-docs-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://charts.example.test/api/',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
+    assert.ok(chart);
+    const source = (await buildHelmChartKnowledgeSources(inspection.workspaceRoot, chart))
+      .find(candidate => candidate.kind === 'chart-docs' && candidate.name === 'api:home');
+    assert.ok(source);
+    const entry = await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source,
+      contentType: 'text/markdown',
+      content: API_CHART_DOCS_MARKDOWN,
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--target',
+      'charts/api',
+      '--source',
+      entry.id,
+      '--max-facts',
+      '3',
+      '--json'
+    ]));
+    const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.mutationAllowed, false);
+    assert.equal(pack.maxFacts, 3);
+    assert.ok(pack.sources.some(sourceResult =>
+      sourceResult.kind === 'chart-docs'
+      && sourceResult.name === 'api:home'
+      && sourceResult.storagePolicy.scope === 'public-reference'
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.extractionMethod === 'helm-chart-docs-markdown'
+      && fact.path === 'chart.api.image.repository'
+      && fact.sourceLocator === 'Chart docs: image.repository'
+    ));
+    assert.doesNotMatch(output, /"content"\s*:|# API chart|Secret token/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
