@@ -178,6 +178,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   entries, and do not expose raw YAML or secure ciphertext in packs, prompts,
   or compact handoff output. Treat these facts as advisory; `pulumi preview`
   remains authoritative for missing, invalid, or provider-specific config.
+- For Pulumi resource docs knowledge, use only deterministic Pulumi YAML
+  `resources.<name>.type` tokens as resource-level source evidence. Select
+  public Pulumi Registry resource docs for those tokens and extract compact
+  cached markdown `argument` facts only after an explicit prefetch/cache path
+  exists. Do not infer resource docs from TypeScript, Python, Go, .NET, Java,
+  or component source imports until a structured parser records that evidence.
+  These facts are advisory and must not replace `pulumi preview`.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
 - For Helm chart metadata knowledge, use discovered `Chart.yaml` and sibling
   `Chart.lock` files as local `chart-metadata` sources. Extract compact

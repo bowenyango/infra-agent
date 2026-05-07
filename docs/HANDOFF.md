@@ -129,6 +129,11 @@ Progress log:
   source fields such as resource docs URLs inside `knowledgeFacts`. Focused
   validation:
   `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
+- Commit 9 updated durable roadmap, agent rules, and the bundled
+  `infra-configuration` skill for the new Pulumi resource docs path. The docs
+  record that only Pulumi YAML resource tokens are supported, cached resource
+  docs facts remain advisory, and language-source/component inference is still
+  out of scope. Focused validation: `git diff --check`.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 

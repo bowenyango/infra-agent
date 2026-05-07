@@ -180,6 +180,11 @@ credentials must still come from environment variables.
   `Pulumi.yaml` or stack file dumps when choosing config keys, known types,
   defaults, and existing safe values. These facts intentionally omit secure
   stack entries and secret-like keys, and they do not replace `pulumi preview`.
+- For Pulumi YAML projects, deterministic `resources.<name>.type` tokens may
+  select Pulumi Registry resource docs and cached `argument` facts. Treat those
+  facts as public-reference advisory context for resource inputs; they do not
+  cover language-source imports or component internals, and they do not replace
+  `pulumi preview`.
 - For Helm charts, prefer `chart-metadata` and `chart-dependency` knowledge
   facts over raw `Chart.yaml` or `Chart.lock` reads when choosing chart identity
   or dependency versions. Locked dependencies from `Chart.lock` take precedence
