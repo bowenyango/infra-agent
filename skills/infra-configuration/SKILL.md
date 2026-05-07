@@ -196,6 +196,12 @@ credentials must still come from environment variables.
   when available. These facts intentionally omit raw chart YAML, lock digests,
   generated timestamps, and unsafe metadata; they do not replace `helm lint`,
   `helm template`, or chart schema validation.
+- For Helm chart docs, cached `chart-docs` markdown may provide
+  medium-confidence `chart-value` facts for values tables, bullets, and
+  headings. Treat those facts as public-reference advisory context only: they
+  rank below local `values.schema.json`, `Chart.yaml`, and `Chart.lock` facts,
+  cannot be promoted to high confidence, and must not replace `helm lint`,
+  `helm template`, or chart schema validation.
 
 For detailed strategy, read
 `references/context-validation-and-impact.md` only when the task involves

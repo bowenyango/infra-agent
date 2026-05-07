@@ -157,6 +157,11 @@ Progress log:
   `node --experimental-strip-types --test test/unit/knowledge-helm-chart-docs-contract.test.mjs`,
   and
   `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
+- Commit 12 updated durable project and skill documentation for Helm chart-doc
+  facts. The roadmap, rules, README, and infra skill references now describe the
+  implemented cache-first public-reference chart-doc path, its local-source
+  priority order, and the medium-confidence advisory contract. Focused
+  validation: `git diff --check` and `npm run test:structure`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 

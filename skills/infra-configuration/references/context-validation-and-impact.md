@@ -158,6 +158,12 @@ Current cache foundation:
   version, app version, type, home/source URLs, and dependencies without raw
   chart YAML. Prefer locked dependency versions from `Chart.lock` when present,
   and keep lock digests and generated timestamps out of planner-facing facts.
+- Cached Helm chart docs selected from chart `home`, `sources`, or HTTP(S)
+  dependency docs can emit bounded medium-confidence `chart-value` facts from
+  markdown tables, bullets, and headings. Treat local `values.schema.json`
+  facts as highest authority, local `Chart.yaml`/`Chart.lock` metadata as the
+  next durable source, and external chart-doc facts as public-reference
+  advisory context only.
 - Pulumi project config context includes local `pulumi-config` sources from
   `Pulumi.yaml` and sibling `Pulumi.<stack>.yaml` files. The extractor builds a
   compact JSON summary for declared config keys, safe types/defaults, and safe
@@ -192,7 +198,8 @@ Current extraction direction:
   Terraform Registry markdown, Helm `values.schema.json` chart values, compact
   Terraform provider-schema facts, Terraform local module interfaces, and
   Pulumi config parameters and cached Pulumi docs guidance for config, YAML,
-  package, and resource docs, plus Helm chart metadata and dependency facts.
+  package, and resource docs, plus Helm chart metadata, dependency facts, and
+  cached Helm chart-doc `chart-value` facts.
 - Facts should carry source id, URL or local path, provider/chart/module name,
   version or commit, content hash, extraction method, confidence, stale posture,
   local source fingerprint metadata for repo-derived sources, and a short

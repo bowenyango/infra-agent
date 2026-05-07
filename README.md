@@ -147,7 +147,7 @@ Current behavior is intentionally runtime-foundation oriented:
   workspace-private for future storage/publication policy, `prefetch` aliases
   the bounded cache update path,
   `extract` turns cached docs, local schemas, local modules, local Helm chart
-  metadata, and local Pulumi config summaries into
+  metadata, cached Helm chart-doc markdown, and local Pulumi config summaries into
   `infra-agent.knowledge-facts`, `validate` checks facts, extraction reports,
   and compact packs before use, and `pack` ranks and emits a bounded planner-safe
   `infra-agent.knowledge-pack` without raw source content. Packs carry the same
@@ -206,6 +206,13 @@ Current behavior is intentionally runtime-foundation oriented:
   `chart-dependency` facts without exposing raw chart YAML. When a dependency is
   present in `Chart.lock`, that locked version is preferred over the declared
   range in `Chart.yaml`; native Helm validation remains authoritative.
+- Cached Helm chart docs selected from chart `home`, `sources`, or HTTP(S)
+  dependency docs can provide bounded medium-confidence `chart-value` facts
+  from markdown tables, bullets, and headings. These facts are cache-first,
+  public-reference advisory context, rank below local `values.schema.json`,
+  `Chart.yaml`, and `Chart.lock` facts, and stay compact in planner prompts and
+  `agent --json` without raw markdown, external URLs, cache timestamps, or
+  content hashes.
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions
 - `run` now also shows the effective approval policy derived from repo profile defaults, workspace config, and explicit approval flags
 - `agent` runs a bounded agent decision loop on top of the preflight state through a pluggable planning model
@@ -491,12 +498,13 @@ Current behavior is intentionally runtime-foundation oriented:
   cache selection without fetching non-document URLs such as `file://` or
   `oci://`.
 - Knowledge extraction currently promotes selected cache/local entries into
-  validated fact sets and bounded packs for Terraform Registry markdown and Helm
-  `values.schema.json` chart values. Optional artifact manifests record the
-  publication plan without credentials or upload commands. Public facts should
-  default to the user or team cache, not bulk commits inside every
-  infrastructure repo; private repo-derived facts require explicit opt-in before
-  any shared backend is used.
+  validated fact sets and bounded packs for Terraform Registry markdown, Pulumi
+  docs markdown, Helm `values.schema.json` chart values, local Helm chart
+  metadata/dependencies, and cached Helm chart-doc markdown. Optional artifact
+  manifests record the publication plan without credentials or upload commands.
+  Public facts should default to the user or team cache, not bulk commits inside
+  every infrastructure repo; private repo-derived facts require explicit opt-in
+  before any shared backend is used.
 
 CLI exit codes for downstream agents:
 

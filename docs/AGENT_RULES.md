@@ -201,6 +201,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   metadata URLs, and do not expose raw chart YAML, lock digests, generated
   timestamps, or dependency repository prose in packs, prompts, or compact
   handoff output.
+- For cached Helm chart-doc knowledge, use only public `chart-docs` sources
+  selected from chart `home`, `sources`, or HTTP(S) dependency repository docs
+  after an explicit cache or prefetch path exists. Extract compact
+  `chart-value` facts from markdown tables, bullets, and headings only as
+  medium-confidence advisory context. These facts must rank below local
+  `values.schema.json`, `Chart.yaml`, and `Chart.lock` facts, must not be
+  promoted to high confidence, and must not expose raw markdown, external URLs,
+  cache timestamps, content hashes, or non-document schemes in compact planner
+  or handoff output.
 - For Helm dependency context, prefer repo-local `Chart.lock` over dependency repository prose. Treat HTTP(S) dependency repositories as fetch candidates and skip non-document schemes such as `file://` or `oci://`.
 - Helm planner prompts may include selected chart schema packets by default. External Helm/chart docs must stay cache-only unless a deliberate fetch or prefetch path populated them.
 - Use `infra-agent knowledge prefetch` or the compatible top-level
