@@ -189,6 +189,55 @@ test('Pulumi docs source selection derives resource docs from YAML resource toke
   }
 });
 
+test('Pulumi docs source selection derives resource docs from language resource tokens', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-language-resources-'));
+
+  try {
+    await writePulumiProject(
+      tempRoot,
+      'infra/api',
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n')
+    );
+    await writePulumiPackageJson(tempRoot, 'infra/api', {
+      dependencies: {
+        '@pulumi/aws': '^7.0.0'
+      }
+    });
+    await writeFile(
+      join(tempRoot, 'infra/api/index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+    assert.equal(project.resourceTokens[0]?.evidence?.kind, 'pulumi-nodejs');
+
+    const sources = await buildPulumiDocsKnowledgeSources(tempRoot, project);
+
+    assert.ok(sources.some(source =>
+      source.kind === 'pulumi-docs'
+      && source.name === 'pulumi-docs:resource:aws:s3/bucket'
+      && source.packageName === '@pulumi/aws'
+      && source.module === 'aws:s3/bucket:Bucket'
+      && source.version === '^7.0.0'
+      && source.url === 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+      && source.localPath === undefined
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('Pulumi docs source selection omits private or local package versions from public docs ids', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-local-package-'));
 

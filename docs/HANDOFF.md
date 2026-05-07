@@ -132,6 +132,12 @@ Progress log:
   the same Pulumi project candidate hint and detail path as YAML resource
   tokens. Focused validation:
   `node --experimental-strip-types test/unit/pulumi-resource-token-inspection.test.mjs`.
+- Commit 6 covered Pulumi Registry resource docs source selection from
+  language-derived resource tokens. Explicit Node.js/TypeScript constructor
+  evidence now reuses existing public-reference `pulumi-docs:resource:*`
+  sources and safe `@pulumi/*` package versions from project manifests.
+  Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-docs-sources.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 
