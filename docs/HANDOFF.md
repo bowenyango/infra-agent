@@ -39,6 +39,77 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-07 Active Pulumi Language Resource Discovery Plan
+
+Status:
+
+- In progress. This session continues `infra-agent` development under the
+  existing architecture and safety rules, with a minimum of 10 meaningful
+  commits planned for this slice.
+- The selected product slice is conservative Pulumi Node.js/TypeScript resource
+  discovery beyond YAML: parse workspace-contained Pulumi project source files
+  for explicit `new <pulumi-provider>.<module>.<Type>(...)` constructor
+  evidence, emit deterministic resource tokens, and reuse the existing
+  cache-first Pulumi Registry resource docs path.
+
+Why this direction:
+
+- The roadmap still lists Pulumi language-import/resource discovery beyond YAML
+  as pending.
+- Existing Pulumi Registry package docs and resource docs source selection is
+  already cache-first, bounded, public-reference, and contract-tested.
+- This follows the Claude Code architecture patterns already adopted here:
+  compact evidence, parser-enforced contracts, read-only subagent analysis,
+  budgeted `knowledgeFacts`, and no raw source or docs in ordinary planner
+  context.
+
+Subagent plan:
+
+- `Peirce` is the read-only codebase explorer for Pulumi source selection,
+  resource token extraction, CLI knowledge flows, compact contracts, and tests.
+- `Meitner` is the read-only architecture explorer for slice-fit risks and
+  `learning-claude-code` pattern alignment.
+- The main agent owns edits, staged validation, durable handoff updates, and
+  commits.
+
+Planned commits and checkpoints:
+
+1. Record this active execution plan in `docs/HANDOFF.md`.
+2. Add conservative Node.js/TypeScript Pulumi import/require resource parsing
+   helpers and direct unit coverage.
+3. Add named import and package subpath parser coverage for Pulumi resource
+   constructors.
+4. Wire language source-file scanning into Pulumi project inspection.
+5. Prove language resource tokens improve Pulumi targeting details.
+6. Derive Pulumi Registry resource docs sources from language evidence.
+7. Cover `knowledge sources` CLI output for language-derived resource docs.
+8. Cover `knowledge prefetch` bounded public docs behavior for language-derived
+   resource docs.
+9. Cover `knowledge extract` from cached language-derived resource docs.
+10. Cover `knowledge pack` from cached language-derived resource docs.
+11. Update rules, README, roadmap, and bundled skill guidance.
+12. Run full verification and record the validation outcome in this handoff.
+
+Current risks and constraints:
+
+- This slice supports only explicit Node.js/TypeScript Pulumi provider imports
+  and constructor calls inside the project root. It does not parse Python, Go,
+  .NET, Java, generated code, dynamic provider aliases, or component internals.
+- Resource docs selected from language evidence remain public-reference
+  advisory context. They do not prove runtime usage beyond the parser evidence
+  and do not replace `pulumi preview`.
+- The parser must skip comments, string literals, test fixtures outside the
+  Pulumi project root, ignored directories, declaration files, secret-looking
+  aliases/tokens, and source files that exceed the bounded read budget.
+- No deploy, `pulumi up`, stack import, state mutation, or provider network
+  behavior is allowed.
+
+Progress log:
+
+- Commit 1 recorded this active Pulumi language resource discovery plan,
+  subagent responsibilities, 12 planned checkpoints, constraints, and risk
+  boundaries. Focused validation: `git diff --check`.
+
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 
 Status:
