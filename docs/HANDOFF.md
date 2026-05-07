@@ -144,6 +144,11 @@ Progress log:
   with compact source summaries and rejects raw external source URLs. Focused
   validation:
   `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
+- Commit 10 added planner prompt budget coverage for Helm chart-doc facts.
+  The planner now has a regression proving cached chart docs are surfaced only
+  as bounded `knowledgeFacts` summaries, respect `maxFacts`, and omit raw
+  markdown/source metadata. Focused validation:
+  `node --experimental-strip-types test/unit/planner-knowledge-facts-prompt.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 
