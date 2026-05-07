@@ -1,14 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  mkdir,
   mkdtemp,
-  rm
+  rm,
+  writeFile
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import {
+  join,
+  resolve
+} from 'node:path';
+import { buildHelmChartKnowledgeSources } from '../../src/domain/helm-chart-context.ts';
+import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { parseKnowledgeFactSet } from '../../src/knowledge/facts-contract.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../../src/knowledge/facts.ts';
+import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
+import { createFileKnowledgeStore } from '../../src/knowledge/knowledge-store.ts';
 
 const API_CHART_DOCS_MARKDOWN = [
   '# API chart',
@@ -105,5 +114,65 @@ test('knowledge fact extractor ignores HTML-shaped Helm chart docs cache entries
     assert.equal(factSet.factCount, 0);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('workspace knowledge extraction reads cached Helm chart docs sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-chart-docs-extract-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-chart-docs-cache-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://charts.example.test/api/',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
+    assert.ok(chart);
+    const source = (await buildHelmChartKnowledgeSources(inspection.workspaceRoot, chart))
+      .find(candidate => candidate.kind === 'chart-docs' && candidate.name === 'api:home');
+    assert.ok(source);
+    const store = createFileKnowledgeStore(cacheRoot);
+    const entry = await store.write({
+      source,
+      contentType: 'text/markdown',
+      content: API_CHART_DOCS_MARKDOWN,
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const report = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['helm'],
+      targetPaths: ['charts/api'],
+      sourceIds: [entry.id],
+      store,
+      now: new Date('2026-05-06T00:00:00.000Z'),
+      extractedAt: '2026-05-06T00:00:00.000Z'
+    });
+
+    assert.equal(report.factSetCount, 1);
+    assert.ok(report.sources.some(result =>
+      result.id === entry.id
+      && result.source.kind === 'chart-docs'
+      && result.status === 'extracted'
+      && result.factCount > 0
+    ));
+    assert.ok(report.factSets[0]?.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.extractionMethod === 'helm-chart-docs-markdown'
+      && fact.path === 'chart.api.image.repository'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
   }
 });

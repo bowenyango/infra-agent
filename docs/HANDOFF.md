@@ -116,6 +116,11 @@ Progress log:
   `node --experimental-strip-types test/unit/knowledge-helm-chart-docs-extraction.test.mjs`
   and
   `node --experimental-strip-types --test test/unit/knowledge-extraction-content.test.mjs`.
+- Commit 4 covered the workspace cache-to-extraction path for chart docs.
+  `extractWorkspaceKnowledgeFacts` now has a regression proving selected
+  `chart-docs` cache entries become extracted chart-value facts for a Helm
+  target. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-helm-chart-docs-extraction.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 
