@@ -497,3 +497,89 @@ test('compact agent result contract accepts Pulumi resource docs facts without r
     /knowledgeFacts\.sources\[0\]\.url.*raw source fields/
   );
 });
+
+test('compact agent result contract accepts Pulumi package docs facts without raw source fields', () => {
+  const { validResult } = buildAgentResultContractFixtures();
+  const packageKnowledgeFacts = {
+    ...validResult.knowledgeFacts,
+    packId: '1234567890abcdef12345678',
+    sourceCount: 1,
+    factSetCount: 1,
+    totalFactCount: 2,
+    includedFactCount: 2,
+    omittedFactCount: 0,
+    staleSourceCount: 0,
+    sources: [
+      {
+        id: 'pulumi-docs/aws-package',
+        domain: 'pulumi',
+        targetPath: 'infra/api',
+        kind: 'pulumi-docs',
+        name: 'pulumi-docs:package:aws',
+        factCount: 2,
+        stale: false,
+        freshness: 'fresh'
+      }
+    ],
+    facts: [
+      {
+        kind: 'pulumi-docs-guidance',
+        path: 'pulumi.package.aws.s3',
+        summary: 'S3 resources for buckets and objects.',
+        confidence: 'medium',
+        extractionMethod: 'pulumi-docs-markdown',
+        sourceId: 'pulumi-docs/aws-package',
+        sourceLocator: 'Pulumi package docs: s3',
+        values: ['s3']
+      },
+      {
+        kind: 'pulumi-docs-guidance',
+        path: 'pulumi.package.aws.lambda',
+        summary: 'Lambda resources manage functions.',
+        confidence: 'medium',
+        extractionMethod: 'pulumi-docs-markdown',
+        sourceId: 'pulumi-docs/aws-package',
+        sourceLocator: 'Pulumi package docs: lambda',
+        values: ['lambda']
+      }
+    ]
+  };
+  const result = {
+    ...validResult,
+    knowledgeFacts: packageKnowledgeFacts,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        knowledgeFacts: {
+          includedCount: 2,
+          omittedCount: 0
+        }
+      }
+    },
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        knowledgeFactCount: 2
+      }
+    }
+  };
+
+  assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...result,
+      knowledgeFacts: {
+        ...packageKnowledgeFacts,
+        sources: [
+          {
+            ...packageKnowledgeFacts.sources[0],
+            url: 'https://www.pulumi.com/registry/packages/aws/api-docs/'
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.sources\[0\]\.url.*raw source fields/
+  );
+});

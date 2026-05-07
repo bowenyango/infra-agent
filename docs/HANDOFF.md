@@ -135,6 +135,11 @@ Progress log:
   public package docs guidance under the deterministic fact ranking path.
   Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`.
+- Commit 8 strengthened compact handoff coverage for Pulumi package docs
+  facts. The compact agent result parser accepts package docs guidance facts
+  and still rejects raw source fields such as package docs URLs inside
+  `knowledgeFacts`. Focused validation:
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 
