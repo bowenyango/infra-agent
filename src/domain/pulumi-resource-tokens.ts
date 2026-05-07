@@ -1,6 +1,10 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { extname, join, relative } from 'node:path';
 import { parseDocument } from 'yaml';
+import {
+  listDirectory,
+  shouldIgnoreDirectory
+} from '../tools/repository/repository-tools.ts';
 import type { PulumiProjectSummary, PulumiResourceTokenSummary } from '../types/repository.ts';
 
 const SECRET_TOKEN_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
@@ -9,6 +13,20 @@ const PULUMI_PACKAGE_SPECIFIER_PATTERN = /^@pulumi\/([a-z0-9][a-z0-9-]*)(?:\/([A
 const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const MEMBER_CONSTRUCTOR_PATTERN = /new\s+([A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)+)\s*\(/g;
 const CLASS_CONSTRUCTOR_PATTERN = /new\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+const PULUMI_LANGUAGE_SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts']);
+const PULUMI_LANGUAGE_IGNORED_DIRECTORIES = new Set([
+  '.infra-agent',
+  '.pulumi',
+  '__fixtures__',
+  '__tests__',
+  'build',
+  'fixtures',
+  'out',
+  'test',
+  'tests'
+]);
+const PULUMI_LANGUAGE_SOURCE_MAX_FILES = 40;
+const PULUMI_LANGUAGE_SOURCE_MAX_BYTES = 200_000;
 
 interface PulumiPackageReference {
   packageName: string;
@@ -33,6 +51,17 @@ function parseYamlRecord(content: string): Record<string, unknown> | null {
 
   const parsed = document.toJSON() as unknown;
   return isRecord(parsed) ? parsed : null;
+}
+
+function isPulumiLanguageSourceFile(fileName: string): boolean {
+  if (
+    /\.d\.[cm]?ts$/i.test(fileName)
+    || /\.(test|spec)\.[cm]?[jt]sx?$/i.test(fileName)
+  ) {
+    return false;
+  }
+
+  return PULUMI_LANGUAGE_SOURCE_EXTENSIONS.has(extname(fileName).toLowerCase());
 }
 
 function parseResourceToken(name: string, type: string): PulumiResourceTokenSummary | null {
@@ -456,15 +485,106 @@ export function extractPulumiYamlResourceTokens(
   );
 }
 
+function uniqueResourceTokens(tokens: PulumiResourceTokenSummary[]): PulumiResourceTokenSummary[] {
+  const unique: PulumiResourceTokenSummary[] = [];
+  const seen = new Set<string>();
+
+  for (const token of tokens) {
+    const key = `${token.name}\0${token.type}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(token);
+  }
+
+  return unique.sort((left, right) =>
+    left.type.localeCompare(right.type) || left.name.localeCompare(right.name)
+  );
+}
+
+async function collectPulumiLanguageSourceFiles(
+  currentDir: string,
+  workspaceRoot: string,
+  files: string[]
+): Promise<void> {
+  if (files.length >= PULUMI_LANGUAGE_SOURCE_MAX_FILES) {
+    return;
+  }
+
+  let entries;
+  try {
+    entries = await listDirectory(currentDir);
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (files.length >= PULUMI_LANGUAGE_SOURCE_MAX_FILES) {
+      return;
+    }
+
+    if (entry.kind === 'directory') {
+      if (shouldIgnoreDirectory(entry.name) || PULUMI_LANGUAGE_IGNORED_DIRECTORIES.has(entry.name)) {
+        continue;
+      }
+
+      await collectPulumiLanguageSourceFiles(entry.path, workspaceRoot, files);
+      continue;
+    }
+
+    if (!isPulumiLanguageSourceFile(entry.name)) {
+      continue;
+    }
+
+    files.push(relative(workspaceRoot, entry.path));
+  }
+}
+
+async function detectPulumiProjectLanguageResourceTokens(
+  workspaceRoot: string,
+  project: Pick<PulumiProjectSummary, 'projectRoot'>
+): Promise<PulumiResourceTokenSummary[]> {
+  const sourceFiles: string[] = [];
+  await collectPulumiLanguageSourceFiles(join(workspaceRoot, project.projectRoot), workspaceRoot, sourceFiles);
+  const tokens: PulumiResourceTokenSummary[] = [];
+
+  for (const sourcePath of sourceFiles.sort()) {
+    try {
+      const file = await stat(join(workspaceRoot, sourcePath));
+      if (file.size > PULUMI_LANGUAGE_SOURCE_MAX_BYTES) {
+        continue;
+      }
+
+      tokens.push(...extractPulumiLanguageResourceTokens(
+        await readFile(join(workspaceRoot, sourcePath), 'utf8'),
+        { sourcePath }
+      ));
+    } catch {
+      continue;
+    }
+  }
+
+  return uniqueResourceTokens(tokens);
+}
+
 export async function detectPulumiProjectResourceTokens(
   workspaceRoot: string,
-  project: Pick<PulumiProjectSummary, 'projectFile'>
+  project: Pick<PulumiProjectSummary, 'projectFile' | 'projectRoot'>
 ): Promise<PulumiResourceTokenSummary[]> {
+  const resourceTokens: PulumiResourceTokenSummary[] = [];
+
   try {
     const content = await readFile(join(workspaceRoot, project.projectFile), 'utf8');
     const parsedProject = parseYamlRecord(content);
-    return parsedProject ? extractPulumiYamlResourceTokens(parsedProject) : [];
+    if (parsedProject) {
+      resourceTokens.push(...extractPulumiYamlResourceTokens(parsedProject));
+    }
   } catch {
-    return [];
+    // Continue with language-source evidence when the project file cannot be read.
   }
+
+  resourceTokens.push(...await detectPulumiProjectLanguageResourceTokens(workspaceRoot, project));
+  return uniqueResourceTokens(resourceTokens);
 }

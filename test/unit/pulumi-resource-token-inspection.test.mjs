@@ -204,3 +204,74 @@ test('inspectWorkspace extracts deterministic Pulumi YAML resource tokens', asyn
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('inspectWorkspace extracts Pulumi language resource tokens from project sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-language-resource-tokens-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'import { Deployment } from "@pulumi/kubernetes/apps/v1";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        'const deployment = new Deployment("apiDeployment", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.test.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const fake = new aws.s3.Bucket("test-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+
+    assert.ok(project);
+    assert.deepEqual(project.resourceTokens, [
+      {
+        name: 'api-bucket',
+        type: 'aws:s3/bucket:Bucket',
+        packageName: 'aws',
+        moduleName: 's3/bucket',
+        typeName: 'Bucket',
+        evidence: {
+          kind: 'pulumi-nodejs',
+          sourcePath: 'infra/api/index.ts',
+          sourceLocator: 'infra/api/index.ts:3'
+        }
+      },
+      {
+        name: 'apiDeployment',
+        type: 'kubernetes:apps/v1:Deployment',
+        packageName: 'kubernetes',
+        moduleName: 'apps/v1',
+        typeName: 'Deployment',
+        evidence: {
+          kind: 'pulumi-nodejs',
+          sourcePath: 'infra/api/index.ts',
+          sourceLocator: 'infra/api/index.ts:4'
+        }
+      }
+    ]);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});

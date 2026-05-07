@@ -121,6 +121,12 @@ Progress log:
   `@pulumi/aws/s3` or `@pulumi/kubernetes/apps/v1` now map to the same
   deterministic Pulumi resource tokens. Focused validation:
   `node --experimental-strip-types test/unit/pulumi-resource-token-inspection.test.mjs`.
+- Commit 4 wired bounded Node.js/TypeScript source scanning into Pulumi project
+  inspection. The scanner reads only workspace-contained project source files,
+  skips common generated/test/declaration paths, limits source count and file
+  size, and merges YAML and language resource token evidence deterministically.
+  Focused validation:
+  `node --experimental-strip-types test/unit/pulumi-resource-token-inspection.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 
