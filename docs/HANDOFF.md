@@ -125,6 +125,11 @@ Progress log:
   output now has a regression proving chart docs facts retain public-reference
   source posture and omit raw cached markdown. Focused validation:
   `node --experimental-strip-types test/unit/knowledge-helm-chart-docs-extraction.test.mjs`.
+- Commit 6 added CLI extraction coverage for cached Helm chart docs.
+  `knowledge extract --domain helm --target ... --source ... --json` now has
+  an integration regression proving chart docs facts are extracted through the
+  real command path without raw cached markdown. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 

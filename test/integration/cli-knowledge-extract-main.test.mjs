@@ -39,6 +39,7 @@ import {
   exitCodeForRunPreflight,
   INFRA_AGENT_EXIT_CODES
 } from '../../src/cli/exit-codes.ts';
+import { buildHelmChartKnowledgeSources } from '../../src/domain/helm-chart-context.ts';
 import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
 
@@ -51,6 +52,16 @@ const PULUMI_AWS_PACKAGE_MARKDOWN = [
   '| --- | --- |',
   '| [s3](./s3/) | S3 resources for buckets and objects. |',
   '| [lambda](./lambda/) | Lambda resources manage functions. |',
+  ''
+].join('\n');
+
+const API_CHART_DOCS_MARKDOWN = [
+  '# API chart',
+  '',
+  '| Parameter | Type | Default | Description | Required |',
+  '| --- | --- | --- | --- | --- |',
+  '| `image.repository` | string | `ghcr.io/example/api` | Container image repository. | yes |',
+  '| `service.port` | int | `8080` | Service port exposed by the chart. | no |',
   ''
 ].join('\n');
 
@@ -333,6 +344,82 @@ test('knowledge extract command emits cached Pulumi package docs facts', async (
       )
     ));
     assert.doesNotMatch(output, /"content"\s*:|# AWS|dependencies/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge extract command emits cached Helm chart docs facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-chart-docs-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://charts.example.test/api/',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/api');
+    assert.ok(chart);
+    const source = (await buildHelmChartKnowledgeSources(inspection.workspaceRoot, chart))
+      .find(candidate => candidate.kind === 'chart-docs' && candidate.name === 'api:home');
+    assert.ok(source);
+    const entry = await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source,
+      contentType: 'text/markdown',
+      content: API_CHART_DOCS_MARKDOWN,
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'extract',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--target',
+      'charts/api',
+      '--source',
+      entry.id,
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-extraction');
+    assert.equal(report.mutationAllowed, false);
+    assert.ok(report.sources.some(result =>
+      result.source.kind === 'chart-docs'
+      && result.source.name === 'api:home'
+      && result.status === 'extracted'
+      && result.factCount > 0
+    ));
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'chart-docs'
+      && factSet.facts.some(fact =>
+        fact.kind === 'chart-value'
+        && fact.extractionMethod === 'helm-chart-docs-markdown'
+        && fact.path === 'chart.api.image.repository'
+      )
+    ));
+    assert.doesNotMatch(output, /"content"\s*:|# API chart|Secret token/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
