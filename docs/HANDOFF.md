@@ -108,6 +108,12 @@ Progress log:
   when available, builds public-reference Registry API docs URLs, and still
   skips secret-looking tokens. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-sources.test.mjs`.
+- Commit 5 added CLI-level coverage for Pulumi resource docs source reporting.
+  `knowledge sources --domain pulumi --target ... --json` now has an
+  integration assertion proving the public resource docs source appears without
+  raw Pulumi YAML, package manifest content, or stack config values. Focused
+  validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 

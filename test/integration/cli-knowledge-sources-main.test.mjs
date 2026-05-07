@@ -146,6 +146,17 @@ test('knowledge sources command lists Pulumi config sources', async () => {
       }, null, 2)}\n`,
       'utf8'
     );
+    const projectFilePath = join(tempRoot, 'infra/payments-api/Pulumi.yaml');
+    const projectContent = await readFile(projectFilePath, 'utf8');
+    await writeFile(
+      projectFilePath,
+      projectContent.replace('resources: {}', [
+        'resources:',
+        '  apiBucket:',
+        '    type: aws:s3/bucket:Bucket'
+      ].join('\n')),
+      'utf8'
+    );
 
     const output = await captureStdout(() => main([
       'knowledge',
@@ -192,8 +203,20 @@ test('knowledge sources command lists Pulumi config sources', async () => {
       && source.source.url === 'https://www.pulumi.com/registry/packages/aws/api-docs/'
       && source.storagePolicy.scope === 'public-reference'
     ));
+    assert.ok(report.sources.some(source =>
+      source.domain === 'pulumi'
+      && source.targetPath === 'infra/payments-api'
+      && source.requiresFetch === true
+      && source.source.kind === 'pulumi-docs'
+      && source.source.name === 'pulumi-docs:resource:aws:s3/bucket'
+      && source.source.packageName === '@pulumi/aws'
+      && source.source.module === 'aws:s3/bucket:Bucket'
+      && source.source.version === '^7.0.0'
+      && source.source.url === 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+      && source.storagePolicy.scope === 'public-reference'
+    ));
     assert.ok(report.summary.local >= 1);
-    assert.ok(report.summary.external >= 2);
+    assert.ok(report.summary.external >= 3);
     assert.doesNotMatch(output, /imageTag:\s*latest|runtime:\s*yaml|"content"\s*:|"dependencies"\s*:/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
