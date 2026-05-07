@@ -143,6 +143,11 @@ Progress log:
   constructor evidence selects public Pulumi Registry resource docs without
   exposing raw source content. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`.
+- Commit 8 covered bounded prefetch for language-derived Pulumi resource docs
+  with an injected fetcher and in-memory knowledge store. The test proves the
+  public `pulumi-docs:resource:*` source can be deliberately cached without
+  live network dependency or raw source leakage. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-docs-sources.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 

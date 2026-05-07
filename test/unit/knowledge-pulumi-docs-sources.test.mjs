@@ -389,6 +389,63 @@ test('Pulumi docs prefetch fetches bounded external docs while preserving local 
   ));
 });
 
+test('Pulumi docs prefetch fetches language-derived resource docs with injected fetcher', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-language-prefetch-'));
+
+  try {
+    await writePulumiProject(
+      tempRoot,
+      'infra/api',
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n')
+    );
+    await writePulumiPackageJson(tempRoot, 'infra/api', {
+      dependencies: {
+        '@pulumi/aws': '^7.0.0'
+      }
+    });
+    await writeFile(
+      join(tempRoot, 'infra/api/index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      maxSources: 3,
+      store: createMemoryKnowledgeStore(),
+      now: new Date('2026-05-06T00:00:00.000Z'),
+      fetcher: async source => ({
+        source,
+        contentType: 'text/markdown',
+        content: `# ${source.name}\nFetched official Pulumi docs.`,
+        fetchedAt: '2026-05-06T00:00:00.000Z'
+      })
+    });
+
+    const resourceDocs = result.sources.find(source =>
+      source.status === 'fetched'
+      && source.source.kind === 'pulumi-docs'
+      && source.source.name === 'pulumi-docs:resource:aws:s3/bucket'
+    );
+    assert.ok(resourceDocs);
+    assert.equal(resourceDocs.contentType, 'text/markdown');
+    assert.equal(resourceDocs.source.url, 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/');
+    assert.doesNotMatch(JSON.stringify(result), /api-bucket|new aws\.s3\.Bucket/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('official knowledge fetcher assigns default TTL for URL-backed public docs', async () => {
   const source = {
     kind: 'pulumi-docs',
