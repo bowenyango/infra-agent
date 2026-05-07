@@ -1,4 +1,5 @@
 import type {
+  PulumiResourceTokenSummary,
   RunPreflightState,
   TargetCandidate,
   WorkspaceInspection
@@ -86,10 +87,26 @@ export function detectRequestedService(task: string): string | null {
 
 function buildCandidateDetails(params: {
   candidateKind: 'helm-chart' | 'pulumi-project' | 'terraform-root';
+  pulumiResourceTokens?: PulumiResourceTokenSummary[];
   tfvarsFiles?: string[];
   providerSchemaFiles?: string[];
   moduleHints?: string[];
 }): string[] {
+  if (params.candidateKind === 'pulumi-project') {
+    const resourceTypes = Array.from(new Set(
+      (params.pulumiResourceTokens ?? []).map(resource => resource.type)
+    ));
+    if (resourceTypes.length === 0) {
+      return [];
+    }
+
+    const included = resourceTypes.slice(0, 5);
+    const omittedCount = Math.max(0, resourceTypes.length - included.length);
+    return [
+      `pulumi resources: ${included.join(', ')}${omittedCount > 0 ? ` (+${omittedCount} more)` : ''}`
+    ];
+  }
+
   if (params.candidateKind !== 'terraform-root') {
     return [];
   }
@@ -262,13 +279,20 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
   }
 
   for (const project of inspection.pulumiProjects) {
+    const resourceHintTokens = project.resourceTokens.flatMap(resource => [
+      resource.name,
+      resource.packageName,
+      resource.moduleName,
+      resource.typeName,
+      resource.type
+    ]);
     const scored = scoreCandidate({
       task,
       candidateKind: 'pulumi-project',
       candidateName: project.projectRoot,
       candidatePath: project.projectRoot,
       candidateEnvironmentHints: project.environmentHints,
-      candidateHintTokens: [],
+      candidateHintTokens: resourceHintTokens,
       profileId: inspection.profile.id,
       requestedService,
       requestedEnvironment
@@ -281,7 +305,10 @@ export function buildTargetCandidates(task: string, inspection: WorkspaceInspect
       score: scored.score,
       reasons: scored.reasons,
       matchedEnvironmentHints: scored.matchedEnvironmentHints,
-      details: []
+      details: buildCandidateDetails({
+        candidateKind: 'pulumi-project',
+        pulumiResourceTokens: project.resourceTokens
+      })
     });
   }
 

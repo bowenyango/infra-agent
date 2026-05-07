@@ -9,6 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
+import { buildTargetCandidates } from '../../src/domain/task-targeting.ts';
 
 test('inspectWorkspace extracts deterministic Pulumi YAML resource tokens', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-resource-tokens-'));
@@ -57,6 +58,14 @@ test('inspectWorkspace extracts deterministic Pulumi YAML resource tokens', asyn
         typeName: 'Deployment'
       }
     ]);
+
+    const targeting = buildTargetCandidates('update Pulumi bucket configuration', inspection);
+    const candidate = targeting.targetCandidates.find(item => item.path === 'infra/app');
+    assert.ok(candidate);
+    assert.ok(candidate.reasons.some(reason => /repository hints matched service token "bucket"/i.test(reason)));
+    assert.ok(candidate.details?.some(detail =>
+      detail === 'pulumi resources: aws:s3/bucket:Bucket, kubernetes:apps/v1:Deployment'
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

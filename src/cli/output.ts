@@ -3387,7 +3387,7 @@ export function printInspection(inspection: WorkspaceInspection): void {
 
   printHeader('Pulumi Projects');
   printList(
-    inspection.pulumiProjects.map(project => `${project.projectRoot} (${project.stackFiles.length} stack file(s))`),
+    inspection.pulumiProjects.map(project => `${project.projectRoot} (${project.stackFiles.length} stack file(s), ${project.resourceTokens.length} resource token(s))`),
     'No Pulumi projects detected.'
   );
 

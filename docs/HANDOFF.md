@@ -98,6 +98,11 @@ Progress log:
   safe `resources.<name>.type` tokens on `PulumiProjectSummary.resourceTokens`
   and skips malformed or secret-looking tokens. Focused validation:
   `node --experimental-strip-types --test test/unit/pulumi-resource-token-inspection.test.mjs`.
+- Commit 3 surfaced Pulumi resource-token metadata through targeting and
+  inspection output. Pulumi target details now include bounded resource type
+  summaries, and resource names/types can contribute to repository-hint
+  targeting. Focused validation:
+  `node --experimental-strip-types --test test/unit/pulumi-resource-token-inspection.test.mjs`.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 
