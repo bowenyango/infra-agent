@@ -109,6 +109,13 @@ Progress log:
   in shared knowledge types and compact agent-result contract constants.
   Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-cache-contracts.test.mjs`.
+- Commit 3 added cached Helm chart-doc markdown extraction under a dedicated
+  extractor boundary and wired it into the fact dispatcher. Chart docs tables,
+  bullets, and headings now emit bounded medium-confidence `chart-value` facts
+  while skipping HTML-shaped and secret-looking content. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-helm-chart-docs-extraction.test.mjs`
+  and
+  `node --experimental-strip-types --test test/unit/knowledge-extraction-content.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 

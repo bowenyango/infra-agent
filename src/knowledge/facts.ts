@@ -6,6 +6,7 @@ import type {
   RetrievedContextConfidence
 } from '../types/knowledge.ts';
 import { isKnowledgeCacheEntryStale } from './cache.ts';
+import { extractChartDocsMarkdownFacts } from './fact-extractors/chart-docs-markdown.ts';
 import { extractPulumiDocsMarkdownFacts } from './fact-extractors/pulumi-docs-markdown.ts';
 import { parseKnowledgeFactSet } from './facts-contract.ts';
 
@@ -1128,6 +1129,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
 
     if (entry.source.kind === 'pulumi-docs' && entry.contentType === 'text/markdown') {
       return extractPulumiDocsMarkdownFacts(entry);
+    }
+
+    if (entry.source.kind === 'chart-docs' && entry.contentType === 'text/markdown') {
+      return extractChartDocsMarkdownFacts(entry);
     }
 
     if (entry.source.kind === 'chart-schema' && entry.contentType === 'application/json') {
