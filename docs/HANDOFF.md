@@ -138,6 +138,11 @@ Progress log:
   sources and safe `@pulumi/*` package versions from project manifests.
   Focused validation:
   `node --experimental-strip-types test/unit/knowledge-pulumi-docs-sources.test.mjs`.
+- Commit 7 added CLI `knowledge sources` coverage for language-derived Pulumi
+  resource docs. The real command path now proves Node.js/TypeScript resource
+  constructor evidence selects public Pulumi Registry resource docs without
+  exposing raw source content. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 

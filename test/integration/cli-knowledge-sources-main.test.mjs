@@ -223,6 +223,73 @@ test('knowledge sources command lists Pulumi config sources', async () => {
   }
 });
 
+test('knowledge sources command lists Pulumi resource docs from language tokens', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-sources-pulumi-language-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'package.json'),
+      `${JSON.stringify({
+        dependencies: {
+          '@pulumi/aws': '^7.0.0'
+        }
+      }, null, 2)}\n`,
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/api',
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-sources');
+    assert.equal(report.mutationAllowed, false);
+    assert.ok(report.sources.some(source =>
+      source.domain === 'pulumi'
+      && source.targetPath === 'infra/api'
+      && source.requiresFetch === true
+      && source.source.kind === 'pulumi-docs'
+      && source.source.name === 'pulumi-docs:resource:aws:s3/bucket'
+      && source.source.packageName === '@pulumi/aws'
+      && source.source.module === 'aws:s3/bucket:Bucket'
+      && source.source.version === '^7.0.0'
+      && source.source.url === 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+      && source.storagePolicy.scope === 'public-reference'
+      && source.storagePolicy.shareableByDefault === true
+    ));
+    assert.doesNotMatch(output, /api-bucket|new aws\.s3\.Bucket|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge prefetch command emits existing prefetch JSON contract', async () => {
   const output = await captureStdout(() => main([
     'knowledge',
