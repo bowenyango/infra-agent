@@ -90,9 +90,18 @@ export interface PulumiProjectSummary {
   projectRoot: string;
   projectFile: string;
   packageFiles: string[];
+  resourceTokens: PulumiResourceTokenSummary[];
   stackFiles: string[];
   stackNames: string[];
   environmentHints: string[];
+}
+
+export interface PulumiResourceTokenSummary {
+  name: string;
+  type: string;
+  packageName: string;
+  moduleName: string;
+  typeName: string;
 }
 
 export interface TerraformRootSummary {

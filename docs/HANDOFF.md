@@ -92,6 +92,13 @@ Current risks and constraints:
   URLs, secrets, or raw `package.json` content.
 - No deploy/apply/state mutation behavior is allowed in this slice.
 
+Progress log:
+
+- Commit 2 added deterministic Pulumi YAML resource-token inspection. It records
+  safe `resources.<name>.type` tokens on `PulumiProjectSummary.resourceTokens`
+  and skips malformed or secret-looking tokens. Focused validation:
+  `node --experimental-strip-types --test test/unit/pulumi-resource-token-inspection.test.mjs`.
+
 ## 2026-05-06 Pulumi Package Docs Source Slice
 
 Status:

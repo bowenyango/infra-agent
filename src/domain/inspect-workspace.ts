@@ -7,6 +7,7 @@ import { detectRepoProfile } from './repo-profile.ts';
 import { resolveDomainCapabilities } from './domain-capabilities.ts';
 import { extractHelmValuesSchemaSemanticsForCharts } from './helm-values-schema.ts';
 import { extractPulumiStackConfigSemanticsForProjects } from './pulumi-stack-config.ts';
+import { detectPulumiProjectResourceTokens } from './pulumi-resource-tokens.ts';
 import {
   detectTerraformProviderSchemaFiles,
   extractTerraformProviderSchemaSemanticsForRoots
@@ -112,6 +113,7 @@ function buildPulumiProjectSummary(
     packageFiles: entryNames
       .filter(isPulumiPackageFile)
       .map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
+    resourceTokens: [],
     stackFiles,
     stackNames,
     environmentHints: extractEnvironmentHints([relative(workspaceRoot, dirPath) || '.', ...stackNames])
@@ -214,6 +216,9 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
   state.helmCharts.sort((left, right) => left.chartRoot.localeCompare(right.chartRoot));
   state.pulumiProjects.sort((left, right) => left.projectRoot.localeCompare(right.projectRoot));
   state.terraformRoots.sort((left, right) => left.rootPath.localeCompare(right.rootPath));
+  for (const project of state.pulumiProjects) {
+    project.resourceTokens = await detectPulumiProjectResourceTokens(workspaceRoot, project);
+  }
   for (const root of state.terraformRoots) {
     root.providerSchemaFiles = await detectTerraformProviderSchemaFiles(workspaceRoot, root);
   }
