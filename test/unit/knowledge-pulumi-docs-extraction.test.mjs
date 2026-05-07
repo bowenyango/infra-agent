@@ -512,3 +512,51 @@ test('Pulumi resource docs facts enter bounded packs as public-reference sources
     await rm(cacheRoot, { recursive: true, force: true });
   }
 });
+
+test('Pulumi package docs facts enter bounded packs as public-reference sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-package-docs-pack-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-package-docs-pack-cache-'));
+
+  try {
+    await writePulumiResourceDocsWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+    const source = (await buildPulumiDocsKnowledgeSources(inspection.workspaceRoot, project))
+      .find(candidate => candidate.name === 'pulumi-docs:package:aws');
+    assert.ok(source);
+    const store = createFileKnowledgeStore(cacheRoot);
+    const entry = await store.write({
+      source,
+      contentType: 'text/markdown',
+      content: PULUMI_AWS_PACKAGE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      sourceIds: [entry.id],
+      store,
+      now: new Date('2026-05-07T00:00:00.000Z'),
+      maxFacts: 10
+    });
+
+    assert.equal(pack.sourceCount, 1);
+    assert.equal(pack.sources[0]?.kind, 'pulumi-docs');
+    assert.equal(pack.sources[0]?.name, 'pulumi-docs:package:aws');
+    assert.equal(pack.sources[0]?.storagePolicy.scope, 'public-reference');
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'pulumi-docs-guidance'
+      && fact.sourceId === entry.id
+      && fact.path === 'pulumi.package.aws.s3'
+      && fact.sourceLocator === 'Pulumi package docs: s3'
+    ));
+    assert.equal(pack.facts.some(fact => fact.kind === 'example'), false);
+    assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|# AWS|Secret Manager/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
+});

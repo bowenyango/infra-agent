@@ -115,6 +115,11 @@ Progress log:
   `pulumi-docs:package:aws` cache entries become extracted package guidance
   facts for a Pulumi target. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
+- Commit 4 covered the package-docs-to-pack path. Bounded
+  `KnowledgePack` output now has a regression proving package docs facts retain
+  public-reference source posture, do not become examples, and omit raw docs.
+  Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 
