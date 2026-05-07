@@ -50,6 +50,26 @@ const PULUMI_BUCKET_RESOURCE_MARKDOWN = [
   ''
 ].join('\n');
 
+const PULUMI_AWS_PACKAGE_MARKDOWN = [
+  '# AWS',
+  '',
+  '## Modules',
+  '',
+  '| Module | Description |',
+  '| --- | --- |',
+  '| [s3](./s3/) | S3 resources for buckets and objects. |',
+  '| [iam](./iam/) | IAM resources for roles and policies. |',
+  '| [secretsmanager](./secretsmanager/) | Secret Manager resources must not become reusable facts. |',
+  '',
+  '- [lambda](./lambda/) - Lambda resources manage functions.',
+  '- `cloudwatch` - CloudWatch resources publish alarms and dashboards.',
+  '',
+  '## ec2',
+  '',
+  'EC2 resources manage compute instances.',
+  ''
+].join('\n');
+
 function pulumiDocsSource() {
   return {
     kind: 'pulumi-docs',
@@ -190,6 +210,57 @@ test('Pulumi resource docs markdown extraction emits compact argument facts', as
     ));
     assert.equal(factSet.facts.some(fact =>
       /secretToken|secret token/i.test(JSON.stringify(fact))
+    ), false);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Pulumi package docs markdown extraction emits compact package guidance facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-package-docs-facts-'));
+
+  try {
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source: {
+        kind: 'pulumi-docs',
+        name: 'pulumi-docs:package:aws',
+        packageName: '@pulumi/aws',
+        version: '^7.0.0',
+        url: 'https://www.pulumi.com/registry/packages/aws/api-docs/'
+      },
+      contentType: 'text/markdown',
+      content: PULUMI_AWS_PACKAGE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      now: new Date('2026-05-07T00:00:00.000Z')
+    });
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'pulumi-docs-guidance'
+      && fact.path === 'pulumi.package.aws.s3'
+      && fact.summary === 'S3 resources for buckets and objects.'
+      && fact.values?.includes('s3')
+      && fact.confidence === 'medium'
+      && fact.extractionMethod === 'pulumi-docs-markdown'
+      && fact.source.locator === 'Pulumi package docs: s3'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.path === 'pulumi.package.aws.lambda'
+      && fact.summary === 'Lambda resources manage functions.'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.path === 'pulumi.package.aws.cloudwatch'
+      && fact.summary === 'CloudWatch resources publish alarms and dashboards.'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.path === 'pulumi.package.aws.ec2'
+      && fact.summary === 'EC2 resources manage compute instances.'
+    ));
+    assert.equal(factSet.facts.some(fact =>
+      /secretsmanager|Secret Manager/i.test(JSON.stringify(fact))
     ), false);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

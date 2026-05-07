@@ -99,6 +99,18 @@ Current risks and constraints:
   sections, values, descriptions, paths, and summaries.
 - No deploy/apply/state mutation behavior is allowed.
 
+Progress log:
+
+- Commit 1 recorded this active Pulumi package docs fact plan, subagent
+  responsibilities, the 10 planned checkpoints, and the slice risks. Focused
+  validation: `git diff --check`.
+- Commit 2 added cached Pulumi package docs markdown extraction under the
+  existing `pulumi-docs-markdown` extractor boundary. Package docs tables,
+  link/code bullets, and module headings now emit bounded medium-confidence
+  `pulumi-docs-guidance` facts while skipping HTML-shaped and secret-looking
+  content. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
+
 ## 2026-05-07 Active Multi-Stage Development Plan
 
 Status:
