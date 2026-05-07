@@ -134,6 +134,25 @@ Progress log:
   record that only Pulumi YAML resource tokens are supported, cached resource
   docs facts remain advisory, and language-source/component inference is still
   out of scope. Focused validation: `git diff --check`.
+- Commit 10 recorded final verification for the Pulumi resource knowledge
+  slice. `npm run verify` passed, including lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run.
+
+Final validation on 2026-05-07:
+
+- `npm run lint`: passed with 193 checked files.
+- `npm run test:structure`: passed with 61 checked test files.
+- `npm run test:unit`: passed with 326 tests.
+- `npm run test:integration`: passed with 68 tests.
+- `npm run test:contract`: passed with 18 tests.
+- `npm run test:isolated`: passed with 49 checked shards.
+- `npm run smoke`: passed.
+- `npm run e2e`: passed.
+- `npm run test:coverage`: passed at 88.98% lines, 78.55% branches, and
+  96.18% functions.
+- `npm run package:check`: passed with 134 packed entries in the installable
+  package surface.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 
