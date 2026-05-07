@@ -39,6 +39,59 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-07 Active Multi-Stage Development Plan
+
+Status:
+
+- In progress. This session continues `infra-agent` development under the
+  current `AGENTS.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
+  `docs/CLAUDE_CODE_AGENT_PATTERNS.md` constraints.
+- The selected product slice is Pulumi resource-level knowledge support:
+  detect deterministic Pulumi YAML resource tokens, select Pulumi Registry
+  resource docs sources, extract compact resource guidance from cached docs,
+  and expose that context through the existing cache-first knowledge and
+  compact handoff surfaces.
+
+Why this direction:
+
+- The roadmap lists Pulumi resource-level docs source selection, package/
+  resource docs fact extraction, and Pulumi component facts as pending work.
+- This slice improves planner context without changing the safety model:
+  official docs remain explicit-cache or prefetch driven, facts remain
+  advisory, and native validators such as `pulumi preview` remain
+  authoritative.
+- This follows the Claude Code architecture lessons already adopted by this
+  repo: compact context packets, deterministic state, structured handoff, and
+  bounded tool/result summaries. It does not add recursive subagents,
+  background daemons, chat UI, or apply/deploy behavior.
+
+Planned commits and checkpoints:
+
+1. Record the active execution plan in `docs/HANDOFF.md`.
+2. Add Pulumi YAML resource-token discovery to workspace inspection.
+3. Surface discovered Pulumi resource metadata in target details and tests.
+4. Select resource-level Pulumi Registry docs sources from deterministic
+   Pulumi YAML resource tokens.
+5. Cover the source selection through knowledge source report and CLI tests.
+6. Extend the Pulumi docs markdown extractor to emit compact resource argument
+   facts from cached Registry docs markdown.
+7. Cover resource docs extraction through knowledge extraction and pack tests.
+8. Strengthen compact `knowledgeFacts` contract coverage for Pulumi resource
+   docs facts.
+9. Update roadmap/skill documentation so future agents know the new capability
+   and its remaining limits.
+10. Run the full verification gate and record the final validation outcome.
+
+Current risks and constraints:
+
+- Pulumi YAML resources are deterministic enough to inspect, but language
+  source imports are not in scope for this session.
+- Cached Pulumi Registry docs are advisory and may be stale; compact facts must
+  not be treated as validator-grade evidence.
+- Resource docs source selection must not expose stack config values, backend
+  URLs, secrets, or raw `package.json` content.
+- No deploy/apply/state mutation behavior is allowed in this slice.
+
 ## 2026-05-06 Pulumi Package Docs Source Slice
 
 Status:
