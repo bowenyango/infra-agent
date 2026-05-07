@@ -139,6 +139,11 @@ Progress log:
   high-confidence Helm schema facts continue to outrank medium-confidence
   public chart docs facts under deterministic fact ranking. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-helm-chart-docs-ranking.test.mjs`.
+- Commit 9 added compact agent-result contract coverage for Helm chart-doc
+  facts. The handoff contract accepts `helm-chart-docs-markdown` chart values
+  with compact source summaries and rejects raw external source URLs. Focused
+  validation:
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 

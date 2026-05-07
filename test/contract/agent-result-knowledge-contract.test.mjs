@@ -583,3 +583,92 @@ test('compact agent result contract accepts Pulumi package docs facts without ra
     /knowledgeFacts\.sources\[0\]\.url.*raw source fields/
   );
 });
+
+test('compact agent result contract accepts Helm chart docs facts without raw source fields', () => {
+  const { validResult } = buildAgentResultContractFixtures();
+  const chartDocsKnowledgeFacts = {
+    ...validResult.knowledgeFacts,
+    packId: 'fedcba9876543210fedcba98',
+    sourceCount: 1,
+    factSetCount: 1,
+    totalFactCount: 2,
+    includedFactCount: 2,
+    omittedFactCount: 0,
+    staleSourceCount: 0,
+    sources: [
+      {
+        id: 'chart-docs/api-home',
+        domain: 'helm',
+        targetPath: 'charts/api',
+        kind: 'chart-docs',
+        name: 'api:home',
+        factCount: 2,
+        stale: false,
+        freshness: 'fresh'
+      }
+    ],
+    facts: [
+      {
+        kind: 'chart-value',
+        path: 'chart.api.image.repository',
+        summary: 'Container image repository.',
+        confidence: 'medium',
+        extractionMethod: 'helm-chart-docs-markdown',
+        sourceId: 'chart-docs/api-home',
+        sourceLocator: 'Chart docs: image.repository',
+        type: 'string',
+        values: ['image.repository']
+      },
+      {
+        kind: 'chart-value',
+        path: 'chart.api.service.port',
+        summary: 'Service port exposed by the chart.',
+        confidence: 'medium',
+        extractionMethod: 'helm-chart-docs-markdown',
+        sourceId: 'chart-docs/api-home',
+        sourceLocator: 'Chart docs: service.port',
+        type: 'integer',
+        defaultValue: '80',
+        values: ['service.port']
+      }
+    ]
+  };
+  const result = {
+    ...validResult,
+    knowledgeFacts: chartDocsKnowledgeFacts,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        knowledgeFacts: {
+          includedCount: 2,
+          omittedCount: 0
+        }
+      }
+    },
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        knowledgeFactCount: 2
+      }
+    }
+  };
+
+  assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...result,
+      knowledgeFacts: {
+        ...chartDocsKnowledgeFacts,
+        sources: [
+          {
+            ...chartDocsKnowledgeFacts.sources[0],
+            url: 'https://example.com/charts/api'
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.sources\[0\]\.url.*raw source fields/
+  );
+});
