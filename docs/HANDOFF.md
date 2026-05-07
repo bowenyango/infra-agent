@@ -135,6 +135,10 @@ Progress log:
   chart docs facts enter bounded public-reference packs through the real
   command path without raw cached markdown. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
+- Commit 8 added ranking posture coverage for chart docs guidance. Local
+  high-confidence Helm schema facts continue to outrank medium-confidence
+  public chart docs facts under deterministic fact ranking. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-helm-chart-docs-ranking.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 
