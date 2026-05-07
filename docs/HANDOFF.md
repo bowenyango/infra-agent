@@ -114,6 +114,11 @@ Progress log:
   raw Pulumi YAML, package manifest content, or stack config values. Focused
   validation:
   `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`.
+- Commit 6 extended cached Pulumi docs markdown extraction for resource docs.
+  Cached Registry markdown resource tables and bullets can now emit bounded
+  medium-confidence `argument` facts while skipping HTML and secret-looking
+  fields. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 

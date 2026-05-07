@@ -35,6 +35,19 @@ const PULUMI_YAML_MARKDOWN = [
   ''
 ].join('\n');
 
+const PULUMI_BUCKET_RESOURCE_MARKDOWN = [
+  '# Bucket',
+  '',
+  '## Inputs',
+  '',
+  '| Name | Type | Description |',
+  '| --- | --- | --- |',
+  '| `bucket` | string | Name of the bucket to create. |',
+  '| `acl` | string | Canned ACL to apply to the bucket. |',
+  '| `secretToken` | string | Secret token that must not become a reusable fact. |',
+  ''
+].join('\n');
+
 function pulumiDocsSource() {
   return {
     kind: 'pulumi-docs',
@@ -107,6 +120,49 @@ test('Pulumi YAML docs markdown extraction emits runtime guidance facts', async 
       && fact.summary === 'Declares Pulumi resources in a YAML program.'
       && fact.confidence === 'medium'
     ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Pulumi resource docs markdown extraction emits compact argument facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-resource-docs-facts-'));
+
+  try {
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source: {
+        kind: 'pulumi-docs',
+        name: 'pulumi-docs:resource:aws:s3/bucket',
+        packageName: '@pulumi/aws',
+        module: 'aws:s3/bucket:Bucket',
+        url: 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+      },
+      contentType: 'text/markdown',
+      content: PULUMI_BUCKET_RESOURCE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      now: new Date('2026-05-07T00:00:00.000Z')
+    });
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+      && fact.summary === 'Name of the bucket to create.'
+      && fact.type === 'string'
+      && fact.confidence === 'medium'
+      && fact.extractionMethod === 'pulumi-docs-markdown'
+      && fact.source.locator === 'Pulumi resource docs: bucket'
+    ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.path === 'pulumi.resource.aws.s3.bucket.Bucket.acl'
+    ));
+    assert.equal(factSet.facts.some(fact =>
+      /secretToken|secret token/i.test(JSON.stringify(fact))
+    ), false);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
