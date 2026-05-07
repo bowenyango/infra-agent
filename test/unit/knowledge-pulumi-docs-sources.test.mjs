@@ -137,6 +137,58 @@ test('Pulumi docs source selection derives package docs from project package man
   }
 });
 
+test('Pulumi docs source selection derives resource docs from YAML resource tokens', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-resources-'));
+
+  try {
+    await writePulumiProject(
+      tempRoot,
+      'infra/api',
+      [
+        'name: api',
+        'runtime: yaml',
+        'resources:',
+        '  apiBucket:',
+        '    type: aws:s3/bucket:Bucket',
+        '  apiDeployment:',
+        '    type: kubernetes:apps/v1:Deployment',
+        ''
+      ].join('\n')
+    );
+    await writePulumiPackageJson(tempRoot, 'infra/api', {
+      dependencies: {
+        '@pulumi/aws': '^7.0.0',
+        '@pulumi/kubernetes': '4.20.1'
+      }
+    });
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+
+    const sources = await buildPulumiDocsKnowledgeSources(tempRoot, project);
+
+    assert.ok(sources.some(source =>
+      source.kind === 'pulumi-docs'
+      && source.name === 'pulumi-docs:resource:aws:s3/bucket'
+      && source.packageName === '@pulumi/aws'
+      && source.module === 'aws:s3/bucket:Bucket'
+      && source.version === '^7.0.0'
+      && source.url === 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+      && source.localPath === undefined
+    ));
+    assert.ok(sources.some(source =>
+      source.name === 'pulumi-docs:resource:kubernetes:apps/v1/deployment'
+      && source.packageName === '@pulumi/kubernetes'
+      && source.module === 'kubernetes:apps/v1:Deployment'
+      && source.version === '4.20.1'
+      && source.url === 'https://www.pulumi.com/registry/packages/kubernetes/api-docs/apps/v1/deployment/'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('Pulumi docs source selection omits private or local package versions from public docs ids', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-local-package-'));
 

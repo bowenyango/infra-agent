@@ -103,6 +103,11 @@ Progress log:
   summaries, and resource names/types can contribute to repository-hint
   targeting. Focused validation:
   `node --experimental-strip-types --test test/unit/pulumi-resource-token-inspection.test.mjs`.
+- Commit 4 selected Pulumi Registry resource docs sources from deterministic
+  YAML resource tokens. Source selection uses safe package dependency versions
+  when available, builds public-reference Registry API docs URLs, and still
+  skips secret-looking tokens. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-sources.test.mjs`.
 
 ## 2026-05-06 Pulumi Package Docs Source Slice
 
