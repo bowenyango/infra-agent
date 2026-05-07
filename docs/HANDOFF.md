@@ -148,6 +148,12 @@ Progress log:
   public `pulumi-docs:resource:*` source can be deliberately cached without
   live network dependency or raw source leakage. Focused validation:
   `node --experimental-strip-types test/unit/knowledge-pulumi-docs-sources.test.mjs`.
+- Commit 9 added CLI `knowledge extract` coverage for language-derived Pulumi
+  resource docs. Explicit Node.js/TypeScript constructor evidence now selects a
+  cached public resource-doc source through the real command path and emits
+  compact `argument` facts without raw source code, raw markdown, or
+  secret-looking doc fields. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 
