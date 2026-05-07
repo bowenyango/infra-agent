@@ -120,6 +120,11 @@ Progress log:
   public-reference source posture, do not become examples, and omit raw docs.
   Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
+- Commit 5 added CLI extraction coverage for cached Pulumi package docs.
+  `knowledge extract --domain pulumi --target ... --source ... --json` now has
+  an integration regression proving package docs facts are extracted through
+  the real command path without raw cached markdown. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 
