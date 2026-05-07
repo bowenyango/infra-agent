@@ -115,6 +115,12 @@ Progress log:
   constructors, and emits deterministic Pulumi resource tokens without raw
   source content. Focused validation:
   `node --experimental-strip-types --test test/unit/pulumi-resource-token-inspection.test.mjs`.
+- Commit 3 expanded the language parser to cover named imports, package
+  subpath imports, and destructured CommonJS requires. Module aliases such as
+  `import { s3 as awsS3 } from "@pulumi/aws"` and direct constructors from
+  `@pulumi/aws/s3` or `@pulumi/kubernetes/apps/v1` now map to the same
+  deterministic Pulumi resource tokens. Focused validation:
+  `node --experimental-strip-types test/unit/pulumi-resource-token-inspection.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 

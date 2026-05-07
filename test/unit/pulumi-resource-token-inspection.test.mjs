@@ -67,6 +67,84 @@ test('Pulumi language parser extracts CommonJS namespace resource constructors',
   ]);
 });
 
+test('Pulumi language parser extracts named import resource constructors', () => {
+  const resourceTokens = extractPulumiLanguageResourceTokens(
+    [
+      'import { s3 as awsS3 } from "@pulumi/aws";',
+      'const bucket = new awsS3.Bucket("named-bucket", {});',
+      ''
+    ].join('\n'),
+    { sourcePath: 'infra/api/bucket.ts' }
+  );
+
+  assert.deepEqual(resourceTokens, [
+    {
+      name: 'named-bucket',
+      type: 'aws:s3/bucket:Bucket',
+      packageName: 'aws',
+      moduleName: 's3/bucket',
+      typeName: 'Bucket',
+      evidence: {
+        kind: 'pulumi-nodejs',
+        sourcePath: 'infra/api/bucket.ts',
+        sourceLocator: 'infra/api/bucket.ts:2'
+      }
+    }
+  ]);
+});
+
+test('Pulumi language parser extracts package subpath constructors', () => {
+  const resourceTokens = extractPulumiLanguageResourceTokens(
+    [
+      'import { Bucket as S3Bucket } from "@pulumi/aws/s3";',
+      'const bucket = new S3Bucket("subpath-bucket", {});',
+      ''
+    ].join('\n'),
+    { sourcePath: 'infra/api/subpath.ts' }
+  );
+
+  assert.deepEqual(resourceTokens, [
+    {
+      name: 'subpath-bucket',
+      type: 'aws:s3/bucket:Bucket',
+      packageName: 'aws',
+      moduleName: 's3/bucket',
+      typeName: 'Bucket',
+      evidence: {
+        kind: 'pulumi-nodejs',
+        sourcePath: 'infra/api/subpath.ts',
+        sourceLocator: 'infra/api/subpath.ts:2'
+      }
+    }
+  ]);
+});
+
+test('Pulumi language parser extracts destructured CommonJS package subpath constructors', () => {
+  const resourceTokens = extractPulumiLanguageResourceTokens(
+    [
+      'const { Deployment: ApiDeployment } = require("@pulumi/kubernetes/apps/v1");',
+      'const deployment = new ApiDeployment("apiDeployment", {});',
+      ''
+    ].join('\n'),
+    { sourcePath: 'infra/api/deployment.js' }
+  );
+
+  assert.deepEqual(resourceTokens, [
+    {
+      name: 'apiDeployment',
+      type: 'kubernetes:apps/v1:Deployment',
+      packageName: 'kubernetes',
+      moduleName: 'apps/v1',
+      typeName: 'Deployment',
+      evidence: {
+        kind: 'pulumi-nodejs',
+        sourcePath: 'infra/api/deployment.js',
+        sourceLocator: 'infra/api/deployment.js:2'
+      }
+    }
+  ]);
+});
+
 test('inspectWorkspace extracts deterministic Pulumi YAML resource tokens', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-resource-tokens-'));
 
