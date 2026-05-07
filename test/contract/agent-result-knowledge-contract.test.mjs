@@ -671,4 +671,20 @@ test('compact agent result contract accepts Helm chart docs facts without raw so
     }),
     /knowledgeFacts\.sources\[0\]\.url.*raw source fields/
   );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...result,
+      knowledgeFacts: {
+        ...chartDocsKnowledgeFacts,
+        facts: [
+          {
+            ...chartDocsKnowledgeFacts.facts[0],
+            confidence: 'high'
+          },
+          chartDocsKnowledgeFacts.facts[1]
+        ]
+      }
+    }),
+    /knowledgeFacts\.facts\[0\]\.confidence.*helm-chart-docs-markdown/
+  );
 });

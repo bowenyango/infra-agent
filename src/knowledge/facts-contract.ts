@@ -277,6 +277,10 @@ export function parseKnowledgeFactSet(value: unknown): KnowledgeFactSet {
       throw new Error(`knowledge fact input ${factPath}.extractionMethod must be supported.`);
     }
 
+    if (fact.extractionMethod === 'helm-chart-docs-markdown' && fact.confidence !== 'medium') {
+      throw new Error(`knowledge fact input ${factPath}.confidence must be medium for helm-chart-docs-markdown facts.`);
+    }
+
     if (fact.values !== undefined) {
       assertStringArray(fact.values, `${factPath}.values`);
     }

@@ -483,6 +483,9 @@ function validateKnowledgePackFact(
   ) {
     issues.push(error(`${path}.extractionMethod`, 'Knowledge pack fact extractionMethod must be supported.'));
   }
+  if (value.extractionMethod === 'helm-chart-docs-markdown' && value.confidence !== 'medium') {
+    issues.push(error(`${path}.confidence`, 'Helm chart docs markdown facts must remain medium-confidence advisory facts.'));
+  }
 
   const sourceId = readNonEmptyString(value.sourceId, `${path}.sourceId`, issues);
   if (sourceId !== null && !sourceIds.has(sourceId)) {

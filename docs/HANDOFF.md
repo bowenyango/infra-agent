@@ -149,6 +149,14 @@ Progress log:
   as bounded `knowledgeFacts` summaries, respect `maxFacts`, and omit raw
   markdown/source metadata. Focused validation:
   `node --experimental-strip-types test/unit/planner-knowledge-facts-prompt.test.mjs`.
+- Commit 11 enforced the advisory confidence contract for Helm chart-doc
+  markdown facts. Fact-set parsing, knowledge pack validation, and compact
+  agent-result validation now reject `helm-chart-docs-markdown` facts that are
+  promoted above medium confidence. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-cache-contracts.test.mjs`,
+  `node --experimental-strip-types --test test/unit/knowledge-helm-chart-docs-contract.test.mjs`,
+  and
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 

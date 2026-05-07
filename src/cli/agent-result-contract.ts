@@ -4330,6 +4330,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error(`compact result input ${factPath}.extractionMethod must be supported.`);
     }
 
+    if (fact.extractionMethod === 'helm-chart-docs-markdown' && fact.confidence !== 'medium') {
+      throw new Error(`compact result input ${factPath}.confidence must be medium for helm-chart-docs-markdown facts.`);
+    }
+
     if (!knowledgeFactSourceIds.has(fact.sourceId as string)) {
       throw new Error(`compact result input ${factPath}.sourceId must reference knowledgeFacts.sources.`);
     }

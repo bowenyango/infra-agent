@@ -78,6 +78,60 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
   ]);
 });
 
+test('knowledge fact contracts keep Helm chart docs facts medium-confidence', () => {
+  const chartDocsSource = {
+    kind: 'chart-docs',
+    name: 'api:home',
+    url: 'https://example.com/charts/api',
+    chart: 'api',
+    packageName: 'api'
+  };
+  const chartDocsSourceId = buildKnowledgeCacheId(chartDocsSource);
+  const chartDocsFactSet = {
+    kind: 'infra-agent.knowledge-facts',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    sourceId: chartDocsSourceId,
+    source: chartDocsSource,
+    sourceContentHash: 'c'.repeat(64),
+    sourceFetchedAt: '2026-05-06T00:00:00.000Z',
+    sourceStaleAfter: '2026-06-05T00:00:00.000Z',
+    sourceStale: false,
+    extractedAt: '2026-05-06T01:00:00.000Z',
+    factCount: 1,
+    facts: [
+      {
+        kind: 'chart-value',
+        path: 'chart.api.image.repository',
+        summary: 'Container image repository.',
+        values: ['image.repository'],
+        confidence: 'medium',
+        extractionMethod: 'helm-chart-docs-markdown',
+        source: {
+          id: chartDocsSourceId,
+          source: chartDocsSource,
+          contentHash: 'c'.repeat(64),
+          locator: 'Chart docs: image.repository'
+        }
+      }
+    ]
+  };
+
+  assert.equal(parseKnowledgeFactSet(chartDocsFactSet).facts[0]?.confidence, 'medium');
+  assert.throws(
+    () => parseKnowledgeFactSet({
+      ...chartDocsFactSet,
+      facts: [
+        {
+          ...chartDocsFactSet.facts[0],
+          confidence: 'high'
+        }
+      ]
+    }),
+    /helm-chart-docs-markdown/
+  );
+});
+
 test('knowledge source contracts include local infra sources', () => {
   const terraformModuleSource = {
     kind: 'terraform-module',
