@@ -109,6 +109,12 @@ Progress log:
 - Commit 1 recorded this active Pulumi language resource discovery plan,
   subagent responsibilities, 12 planned checkpoints, constraints, and risk
   boundaries. Focused validation: `git diff --check`.
+- Commit 2 added a conservative Pulumi Node.js/TypeScript resource constructor
+  parser for namespace imports and CommonJS requires. The parser records
+  workspace-relative evidence locators, skips strings/comments and provider
+  constructors, and emits deterministic Pulumi resource tokens without raw
+  source content. Focused validation:
+  `node --experimental-strip-types --test test/unit/pulumi-resource-token-inspection.test.mjs`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 

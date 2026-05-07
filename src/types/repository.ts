@@ -102,6 +102,11 @@ export interface PulumiResourceTokenSummary {
   packageName: string;
   moduleName: string;
   typeName: string;
+  evidence?: {
+    kind: 'pulumi-nodejs';
+    sourcePath: string;
+    sourceLocator: string;
+  };
 }
 
 export interface TerraformRootSummary {
