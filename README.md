@@ -199,6 +199,14 @@ Current behavior is intentionally runtime-foundation oriented:
   modules without exposing raw docs or package manifests. These facts are
   advisory, rank below local Pulumi config facts, and do not prove language
   source imports or component internals.
+- Pulumi YAML resource tokens and conservative Node.js/TypeScript project-root
+  `@pulumi/*` import/require plus explicit constructor evidence can select
+  public Pulumi Registry resource docs sources. Cached resource docs markdown
+  becomes bounded `argument` facts for resource inputs without exposing raw
+  source code or docs. Package dependencies only provide safe package/version
+  context; they are not treated as resource usage proof. Component internals,
+  dynamic aliases, generated/test files, and non-Node languages remain outside
+  this discovery path.
 - Helm charts are learned as local `chart-metadata` knowledge sources from
   `Chart.yaml` and sibling `Chart.lock` files. `knowledge extract`,
   `knowledge pack`, and the agent runtime convert chart identity, safe metadata,

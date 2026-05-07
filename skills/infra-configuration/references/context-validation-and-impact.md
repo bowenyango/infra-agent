@@ -175,6 +175,14 @@ Current cache foundation:
   `pulumi-docs-guidance` facts without raw package docs or package manifest
   content. These facts are public-reference and advisory; they do not prove
   resource usage or replace `pulumi preview`.
+- Pulumi resource docs context includes public `pulumi-docs:resource:*`
+  sources selected from deterministic YAML `resources.<name>.type` tokens or
+  conservative Node.js/TypeScript project-root `@pulumi/*` import/require plus
+  explicit constructor evidence. Cached markdown resource input tables and
+  bullets can emit bounded `argument` facts without raw source code or raw docs.
+  Package dependencies provide package/version context only; component internals,
+  generated/test files, dynamic alias dataflow, and non-Node languages are not
+  covered by this discovery path.
 - The CLI exposes `infra-agent knowledge sources`, `knowledge prefetch`,
   `knowledge extract`, `knowledge validate`, and `knowledge pack` for the
   cache-first learning workflow. Prefer `--domain`, `--target`,
@@ -198,8 +206,9 @@ Current extraction direction:
   Terraform Registry markdown, Helm `values.schema.json` chart values, compact
   Terraform provider-schema facts, Terraform local module interfaces, and
   Pulumi config parameters and cached Pulumi docs guidance for config, YAML,
-  package, and resource docs, plus Helm chart metadata, dependency facts, and
-  cached Helm chart-doc `chart-value` facts.
+  package, and resource docs selected from YAML and Node.js/TypeScript
+  constructor evidence, plus Helm chart metadata, dependency facts, and cached
+  Helm chart-doc `chart-value` facts.
 - Facts should carry source id, URL or local path, provider/chart/module name,
   version or commit, content hash, extraction method, confidence, stale posture,
   local source fingerprint metadata for repo-derived sources, and a short

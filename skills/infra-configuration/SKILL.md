@@ -185,11 +185,13 @@ credentials must still come from environment variables.
   package modules. Treat those facts as public-reference advisory context; they
   help orient package areas but do not prove resource usage, cover component
   internals, or replace local Pulumi config facts and `pulumi preview`.
-- For Pulumi YAML projects, deterministic `resources.<name>.type` tokens may
-  select Pulumi Registry resource docs and cached `argument` facts. Treat those
-  facts as public-reference advisory context for resource inputs; they do not
-  cover language-source imports or component internals, and they do not replace
-  `pulumi preview`.
+- For Pulumi projects, deterministic YAML `resources.<name>.type` tokens and
+  conservative Node.js/TypeScript project-root `@pulumi/*` import/require plus
+  explicit constructor evidence may select Pulumi Registry resource docs and
+  cached `argument` facts. Treat those facts as public-reference advisory
+  context for resource inputs; package dependencies alone do not prove resource
+  usage, component internals and non-Node languages remain outside this path,
+  and `pulumi preview` remains authoritative.
 - For Helm charts, prefer `chart-metadata` and `chart-dependency` knowledge
   facts over raw `Chart.yaml` or `Chart.lock` reads when choosing chart identity
   or dependency versions. Locked dependencies from `Chart.lock` take precedence

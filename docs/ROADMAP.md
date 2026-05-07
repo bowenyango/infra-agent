@@ -148,15 +148,15 @@ when they can reuse source-linked, versioned, validated facts about providers,
 resources, modules, components, and charts instead of relearning the same public
 or repository-local material on every run.
 
-Current progress as of 2026-05-06:
+Current progress as of 2026-05-07:
 
 | Area | Status | Current capability | Main gap |
 | --- | --- | --- | --- |
 | Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, cache-root resolution, and fingerprint-checked reuse for repo-local extraction outputs | No structured fact index or remote backend |
-| Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock`; Pulumi source selection for project config, YAML runtime official docs, package-level Pulumi Registry docs from project manifests, and resource-level Pulumi Registry docs from deterministic Pulumi YAML resource tokens | Pulumi resource-level docs source selection is not yet broad language import or component coverage |
+| Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock`; Pulumi source selection for project config, YAML runtime official docs, package-level Pulumi Registry docs from project manifests, and resource-level Pulumi Registry docs from deterministic Pulumi YAML resource tokens plus conservative Node.js/TypeScript import/require constructor evidence | Pulumi resource-level docs source selection is not yet component, dynamic alias/dataflow, generated-code, or non-Node-language coverage |
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, and bounded Helm schema knowledge packs | Pulumi component durable packs are not implemented |
-| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, cached Pulumi config/YAML/package/resource docs facts, local Helm metadata/dependency facts, and cached Helm chart-doc markdown `chart-value` facts | Pulumi component facts, Pulumi language-import/resource discovery beyond YAML, local fact refresh/staleness reporting, and team storage backends are pending |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, and cached Helm chart-doc markdown `chart-value` facts | Pulumi component facts, non-Node Pulumi language discovery, local fact refresh/staleness reporting, and team storage backends are pending |
 | Team storage | Planned | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints | No S3/GCS/Azure/Postgres backend implementation |
 
 Target artifact families:
@@ -308,6 +308,14 @@ Measurable milestones:
      `pulumi-docs:resource:aws:s3/bucket`. Source selection uses safe
      `@pulumi/*` dependency versions when available and remains
      public-reference/cache-first.
+   - Implemented 2026-05-07: Node.js/TypeScript Pulumi projects now scan
+     bounded project-root source files for conservative `@pulumi/*`
+     import/require bindings plus explicit resource constructors such as
+     `new aws.s3.Bucket(...)`. That parser records compact evidence locators,
+     skips comments, strings, generated/test/declaration files and ignored
+     directories, and selects the same public-reference resource docs path
+     without exposing raw source code. Package dependencies still provide
+     version context only; they do not prove resource usage.
    - Implemented 2026-05-07: cached Pulumi Registry resource docs markdown can
      extract bounded medium-confidence `argument` facts from resource input
      tables or bullets. Compact `knowledgeFacts` accepts these resource facts
@@ -330,10 +338,10 @@ Measurable milestones:
      planner prompts only through compact `knowledgeFacts`, and exclude raw
      markdown, external URLs, cache timestamps, and content hashes from compact
      handoff.
-   - Remaining: add Pulumi component facts, Pulumi language-import/resource
-     discovery beyond YAML, optional markdown normalization for live official
-     docs, local fact refresh/staleness reporting for workspace file changes,
-     and opt-in team storage backends.
+   - Remaining: add Pulumi component facts, non-Node Pulumi language discovery,
+     optional markdown normalization for live official docs, local fact
+     refresh/staleness reporting for workspace file changes, and opt-in team
+     storage backends.
 5. **Refresh And Staleness**
    - Add stale/fresh reporting for facts derived from cache entries and local
      files.

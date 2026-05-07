@@ -185,13 +185,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   exists. Treat these facts as public-reference advisory context; they rank
   below local Pulumi config facts, do not prove resource usage, and do not
   replace `pulumi preview`.
-- For Pulumi resource docs knowledge, use only deterministic Pulumi YAML
-  `resources.<name>.type` tokens as resource-level source evidence. Select
-  public Pulumi Registry resource docs for those tokens and extract compact
-  cached markdown `argument` facts only after an explicit prefetch/cache path
-  exists. Do not infer resource docs from TypeScript, Python, Go, .NET, Java,
-  or component source imports until a structured parser records that evidence.
-  These facts are advisory and must not replace `pulumi preview`.
+- For Pulumi resource docs knowledge, use only structured resource-level source
+  evidence: deterministic Pulumi YAML `resources.<name>.type` tokens and
+  conservative Node.js/TypeScript project-root `@pulumi/*` import/require plus
+  explicit constructor evidence. Select public Pulumi Registry resource docs
+  for those tokens and extract compact cached markdown `argument` facts only
+  after an explicit prefetch/cache path exists. Do not infer resource usage
+  from package dependencies alone, dynamic imports, alias dataflow, Python, Go,
+  .NET, Java, generated/test files, or component internals. These facts are
+  advisory and must not replace `pulumi preview`.
 - For Helm context, prefer repo-local `values.schema.json` packets over external Helm or chart docs.
 - For Helm chart metadata knowledge, use discovered `Chart.yaml` and sibling
   `Chart.lock` files as local `chart-metadata` sources. Extract compact

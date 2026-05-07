@@ -159,6 +159,13 @@ Progress log:
   from Node.js/TypeScript constructor evidence preserve `public-reference`
   source posture and include only compact facts. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
+- Commit 11 updated durable rules, roadmap, README, and bundled skill guidance
+  for Pulumi language resource discovery. The documented boundary now matches
+  the subagent review and implementation: YAML tokens plus conservative
+  Node.js/TypeScript `@pulumi/*` import/require constructor evidence are
+  supported; package-only inference, components, dynamic alias/dataflow,
+  generated/test files, and non-Node languages remain out of scope. Focused
+  validation: `git diff --check` and `npm run test:structure`.
 
 ## 2026-05-07 Active Helm Chart Docs Fact Plan
 
