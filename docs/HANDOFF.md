@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This session continues `infra-agent` development under the
-  existing architecture and safety rules, with a minimum of 10 meaningful
-  commits planned for this slice.
+- Completed. This session continued `infra-agent` development under the
+  existing architecture and safety rules, with 13 meaningful commits completed
+  for this slice.
 - The selected product slice is external Helm chart-doc markdown fact
   extraction: parse already-cached public `chart-docs` markdown, emit compact
   chart-value facts, and prove those facts flow through workspace extraction,
@@ -53,7 +53,7 @@ Status:
 
 Why this direction:
 
-- The roadmap still lists external chart-doc extraction beyond local
+- The roadmap previously listed external chart-doc extraction beyond local
   `Chart.yaml`/`Chart.lock` metadata as pending.
 - Existing Helm chart source selection already emits `chart-docs` sources from
   safe `Chart.yaml` `home`, `sources`, and dependency repository URLs.
@@ -83,8 +83,10 @@ Planned commits and checkpoints:
    chart-doc guidance under tight budgets.
 9. Strengthen compact `knowledgeFacts` contract coverage for chart-doc facts.
 10. Cover planner prompt budgeting for chart-doc facts without raw docs.
-11. Update durable roadmap, rules, README, and bundled skill guidance.
-12. Run full verification and record the validation outcome in this handoff.
+11. Enforce chart-doc advisory confidence at fact-set, pack validation, and
+   compact handoff boundaries.
+12. Update durable roadmap, rules, README, and bundled skill guidance.
+13. Run full verification and record the validation outcome in this handoff.
 
 Current risks and constraints:
 
@@ -162,6 +164,25 @@ Progress log:
   implemented cache-first public-reference chart-doc path, its local-source
   priority order, and the medium-confidence advisory contract. Focused
   validation: `git diff --check` and `npm run test:structure`.
+- Commit 13 recorded final verification for the Helm chart-doc facts slice.
+  `npm run verify` passed end to end: lint checked 198 files, structure checked
+  65 test files, unit passed 339 tests, integration passed 72 tests, contract
+  passed 20 tests, isolated shard execution checked 53 files, smoke and e2e
+  passed, coverage passed at 89.11% lines / 78.69% branches / 96.31% functions,
+  and package dry-run reported 135 packaged entries.
+
+Final validation:
+
+- `npm run verify`: passed.
+- `git diff --check`: passed after recording this handoff.
+
+Remaining follow-ups:
+
+- Pulumi component facts and language-import/resource discovery beyond Pulumi
+  YAML remain pending.
+- Optional markdown normalization for live official docs remains pending.
+- Local fact refresh/staleness reporting and opt-in team storage backends
+  remain pending.
 
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 
