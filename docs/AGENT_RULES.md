@@ -178,6 +178,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   entries, and do not expose raw YAML or secure ciphertext in packs, prompts,
   or compact handoff output. Treat these facts as advisory; `pulumi preview`
   remains authoritative for missing, invalid, or provider-specific config.
+- For Pulumi package docs knowledge, use only safe project-root `package.json`
+  `@pulumi/*` dependencies selected as `pulumi-docs:package:<slug>` sources.
+  Extract compact cached markdown `pulumi-docs-guidance` facts from package
+  module tables, bullets, and headings after an explicit prefetch/cache path
+  exists. Treat these facts as public-reference advisory context; they rank
+  below local Pulumi config facts, do not prove resource usage, and do not
+  replace `pulumi preview`.
 - For Pulumi resource docs knowledge, use only deterministic Pulumi YAML
   `resources.<name>.type` tokens as resource-level source evidence. Select
   public Pulumi Registry resource docs for those tokens and extract compact

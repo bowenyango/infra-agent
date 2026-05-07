@@ -192,6 +192,13 @@ Current behavior is intentionally runtime-foundation oriented:
   `pulumi-config-parameter` facts without exposing raw YAML or `secure` values.
   Secret-like config keys and all secure stack entries are skipped; `pulumi
   preview` remains the authoritative validator for missing or invalid config.
+- Pulumi project-root `package.json` dependencies on safe `@pulumi/*` packages
+  select public Pulumi Registry package docs sources. When those docs are
+  already cached as markdown, `knowledge extract`, `knowledge pack`, and the
+  agent runtime can use bounded `pulumi-docs-guidance` facts for package
+  modules without exposing raw docs or package manifests. These facts are
+  advisory, rank below local Pulumi config facts, and do not prove language
+  source imports or component internals.
 - Helm charts are learned as local `chart-metadata` knowledge sources from
   `Chart.yaml` and sibling `Chart.lock` files. `knowledge extract`,
   `knowledge pack`, and the agent runtime convert chart identity, safe metadata,

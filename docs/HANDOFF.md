@@ -145,6 +145,11 @@ Progress log:
   respects `maxFacts`, and excludes raw markdown, URL, cache timestamp, and
   content-hash fields. Focused validation:
   `node --experimental-strip-types test/unit/planner-knowledge-facts-prompt.test.mjs`.
+- Commit 10 updated durable roadmap, agent rules, README, and bundled skill
+  guidance. The docs now record that cached Pulumi package docs facts are
+  implemented, public-reference/advisory, ranked below local Pulumi config
+  facts, and still do not cover language imports or components. Focused
+  validation: `git diff --check` and `npm run test:structure`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 
