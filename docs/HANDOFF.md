@@ -110,6 +110,11 @@ Progress log:
   `pulumi-docs-guidance` facts while skipping HTML-shaped and secret-looking
   content. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
+- Commit 3 covered the workspace cache-to-extraction path for package docs.
+  `extractWorkspaceKnowledgeFacts` now has a regression proving selected
+  `pulumi-docs:package:aws` cache entries become extracted package guidance
+  facts for a Pulumi target. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pulumi-docs-extraction.test.mjs`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 

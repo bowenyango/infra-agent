@@ -379,6 +379,55 @@ test('workspace knowledge extraction reads cached Pulumi resource docs sources',
   }
 });
 
+test('workspace knowledge extraction reads cached Pulumi package docs sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-package-docs-extract-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-package-docs-cache-'));
+
+  try {
+    await writePulumiResourceDocsWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/api');
+    assert.ok(project);
+    const source = (await buildPulumiDocsKnowledgeSources(inspection.workspaceRoot, project))
+      .find(candidate => candidate.name === 'pulumi-docs:package:aws');
+    assert.ok(source);
+    const store = createFileKnowledgeStore(cacheRoot);
+    const entry = await store.write({
+      source,
+      contentType: 'text/markdown',
+      content: PULUMI_AWS_PACKAGE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const report = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      sourceIds: [entry.id],
+      store,
+      now: new Date('2026-05-07T00:00:00.000Z'),
+      extractedAt: '2026-05-07T00:00:00.000Z'
+    });
+
+    assert.equal(report.factSetCount, 1);
+    assert.ok(report.sources.some(result =>
+      result.id === entry.id
+      && result.source.kind === 'pulumi-docs'
+      && result.source.name === 'pulumi-docs:package:aws'
+      && result.status === 'extracted'
+      && result.factCount > 0
+    ));
+    assert.ok(report.factSets[0]?.facts.some(fact =>
+      fact.kind === 'pulumi-docs-guidance'
+      && fact.extractionMethod === 'pulumi-docs-markdown'
+      && fact.path === 'pulumi.package.aws.s3'
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
+});
+
 test('Pulumi docs facts enter bounded packs as public-reference sources', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-docs-pack-'));
 
