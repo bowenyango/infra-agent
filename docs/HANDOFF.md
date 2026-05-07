@@ -125,6 +125,11 @@ Progress log:
   an integration regression proving package docs facts are extracted through
   the real command path without raw cached markdown. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`.
+- Commit 6 added CLI pack coverage for cached Pulumi package docs.
+  `knowledge pack --domain pulumi --target ... --source ... --json` now proves
+  package docs facts enter bounded public-reference packs through the real
+  command path without raw cached markdown. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
 
 ## 2026-05-07 Active Multi-Stage Development Plan
 

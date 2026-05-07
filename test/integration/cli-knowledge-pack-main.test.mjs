@@ -21,6 +21,7 @@ import {
   buildEmptyApprovalPendingScopeFixture
 } from '../support/compact-fixtures.mjs';
 import { writeTerraformProviderSchemaWorkspace } from '../support/terraform-provider-schema-workspace.mjs';
+import { buildPulumiDocsKnowledgeSources } from '../../src/domain/pulumi-docs-context.ts';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../../src/agent/build-run-preflight.ts';
 import { printDoctorReport } from '../../src/cli/output.ts';
@@ -38,7 +39,20 @@ import {
   exitCodeForRunPreflight,
   INFRA_AGENT_EXIT_CODES
 } from '../../src/cli/exit-codes.ts';
+import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
+
+const PULUMI_AWS_PACKAGE_MARKDOWN = [
+  '# AWS',
+  '',
+  '## Modules',
+  '',
+  '| Module | Description |',
+  '| --- | --- |',
+  '| [s3](./s3/) | S3 resources for buckets and objects. |',
+  '| [lambda](./lambda/) | Lambda resources manage functions. |',
+  ''
+].join('\n');
 
 test('knowledge pack command emits bounded fact pack JSON', async () => {
   const output = await captureStdout(() => main([
@@ -273,6 +287,79 @@ test('knowledge pack command emits Pulumi config facts', async () => {
     && fact.path === 'config.payments-api:imageTag'
   ));
   assert.doesNotMatch(output, /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
+});
+
+test('knowledge pack command emits cached Pulumi package docs facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-pulumi-package-docs-'));
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), tempRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    await writeFile(
+      join(tempRoot, 'infra/payments-api/package.json'),
+      `${JSON.stringify({
+        dependencies: {
+          '@pulumi/aws': '^7.0.0'
+        }
+      }, null, 2)}\n`,
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === 'infra/payments-api');
+    assert.ok(project);
+    const source = (await buildPulumiDocsKnowledgeSources(inspection.workspaceRoot, project))
+      .find(candidate => candidate.name === 'pulumi-docs:package:aws');
+    assert.ok(source);
+    const entry = await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source,
+      contentType: 'text/markdown',
+      content: PULUMI_AWS_PACKAGE_MARKDOWN,
+      fetchedAt: '2026-05-06T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/payments-api',
+      '--source',
+      entry.id,
+      '--max-facts',
+      '3',
+      '--json'
+    ]));
+    const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.mutationAllowed, false);
+    assert.equal(pack.maxFacts, 3);
+    assert.ok(pack.sources.some(sourceResult =>
+      sourceResult.kind === 'pulumi-docs'
+      && sourceResult.name === 'pulumi-docs:package:aws'
+      && sourceResult.storagePolicy.scope === 'public-reference'
+    ));
+    assert.ok(pack.facts.some(fact =>
+      fact.kind === 'pulumi-docs-guidance'
+      && fact.extractionMethod === 'pulumi-docs-markdown'
+      && fact.path === 'pulumi.package.aws.s3'
+      && fact.sourceLocator === 'Pulumi package docs: s3'
+    ));
+    assert.doesNotMatch(output, /"content"\s*:|# AWS|dependencies/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge pack command writes a bounded reusable artifact with --out', async () => {
