@@ -99,6 +99,17 @@ Current risks and constraints:
 - No Helm upgrade/install, Kubernetes mutation, deploy, or state mutation
   behavior is allowed.
 
+Progress log:
+
+- Commit 1 recorded this active Helm chart-doc facts plan, subagent
+  responsibilities, the 12 planned checkpoints, and slice risks. It also
+  marked the previous Pulumi package docs plan as completed. Focused
+  validation: `git diff --check`.
+- Commit 2 added `helm-chart-docs-markdown` as a supported extraction method
+  in shared knowledge types and compact agent-result contract constants.
+  Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-cache-contracts.test.mjs`.
+
 ## 2026-05-07 Active Pulumi Package Docs Fact Plan
 
 Status:

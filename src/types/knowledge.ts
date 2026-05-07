@@ -43,6 +43,7 @@ export type KnowledgeFactKind = typeof KNOWLEDGE_FACT_KINDS[number];
 export const KNOWLEDGE_FACT_EXTRACTION_METHODS = [
   'terraform-registry-markdown',
   'pulumi-docs-markdown',
+  'helm-chart-docs-markdown',
   'terraform-provider-schema',
   'helm-values-schema',
   'repo-local-static'
