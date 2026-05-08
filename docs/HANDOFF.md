@@ -120,6 +120,12 @@ Progress log:
   ranking tables. Direct parser coverage proves component facts remain
   source-linked, workspace-private, and schema-validated. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-cache-contracts.test.mjs`.
+- Commit 3 added a conservative Pulumi Node.js/TypeScript component parser for
+  explicit `ComponentResource` class evidence. It extracts constructor args
+  interface/type fields and public output property declarations, skips
+  secret-looking fields and commented classes, and records source locators
+  without raw source content. Focused validation:
+  `node --experimental-strip-types --test test/unit/pulumi-component-inspection.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 
