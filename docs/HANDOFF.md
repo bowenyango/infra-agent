@@ -126,6 +126,12 @@ Progress log:
   secret-looking fields and commented classes, and records source locators
   without raw source content. Focused validation:
   `node --experimental-strip-types --test test/unit/pulumi-component-inspection.test.mjs`.
+- Commit 4 wired Pulumi component source discovery and summary-content
+  generation into the cache-first knowledge source path. Component source
+  discovery stays bounded to workspace-contained project files, skips
+  generated/test/declaration paths, stores summary JSON instead of raw source,
+  and uses local file fingerprints for rechecks. Focused validation:
+  `node --experimental-strip-types --test test/unit/pulumi-component-inspection.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 

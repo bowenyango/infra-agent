@@ -1,3 +1,13 @@
+import { readFile, stat } from 'node:fs/promises';
+import { extname, join, relative } from 'node:path';
+import {
+  listDirectory,
+  shouldIgnoreDirectory
+} from '../tools/repository/repository-tools.ts';
+import { buildKnowledgeCacheId } from '../knowledge/cache.ts';
+import type { KnowledgeSource } from '../types/knowledge.ts';
+import type { PulumiProjectSummary } from '../types/repository.ts';
+
 export interface PulumiComponentInputSummary {
   name: string;
   sourcePath: string;
@@ -23,9 +33,32 @@ export interface PulumiComponentSummary {
   outputs: PulumiComponentOutputSummary[];
 }
 
+export interface PulumiComponentKnowledgeSummary extends PulumiComponentSummary {
+  kind: 'infra-agent.pulumi-component-summary';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  projectRoot: string;
+}
+
 const SECRET_NAME_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const MAX_TYPE_LENGTH = 160;
+const PULUMI_COMPONENT_SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts']);
+const PULUMI_COMPONENT_IGNORED_DIRECTORIES = new Set([
+  '.infra-agent',
+  '.pulumi',
+  '__fixtures__',
+  '__tests__',
+  'build',
+  'dist',
+  'fixtures',
+  'generated',
+  'out',
+  'test',
+  'tests'
+]);
+const PULUMI_COMPONENT_SOURCE_MAX_FILES = 40;
+const PULUMI_COMPONENT_SOURCE_MAX_BYTES = 200_000;
 
 function maskComments(content: string): string {
   let output = '';
@@ -423,4 +456,155 @@ export function extractPulumiComponentSummaries(
     left.className.localeCompare(right.className)
     || left.sourceLocator.localeCompare(right.sourceLocator)
   );
+}
+
+function isPulumiComponentSourceFile(fileName: string): boolean {
+  if (
+    /\.d\.[cm]?ts$/i.test(fileName)
+    || /\.(test|spec)\.[cm]?[jt]sx?$/i.test(fileName)
+  ) {
+    return false;
+  }
+
+  return PULUMI_COMPONENT_SOURCE_EXTENSIONS.has(extname(fileName).toLowerCase());
+}
+
+async function collectPulumiComponentSourceFiles(
+  currentDir: string,
+  workspaceRoot: string,
+  files: string[]
+): Promise<void> {
+  if (files.length >= PULUMI_COMPONENT_SOURCE_MAX_FILES) {
+    return;
+  }
+
+  let entries;
+  try {
+    entries = await listDirectory(currentDir);
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (files.length >= PULUMI_COMPONENT_SOURCE_MAX_FILES) {
+      return;
+    }
+
+    if (entry.kind === 'directory') {
+      if (shouldIgnoreDirectory(entry.name) || PULUMI_COMPONENT_IGNORED_DIRECTORIES.has(entry.name)) {
+        continue;
+      }
+
+      await collectPulumiComponentSourceFiles(entry.path, workspaceRoot, files);
+      continue;
+    }
+
+    if (!isPulumiComponentSourceFile(entry.name)) {
+      continue;
+    }
+
+    files.push(relative(workspaceRoot, entry.path));
+  }
+}
+
+async function readProjectComponentSummaries(
+  workspaceRoot: string,
+  project: Pick<PulumiProjectSummary, 'projectRoot'>
+): Promise<PulumiComponentSummary[]> {
+  const sourceFiles: string[] = [];
+  await collectPulumiComponentSourceFiles(join(workspaceRoot, project.projectRoot), workspaceRoot, sourceFiles);
+  const summaries: PulumiComponentSummary[] = [];
+
+  for (const sourcePath of sourceFiles.sort()) {
+    try {
+      const file = await stat(join(workspaceRoot, sourcePath));
+      if (file.size > PULUMI_COMPONENT_SOURCE_MAX_BYTES) {
+        continue;
+      }
+
+      summaries.push(...extractPulumiComponentSummaries(
+        await readFile(join(workspaceRoot, sourcePath), 'utf8'),
+        { sourcePath }
+      ));
+    } catch {
+      continue;
+    }
+  }
+
+  return summaries.sort((left, right) =>
+    left.className.localeCompare(right.className)
+    || left.sourcePath.localeCompare(right.sourcePath)
+  );
+}
+
+function uniqueKnowledgeSources(sources: KnowledgeSource[]): KnowledgeSource[] {
+  const seen = new Set<string>();
+  const unique: KnowledgeSource[] = [];
+
+  for (const source of sources) {
+    const id = buildKnowledgeCacheId(source);
+    if (seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    unique.push(source);
+  }
+
+  return unique;
+}
+
+export async function buildPulumiComponentKnowledgeSources(
+  workspaceRoot: string,
+  project: PulumiProjectSummary
+): Promise<KnowledgeSource[]> {
+  const summaries = await readProjectComponentSummaries(workspaceRoot, project);
+  return uniqueKnowledgeSources(summaries.map(summary => ({
+    kind: 'pulumi-component' as const,
+    name: `pulumi-component:${project.projectRoot}:${summary.className}`,
+    localPath: summary.sourcePath,
+    module: project.projectRoot,
+    packageName: summary.className
+  })));
+}
+
+export async function buildPulumiComponentKnowledgeContent(input: {
+  workspaceRoot: string;
+  project: PulumiProjectSummary;
+  source: KnowledgeSource;
+}): Promise<string | null> {
+  if (
+    input.source.kind !== 'pulumi-component'
+    || input.source.module !== input.project.projectRoot
+    || input.source.localPath === undefined
+  ) {
+    return null;
+  }
+
+  let content: string;
+  try {
+    content = await readFile(join(input.workspaceRoot, input.source.localPath), 'utf8');
+  } catch {
+    return null;
+  }
+
+  const className = input.source.packageName
+    ?? input.source.name.split(':').at(-1)
+    ?? '';
+  const summary = extractPulumiComponentSummaries(content, {
+    sourcePath: input.source.localPath
+  }).find(candidate => candidate.className === className);
+  if (!summary) {
+    return null;
+  }
+
+  const output: PulumiComponentKnowledgeSummary = {
+    kind: 'infra-agent.pulumi-component-summary',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    projectRoot: input.project.projectRoot,
+    ...summary
+  };
+
+  return JSON.stringify(output, null, 2);
 }

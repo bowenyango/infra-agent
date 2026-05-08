@@ -3,6 +3,7 @@ import type { KnowledgeFetcher } from './retrieve.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
+import { buildPulumiComponentKnowledgeSources } from '../domain/pulumi-components.ts';
 import { buildPulumiDocsKnowledgeSources } from '../domain/pulumi-docs-context.ts';
 import { buildTerraformLocalModuleKnowledgeSources } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeSources } from '../domain/terraform-provider-schema.ts';
@@ -147,6 +148,13 @@ export async function collectWorkspaceKnowledgeSources(
 
       const sources = await buildPulumiConfigKnowledgeSources(workspaceRoot, project);
       candidates.push(...sources.map(source => ({
+        domain: 'pulumi' as const,
+        targetPath: project.projectRoot,
+        source
+      })));
+
+      const componentSources = await buildPulumiComponentKnowledgeSources(workspaceRoot, project);
+      candidates.push(...componentSources.map(source => ({
         domain: 'pulumi' as const,
         targetPath: project.projectRoot,
         source

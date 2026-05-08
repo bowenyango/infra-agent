@@ -9,6 +9,7 @@ import {
   fingerprintWorkspaceFiles
 } from './local-source-fingerprint.ts';
 import { buildHelmChartMetadataKnowledgeContent } from '../domain/helm-chart-context.ts';
+import { buildPulumiComponentKnowledgeContent } from '../domain/pulumi-components.ts';
 import { buildPulumiConfigKnowledgeContent } from '../domain/pulumi-config-knowledge.ts';
 import { buildTerraformLocalModuleKnowledgeContent } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeContent } from '../domain/terraform-provider-schema.ts';
@@ -68,6 +69,7 @@ function localContentType(source: KnowledgeSource): KnowledgeContentType {
     || source.kind === 'chart-metadata'
     || source.kind === 'provider-schema'
     || source.kind === 'pulumi-config'
+    || source.kind === 'pulumi-component'
     || source.kind === 'terraform-module'
   ) {
     return 'application/json';
@@ -134,6 +136,10 @@ function localFingerprintPaths(source: KnowledgeSource, content: string): string
     } catch {
       return [source.localPath];
     }
+  }
+
+  if (source.kind === 'pulumi-component') {
+    return source.localPath ? [source.localPath] : [];
   }
 
   if (source.kind === 'provider-schema') {
@@ -290,6 +296,21 @@ async function readSourceEntry(
 
       if (content === null) {
         throw new Error('Pulumi config source could not be summarized.');
+      }
+    }
+
+    if (source.kind === 'pulumi-component' && source.module) {
+      const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === source.module);
+      if (project) {
+        content = await buildPulumiComponentKnowledgeContent({
+          workspaceRoot: inspection.workspaceRoot,
+          project,
+          source
+        });
+      }
+
+      if (content === null) {
+        throw new Error('Pulumi component source could not be summarized.');
       }
     }
 
