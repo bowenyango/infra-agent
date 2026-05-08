@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This session is continuing `infra-agent` development under the
-  existing architecture and safety rules, with at least 10 meaningful commits
-  planned for this slice.
+- Completed. This session continued `infra-agent` development under the
+  existing architecture and safety rules, with 12 meaningful commits completed
+  for this slice.
 - The selected product slice is conservative Pulumi component fact extraction:
   detect workspace-contained Node.js/TypeScript `pulumi.ComponentResource`
   class evidence, summarize component inputs and outputs without raw source
@@ -172,6 +172,21 @@ Progress log:
   secret-like fields, non-Node languages, dynamic factories, and deeper
   component internals remain out of scope. Focused validation:
   `git diff --check` and `npm run test:structure`.
+- Commit 12 recorded final verification for the Pulumi component facts slice.
+  Full validation: `npm run verify` passed. This covered lint (201 files),
+  structure (67 files), unit (357 tests), integration (78 tests), contract (21
+  tests), isolated shard execution (55 files), smoke, e2e, coverage (456 tests,
+  89.04% lines, 78.01% branches, 96.24% functions), and package dry-run (136
+  entries).
+
+Remaining work:
+
+- Non-Node Pulumi component languages, dynamic component factory support, richer
+  component-internal dataflow, and local staleness reporting polish remain
+  future roadmap items.
+- Component facts remain advisory planner context. `pulumi preview`, project
+  type checks, and stack validation remain authoritative before any real infra
+  change.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 
