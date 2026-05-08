@@ -137,6 +137,11 @@ Progress log:
   workspace-private, fetch-free, target-scoped, and do not expose raw
   TypeScript source content. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`.
+- Commit 6 added extraction of compact `pulumi-component-input` and
+  `pulumi-component-output` facts from cached component summary JSON. The
+  extractor preserves source locators and related paths, skips secret-looking
+  fields, and emits no raw source code. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pulumi-component-facts.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 

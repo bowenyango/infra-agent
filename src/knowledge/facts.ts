@@ -20,6 +20,7 @@ const IDENTITY_FIELD_NAMES = new Set(['bucket', 'domain_name', 'name', 'priority
 const MAX_TERRAFORM_PROVIDER_SCHEMA_FACTS = 120;
 const MAX_TERRAFORM_MODULE_FACTS = 140;
 const MAX_PULUMI_CONFIG_FACTS = 140;
+const MAX_PULUMI_COMPONENT_FACTS = 140;
 const MAX_HELM_CHART_METADATA_FACTS = 140;
 
 interface CompactTerraformProviderSchemaAttribute {
@@ -90,6 +91,32 @@ interface PulumiConfigFactSource {
   stackFiles: string[];
   declarations: PulumiConfigDeclarationFactSource[];
   stackValues: PulumiStackConfigValueFactSource[];
+}
+
+interface PulumiComponentInputFactSource {
+  name: string;
+  sourcePath: string;
+  sourceLocator: string;
+  required: boolean;
+  type?: string;
+}
+
+interface PulumiComponentOutputFactSource {
+  name: string;
+  sourcePath: string;
+  sourceLocator: string;
+  type?: string;
+}
+
+interface PulumiComponentFactSource {
+  projectRoot: string;
+  className: string;
+  sourcePath: string;
+  sourceLocator: string;
+  typeToken?: string;
+  argsType?: string;
+  inputs: PulumiComponentInputFactSource[];
+  outputs: PulumiComponentOutputFactSource[];
 }
 
 interface HelmChartMetadataDependencyFactSource {
@@ -906,6 +933,181 @@ function extractPulumiConfigFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
   }
 }
 
+function asPulumiComponentInput(value: unknown): PulumiComponentInputFactSource | null {
+  if (
+    !isRecord(value)
+    || typeof value.name !== 'string'
+    || typeof value.sourcePath !== 'string'
+    || typeof value.sourceLocator !== 'string'
+    || typeof value.required !== 'boolean'
+  ) {
+    return null;
+  }
+
+  if (
+    SECRET_PATH_PATTERN.test(value.name)
+    || SECRET_PATH_PATTERN.test(value.sourcePath)
+    || SECRET_PATH_PATTERN.test(value.sourceLocator)
+  ) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    sourcePath: value.sourcePath,
+    sourceLocator: value.sourceLocator,
+    required: value.required,
+    ...(typeof value.type === 'string' && !SECRET_PATH_PATTERN.test(value.type) ? { type: value.type } : {})
+  };
+}
+
+function asPulumiComponentOutput(value: unknown): PulumiComponentOutputFactSource | null {
+  if (
+    !isRecord(value)
+    || typeof value.name !== 'string'
+    || typeof value.sourcePath !== 'string'
+    || typeof value.sourceLocator !== 'string'
+  ) {
+    return null;
+  }
+
+  if (
+    SECRET_PATH_PATTERN.test(value.name)
+    || SECRET_PATH_PATTERN.test(value.sourcePath)
+    || SECRET_PATH_PATTERN.test(value.sourceLocator)
+  ) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    sourcePath: value.sourcePath,
+    sourceLocator: value.sourceLocator,
+    ...(typeof value.type === 'string' && !SECRET_PATH_PATTERN.test(value.type) ? { type: value.type } : {})
+  };
+}
+
+function asPulumiComponentFactSource(value: unknown): PulumiComponentFactSource | null {
+  if (
+    !isRecord(value)
+    || value.kind !== 'infra-agent.pulumi-component-summary'
+    || value.schemaVersion !== 1
+    || value.mutationAllowed !== false
+    || typeof value.projectRoot !== 'string'
+    || typeof value.className !== 'string'
+    || typeof value.sourcePath !== 'string'
+    || typeof value.sourceLocator !== 'string'
+    || SECRET_PATH_PATTERN.test(value.projectRoot)
+    || SECRET_PATH_PATTERN.test(value.className)
+    || SECRET_PATH_PATTERN.test(value.sourcePath)
+    || SECRET_PATH_PATTERN.test(value.sourceLocator)
+  ) {
+    return null;
+  }
+
+  const inputs = Array.isArray(value.inputs)
+    ? value.inputs.map(asPulumiComponentInput)
+      .filter((input): input is PulumiComponentInputFactSource => Boolean(input))
+    : [];
+  const outputs = Array.isArray(value.outputs)
+    ? value.outputs.map(asPulumiComponentOutput)
+      .filter((output): output is PulumiComponentOutputFactSource => Boolean(output))
+    : [];
+
+  return {
+    projectRoot: value.projectRoot,
+    className: value.className,
+    sourcePath: value.sourcePath,
+    sourceLocator: value.sourceLocator,
+    ...(typeof value.typeToken === 'string' && !SECRET_PATH_PATTERN.test(value.typeToken) ? { typeToken: value.typeToken } : {}),
+    ...(typeof value.argsType === 'string' && !SECRET_PATH_PATTERN.test(value.argsType) ? { argsType: value.argsType } : {}),
+    inputs,
+    outputs
+  };
+}
+
+function pulumiComponentFactPath(
+  className: string,
+  group: 'inputs' | 'outputs',
+  name: string
+): string {
+  const safeClassName = className.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  const safeName = name.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  return `component.${safeClassName}.${group}.${safeName}`;
+}
+
+function relatedPulumiComponentPaths(component: PulumiComponentFactSource, sourcePath?: string): string[] {
+  return Array.from(new Set([
+    component.sourcePath,
+    ...(sourcePath ? [sourcePath] : [])
+  ])).filter(path => !SECRET_PATH_PATTERN.test(path)).sort();
+}
+
+function extractPulumiComponentFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
+  try {
+    const component = asPulumiComponentFactSource(JSON.parse(entry.content) as unknown);
+    if (!component) {
+      return [];
+    }
+
+    const facts: KnowledgeFact[] = [];
+    for (const input of component.inputs) {
+      if (facts.length >= MAX_PULUMI_COMPONENT_FACTS) {
+        return facts;
+      }
+
+      const path = pulumiComponentFactPath(component.className, 'inputs', input.name);
+      const summary = input.required
+        ? `${path} is required by the Pulumi component interface.`
+        : `${path} is optional in the Pulumi component interface.`;
+      if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+        continue;
+      }
+
+      facts.push({
+        kind: 'pulumi-component-input',
+        path,
+        summary,
+        values: [input.name],
+        required: input.required,
+        ...(input.type ? { type: input.type } : {}),
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${input.sourceLocator}: ${component.className}.${input.name}`),
+        relatedPaths: relatedPulumiComponentPaths(component, input.sourcePath)
+      });
+    }
+
+    for (const output of component.outputs) {
+      if (facts.length >= MAX_PULUMI_COMPONENT_FACTS) {
+        return facts;
+      }
+
+      const path = pulumiComponentFactPath(component.className, 'outputs', output.name);
+      const summary = `${path} is exposed by the Pulumi component.`;
+      if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+        continue;
+      }
+
+      facts.push({
+        kind: 'pulumi-component-output',
+        path,
+        summary,
+        values: [output.name],
+        ...(output.type ? { type: output.type } : {}),
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${output.sourceLocator}: ${component.className}.${output.name}`),
+        relatedPaths: relatedPulumiComponentPaths(component, output.sourcePath)
+      });
+    }
+
+    return facts;
+  } catch {
+    return [];
+  }
+}
+
 function asHelmChartMetadataDependency(value: unknown): HelmChartMetadataDependencyFactSource | null {
   if (
     !isRecord(value)
@@ -1149,6 +1351,10 @@ export function extractKnowledgeFactSetFromCacheEntry(
 
     if (entry.source.kind === 'pulumi-config' && entry.contentType === 'application/json') {
       return extractPulumiConfigFacts(entry);
+    }
+
+    if (entry.source.kind === 'pulumi-component' && entry.contentType === 'application/json') {
+      return extractPulumiComponentFacts(entry);
     }
 
     if (entry.source.kind === 'chart-metadata' && entry.contentType === 'application/json') {
