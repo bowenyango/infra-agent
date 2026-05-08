@@ -39,6 +39,83 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-08 Active Pulumi Component Facts Plan
+
+Status:
+
+- In progress. This session is continuing `infra-agent` development under the
+  existing architecture and safety rules, with at least 10 meaningful commits
+  planned for this slice.
+- The selected product slice is conservative Pulumi component fact extraction:
+  detect workspace-contained Node.js/TypeScript `pulumi.ComponentResource`
+  class evidence, summarize component inputs and outputs without raw source
+  content, and flow those facts through knowledge sources, extraction, packs,
+  planner prompts, compact `knowledgeFacts`, validation, and durable docs.
+
+Why this direction:
+
+- `docs/ROADMAP.md` lists Pulumi component facts and durable component packs as
+  a remaining knowledge-system gap.
+- The existing Pulumi knowledge path already supports config facts, public docs
+  facts, YAML resource tokens, and conservative Node.js/TypeScript resource
+  constructor evidence. Component facts are the next local, cache-first
+  extension without adding deploy, state mutation, live provider calls, or
+  general-purpose agent behavior.
+- This follows the Claude Code patterns already adopted here: a single
+  session-owned harness, bounded structured state, compact fact handoff,
+  parser-validated contracts, read-only explorer subagents, and no raw source
+  or full docs in ordinary planner context.
+
+Subagent plan:
+
+- `Halley` is the read-only project-plan explorer for durable Plan, Rules,
+  architecture, roadmap, handoff, and testing constraints.
+- `Zeno` is the read-only architecture explorer for `learning-claude-code`
+  pattern alignment and subagent/harness boundary guidance.
+- `Tesla` is the read-only codebase explorer for current architecture, safe
+  implementation surfaces, validation commands, and candidate tests.
+- The main agent owns edits, focused validation, durable handoff updates,
+  staging, and commits.
+
+Planned commits and checkpoints:
+
+1. Record this active execution plan in `docs/HANDOFF.md`.
+2. Add Pulumi component source and fact contract support with parser coverage.
+3. Add conservative Node.js/TypeScript Pulumi component parsing helpers and
+   direct unit coverage.
+4. Wire component source discovery and summary content generation into Pulumi
+   knowledge extraction.
+5. Cover `knowledge sources` CLI output for local Pulumi component sources.
+6. Extract compact component input/output facts without raw source content.
+7. Validate component fact sets and stale local component fingerprints.
+8. Include component facts in bounded packs and ranking.
+9. Cover CLI `knowledge extract` and `knowledge pack` for component facts.
+10. Cover planner prompt and compact `knowledgeFacts` contracts for component
+    facts.
+11. Update roadmap, rules, README, and bundled skill guidance.
+12. Run full verification and record final validation in this handoff.
+
+Current risks and constraints:
+
+- This slice supports only conservative Node.js/TypeScript Pulumi components
+  with explicit `pulumi.ComponentResource` or imported `ComponentResource`
+  class evidence inside the Pulumi project root.
+- It does not parse Python, Go, .NET, Java, generated/test files, dynamic class
+  factories, runtime dataflow, component internals beyond constructor argument
+  and public/readonly output declarations, or package-only component inference.
+- Component facts are high-confidence repo-local interface facts only when they
+  come from current workspace source fingerprints. They remain advisory planner
+  context and do not replace `pulumi preview`, project type checks, or stack
+  validation.
+- No deploy, `pulumi up`, stack import, state mutation, alias/state repair,
+  external network fetch, or recursive subagent runtime behavior is allowed.
+
+Progress log:
+
+- Commit 1 recorded this active Pulumi component facts plan, subagent
+  responsibilities, planned checkpoints, architecture boundary, and risk
+  constraints. Focused validation: `git diff --check`.
+
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 
 Status:
