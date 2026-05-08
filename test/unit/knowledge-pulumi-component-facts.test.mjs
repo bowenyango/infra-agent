@@ -15,7 +15,9 @@ import {
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
+import { rankKnowledgePackFacts } from '../../src/knowledge/fact-ranking.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../../src/knowledge/facts.ts';
+import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { validateKnowledgePayloadWithLocalSources } from '../../src/knowledge/validate.ts';
 
 test('extracts Pulumi component input and output facts from summary cache entries', async () => {
@@ -173,4 +175,120 @@ test('validates Pulumi component fact fingerprints against the workspace', async
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('includes Pulumi component facts in bounded knowledge packs', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-component-pack-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      'name: api\nruntime: nodejs\n',
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'components.ts'),
+      [
+        'import * as pulumi from "@pulumi/pulumi";',
+        'interface ApiServiceArgs {',
+        '  image: string;',
+        '}',
+        'class ApiService extends pulumi.ComponentResource {',
+        '  public readonly endpoint: string;',
+        '  constructor(name: string, args: ApiServiceArgs) {',
+        '    super("pkg:index:ApiService", name, {}, undefined);',
+        '  }',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    const inspection = await inspectWorkspace(tempRoot);
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      maxFacts: 1
+    });
+
+    assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+    assert.equal(pack.maxFacts, 1);
+    assert.equal(pack.includedFactCount, 1);
+    assert.ok(pack.sources.some(source =>
+      source.kind === 'pulumi-component'
+      && source.targetPath === 'infra/api'
+      && source.fingerprintDigest
+      && source.storagePolicy.scope === 'workspace-private'
+    ));
+    assert.equal(pack.facts[0]?.kind, 'pulumi-component-input');
+    assert.equal(pack.facts[0]?.path, 'component.ApiService.inputs.image');
+    assert.equal(pack.facts[0]?.sourceLocator, 'infra/api/components.ts:3: ApiService.image');
+    assert.doesNotMatch(JSON.stringify(pack), /class ApiService|super\(|@pulumi\/pulumi/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('ranks local Pulumi component interface facts above public docs guidance', () => {
+  const componentSource = {
+    id: 'component-source',
+    domain: 'pulumi',
+    targetPath: 'infra/api',
+    kind: 'pulumi-component',
+    name: 'pulumi-component:infra/api:ApiService',
+    factCount: 1,
+    contentHash: 'a'.repeat(64),
+    fetchedAt: '1970-01-01T00:00:00.000Z',
+    stale: false,
+    freshness: 'fresh',
+    storagePolicy: {
+      scope: 'workspace-private',
+      defaultStore: 'local-only',
+      shareableByDefault: false,
+      requiresExplicitOptIn: true,
+      reason: 'workspace-local'
+    }
+  };
+  const docsSource = {
+    ...componentSource,
+    id: 'docs-source',
+    kind: 'pulumi-docs',
+    name: 'pulumi-docs:package:aws',
+    storagePolicy: {
+      scope: 'public-reference',
+      defaultStore: 'local-or-explicit-team-cache',
+      shareableByDefault: true,
+      requiresExplicitOptIn: false,
+      reason: 'public docs'
+    }
+  };
+  const ranked = rankKnowledgePackFacts([
+    {
+      kind: 'pulumi-docs-guidance',
+      path: 'pulumi.package.aws.s3',
+      summary: 'S3 resources for buckets.',
+      confidence: 'medium',
+      extractionMethod: 'pulumi-docs-markdown',
+      sourceId: 'docs-source',
+      sourceLocator: 'Pulumi package docs: s3'
+    },
+    {
+      kind: 'pulumi-component-input',
+      path: 'component.ApiService.inputs.image',
+      summary: 'component.ApiService.inputs.image is required by the Pulumi component interface.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'component-source',
+      sourceLocator: 'infra/api/components.ts:3: ApiService.image',
+      required: true,
+      type: 'string'
+    }
+  ], {
+    sources: [docsSource, componentSource],
+    requestedDomains: ['pulumi'],
+    targetPaths: ['infra/api']
+  });
+
+  assert.equal(ranked[0]?.kind, 'pulumi-component-input');
 });

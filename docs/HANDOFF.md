@@ -147,6 +147,11 @@ Progress log:
   fingerprint and `knowledge validate --workspace` detects source drift as a
   stale local source. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pulumi-component-facts.test.mjs`.
+- Commit 8 covered bounded knowledge packs and ranking for Pulumi component
+  facts. Local component interface facts enter packs with workspace-private
+  fingerprint metadata and rank ahead of lower-authority public Pulumi docs
+  guidance under tight budgets. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pulumi-component-facts.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 
