@@ -142,6 +142,11 @@ Progress log:
   extractor preserves source locators and related paths, skips secret-looking
   fields, and emits no raw source code. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pulumi-component-facts.test.mjs`.
+- Commit 7 covered workspace extraction and local fingerprint validation for
+  Pulumi component facts. Saved component facts now carry a recheckable source
+  fingerprint and `knowledge validate --workspace` detects source drift as a
+  stale local source. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pulumi-component-facts.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 
