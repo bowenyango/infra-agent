@@ -152,8 +152,8 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `knowledge pack` to build bounded planner-safe fact bundles. Packs are
   advisory context, not validator-grade proof.
 - Treat compact `knowledgeFacts` as the validated handoff surface for extracted
-  provider/resource/chart/module/Pulumi-config facts. Read it before asking
-  for raw docs, honor `includedFactCount`, `omittedFactCount`,
+  provider/resource/chart/module/Pulumi-config/Pulumi-component facts. Read it
+  before asking for raw docs, honor `includedFactCount`, `omittedFactCount`,
   `staleSourceCount`, and `--context-fact-limit`, and never treat omitted
   samples as exhaustive.
 - Do not commit generated public-provider or chart cache data into user
@@ -178,6 +178,17 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   entries, and do not expose raw YAML or secure ciphertext in packs, prompts,
   or compact handoff output. Treat these facts as advisory; `pulumi preview`
   remains authoritative for missing, invalid, or provider-specific config.
+- For Pulumi component knowledge, use only conservative Node.js/TypeScript
+  project-root class evidence that explicitly extends `pulumi.ComponentResource`
+  or an imported `ComponentResource`. Extract compact `pulumi-component-input`
+  and `pulumi-component-output` facts from constructor args interfaces/types
+  and public output property declarations, skip generated/test/declaration
+  files and secret-like fields, preserve workspace-relative source
+  fingerprints, and do not expose raw source code in packs, prompts, or compact
+  handoff output. These facts describe local component interfaces only; they do
+  not replace `pulumi preview`, project type checks, or language-specific
+  tests, and they do not cover Python, Go, .NET, Java, dynamic class factories,
+  runtime dataflow, or deeper component internals.
 - For Pulumi package docs knowledge, use only safe project-root `package.json`
   `@pulumi/*` dependencies selected as `pulumi-docs:package:<slug>` sources.
   Extract compact cached markdown `pulumi-docs-guidance` facts from package

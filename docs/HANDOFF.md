@@ -165,6 +165,13 @@ Progress log:
   validation:
   `node --experimental-strip-types --test test/unit/planner-knowledge-facts-prompt.test.mjs`
   and `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
+- Commit 11 updated durable roadmap, rules, README, and bundled skill guidance
+  for Pulumi component facts. The documented boundary now matches the
+  implementation: conservative Node.js/TypeScript `ComponentResource` class
+  evidence is supported for component interface facts; generated/test files,
+  secret-like fields, non-Node languages, dynamic factories, and deeper
+  component internals remain out of scope. Focused validation:
+  `git diff --check` and `npm run test:structure`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 

@@ -101,10 +101,10 @@ credentials must still come from environment variables.
    packet, token, fact, stale-source, and omission posture without exposing raw
    excerpts or cache payloads. Use `infra-agent knowledge
    sources/prefetch/extract/validate/pack` when you need reusable provider,
-   resource, chart, or module facts; validate extracted data before planner use
-   and use `knowledge validate --workspace <workspace>` before reusing saved
-   repo-derived facts after local files may have changed. Prefer bounded
-   `knowledgeFacts`/packs over raw docs. Read
+   resource, chart, module, or Pulumi component facts; validate extracted data
+   before planner use and use `knowledge validate --workspace <workspace>`
+   before reusing saved repo-derived facts after local files may have changed.
+   Prefer bounded `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
    `validation.issueSummary` for grouped blocker posture, and
@@ -180,6 +180,14 @@ credentials must still come from environment variables.
   `Pulumi.yaml` or stack file dumps when choosing config keys, known types,
   defaults, and existing safe values. These facts intentionally omit secure
   stack entries and secret-like keys, and they do not replace `pulumi preview`.
+- For Pulumi Node.js/TypeScript projects, conservative
+  `pulumi.ComponentResource` or imported `ComponentResource` class evidence may
+  provide local `pulumi-component-input` and `pulumi-component-output` facts for
+  constructor args interfaces/types and public output properties. Treat these
+  as workspace-private component interface facts with recheckable fingerprints;
+  they skip generated/test/declaration files and secret-like fields, do not
+  expose raw source, do not cover non-Node languages or dynamic component
+  factories, and do not replace `pulumi preview` or project type checks.
 - For Pulumi projects with safe project-root `@pulumi/*` dependencies, cached
   Pulumi Registry package docs may provide `pulumi-docs-guidance` facts for
   package modules. Treat those facts as public-reference advisory context; they

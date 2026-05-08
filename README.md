@@ -147,10 +147,12 @@ Current behavior is intentionally runtime-foundation oriented:
   workspace-private for future storage/publication policy, `prefetch` aliases
   the bounded cache update path,
   `extract` turns cached docs, local schemas, local modules, local Helm chart
-  metadata, cached Helm chart-doc markdown, and local Pulumi config summaries into
+  metadata, cached Helm chart-doc markdown, local Pulumi config summaries, and
+  conservative local Pulumi component summaries into
   `infra-agent.knowledge-facts`, `validate` checks facts, extraction reports,
-  and compact packs before use, and `pack` ranks and emits a bounded planner-safe
-  `infra-agent.knowledge-pack` without raw source content. Packs carry the same
+  and compact packs before use, and `pack` ranks and emits a bounded
+  planner-safe `infra-agent.knowledge-pack` without raw source content. Packs
+  carry the same
   storage-policy summary so downstream agents can see when a handoff includes
   workspace-private facts that require opt-in before team-cache publication.
   `extract --out` explicitly persists reusable fact artifacts for later
@@ -192,6 +194,15 @@ Current behavior is intentionally runtime-foundation oriented:
   `pulumi-config-parameter` facts without exposing raw YAML or `secure` values.
   Secret-like config keys and all secure stack entries are skipped; `pulumi
   preview` remains the authoritative validator for missing or invalid config.
+- Pulumi Node.js/TypeScript projects can also expose local `pulumi-component`
+  knowledge sources from explicit `pulumi.ComponentResource` or imported
+  `ComponentResource` classes inside the project root. `knowledge extract`,
+  `knowledge pack`, and the agent runtime convert constructor args
+  interfaces/types and public output property declarations into ranked
+  `pulumi-component-input` and `pulumi-component-output` facts with
+  recheckable source fingerprints. Generated/test/declaration files and
+  secret-like fields are skipped, raw source is not emitted, and `pulumi
+  preview` plus project type checks remain authoritative.
 - Pulumi project-root `package.json` dependencies on safe `@pulumi/*` packages
   select public Pulumi Registry package docs sources. When those docs are
   already cached as markdown, `knowledge extract`, `knowledge pack`, and the
