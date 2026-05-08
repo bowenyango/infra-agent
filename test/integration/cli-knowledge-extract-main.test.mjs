@@ -456,6 +456,76 @@ test('knowledge extract command emits language-derived Pulumi resource docs fact
   }
 });
 
+test('knowledge extract command emits Pulumi component facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-pulumi-component-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'components.ts'),
+      [
+        'import * as pulumi from "@pulumi/pulumi";',
+        'interface ApiServiceArgs {',
+        '  image: string;',
+        '}',
+        'class ApiService extends pulumi.ComponentResource {',
+        '  public readonly endpoint: string;',
+        '  constructor(name: string, args: ApiServiceArgs) {',
+        '    super("pkg:index:ApiService", name, {}, undefined);',
+        '  }',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'extract',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/api',
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-extraction');
+    assert.equal(report.mutationAllowed, false);
+    assert.ok(report.sources.some(result =>
+      result.source.kind === 'pulumi-component'
+      && result.status === 'extracted'
+      && result.factCount > 0
+    ));
+    assert.ok(report.factSets.some(factSet =>
+      factSet.source.kind === 'pulumi-component'
+      && factSet.sourceFingerprint?.fileCount === 1
+      && factSet.facts.some(fact =>
+        fact.kind === 'pulumi-component-input'
+        && fact.path === 'component.ApiService.inputs.image'
+      )
+      && factSet.facts.some(fact =>
+        fact.kind === 'pulumi-component-output'
+        && fact.path === 'component.ApiService.outputs.endpoint'
+      )
+    ));
+    assert.doesNotMatch(output, /class ApiService|interface ApiServiceArgs|super\(|@pulumi\/pulumi|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge extract command emits cached Helm chart docs facts', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-chart-docs-'));
 

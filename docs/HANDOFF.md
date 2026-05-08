@@ -152,6 +152,12 @@ Progress log:
   fingerprint metadata and rank ahead of lower-authority public Pulumi docs
   guidance under tight budgets. Focused validation:
   `node --experimental-strip-types --test test/unit/knowledge-pulumi-component-facts.test.mjs`.
+- Commit 9 added real CLI `knowledge extract` and `knowledge pack` coverage for
+  Pulumi component facts. The command paths prove component facts flow through
+  extraction and bounded packs with fingerprint metadata while excluding raw
+  TypeScript source content. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`
+  and `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 
