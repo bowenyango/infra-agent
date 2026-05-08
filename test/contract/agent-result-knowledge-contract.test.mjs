@@ -584,6 +584,99 @@ test('compact agent result contract accepts Pulumi package docs facts without ra
   );
 });
 
+test('compact agent result contract accepts Pulumi component facts without raw source fields', () => {
+  const { validResult } = buildAgentResultContractFixtures();
+  const componentKnowledgeFacts = {
+    ...validResult.knowledgeFacts,
+    packId: '0123456789abcdef01234567',
+    sourceCount: 1,
+    factSetCount: 1,
+    totalFactCount: 2,
+    includedFactCount: 2,
+    omittedFactCount: 0,
+    staleSourceCount: 0,
+    sources: [
+      {
+        id: 'pulumi-component/api-service',
+        domain: 'pulumi',
+        targetPath: 'infra/api',
+        kind: 'pulumi-component',
+        name: 'pulumi-component:infra/api:ApiService',
+        factCount: 2,
+        stale: false,
+        freshness: 'fresh',
+        fingerprintDigest: 'a'.repeat(64),
+        fingerprintFileCount: 1
+      }
+    ],
+    facts: [
+      {
+        kind: 'pulumi-component-input',
+        path: 'component.ApiService.inputs.image',
+        summary: 'component.ApiService.inputs.image is required by the Pulumi component interface.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        sourceId: 'pulumi-component/api-service',
+        sourceLocator: 'infra/api/components.ts:3: ApiService.image',
+        required: true,
+        type: 'string',
+        values: ['image'],
+        relatedPaths: ['infra/api/components.ts']
+      },
+      {
+        kind: 'pulumi-component-output',
+        path: 'component.ApiService.outputs.endpoint',
+        summary: 'component.ApiService.outputs.endpoint is exposed by the Pulumi component.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        sourceId: 'pulumi-component/api-service',
+        sourceLocator: 'infra/api/components.ts:6: ApiService.endpoint',
+        type: 'string',
+        values: ['endpoint'],
+        relatedPaths: ['infra/api/components.ts']
+      }
+    ]
+  };
+  const result = {
+    ...validResult,
+    knowledgeFacts: componentKnowledgeFacts,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        knowledgeFacts: {
+          includedCount: 2,
+          omittedCount: 0
+        }
+      }
+    },
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        knowledgeFactCount: 2
+      }
+    }
+  };
+
+  assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...result,
+      knowledgeFacts: {
+        ...componentKnowledgeFacts,
+        sources: [
+          {
+            ...componentKnowledgeFacts.sources[0],
+            contentHash: 'b'.repeat(64)
+          }
+        ]
+      }
+    }),
+    /knowledgeFacts\.sources\[0\]\.contentHash.*raw source fields/
+  );
+});
+
 test('compact agent result contract accepts Helm chart docs facts without raw source fields', () => {
   const { validResult } = buildAgentResultContractFixtures();
   const chartDocsKnowledgeFacts = {

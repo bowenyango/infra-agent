@@ -158,6 +158,13 @@ Progress log:
   TypeScript source content. Focused validation:
   `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`
   and `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`.
+- Commit 10 covered planner prompt and compact `agent --json` contract handling
+  for Pulumi component facts. The tests prove downstream agents see only
+  budgeted `knowledgeFacts` summaries with source locators and fingerprint
+  metadata, not raw source, cache content, or content hashes. Focused
+  validation:
+  `node --experimental-strip-types --test test/unit/planner-knowledge-facts-prompt.test.mjs`
+  and `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 

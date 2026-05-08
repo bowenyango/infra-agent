@@ -252,6 +252,87 @@ function buildHelmChartDocsKnowledgePack() {
   };
 }
 
+function buildPulumiComponentKnowledgePack() {
+  return {
+    kind: 'infra-agent.knowledge-pack',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    packId: '0123456789abcdef01234567',
+    workspaceRoot: '/workspace',
+    cacheRoot: '/workspace/.infra-agent/knowledge-cache',
+    requestedDomains: ['pulumi'],
+    targetPaths: ['infra/api'],
+    sourceIds: ['pulumi-component/api-service'],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: 2,
+    includedFactCount: 2,
+    omittedFactCount: 0,
+    maxFacts: 2,
+    staleSourceCount: 0,
+    storagePolicy: {
+      publicReference: 0,
+      workspacePrivate: 1,
+      explicitOptInRequired: 1,
+      shareableByDefault: 0,
+      defaultStores: {
+        'local-only': 1,
+        'local-or-explicit-team-cache': 0
+      }
+    },
+    sources: [
+      {
+        id: 'pulumi-component/api-service',
+        domain: 'pulumi',
+        targetPath: 'infra/api',
+        kind: 'pulumi-component',
+        name: 'pulumi-component:infra/api:ApiService',
+        factCount: 2,
+        contentHash: 'c'.repeat(64),
+        fetchedAt: '1970-01-01T00:00:00.000Z',
+        stale: false,
+        freshness: 'fresh',
+        fingerprintDigest: 'd'.repeat(64),
+        fingerprintFileCount: 1,
+        storagePolicy: {
+          scope: 'workspace-private',
+          defaultStore: 'local-only',
+          shareableByDefault: false,
+          requiresExplicitOptIn: true,
+          reason: 'Pulumi component facts are workspace-local.'
+        }
+      }
+    ],
+    facts: [
+      {
+        kind: 'pulumi-component-input',
+        path: 'component.ApiService.inputs.image',
+        summary: 'component.ApiService.inputs.image is required by the Pulumi component interface.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        sourceId: 'pulumi-component/api-service',
+        sourceLocator: 'infra/api/components.ts:3: ApiService.image',
+        required: true,
+        type: 'string',
+        values: ['image'],
+        relatedPaths: ['infra/api/components.ts']
+      },
+      {
+        kind: 'pulumi-component-output',
+        path: 'component.ApiService.outputs.endpoint',
+        summary: 'component.ApiService.outputs.endpoint is exposed by the Pulumi component.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        sourceId: 'pulumi-component/api-service',
+        sourceLocator: 'infra/api/components.ts:6: ApiService.endpoint',
+        type: 'string',
+        values: ['endpoint'],
+        relatedPaths: ['infra/api/components.ts']
+      }
+    ]
+  };
+}
+
 test('planner user prompt includes budgeted Pulumi package docs facts without raw docs', () => {
   const prompt = buildPlannerUserPrompt({
     task: 'update pulumi api bucket configuration',
@@ -325,4 +406,41 @@ test('planner user prompt includes budgeted Helm chart docs facts without raw do
     prompt,
     /"content"\s*:|contentHash|fetchedAt|staleAfter|url|# API Chart|https:\/\/example\.com\/charts\/api/
   );
+});
+
+test('planner user prompt includes budgeted Pulumi component facts without raw source', () => {
+  const prompt = buildPlannerUserPrompt({
+    task: 'update pulumi api component image',
+    preflight: buildPreflightFixture(),
+    knowledgeFacts: buildPulumiComponentKnowledgePack(),
+    retrievedContextBudget: {
+      maxPackets: 5,
+      maxTokens: 1000,
+      maxExcerptChars: 1200,
+      maxFacts: 1
+    },
+    retrievedContext: [],
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.equal(parsed.knowledgeFacts.kind, 'infra-agent.knowledge-facts-summary');
+  assert.equal(parsed.knowledgeFacts.mutationAllowed, false);
+  assert.equal(parsed.knowledgeFacts.maxFacts, 1);
+  assert.equal(parsed.knowledgeFacts.includedFactCount, 1);
+  assert.equal(parsed.knowledgeFacts.omittedFactCount, 1);
+  assert.equal(parsed.knowledgeFacts.sources[0]?.kind, 'pulumi-component');
+  assert.equal(parsed.knowledgeFacts.sources[0]?.name, 'pulumi-component:infra/api:ApiService');
+  assert.equal(parsed.knowledgeFacts.sources[0]?.fingerprintFileCount, 1);
+  assert.equal(parsed.knowledgeFacts.facts[0]?.kind, 'pulumi-component-input');
+  assert.equal(parsed.knowledgeFacts.facts[0]?.path, 'component.ApiService.inputs.image');
+  assert.equal(parsed.knowledgeFacts.facts[0]?.sourceLocator, 'infra/api/components.ts:3: ApiService.image');
+  assert.doesNotMatch(prompt, /"content"\s*:|contentHash|fetchedAt|class ApiService|super\(|@pulumi\/pulumi/);
 });
