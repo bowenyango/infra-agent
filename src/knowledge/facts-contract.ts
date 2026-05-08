@@ -21,6 +21,7 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'chart-lock',
   'repo-example',
   'pulumi-config',
+  'pulumi-component',
   'terraform-module',
   'module-readme'
 ];

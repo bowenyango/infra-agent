@@ -11,6 +11,7 @@ export type KnowledgeSourceKind =
   | 'chart-lock'
   | 'repo-example'
   | 'pulumi-config'
+  | 'pulumi-component'
   | 'terraform-module'
   | 'module-readme';
 
@@ -35,6 +36,8 @@ export const KNOWLEDGE_FACT_KINDS = [
   'chart-dependency',
   'chart-value',
   'pulumi-config-parameter',
+  'pulumi-component-input',
+  'pulumi-component-output',
   'pulumi-docs-guidance'
 ] as const;
 

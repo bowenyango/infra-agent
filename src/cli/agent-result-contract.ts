@@ -103,6 +103,7 @@ const KNOWLEDGE_FACT_SOURCE_KINDS = [
   'chart-lock',
   'repo-example',
   'pulumi-config',
+  'pulumi-component',
   'terraform-module',
   'module-readme'
 ] as const;
@@ -119,6 +120,8 @@ const KNOWLEDGE_FACT_KINDS = [
   'chart-dependency',
   'chart-value',
   'pulumi-config-parameter',
+  'pulumi-component-input',
+  'pulumi-component-output',
   'pulumi-docs-guidance'
 ] as const;
 const KNOWLEDGE_FACT_EXTRACTION_METHODS = [

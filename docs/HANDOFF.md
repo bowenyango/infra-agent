@@ -115,6 +115,11 @@ Progress log:
 - Commit 1 recorded this active Pulumi component facts plan, subagent
   responsibilities, planned checkpoints, architecture boundary, and risk
   constraints. Focused validation: `git diff --check`.
+- Commit 2 added the Pulumi component source kind and component input/output
+  fact kinds to the shared knowledge contracts, compact handoff contract, and
+  ranking tables. Direct parser coverage proves component facts remain
+  source-linked, workspace-private, and schema-validated. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-cache-contracts.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 

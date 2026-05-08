@@ -66,6 +66,8 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
     'chart-dependency',
     'chart-value',
     'pulumi-config-parameter',
+    'pulumi-component-input',
+    'pulumi-component-output',
     'pulumi-docs-guidance'
   ]);
   assert.deepEqual(KNOWLEDGE_FACT_EXTRACTION_METHODS, [
@@ -246,10 +248,62 @@ test('knowledge source contracts include local infra sources', () => {
       }
     ]
   };
+  const pulumiComponentSource = {
+    kind: 'pulumi-component',
+    name: 'pulumi-component:infra/api:ApiService',
+    localPath: 'infra/api/components.ts',
+    module: 'infra/api',
+    packageName: 'api'
+  };
+  const pulumiComponentSourceId = buildKnowledgeCacheId(pulumiComponentSource);
+  const pulumiComponentFactSet = {
+    ...terraformModuleFactSet,
+    sourceId: pulumiComponentSourceId,
+    source: pulumiComponentSource,
+    factCount: 2,
+    facts: [
+      {
+        kind: 'pulumi-component-input',
+        path: 'component.ApiService.inputs.image',
+        summary: 'component.ApiService.inputs.image is required by the Pulumi component interface.',
+        values: ['image'],
+        required: true,
+        type: 'string',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: {
+          id: pulumiComponentSourceId,
+          source: pulumiComponentSource,
+          contentHash: 'b'.repeat(64),
+          locator: 'infra/api/components.ts: ApiServiceArgs.image'
+        }
+      },
+      {
+        kind: 'pulumi-component-output',
+        path: 'component.ApiService.outputs.url',
+        summary: 'component.ApiService.outputs.url is exposed by the Pulumi component.',
+        values: ['url'],
+        type: 'pulumi.Output<string>',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: {
+          id: pulumiComponentSourceId,
+          source: pulumiComponentSource,
+          contentHash: 'b'.repeat(64),
+          locator: 'infra/api/components.ts: ApiService.url'
+        }
+      }
+    ]
+  };
 
   assert.equal(parseKnowledgeFactSet(terraformModuleFactSet).source.kind, 'terraform-module');
   assert.equal(parseKnowledgeFactSet(pulumiConfigFactSet).source.kind, 'pulumi-config');
   assert.equal(parseKnowledgeFactSet(helmChartMetadataFactSet).source.kind, 'chart-metadata');
+  assert.equal(parseKnowledgeFactSet(pulumiComponentFactSet).source.kind, 'pulumi-component');
+  assert.deepEqual(
+    parseKnowledgeFactSet(pulumiComponentFactSet).facts.map(fact => fact.kind),
+    ['pulumi-component-input', 'pulumi-component-output']
+  );
 });
 
 test('knowledge storage policy separates public references from workspace-private sources', () => {

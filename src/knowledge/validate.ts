@@ -76,6 +76,7 @@ const KNOWLEDGE_SOURCE_KINDS = [
   'chart-lock',
   'repo-example',
   'pulumi-config',
+  'pulumi-component',
   'terraform-module',
   'module-readme'
 ] as const satisfies readonly KnowledgeSourceKind[];
