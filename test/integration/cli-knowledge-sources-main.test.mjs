@@ -290,6 +290,74 @@ test('knowledge sources command lists Pulumi resource docs from language tokens'
   }
 });
 
+test('knowledge sources command lists Pulumi component sources without raw source content', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-sources-pulumi-component-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'components.ts'),
+      [
+        'import * as pulumi from "@pulumi/pulumi";',
+        'interface ApiServiceArgs {',
+        '  image: string;',
+        '}',
+        'class ApiService extends pulumi.ComponentResource {',
+        '  public readonly endpoint: string;',
+        '  constructor(name: string, args: ApiServiceArgs) {',
+        '    super("pkg:index:ApiService", name, {}, undefined);',
+        '  }',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/api',
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.knowledge-sources');
+    assert.equal(report.mutationAllowed, false);
+    const componentSource = report.sources.find(source =>
+      source.domain === 'pulumi'
+      && source.targetPath === 'infra/api'
+      && source.requiresFetch === false
+      && source.source.kind === 'pulumi-component'
+      && source.source.name === 'pulumi-component:infra/api:ApiService'
+    );
+    assert.ok(componentSource);
+    assert.equal(componentSource.source.localPath, 'infra/api/components.ts');
+    assert.equal(componentSource.source.module, 'infra/api');
+    assert.equal(componentSource.source.packageName, 'ApiService');
+    assert.equal(componentSource.storagePolicy.scope, 'workspace-private');
+    assert.equal(componentSource.storagePolicy.defaultStore, 'local-only');
+    assert.equal(componentSource.storagePolicy.requiresExplicitOptIn, true);
+    assert.ok(report.summary.local >= 1);
+    assert.doesNotMatch(output, /class ApiService|interface ApiServiceArgs|super\(|@pulumi\/pulumi|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge prefetch command emits existing prefetch JSON contract', async () => {
   const output = await captureStdout(() => main([
     'knowledge',

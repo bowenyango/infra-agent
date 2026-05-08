@@ -132,6 +132,11 @@ Progress log:
   generated/test/declaration paths, stores summary JSON instead of raw source,
   and uses local file fingerprints for rechecks. Focused validation:
   `node --experimental-strip-types --test test/unit/pulumi-component-inspection.test.mjs`.
+- Commit 5 added real CLI coverage for `infra-agent knowledge sources` listing
+  local Pulumi component sources. The command now proves component sources are
+  workspace-private, fetch-free, target-scoped, and do not expose raw
+  TypeScript source content. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`.
 
 ## 2026-05-07 Active Pulumi Language Resource Discovery Plan
 
