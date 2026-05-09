@@ -8,7 +8,9 @@ import {
   buildKnowledgeTeamArtifactIndexEntry,
   buildKnowledgeTeamPublicationPlan,
   buildKnowledgeTeamPublicationReadinessReport,
+  createMockS3CompatibleKnowledgeArtifactMetadataIndex,
   createMockS3CompatibleKnowledgeArtifactStore,
+  KnowledgeTeamArtifactStoreError,
   serializeKnowledgeArtifactPayload,
   stageKnowledgePackArtifactForTeamStore
 } from '../../src/knowledge/team-artifact-store.ts';
@@ -265,4 +267,58 @@ test('team publication readiness reports compact index conflicts', async () => {
   assert.equal(publicationConflict.readiness.status, 'conflict');
   assert.ok(publicationConflict.readiness.blockerCodes.includes('index-publication-mismatch'));
   assertNoLeakedIndexDetails(publicationConflict);
+});
+
+test('mock team artifact metadata index stores entries idempotently', async () => {
+  const staged = await buildStagedArtifact();
+  const entry = buildKnowledgeTeamArtifactIndexEntry(staged.descriptor);
+  const index = createMockS3CompatibleKnowledgeArtifactMetadataIndex();
+
+  const firstPut = await index.putEntry(entry);
+  const secondPut = await index.putEntry(entry);
+  const byKey = await index.getEntry(entry.index.key);
+  const byObject = await index.findEntryForObject(entry.object.key);
+  const allEntries = await index.listEntries();
+
+  assert.equal(firstPut.alreadyPresent, false);
+  assert.equal(secondPut.alreadyPresent, true);
+  assert.deepEqual(firstPut.entry, entry);
+  assert.deepEqual(secondPut.entry, entry);
+  assert.deepEqual(byKey, entry);
+  assert.deepEqual(byObject, entry);
+  assert.deepEqual(allEntries, [entry]);
+  assertNoLeakedIndexDetails(allEntries);
+});
+
+test('mock team artifact metadata index rejects conflicts and unsafe keys', async () => {
+  const staged = await buildStagedArtifact();
+  const entry = buildKnowledgeTeamArtifactIndexEntry(staged.descriptor);
+  const index = createMockS3CompatibleKnowledgeArtifactMetadataIndex();
+
+  await index.putEntry(entry);
+  await assert.rejects(
+    () => index.putEntry({
+      ...entry,
+      object: {
+        ...entry.object,
+        byteLength: entry.object.byteLength + 1
+      }
+    }),
+    error => error instanceof KnowledgeTeamArtifactStoreError && error.code === 'object-conflict'
+  );
+
+  await assert.rejects(
+    () => index.putEntry({
+      ...entry,
+      index: {
+        ...entry.index,
+        key: '../unsafe-index-entry.json'
+      }
+    }),
+    error => error instanceof KnowledgeTeamArtifactStoreError && error.code === 'invalid-object-key'
+  );
+  await assert.rejects(
+    () => index.findEntryForObject('/absolute/object/key.json'),
+    error => error instanceof KnowledgeTeamArtifactStoreError && error.code === 'invalid-object-key'
+  );
 });
