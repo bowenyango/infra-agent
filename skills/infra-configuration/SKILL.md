@@ -116,6 +116,12 @@ credentials must still come from environment variables.
    official-doc fetches can normalize HTML into compact Markdown cache entries
    for extraction, but raw docs and cache payloads are still excluded from
    planner prompts and compact handoff.
+   Treat team artifact storage as an internal abstraction until a real
+   backend is explicitly added: local filesystem remains the default, the
+   S3-compatible store is currently mocked/injected, and compact
+   `infra-agent.knowledge-team-artifact-descriptor` payloads must stay
+   backend-neutral and secret-safe. Do not infer that a descriptor approves
+   real remote publication.
    Prefer bounded `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
@@ -190,6 +196,10 @@ credentials must still come from environment variables.
   schema context. Source freshness and fingerprint digest fields are handoff
   signals; stale or unchecked source facts should be revalidated or
   re-extracted and should not be used as high-confidence guidance.
+- Treat team artifact descriptors as compact validation artifacts only. They
+  may summarize a fresh public-reference pack staged through the mocked store,
+  but they must not include buckets, endpoints, credentials, signed URLs,
+  absolute workspace paths, raw docs, or raw repo file content.
 - For Terraform local modules, prefer `terraform-module` knowledge facts over
   raw module file reads when the module source is literal and workspace-local.
   These facts describe inputs and outputs only; remote, registry, git, dynamic,

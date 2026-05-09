@@ -177,7 +177,13 @@ Current behavior is intentionally runtime-foundation oriented:
   disabled publication posture before any future team-cache backend is used. Pass
   `knowledge validate --workspace <workspace>` to recheck repo-derived fact
   fingerprints against current files and reject stale local knowledge before it
-  reaches a planner. Validation reports include a structured freshness summary
+  reaches a planner. `knowledge validate` also accepts compact
+  `infra-agent.knowledge-team-artifact-descriptor` payloads produced by the
+  internal mocked S3-compatible team artifact store abstraction. Those
+  descriptors are content-addressed and backend-neutral; they do not include
+  backend URLs, buckets, endpoints, credentials, absolute workspace paths, raw
+  docs, or raw repo content. There is still no real remote storage backend or
+  CLI publication command. Validation reports include a structured freshness summary
   with stale and unchecked source counts, affected fact counts, safe source
   ids, source kinds/names, stale reasons, and safe workspace-relative
   stale/missing paths so saved facts can be re-extracted or rebuilt before

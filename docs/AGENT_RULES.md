@@ -182,6 +182,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Do not upload private repo-derived module, component, chart, or code facts to
   shared storage without explicit configuration. Remote knowledge backends must
   be opt-in and secret-safe.
+- Team artifact store work is currently abstraction-only: local filesystem
+  remains the default, the only S3-compatible backend is an injected mock, and
+  compact `infra-agent.knowledge-team-artifact-descriptor` payloads must not
+  contain backend URLs, buckets, endpoints, headers, credentials, absolute
+  workspace paths, raw docs, or raw repo content. Only fresh public-reference
+  `knowledge-pack` artifacts may be staged through that mock path.
 - For Terraform Registry docs, prefer provider source and locked provider version from `required_providers` and `.terraform.lock.hcl` before falling back to local-name heuristics.
 - For local Terraform provider schema context, use only root-scoped exports such as `.infra-agent/terraform-provider-schema.json` or `.infra-agent/terraform-providers-schema.json`. Extract compact facts for resources used by the selected root, preserve `.terraform.lock.hcl` provider version labels when available, do not pass full provider schema JSON into planner prompts, and do not infer replacement safety from schema shape alone.
 - For local Terraform modules, use only literal workspace-contained module
