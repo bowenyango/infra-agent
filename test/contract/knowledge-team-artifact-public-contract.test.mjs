@@ -64,3 +64,26 @@ test('team artifact descriptor contract rejects mutation and backend detail drif
     '$.accessToken'
   ]);
 });
+
+test('team artifact descriptor contract rejects content address and raw payload drift', async () => {
+  const fixture = await buildKnowledgeTeamArtifactContractFixture();
+
+  assert.ok(fixture.descriptor);
+  assertInvalidPayload({
+    ...fixture.descriptor,
+    workspaceRoot: '/workspace/private-project',
+    cacheRoot: '/home/user/.cache/infra-agent',
+    facts: [{
+      summary: 'Container image repository.'
+    }],
+    object: {
+      ...fixture.descriptor.object,
+      key: `knowledge-artifacts/v1/knowledge-pack/sha256/ff/${'f'.repeat(64)}.json`
+    }
+  }, [
+    '$.workspaceRoot',
+    '$.cacheRoot',
+    '$.facts',
+    '$.object.key'
+  ]);
+});

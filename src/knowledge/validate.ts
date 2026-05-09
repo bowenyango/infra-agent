@@ -29,6 +29,8 @@ import {
   type LocalSourceValidationStats
 } from './validation-source-fingerprints.ts';
 import {
+  buildKnowledgeTeamArtifactIndexEntryKey,
+  buildKnowledgeTeamArtifactObjectKey,
   isKnowledgeTeamArtifactSha256,
   isSafeKnowledgeTeamArtifactObjectKey
 } from './team-artifact-store.ts';
@@ -162,6 +164,8 @@ const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfi
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const BACKEND_URL_PATTERN = /(?:https?:\/\/|s3:\/\/)/i;
 const FORBIDDEN_TEAM_ARTIFACT_DESCRIPTOR_KEY_PATTERN = /(bucket|endpoint|url|credential|secret|token|password|authorization|header|uploadCommand|accessKey|sessionToken)/i;
+const FORBIDDEN_TEAM_ARTIFACT_RAW_KEY_PATTERN = /^(workspaceRoot|cacheRoot|artifactPath|localPath|rawContent|rawDocs|rawRepoContent|facts|factSets|sources)$/;
+const ABSOLUTE_LOCAL_PATH_PATTERN = /(^|[\s"'=])(?:\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/;
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
 const MANIFEST_ID_PATTERN = PACK_ID_PATTERN;
@@ -411,6 +415,9 @@ function validateNoTeamArtifactPayloadLeakage(
     if (BACKEND_URL_PATTERN.test(value)) {
       issues.push(error(path, 'Knowledge team artifact payloads must not include backend URLs.'));
     }
+    if (ABSOLUTE_LOCAL_PATH_PATTERN.test(value)) {
+      issues.push(error(path, 'Knowledge team artifact payloads must not include absolute local paths.'));
+    }
     return;
   }
 
@@ -432,7 +439,81 @@ function validateNoTeamArtifactPayloadLeakage(
     if (FORBIDDEN_TEAM_ARTIFACT_DESCRIPTOR_KEY_PATTERN.test(key) && !allowedControlField) {
       issues.push(error(entryPath, 'Knowledge team artifact payloads must not include backend, credential, or upload fields.'));
     }
+    if (FORBIDDEN_TEAM_ARTIFACT_RAW_KEY_PATTERN.test(key)) {
+      issues.push(error(entryPath, 'Knowledge team artifact payloads must not include raw source, fact, workspace, or cache fields.'));
+    }
     validateNoTeamArtifactPayloadLeakage(entry, entryPath, issues);
+  }
+}
+
+function validateTeamArtifactObjectKeyMatchesSha(
+  key: unknown,
+  sha256: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (
+    typeof key !== 'string'
+    || typeof sha256 !== 'string'
+    || !isSafeKnowledgeTeamArtifactObjectKey(key)
+    || !isKnowledgeTeamArtifactSha256(sha256)
+  ) {
+    return;
+  }
+
+  const expectedKey = buildKnowledgeTeamArtifactObjectKey({
+    artifactKind: 'infra-agent.knowledge-pack',
+    sha256
+  });
+  if (key !== expectedKey) {
+    issues.push(error(path, 'Knowledge team artifact object key must match the artifact SHA-256 content address.'));
+  }
+}
+
+function validateTeamArtifactIndexKeyMatchesSha(
+  key: unknown,
+  sha256: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (
+    typeof key !== 'string'
+    || typeof sha256 !== 'string'
+    || !isSafeKnowledgeTeamArtifactObjectKey(key)
+    || !isKnowledgeTeamArtifactSha256(sha256)
+  ) {
+    return;
+  }
+
+  const expectedKey = buildKnowledgeTeamArtifactIndexEntryKey({
+    artifactKind: 'infra-agent.knowledge-pack',
+    sha256
+  });
+  if (key !== expectedKey) {
+    issues.push(error(path, 'Knowledge team artifact index key must match the artifact SHA-256 content address.'));
+  }
+}
+
+function validateBlockerCodeSummary(
+  blockerCodes: string[] | null,
+  blockers: unknown[],
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (blockerCodes === null) {
+    return;
+  }
+
+  const actualCodes = [...new Set(blockers
+    .map(blocker => isRecord(blocker) && typeof blocker.code === 'string' ? blocker.code : null)
+    .filter((code): code is string => code !== null))]
+    .sort();
+  const expectedCodes = [...new Set(blockerCodes)].sort();
+  if (
+    actualCodes.length !== expectedCodes.length
+    || actualCodes.some((code, index) => code !== expectedCodes[index])
+  ) {
+    issues.push(error(path, 'Knowledge team artifact blockerCodes must match the unique blocker codes.'));
   }
 }
 
@@ -1067,6 +1148,7 @@ function validateKnowledgeTeamArtifactDescriptorPayload(
     if (typeof payload.object.sha256 !== 'string' || !isKnowledgeTeamArtifactSha256(payload.object.sha256)) {
       issues.push(error('$.object.sha256', 'Knowledge team artifact descriptor object sha256 must be a SHA-256 hex string.'));
     }
+    validateTeamArtifactObjectKeyMatchesSha(payload.object.key, payload.object.sha256, '$.object.key', issues);
     readPositiveInteger(payload.object.byteLength, '$.object.byteLength', issues);
     if (payload.object.contentType !== 'application/json') {
       issues.push(error('$.object.contentType', 'Knowledge team artifact descriptor contentType must be application/json.'));
@@ -1214,6 +1296,10 @@ function validateKnowledgeTeamArtifactIndexEntryPayload(
     if (typeof payload.object.sha256 !== 'string' || !isKnowledgeTeamArtifactSha256(payload.object.sha256)) {
       issues.push(error('$.object.sha256', 'Knowledge team artifact index entry object sha256 must be a SHA-256 hex string.'));
     }
+    validateTeamArtifactObjectKeyMatchesSha(payload.object.key, payload.object.sha256, '$.object.key', issues);
+    if (isRecord(payload.index)) {
+      validateTeamArtifactIndexKeyMatchesSha(payload.index.key, payload.object.sha256, '$.index.key', issues);
+    }
     readPositiveInteger(payload.object.byteLength, '$.object.byteLength', issues);
     if (payload.object.contentType !== 'application/json') {
       issues.push(error('$.object.contentType', 'Knowledge team artifact index entry contentType must be application/json.'));
@@ -1360,6 +1446,7 @@ function validateKnowledgeTeamPublicationPlanPayload(
     if (typeof payload.object.sha256 !== 'string' || !isKnowledgeTeamArtifactSha256(payload.object.sha256)) {
       issues.push(error('$.object.sha256', 'Knowledge team publication plan object sha256 must be a SHA-256 hex string.'));
     }
+    validateTeamArtifactObjectKeyMatchesSha(payload.object.key, payload.object.sha256, '$.object.key', issues);
     readPositiveInteger(payload.object.byteLength, '$.object.byteLength', issues);
     if (payload.object.contentType !== 'application/json') {
       issues.push(error('$.object.contentType', 'Knowledge team publication plan contentType must be application/json.'));
@@ -1453,6 +1540,7 @@ function validateKnowledgeTeamPublicationPlanPayload(
       if (publicationAllowed === false && payload.publication.blockers.length === 0) {
         issues.push(error('$.publication.blockers', 'Blocked team publication plans must include at least one blocker.'));
       }
+      validateBlockerCodeSummary(blockerCodes, payload.publication.blockers, '$.publication.blockerCodes', issues);
     }
     readNonEmptyString(payload.publication.reason, '$.publication.reason', issues);
   }
@@ -1559,6 +1647,7 @@ function validateKnowledgeTeamPublicationReadinessPayload(
     if (typeof payload.object.sha256 !== 'string' || !isKnowledgeTeamArtifactSha256(payload.object.sha256)) {
       issues.push(error('$.object.sha256', 'Knowledge team publication readiness object sha256 must be a SHA-256 hex string.'));
     }
+    validateTeamArtifactObjectKeyMatchesSha(payload.object.key, payload.object.sha256, '$.object.key', issues);
     readPositiveInteger(payload.object.byteLength, '$.object.byteLength', issues);
     if (payload.object.contentType !== 'application/json') {
       issues.push(error('$.object.contentType', 'Knowledge team publication readiness contentType must be application/json.'));
@@ -1688,6 +1777,7 @@ function validateKnowledgeTeamPublicationReadinessPayload(
       if ((status === 'blocked' || status === 'conflict') && payload.readiness.blockers.length === 0) {
         issues.push(error('$.readiness.blockers', 'Blocked or conflict publication readiness payloads must include blockers.'));
       }
+      validateBlockerCodeSummary(blockerCodes, payload.readiness.blockers, '$.readiness.blockerCodes', issues);
     }
     readNonEmptyString(payload.readiness.reason, '$.readiness.reason', issues);
   }
