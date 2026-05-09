@@ -224,3 +224,21 @@ test('knowledge publish-readiness CLI args accept plan index entry and output pa
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.readiness.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge backend-readiness CLI args accept config and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'backend-readiness',
+    'artifacts/team-backend.config.json',
+    '--out',
+    'artifacts/team-backend.readiness.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'backend-readiness');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/team-backend.config.json');
+  assert.equal(parsed.outputPath, 'artifacts/team-backend.readiness.json');
+  assert.equal(parsed.json, true);
+});

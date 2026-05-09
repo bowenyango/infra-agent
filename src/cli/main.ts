@@ -64,7 +64,7 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -118,6 +118,7 @@ function printUsage(): void {
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]',
       '  infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]',
+      '  infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -599,8 +600,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'pack'
       && knowledgeAction !== 'publish-plan'
       && knowledgeAction !== 'publish-readiness'
+      && knowledgeAction !== 'backend-readiness'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness.');
     }
 
     let workspace = cwd();
@@ -621,7 +623,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness') {
           fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
@@ -635,7 +637,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness') {
           fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
@@ -687,8 +689,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'pack'
           && knowledgeAction !== 'publish-plan'
           && knowledgeAction !== 'publish-readiness'
+          && knowledgeAction !== 'backend-readiness'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, or knowledge publish-readiness.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, or knowledge backend-readiness.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -799,6 +802,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'publish-readiness' && positionalArgs.length !== 1) {
       fail('knowledge publish-readiness requires exactly one publication plan path.');
     }
+    if (knowledgeAction === 'backend-readiness' && positionalArgs.length !== 1) {
+      fail('knowledge backend-readiness requires exactly one backend config path.');
+    }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
@@ -809,8 +815,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' ? positionalArgs[0] : null,
+      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' ? positionalArgs[0] : null,
       descriptorInputPath,
       indexEntryInputPath,
       outputPath,
