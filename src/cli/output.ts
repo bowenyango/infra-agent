@@ -631,6 +631,22 @@ function formatKnowledgeExtractionSourceResult(result: KnowledgeExtractionSource
   return `${result.status} ${result.domain} ${result.targetPath}: ${result.source.kind} ${result.source.name} (id=${result.id}${factLabel}, ${location})${message}`;
 }
 
+function formatKnowledgeStaleSource(source: KnowledgeValidationReport['freshness']['staleSources'][number]): string {
+  const label = `${source.sourceKind ?? 'unknown-source'} ${source.sourceName ?? source.sourceId}`;
+  const changedPaths = source.stalePaths && source.stalePaths.length > 0
+    ? ` changed=${source.stalePaths.join(', ')}`
+    : '';
+  const missingPaths = source.missingPaths && source.missingPaths.length > 0
+    ? ` missing=${source.missingPaths.join(', ')}`
+    : '';
+  return `stale ${label}: reason=${source.staleReason ?? 'unknown'}, facts=${source.factCount}${changedPaths}${missingPaths}`;
+}
+
+function formatKnowledgeUncheckedSource(source: KnowledgeValidationReport['freshness']['uncheckedLocalSources'][number]): string {
+  const label = `${source.sourceKind ?? 'unknown-source'} ${source.sourceName ?? source.sourceId}`;
+  return `unchecked ${label}: reason=${source.uncheckedReason ?? 'unknown'}, facts=${source.factCount}`;
+}
+
 function printHeader(title: string): void {
   process.stdout.write(`${title}\n`);
 }
@@ -3477,6 +3493,13 @@ export function printKnowledgeValidationReport(report: KnowledgeValidationReport
   process.stdout.write(`kind: ${report.inputKind ?? 'unknown'}\n`);
   process.stdout.write(`valid: ${report.valid ? 'yes' : 'no'}\n`);
   process.stdout.write(`summary: factSets=${report.factSetCount}, facts=${report.factCount}, issues=${report.issueCount}, staleSources=${report.staleSourceCount}, uncheckedLocalSources=${report.uncheckedLocalSourceCount}\n\n`);
+  printHeader('Source freshness');
+  printList([
+    ...report.freshness.staleSources.map(formatKnowledgeStaleSource),
+    ...report.freshness.uncheckedLocalSources.map(formatKnowledgeUncheckedSource)
+  ], 'No stale or unchecked local knowledge sources.');
+  process.stdout.write('\n');
+
   printHeader('Issues');
   printList(report.issues.map(issue => `${issue.severity} ${issue.path}: ${issue.message}`), 'No knowledge validation issues.');
 }

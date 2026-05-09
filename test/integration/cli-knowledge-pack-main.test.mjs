@@ -877,10 +877,28 @@ test('knowledge validate command rejects stale pack local fingerprints with work
     assert.equal(validation.inputKind, 'infra-agent.knowledge-pack');
     assert.equal(validation.valid, false);
     assert.equal(process.exitCode, 1);
+    assert.ok(validation.freshness.staleSources.some(source =>
+      source.sourceKind === 'chart-metadata'
+      && source.staleReason === 'local-file-hash-mismatch'
+      && source.stalePaths.includes('charts/payments-api/Chart.yaml')
+    ));
     assert.ok(validation.issues.some(issue =>
       issue.path.startsWith('$.sources[')
       && /local-file-hash-mismatch/.test(issue.message)
     ));
+
+    process.exitCode = undefined;
+    const validationText = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      outputPath,
+      '--workspace',
+      workspaceRoot
+    ]));
+    assert.match(validationText, /Source freshness/);
+    assert.match(validationText, /stale chart-metadata payments-api:Chart\.yaml/);
+    assert.match(validationText, /changed=charts\/payments-api\/Chart\.yaml/);
+    assert.doesNotMatch(validationText, /contentHash|sha256|apiVersion:\s*v2|replicaCount/);
   } finally {
     process.exitCode = previousExitCode;
     await rm(tempRoot, { recursive: true, force: true });
