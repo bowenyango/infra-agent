@@ -39,13 +39,13 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
-## 2026-05-09 Active Team Publication Plan Dry-Run Plan
+## 2026-05-09 Team Publication Plan Dry-Run
 
 Status:
 
-- In progress. This slice extends the completed team artifact store abstraction
+- Completed. This slice extends the completed team artifact store abstraction
   with a non-mutating publication dry-run plan for persisted knowledge packs.
-- Scope is plan generation and validation only. It reads a persisted
+- Scope remains plan generation and validation only. It reads a persisted
   `knowledge-pack` artifact, its plan-only artifact manifest, and optionally a
   compact team artifact descriptor, then reports whether a future team-cache
   publication would be allowed. It does not call `putObject`, does not write a
@@ -66,29 +66,57 @@ Subagent review inputs:
   `infra-agent.knowledge-team-publication-plan`, with dry-run semantics,
   blocked-plan results as first-class output, descriptor reuse checks, validator
   support, CLI JSON/text output, and final documentation/verification.
-- Architecture and test review are running in parallel. Current local design
-  assumptions remain conservative: no store writes, no real backend, no backend
-  URL/bucket/credential fields, and no raw docs or absolute paths in the plan.
+- `Cicero` recommended keeping this as a compact dry-run payload rather than
+  reusing the staging helper, because staging intentionally writes through a
+  store adapter. The final implementation follows that boundary.
+- `Nash` recommended focused unit coverage, CLI args coverage, CLI integration
+  coverage, and first-class blocked-plan validation. Those checks are now in
+  place.
 
-Planned commits and checkpoints:
+Completed commits:
 
-1. Record this active team publication dry-run plan in `docs/HANDOFF.md`.
-2. Define the compact publication-plan contract and deterministic plan builder.
-3. Cover deterministic allowed-plan output and content-addressed object preview.
-4. Add hash, manifest metadata, publication policy, and optional descriptor
-   reuse checks to the plan builder.
-5. Cover blocked plans for private, stale, unchecked, forged, hash-mismatched,
-   and descriptor-mismatched inputs.
-6. Extend `knowledge validate` to accept team publication plans.
-7. Cover publication-plan validation and leak rejection.
-8. Add `knowledge publish-plan` argument parsing.
-9. Cover `publish-plan` CLI args and option rejection.
-10. Add the `knowledge publish-plan` command implementation and human text
-    output.
-11. Cover `publish-plan` JSON/text integration behavior.
-12. Update README, roadmap, agent rules, skill docs, and this handoff with
-    completed behavior and remaining risks.
-13. Run focused checks and full `npm run verify` before final handoff.
+1. `3710f26` docs: record team publication plan slice
+2. `e50922e` feat: add team publication plan builder
+3. `8eefc18` test: cover team publication plan dry run
+4. `5e5ccc7` test: cover blocked team publication plans
+5. `6309ffc` feat: validate team publication plans
+6. `e0a1a54` test: cover team publication plan validation
+7. `88417dd` feat: parse knowledge publish-plan args
+8. `5a00d12` test: cover knowledge publish-plan args
+9. `c68c7c9` feat: add knowledge publish-plan command
+10. `059ae42` test: cover knowledge publish-plan command
+11. `58706eb` docs: document publication plan dry run
+
+Core files changed:
+
+- `src/knowledge/team-artifact-store.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-artifact-publication-plan.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-knowledge-publish-plan-main.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+- `skills/infra-configuration/SKILL.md`
+
+What changed:
+
+- Added `infra-agent.knowledge-team-publication-plan` as a compact,
+  backend-neutral dry-run artifact for future team-cache publication decisions.
+- Added `buildKnowledgeTeamPublicationPlan`, a pure builder that checks manifest
+  bytes, artifact hash, manifest metadata, publication policy, and optional
+  descriptor reuse without accepting a store adapter or writing object bytes.
+- Added first-class blocked plans for workspace-private sources, stale sources,
+  unchecked sources, forged publication posture, hash drift, metadata drift, and
+  descriptor mismatch.
+- Extended `knowledge validate` to accept allowed and blocked publication plans
+  while rejecting mutation flags, upload commands, unsafe object keys, backend
+  details, credentials, URLs, raw content, and path leakage.
+- Added `infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]`
+  with safe text and JSON output.
 
 Acceptance criteria:
 
@@ -107,6 +135,41 @@ Acceptance criteria:
 - `knowledge validate` can validate saved publication-plan JSON without
   performing remote reads or writes.
 - CLI behavior remains explicitly dry-run and local-only.
+
+Design notes:
+
+- The publication-plan builder is intentionally separate from
+  `stageKnowledgePackArtifactForTeamStore`, because the staging path performs a
+  store write and this slice must remain a pure planning surface.
+- A blocked plan is valid handoff state, not an exception. Downstream agents can
+  inspect blocker codes without reconstructing raw artifact content.
+- An allowed plan is not an approval to upload. The plan only proves the current
+  local artifact is eligible for a future publication flow under the existing
+  policy checks.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-publication-plan.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-publish-plan-main.test.mjs`
+- `npm run test:structure`
+- `npm run lint`
+- `npm run verify`
+
+Full verification result:
+
+- `npm run verify` passed on 2026-05-09.
+- Coverage gate passed: lines 89.30%, branches 77.86%, functions 96.57%.
+- `npm pack --dry-run --json` passed with 139 package entries.
+
+Remaining risks and next stage:
+
+- There is still no real S3/GCS/Azure backend, upload command, credential
+  model, signed URL flow, or remote metadata index.
+- Descriptor reuse checks compare compact local metadata only; they do not prove
+  a remote object exists.
+- Future upload implementation must consume this plan as a precondition and
+  preserve the same backend-detail and credential leak boundaries.
 
 ## 2026-05-09 Active Team Artifact Store Plan
 
