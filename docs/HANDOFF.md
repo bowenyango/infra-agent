@@ -39,16 +39,17 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
-## 2026-05-09 Active Team Artifact Public Contract Plan
+## 2026-05-09 Team Artifact Public Contract Hardening
 
 Status:
 
-- In progress. This slice hardens the public JSON contracts for compact team
+- Completed. This slice hardens the public JSON contracts for compact team
   artifact handoff payloads before any real backend adapter work starts.
-- Scope is contract tests, shared test fixtures, and minimal validator
-  hardening for existing payload families: descriptor, publication plan, index
-  entry, and publication readiness. It must not introduce real remote backends,
-  credentials, upload commands, SDKs, or live index reads/writes.
+- Scope stayed limited to contract tests, shared test fixtures, CLI validation
+  coverage, documentation, and minimal validator hardening for existing payload
+  families: descriptor, publication plan, index entry, and publication
+  readiness. It did not introduce real remote backends, credentials, upload
+  commands, SDKs, or live index reads/writes.
 
 Why this direction:
 
@@ -60,28 +61,60 @@ Why this direction:
   compact shapes and catches drift before a real backend adapter depends on
   them.
 
-Planned commits and checkpoints:
+Subagent review inputs:
 
-1. Record this active public contract plan in `docs/HANDOFF.md`.
-2. Add reusable team artifact contract fixtures under `test/support/`.
-3. Add descriptor contract tests for valid shape, mutation posture, and leak
-   rejection.
-4. Add descriptor validator hardening if the contract exposes key/hash or path
-   leakage gaps.
-5. Add publication-plan contract tests for allowed and blocked plans.
-6. Add publication-plan validator hardening for blocker-code and key/hash
-   consistency.
-7. Add index-entry contract tests for compact metadata and index-key
-   consistency.
-8. Add index-entry validator hardening for content-addressed key consistency
-   and backend/detail leakage.
-9. Add readiness contract tests for all statuses and next-action consistency.
-10. Add readiness validator hardening for blocker-code consistency and
-    status/action drift.
-11. Run focused contract/unit/integration checks and update docs if public
-    contract behavior changed.
-12. Run full `npm run verify`, then record completed commits, validation, risks,
-    and next stage in this handoff.
+- `Hilbert` recommended freezing the public JSON shapes first with 10+ commits,
+  explicit non-goals for real backend/upload work, and a final `npm run verify`
+  gate.
+- `Cicero` recommended importing the existing content-address key builders into
+  validation, enforcing blocker-code summaries, and keeping validator hardening
+  schema-compatible.
+- `Nash` recommended dedicated contract coverage for descriptor, publication
+  plan, index entry, and readiness payloads plus CLI validation round trips and
+  negative leak regressions.
+
+Completed commits:
+
+1. `65dcc2e` docs: record team artifact contract plan
+2. `e8a3350` test: add team artifact contract fixtures
+3. `652bffc` test: cover team artifact descriptor contract
+4. `f7d58c4` feat: harden team artifact descriptor contract validation
+5. `50e9751` test: cover team publication plan contract
+6. `f41d319` test: cover team artifact index entry contract
+7. `c8691a8` test: cover team publication readiness contract
+8. `c95aa74` test: cover team artifact contract CLI validation
+9. `8fa4fdc` docs: document team artifact contract gate
+10. This handoff update records final verification for the slice.
+
+Core files changed:
+
+- `src/knowledge/validate.ts`
+- `test/support/knowledge-team-artifact-fixtures.mjs`
+- `test/contract/knowledge-team-artifact-public-contract.test.mjs`
+- `test/integration/cli-knowledge-team-contract-main.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+- `skills/infra-configuration/SKILL.md`
+
+What changed:
+
+- Added reusable generated fixtures for public team artifact descriptor,
+  publication-plan, index-entry, and readiness payloads.
+- Added contract tests for valid public payload shapes and negative drift cases:
+  remote write posture, backend detail fields, upload commands, credentials,
+  unsafe keys, absolute local paths, raw facts/sources, object/index key drift,
+  and blocker-code summary drift.
+- Added CLI validation coverage that writes the four public payloads and checks
+  `knowledge validate --json` accepts valid files and rejects a forged readiness
+  payload.
+- Hardened validators so content-addressed object/index keys must match their
+  SHA-256 values and publication/readiness blocker summaries must match their
+  blocker arrays.
+- Updated user and agent-facing docs to treat descriptor, publication plan,
+  index entry, and readiness JSON as public contract handoff payloads, not raw
+  artifact or backend configuration containers.
 
 Acceptance criteria:
 
@@ -99,6 +132,42 @@ Acceptance criteria:
   tests.
 - No real backend, upload, network, credential, or live metadata index behavior
   is introduced.
+
+Validation completed:
+
+- `node --experimental-strip-types test/contract/knowledge-team-artifact-public-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-index-readiness.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-team-contract-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-descriptor-validation.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-publication-plan.test.mjs`
+- `npm run test:structure`
+- `npm run lint`
+- `git diff --check`
+- `npm run verify`
+
+Full verification result:
+
+- `npm run verify` passed on 2026-05-09.
+- Coverage gate passed at 89.17% lines, 77.44% branches, and 96.52%
+  functions.
+- `npm pack --dry-run --json` passed with 139 package entries.
+
+Remaining risks:
+
+- There is still no real S3/GCS/Azure/Postgres backend adapter, no real remote
+  metadata index service, and no CLI upload/publication command.
+- Readiness reports remain compact local routing artifacts. They do not prove a
+  remote object exists.
+- `src/knowledge/validate.ts` is getting large. The next backend-oriented slice
+  should consider splitting team artifact validation helpers once the adapter
+  boundary is clearer.
+
+Next stage:
+
+- Add a real backend adapter only after preserving these public contracts.
+- Keep remote writes disabled by default and require explicit future design for
+  credentials, backend configuration, upload approval, and metadata index
+  mutation.
 
 ## 2026-05-09 Team Metadata Index Readiness
 
