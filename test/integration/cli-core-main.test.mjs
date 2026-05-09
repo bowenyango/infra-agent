@@ -231,6 +231,12 @@ test('help output includes planner provider catalog command', async () => {
   assert.match(output, /infra-agent planner-providers \[--json\]/);
 });
 
+test('help output includes backend reference readiness command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge backend-reference-readiness <backend-config\.json> --registry <reference-registry\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
