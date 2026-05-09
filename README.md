@@ -106,6 +106,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]`
 - `infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]`
 - `infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]`
+- `infra-agent knowledge backend-reference-readiness <backend-config.json> --registry <reference-registry.json> [--out <readiness.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -193,7 +194,12 @@ Current behavior is intentionally runtime-foundation oriented:
   <backend-config.json>` reads a local private backend config and emits a
   compact `infra-agent.knowledge-team-backend-readiness` report for future
   explicit-upload design; it keeps remote writes, live checks, credential value
-  exposure, and upload commands disabled. `knowledge validate` also
+  exposure, and upload commands disabled. `knowledge backend-reference-readiness
+  <backend-config.json> --registry <reference-registry.json>` reads a private
+  S3-compatible backend config plus reference registry and emits a dry-run
+  `infra-agent.knowledge-team-s3-compatible-reference-validation` summary that
+  lists required environment variable names without reading their values.
+  `knowledge validate` also
   accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
   produced by the internal mocked S3-compatible team artifact store
   abstraction, compact index entries, saved publication-plan dry runs, and
@@ -208,10 +214,11 @@ Current behavior is intentionally runtime-foundation oriented:
   URL, absolute-path, live-check, and remote-write leakage. The first
   S3-compatible backend family now has a contract-first private config parser,
   an offline reference registry for storage/auth refs and required environment
-  variable names, sanitized internal descriptor metadata, readiness-input
-  projection, and fail-closed resolution planning for future real adapter work;
-  it still does not create a client or read credential values. There is still
-  no real remote storage backend or CLI upload command. Internally, team
+  variable names, a dry-run CLI review path for those references, sanitized
+  internal descriptor metadata, readiness-input projection, and fail-closed
+  resolution planning for future real adapter work; it still does not create a
+  client or read credential values. There is still no real remote storage
+  backend or CLI upload command. Internally, team
   artifact and backend readiness
   validation now lives in focused modules while `knowledge validate` remains
   the public dispatcher; this keeps the next real-backend work from expanding
