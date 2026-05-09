@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildKnowledgeTeamBackendReadinessReport } from '../../src/knowledge/team-backend-readiness.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 function validBackendConfig(overrides = {}) {
   return {
@@ -125,4 +126,53 @@ test('team backend readiness blocks incomplete or unsafe config shape', () => {
   assert.ok(report.readiness.blockerCodes.includes('unsupported-credential-mode'));
   assert.ok(report.readiness.blockerCodes.includes('missing-required-field'));
   assertNoBackendReadinessLeaks(report);
+});
+
+test('knowledge validation accepts team backend readiness reports', () => {
+  const readyReport = buildKnowledgeTeamBackendReadinessReport(validBackendConfig());
+  const blockedReport = buildKnowledgeTeamBackendReadinessReport(validBackendConfig({
+    remoteWriteDefault: true
+  }));
+
+  const readyValidation = validateKnowledgePayload(readyReport, 'inline');
+  const blockedValidation = validateKnowledgePayload(blockedReport, 'inline');
+
+  assert.equal(readyValidation.inputKind, 'infra-agent.knowledge-team-backend-readiness');
+  assert.equal(readyValidation.valid, true);
+  assert.equal(readyValidation.factCount, 0);
+  assert.equal(blockedValidation.inputKind, 'infra-agent.knowledge-team-backend-readiness');
+  assert.equal(blockedValidation.valid, true);
+  assert.equal(blockedValidation.factCount, 0);
+});
+
+test('knowledge validation rejects forged or leaky team backend readiness reports', () => {
+  const report = buildKnowledgeTeamBackendReadinessReport(validBackendConfig());
+  const validation = validateKnowledgePayload({
+    ...report,
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    uploadCommand: 'aws s3 cp pack.json s3://private-team-cache',
+    endpointUrl: 'https://s3.example.test/private',
+    readiness: {
+      ...report.readiness,
+      blockerCodes: ['remote-write-enabled']
+    }
+  }, 'inline');
+
+  assert.equal(validation.inputKind, 'infra-agent.knowledge-team-backend-readiness');
+  assert.equal(validation.valid, false);
+  for (const expectedPath of [
+    '$.remoteWriteAllowed',
+    '$.liveCheckAllowed',
+    '$.credentialValuesExposed',
+    '$.uploadCommand',
+    '$.endpointUrl',
+    '$.readiness.blockerCodes'
+  ]) {
+    assert.ok(
+      validation.issues.some(issue => issue.path === expectedPath),
+      `expected issue for ${expectedPath}`
+    );
+  }
 });
