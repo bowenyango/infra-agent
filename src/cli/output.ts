@@ -51,6 +51,7 @@ import type {
   KnowledgeTeamPublicationReadinessReport
 } from '../knowledge/team-artifact-store.ts';
 import type { KnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
+import type { KnowledgeTeamS3CompatibleReferenceValidationSummary } from '../knowledge/team-s3-compatible-reference-registry.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3585,6 +3586,33 @@ export function printKnowledgeTeamBackendReadinessReport(report: KnowledgeTeamBa
   printList(
     report.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No team backend readiness blockers.'
+  );
+}
+
+export function printKnowledgeTeamS3CompatibleReferenceValidationSummary(
+  summary: KnowledgeTeamS3CompatibleReferenceValidationSummary
+): void {
+  printHeader('Knowledge team backend reference readiness');
+  process.stdout.write(`status: ${summary.status}\n`);
+  process.stdout.write(`backend: ${summary.backendKind}\n`);
+  process.stdout.write(`config: ${summary.configName ?? 'invalid'}\n`);
+  process.stdout.write(`storage ref: ${summary.storageProfileRef ?? 'invalid'}\n`);
+  process.stdout.write(`auth ref: ${summary.authProfileRef ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${summary.capabilities.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${summary.capabilities.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${summary.capabilities.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${summary.capabilities.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`summary: requiredEnv=${summary.requiredEnvironmentVariables.length}, optionalEnv=${summary.optionalEnvironmentVariables.length}, blockers=${summary.issues.length}, dryRunOnly=${summary.capabilities.dryRunOnly ? 'yes' : 'no'}\n\n`);
+  printHeader('Required environment names');
+  printList(summary.requiredEnvironmentVariables, 'No required environment variable names.');
+  process.stdout.write('\n');
+  printHeader('Optional environment names');
+  printList(summary.optionalEnvironmentVariables, 'No optional environment variable names.');
+  process.stdout.write('\n');
+  printHeader('Blockers');
+  printList(
+    summary.issues.map(issue => `${issue.code} ${issue.path}: ${issue.message}`),
+    'No team backend reference readiness blockers.'
   );
 }
 
