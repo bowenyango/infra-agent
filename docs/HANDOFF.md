@@ -39,6 +39,70 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active S3-Compatible Reference Readiness CLI Plan
+
+Status:
+
+- In progress. This slice adds a dry-run file/CLI review path for the private
+  S3-compatible reference registry contract.
+- Scope is CLI argument parsing, local JSON loading, text/JSON output,
+  integration/contract tests, and documentation. It must not read environment
+  variable values, perform live backend checks, import SDKs, create clients,
+  generate upload commands, mutate remote objects/indexes, or change public
+  team artifact/readiness JSON schemas.
+
+Why this direction:
+
+- The previous registry slice created the private parser and validation
+  summary but left operators without a stable local file review path. A
+  dedicated dry-run CLI keeps the handoff explicit and testable without
+  broadening public readiness JSON.
+- The design follows the Claude Code-style compact handoff pattern: parse
+  private inputs, emit bounded structured state, and keep mutation and
+  reachability separate from planning metadata.
+
+Planned checkpoints:
+
+1. Record the reference-readiness CLI plan and acceptance criteria.
+2. Add `knowledge backend-reference-readiness` argument parsing with a required
+   `--registry <reference-registry.json>` option.
+3. Add text output for S3-compatible reference validation summaries.
+4. Wire CLI execution to load backend config plus registry JSON and emit the
+   existing private validation summary.
+5. Cover CLI argument parsing and missing/unsupported option behavior.
+6. Cover valid JSON output and `--out` writes.
+7. Cover no environment value reads in the CLI path.
+8. Cover blocked text output without echoing private input values.
+9. Add a contract-style regression for the private validation summary shape.
+10. Update README, rules, roadmap, skill, and handoff records.
+11. Run focused checks and full `npm run verify`.
+
+Acceptance criteria:
+
+- The command reads only local JSON files: backend config as the positional
+  input and registry via `--registry`.
+- Output kind remains
+  `infra-agent.knowledge-team-s3-compatible-reference-validation`; it may list
+  required/optional environment variable names but never environment values.
+- The CLI must not alter existing `knowledge backend-readiness` behavior or
+  public team artifact/readiness schemas.
+- Valid references may report structural readiness, but real S3-compatible
+  adapter resolution stays fail-closed elsewhere.
+- Focused CLI, parser, registry, public contract, lint, structure, and full
+  verify checks pass.
+
+Current risks and constraints:
+
+- The command name must not imply credential validation or backend
+  reachability. It is only an offline registry/config consistency review.
+- Env var names containing words like `SECRET` or `TOKEN` are valid names, but
+  env var values must never be read or echoed.
+- The command must not become an upload approval path.
+
+Next step:
+
+- Implement CLI argument parsing for `knowledge backend-reference-readiness`.
+
 ## 2026-05-09 Active S3-Compatible Reference Registry Plan
 
 Status:
