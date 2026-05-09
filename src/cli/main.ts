@@ -51,10 +51,11 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
+  descriptorInputPath?: string | null;
   outputPath?: string | null;
   manifestOutputPath?: string | null;
   validationWorkspace?: string | null;
@@ -101,6 +102,7 @@ function printUsage(): void {
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
+      '  infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -555,8 +557,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (commandName === 'knowledge') {
     const knowledgeAction = cleanArgs[0];
-    if (knowledgeAction !== 'sources' && knowledgeAction !== 'prefetch' && knowledgeAction !== 'extract' && knowledgeAction !== 'validate' && knowledgeAction !== 'pack') {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack.');
+    if (
+      knowledgeAction !== 'sources'
+      && knowledgeAction !== 'prefetch'
+      && knowledgeAction !== 'extract'
+      && knowledgeAction !== 'validate'
+      && knowledgeAction !== 'pack'
+      && knowledgeAction !== 'publish-plan'
+    ) {
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan.');
     }
 
     let workspace = cwd();
@@ -567,6 +576,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let maxFacts: number | null = null;
     let outputPath: string | null = null;
     let manifestOutputPath: string | null = null;
+    let descriptorInputPath: string | null = null;
     let validationWorkspace: string | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
@@ -575,8 +585,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate') {
-          fail('--domain is not supported for knowledge validate.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan') {
+          fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
         if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
@@ -589,8 +599,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate') {
-          fail('--target is not supported for knowledge validate.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan') {
+          fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
         if (!targetValue) {
@@ -636,8 +646,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!outputValue) {
           fail('Missing value for --out.');
         }
-        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack') {
-          fail('--out is only supported for knowledge extract or knowledge pack.');
+        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'publish-plan') {
+          fail('--out is only supported for knowledge extract, knowledge pack, or knowledge publish-plan.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -661,6 +671,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         manifestOutputPath = outputValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--descriptor') {
+        const descriptorValue = actionArgs[index + 1]?.trim();
+        if (!descriptorValue) {
+          fail('Missing value for --descriptor.');
+        }
+        if (knowledgeAction !== 'publish-plan') {
+          fail('--descriptor is only supported for knowledge publish-plan.');
+        }
+        if (descriptorInputPath !== null) {
+          fail('Descriptor path can be provided at most once.');
+        }
+
+        descriptorInputPath = descriptorValue;
         index += 1;
         continue;
       }
@@ -708,6 +735,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'validate' && positionalArgs.length !== 1) {
       fail('knowledge validate requires exactly one knowledge JSON path.');
     }
+    if (knowledgeAction === 'publish-plan' && positionalArgs.length !== 1) {
+      fail('knowledge publish-plan requires exactly one artifact manifest path.');
+    }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
@@ -718,8 +748,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' ? positionalArgs[0] : null,
+      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' ? positionalArgs[0] : null,
+      descriptorInputPath,
       outputPath,
       manifestOutputPath,
       validationWorkspace,
