@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -127,6 +127,10 @@ credentials must still come from environment variables.
    publication. Use `knowledge publish-readiness` only to compare a saved
    plan with an optional compact index entry; it does not read or write a real
    metadata index or approve future upload.
+   Use `knowledge backend-readiness` only as a dry-run review of a local
+   private backend config for future explicit-upload design; it does not
+   perform live backend checks, read credential values, write remote objects,
+   mutate a metadata index, emit an upload command, or approve upload.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or
@@ -215,6 +219,10 @@ credentials must still come from environment variables.
 - Treat team publication readiness reports as compact routing artifacts only.
   `already-published`, `upload-required`, `blocked`, and `conflict` are planning
   states, not permission to execute a remote upload or mutate a metadata index.
+- Treat team backend readiness reports as compact routing artifacts only.
+  `ready-for-explicit-upload` means the config shape is ready for a future
+  explicit upload design; it is not permission to execute a remote upload or
+  proof that a remote backend was checked.
 - Treat team artifact contract failures as hard blockers for downstream agents.
   Rebuild or revalidate the compact artifact instead of asking for raw pack
   content or backend details.

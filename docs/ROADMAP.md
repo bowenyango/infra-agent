@@ -157,7 +157,7 @@ Current progress as of 2026-05-09:
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy; HTML official-doc responses are normalized into compact Markdown cache entries in the explicit fetch path; `knowledge sources` reports fresh/stale/missing cache posture without fetching; prefetch results report previous cache posture for each source | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, and structured local freshness summaries for stale or unchecked repo-derived facts | Non-Node Pulumi language discovery, dynamic/deeper component internals, and real team storage backends are pending |
-| Team storage | Partial | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints; public-reference knowledge packs can be staged through an injected mocked S3-compatible content-addressed store and compact descriptor validation; `knowledge publish-plan` emits a non-mutating dry-run publication plan for persisted pack manifests; `knowledge publish-readiness` emits a local readiness report from a saved plan and optional compact index entry; contract tests lock descriptor, publication-plan, index-entry, and readiness JSON shapes | No real S3/GCS/Azure/Postgres backend implementation, no remote metadata index service, and no CLI upload/publication command |
+| Team storage | Partial | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints; public-reference knowledge packs can be staged through an injected mocked S3-compatible content-addressed store and compact descriptor validation; `knowledge publish-plan` emits a non-mutating dry-run publication plan for persisted pack manifests; `knowledge publish-readiness` emits a local readiness report from a saved plan and optional compact index entry; contract tests lock descriptor, publication-plan, index-entry, and readiness JSON shapes; `knowledge backend-readiness` emits compact dry-run readiness for local private backend configs without live checks or credential values | No real S3/GCS/Azure/Postgres backend implementation, no remote metadata index service, and no CLI upload/publication command |
 
 Target artifact families:
 
@@ -203,6 +203,13 @@ Target artifact families:
   reports `already-published`, `upload-required`, `blocked`, or `conflict`
   posture and keeps `remoteWriteAllowed=false` without reading or writing a real
   remote index.
+- `infra-agent.knowledge-team-backend-readiness`: a compact dry-run backend
+  readiness report derived from a local private backend config. It records
+  structural readiness for a future explicit upload design while keeping
+  `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, and `uploadCommand=null`; it does not expose
+  backend URLs, buckets, endpoints, headers, credential values, absolute local
+  paths, raw docs, facts, or source arrays.
 
 Team artifact public contracts:
 
@@ -212,6 +219,9 @@ Team artifact public contracts:
 - Contract gates reject remote-write posture, credentials, upload commands,
   backend details, absolute local paths, raw facts, raw source arrays, unsafe
   object keys, content-address/key/hash drift, and blocker-code summary drift.
+- Backend-readiness reports are separate from artifact public contracts. They
+  may summarize local private backend config structure, but must not be treated
+  as upload approval or evidence that a remote backend was checked.
 
 Extraction rules:
 
@@ -269,6 +279,12 @@ Implemented initial CLI surfaces:
     validates both local inputs, and emits a dry-run readiness report. It may
     write the local readiness file requested by `--out`, but it does not read or
     write a real remote metadata index.
+- `infra-agent knowledge backend-readiness <backend-config.json>
+  [--out <readiness.json>] --json`
+  - reads a local private backend config and emits a compact dry-run backend
+    readiness report. It may write the local readiness file requested by
+    `--out`, but it does not perform live checks, read credential values, write
+    remote objects, mutate a metadata index, or approve an upload.
 
 Recommended storage layers:
 
