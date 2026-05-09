@@ -80,6 +80,26 @@ test('extracts Pulumi component input and output facts from summary cache entrie
             sourceLocator: 'infra/api/components.ts:9',
             type: 'string'
           }
+        ],
+        childResources: [
+          {
+            name: 'assets',
+            type: 'aws:s3/bucket:Bucket',
+            packageName: 'aws',
+            moduleName: 's3/bucket',
+            typeName: 'Bucket',
+            sourcePath: 'infra/api/components.ts',
+            sourceLocator: 'infra/api/components.ts:10'
+          },
+          {
+            name: 'apiKeyBucket',
+            type: 'aws:s3/bucket:Bucket',
+            packageName: 'aws',
+            moduleName: 's3/bucket',
+            typeName: 'Bucket',
+            sourcePath: 'infra/api/components.ts',
+            sourceLocator: 'infra/api/components.ts:11'
+          }
         ]
       }),
       fetchedAt: '1970-01-01T00:00:00.000Z'
@@ -91,7 +111,7 @@ test('extracts Pulumi component input and output facts from summary cache entrie
 
     assert.equal(factSet.kind, 'infra-agent.knowledge-facts');
     assert.equal(factSet.source.kind, 'pulumi-component');
-    assert.equal(factSet.factCount, 3);
+    assert.equal(factSet.factCount, 4);
     assert.ok(factSet.facts.some(fact =>
       fact.kind === 'pulumi-component-input'
       && fact.path === 'component.ApiService.inputs.image'
@@ -109,8 +129,17 @@ test('extracts Pulumi component input and output facts from summary cache entrie
       && fact.path === 'component.ApiService.outputs.endpoint'
       && fact.type === 'pulumi.Output<string>'
     ));
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'pulumi-component-child-resource'
+      && fact.path === 'component.ApiService.childResources.assets'
+      && fact.type === 'aws:s3/bucket:Bucket'
+      && fact.values?.includes('assets')
+      && fact.values?.includes('aws:s3/bucket:Bucket')
+      && fact.source.locator === 'infra/api/components.ts:10: ApiService.assets'
+      && fact.relatedPaths?.includes('infra/api/components.ts')
+    ));
     assert.ok(factSet.facts.every(fact => fact.extractionMethod === 'repo-local-static'));
-    assert.doesNotMatch(JSON.stringify(factSet), /secretToken|bearerToken|class ApiService|super\(|@pulumi\/pulumi/);
+    assert.doesNotMatch(JSON.stringify(factSet), /secretToken|bearerToken|apiKeyBucket|class ApiService|super\(|@pulumi\/pulumi/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

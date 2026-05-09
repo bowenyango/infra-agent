@@ -108,6 +108,16 @@ interface PulumiComponentOutputFactSource {
   type?: string;
 }
 
+interface PulumiComponentChildResourceFactSource {
+  name: string;
+  type: string;
+  packageName: string;
+  moduleName: string;
+  typeName: string;
+  sourcePath: string;
+  sourceLocator: string;
+}
+
 interface PulumiComponentFactSource {
   projectRoot: string;
   className: string;
@@ -117,6 +127,7 @@ interface PulumiComponentFactSource {
   argsType?: string;
   inputs: PulumiComponentInputFactSource[];
   outputs: PulumiComponentOutputFactSource[];
+  childResources: PulumiComponentChildResourceFactSource[];
 }
 
 interface HelmChartMetadataDependencyFactSource {
@@ -987,6 +998,43 @@ function asPulumiComponentOutput(value: unknown): PulumiComponentOutputFactSourc
   };
 }
 
+function asPulumiComponentChildResource(value: unknown): PulumiComponentChildResourceFactSource | null {
+  if (
+    !isRecord(value)
+    || typeof value.name !== 'string'
+    || typeof value.type !== 'string'
+    || typeof value.packageName !== 'string'
+    || typeof value.moduleName !== 'string'
+    || typeof value.typeName !== 'string'
+    || typeof value.sourcePath !== 'string'
+    || typeof value.sourceLocator !== 'string'
+  ) {
+    return null;
+  }
+
+  if (
+    SECRET_PATH_PATTERN.test(value.name)
+    || SECRET_PATH_PATTERN.test(value.type)
+    || SECRET_PATH_PATTERN.test(value.packageName)
+    || SECRET_PATH_PATTERN.test(value.moduleName)
+    || SECRET_PATH_PATTERN.test(value.typeName)
+    || SECRET_PATH_PATTERN.test(value.sourcePath)
+    || SECRET_PATH_PATTERN.test(value.sourceLocator)
+  ) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    type: value.type,
+    packageName: value.packageName,
+    moduleName: value.moduleName,
+    typeName: value.typeName,
+    sourcePath: value.sourcePath,
+    sourceLocator: value.sourceLocator
+  };
+}
+
 function asPulumiComponentFactSource(value: unknown): PulumiComponentFactSource | null {
   if (
     !isRecord(value)
@@ -1013,6 +1061,10 @@ function asPulumiComponentFactSource(value: unknown): PulumiComponentFactSource 
     ? value.outputs.map(asPulumiComponentOutput)
       .filter((output): output is PulumiComponentOutputFactSource => Boolean(output))
     : [];
+  const childResources = Array.isArray(value.childResources)
+    ? value.childResources.map(asPulumiComponentChildResource)
+      .filter((resource): resource is PulumiComponentChildResourceFactSource => Boolean(resource))
+    : [];
 
   return {
     projectRoot: value.projectRoot,
@@ -1022,13 +1074,14 @@ function asPulumiComponentFactSource(value: unknown): PulumiComponentFactSource 
     ...(typeof value.typeToken === 'string' && !SECRET_PATH_PATTERN.test(value.typeToken) ? { typeToken: value.typeToken } : {}),
     ...(typeof value.argsType === 'string' && !SECRET_PATH_PATTERN.test(value.argsType) ? { argsType: value.argsType } : {}),
     inputs,
-    outputs
+    outputs,
+    childResources
   };
 }
 
 function pulumiComponentFactPath(
   className: string,
-  group: 'inputs' | 'outputs',
+  group: 'inputs' | 'outputs' | 'childResources',
   name: string
 ): string {
   const safeClassName = className.replace(/[^A-Za-z0-9_.-]+/g, '_');
@@ -1075,6 +1128,30 @@ function extractPulumiComponentFacts(entry: KnowledgeCacheEntry): KnowledgeFact[
         extractionMethod: 'repo-local-static',
         source: factSource(entry, `${input.sourceLocator}: ${component.className}.${input.name}`),
         relatedPaths: relatedPulumiComponentPaths(component, input.sourcePath)
+      });
+    }
+
+    for (const resource of component.childResources) {
+      if (facts.length >= MAX_PULUMI_COMPONENT_FACTS) {
+        return facts;
+      }
+
+      const path = pulumiComponentFactPath(component.className, 'childResources', resource.name);
+      const summary = `${path} creates child Pulumi resource ${resource.name} of type ${resource.type}.`;
+      if (SECRET_PATH_PATTERN.test(path) || SECRET_PATH_PATTERN.test(summary)) {
+        continue;
+      }
+
+      facts.push({
+        kind: 'pulumi-component-child-resource',
+        path,
+        summary,
+        values: [resource.name, resource.type],
+        type: resource.type,
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: factSource(entry, `${resource.sourceLocator}: ${component.className}.${resource.name}`),
+        relatedPaths: relatedPulumiComponentPaths(component, resource.sourcePath)
       });
     }
 
