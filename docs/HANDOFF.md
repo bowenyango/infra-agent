@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- Implementation complete; final full verification is next. This slice defines
-  a backend adapter interface boundary and mock-backed contract tests before
-  any real team storage backend is added.
+- Completed and verified. This slice defines a backend adapter interface
+  boundary and mock-backed contract tests before any real team storage backend
+  is added.
 - Scope remains interface, dependency-boundary, and mock adapter work only. It
   does not add cloud SDKs, perform network calls, read credential values,
   generate upload commands, mutate remote objects/indexes, or change public
@@ -73,10 +73,9 @@ Completed commits and checkpoints:
 8. `22ab9cd` test: cover adapter metadata index contract.
 9. `2a74d43` feat: add mock backend adapter resolver.
 10. `1454b0b` test: cover backend adapter resolver safety.
-11. In progress: update README, Rules, Roadmap/pattern notes, infra skill, and
-    this handoff with the adapter boundary and non-goals.
-12. Pending: run focused checks and full `npm run verify`, then record final
-    validation, remaining risks, and next stage in this handoff.
+11. `d655ef3` docs: document backend adapter boundary.
+12. Final handoff update: record focused checks, full verification, remaining
+    risks, and next-stage plan.
 
 Acceptance criteria:
 
@@ -105,6 +104,47 @@ Current design:
 - `src/knowledge/team-backend-adapter-resolver.ts` resolves only safe
   `mock-s3-compatible` configs and rejects backend-detail or credential
   leakage without echoing private values.
+
+Verification completed:
+
+- Focused adapter/key tests passed:
+  `knowledge-team-backend-adapter.test.mjs`,
+  `knowledge-team-backend-adapter-store.test.mjs`,
+  `knowledge-team-backend-adapter-index.test.mjs`,
+  `knowledge-team-backend-adapter-resolver.test.mjs`, and
+  `knowledge-team-artifact-keys.test.mjs`.
+- Focused existing team-storage contracts passed:
+  `knowledge-s3-compatible-storage.test.mjs`,
+  `knowledge-team-artifact-index-readiness.test.mjs`,
+  `knowledge-team-artifact-public-contract.test.mjs`, and
+  `knowledge-team-backend-readiness-contract.test.mjs`.
+- Repo checks passed: `git diff --check`, `npm run lint`,
+  `npm run test:structure`, and full `npm run verify`.
+- Full verify included lint, structure, unit, integration, contract, isolated,
+  smoke, e2e, coverage, and package dry-run checks. Coverage reported
+  565 passing tests in the coverage run, and package dry-run reported
+  148 packaged entries.
+
+Remaining risks and constraints:
+
+- The only adapter implementation is the injected in-memory
+  `mock-s3-compatible` adapter. This is deliberate; no real S3/GCS/Azure/
+  Postgres backend exists yet.
+- The resolver intentionally rejects backend detail and credential-shaped
+  config. A future real backend must introduce an explicit private config shape
+  plus approval/mutation gates rather than weakening this resolver.
+- Public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, and backend-readiness schemas remain compact and
+  backend-neutral. Future adapter work should add implementation behind the
+  internal adapter boundary, not by expanding public handoff JSON.
+
+Next recommended stage:
+
+- Add the first real backend adapter design only as a contract-first slice:
+  choose one backend, define private config parsing separately from public
+  readiness JSON, preserve `remoteWriteAllowed=false` by default, and add
+  mock-backed tests for config validation before any SDK, credential lookup,
+  live check, upload command, or remote mutation is introduced.
 
 ## 2026-05-09 Active Team Validation Helper Split Plan
 
