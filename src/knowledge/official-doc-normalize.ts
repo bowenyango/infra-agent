@@ -55,6 +55,33 @@ function collapseMarkdownWhitespace(value: string): string {
     .trim();
 }
 
+function markdownTableFromHtml(tableHtml: string): string {
+  const rows = Array.from(tableHtml.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi))
+    .map(rowMatch => Array.from((rowMatch[1] ?? '').matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi))
+      .map(cellMatch => stripHtmlTags(cellMatch[1] ?? '').replace(/\|/g, '\\|').trim()))
+    .filter(row => row.length > 0);
+
+  if (rows.length === 0) {
+    return '\n';
+  }
+
+  const columnCount = Math.max(...rows.map(row => row.length));
+  const normalizedRows = rows.map(row => [
+    ...row,
+    ...Array.from({ length: columnCount - row.length }, () => '')
+  ]);
+  const header = normalizedRows[0] ?? [];
+  const body = normalizedRows.slice(1);
+  const separator = Array.from({ length: columnCount }, () => '---');
+  const lines = [
+    `| ${header.join(' | ')} |`,
+    `| ${separator.join(' | ')} |`,
+    ...body.map(row => `| ${row.join(' | ')} |`)
+  ];
+
+  return `\n${lines.join('\n')}\n\n`;
+}
+
 export function htmlToMarkdown(content: string): string {
   let markdown = content
     .replace(HTML_COMMENT_PATTERN, ' ')
@@ -63,6 +90,8 @@ export function htmlToMarkdown(content: string): string {
     .replace(/<\/?(html|head|body|main|article|section|div|header|footer|nav|aside)[^>]*>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<hr\s*\/?>/gi, '\n---\n');
+
+  markdown = markdown.replace(/<table\b[^>]*>[\s\S]*?<\/table>/gi, table => markdownTableFromHtml(table));
 
   markdown = markdown.replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, (_match, code: string) => {
     const text = stripHtmlTags(code);
