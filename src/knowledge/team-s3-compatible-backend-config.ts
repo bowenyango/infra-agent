@@ -45,6 +45,32 @@ export interface KnowledgeTeamS3CompatibleBackendConfigParseResult {
   issues: KnowledgeTeamS3CompatibleBackendConfigIssue[];
 }
 
+export interface KnowledgeTeamS3CompatibleBackendDescriptor {
+  kind: 'infra-agent.knowledge-team-s3-compatible-backend-descriptor';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  backendKind: 's3-compatible';
+  name: string;
+  storageProfileRef: string;
+  authProfileRef: string;
+  artifactPrefix: 'knowledge-artifacts/v1';
+  indexPrefix: 'knowledge-index/v1';
+  credentialMode: 'environment';
+  capabilities: {
+    artifactObjectStore: true;
+    metadataIndex: true;
+    contentAddressedObjectKeys: true;
+    contentAddressedIndexKeys: true;
+    idempotentWritesRequired: true;
+    explicitUploadApprovalRequired: true;
+    remoteWriteAllowed: false;
+    liveCheckAllowed: false;
+    credentialValuesExposed: false;
+    uploadCommand: null;
+    dryRunOnly: true;
+  };
+}
+
 const SAFE_CONFIG_NAME_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,63}$/;
 const SAFE_REFERENCE_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,127}$/;
 const FORBIDDEN_CONFIG_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|signedUrl)/i;
@@ -356,5 +382,35 @@ export function toKnowledgeTeamBackendReadinessConfig(
     credentialMode: config.credentialMode,
     remoteWriteDefault: false,
     liveCheckDefault: false
+  };
+}
+
+export function buildKnowledgeTeamS3CompatibleBackendDescriptor(
+  config: KnowledgeTeamS3CompatibleBackendConfig
+): KnowledgeTeamS3CompatibleBackendDescriptor {
+  return {
+    kind: 'infra-agent.knowledge-team-s3-compatible-backend-descriptor',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    backendKind: 's3-compatible',
+    name: config.name,
+    storageProfileRef: config.storageProfileRef,
+    authProfileRef: config.authProfileRef,
+    artifactPrefix: config.artifactPrefix,
+    indexPrefix: config.indexPrefix,
+    credentialMode: config.credentialMode,
+    capabilities: {
+      artifactObjectStore: true,
+      metadataIndex: true,
+      contentAddressedObjectKeys: true,
+      contentAddressedIndexKeys: true,
+      idempotentWritesRequired: true,
+      explicitUploadApprovalRequired: true,
+      remoteWriteAllowed: false,
+      liveCheckAllowed: false,
+      credentialValuesExposed: false,
+      uploadCommand: null,
+      dryRunOnly: true
+    }
   };
 }

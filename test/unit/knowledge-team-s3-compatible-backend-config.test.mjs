@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildKnowledgeTeamS3CompatibleBackendDescriptor,
   buildKnowledgeTeamS3CompatibleBackendConfig,
   parseKnowledgeTeamS3CompatibleBackendConfig,
   toKnowledgeTeamBackendReadinessConfig
@@ -176,4 +177,52 @@ test('s3-compatible backend private config projects to existing backend readines
   assert.equal(readinessText.includes('authProfileRef'), false);
   assert.equal(readinessText.includes('team-cache-storage-prod'), false);
   assert.equal(readinessText.includes('team-cache-auth-prod'), false);
+});
+
+test('s3-compatible backend descriptor is sanitized internal capability metadata', () => {
+  const descriptor = buildKnowledgeTeamS3CompatibleBackendDescriptor(
+    buildKnowledgeTeamS3CompatibleBackendConfig({
+      name: 'team-cache-prod',
+      storageProfileRef: 'team-cache-storage-prod',
+      authProfileRef: 'team-cache-auth-prod'
+    })
+  );
+
+  assert.deepEqual(Object.keys(descriptor), [
+    'kind',
+    'schemaVersion',
+    'mutationAllowed',
+    'backendKind',
+    'name',
+    'storageProfileRef',
+    'authProfileRef',
+    'artifactPrefix',
+    'indexPrefix',
+    'credentialMode',
+    'capabilities'
+  ]);
+  assert.equal(descriptor.kind, 'infra-agent.knowledge-team-s3-compatible-backend-descriptor');
+  assert.equal(descriptor.mutationAllowed, false);
+  assert.equal(descriptor.backendKind, 's3-compatible');
+  assert.equal(descriptor.capabilities.remoteWriteAllowed, false);
+  assert.equal(descriptor.capabilities.liveCheckAllowed, false);
+  assert.equal(descriptor.capabilities.credentialValuesExposed, false);
+  assert.equal(descriptor.capabilities.uploadCommand, null);
+  assert.equal(descriptor.capabilities.dryRunOnly, true);
+
+  const descriptorText = JSON.stringify(descriptor);
+  for (const forbidden of [
+    'bucket',
+    'endpoint',
+    'https://',
+    's3://',
+    'token',
+    'password',
+    'secret',
+    '/tmp/',
+    '/home/',
+    '/workspace/'
+  ]) {
+    assert.equal(descriptorText.includes(forbidden), false, forbidden);
+  }
 });
