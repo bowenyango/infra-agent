@@ -120,3 +120,43 @@ test('s3-compatible reference validation does not read environment values', () =
     }
   });
 });
+
+test('s3-compatible reference registry rejects unsafe env var names without echoing values', () => {
+  const result = parseKnowledgeTeamS3CompatibleReferenceRegistry({
+    kind: 'infra-agent.knowledge-team-s3-compatible-reference-registry',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    storageProfiles: [
+      {
+        ref: 'team-cache-storage',
+        endpointUrlEnvVar: 'https://private.example.test',
+        bucketNameEnvVar: 'team-cache-bucket',
+        regionEnvVar: 'us-east-1'
+      }
+    ],
+    authProfiles: [
+      {
+        ref: 'team-cache-auth',
+        accessKeyIdEnvVar: 'access-key-value',
+        secretAccessKeyEnvVar: 'secret-token'
+      }
+    ]
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.registry, null);
+  const codes = new Set(result.issues.map(issue => issue.code));
+  assert.equal(codes.has('unsafe-env-var-name'), true);
+  assert.equal(codes.has('backend-detail-leak'), true);
+
+  const issueText = JSON.stringify(result.issues);
+  for (const forbidden of [
+    'https://private.example.test',
+    'team-cache-bucket',
+    'us-east-1',
+    'access-key-value',
+    'secret-token'
+  ]) {
+    assert.equal(issueText.includes(forbidden), false, forbidden);
+  }
+});
