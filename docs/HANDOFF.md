@@ -43,10 +43,9 @@ Current guardrails:
 
 Status:
 
-- Implementation complete; full verification is pending. This slice reduces
-  `src/knowledge/validate.ts` risk by moving team artifact and team backend
-  readiness validation helpers into focused modules before any real backend
-  adapter work starts.
+- Completed. This slice reduces `src/knowledge/validate.ts` risk by moving
+  team artifact and team backend readiness validation helpers into focused
+  modules before any real backend adapter work starts.
 - Scope is structural refactor plus focused regression coverage. It must not
   change public JSON schemas, add backend SDKs, perform network calls, read
   credential values, create upload commands, or mutate remote storage/indexes.
@@ -78,11 +77,11 @@ Planned commits and checkpoints:
    validation module.
 9. Completed: run existing team artifact/backend contract and CLI regression
    tests during each migration checkpoint.
-10. In progress: update README, Rules, Roadmap/pattern notes, and this handoff
+10. Completed: update README, Rules, Roadmap/pattern notes, and this handoff
     with the split boundary and remaining non-goals.
-11. Pending: run lint, test structure, diff check, focused
+11. Completed: run lint, test structure, diff check, focused
     unit/contract/integration checks, and full `npm run verify`.
-12. Pending: record final completed commits, validation, remaining risks, and
+12. Completed: record final completed commits, validation, remaining risks, and
     next stage in this handoff.
 
 Current validation split modules:
@@ -112,6 +111,43 @@ Acceptance criteria:
   commands.
 - `src/knowledge/validate.ts` becomes primarily the top-level dispatcher plus
   non-team knowledge validators.
+
+Completed commits:
+
+1. `398fa3a` docs: record team validation split plan
+2. `d598260` refactor: add knowledge validation primitives
+3. `fa6b399` test: cover knowledge validation primitives
+4. `1d2c1bd` refactor: extract team backend readiness validation
+5. `59b20a2` test: cover backend readiness validation module
+6. `f14ff65` refactor: share storage policy summary validation
+7. `2a99973` refactor: extract team artifact descriptor validation
+8. `b603f41` refactor: extract team publication validation
+9. `6cd63a8` test: cover team artifact validation module
+10. `0272c16` docs: document team validation split boundary
+
+Verification completed:
+
+- `git diff --check`
+- `npm run test:structure`
+- `npm run lint`
+- Focused team artifact/backend readiness unit, contract, and CLI regression
+  shards during migration checkpoints.
+- `npm run verify`
+- Coverage after verify: lines 89.17%, branches 77.31%, functions 96.47%.
+- Package dry-run after verify: `entryCount` 144.
+
+Remaining risks and next stage:
+
+- `src/knowledge/team-artifact-validation.ts` is now intentionally isolated
+  but large; if future real adapter work adds more team-storage contract
+  families, split common key/leak/blocker helpers into a smaller internal
+  helper module first.
+- The next backend stage should define a real adapter interface and mock-backed
+  contract tests before any cloud SDK, credential lookup, network check, upload
+  command, or remote index mutation is added.
+- Public contract payloads remain frozen for descriptor, publication-plan,
+  index-entry, publication-readiness, and backend-readiness unless a future
+  slice explicitly documents and tests a schema migration.
 
 ## 2026-05-09 Team Backend Readiness Boundary
 
