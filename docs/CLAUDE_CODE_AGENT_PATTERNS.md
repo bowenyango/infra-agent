@@ -245,6 +245,13 @@ durable design reference for infra-agent development.
   static/read-only/live-check posture, counts, and supported provider ids so a
   downstream agent can discover the full catalog without bloating handoff
   payloads.
+- Team backend adapter selection follows the same compact-capability pattern.
+  The adapter descriptor may expose only safe capability metadata and injected
+  object-store/index dependencies; it must not carry provider clients,
+  credential values, endpoints, buckets, signed URLs, upload commands, or live
+  reachability results. Real backend adapters should be added behind the
+  existing contract tests and explicit mutation gates instead of changing the
+  public team artifact JSON shapes.
 
 ## Current Non-Goals
 

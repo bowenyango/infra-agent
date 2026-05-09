@@ -121,12 +121,15 @@ credentials must still come from environment variables.
    backend is explicitly added: local filesystem remains the default, the
    S3-compatible store is currently mocked/injected, and compact
    `infra-agent.knowledge-team-artifact-descriptor` payloads must stay
-   backend-neutral and secret-safe. Do not infer that a descriptor approves
-   real remote publication. Use `knowledge publish-plan` only as a dry-run
-   review artifact; it does not upload, call a store write, or approve future
-   publication. Use `knowledge publish-readiness` only to compare a saved
-   plan with an optional compact index entry; it does not read or write a real
-   metadata index or approve future upload.
+   backend-neutral and secret-safe. The current backend adapter resolver is
+   mock-only; it must not read credentials, perform live checks, expose
+   endpoints or buckets, emit upload commands, or mutate remote objects/indexes.
+   Do not infer that a descriptor approves real remote publication. Use
+   `knowledge publish-plan` only as a dry-run review artifact; it does not
+   upload, call a store write, or approve future publication. Use
+   `knowledge publish-readiness` only to compare a saved plan with an optional
+   compact index entry; it does not read or write a real metadata index or
+   approve future upload.
    Use `knowledge backend-readiness` only as a dry-run review of a local
    private backend config for future explicit-upload design; it does not
    perform live backend checks, read credential values, write remote objects,
@@ -223,6 +226,9 @@ credentials must still come from environment variables.
   `ready-for-explicit-upload` means the config shape is ready for a future
   explicit upload design; it is not permission to execute a remote upload or
   proof that a remote backend was checked.
+- Treat team backend adapter descriptors as internal capability metadata only.
+  The current adapter resolver is mock-only and must keep remote writes, live
+  checks, credential exposure, and upload commands disabled.
 - Treat team artifact contract failures as hard blockers for downstream agents.
   Rebuild or revalidate the compact artifact instead of asking for raw pack
   content or backend details.

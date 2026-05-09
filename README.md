@@ -202,11 +202,14 @@ Current behavior is intentionally runtime-foundation oriented:
   they do not include backend URLs, buckets, endpoints, credentials, absolute
   workspace paths, raw docs, or raw repo content. Contract tests now lock these
   compact team artifact shapes, including content-addressed key/hash
-  consistency and blocker summary consistency. There is still no real remote
-  storage backend or CLI upload command. Internally, team artifact and backend
-  readiness validation now lives in focused modules while `knowledge validate`
-  remains the public dispatcher; this keeps the next real-backend work from
-  expanding the generic validation entrypoint.
+  consistency and blocker summary consistency. Internally, the team backend
+  adapter boundary now has compact capability descriptors, a mock-only adapter
+  factory, and a mock-only resolver that rejects credential, endpoint, bucket,
+  URL, absolute-path, live-check, and remote-write leakage. There is still no
+  real remote storage backend or CLI upload command. Internally, team artifact
+  and backend readiness validation now lives in focused modules while
+  `knowledge validate` remains the public dispatcher; this keeps the next
+  real-backend work from expanding the generic validation entrypoint.
   Validation reports include a structured freshness summary
   with stale and unchecked source counts, affected fact counts, safe source
   ids, source kinds/names, stale reasons, and safe workspace-relative

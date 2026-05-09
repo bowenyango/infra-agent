@@ -43,12 +43,13 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice defines a backend adapter interface boundary and
-  mock-backed contract tests before any real team storage backend is added.
-- Scope is interface, dependency-boundary, and mock adapter work only. It must
-  not add cloud SDKs, perform network calls, read credential values, generate
-  upload commands, mutate remote objects/indexes, or change public team
-  artifact/readiness JSON schemas.
+- Implementation complete; final full verification is next. This slice defines
+  a backend adapter interface boundary and mock-backed contract tests before
+  any real team storage backend is added.
+- Scope remains interface, dependency-boundary, and mock adapter work only. It
+  does not add cloud SDKs, perform network calls, read credential values,
+  generate upload commands, mutate remote objects/indexes, or change public
+  team artifact/readiness JSON schemas.
 
 Why this direction:
 
@@ -60,23 +61,22 @@ Why this direction:
   explicit permission/mutation gates, and injected dependencies. This stage
   keeps backend behavior injected and mock-backed while preserving those gates.
 
-Planned commits and checkpoints:
+Completed commits and checkpoints:
 
-1. Record this active adapter-interface plan in `docs/HANDOFF.md`.
-2. Add characterization coverage for team artifact key helpers.
-3. Extract team artifact key/content-address helpers into a focused module.
-4. Add backend adapter capability and descriptor types.
-5. Add direct tests for adapter capability descriptors.
-6. Add a mock backend adapter factory that composes the existing mock object
-   store and metadata index.
-7. Add contract tests for adapter object-store behavior.
-8. Add contract tests for adapter metadata-index behavior.
-9. Add safe adapter resolver/config parsing for mock-only adapters.
-10. Add resolver tests that reject unsupported or leaky adapter configs.
-11. Update README, Rules, Roadmap/pattern notes, and this handoff with the
-    adapter boundary and non-goals.
-12. Run focused checks and full `npm run verify`, then record completed
-    commits, validation, remaining risks, and next stage in this handoff.
+1. `00be0ce` docs: record team backend adapter plan.
+2. `56d97df` test: lock team artifact key helpers.
+3. `2bd9321` refactor: extract team artifact key helpers.
+4. `e695a39` feat: add team backend adapter contract.
+5. `0567ef6` test: cover team backend adapter contract.
+6. `be6c5f6` feat: add mock team backend adapter.
+7. `3095d15` test: cover adapter object store contract.
+8. `22ab9cd` test: cover adapter metadata index contract.
+9. `2a74d43` feat: add mock backend adapter resolver.
+10. `1454b0b` test: cover backend adapter resolver safety.
+11. In progress: update README, Rules, Roadmap/pattern notes, infra skill, and
+    this handoff with the adapter boundary and non-goals.
+12. Pending: run focused checks and full `npm run verify`, then record final
+    validation, remaining risks, and next stage in this handoff.
 
 Acceptance criteria:
 
@@ -90,6 +90,21 @@ Acceptance criteria:
 - Existing staging/retrieval/publication helper behavior remains compatible
   with the current mock store and metadata index.
 - Focused adapter tests, lint, structure, diff check, and full verify pass.
+
+Current design:
+
+- `src/knowledge/team-artifact-keys.ts` owns backend-neutral artifact family,
+  content type, SHA, object-key, index-key, and safe-reference helpers.
+- `src/knowledge/team-backend-adapter.ts` defines the internal adapter
+  descriptor/capability boundary. Capability metadata is intentionally compact
+  and fixed to disabled mutation, remote write, live check, credential exposure,
+  and upload command.
+- `src/knowledge/team-backend-adapter-mock.ts` composes the existing
+  in-memory mocked S3-compatible object store and metadata index behind that
+  boundary.
+- `src/knowledge/team-backend-adapter-resolver.ts` resolves only safe
+  `mock-s3-compatible` configs and rejects backend-detail or credential
+  leakage without echoing private values.
 
 ## 2026-05-09 Active Team Validation Helper Split Plan
 

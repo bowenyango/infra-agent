@@ -201,6 +201,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   readiness report, but it must not perform live backend checks, read
   credential values, write remote objects, mutate a metadata index, create an
   upload command, or approve an upload.
+- Treat the team backend adapter interface as an internal injected dependency
+  boundary. The current resolver is mock-only and must keep
+  `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, and `uploadCommand=null`; do not add real
+  SDK clients, credential lookup, endpoint/bucket fields, remote probes,
+  upload commands, or remote object/index mutation through this boundary.
 - Treat team artifact descriptor, publication-plan, index-entry, and readiness
   JSON as public contract data. Do not add raw facts, raw source arrays,
   workspace/cache paths, backend details, credentials, upload commands, or
