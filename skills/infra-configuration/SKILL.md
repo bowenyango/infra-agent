@@ -127,6 +127,10 @@ credentials must still come from environment variables.
    publication. Use `knowledge publish-readiness` only to compare a saved
    plan with an optional compact index entry; it does not read or write a real
    metadata index or approve future upload.
+   Treat descriptor, publication-plan, index-entry, and readiness JSON as
+   contract-gated handoff payloads: validate them before reuse and do not add
+   raw facts, raw source arrays, workspace/cache paths, backend details, or
+   upload commands.
    Prefer bounded `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
@@ -211,6 +215,9 @@ credentials must still come from environment variables.
 - Treat team publication readiness reports as compact routing artifacts only.
   `already-published`, `upload-required`, `blocked`, and `conflict` are planning
   states, not permission to execute a remote upload or mutate a metadata index.
+- Treat team artifact contract failures as hard blockers for downstream agents.
+  Rebuild or revalidate the compact artifact instead of asking for raw pack
+  content or backend details.
 - For Terraform local modules, prefer `terraform-module` knowledge facts over
   raw module file reads when the module source is literal and workspace-local.
   These facts describe inputs and outputs only; remote, registry, git, dynamic,
