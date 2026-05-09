@@ -205,11 +205,15 @@ Current behavior is intentionally runtime-foundation oriented:
   consistency and blocker summary consistency. Internally, the team backend
   adapter boundary now has compact capability descriptors, a mock-only adapter
   factory, and a mock-only resolver that rejects credential, endpoint, bucket,
-  URL, absolute-path, live-check, and remote-write leakage. There is still no
-  real remote storage backend or CLI upload command. Internally, team artifact
-  and backend readiness validation now lives in focused modules while
-  `knowledge validate` remains the public dispatcher; this keeps the next
-  real-backend work from expanding the generic validation entrypoint.
+  URL, absolute-path, live-check, and remote-write leakage. The first
+  S3-compatible backend family now has a contract-first private config parser,
+  sanitized internal descriptor, readiness-input projection, and fail-closed
+  resolution plan for future real adapter work; it still does not create a
+  client or read credentials. There is still no real remote storage backend or
+  CLI upload command. Internally, team artifact and backend readiness
+  validation now lives in focused modules while `knowledge validate` remains
+  the public dispatcher; this keeps the next real-backend work from expanding
+  the generic validation entrypoint.
   Validation reports include a structured freshness summary
   with stale and unchecked source counts, affected fact counts, safe source
   ids, source kinds/names, stale reasons, and safe workspace-relative

@@ -207,6 +207,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `credentialValuesExposed=false`, and `uploadCommand=null`; do not add real
   SDK clients, credential lookup, endpoint/bucket fields, remote probes,
   upload commands, or remote object/index mutation through this boundary.
+- Treat S3-compatible backend config support as contract-first private parsing
+  only. Safe structural references may be parsed for future adapter design, but
+  they must not be copied into public team artifact/readiness JSON, used to
+  read environment credential values, converted into SDK clients, probed over
+  the network, or treated as permission to upload.
 - Treat team artifact descriptor, publication-plan, index-entry, and readiness
   JSON as public contract data. Do not add raw facts, raw source arrays,
   workspace/cache paths, backend details, credentials, upload commands, or

@@ -252,6 +252,12 @@ durable design reference for infra-agent development.
   reachability results. Real backend adapters should be added behind the
   existing contract tests and explicit mutation gates instead of changing the
   public team artifact JSON shapes.
+- S3-compatible backend work is currently contract-first private parsing only.
+  Resolution plans may state that a future real backend family is recognized,
+  but they must fail closed until an explicit adapter implementation, credential
+  boundary, and mutation approval model exists. This mirrors Claude Code-style
+  handoffs: compact structured state is useful for routing, but it is not proof
+  of live provider reachability or permission to mutate infrastructure.
 
 ## Current Non-Goals
 

@@ -43,8 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice defines the first real backend family as a
-  contract-first, private S3-compatible configuration shell.
+- Implementation complete; final full verification is next. This slice defines
+  the first real backend family as a contract-first, private S3-compatible
+  configuration shell.
 - Scope is private config parsing, sanitized internal descriptors, resolver
   fail-closed behavior, and mock-backed conformance tests only. It must not add
   cloud SDKs, perform network calls, read credential values, generate upload
@@ -62,28 +63,22 @@ Why this direction:
   stage keeps real backend work contract-first and fail-closed while preserving
   those gates.
 
-Planned commits and checkpoints:
+Completed commits and checkpoints:
 
-1. Record this active S3-compatible backend contract plan in `docs/HANDOFF.md`.
-2. Add characterization tests for valid private S3-compatible config parsing.
-3. Implement the private S3-compatible config parser and safe draft builder.
-4. Add leak-safety tests for backend detail, credential, URL, and path inputs.
-5. Harden parser issue reporting so it rejects unsafe private configs without
-   echoing private values.
-6. Add tests for projecting valid private config into existing
-   backend-readiness dry-run input.
-7. Implement readiness-input projection without changing the public readiness
-   schema.
-8. Add resolver tests proving real `s3-compatible` configs remain unresolved
-   and do not instantiate adapters.
-9. Add a fail-closed resolver planning result for future real adapters.
-10. Add mock-backed conformance tests for object store/index behavior that a
-    future real adapter must satisfy.
-11. Wire the existing mock adapter through the conformance helper.
-12. Update README, Rules, Roadmap/pattern notes, infra skill, and this handoff
-    with the contract-first boundary and non-goals.
-13. Run focused checks and full `npm run verify`, then record completed
-    commits, validation, remaining risks, and next stage in this handoff.
+1. `428804c` docs: record s3 backend contract plan.
+2. `d72b478` feat: add s3 backend private config parser.
+3. `a03e67e` test: cover s3 backend config safety.
+4. `94c3cf2` feat: project s3 config to readiness input.
+5. `d5867a6` feat: plan backend adapter resolution safely.
+6. `08abc6f` test: cover real backend plan safety.
+7. `7c5656b` test: add backend adapter conformance checks.
+8. `8c36349` feat: describe s3 backend capabilities safely.
+9. `3606697` test: block team backend sdk imports.
+10. `65642fc` test: block team backend network clients.
+11. In progress: update README, Rules, Roadmap/pattern notes, infra skill, and
+    this handoff with the contract-first boundary and non-goals.
+12. Pending: run focused checks and full `npm run verify`, then record final
+    validation, remaining risks, and next stage in this handoff.
 
 Acceptance criteria:
 
@@ -100,6 +95,28 @@ Acceptance criteria:
   `uploadCommand=null`.
 - Focused config/parser/resolver/conformance tests, existing team-storage
   contracts, lint, structure, diff check, and full verify pass.
+
+Current design:
+
+- `src/knowledge/team-s3-compatible-backend-config.ts` owns the private
+  contract parser for future S3-compatible backend work. It accepts only safe
+  structural references (`storageProfileRef`, `authProfileRef`) plus existing
+  prefix/credential-mode/disabled-gate fields.
+- The S3-compatible parser rejects backend detail or credential-shaped keys and
+  values without echoing private data. It does not read environment credential
+  values.
+- `toKnowledgeTeamBackendReadinessConfig()` projects a valid private config
+  into the existing `infra-agent.knowledge-team-backend-config` shape without
+  copying private refs into public readiness JSON.
+- `buildKnowledgeTeamS3CompatibleBackendDescriptor()` creates an internal
+  sanitized descriptor/capability object for future adapter design only.
+- `planKnowledgeTeamBackendAdapterResolution()` recognizes valid
+  S3-compatible private configs but returns a blocked
+  `real-backend-not-implemented` plan. `resolveKnowledgeTeamBackendAdapter()`
+  remains mock-only.
+- `test/support/knowledge-team-backend-adapter-conformance.mjs` defines
+  mock-backed object-store and metadata-index conformance checks that future
+  real adapters must satisfy.
 
 ## 2026-05-09 Active Team Backend Adapter Interface Plan
 

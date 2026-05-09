@@ -124,6 +124,10 @@ credentials must still come from environment variables.
    backend-neutral and secret-safe. The current backend adapter resolver is
    mock-only; it must not read credentials, perform live checks, expose
    endpoints or buckets, emit upload commands, or mutate remote objects/indexes.
+   S3-compatible backend config support is contract-first private parsing only:
+   safe structural references can prepare a future adapter design, but they do
+   not create a client, read credential values, probe a backend, or approve
+   upload.
    Do not infer that a descriptor approves real remote publication. Use
    `knowledge publish-plan` only as a dry-run review artifact; it does not
    upload, call a store write, or approve future publication. Use
