@@ -617,11 +617,14 @@ function formatKnowledgeSourceResult(result: KnowledgePrefetchSourceResult): str
 function formatKnowledgeSourceReportEntry(entry: KnowledgeSourceReportEntry): string {
   const location = entry.source.url ?? entry.source.localPath ?? 'no source location';
   const fetchPosture = entry.requiresFetch ? 'external' : 'local';
+  const cache = entry.cacheStatus === 'stale' || entry.cacheStatus === 'missing'
+    ? `cache=${entry.cacheStatus}, refresh=prefetch recommended`
+    : `cache=${entry.cacheStatus}`;
   const storage = entry.storagePolicy.scope === 'public-reference'
     ? 'public-reference'
     : 'workspace-private';
   const sharing = entry.storagePolicy.shareableByDefault ? 'shareable' : 'opt-in';
-  return `${entry.domain} ${entry.targetPath}: ${entry.source.kind} ${entry.source.name} (${fetchPosture}, ${storage}, ${sharing}, id=${entry.id}, ${location})`;
+  return `${entry.domain} ${entry.targetPath}: ${entry.source.kind} ${entry.source.name} (${fetchPosture}, ${cache}, ${storage}, ${sharing}, id=${entry.id}, ${location})`;
 }
 
 function formatKnowledgeExtractionSourceResult(result: KnowledgeExtractionSourceResult): string {
@@ -3469,6 +3472,7 @@ export function printKnowledgeSourcesReport(report: KnowledgeSourcesReport): voi
   process.stdout.write(`domains: ${report.requestedDomains.length > 0 ? report.requestedDomains.join(', ') : 'none'}\n`);
   process.stdout.write(`targets: ${report.targetPaths.length > 0 ? report.targetPaths.join(', ') : 'all'}\n`);
   process.stdout.write(`summary: sources=${report.sourceCount}, local=${report.summary.local}, external=${report.summary.external}\n`);
+  process.stdout.write(`cache: fresh=${report.summary.cacheStatus.fresh}, stale=${report.summary.cacheStatus.stale}, missing=${report.summary.cacheStatus.missing}, refresh-recommended=${report.summary.cacheStatus.refreshRecommended}\n`);
   process.stdout.write(`storage: public-reference=${report.summary.storagePolicy.publicReference}, workspace-private=${report.summary.storagePolicy.workspacePrivate}, shareable=${report.summary.storagePolicy.shareableByDefault}, opt-in=${report.summary.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Sources');
   printList(report.sources.map(formatKnowledgeSourceReportEntry), 'No knowledge sources selected.');
