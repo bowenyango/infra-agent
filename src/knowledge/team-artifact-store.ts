@@ -102,6 +102,19 @@ export interface KnowledgeTeamArtifactPolicyDecision {
   issues: KnowledgeTeamArtifactPolicyIssue[];
 }
 
+export interface KnowledgeTeamArtifactStageResult {
+  descriptor: KnowledgeTeamArtifactDescriptor;
+  storedObject: KnowledgeTeamArtifactPutResult;
+  policy: KnowledgeTeamArtifactPolicyDecision;
+}
+
+export interface KnowledgeTeamArtifactRetrieveResult {
+  descriptor: KnowledgeTeamArtifactDescriptor;
+  storedObject: KnowledgeTeamArtifactStoredObject;
+  payload: KnowledgePack;
+  bytes: Buffer;
+}
+
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9/_\-.]*$/;
 const SAFE_METADATA_KEY_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,63}$/;
@@ -175,6 +188,15 @@ function policyIssue(
     path,
     message
   };
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightSet = new Set(right);
+  return left.every(entry => rightSet.has(entry)) && rightSet.size === right.length;
 }
 
 export function serializeKnowledgeArtifactPayload(payload: KnowledgeArtifactPayload): string {
@@ -327,6 +349,118 @@ function hashBytes(bytes: Buffer): string {
     .digest('hex');
 }
 
+function artifactBytes(input: Buffer | string): Buffer {
+  return typeof input === 'string'
+    ? Buffer.from(input, 'utf8')
+    : Buffer.from(input);
+}
+
+function parseKnowledgePackArtifact(bytes: Buffer): KnowledgePack {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(bytes.toString('utf8')) as unknown;
+  } catch {
+    throw new KnowledgeTeamArtifactStoreError(
+      'invalid-artifact-json',
+      'Knowledge team artifact bytes must contain valid JSON.'
+    );
+  }
+
+  if (!isKnowledgePackPayload(payload)) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'unsupported-artifact-kind',
+      'Knowledge team artifact bytes must contain a knowledge-pack payload.'
+    );
+  }
+
+  return payload;
+}
+
+function assertManifestMatchesPack(manifest: KnowledgeArtifactManifest, pack: KnowledgePack): void {
+  if (
+    manifest.artifact.kind !== pack.kind
+    || manifest.artifact.id !== pack.packId
+    || manifest.artifact.sourceCount !== pack.sourceCount
+    || manifest.artifact.factCount !== pack.factCount
+    || manifest.artifact.staleSourceCount !== pack.staleSourceCount
+    || !sameStringSet(manifest.artifact.sourceIds, pack.sourceIds)
+  ) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'artifact-metadata-mismatch',
+      'Knowledge team artifact manifest metadata does not match artifact bytes.'
+    );
+  }
+}
+
+function assertDescriptorMatchesPack(descriptor: KnowledgeTeamArtifactDescriptor, pack: KnowledgePack): void {
+  if (
+    descriptor.artifact.kind !== pack.kind
+    || descriptor.artifact.id !== pack.packId
+    || descriptor.artifact.sourceCount !== pack.sourceCount
+    || descriptor.artifact.factCount !== pack.factCount
+    || descriptor.artifact.staleSourceCount !== pack.staleSourceCount
+  ) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'artifact-metadata-mismatch',
+      'Knowledge team artifact descriptor metadata does not match stored artifact bytes.'
+    );
+  }
+}
+
+function assertArtifactHash(expectedSha256: string, bytes: Buffer): void {
+  if (hashBytes(bytes) !== expectedSha256) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'artifact-hash-mismatch',
+      'Knowledge team artifact hash does not match artifact bytes.'
+    );
+  }
+}
+
+function assertPolicyAllowed(policy: KnowledgeTeamArtifactPolicyDecision): void {
+  if (!policy.allowed) {
+    const codes = [...new Set(policy.issues.map(issue => issue.code))].sort();
+    throw new KnowledgeTeamArtifactStoreError(
+      'publication-blocked',
+      `Knowledge team artifact policy rejected staging: ${codes.join(', ')}.`
+    );
+  }
+}
+
+function buildDescriptor(input: {
+  manifest: KnowledgeArtifactManifest;
+  storedObject: KnowledgeTeamArtifactStoredObject;
+}): KnowledgeTeamArtifactDescriptor {
+  return {
+    kind: 'infra-agent.knowledge-team-artifact-descriptor',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    backendKind: input.storedObject.backendKind,
+    manifestId: input.manifest.manifestId,
+    object: {
+      key: input.storedObject.key,
+      sha256: input.storedObject.sha256,
+      byteLength: input.storedObject.byteLength,
+      contentType: input.storedObject.contentType
+    },
+    artifact: {
+      kind: 'infra-agent.knowledge-pack',
+      id: input.manifest.artifact.id,
+      sourceCount: input.manifest.artifact.sourceCount,
+      factCount: input.manifest.artifact.factCount,
+      staleSourceCount: input.manifest.artifact.staleSourceCount,
+      storagePolicy: input.manifest.artifact.storagePolicy
+    },
+    publication: {
+      shareableByDefault: input.manifest.publication.shareableByDefault,
+      requiresExplicitOptIn: input.manifest.publication.requiresExplicitOptIn,
+      publishableByDefaultSourceCount: input.manifest.publication.publishableByDefaultSourceIds.length,
+      blockedSourceCount: input.manifest.publication.blockedSources.length,
+      requiredValidationCount: input.manifest.publication.requiredValidations.length,
+      reason: input.manifest.publication.reason
+    }
+  };
+}
+
 function assertSafeObjectKey(key: string): void {
   if (!isSafeKnowledgeTeamArtifactObjectKey(key)) {
     throw new KnowledgeTeamArtifactStoreError(
@@ -456,4 +590,98 @@ export class MockS3CompatibleKnowledgeArtifactStore implements KnowledgeTeamArti
 
 export function createMockS3CompatibleKnowledgeArtifactStore(): KnowledgeTeamArtifactStore {
   return new MockS3CompatibleKnowledgeArtifactStore();
+}
+
+export async function stageKnowledgePackArtifactForTeamStore(input: {
+  manifest: KnowledgeArtifactManifest;
+  artifactBytes: Buffer | string;
+  store: KnowledgeTeamArtifactStore;
+}): Promise<KnowledgeTeamArtifactStageResult> {
+  const bytes = artifactBytes(input.artifactBytes);
+  assertArtifactHash(input.manifest.artifact.sha256, bytes);
+
+  const pack = parseKnowledgePackArtifact(bytes);
+  assertManifestMatchesPack(input.manifest, pack);
+
+  const policy = evaluateKnowledgeTeamArtifactPublicationPolicy({
+    manifest: input.manifest,
+    payload: pack
+  });
+  assertPolicyAllowed(policy);
+
+  const key = buildKnowledgeTeamArtifactObjectKey({
+    artifactKind: input.manifest.artifact.kind,
+    sha256: input.manifest.artifact.sha256
+  });
+  const storedObject = await input.store.putObject({
+    key,
+    bytes,
+    contentType: 'application/json',
+    metadata: {
+      'artifact-id': input.manifest.artifact.id,
+      'artifact-kind': 'knowledge-pack',
+      'manifest-id': input.manifest.manifestId,
+      sha256: input.manifest.artifact.sha256
+    }
+  });
+  assertArtifactHash(input.manifest.artifact.sha256, bytes);
+
+  return {
+    descriptor: buildDescriptor({
+      manifest: input.manifest,
+      storedObject
+    }),
+    storedObject,
+    policy
+  };
+}
+
+export async function retrieveKnowledgePackArtifactFromTeamStore(input: {
+  descriptor: KnowledgeTeamArtifactDescriptor;
+  store: KnowledgeTeamArtifactStore;
+}): Promise<KnowledgeTeamArtifactRetrieveResult> {
+  if (input.descriptor.backendKind !== input.store.backendKind) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'artifact-metadata-mismatch',
+      'Knowledge team artifact descriptor backend does not match the configured store.'
+    );
+  }
+
+  const stored = await input.store.getObject(input.descriptor.object.key);
+  if (stored === null) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'object-not-found',
+      'Knowledge team artifact object was not found in the configured store.'
+    );
+  }
+  if (stored.contentType !== input.descriptor.object.contentType) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'invalid-content-type',
+      'Knowledge team artifact content type does not match its descriptor.'
+    );
+  }
+  if (stored.byteLength !== input.descriptor.object.byteLength) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'artifact-metadata-mismatch',
+      'Knowledge team artifact byte length does not match its descriptor.'
+    );
+  }
+  assertArtifactHash(input.descriptor.object.sha256, stored.bytes);
+
+  const payload = parseKnowledgePackArtifact(stored.bytes);
+  assertDescriptorMatchesPack(input.descriptor, payload);
+
+  return {
+    descriptor: input.descriptor,
+    storedObject: {
+      backendKind: stored.backendKind,
+      key: stored.key,
+      sha256: stored.sha256,
+      byteLength: stored.byteLength,
+      contentType: stored.contentType,
+      metadata: stored.metadata
+    },
+    payload,
+    bytes: stored.bytes
+  };
 }
