@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This session is continuing `infra-agent` development under the
-  existing architecture and safety rules, with at least 10 meaningful commits
-  planned for this slice.
+- Completed. This session continued `infra-agent` development under the
+  existing architecture and safety rules, with 14 meaningful commits completed
+  for this slice.
 - The selected product slice is local knowledge freshness and staleness
   reporting polish: make repo-local fact drift and unchecked local source
   posture visible in validation reports, CLI output, compact `knowledgeFacts`,
@@ -87,9 +87,10 @@ Planned commits and checkpoints:
 10. Cover runtime/CLI handoff behavior for freshness counts.
 11. Split freshness budget tests to keep unit shards within project limits.
 12. Update roadmap, rules, README, and bundled skill guidance.
-13. Run full verification and record final validation in this handoff.
+13. Align the smoke compact fixture with the new unchecked-source contract.
+14. Run full verification and record final validation in this handoff.
 
-Current risks and constraints:
+Remaining risks and constraints:
 
 - This slice reports freshness only. It does not implement team storage
   backends, automatic external refresh, live network calls in the agent loop,
@@ -162,6 +163,17 @@ Progress log:
   handoff so downstream agents can see the implemented freshness contract,
   compact unchecked-source posture, remaining gaps, and validation workflow.
   Focused validation: `npm run test:structure`; `git diff --check`.
+- Commit 13 aligns the smoke compact fixture with the required
+  `knowledgeFacts.uncheckedSourceCount` field after the first full
+  `npm run verify` attempt failed in smoke on that missing compact contract
+  field. Focused validation: `npm run smoke`;
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`;
+  `git diff --check`.
+- Commit 14 records final validation. Full `npm run verify` passed after the
+  smoke fixture fix, including lint over 202 files, test structure over 68 test
+  files, unit/integration/contract/isolated shards, smoke, e2e, coverage
+  thresholds, and `npm pack --dry-run --json` package checking. Coverage summary
+  from the full run: 88.97% lines, 77.82% branches, and 96.23% functions.
 
 ## 2026-05-08 Active Pulumi Component Facts Plan
 
