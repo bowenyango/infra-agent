@@ -190,12 +190,15 @@ credentials must still come from environment variables.
   approval and must not silently initialize stacks.
 - For Pulumi Node.js/TypeScript projects, conservative
   `pulumi.ComponentResource` or imported `ComponentResource` class evidence may
-  provide local `pulumi-component-input` and `pulumi-component-output` facts for
-  constructor args interfaces/types and public output properties. Treat these
-  as workspace-private component interface facts with recheckable fingerprints;
-  they skip generated/test/declaration files and secret-like fields, do not
-  expose raw source, do not cover non-Node languages or dynamic component
-  factories, and do not replace `pulumi preview` or project type checks.
+  provide local `pulumi-component-input`, `pulumi-component-child-resource`, and
+  `pulumi-component-output` facts for constructor args interfaces/types,
+  conservative child resource constructors inside detected class bodies, and
+  public output properties. Treat these as workspace-private component facts
+  with recheckable fingerprints; they skip generated/test/declaration files,
+  root-level resources, constructor argument objects, and secret-like fields,
+  do not expose raw source, do not cover non-Node languages, dynamic component
+  factories, or runtime dataflow, and do not replace `pulumi preview` or
+  project type checks.
 - For Pulumi projects with safe project-root `@pulumi/*` dependencies, cached
   Pulumi Registry package docs may provide `pulumi-docs-guidance` facts for
   package modules. Treat those facts as public-reference advisory context; they

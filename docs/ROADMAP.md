@@ -155,8 +155,8 @@ Current progress as of 2026-05-08:
 | Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, cache-root resolution, and fingerprint-checked reuse for repo-local extraction outputs | No structured fact index or remote backend |
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock`; Pulumi source selection for project config, YAML runtime official docs, package-level Pulumi Registry docs from project manifests, and resource-level Pulumi Registry docs from deterministic Pulumi YAML resource tokens plus conservative Node.js/TypeScript import/require constructor evidence | Pulumi resource-level docs source selection is not yet component, dynamic alias/dataflow, generated-code, or non-Node-language coverage |
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
-| Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and richer component internals are not implemented |
-| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, and structured local freshness summaries for stale or unchecked repo-derived facts | Non-Node Pulumi language discovery, richer component internals, and team storage backends are pending |
+| Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, and structured local freshness summaries for stale or unchecked repo-derived facts | Non-Node Pulumi language discovery, dynamic/deeper component internals, and team storage backends are pending |
 | Team storage | Planned | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints | No S3/GCS/Azure/Postgres backend implementation |
 
 Target artifact families:
@@ -347,6 +347,15 @@ Measurable milestones:
      ranks local component interface facts above public docs guidance, and
      excludes raw source content from packs, planner prompts, and compact
      handoff.
+   - Implemented 2026-05-09: the same conservative Node.js/TypeScript
+     `ComponentResource` path now emits high-confidence
+     `pulumi-component-child-resource` facts for child Pulumi resource
+     constructors declared inside detected component class bodies. Facts carry
+     only the child resource name, Pulumi type token, source locator, and safe
+     related paths; constructor argument objects, raw source/import text,
+     generated/test files, root-level resources, and secret-like names remain
+     excluded. These facts rank as local component evidence below required
+     component inputs and above public Pulumi docs guidance.
    - Implemented 2026-05-08: `knowledge validate --workspace` reports a
      structured `infra-agent.knowledge-freshness-summary` with stale and
      unchecked local source counts, affected fact counts, safe source ids,
@@ -355,9 +364,9 @@ Measurable milestones:
      `uncheckedSourceCount`, result cards mirror stale/unchecked source posture,
      and stale or unchecked source facts are not handed off as high-confidence
      compact context.
-   - Remaining: non-Node Pulumi language discovery, richer component internals,
-     optional markdown normalization for live official docs, and opt-in team
-     storage backends.
+   - Remaining: non-Node Pulumi language discovery, dynamic/deeper component
+     internals, optional markdown normalization for live official docs, and
+     opt-in team storage backends.
 5. **Refresh And Staleness**
    - Implemented for local repo-derived facts. Changing a local source file or
      deleting a fingerprinted file marks derived facts stale during

@@ -208,9 +208,12 @@ Current behavior is intentionally runtime-foundation oriented:
   knowledge sources from explicit `pulumi.ComponentResource` or imported
   `ComponentResource` classes inside the project root. `knowledge extract`,
   `knowledge pack`, and the agent runtime convert constructor args
-  interfaces/types and public output property declarations into ranked
-  `pulumi-component-input` and `pulumi-component-output` facts with
-  recheckable source fingerprints. Generated/test/declaration files and
+  interfaces/types, public output property declarations, and conservative
+  in-class child resource constructors into ranked `pulumi-component-input`,
+  `pulumi-component-child-resource`, and `pulumi-component-output` facts with
+  recheckable source fingerprints. Child facts carry the resource name, Pulumi
+  type token, source locator, and safe related paths, but not constructor
+  argument objects or raw source. Generated/test/declaration files and
   secret-like fields are skipped, raw source is not emitted, and `pulumi
   preview` plus project type checks remain authoritative.
 - Pulumi project-root `package.json` dependencies on safe `@pulumi/*` packages

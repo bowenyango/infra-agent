@@ -191,14 +191,17 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   remains authoritative for missing, invalid, or provider-specific config.
 - For Pulumi component knowledge, use only conservative Node.js/TypeScript
   project-root class evidence that explicitly extends `pulumi.ComponentResource`
-  or an imported `ComponentResource`. Extract compact `pulumi-component-input`
-  and `pulumi-component-output` facts from constructor args interfaces/types
-  and public output property declarations, skip generated/test/declaration
-  files and secret-like fields, preserve workspace-relative source
-  fingerprints, and do not expose raw source code in packs, prompts, or compact
-  handoff output. These facts describe local component interfaces only; they do
-  not replace `pulumi preview`, project type checks, or language-specific
-  tests, and they do not cover Python, Go, .NET, Java, dynamic class factories,
+  or an imported `ComponentResource`. Extract compact `pulumi-component-input`,
+  `pulumi-component-child-resource`, and `pulumi-component-output` facts from
+  constructor args interfaces/types, conservative child resource constructors
+  inside detected class bodies, and public output property declarations. Skip
+  generated/test/declaration files, root-level resources outside the component
+  class body, constructor argument objects, and secret-like fields. Preserve
+  workspace-relative source fingerprints, and do not expose raw source code in
+  packs, prompts, or compact handoff output. These facts describe local
+  component interfaces and direct child-resource evidence only; they do not
+  replace `pulumi preview`, project type checks, or language-specific tests,
+  and they do not cover Python, Go, .NET, Java, dynamic class factories,
   runtime dataflow, or deeper component internals.
 - For Pulumi package docs knowledge, use only safe project-root `package.json`
   `@pulumi/*` dependencies selected as `pulumi-docs:package:<slug>` sources.
