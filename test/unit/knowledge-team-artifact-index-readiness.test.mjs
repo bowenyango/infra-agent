@@ -14,6 +14,7 @@ import {
   serializeKnowledgeArtifactPayload,
   stageKnowledgePackArtifactForTeamStore
 } from '../../src/knowledge/team-artifact-store.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 function publicStoragePolicy() {
   return {
@@ -321,4 +322,82 @@ test('mock team artifact metadata index rejects conflicts and unsafe keys', asyn
     () => index.findEntryForObject('/absolute/object/key.json'),
     error => error instanceof KnowledgeTeamArtifactStoreError && error.code === 'invalid-object-key'
   );
+});
+
+test('knowledge validation accepts team index entries and readiness reports', async () => {
+  const artifact = buildArtifact();
+  const staged = await stageKnowledgePackArtifactForTeamStore({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes,
+    store: createMockS3CompatibleKnowledgeArtifactStore()
+  });
+  const plan = buildKnowledgeTeamPublicationPlan({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes
+  });
+  const entry = buildKnowledgeTeamArtifactIndexEntry(staged.descriptor);
+  const readiness = buildKnowledgeTeamPublicationReadinessReport({
+    plan,
+    indexEntry: entry
+  });
+
+  const entryReport = validateKnowledgePayload(entry, 'inline');
+  const readinessReport = validateKnowledgePayload(readiness, 'inline');
+
+  assert.equal(entryReport.inputKind, 'infra-agent.knowledge-team-artifact-index-entry');
+  assert.equal(entryReport.valid, true);
+  assert.equal(entryReport.factCount, 1);
+  assert.equal(readinessReport.inputKind, 'infra-agent.knowledge-team-publication-readiness');
+  assert.equal(readinessReport.valid, true);
+  assert.equal(readinessReport.factCount, 1);
+});
+
+test('knowledge validation rejects forged or leaky team index readiness payloads', async () => {
+  const artifact = buildArtifact();
+  const staged = await stageKnowledgePackArtifactForTeamStore({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes,
+    store: createMockS3CompatibleKnowledgeArtifactStore()
+  });
+  const plan = buildKnowledgeTeamPublicationPlan({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes
+  });
+  const entry = buildKnowledgeTeamArtifactIndexEntry(staged.descriptor);
+  const readiness = buildKnowledgeTeamPublicationReadinessReport({
+    plan,
+    indexEntry: entry
+  });
+
+  const entryReport = validateKnowledgePayload({
+    ...entry,
+    bucket: 'private-team-cache',
+    endpointUrl: 'https://s3.example.test/private',
+    accessToken: 'secret-token'
+  }, 'inline');
+  const readinessReport = validateKnowledgePayload({
+    ...readiness,
+    remoteWriteAllowed: true,
+    credentialRequired: true,
+    uploadCommand: 'aws s3 cp pack.json s3://private-bucket',
+    bucket: 'private-team-cache',
+    endpointUrl: 'https://s3.example.test/private',
+    accessToken: 'secret-token'
+  }, 'inline');
+
+  assert.equal(entryReport.valid, false);
+  for (const path of ['$.bucket', '$.endpointUrl', '$.accessToken']) {
+    assert.ok(entryReport.issues.some(issue => issue.path === path), path);
+  }
+  assert.equal(readinessReport.valid, false);
+  for (const path of [
+    '$.remoteWriteAllowed',
+    '$.credentialRequired',
+    '$.uploadCommand',
+    '$.bucket',
+    '$.endpointUrl',
+    '$.accessToken'
+  ]) {
+    assert.ok(readinessReport.issues.some(issue => issue.path === path), path);
+  }
 });
