@@ -237,6 +237,12 @@ test('help output includes backend reference readiness command', async () => {
   assert.match(output, /infra-agent knowledge backend-reference-readiness <backend-config\.json> --registry <reference-registry\.json>/);
 });
 
+test('help output includes upload approval intent command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-approval-intent <publication-readiness\.json> --backend-reference <reference-readiness\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
