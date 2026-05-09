@@ -17,6 +17,7 @@ import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildTerraformRegistryKnowledgeSources } from '../../src/domain/terraform-registry-context.ts';
 import {
   buildKnowledgeCacheId,
+  isKnowledgeCacheEntryStale,
   readKnowledgeCacheEntry,
   writeKnowledgeCacheEntry
 } from '../../src/knowledge/cache.ts';
@@ -650,6 +651,110 @@ test('knowledge prefetch can use an injected knowledge store', async () => {
       && source.source.kind === 'terraform-registry'
     ));
     assert.equal(await readKnowledgeCacheEntry(result.cacheRoot, writes[0].source), null);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge prefetch reports previous cache status for cached, fetched, and stale fallback sources', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-prefetch-cache-status-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'package.json'),
+      `${JSON.stringify({
+        dependencies: {
+          '@pulumi/aws': '^7.0.0',
+          '@pulumi/kubernetes': '4.20.1'
+        }
+      }, null, 2)}\n`,
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const now = new Date('2026-05-09T00:00:00.000Z');
+    const cacheEntry = (source, staleAfter) => ({
+      id: buildKnowledgeCacheId(source),
+      source,
+      contentType: 'text/markdown',
+      content: `# ${source.name}\nCached docs.`,
+      contentHash: 'd'.repeat(64),
+      fetchedAt: '2026-05-01T00:00:00.000Z',
+      staleAfter
+    });
+    const written = [];
+    const store = {
+      root: 'memory://prefetch-cache-status',
+      buildId: buildKnowledgeCacheId,
+      read: async source => {
+        if (source.name === 'pulumi-docs:package:aws') {
+          return cacheEntry(source, '2026-06-09T00:00:00.000Z');
+        }
+        if (source.name === 'pulumi-docs:resource:aws:s3/bucket') {
+          return cacheEntry(source, '2026-05-01T00:00:00.000Z');
+        }
+        return null;
+      },
+      write: async input => {
+        const entry = cacheEntry(input.source, input.staleAfter ?? '2026-06-09T00:00:00.000Z');
+        written.push(entry);
+        return entry;
+      },
+      isStale: (entry, checkNow) => isKnowledgeCacheEntryStale(entry, checkNow)
+    };
+
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      maxSources: 10,
+      store,
+      now,
+      fetcher: async source => {
+        if (source.name === 'pulumi-docs:resource:aws:s3/bucket') {
+          return null;
+        }
+        return {
+          source,
+          contentType: 'text/markdown',
+          content: `# ${source.name}\nFetched official docs.`,
+          fetchedAt: '2026-05-09T00:00:00.000Z',
+          staleAfter: '2026-06-09T00:00:00.000Z'
+        };
+      }
+    });
+    const byName = new Map(result.sources.map(source => [source.source.name, source]));
+
+    assert.equal(byName.get('pulumi-docs:package:aws')?.status, 'cached');
+    assert.equal(byName.get('pulumi-docs:package:aws')?.previousCacheStatus, 'fresh');
+    assert.equal(byName.get('pulumi-docs:package:kubernetes')?.status, 'fetched');
+    assert.equal(byName.get('pulumi-docs:package:kubernetes')?.previousCacheStatus, 'missing');
+    assert.equal(byName.get('pulumi-docs:resource:aws:s3/bucket')?.status, 'stale-cache');
+    assert.equal(byName.get('pulumi-docs:resource:aws:s3/bucket')?.previousCacheStatus, 'stale');
+    assert.ok(result.sources.some(source =>
+      source.status === 'local'
+      && source.previousCacheStatus === 'local'
+    ));
+    assert.ok(written.some(entry => entry.source.name === 'pulumi-docs:package:kubernetes'));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
