@@ -1,6 +1,10 @@
 import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from './retrieve.ts';
 import type { KnowledgeFetcher } from './retrieve.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
+import {
+  resolveKnowledgeSourceCacheStatus,
+  type KnowledgeSourceCacheStatus
+} from './cache-status.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
 import { buildPulumiComponentKnowledgeSources } from '../domain/pulumi-components.ts';
@@ -29,6 +33,7 @@ export interface KnowledgePrefetchCandidate {
 export interface KnowledgePrefetchSourceResult extends KnowledgePrefetchCandidate {
   id: string;
   status: KnowledgePrefetchStatus;
+  previousCacheStatus: KnowledgeSourceCacheStatus;
   confidence?: RetrievedContextConfidence;
   contentType?: KnowledgeContentType;
   message?: string;
@@ -186,13 +191,15 @@ function buildSummary(sources: KnowledgePrefetchSourceResult[]): KnowledgePrefet
 function sourceResult(
   candidate: KnowledgePrefetchCandidate,
   status: KnowledgePrefetchStatus,
-  extra: Partial<Omit<KnowledgePrefetchSourceResult, keyof KnowledgePrefetchCandidate | 'id' | 'status'>> = {},
+  previousCacheStatus: KnowledgeSourceCacheStatus,
+  extra: Partial<Omit<KnowledgePrefetchSourceResult, keyof KnowledgePrefetchCandidate | 'id' | 'status' | 'previousCacheStatus'>> = {},
   buildId: (source: KnowledgeSource) => string = buildKnowledgeCacheId
 ): KnowledgePrefetchSourceResult {
   return {
     ...candidate,
     id: buildId(candidate.source),
     status,
+    previousCacheStatus,
     ...extra
   };
 }
@@ -216,22 +223,21 @@ export async function prefetchWorkspaceKnowledge(
 
   for (const candidate of candidates) {
     if (!candidate.source.url) {
-      sources.push(sourceResult(candidate, 'local', {
+      sources.push(sourceResult(candidate, 'local', 'local', {
         message: 'Local source does not require prefetch.'
       }, storeBuildId));
       continue;
     }
 
+    const previousCacheStatus = await resolveKnowledgeSourceCacheStatus(candidate.source, store, options.now);
     if (externalSourceCount >= maxSources) {
-      sources.push(sourceResult(candidate, 'skipped', {
+      sources.push(sourceResult(candidate, 'skipped', previousCacheStatus, {
         message: `Skipped because maxSources=${maxSources} was reached.`
       }, storeBuildId));
       continue;
     }
 
     externalSourceCount += 1;
-    const cachedBefore = await store.read(candidate.source);
-    const hadFreshCache = Boolean(cachedBefore && !store.isStale(cachedBefore, options.now));
     const packet = await retrieveKnowledgeContextPacket({
       store,
       source: candidate.source,
@@ -241,17 +247,17 @@ export async function prefetchWorkspaceKnowledge(
     });
 
     if (!packet) {
-      sources.push(sourceResult(candidate, 'failed', {
+      sources.push(sourceResult(candidate, 'failed', previousCacheStatus, {
         message: 'No cached entry was available and fetch returned no content.'
       }, storeBuildId));
       continue;
     }
 
-    sources.push(sourceResult(candidate, hadFreshCache
+    sources.push(sourceResult(candidate, previousCacheStatus === 'fresh'
       ? 'cached'
       : packet.confidence === 'medium'
         ? 'stale-cache'
-        : 'fetched', {
+        : 'fetched', previousCacheStatus, {
       confidence: packet.confidence,
       contentType: packet.contentType
     }, storeBuildId));
