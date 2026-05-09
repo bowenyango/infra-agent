@@ -318,6 +318,17 @@ test('ranks local Pulumi component interface facts above public docs guidance', 
       sourceLocator: 'infra/api/components.ts:3: ApiService.image',
       required: true,
       type: 'string'
+    },
+    {
+      kind: 'pulumi-component-child-resource',
+      path: 'component.ApiService.childResources.assets',
+      summary: 'component.ApiService.childResources.assets creates child Pulumi resource assets of type aws:s3/bucket:Bucket.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-static',
+      sourceId: 'component-source',
+      sourceLocator: 'infra/api/components.ts:10: ApiService.assets',
+      type: 'aws:s3/bucket:Bucket',
+      values: ['assets', 'aws:s3/bucket:Bucket']
     }
   ], {
     sources: [docsSource, componentSource],
@@ -326,4 +337,6 @@ test('ranks local Pulumi component interface facts above public docs guidance', 
   });
 
   assert.equal(ranked[0]?.kind, 'pulumi-component-input');
+  assert.equal(ranked[1]?.kind, 'pulumi-component-child-resource');
+  assert.equal(ranked.at(-1)?.kind, 'pulumi-docs-guidance');
 });
