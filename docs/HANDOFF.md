@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- Implemented; final full verification is pending. This slice adds lightweight
-  HTML-to-Markdown normalization for official docs fetched through the explicit
-  `prefetch` / `knowledge prefetch` path.
+- Completed. This slice adds lightweight HTML-to-Markdown normalization for
+  official docs fetched through the explicit `prefetch` / `knowledge prefetch`
+  path.
 - Scope is fetched-cache normalization only. No agent-loop live refresh, no
   background network fetch, no team cache backend, no broad HTML parser
   dependency, and no raw official-doc expansion into compact handoff is in
@@ -167,6 +167,10 @@ Progress log:
 - Commit 11 updates README, roadmap, agent rules, bundled skill docs, and this
   handoff with the implemented official-doc HTML normalization boundary.
   Focused validation: `git diff --check`.
+- Commit 12 records final verification results in this handoff. Full
+  validation: `npm run verify` passed lint, test structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+  Coverage summary: 89.29% lines, 78.03% branches, 96.52% functions.
 
 Remaining risks and constraints:
 
