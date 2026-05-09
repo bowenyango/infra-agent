@@ -201,6 +201,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   readiness report, but it must not perform live backend checks, read
   credential values, write remote objects, mutate a metadata index, create an
   upload command, or approve an upload.
+- `infra-agent knowledge backend-reference-readiness` is a dry-run private
+  reference review command. It may read a local S3-compatible backend config
+  and reference registry JSON, then emit required/optional environment variable
+  names, but it must not read `process.env` values, validate credential
+  presence, probe backend reachability, create clients, mutate remote objects,
+  or approve an upload.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
@@ -217,6 +223,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   environment variable names. It must not read `process.env` values, store
   endpoint or bucket values, expose credentials, create clients, perform live
   checks, or change public team artifact/readiness JSON.
+- Treat S3-compatible reference-readiness output as private routing state. It
+  may be written for local review, but it must not be copied into public team
+  artifact descriptor, publication-plan, index-entry, publication-readiness, or
+  backend-readiness JSON.
 - Treat team artifact descriptor, publication-plan, index-entry, and readiness
   JSON as public contract data. Do not add raw facts, raw source arrays,
   workspace/cache paths, backend details, credentials, upload commands, or

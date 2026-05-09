@@ -262,6 +262,10 @@ durable design reference for infra-agent development.
   may validate safe storage/auth refs and required environment variable names,
   but they must not read environment values, carry backend endpoints or bucket
   values, or turn a fail-closed resolution plan into a real adapter.
+- S3-compatible reference-readiness CLI output should stay in the same compact
+  handoff category: useful for local operator review and downstream routing,
+  but not evidence that credentials exist, a backend is reachable, or mutation
+  has been approved.
 
 ## Current Non-Goals
 
