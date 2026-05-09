@@ -121,6 +121,7 @@ const KNOWLEDGE_FACT_KINDS = [
   'chart-value',
   'pulumi-config-parameter',
   'pulumi-component-input',
+  'pulumi-component-child-resource',
   'pulumi-component-output',
   'pulumi-docs-guidance'
 ] as const;

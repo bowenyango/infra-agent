@@ -55,6 +55,7 @@ const FACT_KIND_SCORE: Record<KnowledgePackFact['kind'], number> = {
   'chart-value': 26,
   'pulumi-config-parameter': 24,
   'pulumi-component-input': 24,
+  'pulumi-component-child-resource': 22,
   'pulumi-component-output': 14,
   'pulumi-docs-guidance': 12
 };

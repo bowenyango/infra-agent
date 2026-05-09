@@ -67,6 +67,7 @@ test('knowledge fact schema constants cover planned extraction surfaces', () => 
     'chart-value',
     'pulumi-config-parameter',
     'pulumi-component-input',
+    'pulumi-component-child-resource',
     'pulumi-component-output',
     'pulumi-docs-guidance'
   ]);
@@ -260,7 +261,7 @@ test('knowledge source contracts include local infra sources', () => {
     ...terraformModuleFactSet,
     sourceId: pulumiComponentSourceId,
     source: pulumiComponentSource,
-    factCount: 2,
+    factCount: 3,
     facts: [
       {
         kind: 'pulumi-component-input',
@@ -276,6 +277,21 @@ test('knowledge source contracts include local infra sources', () => {
           source: pulumiComponentSource,
           contentHash: 'b'.repeat(64),
           locator: 'infra/api/components.ts: ApiServiceArgs.image'
+        }
+      },
+      {
+        kind: 'pulumi-component-child-resource',
+        path: 'component.ApiService.childResources.assets',
+        summary: 'component.ApiService creates child Pulumi resource assets of type aws:s3/bucket:Bucket.',
+        values: ['assets', 'aws:s3/bucket:Bucket'],
+        type: 'aws:s3/bucket:Bucket',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        source: {
+          id: pulumiComponentSourceId,
+          source: pulumiComponentSource,
+          contentHash: 'b'.repeat(64),
+          locator: 'infra/api/components.ts:10: ApiService.assets'
         }
       },
       {
@@ -302,7 +318,7 @@ test('knowledge source contracts include local infra sources', () => {
   assert.equal(parseKnowledgeFactSet(pulumiComponentFactSet).source.kind, 'pulumi-component');
   assert.deepEqual(
     parseKnowledgeFactSet(pulumiComponentFactSet).facts.map(fact => fact.kind),
-    ['pulumi-component-input', 'pulumi-component-output']
+    ['pulumi-component-input', 'pulumi-component-child-resource', 'pulumi-component-output']
   );
 });
 
