@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildKnowledgeTeamS3CompatibleBackendConfig
+  buildKnowledgeTeamS3CompatibleBackendConfig,
+  toKnowledgeTeamBackendReadinessConfig
 } from '../../src/knowledge/team-s3-compatible-backend-config.ts';
+import { buildKnowledgeTeamBackendReadinessReport } from '../../src/knowledge/team-backend-readiness.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 import {
   buildKnowledgeTeamS3CompatibleReferenceRegistry,
   parseKnowledgeTeamS3CompatibleReferenceRegistry,
@@ -232,4 +235,33 @@ test('s3-compatible reference validation blocks missing storage and auth refs', 
   assert.equal(summary.capabilities.liveCheckAllowed, false);
   assert.equal(summary.capabilities.credentialValuesExposed, false);
   assert.equal(summary.capabilities.uploadCommand, null);
+});
+
+test('s3-compatible reference registry stays out of public backend readiness JSON', () => {
+  const config = buildKnowledgeTeamS3CompatibleBackendConfig();
+  const registry = buildKnowledgeTeamS3CompatibleReferenceRegistry();
+  const summary = validateKnowledgeTeamS3CompatibleBackendReferences(config, registry);
+  const readinessInput = toKnowledgeTeamBackendReadinessConfig(config);
+  const readiness = buildKnowledgeTeamBackendReadinessReport(readinessInput);
+  const validation = validateKnowledgePayload(readiness, 'inline');
+
+  assert.equal(summary.status, 'valid');
+  assert.equal(validation.valid, true);
+  assert.equal(readiness.kind, 'infra-agent.knowledge-team-backend-readiness');
+  assert.equal(readiness.backendKind, 's3-compatible');
+  const readinessText = JSON.stringify(readiness);
+  for (const forbidden of [
+    'storageProfileRef',
+    'authProfileRef',
+    'team-cache-storage',
+    'team-cache-auth',
+    'INFRA_AGENT_TEAM_CACHE_S3_ENDPOINT_URL',
+    'INFRA_AGENT_TEAM_CACHE_S3_BUCKET_NAME',
+    'INFRA_AGENT_TEAM_CACHE_S3_REGION',
+    'INFRA_AGENT_TEAM_CACHE_S3_ACCESS_KEY_ID',
+    'INFRA_AGENT_TEAM_CACHE_S3_SECRET_ACCESS_KEY',
+    'INFRA_AGENT_TEAM_CACHE_S3_SESSION_TOKEN'
+  ]) {
+    assert.equal(readinessText.includes(forbidden), false, forbidden);
+  }
 });
