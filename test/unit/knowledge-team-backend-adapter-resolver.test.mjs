@@ -9,6 +9,9 @@ import {
 import {
   buildKnowledgeTeamS3CompatibleBackendConfig
 } from '../../src/knowledge/team-s3-compatible-backend-config.ts';
+import {
+  buildKnowledgeTeamS3CompatibleReferenceRegistry
+} from '../../src/knowledge/team-s3-compatible-reference-registry.ts';
 
 function captureResolutionError(config) {
   try {
@@ -117,6 +120,57 @@ test('backend adapter resolution plan keeps real s3-compatible configs blocked a
     () => resolveKnowledgeTeamBackendAdapter(buildKnowledgeTeamS3CompatibleBackendConfig()),
     KnowledgeTeamBackendAdapterResolutionError
   );
+});
+
+test('backend adapter resolution plan accepts valid s3 registry refs but stays blocked', () => {
+  const plan = planKnowledgeTeamBackendAdapterResolution(
+    buildKnowledgeTeamS3CompatibleBackendConfig({
+      name: 'team-cache-prod',
+      storageProfileRef: 'team-cache-storage',
+      authProfileRef: 'team-cache-auth'
+    }),
+    {
+      referenceRegistry: buildKnowledgeTeamS3CompatibleReferenceRegistry()
+    }
+  );
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.backendKind, 's3-compatible');
+  assert.equal(plan.adapterName, 'team-cache-prod');
+  assert.deepEqual(plan.issueCodes, ['real-backend-not-implemented']);
+  assert.equal(plan.capabilities.artifactObjectStore, true);
+  assert.equal(plan.capabilities.metadataIndex, true);
+  assert.equal(plan.capabilities.remoteWriteAllowed, false);
+  assert.equal(plan.capabilities.liveCheckAllowed, false);
+  assert.equal(plan.capabilities.credentialValuesExposed, false);
+  assert.equal(plan.capabilities.uploadCommand, null);
+  assert.equal(plan.capabilities.dryRunOnly, true);
+});
+
+test('backend adapter resolution plan blocks missing s3 registry refs before real design', () => {
+  const plan = planKnowledgeTeamBackendAdapterResolution(
+    buildKnowledgeTeamS3CompatibleBackendConfig({
+      name: 'team-cache-prod',
+      storageProfileRef: 'missing-storage-profile',
+      authProfileRef: 'missing-auth-profile'
+    }),
+    {
+      referenceRegistry: buildKnowledgeTeamS3CompatibleReferenceRegistry()
+    }
+  );
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.backendKind, 's3-compatible');
+  assert.equal(plan.adapterName, 'team-cache-prod');
+  assert.equal(plan.issueCodes.includes('missing-storage-profile-reference'), true);
+  assert.equal(plan.issueCodes.includes('missing-auth-profile-reference'), true);
+  assert.equal(plan.issueCodes.includes('real-backend-not-implemented'), false);
+  assert.equal(plan.capabilities.artifactObjectStore, false);
+  assert.equal(plan.capabilities.metadataIndex, false);
+  assert.equal(plan.capabilities.remoteWriteAllowed, false);
+  assert.equal(plan.capabilities.liveCheckAllowed, false);
+  assert.equal(plan.capabilities.credentialValuesExposed, false);
+  assert.equal(plan.capabilities.uploadCommand, null);
 });
 
 test('backend adapter resolution plan rejects leaky real configs without echoing private fields', () => {
