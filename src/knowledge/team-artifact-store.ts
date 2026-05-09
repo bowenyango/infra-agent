@@ -4,6 +4,7 @@ import type {
   KnowledgeArtifactManifest,
   KnowledgeArtifactPayload
 } from './artifact-manifest.ts';
+import type { KnowledgePack } from './pack.ts';
 import type { KnowledgeStoragePolicySummary } from './storage-policy.ts';
 
 export type KnowledgeTeamArtifactBackendKind = 'mock-s3-compatible';
@@ -21,6 +22,13 @@ export type KnowledgeTeamArtifactStoreErrorCode =
   | 'object-not-found'
   | 'publication-blocked'
   | 'unsupported-artifact-kind';
+export type KnowledgeTeamArtifactPolicyIssueCode =
+  | 'explicit-opt-in-required'
+  | 'forged-publication-plan'
+  | 'stale-source'
+  | 'unchecked-source'
+  | 'unsupported-artifact-kind'
+  | 'workspace-private-source';
 
 export interface KnowledgeTeamArtifactDescriptor {
   kind: 'infra-agent.knowledge-team-artifact-descriptor';
@@ -83,6 +91,17 @@ export interface KnowledgeTeamArtifactStore {
   getObject(key: string): Promise<KnowledgeTeamArtifactStoredBytes | null>;
 }
 
+export interface KnowledgeTeamArtifactPolicyIssue {
+  code: KnowledgeTeamArtifactPolicyIssueCode;
+  path: string;
+  message: string;
+}
+
+export interface KnowledgeTeamArtifactPolicyDecision {
+  allowed: boolean;
+  issues: KnowledgeTeamArtifactPolicyIssue[];
+}
+
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9/_\-.]*$/;
 const SAFE_METADATA_KEY_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,63}$/;
@@ -142,6 +161,22 @@ function artifactFamily(artifactKind: KnowledgeArtifactPayload['kind']): Knowled
     : 'knowledge-extraction';
 }
 
+function isKnowledgePackPayload(value: unknown): value is KnowledgePack {
+  return isRecord(value) && value.kind === 'infra-agent.knowledge-pack';
+}
+
+function policyIssue(
+  code: KnowledgeTeamArtifactPolicyIssueCode,
+  path: string,
+  message: string
+): KnowledgeTeamArtifactPolicyIssue {
+  return {
+    code,
+    path,
+    message
+  };
+}
+
 export function serializeKnowledgeArtifactPayload(payload: KnowledgeArtifactPayload): string {
   return `${JSON.stringify(canonicalizeJsonValue(payload), null, 2)}\n`;
 }
@@ -176,6 +211,114 @@ export function isSafeKnowledgeTeamArtifactObjectKey(key: string): boolean {
     && !key.includes('\\')
     && !key.includes('?')
     && !key.includes('#');
+}
+
+export function evaluateKnowledgeTeamArtifactPublicationPolicy(input: {
+  manifest: KnowledgeArtifactManifest;
+  payload?: unknown;
+}): KnowledgeTeamArtifactPolicyDecision {
+  const issues: KnowledgeTeamArtifactPolicyIssue[] = [];
+  const { manifest, payload } = input;
+
+  if (manifest.artifact.kind !== 'infra-agent.knowledge-pack') {
+    issues.push(policyIssue(
+      'unsupported-artifact-kind',
+      '$.artifact.kind',
+      'Only knowledge-pack artifacts may be staged for the team artifact store.'
+    ));
+  }
+  if (
+    manifest.publication.executionMode !== 'plan-only'
+    || manifest.publication.remoteWriteAllowed !== false
+    || manifest.publication.credentialRequired !== false
+    || manifest.publication.uploadCommand !== null
+  ) {
+    issues.push(policyIssue(
+      'forged-publication-plan',
+      '$.publication',
+      'Team artifact staging requires a plan-only manifest without remote commands or credentials.'
+    ));
+  }
+  if (!manifest.publication.shareableByDefault || manifest.publication.requiresExplicitOptIn) {
+    issues.push(policyIssue(
+      'explicit-opt-in-required',
+      '$.publication.requiresExplicitOptIn',
+      'Artifact publication requires explicit opt-in and is not accepted by the default team artifact policy.'
+    ));
+  }
+  if (manifest.publication.blockedSources.length > 0) {
+    for (const blockedSource of manifest.publication.blockedSources) {
+      issues.push(policyIssue(
+        blockedSource.reason === 'stale-source'
+          ? 'stale-source'
+          : blockedSource.reason === 'workspace-private-source'
+            ? 'workspace-private-source'
+            : 'explicit-opt-in-required',
+        '$.publication.blockedSources',
+        'Artifact contains a source that is not publishable by default.'
+      ));
+    }
+  }
+  if (manifest.artifact.staleSourceCount > 0) {
+    issues.push(policyIssue(
+      'stale-source',
+      '$.artifact.staleSourceCount',
+      'Artifact contains stale sources and must be refreshed before team artifact staging.'
+    ));
+  }
+  if (manifest.artifact.storagePolicy.workspacePrivate > 0) {
+    issues.push(policyIssue(
+      'workspace-private-source',
+      '$.artifact.storagePolicy.workspacePrivate',
+      'Artifact contains workspace-private sources and must remain local by default.'
+    ));
+  }
+
+  if (payload !== undefined) {
+    if (!isKnowledgePackPayload(payload)) {
+      issues.push(policyIssue(
+        'unsupported-artifact-kind',
+        '$.artifact.payload.kind',
+        'Team artifact staging requires a knowledge-pack payload.'
+      ));
+    } else {
+      for (const [index, source] of payload.sources.entries()) {
+        if (source.freshness === 'unchecked') {
+          issues.push(policyIssue(
+            'unchecked-source',
+            `$.artifact.payload.sources[${index}].freshness`,
+            'Artifact contains unchecked sources and must be validated before team artifact staging.'
+          ));
+        }
+        if (source.stale) {
+          issues.push(policyIssue(
+            'stale-source',
+            `$.artifact.payload.sources[${index}].stale`,
+            'Artifact contains stale sources and must be refreshed before team artifact staging.'
+          ));
+        }
+        if (source.storagePolicy.scope === 'workspace-private') {
+          issues.push(policyIssue(
+            'workspace-private-source',
+            `$.artifact.payload.sources[${index}].storagePolicy.scope`,
+            'Artifact contains workspace-private sources and must remain local by default.'
+          ));
+        }
+        if (!source.storagePolicy.shareableByDefault || source.storagePolicy.requiresExplicitOptIn) {
+          issues.push(policyIssue(
+            'explicit-opt-in-required',
+            `$.artifact.payload.sources[${index}].storagePolicy.requiresExplicitOptIn`,
+            'Artifact contains sources that require explicit opt-in before team artifact staging.'
+          ));
+        }
+      }
+    }
+  }
+
+  return {
+    allowed: issues.length === 0,
+    issues
+  };
 }
 
 function hashBytes(bytes: Buffer): string {
