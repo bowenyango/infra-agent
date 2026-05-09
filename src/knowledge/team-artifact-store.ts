@@ -1,13 +1,99 @@
 import { createHash } from 'node:crypto';
-import type { KnowledgeArtifactPayload } from './artifact-manifest.ts';
+import type {
+  KnowledgeArtifactManifest,
+  KnowledgeArtifactPayload
+} from './artifact-manifest.ts';
+import type { KnowledgeStoragePolicySummary } from './storage-policy.ts';
 
 export type KnowledgeTeamArtifactBackendKind = 'mock-s3-compatible';
 export type KnowledgeTeamArtifactFamily =
   | 'knowledge-extraction'
   | 'knowledge-pack';
+export type KnowledgeTeamArtifactContentType = 'application/json';
+export type KnowledgeTeamArtifactStoreErrorCode =
+  | 'artifact-hash-mismatch'
+  | 'artifact-metadata-mismatch'
+  | 'invalid-artifact-json'
+  | 'invalid-content-type'
+  | 'invalid-object-key'
+  | 'object-conflict'
+  | 'object-not-found'
+  | 'publication-blocked'
+  | 'unsupported-artifact-kind';
+
+export interface KnowledgeTeamArtifactDescriptor {
+  kind: 'infra-agent.knowledge-team-artifact-descriptor';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  backendKind: KnowledgeTeamArtifactBackendKind;
+  manifestId: KnowledgeArtifactManifest['manifestId'];
+  object: {
+    key: string;
+    sha256: string;
+    byteLength: number;
+    contentType: KnowledgeTeamArtifactContentType;
+  };
+  artifact: {
+    kind: 'infra-agent.knowledge-pack';
+    id: string;
+    sourceCount: number;
+    factCount: number;
+    staleSourceCount: number;
+    storagePolicy: KnowledgeStoragePolicySummary;
+  };
+  publication: {
+    shareableByDefault: boolean;
+    requiresExplicitOptIn: boolean;
+    publishableByDefaultSourceCount: number;
+    blockedSourceCount: number;
+    requiredValidationCount: number;
+    reason: string;
+  };
+}
+
+export interface KnowledgeTeamArtifactStoredObject {
+  backendKind: KnowledgeTeamArtifactBackendKind;
+  key: string;
+  sha256: string;
+  byteLength: number;
+  contentType: KnowledgeTeamArtifactContentType;
+  metadata: Record<string, string>;
+}
+
+export interface KnowledgeTeamArtifactStoredBytes extends KnowledgeTeamArtifactStoredObject {
+  bytes: Buffer;
+}
+
+export interface KnowledgeTeamArtifactPutInput {
+  key: string;
+  bytes: Buffer;
+  contentType: KnowledgeTeamArtifactContentType;
+  metadata?: Record<string, string>;
+}
+
+export interface KnowledgeTeamArtifactPutResult extends KnowledgeTeamArtifactStoredObject {
+  alreadyPresent: boolean;
+}
+
+export interface KnowledgeTeamArtifactStore {
+  readonly backendKind: KnowledgeTeamArtifactBackendKind;
+  putObject(input: KnowledgeTeamArtifactPutInput): Promise<KnowledgeTeamArtifactPutResult>;
+  headObject(key: string): Promise<KnowledgeTeamArtifactStoredObject | null>;
+  getObject(key: string): Promise<KnowledgeTeamArtifactStoredBytes | null>;
+}
 
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9/_\-.]*$/;
+
+export class KnowledgeTeamArtifactStoreError extends Error {
+  readonly code: KnowledgeTeamArtifactStoreErrorCode;
+
+  constructor(code: KnowledgeTeamArtifactStoreErrorCode, message: string) {
+    super(message);
+    this.name = 'KnowledgeTeamArtifactStoreError';
+    this.code = code;
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
