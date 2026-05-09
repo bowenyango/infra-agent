@@ -8,7 +8,9 @@ import {
 import type { KnowledgePackSource } from './pack.ts';
 import type {
   KnowledgeSourceFileFingerprint,
-  KnowledgeSourceFingerprint
+  KnowledgeSourceFingerprint,
+  KnowledgeSourceKind,
+  KnowledgeSourceStaleReason
 } from '../types/knowledge.ts';
 import type { KnowledgeValidationIssue } from './validate.ts';
 
@@ -18,6 +20,34 @@ const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|be
 export interface LocalSourceValidationStats {
   staleSourceIds: Set<string>;
   uncheckedLocalSourceCount: number;
+  staleSourceDetails: LocalSourceStaleDetail[];
+  uncheckedLocalSourceDetails: LocalSourceUncheckedDetail[];
+}
+
+export type LocalSourceUncheckedReason = 'workspace-not-provided' | 'missing-fingerprint';
+
+export interface LocalSourceFreshnessMetadata {
+  sourceKind?: KnowledgeSourceKind | null;
+  sourceName?: string | null;
+  factCount?: number;
+}
+
+export interface LocalSourceStaleDetail extends LocalSourceFreshnessMetadata {
+  sourceId: string;
+  path: string;
+  staleReason: KnowledgeSourceStaleReason;
+  stalePaths: string[];
+  missingPaths: string[];
+  fingerprintDigest?: string;
+  fingerprintFileCount?: number;
+}
+
+export interface LocalSourceUncheckedDetail extends LocalSourceFreshnessMetadata {
+  sourceId: string;
+  path: string;
+  uncheckedReason: LocalSourceUncheckedReason;
+  fingerprintDigest?: string;
+  fingerprintFileCount?: number;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,6 +67,55 @@ function warning(path: string, message: string): KnowledgeValidationIssue {
     severity: 'warning',
     path,
     message
+  };
+}
+
+export function buildLocalSourceStaleDetail(input: {
+  sourceId: string;
+  path: string;
+  fingerprint: KnowledgeSourceFingerprint;
+  staleReason: KnowledgeSourceStaleReason;
+  fileChecks: Array<{ path: string; stale: boolean; staleReason?: KnowledgeSourceStaleReason }>;
+} & LocalSourceFreshnessMetadata): LocalSourceStaleDetail {
+  return {
+    sourceId: input.sourceId,
+    path: input.path,
+    ...(input.sourceKind !== undefined ? { sourceKind: input.sourceKind } : {}),
+    ...(input.sourceName !== undefined ? { sourceName: input.sourceName } : {}),
+    ...(input.factCount !== undefined ? { factCount: input.factCount } : {}),
+    staleReason: input.staleReason,
+    stalePaths: input.fileChecks
+      .filter(file => file.stale && file.staleReason === 'local-file-hash-mismatch')
+      .map(file => file.path)
+      .sort(),
+    missingPaths: input.fileChecks
+      .filter(file => file.stale && file.staleReason === 'local-file-missing')
+      .map(file => file.path)
+      .sort(),
+    fingerprintDigest: input.fingerprint.digest,
+    fingerprintFileCount: input.fingerprint.fileCount
+  };
+}
+
+export function buildLocalSourceUncheckedDetail(input: {
+  sourceId: string;
+  path: string;
+  uncheckedReason: LocalSourceUncheckedReason;
+  fingerprint?: KnowledgeSourceFingerprint;
+} & LocalSourceFreshnessMetadata): LocalSourceUncheckedDetail {
+  return {
+    sourceId: input.sourceId,
+    path: input.path,
+    ...(input.sourceKind !== undefined ? { sourceKind: input.sourceKind } : {}),
+    ...(input.sourceName !== undefined ? { sourceName: input.sourceName } : {}),
+    ...(input.factCount !== undefined ? { factCount: input.factCount } : {}),
+    uncheckedReason: input.uncheckedReason,
+    ...(input.fingerprint !== undefined
+      ? {
+          fingerprintDigest: input.fingerprint.digest,
+          fingerprintFileCount: input.fingerprint.fileCount
+        }
+      : {})
   };
 }
 
@@ -177,13 +256,20 @@ export async function validatePackSourceFingerprints(
 ): Promise<LocalSourceValidationStats> {
   const stats: LocalSourceValidationStats = {
     staleSourceIds: new Set(sources.filter(source => source.stale).map(source => source.id)),
-    uncheckedLocalSourceCount: 0
+    uncheckedLocalSourceCount: 0,
+    staleSourceDetails: [],
+    uncheckedLocalSourceDetails: []
   };
 
   for (const [index, source] of sources.entries()) {
     if (source.fingerprint === undefined) {
       if (source.storagePolicy.scope === 'workspace-private' || source.storagePolicy.requiresExplicitOptIn) {
         stats.uncheckedLocalSourceCount += 1;
+        stats.uncheckedLocalSourceDetails.push(buildLocalSourceUncheckedDetail({
+          sourceId: source.id,
+          path: `$.sources[${index}].fingerprint`,
+          uncheckedReason: 'missing-fingerprint'
+        }));
         const issue = workspaceRoot === undefined ? warning : error;
         issues.push(issue(
           `$.sources[${index}].fingerprint`,
@@ -197,6 +283,12 @@ export async function validatePackSourceFingerprints(
 
     if (workspaceRoot === undefined) {
       stats.uncheckedLocalSourceCount += 1;
+      stats.uncheckedLocalSourceDetails.push(buildLocalSourceUncheckedDetail({
+        sourceId: source.id,
+        path: `$.sources[${index}].fingerprint`,
+        uncheckedReason: 'workspace-not-provided',
+        fingerprint: source.fingerprint
+      }));
       issues.push(warning(
         `$.sources[${index}].fingerprint`,
         'Knowledge pack source fingerprint was not rechecked because no workspace root was provided.'
@@ -208,6 +300,13 @@ export async function validatePackSourceFingerprints(
       const check = await checkKnowledgeSourceFingerprint(workspaceRoot, source.fingerprint);
       if (check.sourceStale) {
         stats.staleSourceIds.add(source.id);
+        stats.staleSourceDetails.push(buildLocalSourceStaleDetail({
+          sourceId: source.id,
+          path: `$.sources[${index}].fingerprint`,
+          fingerprint: source.fingerprint,
+          staleReason: check.sourceStaleReason ?? 'local-file-hash-mismatch',
+          fileChecks: check.fileChecks
+        }));
         issues.push(error(
           `$.sources[${index}].fingerprint`,
           `Local source fingerprint is stale: ${check.sourceStaleReason ?? 'local-file-hash-mismatch'}.`
@@ -215,6 +314,19 @@ export async function validatePackSourceFingerprints(
       }
     } catch (validationError) {
       stats.staleSourceIds.add(source.id);
+      stats.staleSourceDetails.push({
+        sourceId: source.id,
+        path: `$.sources[${index}].fingerprint`,
+        staleReason: 'local-file-hash-mismatch',
+        stalePaths: [],
+        missingPaths: [],
+        ...(source.fingerprint !== undefined
+          ? {
+              fingerprintDigest: source.fingerprint.digest,
+              fingerprintFileCount: source.fingerprint.fileCount
+            }
+          : {})
+      });
       issues.push(error(
         `$.sources[${index}].fingerprint`,
         validationError instanceof Error

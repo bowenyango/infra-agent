@@ -728,6 +728,14 @@ test('knowledge validation rechecks local source fingerprints against a workspac
     });
     assert.equal(staleReport.valid, false);
     assert.equal(staleReport.staleSourceCount, 1);
+    assert.equal(staleReport.freshness.staleSourceCount, 1);
+    assert.equal(staleReport.freshness.uncheckedLocalSourceCount, 0);
+    assert.equal(staleReport.freshness.staleSources.length, 1);
+    assert.equal(staleReport.freshness.staleSources[0]?.sourceKind, 'chart-metadata');
+    assert.equal(staleReport.freshness.staleSources[0]?.staleReason, 'local-file-hash-mismatch');
+    assert.ok(staleReport.freshness.staleSources[0]?.stalePaths?.includes('charts/payments-api/Chart.yaml'));
+    assert.equal(staleReport.freshness.staleSources[0]?.missingPaths?.length, 0);
+    assert.ok((staleReport.freshness.staleSources[0]?.factCount ?? 0) > 0);
     assert.ok(staleReport.issues.some(issue =>
       issue.severity === 'error'
       && issue.path.endsWith('.sourceFingerprint')

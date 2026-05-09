@@ -22,6 +22,8 @@ import {
 } from '../types/knowledge.ts';
 import { validateKnowledgeArtifactReference } from './validation-artifact-reference.ts';
 import {
+  buildLocalSourceStaleDetail,
+  buildLocalSourceUncheckedDetail,
   validateKnowledgeSourceFingerprintContract,
   validatePackSourceFingerprints,
   type LocalSourceValidationStats
@@ -59,6 +61,7 @@ export interface KnowledgeValidationFreshnessSource {
   sourceKind: KnowledgeSourceKind | null;
   sourceName: string | null;
   factCount: number;
+  validationPath?: string;
   staleReason?: KnowledgeSourceStaleReason;
   uncheckedReason?: 'workspace-not-provided' | 'missing-fingerprint';
   stalePaths?: string[];
@@ -138,7 +141,9 @@ function createReport(
   options: KnowledgeValidationOptions = {},
   localSourceStats: LocalSourceValidationStats = {
     staleSourceIds: new Set(),
-    uncheckedLocalSourceCount: 0
+    uncheckedLocalSourceCount: 0,
+    staleSourceDetails: [],
+    uncheckedLocalSourceDetails: []
   },
   countOverrides: KnowledgeValidationCountOverrides = {}
 ): KnowledgeValidationReport {
@@ -175,8 +180,9 @@ function buildFreshnessSummary(
   localSourceStats: LocalSourceValidationStats,
   counts: Pick<KnowledgeValidationFreshnessSummary, 'staleSourceCount' | 'uncheckedLocalSourceCount'>
 ): KnowledgeValidationFreshnessSummary {
-  void localSourceStats;
   const staleBySourceId = new Map<string, KnowledgeValidationFreshnessSource>();
+  const factSetBySourceId = new Map(factSets.map(factSet => [factSet.sourceId, factSet]));
+
   for (const factSet of factSets) {
     if (!factSet.sourceStale) {
       continue;
@@ -197,9 +203,37 @@ function buildFreshnessSummary(
     });
   }
 
+  for (const detail of localSourceStats.staleSourceDetails) {
+    const factSet = factSetBySourceId.get(detail.sourceId);
+    staleBySourceId.set(detail.sourceId, {
+      sourceId: detail.sourceId,
+      sourceKind: detail.sourceKind ?? factSet?.source.kind ?? null,
+      sourceName: detail.sourceName ?? factSet?.source.name ?? null,
+      factCount: detail.factCount ?? factSet?.factCount ?? 0,
+      validationPath: detail.path,
+      staleReason: detail.staleReason,
+      stalePaths: [...detail.stalePaths],
+      missingPaths: [...detail.missingPaths],
+      ...(detail.fingerprintDigest !== undefined ? { fingerprintDigest: detail.fingerprintDigest } : {}),
+      ...(detail.fingerprintFileCount !== undefined ? { fingerprintFileCount: detail.fingerprintFileCount } : {})
+    });
+  }
+
   const staleSources = Array.from(staleBySourceId.values())
     .sort((left, right) => left.sourceId.localeCompare(right.sourceId));
-  const uncheckedLocalSources: KnowledgeValidationFreshnessSource[] = [];
+  const uncheckedLocalSources = localSourceStats.uncheckedLocalSourceDetails.map(detail => {
+    const factSet = factSetBySourceId.get(detail.sourceId);
+    return {
+      sourceId: detail.sourceId,
+      sourceKind: detail.sourceKind ?? factSet?.source.kind ?? null,
+      sourceName: detail.sourceName ?? factSet?.source.name ?? null,
+      factCount: detail.factCount ?? factSet?.factCount ?? 0,
+      validationPath: detail.path,
+      uncheckedReason: detail.uncheckedReason,
+      ...(detail.fingerprintDigest !== undefined ? { fingerprintDigest: detail.fingerprintDigest } : {}),
+      ...(detail.fingerprintFileCount !== undefined ? { fingerprintFileCount: detail.fingerprintFileCount } : {})
+    };
+  }).sort((left, right) => left.sourceId.localeCompare(right.sourceId));
 
   return {
     kind: 'infra-agent.knowledge-freshness-summary',
@@ -725,7 +759,9 @@ function validateKnowledgePackPayload(
     {},
     {
       staleSourceIds: new Set(),
-      uncheckedLocalSourceCount: 0
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
     },
     {
       factSetCount: factSetCount ?? actualFactSetCount,
@@ -904,7 +940,9 @@ function validateKnowledgeArtifactManifestPayload(
     {},
     {
       staleSourceIds: new Set(),
-      uncheckedLocalSourceCount: 0
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
     },
     {
       factSetCount: 0,
@@ -921,7 +959,9 @@ async function validateLocalSourceFingerprints(
 ): Promise<LocalSourceValidationStats> {
   const stats: LocalSourceValidationStats = {
     staleSourceIds: new Set(),
-    uncheckedLocalSourceCount: 0
+    uncheckedLocalSourceCount: 0,
+    staleSourceDetails: [],
+    uncheckedLocalSourceDetails: []
   };
 
   for (const { factSet, path } of factSets) {
@@ -931,6 +971,15 @@ async function validateLocalSourceFingerprints(
 
     if (workspaceRoot === undefined) {
       stats.uncheckedLocalSourceCount += 1;
+      stats.uncheckedLocalSourceDetails.push(buildLocalSourceUncheckedDetail({
+        sourceId: factSet.sourceId,
+        sourceKind: factSet.source.kind,
+        sourceName: factSet.source.name,
+        factCount: factSet.factCount,
+        path: `${path}.sourceFingerprint`,
+        uncheckedReason: 'workspace-not-provided',
+        fingerprint: factSet.sourceFingerprint
+      }));
       issues.push(warning(
         `${path}.sourceFingerprint`,
         'Local source fingerprint was not rechecked because no workspace root was provided.'
@@ -942,6 +991,16 @@ async function validateLocalSourceFingerprints(
       const check = await checkKnowledgeSourceFingerprint(workspaceRoot, factSet.sourceFingerprint);
       if (check.sourceStale) {
         stats.staleSourceIds.add(factSet.sourceId);
+        stats.staleSourceDetails.push(buildLocalSourceStaleDetail({
+          sourceId: factSet.sourceId,
+          sourceKind: factSet.source.kind,
+          sourceName: factSet.source.name,
+          factCount: factSet.factCount,
+          path: `${path}.sourceFingerprint`,
+          fingerprint: factSet.sourceFingerprint,
+          staleReason: check.sourceStaleReason ?? 'local-file-hash-mismatch',
+          fileChecks: check.fileChecks
+        }));
         issues.push(error(
           `${path}.sourceFingerprint`,
           `Local source fingerprint is stale: ${check.sourceStaleReason ?? 'local-file-hash-mismatch'}.`
@@ -949,6 +1008,18 @@ async function validateLocalSourceFingerprints(
       }
     } catch (validationError) {
       stats.staleSourceIds.add(factSet.sourceId);
+      stats.staleSourceDetails.push({
+        sourceId: factSet.sourceId,
+        sourceKind: factSet.source.kind,
+        sourceName: factSet.source.name,
+        factCount: factSet.factCount,
+        path: `${path}.sourceFingerprint`,
+        staleReason: 'local-file-hash-mismatch',
+        stalePaths: [],
+        missingPaths: [],
+        fingerprintDigest: factSet.sourceFingerprint.digest,
+        fingerprintFileCount: factSet.sourceFingerprint.fileCount
+      });
       issues.push(error(
         `${path}.sourceFingerprint`,
         validationError instanceof Error
@@ -1057,7 +1128,9 @@ export async function validateKnowledgePayloadWithLocalSources(
       options,
       {
         staleSourceIds: new Set(),
-        uncheckedLocalSourceCount: countOverrides.uncheckedLocalSourceCount ?? report.uncheckedLocalSourceCount
+        uncheckedLocalSourceCount: countOverrides.uncheckedLocalSourceCount ?? report.uncheckedLocalSourceCount,
+        staleSourceDetails: [],
+        uncheckedLocalSourceDetails: []
       },
       {
         factSetCount: countOverrides.factSetCount ?? report.factSetCount,
