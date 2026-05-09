@@ -11,6 +11,7 @@ import {
   buildKnowledgeTeamUploadApprovalIntent
 } from '../../src/knowledge/team-upload-approval-intent.ts';
 import {
+  buildBlockedKnowledgeTeamArtifactContractFixture,
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -66,4 +67,21 @@ test('upload approval intent reports approval-required for dry-run upload precon
   assert.deepEqual(intent.readiness.blockerCodes, []);
   assert.equal(intent.readiness.blockerCount, 0);
   assert.equal(intent.readiness.nextAction, 'request-explicit-upload-approval');
+});
+
+test('upload approval intent blocks when publication readiness is blocked', async () => {
+  const fixture = await buildBlockedKnowledgeTeamArtifactContractFixture();
+  const intent = buildKnowledgeTeamUploadApprovalIntent({
+    publicationReadiness: fixture.uploadRequiredReadiness,
+    backendReferenceValidation: validBackendReferenceSummary()
+  });
+
+  assert.equal(intent.status, 'blocked');
+  assert.equal(intent.remoteWriteAllowed, false);
+  assert.equal(intent.uploadCommand, null);
+  assert.equal(intent.preconditions.publicationReadiness.status, 'blocked');
+  assert.equal(intent.preconditions.publicationReadiness.uploadRequired, false);
+  assert.equal(intent.preconditions.backendReference.status, 'valid');
+  assert.equal(intent.readiness.nextAction, 'resolve-blockers');
+  assert.equal(intent.readiness.blockerCodes.includes('publication-readiness-blocked'), true);
 });
