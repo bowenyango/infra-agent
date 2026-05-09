@@ -1,6 +1,6 @@
 import { cwd, exit } from 'node:process';
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
@@ -17,8 +17,13 @@ import { loadKnowledgeValidationReport } from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
 import {
   buildKnowledgeArtifactManifest,
-  hashKnowledgeArtifactFile
+  hashKnowledgeArtifactFile,
+  type KnowledgeArtifactManifest
 } from '../knowledge/artifact-manifest.ts';
+import {
+  buildKnowledgeTeamPublicationPlan,
+  type KnowledgeTeamArtifactDescriptor
+} from '../knowledge/team-artifact-store.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -40,6 +45,7 @@ import {
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
   printKnowledgePack,
+  printKnowledgeTeamPublicationPlan,
   printPlannerProviderCatalogReport,
   printRunPreflight,
   printValidationPreflight
@@ -113,6 +119,25 @@ function printUsage(): void {
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
   exit(1);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+async function readJsonObject(inputPath: string): Promise<Record<string, unknown>> {
+  const payload = JSON.parse(await readFile(inputPath, 'utf8')) as unknown;
+  if (!isRecord(payload)) {
+    fail(`Expected ${inputPath} to contain a JSON object.`);
+  }
+
+  return payload;
+}
+
+function resolveFromCwd(inputPath: string): string {
+  return isAbsolute(inputPath)
+    ? inputPath
+    : resolve(cwd(), inputPath);
 }
 
 function isToolPermissionCategory(value: string | undefined): value is ToolPermissionCategory {
@@ -1222,6 +1247,49 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
     if (!report.valid) {
       process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'publish-plan') {
+    if (!parsed.inputPath) {
+      fail('knowledge publish-plan requires exactly one artifact manifest path.');
+    }
+
+    const manifestPath = resolveFromCwd(parsed.inputPath);
+    const manifest = await readJsonObject(manifestPath);
+    if (!isRecord(manifest.artifact) || typeof manifest.artifact.path !== 'string') {
+      fail('knowledge publish-plan requires an artifact manifest with artifact.path.');
+    }
+    const artifactPath = isAbsolute(manifest.artifact.path)
+      ? manifest.artifact.path
+      : resolve(dirname(manifestPath), manifest.artifact.path);
+    const artifactBytes = await readFile(artifactPath);
+    const descriptor = parsed.descriptorInputPath
+      ? await readJsonObject(resolveFromCwd(parsed.descriptorInputPath)) as unknown as KnowledgeTeamArtifactDescriptor
+      : undefined;
+    const plan = buildKnowledgeTeamPublicationPlan({
+      manifest: manifest as unknown as KnowledgeArtifactManifest,
+      artifactBytes,
+      ...(descriptor !== undefined ? { descriptor } : {})
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), plan)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...plan,
+            outputPath: writtenPath
+          }
+        : plan, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamPublicationPlan(plan);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
     return;
   }

@@ -46,6 +46,7 @@ import type { KnowledgeSourcesReport, KnowledgeSourceReportEntry } from '../know
 import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
+import type { KnowledgeTeamPublicationPlan } from '../knowledge/team-artifact-store.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3524,6 +3525,23 @@ export function printKnowledgePack(pack: KnowledgePack): void {
   process.stdout.write(`storage: public-reference=${pack.storagePolicy.publicReference}, workspace-private=${pack.storagePolicy.workspacePrivate}, shareable=${pack.storagePolicy.shareableByDefault}, opt-in=${pack.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Facts');
   printList(pack.facts.map(fact => `${fact.confidence} ${fact.kind} ${fact.path}: ${fact.summary}`), 'No knowledge facts included.');
+}
+
+export function printKnowledgeTeamPublicationPlan(plan: KnowledgeTeamPublicationPlan): void {
+  printHeader('Knowledge team publication plan');
+  process.stdout.write(`allowed: ${plan.publication.allowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution: ${plan.executionMode}\n`);
+  process.stdout.write(`remote write: ${plan.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`backend: ${plan.plannedBackendKind}\n`);
+  process.stdout.write(`object: ${plan.object.key}\n`);
+  process.stdout.write(`artifact: ${plan.artifact.id}\n`);
+  process.stdout.write(`summary: sources=${plan.artifact.sourceCount}, facts=${plan.artifact.factCount}, staleSources=${plan.artifact.staleSourceCount}, blockers=${plan.publication.blockerCount}\n`);
+  process.stdout.write(`storage: public-reference=${plan.artifact.storagePolicy.publicReference}, workspace-private=${plan.artifact.storagePolicy.workspacePrivate}, shareable=${plan.artifact.storagePolicy.shareableByDefault}, opt-in=${plan.artifact.storagePolicy.explicitOptInRequired}\n\n`);
+  printHeader('Blockers');
+  printList(
+    plan.publication.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No team publication blockers.'
+  );
 }
 
 function formatGraphCounts(counts: Record<string, number | undefined>): string {
