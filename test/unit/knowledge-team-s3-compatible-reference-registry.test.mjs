@@ -9,6 +9,26 @@ import {
   validateKnowledgeTeamS3CompatibleBackendReferences
 } from '../../src/knowledge/team-s3-compatible-reference-registry.ts';
 
+function withEnvValues(updates, callback) {
+  const previous = {};
+  for (const [key, value] of Object.entries(updates)) {
+    previous[key] = process.env[key];
+    process.env[key] = value;
+  }
+
+  try {
+    callback();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (typeof value === 'undefined') {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 test('s3-compatible reference registry accepts safe offline env var names', () => {
   const registry = buildKnowledgeTeamS3CompatibleReferenceRegistry();
   const parsed = parseKnowledgeTeamS3CompatibleReferenceRegistry(registry);
@@ -69,4 +89,34 @@ test('s3-compatible reference validation reports only required env var names', (
   assert.equal(summary.capabilities.credentialValuesExposed, false);
   assert.equal(summary.capabilities.uploadCommand, null);
   assert.equal(summary.capabilities.dryRunOnly, true);
+});
+
+test('s3-compatible reference validation does not read environment values', () => {
+  withEnvValues({
+    INFRA_AGENT_TEAM_CACHE_S3_ENDPOINT_URL: 'https://should-not-read.example.test',
+    INFRA_AGENT_TEAM_CACHE_S3_BUCKET_NAME: 'should-not-read-bucket',
+    INFRA_AGENT_TEAM_CACHE_S3_REGION: 'should-not-read-region',
+    INFRA_AGENT_TEAM_CACHE_S3_ACCESS_KEY_ID: 'should-not-read-access-key',
+    INFRA_AGENT_TEAM_CACHE_S3_SECRET_ACCESS_KEY: 'should-not-read-secret-key',
+    INFRA_AGENT_TEAM_CACHE_S3_SESSION_TOKEN: 'should-not-read-session-token'
+  }, () => {
+    const registry = buildKnowledgeTeamS3CompatibleReferenceRegistry();
+    const summary = validateKnowledgeTeamS3CompatibleBackendReferences(
+      buildKnowledgeTeamS3CompatibleBackendConfig(),
+      registry
+    );
+    const text = JSON.stringify({ registry, summary });
+
+    assert.equal(summary.status, 'valid');
+    for (const forbidden of [
+      'https://should-not-read.example.test',
+      'should-not-read-bucket',
+      'should-not-read-region',
+      'should-not-read-access-key',
+      'should-not-read-secret-key',
+      'should-not-read-session-token'
+    ]) {
+      assert.equal(text.includes(forbidden), false, forbidden);
+    }
+  });
 });
