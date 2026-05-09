@@ -39,6 +39,77 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Pulumi Safety Remediation Plan
+
+Status:
+
+- In progress. This slice pauses feature expansion and repairs the Pulumi
+  validation/config safety boundary found during the project review.
+- The core goal is to keep agent-loop validation read-only, require explicit
+  approval for bounded native Pulumi stack config writes, and align docs,
+  result surfaces, tests, and handoff notes with that boundary.
+
+Why this direction:
+
+- The current Pulumi validation plan embeds local backend bootstrap work
+  (`mkdir` plus `pulumi stack init`) inside `validate_targets`, which makes a
+  non-mutating validation tool perform local state setup.
+- `pulumi_config_set` is already modeled as `native-stack-config-write` and
+  `mutatesExternalState=true`; the default workspace approval posture should
+  require an explicit tool-category approval before the session harness runs
+  that native mutation.
+- This matches the adopted Claude Code architecture patterns: a single
+  session-owned harness, permission gates immediately before mutation,
+  parser-validated compact state, bounded native tools, and no recursive
+  subagent runtime.
+
+Subagent review inputs:
+
+- `Ampere` reviewed the Pulumi validation/config safety surface and proposed
+  removing validation-time local-state bootstrap, blocking Pulumi stack
+  bootstrap commands in validation, and requiring approval for native stack
+  config writes.
+- `Noether` mapped focused test coverage and noted that knowledge pack text
+  output still lacks direct text-mode coverage for unchecked source counts.
+- `Sagan` checked `learning-claude-code` alignment and recommended keeping all
+  remediation inside `runQueryLoop`/owned helpers, preserving compact-state
+  contracts, and avoiding any generic Pulumi remediation DSL.
+
+Planned commits and checkpoints:
+
+1. Record this active Pulumi safety remediation plan in `docs/HANDOFF.md`.
+2. Tighten validation command safety so Pulumi stack bootstrap/setup commands
+   are rejected while plain `pulumi preview` remains allowed.
+3. Remove local Pulumi backend bootstrap from default validation preflight
+   commands.
+4. Add validation-plan tests proving generated Pulumi validation commands are
+   preview-only and pass the unsafe-command classifier.
+5. Require `native-stack-config-write` approval by default in workspace policy.
+6. Add approval policy tests for the default native stack config gate.
+7. Cover runtime approval behavior before Pulumi config-set execution.
+8. Surface unchecked source counts in `knowledge pack` text output.
+9. Add dedicated knowledge pack text-mode coverage without growing oversized
+   integration shards.
+10. Update rules, architecture notes, README, roadmap, and bundled skill docs
+    for the repaired Pulumi safety boundary.
+11. Refresh this handoff with completed checkpoints, remaining risks, and
+    focused verification results.
+12. Run the full verification gate and record final results before handoff.
+
+Remaining risks and constraints:
+
+- This slice does not add deploy/apply/state repair, Pulumi imports, refresh,
+  state editing, secrets handling, component introspection, or a generic
+  Pulumi config DSL.
+- If `pulumi preview` cannot run without pre-existing backend/stack context,
+  the agent should report that as a validation blocker or operator handoff
+  rather than bootstrapping state during validation.
+- Direct low-level tool execution tests may still exercise
+  `pulumi_config_set`; the session runtime must gate that native mutation
+  before execution by default.
+- Historical follow-up lists below may mention earlier work. The active plan
+  above and `docs/ROADMAP.md` are the source of truth for current direction.
+
 ## 2026-05-08 Active Knowledge Freshness Reporting Plan
 
 Status:
