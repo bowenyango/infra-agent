@@ -39,6 +39,60 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Team Validation Helper Split Plan
+
+Status:
+
+- In progress. This slice reduces `src/knowledge/validate.ts` risk by moving
+  team artifact and team backend readiness validation helpers into focused
+  modules before any real backend adapter work starts.
+- Scope is structural refactor plus focused regression coverage. It must not
+  change public JSON schemas, add backend SDKs, perform network calls, read
+  credential values, create upload commands, or mutate remote storage/indexes.
+
+Why this direction:
+
+- The previous slices locked public team artifact contracts and added backend
+  readiness as a compact dry-run routing surface. `validate.ts` is now large
+  enough that future backend adapter work would raise regression risk unless
+  team-specific validators are isolated behind narrower modules.
+- Claude Code architecture notes favor parser-enforced compact handoff
+  contracts. This split keeps those contracts parser-enforced while making the
+  validation boundary easier for future agents to inspect and extend.
+
+Planned commits and checkpoints:
+
+1. Record this active validation split plan in `docs/HANDOFF.md`.
+2. Add shared knowledge validation primitives used by extracted validators.
+3. Add direct tests for the shared blocker/code summary helper.
+4. Extract backend readiness validation into a focused module.
+5. Add focused backend readiness validation regression tests.
+6. Extract shared team artifact validation helpers into a focused module.
+7. Move descriptor/index-entry validation into the team artifact validation
+   module.
+8. Move publication-plan/readiness validation into the team artifact validation
+   module.
+9. Run existing team artifact/backend contract and CLI regression tests.
+10. Update README, Rules, Roadmap, skill docs, and this handoff with the split
+    boundary and remaining non-goals.
+11. Run lint, test structure, diff check, focused unit/contract/integration
+    checks.
+12. Run full `npm run verify`, then record completed commits, validation,
+    remaining risks, and next stage in this handoff.
+
+Acceptance criteria:
+
+- `validateKnowledgePayload` continues to accept and reject the same team
+  artifact and backend readiness payloads as before the split.
+- Descriptor, publication-plan, index-entry, publication-readiness, and
+  backend-readiness public JSON schemas remain unchanged.
+- Existing contract and CLI validation round-trip tests continue to pass.
+- New helper modules do not import CLI code, create backend clients, read
+  credentials, perform network calls, write remote storage, or produce upload
+  commands.
+- `src/knowledge/validate.ts` becomes primarily the top-level dispatcher plus
+  non-team knowledge validators.
+
 ## 2026-05-09 Team Backend Readiness Boundary
 
 Status:
