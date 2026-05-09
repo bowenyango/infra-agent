@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertNoTeamArtifactContractLeaks,
+  buildBlockedKnowledgeTeamArtifactContractFixture,
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
@@ -85,5 +86,56 @@ test('team artifact descriptor contract rejects content address and raw payload 
     '$.cacheRoot',
     '$.facts',
     '$.object.key'
+  ]);
+});
+
+test('team publication plan contract accepts allowed and blocked compact plans', async () => {
+  const allowedFixture = await buildKnowledgeTeamArtifactContractFixture();
+  const blockedFixture = await buildBlockedKnowledgeTeamArtifactContractFixture();
+
+  const allowedReport = assertValidPayload(
+    allowedFixture.publicationPlan,
+    'infra-agent.knowledge-team-publication-plan'
+  );
+  const blockedReport = assertValidPayload(
+    blockedFixture.publicationPlan,
+    'infra-agent.knowledge-team-publication-plan'
+  );
+
+  assert.equal(allowedReport.factCount, 1);
+  assert.equal(blockedReport.factCount, 1);
+  assert.equal(allowedFixture.publicationPlan.publication.allowed, true);
+  assert.equal(allowedFixture.publicationPlan.publication.blockerCount, 0);
+  assert.deepEqual(allowedFixture.publicationPlan.publication.blockerCodes, []);
+  assert.equal(blockedFixture.publicationPlan.publication.allowed, false);
+  assert.ok(blockedFixture.publicationPlan.publication.blockerCodes.includes('workspace-private-source'));
+  assert.ok(blockedFixture.publicationPlan.publication.blockerCodes.includes('stale-source'));
+  assert.ok(blockedFixture.publicationPlan.publication.blockerCodes.includes('unchecked-source'));
+});
+
+test('team publication plan contract rejects remote write and summary drift', async () => {
+  const fixture = await buildKnowledgeTeamArtifactContractFixture();
+
+  assertInvalidPayload({
+    ...fixture.publicationPlan,
+    remoteWriteAllowed: true,
+    credentialRequired: true,
+    uploadCommand: 'aws s3 cp pack.json s3://private-bucket',
+    object: {
+      ...fixture.publicationPlan.object,
+      key: `knowledge-artifacts/v1/knowledge-pack/sha256/ff/${'f'.repeat(64)}.json`
+    },
+    publication: {
+      ...fixture.publicationPlan.publication,
+      blockerCodes: ['stale-source']
+    },
+    workspaceRoot: '/workspace/private-project'
+  }, [
+    '$.remoteWriteAllowed',
+    '$.credentialRequired',
+    '$.uploadCommand',
+    '$.object.key',
+    '$.publication.blockerCodes',
+    '$.workspaceRoot'
   ]);
 });
