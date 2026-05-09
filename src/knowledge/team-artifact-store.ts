@@ -377,6 +377,18 @@ function planBlocker(
   };
 }
 
+function readinessBlocker(
+  code: KnowledgeTeamPublicationReadinessBlockerCode,
+  path: string,
+  message: string
+): KnowledgeTeamPublicationReadinessBlocker {
+  return {
+    code,
+    path,
+    message
+  };
+}
+
 function sameStringSet(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
     return false;
@@ -384,6 +396,16 @@ function sameStringSet(left: string[], right: string[]): boolean {
 
   const rightSet = new Set(right);
   return left.every(entry => rightSet.has(entry)) && rightSet.size === right.length;
+}
+
+function sameStoragePolicySummary(
+  left: KnowledgeStoragePolicySummary,
+  right: KnowledgeStoragePolicySummary
+): boolean {
+  return left.publicReference === right.publicReference
+    && left.workspacePrivate === right.workspacePrivate
+    && left.shareableByDefault === right.shareableByDefault
+    && left.explicitOptInRequired === right.explicitOptInRequired;
 }
 
 export function serializeKnowledgeArtifactPayload(payload: KnowledgeArtifactPayload): string {
@@ -811,6 +833,191 @@ export function buildKnowledgeTeamPublicationPlan(input: {
       provided: input.descriptor !== undefined,
       reusable: descriptorMatches === true && allowed,
       objectKey: input.descriptor?.object.key ?? null
+    }
+  };
+}
+
+export function buildKnowledgeTeamArtifactIndexEntry(
+  descriptor: KnowledgeTeamArtifactDescriptor
+): KnowledgeTeamArtifactIndexEntry {
+  return {
+    kind: 'infra-agent.knowledge-team-artifact-index-entry',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    backendKind: descriptor.backendKind,
+    sourceManifestId: descriptor.manifestId,
+    index: {
+      key: buildKnowledgeTeamArtifactIndexEntryKey({
+        artifactKind: descriptor.artifact.kind,
+        sha256: descriptor.object.sha256
+      }),
+      source: 'descriptor'
+    },
+    object: {
+      key: descriptor.object.key,
+      sha256: descriptor.object.sha256,
+      byteLength: descriptor.object.byteLength,
+      contentType: descriptor.object.contentType
+    },
+    artifact: {
+      kind: descriptor.artifact.kind,
+      id: descriptor.artifact.id,
+      sourceCount: descriptor.artifact.sourceCount,
+      factCount: descriptor.artifact.factCount,
+      staleSourceCount: descriptor.artifact.staleSourceCount,
+      storagePolicy: descriptor.artifact.storagePolicy
+    },
+    publication: {
+      shareableByDefault: descriptor.publication.shareableByDefault,
+      requiresExplicitOptIn: descriptor.publication.requiresExplicitOptIn,
+      publishableByDefaultSourceCount: descriptor.publication.publishableByDefaultSourceCount,
+      blockedSourceCount: descriptor.publication.blockedSourceCount,
+      requiredValidationCount: descriptor.publication.requiredValidationCount,
+      reason: descriptor.publication.reason
+    }
+  };
+}
+
+function collectReadinessIndexBlockers(
+  plan: KnowledgeTeamPublicationPlan,
+  indexEntry: KnowledgeTeamArtifactIndexEntry
+): KnowledgeTeamPublicationReadinessBlocker[] {
+  const blockers: KnowledgeTeamPublicationReadinessBlocker[] = [];
+
+  if (indexEntry.backendKind !== plan.plannedBackendKind) {
+    blockers.push(readinessBlocker(
+      'index-backend-mismatch',
+      '$.indexEntry.backendKind',
+      'Knowledge team artifact index entry backend does not match the planned backend.'
+    ));
+  }
+
+  if (
+    indexEntry.object.key !== plan.object.key
+    || indexEntry.object.sha256 !== plan.object.sha256
+    || indexEntry.object.byteLength !== plan.object.byteLength
+    || indexEntry.object.contentType !== plan.object.contentType
+  ) {
+    blockers.push(readinessBlocker(
+      'index-object-mismatch',
+      '$.indexEntry.object',
+      'Knowledge team artifact index entry object metadata does not match the planned object.'
+    ));
+  }
+
+  if (
+    indexEntry.artifact.kind !== plan.artifact.kind
+    || indexEntry.artifact.id !== plan.artifact.id
+    || indexEntry.artifact.sourceCount !== plan.artifact.sourceCount
+    || indexEntry.artifact.factCount !== plan.artifact.factCount
+    || indexEntry.artifact.staleSourceCount !== plan.artifact.staleSourceCount
+    || !sameStoragePolicySummary(indexEntry.artifact.storagePolicy, plan.artifact.storagePolicy)
+  ) {
+    blockers.push(readinessBlocker(
+      'index-artifact-mismatch',
+      '$.indexEntry.artifact',
+      'Knowledge team artifact index entry artifact metadata does not match the publication plan.'
+    ));
+  }
+
+  if (
+    !indexEntry.publication.shareableByDefault
+    || indexEntry.publication.requiresExplicitOptIn
+    || indexEntry.publication.blockedSourceCount > 0
+    || indexEntry.publication.publishableByDefaultSourceCount !== plan.artifact.sourceCount
+    || indexEntry.publication.requiredValidationCount !== plan.publication.requiredValidationCount
+  ) {
+    blockers.push(readinessBlocker(
+      'index-publication-mismatch',
+      '$.indexEntry.publication',
+      'Knowledge team artifact index entry publication metadata is not compatible with the publication plan.'
+    ));
+  }
+
+  return blockers;
+}
+
+export function buildKnowledgeTeamPublicationReadinessReport(input: {
+  plan: KnowledgeTeamPublicationPlan;
+  indexEntry?: KnowledgeTeamArtifactIndexEntry;
+}): KnowledgeTeamPublicationReadinessReport {
+  const planBlockers = input.plan.publication.blockers.map(blocker =>
+    readinessBlocker(blocker.code, blocker.path, blocker.message)
+  );
+  const indexBlockers = input.plan.publication.allowed && input.indexEntry !== undefined
+    ? collectReadinessIndexBlockers(input.plan, input.indexEntry)
+    : [];
+  const blockers = input.plan.publication.allowed
+    ? indexBlockers
+    : planBlockers;
+  const blockerCodes = [...new Set(blockers.map(blocker => blocker.code))].sort();
+  const indexEntryMatches = input.indexEntry === undefined
+    ? null
+    : input.plan.publication.allowed && indexBlockers.length === 0;
+  const status: KnowledgeTeamPublicationReadinessStatus = input.plan.publication.allowed
+    ? input.indexEntry === undefined
+      ? 'upload-required'
+      : indexBlockers.length === 0
+        ? 'already-published'
+        : 'conflict'
+    : 'blocked';
+  const nextAction = status === 'already-published'
+    ? 'none'
+    : status === 'upload-required'
+      ? 'prepare-explicit-upload'
+      : status === 'blocked'
+        ? 'resolve-blockers'
+        : 'review-index-conflict';
+  const reason = status === 'already-published'
+    ? 'A matching compact team artifact index entry already exists for the planned object.'
+    : status === 'upload-required'
+      ? 'No compact team artifact index entry was provided; an explicit future upload would be required.'
+      : status === 'blocked'
+        ? 'The publication plan is blocked and must be resolved before team-cache readiness can proceed.'
+        : 'The compact team artifact index entry conflicts with the publication plan and needs review.';
+
+  return {
+    kind: 'infra-agent.knowledge-team-publication-readiness',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    executionMode: 'dry-run',
+    remoteWriteAllowed: false,
+    credentialRequired: false,
+    uploadCommand: null,
+    plannedBackendKind: input.plan.plannedBackendKind,
+    manifestId: input.plan.manifestId,
+    object: {
+      key: input.plan.object.key,
+      sha256: input.plan.object.sha256,
+      byteLength: input.plan.object.byteLength,
+      contentType: input.plan.object.contentType
+    },
+    artifact: {
+      kind: input.plan.artifact.kind,
+      id: input.plan.artifact.id,
+      sourceCount: input.plan.artifact.sourceCount,
+      factCount: input.plan.artifact.factCount,
+      staleSourceCount: input.plan.artifact.staleSourceCount,
+      storagePolicy: input.plan.artifact.storagePolicy
+    },
+    publication: {
+      allowed: input.plan.publication.allowed,
+      blockerCount: input.plan.publication.blockerCount,
+      blockerCodes: input.plan.publication.blockerCodes
+    },
+    indexEntry: {
+      provided: input.indexEntry !== undefined,
+      matches: indexEntryMatches,
+      key: input.indexEntry?.index.key ?? null,
+      objectKey: input.indexEntry?.object.key ?? null
+    },
+    readiness: {
+      status,
+      nextAction,
+      blockerCount: blockers.length,
+      blockerCodes,
+      blockers,
+      reason
     }
   };
 }
