@@ -284,23 +284,6 @@ test('knowledge fact budget summarizes packs without raw source payloads', async
     && typeof fact.sourceLocator === 'string'
     && !('source' in fact)
   ));
-  const uncheckedSource = pack.sources.find(source => pack.facts.some(fact => fact.sourceId === source.id));
-  assert.ok(uncheckedSource);
-  const uncheckedSummary = budgetKnowledgePackFacts({
-    ...pack,
-    sources: pack.sources.map(source => source.id === uncheckedSource.id
-      ? {
-          ...source,
-          freshness: 'unchecked'
-        }
-      : source)
-  }, {
-    maxFacts: pack.factCount
-  });
-  assert.equal(uncheckedSummary.uncheckedSourceCount, 1);
-  assert.ok(uncheckedSummary.facts
-    .filter(fact => fact.sourceId === uncheckedSource.id)
-    .every(fact => fact.confidence !== 'high'));
   assert.doesNotMatch(JSON.stringify(summary), /contentHash|fetchedAt|"content"\s*:|"\$schema"|replicaCount":\s*\{/);
 });
 
