@@ -609,9 +609,10 @@ function formatKnowledgeSourceResult(result: KnowledgePrefetchSourceResult): str
   const location = result.source.url ?? result.source.localPath ?? 'unknown-source';
   const confidence = result.confidence ? ` confidence=${result.confidence}` : '';
   const contentType = result.contentType ? ` content=${result.contentType}` : '';
+  const previousCache = ` previous-cache=${result.previousCacheStatus}`;
   const message = result.message ? ` (${result.message})` : '';
 
-  return `${result.status} ${result.domain} ${result.targetPath}: ${result.source.kind} ${result.source.name} -> ${location}${confidence}${contentType}${message}`;
+  return `${result.status} ${result.domain} ${result.targetPath}: ${result.source.kind} ${result.source.name} -> ${location}${previousCache}${confidence}${contentType}${message}`;
 }
 
 function formatKnowledgeSourceReportEntry(entry: KnowledgeSourceReportEntry): string {
@@ -3460,7 +3461,8 @@ export function printKnowledgePrefetchResult(result: KnowledgePrefetchResult): v
   process.stdout.write(`domains: ${result.requestedDomains.length > 0 ? result.requestedDomains.join(', ') : 'none'}\n`);
   process.stdout.write(`targets: ${result.targetPaths.length > 0 ? result.targetPaths.join(', ') : 'all'}\n`);
   process.stdout.write(`max external sources: ${result.maxSources}\n`);
-  process.stdout.write(`summary: fetched=${result.summary.fetched}, cached=${result.summary.cached}, stale-cache=${result.summary.staleCache}, local=${result.summary.local}, skipped=${result.summary.skipped}, failed=${result.summary.failed}\n\n`);
+  process.stdout.write(`summary: fetched=${result.summary.fetched}, cached=${result.summary.cached}, stale-cache=${result.summary.staleCache}, local=${result.summary.local}, skipped=${result.summary.skipped}, failed=${result.summary.failed}\n`);
+  process.stdout.write(`previous cache: fresh=${result.summary.previousCacheStatus.fresh}, stale=${result.summary.previousCacheStatus.stale}, missing=${result.summary.previousCacheStatus.missing}, local=${result.summary.previousCacheStatus.local}\n\n`);
   printHeader('Sources');
   printList(result.sources.map(formatKnowledgeSourceResult), 'No knowledge sources selected.');
 }

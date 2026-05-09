@@ -46,6 +46,12 @@ export interface KnowledgePrefetchSummary {
   staleCache: number;
   failed: number;
   skipped: number;
+  previousCacheStatus: {
+    local: number;
+    fresh: number;
+    stale: number;
+    missing: number;
+  };
 }
 
 export interface KnowledgePrefetchResult {
@@ -184,7 +190,13 @@ function buildSummary(sources: KnowledgePrefetchSourceResult[]): KnowledgePrefet
     fetched: sources.filter(source => source.status === 'fetched').length,
     staleCache: sources.filter(source => source.status === 'stale-cache').length,
     failed: sources.filter(source => source.status === 'failed').length,
-    skipped: sources.filter(source => source.status === 'skipped').length
+    skipped: sources.filter(source => source.status === 'skipped').length,
+    previousCacheStatus: {
+      local: sources.filter(source => source.previousCacheStatus === 'local').length,
+      fresh: sources.filter(source => source.previousCacheStatus === 'fresh').length,
+      stale: sources.filter(source => source.previousCacheStatus === 'stale').length,
+      missing: sources.filter(source => source.previousCacheStatus === 'missing').length
+    }
   };
 }
 
