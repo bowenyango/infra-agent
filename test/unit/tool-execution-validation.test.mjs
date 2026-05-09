@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   mkdtemp,
   cp,
@@ -147,12 +148,36 @@ test('apply-edit-plan execution uses replace_file for replace-mode writes', asyn
   }
 });
 
-test('PulumiConfigSetTool applies bounded stack config updates through the Pulumi CLI', async () => {
+test('PulumiConfigSetTool applies bounded stack config updates through the Pulumi CLI with existing stack context', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-config-set-'));
   const workspaceRoot = join(tempRoot, 'workspace');
 
   try {
     await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const pulumiHome = join(workspaceRoot, '.pulumi-home');
+    const pulumiState = join(workspaceRoot, '.pulumi-state');
+    await mkdir(pulumiHome, { recursive: true });
+    await mkdir(pulumiState, { recursive: true });
+    const setup = spawnSync('pulumi', [
+      'stack',
+      'init',
+      'dev',
+      '--cwd',
+      'infra/payments-api',
+      '--non-interactive'
+    ], {
+      cwd: workspaceRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PULUMI_SKIP_UPDATE_CHECK: 'true',
+        PULUMI_HOME: pulumiHome,
+        PULUMI_BACKEND_URL: `file://${pulumiState}`,
+        PULUMI_CONFIG_PASSPHRASE: 'infra-agent'
+      }
+    });
+    assert.equal(setup.status, 0, setup.stderr);
+
     const result = await executeTool(
       PulumiConfigSetTool,
       {

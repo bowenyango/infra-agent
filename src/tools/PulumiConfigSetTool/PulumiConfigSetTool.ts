@@ -27,22 +27,6 @@ export const PulumiConfigSetTool: Tool<PulumiConfigSetInput, PulumiConfigSetOutp
       PULUMI_BACKEND_URL: `file://${pulumiState}`,
       PULUMI_CONFIG_PASSPHRASE: 'infra-agent'
     };
-    spawnSync('mkdir', ['-p', pulumiHome, pulumiState], {
-      cwd: workspaceRoot,
-      encoding: 'utf8'
-    });
-    spawnSync('pulumi', [
-      'stack',
-      'init',
-      input.stackName,
-      '--cwd',
-      input.projectRoot,
-      '--non-interactive'
-    ], {
-      cwd: workspaceRoot,
-      encoding: 'utf8',
-      env: sharedEnv
-    });
     const args = [
       'config',
       'set',
