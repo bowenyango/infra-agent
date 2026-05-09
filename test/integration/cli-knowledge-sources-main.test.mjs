@@ -498,10 +498,27 @@ test('knowledge prefetch command emits existing prefetch JSON contract', async (
   assert.deepEqual(result.requestedDomains, ['helm']);
   assert.deepEqual(result.targetPaths, ['charts/payments-api']);
   assert.equal(result.maxSources, 1);
+  assert.ok(result.summary.previousCacheStatus.local >= 1);
   assert.ok(result.sources.some(source =>
     source.domain === 'helm'
     && source.targetPath === 'charts/payments-api'
     && source.status === 'local'
+    && source.previousCacheStatus === 'local'
     && source.source.kind === 'chart-schema'
   ));
+
+  const textOutput = await captureStdout(() => main([
+    'knowledge',
+    'prefetch',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--max-sources',
+    '1'
+  ]));
+
+  assert.match(textOutput, /previous cache: fresh=\d+, stale=\d+, missing=\d+, local=\d+/);
+  assert.match(textOutput, /previous-cache=local/);
 });
