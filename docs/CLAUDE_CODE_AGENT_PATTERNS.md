@@ -266,6 +266,11 @@ durable design reference for infra-agent development.
   handoff category: useful for local operator review and downstream routing,
   but not evidence that credentials exist, a backend is reachable, or mutation
   has been approved.
+- Upload approval intent output is private permission-boundary state. It can
+  request explicit human approval after dry-run publication and backend
+  reference preconditions are satisfied, but it is not approval itself and must
+  not contain provider clients, credential values, credential presence checks,
+  upload commands, or remote write permission.
 
 ## Current Non-Goals
 

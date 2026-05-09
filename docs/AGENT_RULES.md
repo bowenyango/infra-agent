@@ -207,6 +207,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   names, but it must not read `process.env` values, validate credential
   presence, probe backend reachability, create clients, mutate remote objects,
   or approve an upload.
+- `infra-agent knowledge upload-approval-intent` is a dry-run private approval
+  boundary review command. It may read saved publication-readiness and
+  backend-reference-readiness JSON, then emit whether explicit human upload
+  approval would be required after offline preconditions are met. It must not
+  grant approval, read credential values, validate credential presence, create
+  clients, generate upload commands, probe backend reachability, mutate remote
+  objects/indexes, or change public artifact/readiness JSON.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

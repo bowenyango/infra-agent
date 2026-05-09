@@ -147,6 +147,11 @@ credentials must still come from environment variables.
    it may report required environment variable names, but it does not read
    their values, validate credential presence, probe backend reachability, or
    approve upload.
+   Use `knowledge upload-approval-intent` only as a dry-run approval-boundary
+   review from saved publication readiness and backend-reference readiness. It
+   may report that explicit human upload approval is required, but it does not
+   grant approval, read credential values, check credential presence, create
+   clients, generate upload commands, or write remote objects/indexes.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or

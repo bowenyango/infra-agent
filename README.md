@@ -199,6 +199,13 @@ Current behavior is intentionally runtime-foundation oriented:
   S3-compatible backend config plus reference registry and emits a dry-run
   `infra-agent.knowledge-team-s3-compatible-reference-validation` summary that
   lists required environment variable names without reading their values.
+  `knowledge upload-approval-intent <publication-readiness.json>
+  --backend-reference <reference-readiness.json>` composes saved dry-run
+  publication readiness with saved S3-compatible reference readiness and emits
+  a private `infra-agent.knowledge-team-upload-approval-intent` review summary;
+  it can say that explicit upload approval is required, but it does not grant
+  approval, check credential presence, read credential values, create a client,
+  generate an upload command, or write remote objects.
   `knowledge validate` also
   accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
   produced by the internal mocked S3-compatible team artifact store
@@ -214,10 +221,11 @@ Current behavior is intentionally runtime-foundation oriented:
   URL, absolute-path, live-check, and remote-write leakage. The first
   S3-compatible backend family now has a contract-first private config parser,
   an offline reference registry for storage/auth refs and required environment
-  variable names, a dry-run CLI review path for those references, sanitized
-  internal descriptor metadata, readiness-input projection, and fail-closed
-  resolution planning for future real adapter work; it still does not create a
-  client or read credential values. There is still no real remote storage
+  variable names, a dry-run CLI review path for those references, a private
+  upload approval intent review surface, sanitized internal descriptor
+  metadata, readiness-input projection, and fail-closed resolution planning for
+  future real adapter work; it still does not create a client or read
+  credential values. There is still no real remote storage
   backend or CLI upload command. Internally, team
   artifact and backend readiness
   validation now lives in focused modules while `knowledge validate` remains
