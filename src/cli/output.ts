@@ -50,6 +50,7 @@ import type {
   KnowledgeTeamPublicationPlan,
   KnowledgeTeamPublicationReadinessReport
 } from '../knowledge/team-artifact-store.ts';
+import type { KnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3564,6 +3565,26 @@ export function printKnowledgeTeamPublicationReadinessReport(report: KnowledgeTe
   printList(
     report.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No team publication readiness blockers.'
+  );
+}
+
+export function printKnowledgeTeamBackendReadinessReport(report: KnowledgeTeamBackendReadinessReport): void {
+  printHeader('Knowledge team backend readiness');
+  process.stdout.write(`status: ${report.readiness.status}\n`);
+  process.stdout.write(`next action: ${report.readiness.nextAction}\n`);
+  process.stdout.write(`execution: ${report.executionMode}\n`);
+  process.stdout.write(`remote write: ${report.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${report.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${report.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`backend: ${report.backendKind}\n`);
+  process.stdout.write(`config: ${report.config.name ?? 'invalid'}\n`);
+  process.stdout.write(`artifact prefix: ${report.config.artifactPrefix ?? 'invalid'}\n`);
+  process.stdout.write(`index prefix: ${report.config.indexPrefix ?? 'invalid'}\n`);
+  process.stdout.write(`summary: blockers=${report.readiness.blockerCount}, objectStore=${report.capabilities.artifactObjectStore ? 'yes' : 'no'}, metadataIndex=${report.capabilities.metadataIndex ? 'yes' : 'no'}, dryRunOnly=${report.capabilities.dryRunOnly ? 'yes' : 'no'}\n\n`);
+  printHeader('Blockers');
+  printList(
+    report.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No team backend readiness blockers.'
   );
 }
 

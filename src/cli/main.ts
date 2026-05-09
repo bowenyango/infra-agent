@@ -30,6 +30,7 @@ import {
   type KnowledgeTeamArtifactIndexEntry,
   type KnowledgeTeamPublicationPlan
 } from '../knowledge/team-artifact-store.ts';
+import { buildKnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -47,6 +48,7 @@ import {
   printInfraGraph,
   printInspection,
   printKnowledgePrefetchResult,
+  printKnowledgeTeamBackendReadinessReport,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
@@ -1378,6 +1380,35 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamPublicationReadinessReport(readiness);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'backend-readiness') {
+    if (!parsed.inputPath) {
+      fail('knowledge backend-readiness requires exactly one backend config path.');
+    }
+
+    const configPath = resolveFromCwd(parsed.inputPath);
+    const config = await readJsonObject(configPath);
+    const readiness = buildKnowledgeTeamBackendReadinessReport(config);
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), readiness)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...readiness,
+            outputPath: writtenPath
+          }
+        : readiness, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamBackendReadinessReport(readiness);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
