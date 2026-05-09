@@ -154,7 +154,7 @@ Current progress as of 2026-05-08:
 | --- | --- | --- | --- |
 | Local knowledge cache | Partial | Version-aware local JSON entries with source metadata, content hash, stale-after policy, cache-root resolution, and fingerprint-checked reuse for repo-local extraction outputs | No structured fact index or remote backend |
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock`; Pulumi source selection for project config, YAML runtime official docs, package-level Pulumi Registry docs from project manifests, and resource-level Pulumi Registry docs from deterministic Pulumi YAML resource tokens plus conservative Node.js/TypeScript import/require constructor evidence | Pulumi resource-level docs source selection is not yet component, dynamic alias/dataflow, generated-code, or non-Node-language coverage |
-| Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy; `knowledge sources` reports fresh/stale/missing cache posture without fetching; prefetch results report previous cache posture for each source | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
+| Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy; HTML official-doc responses are normalized into compact Markdown cache entries in the explicit fetch path; `knowledge sources` reports fresh/stale/missing cache posture without fetching; prefetch results report previous cache posture for each source | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, and structured local freshness summaries for stale or unchecked repo-derived facts | Non-Node Pulumi language discovery, dynamic/deeper component internals, and team storage backends are pending |
 | Team storage | Planned | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints | No S3/GCS/Azure/Postgres backend implementation |
@@ -379,8 +379,12 @@ Measurable milestones:
      deliberate `knowledge prefetch` is recommended, and prefetch results
      expose each source's previous cache posture while preserving existing
      prefetch status values.
-   - Remaining: optional live-doc markdown normalization and opt-in team
-     storage backends.
+   - Implemented 2026-05-09 for explicit official-doc fetch normalization:
+     `fetchOfficialKnowledgeSource` converts HTML-shaped official-doc responses
+     into compact Markdown cache entries for existing Pulumi and Helm markdown
+     extractors, strips high-noise HTML blocks, preserves TTL behavior, and
+     leaves fresh cache entries untouched.
+   - Remaining: opt-in team storage backends.
 6. **Team Backend Abstraction**
    - Define a storage interface after local schema and validation settle.
    - Acceptance: local filesystem remains default; mocked S3-compatible adapter

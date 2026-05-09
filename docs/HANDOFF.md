@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice adds lightweight HTML-to-Markdown normalization for
-  official docs fetched through the explicit `prefetch` / `knowledge prefetch`
-  path.
+- Implemented; final full verification is pending. This slice adds lightweight
+  HTML-to-Markdown normalization for official docs fetched through the explicit
+  `prefetch` / `knowledge prefetch` path.
 - Scope is fetched-cache normalization only. No agent-loop live refresh, no
   background network fetch, no team cache backend, no broad HTML parser
   dependency, and no raw official-doc expansion into compact handoff is in
@@ -65,16 +65,15 @@ Why this direction:
 
 Subagent review inputs:
 
-- Architecture review is running read-only against `retrieve.ts`, fact
-  extractors, and CLI prefetch behavior. Expected boundary: normalize only in
-  the explicit fetcher, preserve `KnowledgeStore` and cache ID semantics, and
-  leave agent-loop retrieval cache-first.
-- Test planning is running read-only against current shard sizes. Expected
-  shape: add focused normalization unit coverage and targeted extraction tests
-  without growing near-limit source-retrieval or pack-ranking shards.
-- PM review is running read-only against handoff, roadmap, rules, and
-  Claude Code architecture notes. Expected shape: at least 10 meaningful
-  commits, stage validations, durable docs, and clear non-goals.
+- `Raman` confirmed the slice belongs at the explicit fetch/prefetch boundary,
+  not in the agent loop. Suggested optional CLI gating was not adopted because
+  `prefetch` / `knowledge prefetch` is already the deliberate refresh boundary.
+- `Hypatia` recommended a new focused unit shard for normalization and warned
+  not to grow `knowledge-sources-retrieval.test.mjs`, which is near the
+  1,000-line guard.
+- `Ohm` confirmed the PM plan, acceptance criteria, and hard boundaries:
+  no agent-loop live refresh, no team backend, no crawler, no compact raw-doc
+  exposure, and no source-selection/fact-ranking/storage-policy changes.
 
 Planned commits and checkpoints:
 
@@ -122,6 +121,52 @@ Progress log:
 - Commit 1 records this active official-doc HTML normalization plan, scope,
   acceptance criteria, and checkpoints in `docs/HANDOFF.md`. Focused
   validation: `git diff --check`.
+- Commit 2 adds the deterministic official-doc HTML normalizer with HTML
+  detection, unsafe block stripping, entity decoding, and common
+  heading/list/code/link conversion. Focused validation:
+  `node --experimental-strip-types -e "import('./src/knowledge/official-doc-normalize.ts')"`;
+  `git diff --check`.
+- Commit 3 adds focused normalizer coverage in a new unit shard. Focused
+  validation:
+  `node --experimental-strip-types test/unit/knowledge-official-doc-normalization.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 4 adds compact HTML table normalization for existing Pulumi and Helm
+  Markdown fact extractors. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-official-doc-normalization.test.mjs`;
+  `git diff --check`.
+- Commit 5 covers Pulumi input and Helm values table normalization, including
+  code-span preservation and Markdown table shape. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-official-doc-normalization.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 6 wires normalization into `fetchOfficialKnowledgeSource` for explicit
+  official-doc HTML fetches, preserving stale-after behavior and safe retrieval
+  metadata. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-docs-sources.test.mjs`;
+  `git diff --check`.
+- Commit 7 covers official fetch normalization and non-HTML Markdown
+  passthrough. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-official-doc-normalization.test.mjs`;
+  `node --experimental-strip-types test/unit/knowledge-pulumi-docs-sources.test.mjs`;
+  `git diff --check`.
+- Commit 8 proves normalized Pulumi resource docs extract compact
+  `pulumi-docs-markdown` argument facts without raw HTML. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-official-doc-normalization.test.mjs`;
+  `node --experimental-strip-types test/unit/knowledge-pulumi-docs-extraction.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 9 proves normalized Helm chart docs extract compact
+  `helm-chart-docs-markdown` chart-value facts without raw HTML. Focused
+  validation:
+  `node --experimental-strip-types test/unit/knowledge-official-doc-normalization.test.mjs`;
+  `node --experimental-strip-types test/unit/knowledge-helm-chart-docs-extraction.test.mjs`;
+  `git diff --check`.
+- Commit 10 proves explicit prefetch stores normalized HTML docs and does not
+  rewrite fresh cache entries solely for normalization. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-official-doc-normalization.test.mjs`;
+  `node --experimental-strip-types test/unit/knowledge-runtime-prefetch.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 11 updates README, roadmap, agent rules, bundled skill docs, and this
+  handoff with the implemented official-doc HTML normalization boundary.
+  Focused validation: `git diff --check`.
 
 Remaining risks and constraints:
 

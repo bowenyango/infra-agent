@@ -148,7 +148,9 @@ Current behavior is intentionally runtime-foundation oriented:
   skips repo-local schema/config/code files that do not require network
   retrieval. Prefetch results report each source's previous cache posture
   (`local`, `fresh`, `stale`, or `missing`) without changing the cache-first
-  agent loop.
+  agent loop. HTML official-doc responses fetched through this explicit path
+  are normalized into compact Markdown cache entries before extraction; fresh
+  cache entries are not rewritten solely to normalize old content.
 - `knowledge sources`, `knowledge prefetch`, `knowledge extract`,
   `knowledge validate`, and `knowledge pack` provide the cache-first knowledge
   workflow. `sources` lists selected docs/local schemas/local config sources
@@ -245,9 +247,11 @@ Current behavior is intentionally runtime-foundation oriented:
   range in `Chart.yaml`; native Helm validation remains authoritative.
 - Cached Helm chart docs selected from chart `home`, `sources`, or HTTP(S)
   dependency docs can provide bounded medium-confidence `chart-value` facts
-  from markdown tables, bullets, and headings. These facts are cache-first,
-  public-reference advisory context, rank below local `values.schema.json`,
-  `Chart.yaml`, and `Chart.lock` facts, and stay compact in planner prompts and
+  from markdown tables, bullets, and headings. Explicit prefetch normalizes
+  HTML chart docs into this Markdown shape before caching when possible. These
+  facts are cache-first, public-reference advisory context, rank below local
+  `values.schema.json`, `Chart.yaml`, and `Chart.lock` facts, and stay compact
+  in planner prompts and
   `agent --json` without raw markdown, external URLs, cache timestamps, or
   content hashes.
 - `run` builds a structured preflight state from the task, workspace facts, validator availability, assumptions, blockers, and next actions

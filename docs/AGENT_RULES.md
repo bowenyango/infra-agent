@@ -142,6 +142,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Surface validation-derived semantic blockers as structured result output when they exist; do not bury required config facts in raw stderr.
 - Use the resolved knowledge-cache root for docs/schema cache writes. Treat `INFRA_AGENT_KNOWLEDGE_CACHE` as the explicit user override, and only accept workspace-config cache roots that stay inside the workspace.
 - Retrieve official docs through cache-first context packets. If only stale cached context is available, keep confidence at medium and do not treat it as validator-grade authority.
+- Explicit official-doc fetches may normalize HTML responses into compact
+  Markdown cache entries before extraction. This normalization belongs only in
+  `prefetch` / `knowledge prefetch` or direct official fetch tests; do not add
+  live fetchers to the agent loop.
 - Treat knowledge extraction as a first-class contract surface. Extracted facts
   must be schema-versioned, source-linked, versioned or commit-linked,
   confidence-labeled, stale-aware, and parser-validated before a planner uses
@@ -246,7 +250,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Use `infra-agent knowledge prefetch` or the compatible top-level
   `infra-agent prefetch` for deliberate official-doc cache updates. Keep
   prefetch bounded with `--domain`, `--target`, and `--max-sources` when the
-  workspace has many resources.
+  workspace has many resources. HTML official-doc responses may be normalized
+  into compact Markdown in this explicit path, but raw HTML or raw Markdown
+  cache content must not be copied into planner prompts, compact JSON, packs, or
+  handoff prose.
 - Planner prompts may include cached retrieved-context packets. Keep these compact and targeted; do not inject whole official docs into the prompt.
 - LLM planner client tests must use injected transports or mocked fetchers. Do not make unit, smoke, or E2E tests depend on live LLM providers or external network availability.
 - Test LLM planner mode and environment selection through explicit environment maps. Avoid mutating `process.env` in tests unless a behavior specifically requires process-level integration.
