@@ -6,8 +6,10 @@ import {
 } from '../../src/knowledge/artifact-manifest.ts';
 import {
   buildKnowledgeTeamPublicationPlan,
+  createMockS3CompatibleKnowledgeArtifactStore,
   serializeKnowledgeArtifactPayload
 } from '../../src/knowledge/team-artifact-store.ts';
+import { stageKnowledgePackArtifactForTeamStore } from '../../src/knowledge/team-artifact-store.ts';
 
 function publicStoragePolicy() {
   return {
@@ -16,6 +18,16 @@ function publicStoragePolicy() {
     shareableByDefault: true,
     requiresExplicitOptIn: false,
     reason: 'Source points at public documentation.'
+  };
+}
+
+function privateStoragePolicy() {
+  return {
+    scope: 'workspace-private',
+    defaultStore: 'local-only',
+    shareableByDefault: false,
+    requiresExplicitOptIn: true,
+    reason: 'Source is derived from workspace-local files.'
   };
 }
 
@@ -136,4 +148,97 @@ test('team publication plan dry run is deterministic and compact', () => {
   ]) {
     assert.equal(planJson.includes(forbidden), false, forbidden);
   }
+});
+
+test('team publication plan dry run reports private stale and unchecked blockers', () => {
+  const pack = buildPack({
+    id: 'private-source-id',
+    kind: 'chart-metadata',
+    stale: true,
+    staleReason: 'time-expired',
+    freshness: 'unchecked',
+    storagePolicy: privateStoragePolicy()
+  });
+  const { artifactBytes, manifest } = buildArtifact(pack);
+
+  const plan = buildKnowledgeTeamPublicationPlan({
+    manifest,
+    artifactBytes
+  });
+
+  assert.equal(plan.publication.allowed, false);
+  assert.ok(plan.publication.blockerCodes.includes('workspace-private-source'));
+  assert.ok(plan.publication.blockerCodes.includes('stale-source'));
+  assert.ok(plan.publication.blockerCodes.includes('unchecked-source'));
+  assert.ok(plan.publication.blockerCodes.includes('explicit-opt-in-required'));
+  assert.equal(JSON.stringify(plan).includes('/workspace/private-project'), false);
+});
+
+test('team publication plan dry run reports hash and metadata drift as blockers', () => {
+  const pack = buildPack();
+  const { artifactBytes, manifest } = buildArtifact(pack);
+
+  const hashDriftPlan = buildKnowledgeTeamPublicationPlan({
+    manifest: {
+      ...manifest,
+      artifact: {
+        ...manifest.artifact,
+        sha256: 'e'.repeat(64)
+      }
+    },
+    artifactBytes
+  });
+  assert.equal(hashDriftPlan.publication.allowed, false);
+  assert.equal(hashDriftPlan.validation.artifactHashMatches, false);
+  assert.ok(hashDriftPlan.publication.blockerCodes.includes('artifact-hash-mismatch'));
+
+  const metadataDriftPlan = buildKnowledgeTeamPublicationPlan({
+    manifest: {
+      ...manifest,
+      artifact: {
+        ...manifest.artifact,
+        sourceCount: manifest.artifact.sourceCount + 1
+      }
+    },
+    artifactBytes
+  });
+  assert.equal(metadataDriftPlan.publication.allowed, false);
+  assert.equal(metadataDriftPlan.validation.artifactMetadataMatches, false);
+  assert.ok(metadataDriftPlan.publication.blockerCodes.includes('artifact-metadata-mismatch'));
+});
+
+test('team publication plan dry run evaluates optional descriptor reuse without store writes', async () => {
+  const pack = buildPack();
+  const { artifactBytes, manifest } = buildArtifact(pack);
+  const staged = await stageKnowledgePackArtifactForTeamStore({
+    manifest,
+    artifactBytes,
+    store: createMockS3CompatibleKnowledgeArtifactStore()
+  });
+
+  const reusablePlan = buildKnowledgeTeamPublicationPlan({
+    manifest,
+    artifactBytes,
+    descriptor: staged.descriptor
+  });
+  assert.equal(reusablePlan.publication.allowed, true);
+  assert.equal(reusablePlan.validation.descriptorProvided, true);
+  assert.equal(reusablePlan.validation.descriptorMatches, true);
+  assert.equal(reusablePlan.descriptor.reusable, true);
+
+  const mismatchPlan = buildKnowledgeTeamPublicationPlan({
+    manifest,
+    artifactBytes,
+    descriptor: {
+      ...staged.descriptor,
+      object: {
+        ...staged.descriptor.object,
+        byteLength: staged.descriptor.object.byteLength + 1
+      }
+    }
+  });
+  assert.equal(mismatchPlan.publication.allowed, false);
+  assert.equal(mismatchPlan.validation.descriptorMatches, false);
+  assert.equal(mismatchPlan.descriptor.reusable, false);
+  assert.ok(mismatchPlan.publication.blockerCodes.includes('descriptor-mismatch'));
 });
