@@ -6,6 +6,8 @@ import {
 } from '../../src/knowledge/artifact-manifest.ts';
 import {
   buildKnowledgeTeamArtifactIndexEntry,
+  buildKnowledgeTeamPublicationPlan,
+  buildKnowledgeTeamPublicationReadinessReport,
   createMockS3CompatibleKnowledgeArtifactStore,
   serializeKnowledgeArtifactPayload,
   stageKnowledgePackArtifactForTeamStore
@@ -21,7 +23,17 @@ function publicStoragePolicy() {
   };
 }
 
-function buildPack() {
+function privateStoragePolicy() {
+  return {
+    scope: 'workspace-private',
+    defaultStore: 'local-only',
+    shareableByDefault: false,
+    requiresExplicitOptIn: true,
+    reason: 'Source is derived from workspace-local files.'
+  };
+}
+
+function buildPack(sourceOverrides = {}) {
   const source = {
     id: 'public-source-id',
     domain: 'helm',
@@ -34,7 +46,8 @@ function buildPack() {
     staleAfter: '2026-06-09T00:00:00.000Z',
     stale: false,
     freshness: 'fresh',
-    storagePolicy: publicStoragePolicy()
+    storagePolicy: publicStoragePolicy(),
+    ...sourceOverrides
   };
   return {
     kind: 'infra-agent.knowledge-pack',
@@ -52,12 +65,12 @@ function buildPack() {
     includedFactCount: 1,
     omittedFactCount: 0,
     maxFacts: 1,
-    staleSourceCount: 0,
+    staleSourceCount: source.stale ? 1 : 0,
     storagePolicy: {
-      publicReference: 1,
-      workspacePrivate: 0,
-      shareableByDefault: 1,
-      explicitOptInRequired: 0
+      publicReference: source.storagePolicy.scope === 'public-reference' ? 1 : 0,
+      workspacePrivate: source.storagePolicy.scope === 'workspace-private' ? 1 : 0,
+      shareableByDefault: source.storagePolicy.shareableByDefault ? 1 : 0,
+      explicitOptInRequired: source.storagePolicy.requiresExplicitOptIn ? 1 : 0
     },
     sources: [source],
     facts: [{
@@ -72,17 +85,26 @@ function buildPack() {
   };
 }
 
-async function buildStagedArtifact() {
-  const pack = buildPack();
+function buildArtifact(sourceOverrides = {}) {
+  const pack = buildPack(sourceOverrides);
   const artifactBytes = serializeKnowledgeArtifactPayload(pack);
   const manifest = buildKnowledgeArtifactManifest(pack, {
     artifactPath: '/tmp/private-project/knowledge-pack.json',
     artifactSha256: hashKnowledgeArtifactContent(artifactBytes),
     createdAt: '2026-05-09T00:00:00.000Z'
   });
-  return stageKnowledgePackArtifactForTeamStore({
-    manifest,
+  return {
     artifactBytes,
+    manifest,
+    pack
+  };
+}
+
+async function buildStagedArtifact() {
+  const artifact = buildArtifact();
+  return stageKnowledgePackArtifactForTeamStore({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes,
     store: createMockS3CompatibleKnowledgeArtifactStore()
   });
 }
@@ -125,4 +147,122 @@ test('team artifact index entries are deterministic compact descriptor metadata'
   assert.equal(firstEntry.artifact.id, staged.descriptor.artifact.id);
   assert.equal(firstEntry.publication.blockedSourceCount, 0);
   assertNoLeakedIndexDetails(firstEntry);
+});
+
+test('team publication readiness reports upload-required and already-published states', async () => {
+  const artifact = buildArtifact();
+  const staged = await stageKnowledgePackArtifactForTeamStore({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes,
+    store: createMockS3CompatibleKnowledgeArtifactStore()
+  });
+  const plan = buildKnowledgeTeamPublicationPlan({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes
+  });
+
+  const uploadRequired = buildKnowledgeTeamPublicationReadinessReport({ plan });
+  assert.equal(uploadRequired.kind, 'infra-agent.knowledge-team-publication-readiness');
+  assert.equal(uploadRequired.mutationAllowed, false);
+  assert.equal(uploadRequired.remoteWriteAllowed, false);
+  assert.equal(uploadRequired.credentialRequired, false);
+  assert.equal(uploadRequired.uploadCommand, null);
+  assert.equal(uploadRequired.readiness.status, 'upload-required');
+  assert.equal(uploadRequired.readiness.nextAction, 'prepare-explicit-upload');
+  assert.equal(uploadRequired.readiness.blockerCount, 0);
+  assert.equal(uploadRequired.indexEntry.provided, false);
+  assert.equal(uploadRequired.indexEntry.matches, null);
+  assertNoLeakedIndexDetails(uploadRequired);
+
+  const indexEntry = buildKnowledgeTeamArtifactIndexEntry(staged.descriptor);
+  const alreadyPublished = buildKnowledgeTeamPublicationReadinessReport({
+    plan,
+    indexEntry
+  });
+  assert.equal(alreadyPublished.readiness.status, 'already-published');
+  assert.equal(alreadyPublished.readiness.nextAction, 'none');
+  assert.equal(alreadyPublished.readiness.blockerCount, 0);
+  assert.equal(alreadyPublished.indexEntry.provided, true);
+  assert.equal(alreadyPublished.indexEntry.matches, true);
+  assert.equal(alreadyPublished.indexEntry.key, indexEntry.index.key);
+  assertNoLeakedIndexDetails(alreadyPublished);
+});
+
+test('team publication readiness preserves blocked publication plan reasons', () => {
+  const artifact = buildArtifact({
+    id: 'private-source-id',
+    kind: 'chart-metadata',
+    stale: true,
+    staleReason: 'time-expired',
+    freshness: 'unchecked',
+    storagePolicy: privateStoragePolicy()
+  });
+  const plan = buildKnowledgeTeamPublicationPlan({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes
+  });
+
+  const readiness = buildKnowledgeTeamPublicationReadinessReport({ plan });
+
+  assert.equal(readiness.publication.allowed, false);
+  assert.equal(readiness.readiness.status, 'blocked');
+  assert.equal(readiness.readiness.nextAction, 'resolve-blockers');
+  assert.ok(readiness.readiness.blockerCodes.includes('workspace-private-source'));
+  assert.ok(readiness.readiness.blockerCodes.includes('stale-source'));
+  assert.ok(readiness.readiness.blockerCodes.includes('unchecked-source'));
+  assertNoLeakedIndexDetails(readiness);
+});
+
+test('team publication readiness reports compact index conflicts', async () => {
+  const artifact = buildArtifact();
+  const staged = await stageKnowledgePackArtifactForTeamStore({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes,
+    store: createMockS3CompatibleKnowledgeArtifactStore()
+  });
+  const plan = buildKnowledgeTeamPublicationPlan({
+    manifest: artifact.manifest,
+    artifactBytes: artifact.artifactBytes
+  });
+  const indexEntry = buildKnowledgeTeamArtifactIndexEntry(staged.descriptor);
+
+  const objectConflict = buildKnowledgeTeamPublicationReadinessReport({
+    plan,
+    indexEntry: {
+      ...indexEntry,
+      object: {
+        ...indexEntry.object,
+        byteLength: indexEntry.object.byteLength + 1
+      }
+    }
+  });
+  assert.equal(objectConflict.readiness.status, 'conflict');
+  assert.ok(objectConflict.readiness.blockerCodes.includes('index-object-mismatch'));
+
+  const artifactConflict = buildKnowledgeTeamPublicationReadinessReport({
+    plan,
+    indexEntry: {
+      ...indexEntry,
+      artifact: {
+        ...indexEntry.artifact,
+        factCount: indexEntry.artifact.factCount + 1
+      }
+    }
+  });
+  assert.equal(artifactConflict.readiness.status, 'conflict');
+  assert.ok(artifactConflict.readiness.blockerCodes.includes('index-artifact-mismatch'));
+
+  const publicationConflict = buildKnowledgeTeamPublicationReadinessReport({
+    plan,
+    indexEntry: {
+      ...indexEntry,
+      publication: {
+        ...indexEntry.publication,
+        blockedSourceCount: 1
+      }
+    }
+  });
+  assert.equal(publicationConflict.readiness.status, 'conflict');
+  assert.ok(publicationConflict.readiness.blockerCodes.includes('index-publication-mismatch'));
+  assertNoLeakedIndexDetails(publicationConflict);
 });
