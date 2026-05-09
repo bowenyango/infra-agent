@@ -15,10 +15,19 @@ const FORBIDDEN_SDK_IMPORTS = [
   '@aws-sdk/',
   'aws-sdk',
   '@google-cloud/storage',
-  '@azure/storage-blob'
+  '@azure/storage-blob',
+  'node:http',
+  'node:https',
+  'node:net',
+  'node:tls',
+  'from \'http\'',
+  'from "http"',
+  'from \'https\'',
+  'from "https"',
+  'fetch('
 ];
 
-test('team backend contract modules do not import cloud SDK clients', async () => {
+test('team backend contract modules do not import cloud SDK or network clients', async () => {
   const root = process.cwd();
 
   for (const relativePath of TEAM_BACKEND_MODULES) {
