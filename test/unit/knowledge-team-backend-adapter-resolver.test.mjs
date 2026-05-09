@@ -3,8 +3,12 @@ import assert from 'node:assert/strict';
 import {
   buildMockKnowledgeTeamBackendAdapterConfig,
   KnowledgeTeamBackendAdapterResolutionError,
+  planKnowledgeTeamBackendAdapterResolution,
   resolveKnowledgeTeamBackendAdapter
 } from '../../src/knowledge/team-backend-adapter-resolver.ts';
+import {
+  buildKnowledgeTeamS3CompatibleBackendConfig
+} from '../../src/knowledge/team-s3-compatible-backend-config.ts';
 
 function captureResolutionError(config) {
   try {
@@ -68,4 +72,49 @@ test('mock backend adapter resolver rejects unsupported and leaky configs withou
   ]) {
     assert.equal(issueText.includes(forbidden), false, forbidden);
   }
+});
+
+test('backend adapter resolution plan marks mock configs as locally resolvable', () => {
+  const plan = planKnowledgeTeamBackendAdapterResolution(
+    buildMockKnowledgeTeamBackendAdapterConfig('mock-team-cache')
+  );
+
+  assert.equal(plan.kind, 'infra-agent.knowledge-team-backend-adapter-resolution-plan');
+  assert.equal(plan.schemaVersion, 1);
+  assert.equal(plan.mutationAllowed, false);
+  assert.equal(plan.status, 'resolvable');
+  assert.equal(plan.backendKind, 'mock-s3-compatible');
+  assert.equal(plan.adapterName, 'mock-team-cache');
+  assert.deepEqual(plan.issueCodes, []);
+  assert.deepEqual(plan.issues, []);
+  assert.equal(plan.capabilities.remoteWriteAllowed, false);
+  assert.equal(plan.capabilities.liveCheckAllowed, false);
+  assert.equal(plan.capabilities.credentialValuesExposed, false);
+  assert.equal(plan.capabilities.uploadCommand, null);
+  assert.equal(plan.capabilities.dryRunOnly, true);
+});
+
+test('backend adapter resolution plan keeps real s3-compatible configs blocked and side-effect free', () => {
+  const plan = planKnowledgeTeamBackendAdapterResolution(
+    buildKnowledgeTeamS3CompatibleBackendConfig({
+      name: 'team-cache-prod'
+    })
+  );
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.backendKind, 's3-compatible');
+  assert.equal(plan.adapterName, 'team-cache-prod');
+  assert.deepEqual(plan.issueCodes, ['real-backend-not-implemented']);
+  assert.equal(plan.issues[0].path, '$.backendKind');
+  assert.equal(plan.capabilities.artifactObjectStore, true);
+  assert.equal(plan.capabilities.metadataIndex, true);
+  assert.equal(plan.capabilities.remoteWriteAllowed, false);
+  assert.equal(plan.capabilities.liveCheckAllowed, false);
+  assert.equal(plan.capabilities.credentialValuesExposed, false);
+  assert.equal(plan.capabilities.uploadCommand, null);
+
+  assert.throws(
+    () => resolveKnowledgeTeamBackendAdapter(buildKnowledgeTeamS3CompatibleBackendConfig()),
+    KnowledgeTeamBackendAdapterResolutionError
+  );
 });

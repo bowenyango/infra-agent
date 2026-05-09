@@ -5,6 +5,10 @@ import {
   isSafeKnowledgeTeamBackendAdapterName,
   type KnowledgeTeamBackendAdapter
 } from './team-backend-adapter.ts';
+import {
+  parseKnowledgeTeamS3CompatibleBackendConfig,
+  type KnowledgeTeamS3CompatibleBackendConfigIssueCode
+} from './team-s3-compatible-backend-config.ts';
 
 export type KnowledgeTeamBackendAdapterConfigKind = 'infra-agent.knowledge-team-backend-adapter-config';
 export type KnowledgeTeamBackendAdapterResolutionIssueCode =
@@ -15,8 +19,12 @@ export type KnowledgeTeamBackendAdapterResolutionIssueCode =
   | 'live-check-enabled'
   | 'missing-required-field'
   | 'mutation-enabled'
+  | 'real-backend-not-implemented'
   | 'remote-write-enabled'
   | 'unsafe-adapter-name'
+  | 'unsafe-config-name'
+  | 'unsafe-prefix'
+  | 'unsafe-reference'
   | 'unsupported-backend-kind';
 
 export interface KnowledgeTeamBackendAdapterConfig {
@@ -34,6 +42,31 @@ export interface KnowledgeTeamBackendAdapterResolutionIssue {
   code: KnowledgeTeamBackendAdapterResolutionIssueCode;
   path: string;
   message: string;
+}
+
+export interface KnowledgeTeamBackendAdapterResolutionPlan {
+  kind: 'infra-agent.knowledge-team-backend-adapter-resolution-plan';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  status: 'blocked' | 'resolvable';
+  backendKind: 'mock-s3-compatible' | 's3-compatible' | 'unsupported';
+  adapterName: string | null;
+  capabilities: {
+    artifactObjectStore: boolean;
+    metadataIndex: boolean;
+    contentAddressedObjectKeys: boolean;
+    contentAddressedIndexKeys: boolean;
+    idempotentWritesRequired: boolean;
+    explicitUploadApprovalRequired: boolean;
+    remoteWriteAllowed: false;
+    liveCheckAllowed: false;
+    credentialValuesExposed: false;
+    uploadCommand: null;
+    dryRunOnly: true;
+  };
+  issueCodes: KnowledgeTeamBackendAdapterResolutionIssueCode[];
+  issues: KnowledgeTeamBackendAdapterResolutionIssue[];
+  reason: string;
 }
 
 export class KnowledgeTeamBackendAdapterResolutionError extends Error {
@@ -74,6 +107,60 @@ function pushIssueOnce(
   if (!issues.some(entry => entry.code === nextIssue.code && entry.path === nextIssue.path)) {
     issues.push(nextIssue);
   }
+}
+
+function safeCapabilities(input: {
+  artifactObjectStore: boolean;
+  metadataIndex: boolean;
+}): KnowledgeTeamBackendAdapterResolutionPlan['capabilities'] {
+  return {
+    artifactObjectStore: input.artifactObjectStore,
+    metadataIndex: input.metadataIndex,
+    contentAddressedObjectKeys: true,
+    contentAddressedIndexKeys: true,
+    idempotentWritesRequired: true,
+    explicitUploadApprovalRequired: true,
+    remoteWriteAllowed: false,
+    liveCheckAllowed: false,
+    credentialValuesExposed: false,
+    uploadCommand: null,
+    dryRunOnly: true
+  };
+}
+
+function buildResolutionPlan(input: {
+  status: KnowledgeTeamBackendAdapterResolutionPlan['status'];
+  backendKind: KnowledgeTeamBackendAdapterResolutionPlan['backendKind'];
+  adapterName: string | null;
+  issues: KnowledgeTeamBackendAdapterResolutionIssue[];
+  artifactObjectStore: boolean;
+  metadataIndex: boolean;
+  reason: string;
+}): KnowledgeTeamBackendAdapterResolutionPlan {
+  return {
+    kind: 'infra-agent.knowledge-team-backend-adapter-resolution-plan',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    status: input.status,
+    backendKind: input.backendKind,
+    adapterName: input.adapterName,
+    capabilities: safeCapabilities({
+      artifactObjectStore: input.artifactObjectStore,
+      metadataIndex: input.metadataIndex
+    }),
+    issueCodes: [...new Set(input.issues.map(entry => entry.code))].sort(),
+    issues: input.issues,
+    reason: input.reason
+  };
+}
+
+function mapS3ConfigIssueCode(
+  code: KnowledgeTeamS3CompatibleBackendConfigIssueCode
+): KnowledgeTeamBackendAdapterResolutionIssueCode {
+  if (code === 'unsupported-credential-mode') {
+    return 'credential-mode-enabled';
+  }
+  return code;
 }
 
 function validateNoAdapterConfigLeakage(
@@ -137,6 +224,75 @@ export function buildMockKnowledgeTeamBackendAdapterConfig(
     remoteWriteAllowed: false,
     liveCheckAllowed: false
   };
+}
+
+export function planKnowledgeTeamBackendAdapterResolution(
+  config: unknown
+): KnowledgeTeamBackendAdapterResolutionPlan {
+  if (
+    isRecord(config)
+    && config.kind === 'infra-agent.knowledge-team-s3-compatible-backend-config'
+  ) {
+    const parsed = parseKnowledgeTeamS3CompatibleBackendConfig(config);
+    const issues = parsed.issues.map(entry => issue(
+      mapS3ConfigIssueCode(entry.code),
+      entry.path,
+      entry.message
+    ));
+
+    if (parsed.ok && parsed.config !== null) {
+      issues.push(issue(
+        'real-backend-not-implemented',
+        '$.backendKind',
+        'S3-compatible backend adapter resolution is contract-only; no real client is created.'
+      ));
+    }
+
+    return buildResolutionPlan({
+      status: 'blocked',
+      backendKind: parsed.config?.backendKind ?? (
+        config.backendKind === 's3-compatible' ? 's3-compatible' : 'unsupported'
+      ),
+      adapterName: parsed.config?.name ?? null,
+      issues,
+      artifactObjectStore: parsed.ok,
+      metadataIndex: parsed.ok,
+      reason: parsed.ok
+        ? 'S3-compatible backend adapter contract is defined, but real adapter resolution is not implemented.'
+        : 'S3-compatible backend adapter config must be fixed before adapter resolution can be designed.'
+    });
+  }
+
+  try {
+    const adapter = resolveKnowledgeTeamBackendAdapter(config);
+    return buildResolutionPlan({
+      status: 'resolvable',
+      backendKind: adapter.descriptor.backendKind,
+      adapterName: adapter.descriptor.name,
+      issues: [],
+      artifactObjectStore: adapter.descriptor.capabilities.artifactObjectStore,
+      metadataIndex: adapter.descriptor.capabilities.metadataIndex,
+      reason: 'Mock team backend adapter can be resolved in-process.'
+    });
+  } catch (error) {
+    const issues = error instanceof KnowledgeTeamBackendAdapterResolutionError
+      ? error.issues
+      : [issue(
+        'invalid-config-kind',
+        '$',
+        'Knowledge team backend adapter config is not safe to resolve.'
+      )];
+
+    return buildResolutionPlan({
+      status: 'blocked',
+      backendKind: 'unsupported',
+      adapterName: null,
+      issues,
+      artifactObjectStore: false,
+      metadataIndex: false,
+      reason: 'Knowledge team backend adapter config cannot be resolved.'
+    });
+  }
 }
 
 export function resolveKnowledgeTeamBackendAdapter(config: unknown): KnowledgeTeamBackendAdapter {
