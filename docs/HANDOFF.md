@@ -39,6 +39,75 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Team Publication Plan Dry-Run Plan
+
+Status:
+
+- In progress. This slice extends the completed team artifact store abstraction
+  with a non-mutating publication dry-run plan for persisted knowledge packs.
+- Scope is plan generation and validation only. It reads a persisted
+  `knowledge-pack` artifact, its plan-only artifact manifest, and optionally a
+  compact team artifact descriptor, then reports whether a future team-cache
+  publication would be allowed. It does not call `putObject`, does not write a
+  mock store, and does not introduce a real remote backend.
+
+Why this direction:
+
+- The previous slice proved content-addressed staging through an injected mock
+  adapter. The next safe step is a compact plan artifact that downstream agents
+  can validate and discuss before any real publication command exists.
+- This follows the local Claude Code architecture notes: preserve compact,
+  validated handoff state and permission posture instead of passing raw
+  artifacts, raw logs, or backend details between agents.
+
+Subagent review inputs:
+
+- `Hilbert` recommended a 10+ commit plan centered on
+  `infra-agent.knowledge-team-publication-plan`, with dry-run semantics,
+  blocked-plan results as first-class output, descriptor reuse checks, validator
+  support, CLI JSON/text output, and final documentation/verification.
+- Architecture and test review are running in parallel. Current local design
+  assumptions remain conservative: no store writes, no real backend, no backend
+  URL/bucket/credential fields, and no raw docs or absolute paths in the plan.
+
+Planned commits and checkpoints:
+
+1. Record this active team publication dry-run plan in `docs/HANDOFF.md`.
+2. Define the compact publication-plan contract and deterministic plan builder.
+3. Cover deterministic allowed-plan output and content-addressed object preview.
+4. Add hash, manifest metadata, publication policy, and optional descriptor
+   reuse checks to the plan builder.
+5. Cover blocked plans for private, stale, unchecked, forged, hash-mismatched,
+   and descriptor-mismatched inputs.
+6. Extend `knowledge validate` to accept team publication plans.
+7. Cover publication-plan validation and leak rejection.
+8. Add `knowledge publish-plan` argument parsing.
+9. Cover `publish-plan` CLI args and option rejection.
+10. Add the `knowledge publish-plan` command implementation and human text
+    output.
+11. Cover `publish-plan` JSON/text integration behavior.
+12. Update README, roadmap, agent rules, skill docs, and this handoff with
+    completed behavior and remaining risks.
+13. Run focused checks and full `npm run verify` before final handoff.
+
+Acceptance criteria:
+
+- `infra-agent.knowledge-team-publication-plan` uses
+  `mutationAllowed=false`, `remoteWriteAllowed=false`, and dry-run execution.
+- The plan is compact and backend-neutral. It may include backend kind,
+  content-addressed object key, artifact hash, byte length, source/fact counts,
+  required validation labels, policy status, and blocker codes, but never
+  backend URLs, buckets, endpoints, headers, credentials, absolute workspace
+  paths, cache roots, raw docs, or raw repo content.
+- Allowed plans require fresh public-reference `knowledge-pack` artifacts with
+  matching manifest bytes and metadata.
+- Blocked plans are first-class results for workspace-private sources, stale
+  sources, unchecked sources, forged publication posture, hash drift, metadata
+  drift, and descriptor mismatch.
+- `knowledge validate` can validate saved publication-plan JSON without
+  performing remote reads or writes.
+- CLI behavior remains explicitly dry-run and local-only.
+
 ## 2026-05-09 Active Team Artifact Store Plan
 
 Status:
