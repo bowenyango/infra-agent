@@ -73,3 +73,73 @@ test('s3-compatible backend private config parser does not read environment cred
     }
   }
 });
+
+test('s3-compatible backend private config parser rejects backend detail leakage without echoing values', () => {
+  const result = parseKnowledgeTeamS3CompatibleBackendConfig({
+    kind: 'infra-agent.knowledge-team-s3-compatible-backend-config',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    backendKind: 's3-compatible',
+    name: 'team-cache',
+    storageProfileRef: 'team-cache-storage',
+    authProfileRef: 'team-cache-auth',
+    artifactPrefix: 'knowledge-artifacts/v1',
+    indexPrefix: 'knowledge-index/v1',
+    credentialMode: 'environment',
+    remoteWriteDefault: false,
+    liveCheckDefault: false,
+    bucket: 'private-team-cache',
+    endpointUrl: 'https://s3.example.test/private',
+    accessToken: 'secret-token',
+    workspaceRoot: '/workspace/private-project'
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.config, null);
+  assert.ok(result.issues.some(issue => issue.code === 'backend-detail-leak'));
+
+  const issueText = JSON.stringify(result.issues);
+  for (const forbidden of [
+    'private-team-cache',
+    'https://s3.example.test/private',
+    'secret-token',
+    '/workspace/private-project',
+    'endpointUrl',
+    'accessToken'
+  ]) {
+    assert.equal(issueText.includes(forbidden), false, forbidden);
+  }
+});
+
+test('s3-compatible backend private config parser rejects unsafe shape and disabled-gate drift', () => {
+  const result = parseKnowledgeTeamS3CompatibleBackendConfig({
+    kind: 'infra-agent.knowledge-team-s3-compatible-backend-config',
+    schemaVersion: 2,
+    mutationAllowed: true,
+    backendKind: 'gcs',
+    name: '../team-cache',
+    storageProfileRef: 'Team Cache Storage',
+    authProfileRef: '',
+    artifactPrefix: 'team-artifacts',
+    credentialMode: 'inline',
+    remoteWriteDefault: true,
+    liveCheckDefault: true
+  });
+
+  assert.equal(result.ok, false);
+  const codes = new Set(result.issues.map(issue => issue.code));
+  for (const expected of [
+    'invalid-schema-version',
+    'mutation-enabled',
+    'unsupported-backend-kind',
+    'unsafe-config-name',
+    'unsafe-reference',
+    'missing-required-field',
+    'unsafe-prefix',
+    'unsupported-credential-mode',
+    'remote-write-enabled',
+    'live-check-enabled'
+  ]) {
+    assert.equal(codes.has(expected), true, expected);
+  }
+});
