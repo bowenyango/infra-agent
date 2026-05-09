@@ -164,6 +164,13 @@ test('collectApprovalSignals respects workspace approval policy overrides', asyn
   assert.equal(signals.length, 0);
 });
 
+test('default approval policy requires native stack config tool approval', () => {
+  const policy = resolveEffectiveApprovalPolicy(null, 'generic');
+
+  assert.deepEqual(policy.requiredToolCategories, ['native-stack-config-write']);
+  assert.ok(policy.sources.some(source => /native stack config writes require approval/i.test(source)));
+});
+
 test('collectApprovalSignals applies path-scoped approval rules for medium-risk writes', async () => {
   const preflight = await buildRunPreflight('add readiness and liveness probes to payments-api dev chart', 'fixtures/sample-workspace');
   const signals = collectApprovalSignals({
@@ -296,18 +303,7 @@ test('collectApprovalSignals applies tool category approval rules for native sta
   const preflight = await buildRunPreflight('update pulumi dev stack for payments-api image tag to 1.2.3', 'fixtures/sample-workspace');
   const signals = collectApprovalSignals({
     task: preflight.task,
-    preflight: {
-      ...preflight,
-      inspection: {
-        ...preflight.inspection,
-        config: {
-          approvalPolicy: {
-            requiredWriteRisks: [],
-            requiredToolCategories: ['native-stack-config-write']
-          }
-        }
-      }
-    },
+    preflight,
     observations: [],
     appliedWrites: [],
     validationResults: [],
