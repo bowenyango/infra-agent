@@ -43,9 +43,10 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice reduces `src/knowledge/validate.ts` risk by moving
-  team artifact and team backend readiness validation helpers into focused
-  modules before any real backend adapter work starts.
+- Implementation complete; full verification is pending. This slice reduces
+  `src/knowledge/validate.ts` risk by moving team artifact and team backend
+  readiness validation helpers into focused modules before any real backend
+  adapter work starts.
 - Scope is structural refactor plus focused regression coverage. It must not
   change public JSON schemas, add backend SDKs, perform network calls, read
   credential values, create upload commands, or mutate remote storage/indexes.
@@ -62,23 +63,42 @@ Why this direction:
 
 Planned commits and checkpoints:
 
-1. Record this active validation split plan in `docs/HANDOFF.md`.
-2. Add shared knowledge validation primitives used by extracted validators.
-3. Add direct tests for the shared blocker/code summary helper.
-4. Extract backend readiness validation into a focused module.
-5. Add focused backend readiness validation regression tests.
-6. Extract shared team artifact validation helpers into a focused module.
-7. Move descriptor/index-entry validation into the team artifact validation
-   module.
-8. Move publication-plan/readiness validation into the team artifact validation
-   module.
-9. Run existing team artifact/backend contract and CLI regression tests.
-10. Update README, Rules, Roadmap, skill docs, and this handoff with the split
-    boundary and remaining non-goals.
-11. Run lint, test structure, diff check, focused unit/contract/integration
-    checks.
-12. Run full `npm run verify`, then record completed commits, validation,
-    remaining risks, and next stage in this handoff.
+1. Completed: record this active validation split plan in `docs/HANDOFF.md`.
+2. Completed: add shared knowledge validation primitives used by extracted
+   validators.
+3. Completed: add direct tests for shared blocker/code summary helpers.
+4. Completed: extract backend readiness validation into
+   `src/knowledge/team-backend-readiness-validation.ts`.
+5. Completed: add focused backend readiness validation regression tests.
+6. Completed: extract shared team artifact validation helpers into
+   `src/knowledge/team-artifact-validation.ts`.
+7. Completed: move descriptor/index-entry validation into the team artifact
+   validation module.
+8. Completed: move publication-plan/readiness validation into the team artifact
+   validation module.
+9. Completed: run existing team artifact/backend contract and CLI regression
+   tests during each migration checkpoint.
+10. In progress: update README, Rules, Roadmap/pattern notes, and this handoff
+    with the split boundary and remaining non-goals.
+11. Pending: run lint, test structure, diff check, focused
+    unit/contract/integration checks, and full `npm run verify`.
+12. Pending: record final completed commits, validation, remaining risks, and
+    next stage in this handoff.
+
+Current validation split modules:
+
+- `src/knowledge/validation-primitives.ts` contains shared validation issue,
+  report, empty freshness/report, scalar reader, and blocker-code summary
+  helpers.
+- `src/knowledge/storage-policy-validation.ts` contains reusable storage
+  policy summary validation.
+- `src/knowledge/team-artifact-validation.ts` owns team artifact descriptor,
+  publication-plan, index-entry, publication-readiness, content-addressed key,
+  blocker summary, and leakage validation.
+- `src/knowledge/team-backend-readiness-validation.ts` owns backend-readiness
+  report validation and backend detail/credential leakage checks.
+- `src/knowledge/validate.ts` is now the top-level knowledge payload
+  dispatcher plus non-team knowledge validators.
 
 Acceptance criteria:
 

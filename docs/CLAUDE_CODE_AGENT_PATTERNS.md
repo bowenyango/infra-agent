@@ -64,6 +64,12 @@ durable design reference for infra-agent development.
   approval resume, planner handoff routing, and `handoffCheckpoint`
   summary/budget/continuation consistency should reject malformed or
   inconsistent JSON instead of relying on prose interpretation.
+- Team knowledge handoff contracts follow the same rule. Descriptor,
+  publication-plan, index-entry, publication-readiness, and backend-readiness
+  validators should stay in focused modules behind `knowledge validate`; these
+  modules enforce compact/mutation-disallowed payloads and must not grow into
+  backend clients, credential readers, live checks, upload command builders, or
+  remote index mutators.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without
