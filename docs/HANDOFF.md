@@ -39,11 +39,11 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
-## 2026-05-09 Active Team Metadata Index Readiness Plan
+## 2026-05-09 Team Metadata Index Readiness
 
 Status:
 
-- In progress. This slice extends the completed team artifact descriptor and
+- Completed. This slice extends the completed team artifact descriptor and
   publication-plan dry run with a compact metadata index/readiness boundary.
 - Scope is still non-mutating with respect to real team infrastructure. It may
   model an injected mock metadata index and read local JSON artifacts, but it
@@ -61,29 +61,67 @@ Why this direction:
   route on compact validated state, not raw artifacts, backend details, or
   prose-only assumptions.
 
-Planned commits and checkpoints:
+Subagent review inputs:
 
-1. Record this active metadata index/readiness plan in `docs/HANDOFF.md`.
-2. Add compact team artifact index-entry and readiness-report contracts.
-3. Add builders that derive an index entry from a descriptor and readiness from
-   a publication plan plus an optional index entry.
-4. Cover index entry creation, deterministic compactness, and leak rejection.
-5. Cover readiness outcomes for already-published, upload-required, blocked,
-   object-mismatch, artifact-mismatch, and stale-index cases.
-6. Add an injected mock metadata index with safe put/get/list behavior and
-   conflict detection.
-7. Cover mock index idempotency, conflicts, safe key enforcement, and no
-   backend-detail leakage.
-8. Extend `knowledge validate` to accept index entries and readiness reports.
-9. Cover validator acceptance and forged/leaky payload rejection.
-10. Add `knowledge publish-readiness <plan.json> [--index-entry <entry.json>]
-    [--out <readiness.json>] [--json]` argument parsing.
-11. Implement the CLI command and safe text output.
-12. Cover CLI JSON/text behavior and validation round trips.
-13. Update README, roadmap, agent rules, skill docs, and this handoff with
-    completed behavior and remaining risks.
-14. Run focused checks after major phases and full `npm run verify` before
-    final handoff.
+- `Hilbert` recommended metadata index records before any real cloud backend,
+  with a 10+ commit path, compact validation, and explicit no-remote non-goals.
+- `Cicero` recommended keeping this as a dry-run metadata/index boundary rather
+  than introducing cloud SDKs, credentials, or an upload command. The final
+  implementation adds compact index entries and readiness reports while
+  preserving that boundary.
+- `Nash` recommended focused unit/integration tests for readiness, metadata
+  safety, validator negative cases, CLI args, CLI JSON/text behavior, and full
+  verification.
+
+Completed commits:
+
+1. `22722af` docs: record team metadata readiness plan
+2. `8fc3d34` feat: add team artifact index readiness contracts
+3. `523077f` feat: build team publication readiness reports
+4. `824af1b` test: cover team artifact index entries
+5. `31876b6` test: cover team publication readiness outcomes
+6. `b872773` feat: add mock team artifact metadata index
+7. `8de8cfe` test: cover mock team artifact metadata index
+8. `d4acbfa` feat: validate team artifact index readiness payloads
+9. `cadcdd1` test: cover team index readiness validation
+10. `1f018ba` feat: parse knowledge publish-readiness args
+11. `3089da8` feat: add knowledge publish-readiness command
+12. `5b591a8` test: cover knowledge publish-readiness command
+13. `0741f38` docs: document publication readiness dry run
+
+Core files changed:
+
+- `src/knowledge/team-artifact-store.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-artifact-index-readiness.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-knowledge-publish-readiness-main.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+- `skills/infra-configuration/SKILL.md`
+
+What changed:
+
+- Added `infra-agent.knowledge-team-artifact-index-entry`, a compact metadata
+  record derived from a team artifact descriptor.
+- Added `infra-agent.knowledge-team-publication-readiness`, a dry-run report
+  derived from a publication plan plus an optional compact index entry. It
+  reports `already-published`, `upload-required`, `blocked`, or `conflict`.
+- Added a pure readiness builder and descriptor-to-index-entry builder. These
+  builders do not call a store, read a remote index, or mutate an index.
+- Added an injected in-memory `mock-s3-compatible` metadata index with
+  idempotent put, get, find-by-object, list, unsafe key rejection, and conflict
+  detection.
+- Extended `knowledge validate` for compact index entries and readiness reports,
+  including forged remote-write, upload-command, backend-detail, URL, and
+  credential rejection.
+- Added `infra-agent knowledge publish-readiness <plan.json> [--index-entry
+  <entry.json>] [--out <readiness.json>] [--json]` with input validation and
+  safe text/JSON output.
 
 Acceptance criteria:
 
@@ -103,6 +141,42 @@ Acceptance criteria:
 - `knowledge validate` can validate saved index-entry and readiness JSON
   artifacts without remote reads or writes.
 - CLI behavior remains local-only and explicitly dry-run.
+
+Design notes:
+
+- This slice intentionally kept real metadata services out of scope. The mock
+  index proves the compact contract and conflict behavior only.
+- Readiness reports do not prove a remote object exists. They compare local
+  compact plan/index metadata and produce routing state for future agents.
+- The implementation kept the existing `team-artifact-store.ts` boundary to
+  minimize new module churn in this stage. A future cleanup may split store,
+  publication plan, and index readiness code once the next real backend adapter
+  boundary is ready.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-index-readiness.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-publish-readiness-main.test.mjs`
+- `npm run test:structure`
+- `npm run lint`
+- `npm run verify`
+
+Full verification result:
+
+- `npm run verify` passed on 2026-05-09.
+- Coverage gate passed: lines 89.09%, branches 77.40%, functions 96.46%.
+- `npm pack --dry-run --json` passed with 139 package entries.
+
+Remaining risks and next stage:
+
+- There is still no real S3/GCS/Azure/Postgres backend, credential model,
+  signed URL flow, upload command, or remote metadata index service.
+- `already-published` readiness only means the provided compact index entry
+  matches the plan; it does not prove remote object existence.
+- Next stage should either add contract-style tests for the public JSON shapes
+  or design the first real backend adapter behind the existing dry-run,
+  validation, and approval boundaries.
 
 ## 2026-05-09 Team Publication Plan Dry-Run
 
