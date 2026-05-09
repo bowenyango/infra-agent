@@ -39,6 +39,68 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active S3-Compatible Backend Contract Plan
+
+Status:
+
+- In progress. This slice defines the first real backend family as a
+  contract-first, private S3-compatible configuration shell.
+- Scope is private config parsing, sanitized internal descriptors, resolver
+  fail-closed behavior, and mock-backed conformance tests only. It must not add
+  cloud SDKs, perform network calls, read credential values, generate upload
+  commands, mutate remote objects/indexes, or change public team
+  artifact/readiness JSON schemas.
+
+Why this direction:
+
+- The completed backend adapter interface slice created the internal adapter
+  seam and mock-only resolver. The next safe step is to define the private
+  shape a future real S3-compatible implementation must satisfy without
+  creating a real client.
+- Claude Code architecture notes favor compact contracts, injected
+  dependencies, parser-enforced handoffs, and explicit mutation gates. This
+  stage keeps real backend work contract-first and fail-closed while preserving
+  those gates.
+
+Planned commits and checkpoints:
+
+1. Record this active S3-compatible backend contract plan in `docs/HANDOFF.md`.
+2. Add characterization tests for valid private S3-compatible config parsing.
+3. Implement the private S3-compatible config parser and safe draft builder.
+4. Add leak-safety tests for backend detail, credential, URL, and path inputs.
+5. Harden parser issue reporting so it rejects unsafe private configs without
+   echoing private values.
+6. Add tests for projecting valid private config into existing
+   backend-readiness dry-run input.
+7. Implement readiness-input projection without changing the public readiness
+   schema.
+8. Add resolver tests proving real `s3-compatible` configs remain unresolved
+   and do not instantiate adapters.
+9. Add a fail-closed resolver planning result for future real adapters.
+10. Add mock-backed conformance tests for object store/index behavior that a
+    future real adapter must satisfy.
+11. Wire the existing mock adapter through the conformance helper.
+12. Update README, Rules, Roadmap/pattern notes, infra skill, and this handoff
+    with the contract-first boundary and non-goals.
+13. Run focused checks and full `npm run verify`, then record completed
+    commits, validation, remaining risks, and next stage in this handoff.
+
+Acceptance criteria:
+
+- Existing public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, and backend-readiness schemas remain unchanged.
+- Private S3-compatible config may contain only safe structural references and
+  flags; it must not expose endpoint, bucket, header, credential values,
+  signed URLs, absolute local paths, or upload commands.
+- Resolver behavior stays fail-closed for real `s3-compatible` backends; the
+  only executable adapter remains injected/mock-backed.
+- Adapter and planned-real capability metadata preserve
+  `mutationAllowed=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`, and
+  `uploadCommand=null`.
+- Focused config/parser/resolver/conformance tests, existing team-storage
+  contracts, lint, structure, diff check, and full verify pass.
+
 ## 2026-05-09 Active Team Backend Adapter Interface Plan
 
 Status:
