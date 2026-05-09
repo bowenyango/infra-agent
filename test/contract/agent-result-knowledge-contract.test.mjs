@@ -634,8 +634,8 @@ test('compact agent result contract accepts Pulumi component facts without raw s
     packId: '0123456789abcdef01234567',
     sourceCount: 1,
     factSetCount: 1,
-    totalFactCount: 2,
-    includedFactCount: 2,
+    totalFactCount: 3,
+    includedFactCount: 3,
     omittedFactCount: 0,
     staleSourceCount: 0,
     sources: [
@@ -645,7 +645,7 @@ test('compact agent result contract accepts Pulumi component facts without raw s
         targetPath: 'infra/api',
         kind: 'pulumi-component',
         name: 'pulumi-component:infra/api:ApiService',
-        factCount: 2,
+        factCount: 3,
         stale: false,
         freshness: 'fresh',
         fingerprintDigest: 'a'.repeat(64),
@@ -677,6 +677,18 @@ test('compact agent result contract accepts Pulumi component facts without raw s
         type: 'string',
         values: ['endpoint'],
         relatedPaths: ['infra/api/components.ts']
+      },
+      {
+        kind: 'pulumi-component-child-resource',
+        path: 'component.ApiService.childResources.assets',
+        summary: 'component.ApiService.childResources.assets creates child Pulumi resource assets of type aws:s3/bucket:Bucket.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        sourceId: 'pulumi-component/api-service',
+        sourceLocator: 'infra/api/components.ts:10: ApiService.assets',
+        type: 'aws:s3/bucket:Bucket',
+        values: ['assets', 'aws:s3/bucket:Bucket'],
+        relatedPaths: ['infra/api/components.ts']
       }
     ]
   };
@@ -688,7 +700,7 @@ test('compact agent result contract accepts Pulumi component facts without raw s
       budgets: {
         ...validResult.handoffCheckpoint.budgets,
         knowledgeFacts: {
-          includedCount: 2,
+          includedCount: 3,
           omittedCount: 0
         }
       }
@@ -696,8 +708,8 @@ test('compact agent result contract accepts Pulumi component facts without raw s
     harness: {
       ...validResult.harness,
       stateSummary: {
-        ...validResult.harness.stateSummary,
-        knowledgeFactCount: 2
+      ...validResult.harness.stateSummary,
+        knowledgeFactCount: 3
       }
     }
   };
