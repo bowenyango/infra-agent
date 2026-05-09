@@ -22,6 +22,16 @@ function validBackendReferenceSummary() {
   );
 }
 
+function blockedBackendReferenceSummary() {
+  return validateKnowledgeTeamS3CompatibleBackendReferences(
+    buildKnowledgeTeamS3CompatibleBackendConfig({
+      storageProfileRef: 'missing-storage-profile',
+      authProfileRef: 'missing-auth-profile'
+    }),
+    buildKnowledgeTeamS3CompatibleReferenceRegistry()
+  );
+}
+
 test('upload approval intent reports approval-required for dry-run upload preconditions', async () => {
   const fixture = await buildKnowledgeTeamArtifactContractFixture();
   const intent = buildKnowledgeTeamUploadApprovalIntent({
@@ -84,4 +94,21 @@ test('upload approval intent blocks when publication readiness is blocked', asyn
   assert.equal(intent.preconditions.backendReference.status, 'valid');
   assert.equal(intent.readiness.nextAction, 'resolve-blockers');
   assert.equal(intent.readiness.blockerCodes.includes('publication-readiness-blocked'), true);
+});
+
+test('upload approval intent blocks when backend references are blocked', async () => {
+  const fixture = await buildKnowledgeTeamArtifactContractFixture();
+  const intent = buildKnowledgeTeamUploadApprovalIntent({
+    publicationReadiness: fixture.uploadRequiredReadiness,
+    backendReferenceValidation: blockedBackendReferenceSummary()
+  });
+
+  assert.equal(intent.status, 'blocked');
+  assert.equal(intent.preconditions.publicationReadiness.uploadRequired, true);
+  assert.equal(intent.preconditions.backendReference.status, 'blocked');
+  assert.equal(intent.preconditions.credentialBoundary.requiredEnvironmentVariables.length, 0);
+  assert.equal(intent.preconditions.credentialBoundary.optionalEnvironmentVariables.length, 0);
+  assert.equal(intent.preconditions.uploadApproval.approvalProvided, false);
+  assert.equal(intent.readiness.nextAction, 'resolve-blockers');
+  assert.equal(intent.readiness.blockerCodes.includes('backend-reference-blocked'), true);
 });
