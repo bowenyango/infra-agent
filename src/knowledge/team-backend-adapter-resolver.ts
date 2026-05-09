@@ -9,22 +9,32 @@ import {
   parseKnowledgeTeamS3CompatibleBackendConfig,
   type KnowledgeTeamS3CompatibleBackendConfigIssueCode
 } from './team-s3-compatible-backend-config.ts';
+import {
+  validateKnowledgeTeamS3CompatibleBackendReferences,
+  type KnowledgeTeamS3CompatibleReferenceValidationIssueCode
+} from './team-s3-compatible-reference-registry.ts';
 
 export type KnowledgeTeamBackendAdapterConfigKind = 'infra-agent.knowledge-team-backend-adapter-config';
 export type KnowledgeTeamBackendAdapterResolutionIssueCode =
   | 'backend-detail-leak'
   | 'credential-mode-enabled'
+  | 'duplicate-reference'
   | 'invalid-config-kind'
+  | 'invalid-registry-kind'
   | 'invalid-schema-version'
   | 'live-check-enabled'
+  | 'missing-auth-profile-reference'
   | 'missing-required-field'
+  | 'missing-storage-profile-reference'
   | 'mutation-enabled'
   | 'real-backend-not-implemented'
   | 'remote-write-enabled'
   | 'unsafe-adapter-name'
   | 'unsafe-config-name'
+  | 'unsafe-env-var-name'
   | 'unsafe-prefix'
   | 'unsafe-reference'
+  | 'unsupported-field'
   | 'unsupported-backend-kind';
 
 export interface KnowledgeTeamBackendAdapterConfig {
@@ -67,6 +77,10 @@ export interface KnowledgeTeamBackendAdapterResolutionPlan {
   issueCodes: KnowledgeTeamBackendAdapterResolutionIssueCode[];
   issues: KnowledgeTeamBackendAdapterResolutionIssue[];
   reason: string;
+}
+
+export interface KnowledgeTeamBackendAdapterResolutionOptions {
+  referenceRegistry?: unknown;
 }
 
 export class KnowledgeTeamBackendAdapterResolutionError extends Error {
@@ -163,6 +177,15 @@ function mapS3ConfigIssueCode(
   return code;
 }
 
+function mapS3ReferenceIssueCode(
+  code: KnowledgeTeamS3CompatibleReferenceValidationIssueCode
+): KnowledgeTeamBackendAdapterResolutionIssueCode {
+  if (code === 'unsupported-credential-mode') {
+    return 'credential-mode-enabled';
+  }
+  return code;
+}
+
 function validateNoAdapterConfigLeakage(
   value: unknown,
   path: string,
@@ -227,20 +250,33 @@ export function buildMockKnowledgeTeamBackendAdapterConfig(
 }
 
 export function planKnowledgeTeamBackendAdapterResolution(
-  config: unknown
+  config: unknown,
+  options: KnowledgeTeamBackendAdapterResolutionOptions = {}
 ): KnowledgeTeamBackendAdapterResolutionPlan {
   if (
     isRecord(config)
     && config.kind === 'infra-agent.knowledge-team-s3-compatible-backend-config'
   ) {
     const parsed = parseKnowledgeTeamS3CompatibleBackendConfig(config);
-    const issues = parsed.issues.map(entry => issue(
-      mapS3ConfigIssueCode(entry.code),
-      entry.path,
-      entry.message
-    ));
+    const referenceValidation = typeof options.referenceRegistry === 'undefined'
+      ? null
+      : validateKnowledgeTeamS3CompatibleBackendReferences(config, options.referenceRegistry);
+    const issues = referenceValidation === null
+      ? parsed.issues.map(entry => issue(
+        mapS3ConfigIssueCode(entry.code),
+        entry.path,
+        entry.message
+      ))
+      : referenceValidation.issues.map(entry => issue(
+        mapS3ReferenceIssueCode(entry.code),
+        entry.path,
+        entry.message
+      ));
+    const structurallyReady = referenceValidation === null
+      ? parsed.ok && parsed.config !== null
+      : referenceValidation.status === 'valid';
 
-    if (parsed.ok && parsed.config !== null) {
+    if (structurallyReady) {
       issues.push(issue(
         'real-backend-not-implemented',
         '$.backendKind',
@@ -255,9 +291,9 @@ export function planKnowledgeTeamBackendAdapterResolution(
       ),
       adapterName: parsed.config?.name ?? null,
       issues,
-      artifactObjectStore: parsed.ok,
-      metadataIndex: parsed.ok,
-      reason: parsed.ok
+      artifactObjectStore: structurallyReady,
+      metadataIndex: structurallyReady,
+      reason: structurallyReady
         ? 'S3-compatible backend adapter contract is defined, but real adapter resolution is not implemented.'
         : 'S3-compatible backend adapter config must be fixed before adapter resolution can be designed.'
     });
