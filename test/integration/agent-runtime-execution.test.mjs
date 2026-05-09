@@ -308,6 +308,71 @@ test('runSingleStep gates unapproved edit execution even when the model asks to 
   }
 });
 
+test('runSingleStep gates native Pulumi stack config writes by default', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-tool-gate-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp(resolve('fixtures/sample-workspace'), workspaceRoot, { recursive: true });
+    const stackPath = join(workspaceRoot, 'infra/payments-api/Pulumi.dev.yaml');
+    const existingStackConfig = await readFile(stackPath, 'utf8');
+    const pulumiWrite = {
+      path: 'infra/payments-api/Pulumi.dev.yaml',
+      content: 'config:\n  payments-api:imageTag: 1.2.3\n',
+      reason: 'Synthetic native stack config update.'
+    };
+    const bypassModel = {
+      name: 'pulumi-tool-approval-bypass-test-model',
+      async decideNextAction() {
+        return {
+          action: {
+            kind: 'apply-edit-plan',
+            summary: 'Attempt to bypass native stack config approval.',
+            rationale: 'Synthetic Pulumi tool-category gate test.',
+            payload: {
+              actionFamily: 'pulumi-bounded-stack-config',
+              writes: [pulumiWrite],
+              editPlan: {
+                kind: 'pulumi-stack-config',
+                summary: 'Synthetic Pulumi stack config write.',
+                rationale: 'Exercise execution-time tool-category approval gate.',
+                pulumiConfigOperations: [
+                  {
+                    projectRoot: 'infra/payments-api',
+                    stackName: 'dev',
+                    key: 'payments-api:imageTag',
+                    value: '1.2.3'
+                  }
+                ],
+                writes: [pulumiWrite]
+              }
+            }
+          },
+          confidence: 'high'
+        };
+      }
+    };
+
+    const result = await runSingleStep(
+      'update pulumi dev stack for payments-api image tag to 1.2.3',
+      workspaceRoot,
+      bypassModel
+    );
+
+    assert.equal(result.outcome, 'approval-required');
+    assert.equal(result.turns.length, 1);
+    assert.equal(result.turns[0]?.execution?.status, 'skipped');
+    assert.equal(result.turns[0]?.execution?.executedTools.length, 0);
+    assert.equal(result.runtime.appliedWrites.length, 0);
+    assert.equal(result.runtime.approvalSignals.length, 1);
+    assert.equal(result.runtime.approvalSignals[0]?.kind, 'tool-category-approval-required');
+    assert.equal(result.runtime.approvalSignals[0]?.toolCategory, 'native-stack-config-write');
+    assert.equal(await readFile(stackPath, 'utf8'), existingStackConfig);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('runSingleStep records deterministic tool execution summaries', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-tool-summary-'));
   const workspaceRoot = join(tempRoot, 'workspace');
