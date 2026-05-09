@@ -160,3 +160,54 @@ test('s3-compatible reference registry rejects unsafe env var names without echo
     assert.equal(issueText.includes(forbidden), false, forbidden);
   }
 });
+
+test('s3-compatible reference registry rejects duplicate refs and inline detail fields', () => {
+  const result = parseKnowledgeTeamS3CompatibleReferenceRegistry({
+    kind: 'infra-agent.knowledge-team-s3-compatible-reference-registry',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    storageProfiles: [
+      {
+        ref: 'team-cache-storage',
+        endpointUrlEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_ENDPOINT_URL',
+        bucketNameEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_BUCKET_NAME',
+        regionEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_REGION',
+        bucketName: 'private-team-cache'
+      },
+      {
+        ref: 'team-cache-storage',
+        endpointUrlEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_ENDPOINT_URL_2',
+        bucketNameEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_BUCKET_NAME_2',
+        regionEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_REGION_2'
+      }
+    ],
+    authProfiles: [
+      {
+        ref: 'team-cache-auth',
+        accessKeyIdEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_ACCESS_KEY_ID',
+        secretAccessKeyEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_SECRET_ACCESS_KEY',
+        secretAccessKey: 'private-secret'
+      },
+      {
+        ref: 'team-cache-auth',
+        accessKeyIdEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_ACCESS_KEY_ID_2',
+        secretAccessKeyEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_SECRET_ACCESS_KEY_2'
+      }
+    ]
+  });
+
+  assert.equal(result.ok, false);
+  const codes = new Set(result.issues.map(issue => issue.code));
+  assert.equal(codes.has('duplicate-reference'), true);
+  assert.equal(codes.has('backend-detail-leak'), true);
+
+  const issueText = JSON.stringify(result.issues);
+  for (const forbidden of [
+    'private-team-cache',
+    'private-secret',
+    'bucketName',
+    'secretAccessKey'
+  ]) {
+    assert.equal(issueText.includes(forbidden), false, forbidden);
+  }
+});
