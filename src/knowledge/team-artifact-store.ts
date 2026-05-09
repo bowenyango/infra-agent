@@ -29,6 +29,13 @@ export type KnowledgeTeamArtifactPolicyIssueCode =
   | 'unchecked-source'
   | 'unsupported-artifact-kind'
   | 'workspace-private-source';
+export type KnowledgeTeamPublicationPlanBlockerCode =
+  | KnowledgeTeamArtifactPolicyIssueCode
+  | 'artifact-hash-mismatch'
+  | 'artifact-metadata-mismatch'
+  | 'descriptor-mismatch'
+  | 'invalid-artifact-json'
+  | 'unsupported-artifact-kind';
 
 export interface KnowledgeTeamArtifactDescriptor {
   kind: 'infra-agent.knowledge-team-artifact-descriptor';
@@ -57,6 +64,61 @@ export interface KnowledgeTeamArtifactDescriptor {
     blockedSourceCount: number;
     requiredValidationCount: number;
     reason: string;
+  };
+}
+
+export interface KnowledgeTeamPublicationPlanBlocker {
+  code: KnowledgeTeamPublicationPlanBlockerCode;
+  path: string;
+  message: string;
+}
+
+export interface KnowledgeTeamPublicationPlan {
+  kind: 'infra-agent.knowledge-team-publication-plan';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  executionMode: 'dry-run';
+  remoteWriteAllowed: false;
+  credentialRequired: false;
+  uploadCommand: null;
+  plannedBackendKind: KnowledgeTeamArtifactBackendKind;
+  manifestId: KnowledgeArtifactManifest['manifestId'];
+  object: {
+    key: string;
+    sha256: string;
+    byteLength: number;
+    contentType: KnowledgeTeamArtifactContentType;
+  };
+  artifact: {
+    kind: 'infra-agent.knowledge-pack';
+    id: string;
+    sourceCount: number;
+    factCount: number;
+    staleSourceCount: number;
+    storagePolicy: KnowledgeStoragePolicySummary;
+  };
+  validation: {
+    artifactHashMatches: boolean;
+    artifactMetadataMatches: boolean;
+    descriptorProvided: boolean;
+    descriptorMatches: boolean | null;
+  };
+  publication: {
+    allowed: boolean;
+    shareableByDefault: boolean;
+    requiresExplicitOptIn: boolean;
+    publishableByDefaultSourceCount: number;
+    blockedSourceCount: number;
+    requiredValidationCount: number;
+    blockerCount: number;
+    blockerCodes: KnowledgeTeamPublicationPlanBlockerCode[];
+    blockers: KnowledgeTeamPublicationPlanBlocker[];
+    reason: string;
+  };
+  descriptor: {
+    provided: boolean;
+    reusable: boolean;
+    objectKey: string | null;
   };
 }
 
@@ -183,6 +245,18 @@ function policyIssue(
   path: string,
   message: string
 ): KnowledgeTeamArtifactPolicyIssue {
+  return {
+    code,
+    path,
+    message
+  };
+}
+
+function planBlocker(
+  code: KnowledgeTeamPublicationPlanBlockerCode,
+  path: string,
+  message: string
+): KnowledgeTeamPublicationPlanBlocker {
   return {
     code,
     path,
@@ -407,6 +481,25 @@ function assertDescriptorMatchesPack(descriptor: KnowledgeTeamArtifactDescriptor
   }
 }
 
+function descriptorMatchesPlan(input: {
+  descriptor: KnowledgeTeamArtifactDescriptor;
+  manifest: KnowledgeArtifactManifest;
+  objectKey: string;
+  byteLength: number;
+}): boolean {
+  return input.descriptor.backendKind === 'mock-s3-compatible'
+    && input.descriptor.manifestId === input.manifest.manifestId
+    && input.descriptor.object.key === input.objectKey
+    && input.descriptor.object.sha256 === input.manifest.artifact.sha256
+    && input.descriptor.object.byteLength === input.byteLength
+    && input.descriptor.object.contentType === 'application/json'
+    && input.descriptor.artifact.kind === input.manifest.artifact.kind
+    && input.descriptor.artifact.id === input.manifest.artifact.id
+    && input.descriptor.artifact.sourceCount === input.manifest.artifact.sourceCount
+    && input.descriptor.artifact.factCount === input.manifest.artifact.factCount
+    && input.descriptor.artifact.staleSourceCount === input.manifest.artifact.staleSourceCount;
+}
+
 function assertArtifactHash(expectedSha256: string, bytes: Buffer): void {
   if (hashBytes(bytes) !== expectedSha256) {
     throw new KnowledgeTeamArtifactStoreError(
@@ -457,6 +550,142 @@ function buildDescriptor(input: {
       blockedSourceCount: input.manifest.publication.blockedSources.length,
       requiredValidationCount: input.manifest.publication.requiredValidations.length,
       reason: input.manifest.publication.reason
+    }
+  };
+}
+
+export function buildKnowledgeTeamPublicationPlan(input: {
+  manifest: KnowledgeArtifactManifest;
+  artifactBytes: Buffer | string;
+  descriptor?: KnowledgeTeamArtifactDescriptor;
+  plannedBackendKind?: KnowledgeTeamArtifactBackendKind;
+}): KnowledgeTeamPublicationPlan {
+  const bytes = artifactBytes(input.artifactBytes);
+  const plannedBackendKind = input.plannedBackendKind ?? 'mock-s3-compatible';
+  const objectKey = buildKnowledgeTeamArtifactObjectKey({
+    artifactKind: input.manifest.artifact.kind,
+    sha256: input.manifest.artifact.sha256
+  });
+  const blockers: KnowledgeTeamPublicationPlanBlocker[] = [];
+  const artifactHashMatches = hashBytes(bytes) === input.manifest.artifact.sha256;
+  if (!artifactHashMatches) {
+    blockers.push(planBlocker(
+      'artifact-hash-mismatch',
+      '$.artifact.sha256',
+      'Knowledge artifact bytes do not match the manifest SHA-256.'
+    ));
+  }
+
+  let payload: unknown;
+  let pack: KnowledgePack | null = null;
+  try {
+    payload = JSON.parse(bytes.toString('utf8')) as unknown;
+    if (isKnowledgePackPayload(payload)) {
+      pack = payload;
+    } else {
+      blockers.push(planBlocker(
+        'unsupported-artifact-kind',
+        '$.artifact.payload.kind',
+        'Team publication plans currently support knowledge-pack artifacts only.'
+      ));
+    }
+  } catch {
+    blockers.push(planBlocker(
+      'invalid-artifact-json',
+      '$.artifact.payload',
+      'Knowledge artifact bytes must contain valid JSON before publication planning.'
+    ));
+  }
+
+  const artifactMetadataMatches = pack === null
+    ? false
+    : input.manifest.artifact.kind === pack.kind
+      && input.manifest.artifact.id === pack.packId
+      && input.manifest.artifact.sourceCount === pack.sourceCount
+      && input.manifest.artifact.factCount === pack.factCount
+      && input.manifest.artifact.staleSourceCount === pack.staleSourceCount
+      && sameStringSet(input.manifest.artifact.sourceIds, pack.sourceIds);
+  if (!artifactMetadataMatches) {
+    blockers.push(planBlocker(
+      'artifact-metadata-mismatch',
+      '$.artifact',
+      'Knowledge artifact manifest metadata does not match artifact bytes.'
+    ));
+  }
+
+  const policy = evaluateKnowledgeTeamArtifactPublicationPolicy({
+    manifest: input.manifest,
+    ...(pack !== null ? { payload: pack } : {})
+  });
+  blockers.push(...policy.issues.map(issue => planBlocker(issue.code, issue.path, issue.message)));
+
+  const descriptorMatches = input.descriptor === undefined
+    ? null
+    : descriptorMatchesPlan({
+        descriptor: input.descriptor,
+        manifest: input.manifest,
+        objectKey,
+        byteLength: bytes.byteLength
+      });
+  if (descriptorMatches === false) {
+    blockers.push(planBlocker(
+      'descriptor-mismatch',
+      '$.descriptor',
+      'Knowledge team artifact descriptor does not match the planned artifact object.'
+    ));
+  }
+
+  const blockerCodes = [...new Set(blockers.map(blocker => blocker.code))].sort();
+  const allowed = blockers.length === 0;
+
+  return {
+    kind: 'infra-agent.knowledge-team-publication-plan',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    executionMode: 'dry-run',
+    remoteWriteAllowed: false,
+    credentialRequired: false,
+    uploadCommand: null,
+    plannedBackendKind,
+    manifestId: input.manifest.manifestId,
+    object: {
+      key: objectKey,
+      sha256: input.manifest.artifact.sha256,
+      byteLength: bytes.byteLength,
+      contentType: 'application/json'
+    },
+    artifact: {
+      kind: 'infra-agent.knowledge-pack',
+      id: input.manifest.artifact.id,
+      sourceCount: input.manifest.artifact.sourceCount,
+      factCount: input.manifest.artifact.factCount,
+      staleSourceCount: input.manifest.artifact.staleSourceCount,
+      storagePolicy: input.manifest.artifact.storagePolicy
+    },
+    validation: {
+      artifactHashMatches,
+      artifactMetadataMatches,
+      descriptorProvided: input.descriptor !== undefined,
+      descriptorMatches
+    },
+    publication: {
+      allowed,
+      shareableByDefault: input.manifest.publication.shareableByDefault,
+      requiresExplicitOptIn: input.manifest.publication.requiresExplicitOptIn,
+      publishableByDefaultSourceCount: input.manifest.publication.publishableByDefaultSourceIds.length,
+      blockedSourceCount: input.manifest.publication.blockedSources.length,
+      requiredValidationCount: input.manifest.publication.requiredValidations.length,
+      blockerCount: blockers.length,
+      blockerCodes,
+      blockers,
+      reason: allowed
+        ? 'Artifact is eligible for an explicit future team-cache publication dry run.'
+        : 'Artifact is not eligible for team-cache publication until the listed blockers are resolved.'
+    },
+    descriptor: {
+      provided: input.descriptor !== undefined,
+      reusable: descriptorMatches === true && allowed,
+      objectKey: input.descriptor?.object.key ?? null
     }
   };
 }
