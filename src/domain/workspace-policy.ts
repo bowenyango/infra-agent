@@ -43,18 +43,18 @@ function getDefaultApprovalRequiredWriteRisks(profileId: RepoProfileId): FileWri
 }
 
 function getDefaultApprovalRequiredToolCategories(_profileId: RepoProfileId): ToolPermissionCategory[] {
-  return [];
+  return ['native-stack-config-write'];
 }
 
 function getDefaultApprovalPolicySources(profileId: RepoProfileId): string[] {
   switch (profileId) {
     case 'scrawlr-infra-apps':
-      return ['profile-default: scrawlr-infra-apps write approvals'];
+      return ['profile-default: scrawlr-infra-apps write and native stack config approvals'];
     case 'scrawlr-infra-cloud':
-      return ['profile-default: scrawlr-infra-cloud write approvals'];
+      return ['profile-default: scrawlr-infra-cloud write and native stack config approvals'];
     case 'generic':
     default:
-      return ['default: high-risk writes require approval'];
+      return ['default: high-risk writes and native stack config writes require approval'];
   }
 }
 
