@@ -83,3 +83,42 @@ test('htmlToMarkdown strips high-noise blocks before text extraction', () => {
   assert.match(markdown, /Useful docs\./);
   assert.doesNotMatch(markdown, /diagram-only|enable JavaScript|iframe|svg/i);
 });
+
+test('official doc normalization converts Pulumi input tables to Markdown tables', () => {
+  const markdown = htmlToMarkdown([
+    '<main>',
+    '<h2>Inputs</h2>',
+    '<table>',
+    '<thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>',
+    '<tbody>',
+    '<tr><td><code>bucket</code></td><td>string</td><td>Name of the bucket to create.</td></tr>',
+    '<tr><td><code>acl</code></td><td>string</td><td>Canned ACL to apply.</td></tr>',
+    '</tbody>',
+    '</table>',
+    '</main>'
+  ].join(''));
+
+  assert.match(markdown, /^## Inputs/m);
+  assert.match(markdown, /\| Name \| Type \| Description \|/);
+  assert.match(markdown, /\| --- \| --- \| --- \|/);
+  assert.match(markdown, /\| `bucket` \| string \| Name of the bucket to create\. \|/);
+  assert.match(markdown, /\| `acl` \| string \| Canned ACL to apply\. \|/);
+});
+
+test('official doc normalization converts Helm values tables to Markdown tables', () => {
+  const markdown = htmlToMarkdown([
+    '<section>',
+    '<h2>Parameters</h2>',
+    '<table>',
+    '<tr><th>Parameter</th><th>Default</th><th>Description</th><th>Required</th></tr>',
+    '<tr><td><code>image.repository</code></td><td><code>nginx</code></td><td>Container image repository.</td><td>yes</td></tr>',
+    '<tr><td><code>service.port</code></td><td><code>8080</code></td><td>Service port.</td><td>no</td></tr>',
+    '</table>',
+    '</section>'
+  ].join(''));
+
+  assert.match(markdown, /^## Parameters/m);
+  assert.match(markdown, /\| Parameter \| Default \| Description \| Required \|/);
+  assert.match(markdown, /\| `image\.repository` \| `nginx` \| Container image repository\. \| yes \|/);
+  assert.match(markdown, /\| `service\.port` \| `8080` \| Service port\. \| no \|/);
+});

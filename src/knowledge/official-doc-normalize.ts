@@ -45,6 +45,20 @@ function stripHtmlTags(value: string): string {
     .trim();
 }
 
+function stripRemainingHtml(value: string): string {
+  return decodeHtmlEntities(value.replace(/<[^>]+>/g, ' '))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .trim();
+}
+
+function htmlCellToMarkdownText(value: string): string {
+  return stripHtmlTags(value.replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, (_match, code: string) => {
+    const text = stripHtmlTags(code);
+    return text ? `\`${text.replace(/`/g, '')}\`` : '';
+  }));
+}
+
 function collapseMarkdownWhitespace(value: string): string {
   return value
     .split(/\r?\n/)
@@ -58,7 +72,7 @@ function collapseMarkdownWhitespace(value: string): string {
 function markdownTableFromHtml(tableHtml: string): string {
   const rows = Array.from(tableHtml.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi))
     .map(rowMatch => Array.from((rowMatch[1] ?? '').matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi))
-      .map(cellMatch => stripHtmlTags(cellMatch[1] ?? '').replace(/\|/g, '\\|').trim()))
+      .map(cellMatch => htmlCellToMarkdownText(cellMatch[1] ?? '').replace(/\|/g, '\\|').trim()))
     .filter(row => row.length > 0);
 
   if (rows.length === 0) {
@@ -115,7 +129,7 @@ export function htmlToMarkdown(content: string): string {
     return text ? `\n${text}\n\n` : '\n';
   });
 
-  markdown = stripHtmlTags(markdown);
+  markdown = stripRemainingHtml(markdown);
 
   return collapseMarkdownWhitespace(markdown);
 }
