@@ -43,8 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice adds an offline credential/source reference registry
-  contract for the existing private S3-compatible backend config.
+- Completed and verified. This slice adds an offline credential/source
+  reference registry contract for the existing private S3-compatible backend
+  config.
 - Scope is registry parsing, safe environment-variable-name validation,
   config-reference matching, fail-closed resolution planning, guard tests, and
   documentation only. It must not add cloud SDKs, perform network calls, read
@@ -63,20 +64,23 @@ Why this direction:
   keeps credential/source ownership explicit while preserving fail-closed real
   backend resolution.
 
-Planned checkpoints:
+Completed commits and checkpoints:
 
-1. Record the reference-registry plan and acceptance criteria.
-2. Add a private S3-compatible reference registry parser with safe defaults.
-3. Cover happy-path registry parsing and deterministic required env var names.
-4. Reject unsafe env var names, duplicate refs, and inline backend/credential
-   values without echoing private input.
-5. Validate backend configs against registry refs and produce a sanitized
-   offline summary.
-6. Integrate optional registry validation into backend adapter resolution while
-   keeping real S3-compatible adapters blocked.
-7. Extend no-SDK/no-network guards to the new registry module.
-8. Update project rules, architecture notes, roadmap, and handoff records.
-9. Run focused tests, lint/structure checks, diff check, and full verify.
+1. `5c34826` docs: record s3 reference registry plan.
+2. `378b7c2` feat: add s3 reference registry contract.
+3. `4699c7b` test: cover s3 reference registry happy path.
+4. `a4638cf` test: prove s3 registry avoids env value reads.
+5. `9119e3f` test: reject unsafe s3 registry env names.
+6. `29f39ed` test: block inline s3 registry details.
+7. `4d11768` test: block missing s3 registry refs.
+8. `6820342` feat: validate s3 refs during resolution planning.
+9. `73c5117` test: keep s3 registry resolution fail closed.
+10. `c58aadd` test: guard s3 registry runtime access.
+11. `7635c20` test: keep s3 registry out of readiness json.
+12. `e111c26` docs: document s3 reference registry boundary.
+13. `029b4a3` test: cover s3 registry shape failures.
+14. Final handoff update: record focused checks, full verification, remaining
+    risks, and next-stage plan.
 
 Acceptance criteria:
 
@@ -93,19 +97,74 @@ Acceptance criteria:
 - Public team artifact descriptor, publication-plan, index-entry,
   publication-readiness, and backend-readiness schemas remain unchanged.
 
-Current risks and constraints:
+Current design:
+
+- `src/knowledge/team-s3-compatible-reference-registry.ts` owns the private
+  registry parser and validation summary. It accepts safe storage/auth refs and
+  uppercase environment variable names for endpoint URL, bucket name, region,
+  access key id, secret access key, and optional session token.
+- The registry parser rejects unsafe registry shape, duplicate refs, unsafe env
+  var names, unknown fields, inline backend/credential fields, URLs, absolute
+  paths, and secret-shaped values without echoing private input.
+- `validateKnowledgeTeamS3CompatibleBackendReferences()` composes the existing
+  S3-compatible private config parser with the registry parser. It reports only
+  required/optional environment variable names and fixed dry-run capability
+  flags; it never reads `process.env` values.
+- `planKnowledgeTeamBackendAdapterResolution(config, { referenceRegistry })`
+  can consume registry validation as optional offline metadata. Valid refs keep
+  capability metadata structurally ready, but real `s3-compatible` resolution
+  still returns a blocked `real-backend-not-implemented` plan. Missing or unsafe
+  refs block before real adapter design.
+- Public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, and backend-readiness JSON shapes remain unchanged.
+  Registry refs and env var names are not copied into public readiness JSON.
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs` now covers the registry
+  module and blocks SDK/network imports plus direct `process.env` reads in team
+  backend contract modules.
+
+Verification completed:
+
+- Focused registry/backend tests passed:
+  `knowledge-team-s3-compatible-reference-registry.test.mjs`,
+  `knowledge-team-s3-compatible-backend-config.test.mjs`,
+  `knowledge-team-backend-adapter-resolver.test.mjs`, and
+  `knowledge-team-backend-no-sdk.test.mjs`.
+- Focused existing team-storage regressions passed:
+  `knowledge-team-backend-readiness.test.mjs`,
+  `knowledge-team-backend-readiness-validation.test.mjs`,
+  `knowledge-team-backend-adapter-conformance.test.mjs`,
+  `knowledge-team-backend-adapter-store.test.mjs`,
+  `knowledge-team-backend-adapter-index.test.mjs`,
+  `knowledge-team-backend-readiness-contract.test.mjs`,
+  `knowledge-team-artifact-public-contract.test.mjs`, and
+  `cli-knowledge-backend-readiness-main.test.mjs`.
+- Repo checks passed: `git diff --check`, `npm run lint`, and
+  `npm run test:structure`.
+- Full `npm run verify` passed. The full gate included lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. Isolated execution checked 86 shards; package dry-run
+  reported 150 packaged entries.
+
+Remaining risks and constraints:
 
 - The registry is a private contract, not a credential loader. Env var names
-  must not be confused with env var values or upload permission.
-- The existing backend readiness report must remain compact and cannot copy
-  private refs, backend details, or registry contents.
-- Guard tests must include any new backend contract module before a real SDK or
-  network path is introduced.
+  must not be confused with env var values, backend reachability, or upload
+  permission.
+- S3-compatible support still has no real client, no SDK dependency, no
+  credential lookup, no live backend probe, no upload command, and no remote
+  mutation.
+- The existing backend readiness report remains compact and must not copy
+  private refs, backend details, registry entries, or environment variable
+  names into public JSON.
+- Future real adapter work still needs a separate credential boundary,
+  explicit upload approval model, live-check policy, and mutation-gate design.
 
 Next step:
 
-- Implement the private registry parser and tests, then add config-reference
-  validation on top of it.
+- Add a dry-run CLI or file-input review path for the private reference
+  registry only if operators need local validation ergonomics. Do not build a
+  real S3 client until the credential access boundary, live-check posture, and
+  explicit upload approval model are designed and contract-tested.
 
 ## 2026-05-09 Active S3-Compatible Backend Contract Plan
 
