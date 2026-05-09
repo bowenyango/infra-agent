@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildKnowledgeTeamS3CompatibleBackendConfig,
-  parseKnowledgeTeamS3CompatibleBackendConfig
+  parseKnowledgeTeamS3CompatibleBackendConfig,
+  toKnowledgeTeamBackendReadinessConfig
 } from '../../src/knowledge/team-s3-compatible-backend-config.ts';
+import { buildKnowledgeTeamBackendReadinessReport } from '../../src/knowledge/team-backend-readiness.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 test('s3-compatible backend private config parser accepts safe structural references', () => {
   const config = buildKnowledgeTeamS3CompatibleBackendConfig({
@@ -142,4 +145,35 @@ test('s3-compatible backend private config parser rejects unsafe shape and disab
   ]) {
     assert.equal(codes.has(expected), true, expected);
   }
+});
+
+test('s3-compatible backend private config projects to existing backend readiness input without private refs', () => {
+  const privateConfig = buildKnowledgeTeamS3CompatibleBackendConfig({
+    name: 'team-cache-prod',
+    storageProfileRef: 'team-cache-storage-prod',
+    authProfileRef: 'team-cache-auth-prod'
+  });
+  const readinessInput = toKnowledgeTeamBackendReadinessConfig(privateConfig);
+  const readiness = buildKnowledgeTeamBackendReadinessReport(readinessInput);
+  const validation = validateKnowledgePayload(readiness, 'inline');
+
+  assert.deepEqual(readinessInput, {
+    kind: 'infra-agent.knowledge-team-backend-config',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    backendKind: 's3-compatible',
+    name: 'team-cache-prod',
+    artifactPrefix: 'knowledge-artifacts/v1',
+    indexPrefix: 'knowledge-index/v1',
+    credentialMode: 'environment',
+    remoteWriteDefault: false,
+    liveCheckDefault: false
+  });
+  assert.equal(readiness.readiness.status, 'ready-for-explicit-upload');
+  assert.equal(validation.valid, true);
+  const readinessText = JSON.stringify(readiness);
+  assert.equal(readinessText.includes('storageProfileRef'), false);
+  assert.equal(readinessText.includes('authProfileRef'), false);
+  assert.equal(readinessText.includes('team-cache-storage-prod'), false);
+  assert.equal(readinessText.includes('team-cache-auth-prod'), false);
 });

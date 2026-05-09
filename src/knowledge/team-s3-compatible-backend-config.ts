@@ -1,3 +1,7 @@
+import type {
+  KnowledgeTeamBackendConfig
+} from './team-backend-readiness.ts';
+
 export type KnowledgeTeamS3CompatibleBackendConfigKind =
   'infra-agent.knowledge-team-s3-compatible-backend-config';
 export type KnowledgeTeamS3CompatibleBackendConfigIssueCode =
@@ -335,5 +339,22 @@ export function parseKnowledgeTeamS3CompatibleBackendConfig(
       liveCheckDefault
     },
     issues: []
+  };
+}
+
+export function toKnowledgeTeamBackendReadinessConfig(
+  config: KnowledgeTeamS3CompatibleBackendConfig
+): KnowledgeTeamBackendConfig {
+  return {
+    kind: 'infra-agent.knowledge-team-backend-config',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    backendKind: 's3-compatible',
+    name: config.name,
+    artifactPrefix: config.artifactPrefix,
+    indexPrefix: config.indexPrefix,
+    credentialMode: config.credentialMode,
+    remoteWriteDefault: false,
+    liveCheckDefault: false
   };
 }
