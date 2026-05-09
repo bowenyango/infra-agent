@@ -39,6 +39,83 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Team Artifact Store Plan
+
+Status:
+
+- In progress. This slice implements the first Team Backend Abstraction step
+  from `docs/ROADMAP.md`: a backend-neutral, content-addressed artifact store
+  contract plus a mocked S3-compatible adapter for knowledge packs.
+- Scope is intentionally narrow. Local filesystem remains the default cache and
+  artifact persistence path. This slice does not introduce real S3/GCS/Azure,
+  network writes, credentials, buckets, endpoints, signed URLs, upload
+  commands, or automatic agent-loop publication.
+
+Why this direction:
+
+- Existing knowledge artifacts can already emit plan-only manifests with byte
+  hashes, publication posture, and validation requirements.
+- The next durable step is a storage abstraction that proves object identity,
+  privacy gating, and retrieval integrity before any real remote backend is
+  designed.
+- The Claude Code architecture lesson remains the same: pass compact,
+  validated descriptors between agents; do not pass raw docs, raw repo files,
+  credentials, or backend details through handoff surfaces.
+
+Subagent review inputs:
+
+- `Goodall` confirmed this must be a new artifact/team store layer, not an
+  expansion of the existing source-cache `KnowledgeStore`.
+- `Plato` recommended focused unit shards for store contracts, mocked
+  S3-compatible behavior, and publication policy; existing large cache/pack
+  shards should not absorb this whole feature.
+- `Pasteur` proposed a 10+ commit path with independent checkpoints covering
+  planning, types, canonical bytes, object keys, policy gates, mock adapter,
+  service round trips, descriptor validation, docs, and final verification.
+
+Planned commits and checkpoints:
+
+1. Record this active team artifact store plan in `docs/HANDOFF.md`.
+2. Add canonical knowledge artifact serialization and full-sha256 object key
+   helpers.
+3. Cover deterministic canonical bytes and secret-safe content-addressed keys.
+4. Define backend-neutral team artifact descriptor and store interfaces.
+5. Implement an in-memory mocked S3-compatible artifact store.
+6. Cover put/get/head/idempotency, key validation, conflicts, and missing
+   objects.
+7. Add team artifact publication policy checks for public-reference,
+   non-stale knowledge packs.
+8. Cover blocking workspace-private, stale, unchecked, forged, and
+   hash-mismatched artifacts.
+9. Wire high-level staging and retrieval through the mocked adapter.
+10. Cover descriptor round trips and tamper rejection without leaking paths,
+    backend details, credentials, or raw content.
+11. Extend knowledge validation to accept the compact team artifact descriptor
+    contract.
+12. Update roadmap, agent rules, bundled skill docs, README, and this handoff
+    with completed behavior and remaining risks.
+13. Run focused validation after important phases and the full `npm run verify`
+    gate before final handoff.
+
+Acceptance criteria:
+
+- Existing `knowledge pack --out --manifest-out` behavior stays local-only and
+  plan-only by default.
+- The mocked S3-compatible adapter stores and retrieves artifact bytes by a
+  full SHA-256 content address, not by local paths, source URLs, pack ids, or
+  caller-provided mutable keys.
+- Only validated, public-reference, fresh knowledge packs may be staged to the
+  team artifact store. Workspace-private, stale, unchecked, forged, or
+  hash-mismatched artifacts are rejected before any mock store write.
+- Store descriptors are compact and backend-neutral. They include kind,
+  schemaVersion, mutationAllowed=false, backend kind, object key, hash, byte
+  length, counts, storage-policy summary, and publication counts, but never
+  backend URLs, buckets, endpoints, headers, credentials, absolute workspace
+  paths, cache roots, raw docs, or raw repo content.
+- Retrieval re-hashes stored bytes and rejects tampering before returning the
+  artifact payload.
+- Full verification passes before the stage is considered complete.
+
 ## 2026-05-09 Active Official-Doc HTML Normalization Plan
 
 Status:
