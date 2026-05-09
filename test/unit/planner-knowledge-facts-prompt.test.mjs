@@ -265,10 +265,10 @@ function buildPulumiComponentKnowledgePack() {
     sourceIds: ['pulumi-component/api-service'],
     sourceCount: 1,
     factSetCount: 1,
-    factCount: 2,
-    includedFactCount: 2,
+    factCount: 3,
+    includedFactCount: 3,
     omittedFactCount: 0,
-    maxFacts: 2,
+    maxFacts: 3,
     staleSourceCount: 0,
     storagePolicy: {
       publicReference: 0,
@@ -287,7 +287,7 @@ function buildPulumiComponentKnowledgePack() {
         targetPath: 'infra/api',
         kind: 'pulumi-component',
         name: 'pulumi-component:infra/api:ApiService',
-        factCount: 2,
+        factCount: 3,
         contentHash: 'c'.repeat(64),
         fetchedAt: '1970-01-01T00:00:00.000Z',
         stale: false,
@@ -315,6 +315,18 @@ function buildPulumiComponentKnowledgePack() {
         required: true,
         type: 'string',
         values: ['image'],
+        relatedPaths: ['infra/api/components.ts']
+      },
+      {
+        kind: 'pulumi-component-child-resource',
+        path: 'component.ApiService.childResources.assets',
+        summary: 'component.ApiService.childResources.assets creates child Pulumi resource assets of type aws:s3/bucket:Bucket.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-static',
+        sourceId: 'pulumi-component/api-service',
+        sourceLocator: 'infra/api/components.ts:10: ApiService.assets',
+        type: 'aws:s3/bucket:Bucket',
+        values: ['assets', 'aws:s3/bucket:Bucket'],
         relatedPaths: ['infra/api/components.ts']
       },
       {
@@ -417,7 +429,7 @@ test('planner user prompt includes budgeted Pulumi component facts without raw s
       maxPackets: 5,
       maxTokens: 1000,
       maxExcerptChars: 1200,
-      maxFacts: 1
+      maxFacts: 2
     },
     retrievedContext: [],
     observations: [],
@@ -433,8 +445,8 @@ test('planner user prompt includes budgeted Pulumi component facts without raw s
 
   assert.equal(parsed.knowledgeFacts.kind, 'infra-agent.knowledge-facts-summary');
   assert.equal(parsed.knowledgeFacts.mutationAllowed, false);
-  assert.equal(parsed.knowledgeFacts.maxFacts, 1);
-  assert.equal(parsed.knowledgeFacts.includedFactCount, 1);
+  assert.equal(parsed.knowledgeFacts.maxFacts, 2);
+  assert.equal(parsed.knowledgeFacts.includedFactCount, 2);
   assert.equal(parsed.knowledgeFacts.omittedFactCount, 1);
   assert.equal(parsed.knowledgeFacts.sources[0]?.kind, 'pulumi-component');
   assert.equal(parsed.knowledgeFacts.sources[0]?.name, 'pulumi-component:infra/api:ApiService');
@@ -442,5 +454,8 @@ test('planner user prompt includes budgeted Pulumi component facts without raw s
   assert.equal(parsed.knowledgeFacts.facts[0]?.kind, 'pulumi-component-input');
   assert.equal(parsed.knowledgeFacts.facts[0]?.path, 'component.ApiService.inputs.image');
   assert.equal(parsed.knowledgeFacts.facts[0]?.sourceLocator, 'infra/api/components.ts:3: ApiService.image');
-  assert.doesNotMatch(prompt, /"content"\s*:|contentHash|fetchedAt|class ApiService|super\(|@pulumi\/pulumi/);
+  assert.equal(parsed.knowledgeFacts.facts[1]?.kind, 'pulumi-component-child-resource');
+  assert.equal(parsed.knowledgeFacts.facts[1]?.path, 'component.ApiService.childResources.assets');
+  assert.equal(parsed.knowledgeFacts.facts[1]?.type, 'aws:s3/bucket:Bucket');
+  assert.doesNotMatch(prompt, /"content"\s*:|contentHash|fetchedAt|class ApiService|super\(|@pulumi\/pulumi|@pulumi\/aws|bucket:\s*args\.image/);
 });
