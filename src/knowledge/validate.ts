@@ -126,6 +126,18 @@ const KNOWLEDGE_ARTIFACT_BLOCK_REASONS = [
   'stale-source',
   'workspace-private-source'
 ] as const;
+const KNOWLEDGE_TEAM_PUBLICATION_BLOCKERS = [
+  'artifact-hash-mismatch',
+  'artifact-metadata-mismatch',
+  'descriptor-mismatch',
+  'explicit-opt-in-required',
+  'forged-publication-plan',
+  'invalid-artifact-json',
+  'stale-source',
+  'unchecked-source',
+  'unsupported-artifact-kind',
+  'workspace-private-source'
+] as const;
 const INFRA_DOMAINS = ['helm', 'pulumi', 'terraform'] as const;
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
@@ -368,24 +380,24 @@ function validateNoSecretLikeValue(value: string, path: string, issues: Knowledg
   }
 }
 
-function validateNoTeamArtifactDescriptorLeakage(
+function validateNoTeamArtifactPayloadLeakage(
   value: unknown,
   path: string,
   issues: KnowledgeValidationIssue[]
 ): void {
   if (typeof value === 'string') {
     if (SECRET_VALUE_PATTERN.test(value)) {
-      issues.push(error(path, 'Knowledge team artifact descriptors must not include secret-like values.'));
+      issues.push(error(path, 'Knowledge team artifact payloads must not include secret-like values.'));
     }
     if (BACKEND_URL_PATTERN.test(value)) {
-      issues.push(error(path, 'Knowledge team artifact descriptors must not include backend URLs.'));
+      issues.push(error(path, 'Knowledge team artifact payloads must not include backend URLs.'));
     }
     return;
   }
 
   if (Array.isArray(value)) {
     value.forEach((entry, index) => {
-      validateNoTeamArtifactDescriptorLeakage(entry, `${path}[${index}]`, issues);
+      validateNoTeamArtifactPayloadLeakage(entry, `${path}[${index}]`, issues);
     });
     return;
   }
@@ -397,9 +409,9 @@ function validateNoTeamArtifactDescriptorLeakage(
   for (const [key, entry] of Object.entries(value)) {
     const entryPath = `${path}.${key}`;
     if (FORBIDDEN_TEAM_ARTIFACT_DESCRIPTOR_KEY_PATTERN.test(key)) {
-      issues.push(error(entryPath, 'Knowledge team artifact descriptors must not include backend, credential, or upload fields.'));
+      issues.push(error(entryPath, 'Knowledge team artifact payloads must not include backend, credential, or upload fields.'));
     }
-    validateNoTeamArtifactDescriptorLeakage(entry, entryPath, issues);
+    validateNoTeamArtifactPayloadLeakage(entry, entryPath, issues);
   }
 }
 
@@ -1113,7 +1125,206 @@ function validateKnowledgeTeamArtifactDescriptorPayload(
     }
   }
 
-  validateNoTeamArtifactDescriptorLeakage(payload, '$', issues);
+  validateNoTeamArtifactPayloadLeakage(payload, '$', issues);
+
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    [],
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
+    },
+    {
+      factSetCount: 0,
+      factCount: factCount ?? 0,
+      staleSourceCount: staleSourceCount ?? 0
+    }
+  );
+}
+
+function validateKnowledgeTeamPublicationPlanPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  let factCount: number | null = null;
+  let staleSourceCount: number | null = null;
+  let sourceCount: number | null = null;
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Knowledge team publication plan schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Knowledge team publication plan mutationAllowed must be false.'));
+  }
+  if (payload.executionMode !== 'dry-run') {
+    issues.push(error('$.executionMode', 'Knowledge team publication plan executionMode must be dry-run.'));
+  }
+  if (payload.remoteWriteAllowed !== false) {
+    issues.push(error('$.remoteWriteAllowed', 'Knowledge team publication plan must not allow remote writes.'));
+  }
+  if (payload.credentialRequired !== false) {
+    issues.push(error('$.credentialRequired', 'Knowledge team publication plan must not require credentials.'));
+  }
+  if (payload.uploadCommand !== null) {
+    issues.push(error('$.uploadCommand', 'Knowledge team publication plan must not include an upload command.'));
+  }
+  if (payload.plannedBackendKind !== 'mock-s3-compatible') {
+    issues.push(error('$.plannedBackendKind', 'Knowledge team publication plan plannedBackendKind must be mock-s3-compatible.'));
+  }
+  if (typeof payload.manifestId !== 'string' || !MANIFEST_ID_PATTERN.test(payload.manifestId)) {
+    issues.push(error('$.manifestId', 'Knowledge team publication plan manifestId must be a 24-character hex string.'));
+  }
+
+  if (!isRecord(payload.object)) {
+    issues.push(error('$.object', 'Knowledge team publication plan object must be an object.'));
+  } else {
+    const key = readNonEmptyString(payload.object.key, '$.object.key', issues);
+    if (key !== null && !isSafeKnowledgeTeamArtifactObjectKey(key)) {
+      issues.push(error('$.object.key', 'Knowledge team publication plan object key must be backend-safe.'));
+    }
+    if (typeof payload.object.sha256 !== 'string' || !isKnowledgeTeamArtifactSha256(payload.object.sha256)) {
+      issues.push(error('$.object.sha256', 'Knowledge team publication plan object sha256 must be a SHA-256 hex string.'));
+    }
+    readPositiveInteger(payload.object.byteLength, '$.object.byteLength', issues);
+    if (payload.object.contentType !== 'application/json') {
+      issues.push(error('$.object.contentType', 'Knowledge team publication plan contentType must be application/json.'));
+    }
+  }
+
+  if (!isRecord(payload.artifact)) {
+    issues.push(error('$.artifact', 'Knowledge team publication plan artifact must be an object.'));
+  } else {
+    if (payload.artifact.kind !== 'infra-agent.knowledge-pack') {
+      issues.push(error('$.artifact.kind', 'Knowledge team publication plans currently support knowledge-pack artifacts only.'));
+    }
+    if (typeof payload.artifact.id !== 'string' || !PACK_ID_PATTERN.test(payload.artifact.id)) {
+      issues.push(error('$.artifact.id', 'Knowledge team publication plan artifact id must be a 24-character hex string.'));
+    }
+    sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
+    factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
+    validateKnowledgeStoragePolicySummary(
+      payload.artifact.storagePolicy,
+      '$.artifact.storagePolicy',
+      issues
+    );
+  }
+
+  if (!isRecord(payload.validation)) {
+    issues.push(error('$.validation', 'Knowledge team publication plan validation must be an object.'));
+  } else {
+    readBoolean(payload.validation.artifactHashMatches, '$.validation.artifactHashMatches', issues);
+    readBoolean(payload.validation.artifactMetadataMatches, '$.validation.artifactMetadataMatches', issues);
+    readBoolean(payload.validation.descriptorProvided, '$.validation.descriptorProvided', issues);
+    if (
+      payload.validation.descriptorMatches !== null
+      && typeof payload.validation.descriptorMatches !== 'boolean'
+    ) {
+      issues.push(error('$.validation.descriptorMatches', 'Knowledge team publication plan descriptorMatches must be a boolean or null.'));
+    }
+  }
+
+  let publicationAllowed: boolean | null = null;
+  if (!isRecord(payload.publication)) {
+    issues.push(error('$.publication', 'Knowledge team publication plan publication must be an object.'));
+  } else {
+    publicationAllowed = readBoolean(payload.publication.allowed, '$.publication.allowed', issues);
+    readBoolean(payload.publication.shareableByDefault, '$.publication.shareableByDefault', issues);
+    readBoolean(payload.publication.requiresExplicitOptIn, '$.publication.requiresExplicitOptIn', issues);
+    readNonNegativeInteger(
+      payload.publication.publishableByDefaultSourceCount,
+      '$.publication.publishableByDefaultSourceCount',
+      issues
+    );
+    readNonNegativeInteger(payload.publication.blockedSourceCount, '$.publication.blockedSourceCount', issues);
+    readPositiveInteger(
+      payload.publication.requiredValidationCount,
+      '$.publication.requiredValidationCount',
+      issues
+    );
+    const blockerCount = readNonNegativeInteger(payload.publication.blockerCount, '$.publication.blockerCount', issues);
+    const blockerCodes = readStringArray(payload.publication.blockerCodes, '$.publication.blockerCodes', issues);
+    if (blockerCodes !== null) {
+      for (const [index, blockerCode] of blockerCodes.entries()) {
+        if (!KNOWLEDGE_TEAM_PUBLICATION_BLOCKERS.includes(blockerCode as typeof KNOWLEDGE_TEAM_PUBLICATION_BLOCKERS[number])) {
+          issues.push(error(`$.publication.blockerCodes[${index}]`, 'Knowledge team publication plan blocker code must be supported.'));
+        }
+      }
+    }
+    if (!Array.isArray(payload.publication.blockers)) {
+      issues.push(error('$.publication.blockers', 'Knowledge team publication plan blockers must be an array.'));
+    } else {
+      if (blockerCount !== null && blockerCount !== payload.publication.blockers.length) {
+        issues.push(error('$.publication.blockerCount', 'Knowledge team publication plan blockerCount must match blockers.length.'));
+      }
+      payload.publication.blockers.forEach((blocker, index) => {
+        const path = `$.publication.blockers[${index}]`;
+        if (!isRecord(blocker)) {
+          issues.push(error(path, 'Knowledge team publication plan blocker must be an object.'));
+          return;
+        }
+        if (
+          typeof blocker.code !== 'string'
+          || !KNOWLEDGE_TEAM_PUBLICATION_BLOCKERS.includes(blocker.code as typeof KNOWLEDGE_TEAM_PUBLICATION_BLOCKERS[number])
+        ) {
+          issues.push(error(`${path}.code`, 'Knowledge team publication plan blocker code must be supported.'));
+        }
+        readNonEmptyString(blocker.path, `${path}.path`, issues);
+        readNonEmptyString(blocker.message, `${path}.message`, issues);
+      });
+      if (publicationAllowed === true && payload.publication.blockers.length > 0) {
+        issues.push(error('$.publication.allowed', 'Allowed team publication plans must not include blockers.'));
+      }
+      if (publicationAllowed === false && payload.publication.blockers.length === 0) {
+        issues.push(error('$.publication.blockers', 'Blocked team publication plans must include at least one blocker.'));
+      }
+    }
+    readNonEmptyString(payload.publication.reason, '$.publication.reason', issues);
+  }
+
+  if (!isRecord(payload.descriptor)) {
+    issues.push(error('$.descriptor', 'Knowledge team publication plan descriptor must be an object.'));
+  } else {
+    const descriptorProvided = readBoolean(payload.descriptor.provided, '$.descriptor.provided', issues);
+    const descriptorReusable = readBoolean(payload.descriptor.reusable, '$.descriptor.reusable', issues);
+    if (
+      payload.descriptor.objectKey !== null
+      && (typeof payload.descriptor.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.descriptor.objectKey))
+    ) {
+      issues.push(error('$.descriptor.objectKey', 'Knowledge team publication plan descriptor objectKey must be backend-safe or null.'));
+    }
+    if (descriptorProvided === false && payload.descriptor.objectKey !== null) {
+      issues.push(error('$.descriptor.objectKey', 'Knowledge team publication plan descriptor objectKey must be null when no descriptor was provided.'));
+    }
+    if (descriptorReusable === true && publicationAllowed !== true) {
+      issues.push(error('$.descriptor.reusable', 'Knowledge team publication plan descriptor can be reusable only for allowed plans.'));
+    }
+  }
+
+  if (
+    publicationAllowed === true
+    && staleSourceCount !== null
+    && staleSourceCount > 0
+  ) {
+    issues.push(error('$.artifact.staleSourceCount', 'Allowed team publication plans must reference fresh artifacts.'));
+  }
+  if (
+    publicationAllowed === true
+    && sourceCount !== null
+    && isRecord(payload.publication)
+    && payload.publication.publishableByDefaultSourceCount !== sourceCount
+  ) {
+    issues.push(error('$.publication.publishableByDefaultSourceCount', 'Allowed team publication plans must publish all artifact sources by default.'));
+  }
+
+  validateNoTeamArtifactPayloadLeakage(payload, '$', issues);
 
   return createReport(
     inputPath,
@@ -1242,6 +1453,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-artifact-descriptor') {
     return validateKnowledgeTeamArtifactDescriptorPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-publication-plan') {
+    return validateKnowledgeTeamPublicationPlanPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {
