@@ -139,3 +139,47 @@ test('team publication plan contract rejects remote write and summary drift', as
     '$.workspaceRoot'
   ]);
 });
+
+test('team artifact index entry contract accepts compact generated metadata', async () => {
+  const fixture = await buildKnowledgeTeamArtifactContractFixture();
+
+  assert.ok(fixture.indexEntry);
+  const report = assertValidPayload(
+    fixture.indexEntry,
+    'infra-agent.knowledge-team-artifact-index-entry'
+  );
+
+  assert.equal(report.factCount, 1);
+  assert.equal(report.staleSourceCount, 0);
+  assert.equal(fixture.indexEntry.mutationAllowed, false);
+  assert.equal(fixture.indexEntry.backendKind, 'mock-s3-compatible');
+  assert.equal(fixture.indexEntry.index.source, 'descriptor');
+  assert.match(fixture.indexEntry.index.key, /^knowledge-index\/v1\/knowledge-pack\/sha256\/[a-f0-9]{2}\/[a-f0-9]{64}\.json$/);
+  assert.match(fixture.indexEntry.object.key, /^knowledge-artifacts\/v1\/knowledge-pack\/sha256\/[a-f0-9]{2}\/[a-f0-9]{64}\.json$/);
+});
+
+test('team artifact index entry contract rejects index and object drift', async () => {
+  const fixture = await buildKnowledgeTeamArtifactContractFixture();
+
+  assert.ok(fixture.indexEntry);
+  assertInvalidPayload({
+    ...fixture.indexEntry,
+    index: {
+      ...fixture.indexEntry.index,
+      key: `knowledge-index/v1/knowledge-pack/sha256/ff/${'f'.repeat(64)}.json`
+    },
+    object: {
+      ...fixture.indexEntry.object,
+      key: `knowledge-artifacts/v1/knowledge-pack/sha256/ee/${'e'.repeat(64)}.json`
+    },
+    sources: [{
+      id: 'raw-source'
+    }],
+    endpointUrl: 'https://s3.example.test/private'
+  }, [
+    '$.index.key',
+    '$.object.key',
+    '$.sources',
+    '$.endpointUrl'
+  ]);
+});
