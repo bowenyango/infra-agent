@@ -14,6 +14,14 @@ import {
 import { captureStdout } from '../support/capture-stdout.mjs';
 import { main } from '../../src/cli/main.ts';
 
+async function runKnowledgeCliJson(args) {
+  const output = await captureStdout(() => main(args));
+  return {
+    output,
+    report: JSON.parse(output.slice(output.indexOf('{')))
+  };
+}
+
 async function writePulumiComponentWorkspace(tempRoot) {
   const projectRoot = join(tempRoot, 'infra/api');
   await mkdir(projectRoot, { recursive: true });
@@ -52,13 +60,15 @@ async function writePulumiComponentWorkspace(tempRoot) {
   );
 }
 
+const RAW_SOURCE_PATTERN = /class ApiService|interface ApiServiceArgs|super\(|@pulumi\/pulumi|new aws\.s3\.Bucket|bucket:\s*args\.image|apiKeyBucket|rootBucket|"content"\s*:/;
+
 test('knowledge extract command emits Pulumi component child resource facts', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-extract-pulumi-component-child-'));
 
   try {
     await writePulumiComponentWorkspace(tempRoot);
 
-    const output = await captureStdout(() => main([
+    const { output, report } = await runKnowledgeCliJson([
       'knowledge',
       'extract',
       tempRoot,
@@ -67,8 +77,7 @@ test('knowledge extract command emits Pulumi component child resource facts', as
       '--target',
       'infra/api',
       '--json'
-    ]));
-    const report = JSON.parse(output.slice(output.indexOf('{')));
+    ]);
 
     assert.equal(report.kind, 'infra-agent.knowledge-extraction');
     assert.equal(report.mutationAllowed, false);
@@ -81,10 +90,7 @@ test('knowledge extract command emits Pulumi component child resource facts', as
         && fact.source.locator === 'infra/api/components.ts:12: ApiService.assets'
       )
     ));
-    assert.doesNotMatch(
-      output,
-      /class ApiService|interface ApiServiceArgs|super\(|@pulumi\/pulumi|bucket:\s*args\.image|apiKeyBucket|rootBucket|"content"\s*:/
-    );
+    assert.doesNotMatch(output, RAW_SOURCE_PATTERN);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -96,7 +102,7 @@ test('knowledge pack command includes bounded Pulumi component child resource fa
   try {
     await writePulumiComponentWorkspace(tempRoot);
 
-    const output = await captureStdout(() => main([
+    const { output, report: pack } = await runKnowledgeCliJson([
       'knowledge',
       'pack',
       tempRoot,
@@ -105,14 +111,13 @@ test('knowledge pack command includes bounded Pulumi component child resource fa
       '--target',
       'infra/api',
       '--max-facts',
-      '2',
+      '3',
       '--json'
-    ]));
-    const pack = JSON.parse(output.slice(output.indexOf('{')));
+    ]);
 
     assert.equal(pack.kind, 'infra-agent.knowledge-pack');
     assert.equal(pack.mutationAllowed, false);
-    assert.equal(pack.includedFactCount, 2);
+    assert.equal(pack.includedFactCount, 3);
     assert.ok(pack.sources.some(source =>
       source.kind === 'pulumi-component'
       && source.name === 'pulumi-component:infra/api:ApiService'
@@ -122,10 +127,8 @@ test('knowledge pack command includes bounded Pulumi component child resource fa
     assert.equal(pack.facts[1]?.kind, 'pulumi-component-child-resource');
     assert.equal(pack.facts[1]?.path, 'component.ApiService.childResources.assets');
     assert.equal(pack.facts[1]?.type, 'aws:s3/bucket:Bucket');
-    assert.doesNotMatch(
-      output,
-      /class ApiService|interface ApiServiceArgs|super\(|@pulumi\/pulumi|bucket:\s*args\.image|apiKeyBucket|rootBucket|"content"\s*:/
-    );
+    assert.equal(pack.facts[2]?.kind, 'pulumi-component-output');
+    assert.doesNotMatch(output, RAW_SOURCE_PATTERN);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
