@@ -157,7 +157,7 @@ Current progress as of 2026-05-09:
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy; HTML official-doc responses are normalized into compact Markdown cache entries in the explicit fetch path; `knowledge sources` reports fresh/stale/missing cache posture without fetching; prefetch results report previous cache posture for each source | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts plus cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, and structured local freshness summaries for stale or unchecked repo-derived facts | Non-Node Pulumi language discovery, dynamic/deeper component internals, and real team storage backends are pending |
-| Team storage | Partial | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints; public-reference knowledge packs can be staged through an injected mocked S3-compatible content-addressed store and compact descriptor validation | No real S3/GCS/Azure/Postgres backend implementation, no metadata index, and no CLI publication command |
+| Team storage | Partial | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints; public-reference knowledge packs can be staged through an injected mocked S3-compatible content-addressed store and compact descriptor validation; `knowledge publish-plan` emits a non-mutating dry-run publication plan for persisted pack manifests | No real S3/GCS/Azure/Postgres backend implementation, no metadata index, and no CLI upload/publication command |
 
 Target artifact families:
 
@@ -186,6 +186,12 @@ Target artifact families:
   counts, storage-policy summary, and publication counts without backend URLs,
   buckets, endpoints, credentials, absolute workspace paths, raw docs, or raw
   repo content.
+- `infra-agent.knowledge-team-publication-plan`: a dry-run publication review
+  artifact for persisted knowledge-pack manifests. It rechecks manifest byte
+  hash and metadata, previews the content-addressed object key, records
+  allowed/blocked publication posture, and keeps `remoteWriteAllowed=false`
+  without calling a store or including backend URLs, buckets, endpoints,
+  credentials, absolute workspace paths, raw docs, or raw repo content.
 
 Extraction rules:
 
@@ -220,15 +226,22 @@ Implemented initial CLI surfaces:
 - `infra-agent knowledge validate <facts.json|pack.json|manifest.json|descriptor.json> [--workspace <workspace>] --json`
   - validates schema, source links, count consistency, stale policy, confidence
     labels, compact pack freshness metadata, artifact manifest publication
-    posture, team artifact descriptors, local source fingerprints, and secret
-    safety before facts are used by the planner or considered for team-cache
-    staging.
+    posture, team artifact descriptors, publication-plan dry runs, local source
+    fingerprints, and secret safety before facts are used by the planner or
+    considered for team-cache staging.
 - `infra-agent knowledge pack <workspace> [--target <path>] [--out <pack.json>]
   [--manifest-out <manifest.json>] --json`
   - builds a bounded `knowledge-pack` for handoff or team cache publication.
     `--out` explicitly persists the bounded artifact without changing the
     default stdout-only behavior. `--manifest-out` writes a plan-only manifest
     that still contains no backend URL, bucket, credential, or upload command.
+- `infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>]
+  [--out <plan.json>] --json`
+  - reads a persisted artifact manifest and its referenced knowledge-pack
+    bytes, rechecks hash/metadata drift, optionally compares an existing compact
+    descriptor, and emits a dry-run team publication plan. It may write the
+    local plan file requested by `--out`, but it does not write to a mock or
+    remote store.
 
 Recommended storage layers:
 
@@ -246,8 +259,10 @@ Recommended storage layers:
   storage remains the expected first real remote backend for blobs; an injected
   mocked S3-compatible artifact store now proves content-addressed pack
   storage, retrieval integrity, and publication-policy gates without network
-  writes, buckets, endpoints, credentials, or a CLI publication command. Add
-  DynamoDB/Postgres only when query/index requirements justify it.
+  writes, buckets, endpoints, credentials, or a CLI upload command. A
+  `knowledge publish-plan` dry-run command provides a compact review artifact
+  before any real publication command exists. Add DynamoDB/Postgres only when
+  query/index requirements justify it.
 - Package-bundled: only schemas, extractors, validators, and small durable rules.
   Do not bundle full provider docs.
 
