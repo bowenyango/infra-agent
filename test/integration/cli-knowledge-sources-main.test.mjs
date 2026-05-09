@@ -38,7 +38,9 @@ import {
   exitCodeForRunPreflight,
   INFRA_AGENT_EXIT_CODES
 } from '../../src/cli/exit-codes.ts';
+import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
+import { buildKnowledgeSourcesReport } from '../../src/knowledge/sources.ts';
 
 test('knowledge sources command emits read-only source listing JSON', async () => {
   const output = await captureStdout(() => main([
@@ -353,6 +355,124 @@ test('knowledge sources command lists Pulumi component sources without raw sourc
     assert.equal(componentSource.storagePolicy.requiresExplicitOptIn, true);
     assert.ok(report.summary.local >= 1);
     assert.doesNotMatch(output, /class ApiService|interface ApiServiceArgs|super\(|@pulumi\/pulumi|"content"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge sources command reports public-doc cache freshness in JSON and text', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-sources-cache-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra-agent.config.json'),
+      JSON.stringify({
+        knowledgeCache: {
+          root: '.infra-agent/knowledge-cache'
+        }
+      }, null, 2),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'package.json'),
+      `${JSON.stringify({
+        dependencies: {
+          '@pulumi/aws': '^7.0.0',
+          '@pulumi/kubernetes': '4.20.1'
+        }
+      }, null, 2)}\n`,
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const sourceReport = await buildKnowledgeSourcesReport(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api']
+    });
+    const packageSource = sourceReport.sources.find(source =>
+      source.source.name === 'pulumi-docs:package:aws'
+    )?.source;
+    const resourceSource = sourceReport.sources.find(source =>
+      source.source.name === 'pulumi-docs:resource:aws:s3/bucket'
+    )?.source;
+    assert.ok(packageSource);
+    assert.ok(resourceSource);
+
+    await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source: packageSource,
+      contentType: 'text/markdown',
+      content: '# PACKAGE CACHE CONTENT MUST NOT LEAK',
+      fetchedAt: '2026-05-01T00:00:00.000Z',
+      staleAfter: '2099-01-01T00:00:00.000Z'
+    });
+    await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+      source: resourceSource,
+      contentType: 'text/markdown',
+      content: '# RESOURCE CACHE CONTENT MUST NOT LEAK',
+      fetchedAt: '2026-05-01T00:00:00.000Z',
+      staleAfter: '2000-01-01T00:00:00.000Z'
+    });
+
+    const jsonOutput = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/api',
+      '--json'
+    ]));
+    const jsonReport = JSON.parse(jsonOutput.slice(jsonOutput.indexOf('{')));
+    const byName = new Map(jsonReport.sources.map(source => [source.source.name, source]));
+
+    assert.equal(byName.get('pulumi-docs:package:aws')?.cacheStatus, 'fresh');
+    assert.equal(byName.get('pulumi-docs:resource:aws:s3/bucket')?.cacheStatus, 'stale');
+    assert.equal(byName.get('pulumi-docs:package:kubernetes')?.cacheStatus, 'missing');
+    assert.equal(jsonReport.summary.cacheStatus.fresh, 1);
+    assert.equal(jsonReport.summary.cacheStatus.stale, 1);
+    assert.ok(jsonReport.summary.cacheStatus.missing >= 1);
+    assert.equal(
+      jsonReport.summary.cacheStatus.refreshRecommended,
+      jsonReport.summary.cacheStatus.stale + jsonReport.summary.cacheStatus.missing
+    );
+    assert.doesNotMatch(jsonOutput, /CACHE CONTENT MUST NOT LEAK|contentHash|fetchedAt/);
+
+    const textOutput = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--target',
+      'infra/api'
+    ]));
+
+    assert.match(textOutput, /cache: fresh=1, stale=1, missing=\d+, refresh-recommended=\d+/);
+    assert.match(textOutput, /pulumi-docs:package:aws.*cache=fresh/);
+    assert.match(textOutput, /pulumi-docs:resource:aws:s3\/bucket.*cache=stale, refresh=prefetch recommended/);
+    assert.match(textOutput, /pulumi-docs:package:kubernetes.*cache=missing, refresh=prefetch recommended/);
+    assert.doesNotMatch(textOutput, /CACHE CONTENT MUST NOT LEAK|contentHash|fetchedAt/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
