@@ -5,6 +5,7 @@ import {
   buildBlockedKnowledgeTeamArtifactContractFixture,
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import { buildKnowledgeTeamPublicationReadinessReport } from '../../src/knowledge/team-artifact-store.ts';
 import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 function assertValidPayload(payload, expectedKind) {
@@ -181,5 +182,65 @@ test('team artifact index entry contract rejects index and object drift', async 
     '$.object.key',
     '$.sources',
     '$.endpointUrl'
+  ]);
+});
+
+test('team publication readiness contract accepts all generated statuses', async () => {
+  const allowedFixture = await buildKnowledgeTeamArtifactContractFixture();
+  const blockedFixture = await buildBlockedKnowledgeTeamArtifactContractFixture();
+
+  assert.ok(allowedFixture.indexEntry);
+  assert.ok(allowedFixture.alreadyPublishedReadiness);
+
+  const conflictReadiness = buildKnowledgeTeamPublicationReadinessReport({
+    plan: allowedFixture.publicationPlan,
+    indexEntry: {
+      ...allowedFixture.indexEntry,
+      object: {
+        ...allowedFixture.indexEntry.object,
+        byteLength: allowedFixture.indexEntry.object.byteLength + 1
+      }
+    }
+  });
+  const reports = [
+    allowedFixture.uploadRequiredReadiness,
+    allowedFixture.alreadyPublishedReadiness,
+    blockedFixture.uploadRequiredReadiness,
+    conflictReadiness
+  ].map(readiness =>
+    assertValidPayload(readiness, 'infra-agent.knowledge-team-publication-readiness')
+  );
+
+  assert.deepEqual(reports.map(report => report.factCount), [1, 1, 1, 1]);
+  assert.equal(allowedFixture.uploadRequiredReadiness.readiness.status, 'upload-required');
+  assert.equal(allowedFixture.uploadRequiredReadiness.readiness.nextAction, 'prepare-explicit-upload');
+  assert.equal(allowedFixture.alreadyPublishedReadiness.readiness.status, 'already-published');
+  assert.equal(allowedFixture.alreadyPublishedReadiness.readiness.nextAction, 'none');
+  assert.equal(blockedFixture.uploadRequiredReadiness.readiness.status, 'blocked');
+  assert.equal(blockedFixture.uploadRequiredReadiness.readiness.nextAction, 'resolve-blockers');
+  assert.equal(conflictReadiness.readiness.status, 'conflict');
+  assert.equal(conflictReadiness.readiness.nextAction, 'review-index-conflict');
+});
+
+test('team publication readiness contract rejects status and blocker drift', async () => {
+  const fixture = await buildKnowledgeTeamArtifactContractFixture();
+
+  assertInvalidPayload({
+    ...fixture.uploadRequiredReadiness,
+    readiness: {
+      ...fixture.uploadRequiredReadiness.readiness,
+      nextAction: 'none',
+      blockerCodes: ['index-object-mismatch']
+    },
+    object: {
+      ...fixture.uploadRequiredReadiness.object,
+      key: `knowledge-artifacts/v1/knowledge-pack/sha256/dd/${'d'.repeat(64)}.json`
+    },
+    cacheRoot: '/home/user/.cache/infra-agent'
+  }, [
+    '$.readiness.nextAction',
+    '$.readiness.blockerCodes',
+    '$.object.key',
+    '$.cacheRoot'
   ]);
 });
