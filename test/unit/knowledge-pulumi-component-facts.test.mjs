@@ -221,6 +221,7 @@ test('includes Pulumi component facts in bounded knowledge packs', async () => {
       join(projectRoot, 'components.ts'),
       [
         'import * as pulumi from "@pulumi/pulumi";',
+        'import * as aws from "@pulumi/aws";',
         'interface ApiServiceArgs {',
         '  image: string;',
         '}',
@@ -228,6 +229,7 @@ test('includes Pulumi component facts in bounded knowledge packs', async () => {
         '  public readonly endpoint: string;',
         '  constructor(name: string, args: ApiServiceArgs) {',
         '    super("pkg:index:ApiService", name, {}, undefined);',
+        '    const assets = new aws.s3.Bucket("assets", { bucket: args.image });',
         '  }',
         '}',
         ''
@@ -238,12 +240,12 @@ test('includes Pulumi component facts in bounded knowledge packs', async () => {
     const pack = await buildKnowledgePack(inspection, {
       domains: ['pulumi'],
       targetPaths: ['infra/api'],
-      maxFacts: 1
+      maxFacts: 2
     });
 
     assert.equal(pack.kind, 'infra-agent.knowledge-pack');
-    assert.equal(pack.maxFacts, 1);
-    assert.equal(pack.includedFactCount, 1);
+    assert.equal(pack.maxFacts, 2);
+    assert.equal(pack.includedFactCount, 2);
     assert.ok(pack.sources.some(source =>
       source.kind === 'pulumi-component'
       && source.targetPath === 'infra/api'
@@ -252,7 +254,11 @@ test('includes Pulumi component facts in bounded knowledge packs', async () => {
     ));
     assert.equal(pack.facts[0]?.kind, 'pulumi-component-input');
     assert.equal(pack.facts[0]?.path, 'component.ApiService.inputs.image');
-    assert.equal(pack.facts[0]?.sourceLocator, 'infra/api/components.ts:3: ApiService.image');
+    assert.equal(pack.facts[0]?.sourceLocator, 'infra/api/components.ts:4: ApiService.image');
+    assert.equal(pack.facts[1]?.kind, 'pulumi-component-child-resource');
+    assert.equal(pack.facts[1]?.path, 'component.ApiService.childResources.assets');
+    assert.equal(pack.facts[1]?.type, 'aws:s3/bucket:Bucket');
+    assert.equal(pack.facts[1]?.sourceLocator, 'infra/api/components.ts:10: ApiService.assets');
     assert.doesNotMatch(JSON.stringify(pack), /class ApiService|super\(|@pulumi\/pulumi/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
