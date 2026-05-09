@@ -1057,6 +1057,29 @@ function assertSafeMetadata(metadata: Record<string, string>): void {
   }
 }
 
+function assertSafeIndexEntry(entry: KnowledgeTeamArtifactIndexEntry, backendKind: KnowledgeTeamArtifactBackendKind): void {
+  assertSafeObjectKey(entry.index.key);
+  assertSafeObjectKey(entry.object.key);
+  if (entry.backendKind !== backendKind) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'artifact-metadata-mismatch',
+      'Knowledge team artifact index entry backend does not match the configured index.'
+    );
+  }
+  if (entry.object.contentType !== 'application/json') {
+    throw new KnowledgeTeamArtifactStoreError(
+      'invalid-content-type',
+      'Knowledge team artifact index entries only support application/json artifacts.'
+    );
+  }
+  if (!isKnowledgeTeamArtifactSha256(entry.object.sha256)) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'artifact-metadata-mismatch',
+      'Knowledge team artifact index entry object sha256 must be a SHA-256 hex digest.'
+    );
+  }
+}
+
 function cloneMetadata(metadata: Record<string, string> | undefined): Record<string, string> {
   const clone = Object.fromEntries(Object.entries(metadata ?? {}));
   assertSafeMetadata(clone);
@@ -1151,6 +1174,73 @@ export class MockS3CompatibleKnowledgeArtifactStore implements KnowledgeTeamArti
 
 export function createMockS3CompatibleKnowledgeArtifactStore(): KnowledgeTeamArtifactStore {
   return new MockS3CompatibleKnowledgeArtifactStore();
+}
+
+function cloneIndexEntry(entry: KnowledgeTeamArtifactIndexEntry): KnowledgeTeamArtifactIndexEntry {
+  return JSON.parse(JSON.stringify(entry)) as KnowledgeTeamArtifactIndexEntry;
+}
+
+function canonicalIndexEntryJson(entry: KnowledgeTeamArtifactIndexEntry): string {
+  return JSON.stringify(canonicalizeJsonValue(entry));
+}
+
+export class MockS3CompatibleKnowledgeArtifactMetadataIndex implements KnowledgeTeamArtifactMetadataIndex {
+  readonly backendKind: KnowledgeTeamArtifactBackendKind = 'mock-s3-compatible';
+
+  readonly #entries = new Map<string, KnowledgeTeamArtifactIndexEntry>();
+
+  async putEntry(entry: KnowledgeTeamArtifactIndexEntry): Promise<KnowledgeTeamArtifactIndexPutResult> {
+    assertSafeIndexEntry(entry, this.backendKind);
+
+    const cloned = cloneIndexEntry(entry);
+    const existing = this.#entries.get(cloned.index.key);
+    if (existing !== undefined) {
+      if (canonicalIndexEntryJson(existing) !== canonicalIndexEntryJson(cloned)) {
+        throw new KnowledgeTeamArtifactStoreError(
+          'object-conflict',
+          'Knowledge team artifact metadata index entry key already stores different metadata.'
+        );
+      }
+
+      return {
+        entry: cloneIndexEntry(existing),
+        alreadyPresent: true
+      };
+    }
+
+    this.#entries.set(cloned.index.key, cloned);
+    return {
+      entry: cloneIndexEntry(cloned),
+      alreadyPresent: false
+    };
+  }
+
+  async getEntry(key: string): Promise<KnowledgeTeamArtifactIndexEntry | null> {
+    assertSafeObjectKey(key);
+    const entry = this.#entries.get(key);
+    return entry === undefined ? null : cloneIndexEntry(entry);
+  }
+
+  async findEntryForObject(objectKey: string): Promise<KnowledgeTeamArtifactIndexEntry | null> {
+    assertSafeObjectKey(objectKey);
+    for (const entry of this.#entries.values()) {
+      if (entry.object.key === objectKey) {
+        return cloneIndexEntry(entry);
+      }
+    }
+
+    return null;
+  }
+
+  async listEntries(): Promise<KnowledgeTeamArtifactIndexEntry[]> {
+    return [...this.#entries.values()]
+      .sort((left, right) => left.index.key.localeCompare(right.index.key))
+      .map(entry => cloneIndexEntry(entry));
+  }
+}
+
+export function createMockS3CompatibleKnowledgeArtifactMetadataIndex(): KnowledgeTeamArtifactMetadataIndex {
+  return new MockS3CompatibleKnowledgeArtifactMetadataIndex();
 }
 
 export async function stageKnowledgePackArtifactForTeamStore(input: {
