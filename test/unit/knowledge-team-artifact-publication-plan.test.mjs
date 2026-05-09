@@ -10,6 +10,7 @@ import {
   serializeKnowledgeArtifactPayload
 } from '../../src/knowledge/team-artifact-store.ts';
 import { stageKnowledgePackArtifactForTeamStore } from '../../src/knowledge/team-artifact-store.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 function publicStoragePolicy() {
   return {
@@ -241,4 +242,58 @@ test('team publication plan dry run evaluates optional descriptor reuse without 
   assert.equal(mismatchPlan.validation.descriptorMatches, false);
   assert.equal(mismatchPlan.descriptor.reusable, false);
   assert.ok(mismatchPlan.publication.blockerCodes.includes('descriptor-mismatch'));
+});
+
+test('knowledge validation accepts allowed and blocked team publication plans', () => {
+  const allowedPack = buildPack();
+  const allowedArtifact = buildArtifact(allowedPack);
+  const allowedPlan = buildKnowledgeTeamPublicationPlan(allowedArtifact);
+
+  const blockedPack = buildPack({
+    id: 'private-source-id',
+    kind: 'chart-metadata',
+    storagePolicy: privateStoragePolicy()
+  });
+  const blockedArtifact = buildArtifact(blockedPack);
+  const blockedPlan = buildKnowledgeTeamPublicationPlan(blockedArtifact);
+
+  const allowedReport = validateKnowledgePayload(allowedPlan, 'inline');
+  assert.equal(allowedReport.inputKind, 'infra-agent.knowledge-team-publication-plan');
+  assert.equal(allowedReport.valid, true);
+  assert.equal(allowedReport.factCount, 1);
+
+  const blockedReport = validateKnowledgePayload(blockedPlan, 'inline');
+  assert.equal(blockedReport.inputKind, 'infra-agent.knowledge-team-publication-plan');
+  assert.equal(blockedReport.valid, true);
+  assert.equal(blockedReport.factCount, 1);
+});
+
+test('knowledge validation rejects forged or leaky team publication plans', () => {
+  const pack = buildPack();
+  const { artifactBytes, manifest } = buildArtifact(pack);
+  const plan = buildKnowledgeTeamPublicationPlan({
+    manifest,
+    artifactBytes
+  });
+  const report = validateKnowledgePayload({
+    ...plan,
+    remoteWriteAllowed: true,
+    credentialRequired: true,
+    uploadCommand: 'aws s3 cp pack.json s3://private-bucket',
+    bucket: 'private-team-cache',
+    endpointUrl: 'https://s3.example.test/private',
+    accessToken: 'secret-token'
+  }, 'inline');
+
+  assert.equal(report.valid, false);
+  for (const path of [
+    '$.remoteWriteAllowed',
+    '$.credentialRequired',
+    '$.uploadCommand',
+    '$.bucket',
+    '$.endpointUrl',
+    '$.accessToken'
+  ]) {
+    assert.ok(report.issues.some(issue => issue.path === path), path);
+  }
 });

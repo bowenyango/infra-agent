@@ -408,7 +408,9 @@ function validateNoTeamArtifactPayloadLeakage(
 
   for (const [key, entry] of Object.entries(value)) {
     const entryPath = `${path}.${key}`;
-    if (FORBIDDEN_TEAM_ARTIFACT_DESCRIPTOR_KEY_PATTERN.test(key)) {
+    const allowedControlField = (key === 'credentialRequired' && entry === false)
+      || (key === 'uploadCommand' && entry === null);
+    if (FORBIDDEN_TEAM_ARTIFACT_DESCRIPTOR_KEY_PATTERN.test(key) && !allowedControlField) {
       issues.push(error(entryPath, 'Knowledge team artifact payloads must not include backend, credential, or upload fields.'));
     }
     validateNoTeamArtifactPayloadLeakage(entry, entryPath, issues);
