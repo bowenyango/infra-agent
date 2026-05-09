@@ -50,6 +50,12 @@ durable project state.
 - Treat Terraform state moves, Pulumi stack imports, Pulumi aliases that affect
   replacement behavior, DNS ownership changes, and Kubernetes ownership changes
   as review-only guidance unless explicitly approved by the user.
+- Keep Pulumi validation preview-only. Do not hide local backend bootstrap,
+  `pulumi stack init`, login, refresh/import, or state operations inside
+  validation commands.
+- Require explicit `native-stack-config-write` approval before bounded native
+  Pulumi stack config writes, and do not silently initialize stacks inside that
+  write path.
 - Never commit secrets, credentials, tokens, kubeconfigs, cloud credentials, or
   secret Pulumi `secure` values.
 - Do not expose API keys or request headers in `doctor`, compact JSON, logs,

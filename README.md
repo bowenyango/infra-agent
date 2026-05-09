@@ -78,6 +78,12 @@ Every artifact produced by the agent must be validated where applicable.
 - Terraform: `terraform fmt -check`
 - Terraform: `terraform validate`
 
+Pulumi validation commands must remain preview-only. The agent loop must not
+bootstrap local Pulumi backends, run `pulumi stack init`, log in, refresh, or
+mutate state as part of validation. Bounded native Pulumi stack config writes
+use the `native-stack-config-write` tool category and require explicit approval
+before execution.
+
 If validation fails, the agent should continue iterating until the failure is resolved or a real blocker is reached.
 
 ## Current CLI Surface

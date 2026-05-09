@@ -157,6 +157,12 @@ durable design reference for infra-agent development.
 - Tool-category approval is a harness gate. Keep it explicit in workspace
   policy and run approval scope, and resume with `--approve-tool-category`
   instead of treating native operations as ordinary file writes.
+- Pulumi validation/config boundaries follow the same gate. Validation plans
+  may run preview-only commands, but they must not bootstrap local backends,
+  initialize stacks, log in, refresh/import, or mutate state. Bounded
+  `pulumi_config_set` execution is a native stack config mutation, requires
+  `native-stack-config-write` approval by default, and must operate inside the
+  session-owned `runQueryLoop` harness rather than a second Pulumi runner.
 - `approval.resume` is the compact approval-continuation surface. It may report
   the exact scoped command, primary signal, additional pending scope, write
   risks, write paths, tool categories, `pendingScope` counts, per-signal

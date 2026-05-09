@@ -103,6 +103,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Run `helm lint` when a chart is touched.
 - Run `helm template` when rendered output matters.
 - Run `pulumi preview` when Pulumi code or config changes.
+- Keep Pulumi validation preview-only. Do not run `pulumi stack init`,
+  `pulumi login`, `pulumi refresh`, `pulumi import`, state commands, local
+  backend bootstrap, or shell setup commands as validation.
 - Run `terraform fmt -check` when Terraform files change.
 - Run `terraform validate` when Terraform configuration changes.
 - Use validation failures to refine results instead of stopping after first generation.
@@ -114,6 +117,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Do not perform destructive actions without explicit instruction.
 - Respect permission and execution boundaries.
 - Treat production-targeting changes as approval-sensitive by default.
+- Treat native Pulumi stack config writes as approval-sensitive by default.
+  They must use the `native-stack-config-write` approval category and must not
+  silently initialize stacks or perform state repair.
 
 ## 14. Output Quality
 

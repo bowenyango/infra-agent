@@ -382,9 +382,13 @@ Validation should be tool-first and layered.
 - **Terraform**: `terraform fmt -check`, `terraform validate`, `terraform
   providers schema -json` where initialized, `terraform plan -json` for impact
   analysis when state/backend access is available, and optional `tflint`.
-- **Pulumi**: `pulumi preview` with local safe environment defaults, stack config
-  inspection, language checks such as `tsc` or package tests when detected, and
-  preview JSON/event parsing for replacements and dependency impact.
+- **Pulumi**: preview-only `pulumi preview` validation with local safe
+  environment defaults, stack config inspection, language checks such as `tsc`
+  or package tests when detected, and preview JSON/event parsing for
+  replacements and dependency impact. Local backend bootstrap, `pulumi stack
+  init`, login, refresh/import, and state mutation remain outside validation;
+  bounded native stack config writes require `native-stack-config-write`
+  approval.
 - **Policy**: optional `conftest`, `checkov`, or organization-specific validators
   should be workspace-configured, not hardcoded as mandatory.
 

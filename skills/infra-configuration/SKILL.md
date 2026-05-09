@@ -184,6 +184,10 @@ credentials must still come from environment variables.
   `Pulumi.yaml` or stack file dumps when choosing config keys, known types,
   defaults, and existing safe values. These facts intentionally omit secure
   stack entries and secret-like keys, and they do not replace `pulumi preview`.
+- Keep Pulumi validation preview-only. Do not bootstrap local Pulumi backends,
+  initialize stacks, log in, refresh/import, or mutate state during validation.
+  Bounded native stack config writes require `native-stack-config-write`
+  approval and must not silently initialize stacks.
 - For Pulumi Node.js/TypeScript projects, conservative
   `pulumi.ComponentResource` or imported `ComponentResource` class evidence may
   provide local `pulumi-component-input` and `pulumi-component-output` facts for
