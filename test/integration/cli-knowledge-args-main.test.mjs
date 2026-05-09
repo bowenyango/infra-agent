@@ -203,3 +203,24 @@ test('knowledge publish-plan CLI args accept manifest descriptor and output path
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.publication-plan.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge publish-readiness CLI args accept plan index entry and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'publish-readiness',
+    'artifacts/knowledge-pack.publication-plan.json',
+    '--index-entry',
+    'artifacts/knowledge-pack.index-entry.json',
+    '--out',
+    'artifacts/knowledge-pack.readiness.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'publish-readiness');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.publication-plan.json');
+  assert.equal(parsed.indexEntryInputPath, 'artifacts/knowledge-pack.index-entry.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.readiness.json');
+  assert.equal(parsed.json, true);
+});
