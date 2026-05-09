@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  mkdtemp,
+  rm
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+import {
   contentLooksLikeHtml,
   decodeHtmlEntities,
   htmlToMarkdown,
   normalizeOfficialKnowledgeContent
 } from '../../src/knowledge/official-doc-normalize.ts';
 import { fetchOfficialKnowledgeSource } from '../../src/knowledge/retrieve.ts';
+import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
+import { extractKnowledgeFactSetFromCacheEntry } from '../../src/knowledge/facts.ts';
 
 test('official doc normalization detects HTML by content type and document shape', () => {
   assert.equal(contentLooksLikeHtml('# Markdown', 'text/markdown'), false);
@@ -138,6 +146,58 @@ test('official knowledge fetcher preserves non-HTML markdown responses', async (
   assert.equal(fetched.staleAfter, '2026-05-20T00:00:00.000Z');
   assert.equal(fetched.metadata?.retrieval, 'official-url');
   assert.equal(fetched.metadata?.normalization, undefined);
+});
+
+test('normalized Pulumi resource HTML extracts argument facts without raw HTML', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-normalized-pulumi-docs-'));
+
+  try {
+    const source = {
+      kind: 'pulumi-docs',
+      name: 'pulumi-docs:resource:aws:s3/bucket',
+      packageName: '@pulumi/aws',
+      module: 'aws:s3/bucket:Bucket',
+      url: 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+    };
+    const fetched = await fetchOfficialKnowledgeSource(source, {
+      fetchedAt: '2026-05-09T00:00:00.000Z',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get: name => name.toLowerCase() === 'content-type' ? 'text/html' : null
+        },
+        text: async () => [
+          '<html><body>',
+          '<h1>Bucket</h1>',
+          '<table>',
+          '<tr><th>Name</th><th>Type</th><th>Description</th></tr>',
+          '<tr><td><code>bucket</code></td><td>string</td><td>Name of the bucket to create.</td></tr>',
+          '<tr><td><code>secretToken</code></td><td>string</td><td>Secret token should be skipped.</td></tr>',
+          '</table>',
+          '</body></html>'
+        ].join('')
+      })
+    });
+    assert.ok(fetched);
+    const entry = await writeKnowledgeCacheEntry(tempRoot, fetched);
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      now: new Date('2026-05-10T00:00:00.000Z')
+    });
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'argument'
+      && fact.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+      && fact.summary === 'Name of the bucket to create.'
+      && fact.type === 'string'
+      && fact.extractionMethod === 'pulumi-docs-markdown'
+    ));
+    assert.equal(factSet.facts.some(fact => /secretToken|Secret token/i.test(JSON.stringify(fact))), false);
+    assert.doesNotMatch(JSON.stringify(factSet), /<html|<table|<td|contentHash.*<|raw/i);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('htmlToMarkdown strips high-noise blocks before text extraction', () => {
