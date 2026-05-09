@@ -118,3 +118,43 @@ test('backend adapter resolution plan keeps real s3-compatible configs blocked a
     KnowledgeTeamBackendAdapterResolutionError
   );
 });
+
+test('backend adapter resolution plan rejects leaky real configs without echoing private fields', () => {
+  const plan = planKnowledgeTeamBackendAdapterResolution({
+    kind: 'infra-agent.knowledge-team-s3-compatible-backend-config',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    backendKind: 's3-compatible',
+    name: 'team-cache',
+    storageProfileRef: 'team-cache-storage',
+    authProfileRef: 'team-cache-auth',
+    artifactPrefix: 'knowledge-artifacts/v1',
+    indexPrefix: 'knowledge-index/v1',
+    credentialMode: 'environment',
+    remoteWriteDefault: false,
+    liveCheckDefault: false,
+    bucket: 'private-team-cache',
+    endpointUrl: 'https://s3.example.test/private',
+    accessToken: 'secret-token',
+    workspaceRoot: '/workspace/private-project'
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.backendKind, 's3-compatible');
+  assert.equal(plan.adapterName, null);
+  assert.ok(plan.issueCodes.includes('backend-detail-leak'));
+  assert.equal(plan.capabilities.artifactObjectStore, false);
+  assert.equal(plan.capabilities.metadataIndex, false);
+
+  const planText = JSON.stringify(plan);
+  for (const forbidden of [
+    'private-team-cache',
+    'https://s3.example.test/private',
+    'secret-token',
+    '/workspace/private-project',
+    'endpointUrl',
+    'accessToken'
+  ]) {
+    assert.equal(planText.includes(forbidden), false, forbidden);
+  }
+});
