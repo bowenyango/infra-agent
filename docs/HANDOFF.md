@@ -39,6 +39,67 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Team Artifact Public Contract Plan
+
+Status:
+
+- In progress. This slice hardens the public JSON contracts for compact team
+  artifact handoff payloads before any real backend adapter work starts.
+- Scope is contract tests, shared test fixtures, and minimal validator
+  hardening for existing payload families: descriptor, publication plan, index
+  entry, and publication readiness. It must not introduce real remote backends,
+  credentials, upload commands, SDKs, or live index reads/writes.
+
+Why this direction:
+
+- The team artifact store, publication plan, metadata index entry, and readiness
+  report are now agent-to-agent handoff surfaces. The Claude Code architecture
+  notes require parser-enforced contracts before downstream agents route on
+  compact JSON.
+- Contract hardening is the safest next step because it freezes the external
+  compact shapes and catches drift before a real backend adapter depends on
+  them.
+
+Planned commits and checkpoints:
+
+1. Record this active public contract plan in `docs/HANDOFF.md`.
+2. Add reusable team artifact contract fixtures under `test/support/`.
+3. Add descriptor contract tests for valid shape, mutation posture, and leak
+   rejection.
+4. Add descriptor validator hardening if the contract exposes key/hash or path
+   leakage gaps.
+5. Add publication-plan contract tests for allowed and blocked plans.
+6. Add publication-plan validator hardening for blocker-code and key/hash
+   consistency.
+7. Add index-entry contract tests for compact metadata and index-key
+   consistency.
+8. Add index-entry validator hardening for content-addressed key consistency
+   and backend/detail leakage.
+9. Add readiness contract tests for all statuses and next-action consistency.
+10. Add readiness validator hardening for blocker-code consistency and
+    status/action drift.
+11. Run focused contract/unit/integration checks and update docs if public
+    contract behavior changed.
+12. Run full `npm run verify`, then record completed commits, validation, risks,
+    and next stage in this handoff.
+
+Acceptance criteria:
+
+- Contract tests cover `infra-agent.knowledge-team-artifact-descriptor`,
+  `infra-agent.knowledge-team-publication-plan`,
+  `infra-agent.knowledge-team-artifact-index-entry`, and
+  `infra-agent.knowledge-team-publication-readiness`.
+- Validators reject malformed mutation posture, remote writes, credentials,
+  upload commands, backend URLs/buckets/endpoints/headers, absolute workspace
+  paths, cache roots, raw docs, raw repo content, unsafe object keys, and
+  content-address/key/hash drift.
+- Blocker code summaries must match blocker arrays for publication plans and
+  readiness reports.
+- Valid generated fixtures continue to pass `knowledge validate` and contract
+  tests.
+- No real backend, upload, network, credential, or live metadata index behavior
+  is introduced.
+
 ## 2026-05-09 Team Metadata Index Readiness
 
 Status:
