@@ -28,6 +28,10 @@ import {
   validatePackSourceFingerprints,
   type LocalSourceValidationStats
 } from './validation-source-fingerprints.ts';
+import {
+  isKnowledgeTeamArtifactSha256,
+  isSafeKnowledgeTeamArtifactObjectKey
+} from './team-artifact-store.ts';
 
 export interface KnowledgeValidationIssue {
   severity: 'error' | 'warning';
@@ -125,6 +129,8 @@ const KNOWLEDGE_ARTIFACT_BLOCK_REASONS = [
 const INFRA_DOMAINS = ['helm', 'pulumi', 'terraform'] as const;
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+const BACKEND_URL_PATTERN = /(?:https?:\/\/|s3:\/\/)/i;
+const FORBIDDEN_TEAM_ARTIFACT_DESCRIPTOR_KEY_PATTERN = /(bucket|endpoint|url|credential|secret|token|password|authorization|header|uploadCommand|accessKey|sessionToken)/i;
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
 const MANIFEST_ID_PATTERN = PACK_ID_PATTERN;
@@ -359,6 +365,41 @@ function validateOptionalStringArray(
 function validateNoSecretLikeValue(value: string, path: string, issues: KnowledgeValidationIssue[]): void {
   if (SECRET_VALUE_PATTERN.test(value)) {
     issues.push(error(path, 'must not include secret-like values.'));
+  }
+}
+
+function validateNoTeamArtifactDescriptorLeakage(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (typeof value === 'string') {
+    if (SECRET_VALUE_PATTERN.test(value)) {
+      issues.push(error(path, 'Knowledge team artifact descriptors must not include secret-like values.'));
+    }
+    if (BACKEND_URL_PATTERN.test(value)) {
+      issues.push(error(path, 'Knowledge team artifact descriptors must not include backend URLs.'));
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      validateNoTeamArtifactDescriptorLeakage(entry, `${path}[${index}]`, issues);
+    });
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  for (const [key, entry] of Object.entries(value)) {
+    const entryPath = `${path}.${key}`;
+    if (FORBIDDEN_TEAM_ARTIFACT_DESCRIPTOR_KEY_PATTERN.test(key)) {
+      issues.push(error(entryPath, 'Knowledge team artifact descriptors must not include backend, credential, or upload fields.'));
+    }
+    validateNoTeamArtifactDescriptorLeakage(entry, entryPath, issues);
   }
 }
 
@@ -959,6 +1000,141 @@ function validateKnowledgeArtifactManifestPayload(
   );
 }
 
+function validateKnowledgeTeamArtifactDescriptorPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  let factCount: number | null = null;
+  let staleSourceCount: number | null = null;
+  let sourceCount: number | null = null;
+  let storagePolicySummary: KnowledgeStoragePolicySummary | null = null;
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Knowledge team artifact descriptor schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Knowledge team artifact descriptor mutationAllowed must be false.'));
+  }
+  if (payload.backendKind !== 'mock-s3-compatible') {
+    issues.push(error('$.backendKind', 'Knowledge team artifact descriptor backendKind must be mock-s3-compatible.'));
+  }
+  if (typeof payload.manifestId !== 'string' || !MANIFEST_ID_PATTERN.test(payload.manifestId)) {
+    issues.push(error('$.manifestId', 'Knowledge team artifact descriptor manifestId must be a 24-character hex string.'));
+  }
+
+  if (!isRecord(payload.object)) {
+    issues.push(error('$.object', 'Knowledge team artifact descriptor object must be an object.'));
+  } else {
+    const key = readNonEmptyString(payload.object.key, '$.object.key', issues);
+    if (key !== null && !isSafeKnowledgeTeamArtifactObjectKey(key)) {
+      issues.push(error('$.object.key', 'Knowledge team artifact descriptor object key must be backend-safe.'));
+    }
+    if (typeof payload.object.sha256 !== 'string' || !isKnowledgeTeamArtifactSha256(payload.object.sha256)) {
+      issues.push(error('$.object.sha256', 'Knowledge team artifact descriptor object sha256 must be a SHA-256 hex string.'));
+    }
+    readPositiveInteger(payload.object.byteLength, '$.object.byteLength', issues);
+    if (payload.object.contentType !== 'application/json') {
+      issues.push(error('$.object.contentType', 'Knowledge team artifact descriptor contentType must be application/json.'));
+    }
+  }
+
+  if (!isRecord(payload.artifact)) {
+    issues.push(error('$.artifact', 'Knowledge team artifact descriptor artifact must be an object.'));
+  } else {
+    if (payload.artifact.kind !== 'infra-agent.knowledge-pack') {
+      issues.push(error('$.artifact.kind', 'Knowledge team artifact descriptors currently support knowledge-pack artifacts only.'));
+    }
+    if (typeof payload.artifact.id !== 'string' || !PACK_ID_PATTERN.test(payload.artifact.id)) {
+      issues.push(error('$.artifact.id', 'Knowledge team artifact descriptor artifact id must be a 24-character hex string.'));
+    }
+    sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
+    factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
+    storagePolicySummary = validateKnowledgeStoragePolicySummary(
+      payload.artifact.storagePolicy,
+      '$.artifact.storagePolicy',
+      issues
+    );
+    if (staleSourceCount !== null && staleSourceCount > 0) {
+      issues.push(error('$.artifact.staleSourceCount', 'Knowledge team artifact descriptors must reference fresh artifacts.'));
+    }
+    if (storagePolicySummary !== null && storagePolicySummary.workspacePrivate > 0) {
+      issues.push(error('$.artifact.storagePolicy.workspacePrivate', 'Knowledge team artifact descriptors must not reference workspace-private sources.'));
+    }
+  }
+
+  if (!isRecord(payload.publication)) {
+    issues.push(error('$.publication', 'Knowledge team artifact descriptor publication must be an object.'));
+  } else {
+    const shareableByDefault = readBoolean(
+      payload.publication.shareableByDefault,
+      '$.publication.shareableByDefault',
+      issues
+    );
+    const requiresExplicitOptIn = readBoolean(
+      payload.publication.requiresExplicitOptIn,
+      '$.publication.requiresExplicitOptIn',
+      issues
+    );
+    const publishableByDefaultSourceCount = readNonNegativeInteger(
+      payload.publication.publishableByDefaultSourceCount,
+      '$.publication.publishableByDefaultSourceCount',
+      issues
+    );
+    const blockedSourceCount = readNonNegativeInteger(
+      payload.publication.blockedSourceCount,
+      '$.publication.blockedSourceCount',
+      issues
+    );
+    readPositiveInteger(
+      payload.publication.requiredValidationCount,
+      '$.publication.requiredValidationCount',
+      issues
+    );
+    readNonEmptyString(payload.publication.reason, '$.publication.reason', issues);
+
+    if (shareableByDefault !== true) {
+      issues.push(error('$.publication.shareableByDefault', 'Knowledge team artifact descriptors must be shareable by default.'));
+    }
+    if (requiresExplicitOptIn !== false) {
+      issues.push(error('$.publication.requiresExplicitOptIn', 'Knowledge team artifact descriptors must not require private-source opt-in.'));
+    }
+    if (blockedSourceCount !== null && blockedSourceCount > 0) {
+      issues.push(error('$.publication.blockedSourceCount', 'Knowledge team artifact descriptors must not contain blocked sources.'));
+    }
+    if (
+      publishableByDefaultSourceCount !== null
+      && sourceCount !== null
+      && publishableByDefaultSourceCount !== sourceCount
+    ) {
+      issues.push(error('$.publication.publishableByDefaultSourceCount', 'Knowledge team artifact descriptors must publish all artifact sources by default.'));
+    }
+  }
+
+  validateNoTeamArtifactDescriptorLeakage(payload, '$', issues);
+
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    [],
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
+    },
+    {
+      factSetCount: 0,
+      factCount: factCount ?? 0,
+      staleSourceCount: staleSourceCount ?? 0
+    }
+  );
+}
+
 async function validateLocalSourceFingerprints(
   factSets: ValidatedKnowledgeFactSet[],
   workspaceRoot: string | undefined,
@@ -1062,6 +1238,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-artifact-manifest') {
     return validateKnowledgeArtifactManifestPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-artifact-descriptor') {
+    return validateKnowledgeTeamArtifactDescriptorPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {
