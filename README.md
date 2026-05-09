@@ -144,14 +144,19 @@ Current behavior is intentionally runtime-foundation oriented:
   all-protocol and ICMPv6 rules. A stable graph snapshot fixture now covers the
   cross-domain impact contract before any topology viewer work starts
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
-  Terraform/Helm official docs; it is bounded by `--max-sources` and skips
-  repo-local schema files that do not require network retrieval
+  Terraform/Helm/Pulumi official docs; it is bounded by `--max-sources` and
+  skips repo-local schema/config/code files that do not require network
+  retrieval. Prefetch results report each source's previous cache posture
+  (`local`, `fresh`, `stale`, or `missing`) without changing the cache-first
+  agent loop.
 - `knowledge sources`, `knowledge prefetch`, `knowledge extract`,
   `knowledge validate`, and `knowledge pack` provide the cache-first knowledge
   workflow. `sources` lists selected docs/local schemas/local config sources
-  without fetching and marks each source as either public-reference or
-  workspace-private for future storage/publication policy, `prefetch` aliases
-  the bounded cache update path,
+  without fetching, marks each source as either public-reference or
+  workspace-private for future storage/publication policy, and reports public
+  URL-backed cache freshness as `fresh`, `stale`, or `missing` so operators can
+  deliberately run `knowledge prefetch` only when needed. `prefetch` aliases the
+  bounded cache update path,
   `extract` turns cached docs, local schemas, local modules, local Helm chart
   metadata, cached Helm chart-doc markdown, local Pulumi config summaries, and
   conservative local Pulumi component summaries into

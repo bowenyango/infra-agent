@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice implements deliberate official-doc cache freshness
-  reporting for `knowledge sources` and clearer previous-cache posture for
-  `knowledge prefetch`.
+- Implemented; final full verification is pending. This slice adds deliberate
+  official-doc cache freshness reporting for `knowledge sources` and clearer
+  previous-cache posture for `knowledge prefetch`.
 - Scope is reporting and explicit prefetch UX only. No agent-loop live refresh,
   background network fetch, team cache backend, retrieval semantic rewrite, or
   raw cached-content exposure is in scope.
@@ -120,6 +120,51 @@ Progress log:
 - Commit 1 records this active official-doc cache freshness UX plan,
   subagent review inputs, acceptance criteria, and stage checkpoints in
   `docs/HANDOFF.md`. Focused validation: `git diff --check`.
+- Commit 2 adds the shared `resolveKnowledgeSourceCacheStatus` classifier for
+  local, missing, fresh, and stale cache posture. Focused validation:
+  `git diff --check`.
+- Commit 3 adds focused unit coverage for cache status classification. Focused
+  validation:
+  `node --experimental-strip-types test/unit/knowledge-source-cache-freshness-report.test.mjs`;
+  `git diff --check`.
+- Commit 4 extends `knowledge sources` report entries with additive
+  `cacheStatus` and source-summary cache counts using the existing
+  `KnowledgeStore` staleness semantics. Focused validation:
+  `node --experimental-strip-types -e "import('./src/knowledge/sources.ts')"`;
+  `git diff --check`.
+- Commit 5 covers source report fresh, stale, missing, and local cache posture
+  with an injected store and fixed clock. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-source-cache-freshness-report.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 6 surfaces cache freshness in `knowledge sources` text output without
+  exposing cached content, hashes, or timestamps. Focused validation:
+  `node --experimental-strip-types -e "import('./src/cli/output.ts')"`;
+  `git diff --check`.
+- Commit 7 adds CLI JSON/text coverage for source cache freshness and raw
+  cache-content exclusion. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 8 adds additive `previousCacheStatus` to `knowledge prefetch` source
+  results while preserving existing status values. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-runtime-prefetch.test.mjs`;
+  `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`;
+  `git diff --check`.
+- Commit 9 covers cached, fetched, stale-cache fallback, and local prefetch
+  previous-cache posture with injected stores/fetchers. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-runtime-prefetch.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 10 adds previous-cache summary counts and text output for prefetch
+  results. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-runtime-prefetch.test.mjs`;
+  `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`;
+  `git diff --check`.
+- Commit 11 covers CLI prefetch JSON/text previous-cache posture output.
+  Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-sources-main.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 12 updates README, roadmap, agent rules, skill docs, and this handoff
+  with the implemented official-doc cache freshness UX. Focused validation:
+  `git diff --check`.
 
 Remaining risks and constraints:
 

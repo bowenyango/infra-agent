@@ -156,11 +156,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   unchecked local sources require re-extraction or workspace validation before
   their facts are trusted.
 - Use the `infra-agent knowledge` namespace for reusable knowledge workflows:
-  `sources` to inspect selected sources, `prefetch` to deliberately refresh
-  bounded official-doc cache entries, `extract` to create fact sets from cache
-  or local schema/code sources, `validate` to check facts before use, and
-  `knowledge pack` to build bounded planner-safe fact bundles. Packs are
-  advisory context, not validator-grade proof.
+  `sources` to inspect selected sources and public official-doc cache posture,
+  `prefetch` to deliberately refresh bounded official-doc cache entries,
+  `extract` to create fact sets from cache or local schema/code sources,
+  `validate` to check facts before use, and `knowledge pack` to build bounded
+  planner-safe fact bundles. Read `knowledge sources` cache status before
+  prefetching: `fresh` means the local cache entry is currently usable,
+  `stale` or `missing` means a bounded deliberate prefetch may be useful, and
+  `local` means no official-doc fetch applies. Packs are advisory context, not
+  validator-grade proof.
 - Treat compact `knowledgeFacts` as the validated handoff surface for extracted
   provider/resource/chart/module/Pulumi-config/Pulumi-component facts. Read it
   before asking for raw docs, honor `includedFactCount`, `omittedFactCount`,

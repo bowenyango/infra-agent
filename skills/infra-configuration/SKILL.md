@@ -107,6 +107,12 @@ credentials must still come from environment variables.
    before reusing saved repo-derived facts after local files may have changed.
    Read the validation report's freshness summary for stale or unchecked local
    source posture before treating saved facts as current.
+   Use `knowledge sources` before `knowledge prefetch` to inspect public
+   official-doc cache posture without fetching: `fresh` means a cached entry is
+   available, `stale` or `missing` means deliberate bounded prefetch may be
+   useful, and `local` means no official-doc refresh applies. Prefetch result
+   sources include previous cache posture so you can distinguish already-fresh
+   cache hits from explicit refreshes or stale-cache fallbacks.
    Prefer bounded `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
@@ -170,6 +176,9 @@ credentials must still come from environment variables.
 - Prefer structured CLI output and validation results over long prose docs.
 - Treat official docs as version-sensitive; use cached or fetched official
   context only for the provider, chart, module, or package version in the repo.
+  Inspect `knowledge sources` cache posture before refreshing public docs, and
+  keep refreshes explicit through `knowledge prefetch`/`prefetch` with bounded
+  domain, target, and source limits.
 - Treat `knowledgeFacts` as a ranked compact summary: local schemas and required
   fields should appear before examples under small budgets, but facts remain
   advisory and do not replace native validation, plan, preview, or provider
