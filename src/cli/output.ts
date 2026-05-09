@@ -46,7 +46,10 @@ import type { KnowledgeSourcesReport, KnowledgeSourceReportEntry } from '../know
 import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
-import type { KnowledgeTeamPublicationPlan } from '../knowledge/team-artifact-store.ts';
+import type {
+  KnowledgeTeamPublicationPlan,
+  KnowledgeTeamPublicationReadinessReport
+} from '../knowledge/team-artifact-store.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3541,6 +3544,26 @@ export function printKnowledgeTeamPublicationPlan(plan: KnowledgeTeamPublication
   printList(
     plan.publication.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No team publication blockers.'
+  );
+}
+
+export function printKnowledgeTeamPublicationReadinessReport(report: KnowledgeTeamPublicationReadinessReport): void {
+  printHeader('Knowledge team publication readiness');
+  process.stdout.write(`status: ${report.readiness.status}\n`);
+  process.stdout.write(`next action: ${report.readiness.nextAction}\n`);
+  process.stdout.write(`publication allowed: ${report.publication.allowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution: ${report.executionMode}\n`);
+  process.stdout.write(`remote write: ${report.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`backend: ${report.plannedBackendKind}\n`);
+  process.stdout.write(`object: ${report.object.key}\n`);
+  process.stdout.write(`artifact: ${report.artifact.id}\n`);
+  process.stdout.write(`index entry: ${report.indexEntry.provided ? report.indexEntry.key : 'none'}\n`);
+  process.stdout.write(`summary: sources=${report.artifact.sourceCount}, facts=${report.artifact.factCount}, staleSources=${report.artifact.staleSourceCount}, blockers=${report.readiness.blockerCount}\n`);
+  process.stdout.write(`storage: public-reference=${report.artifact.storagePolicy.publicReference}, workspace-private=${report.artifact.storagePolicy.workspacePrivate}, shareable=${report.artifact.storagePolicy.shareableByDefault}, opt-in=${report.artifact.storagePolicy.explicitOptInRequired}\n\n`);
+  printHeader('Blockers');
+  printList(
+    report.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No team publication readiness blockers.'
   );
 }
 

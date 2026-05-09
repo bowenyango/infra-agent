@@ -13,7 +13,10 @@ import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
-import { loadKnowledgeValidationReport } from '../knowledge/validate.ts';
+import {
+  loadKnowledgeValidationReport,
+  validateKnowledgePayload
+} from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
 import {
   buildKnowledgeArtifactManifest,
@@ -22,7 +25,10 @@ import {
 } from '../knowledge/artifact-manifest.ts';
 import {
   buildKnowledgeTeamPublicationPlan,
-  type KnowledgeTeamArtifactDescriptor
+  buildKnowledgeTeamPublicationReadinessReport,
+  type KnowledgeTeamArtifactDescriptor,
+  type KnowledgeTeamArtifactIndexEntry,
+  type KnowledgeTeamPublicationPlan
 } from '../knowledge/team-artifact-store.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
@@ -45,6 +51,7 @@ import {
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
   printKnowledgePack,
+  printKnowledgeTeamPublicationReadinessReport,
   printKnowledgeTeamPublicationPlan,
   printPlannerProviderCatalogReport,
   printRunPreflight,
@@ -1318,6 +1325,53 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamPublicationPlan(plan);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'publish-readiness') {
+    if (!parsed.inputPath) {
+      fail('knowledge publish-readiness requires exactly one publication plan path.');
+    }
+
+    const planPath = resolveFromCwd(parsed.inputPath);
+    const plan = await readJsonObject(planPath) as unknown as KnowledgeTeamPublicationPlan;
+    const planReport = validateKnowledgePayload(plan, planPath);
+    if (planReport.inputKind !== 'infra-agent.knowledge-team-publication-plan' || !planReport.valid) {
+      fail('knowledge publish-readiness requires a valid team publication plan JSON file.');
+    }
+
+    const indexEntry = parsed.indexEntryInputPath
+      ? await readJsonObject(resolveFromCwd(parsed.indexEntryInputPath)) as unknown as KnowledgeTeamArtifactIndexEntry
+      : undefined;
+    if (indexEntry !== undefined) {
+      const entryReport = validateKnowledgePayload(indexEntry, parsed.indexEntryInputPath ?? 'index-entry');
+      if (entryReport.inputKind !== 'infra-agent.knowledge-team-artifact-index-entry' || !entryReport.valid) {
+        fail('knowledge publish-readiness requires a valid team artifact index entry JSON file.');
+      }
+    }
+
+    const readiness = buildKnowledgeTeamPublicationReadinessReport({
+      plan,
+      ...(indexEntry !== undefined ? { indexEntry } : {})
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), readiness)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...readiness,
+            outputPath: writtenPath
+          }
+        : readiness, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamPublicationReadinessReport(readiness);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
