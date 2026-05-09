@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import type {
   KnowledgeArtifactManifest,
@@ -84,6 +85,10 @@ export interface KnowledgeTeamArtifactStore {
 
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9/_\-.]*$/;
+const SAFE_METADATA_KEY_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,63}$/;
+const FORBIDDEN_METADATA_KEY_PATTERN = /(bucket|endpoint|url|credential|secret|token|password|authorization|header)/i;
+const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+const BACKEND_URL_PATTERN = /(?:https?:\/\/|s3:\/\/)/i;
 
 export class KnowledgeTeamArtifactStoreError extends Error {
   readonly code: KnowledgeTeamArtifactStoreErrorCode;
@@ -171,4 +176,141 @@ export function isSafeKnowledgeTeamArtifactObjectKey(key: string): boolean {
     && !key.includes('\\')
     && !key.includes('?')
     && !key.includes('#');
+}
+
+function hashBytes(bytes: Buffer): string {
+  return createHash('sha256')
+    .update(bytes)
+    .digest('hex');
+}
+
+function assertSafeObjectKey(key: string): void {
+  if (!isSafeKnowledgeTeamArtifactObjectKey(key)) {
+    throw new KnowledgeTeamArtifactStoreError(
+      'invalid-object-key',
+      'Knowledge team artifact object key is not backend-safe.'
+    );
+  }
+}
+
+function assertContentType(contentType: string): asserts contentType is KnowledgeTeamArtifactContentType {
+  if (contentType !== 'application/json') {
+    throw new KnowledgeTeamArtifactStoreError(
+      'invalid-content-type',
+      'Knowledge team artifact store only accepts application/json artifacts.'
+    );
+  }
+}
+
+function assertSafeMetadata(metadata: Record<string, string>): void {
+  for (const [key, value] of Object.entries(metadata)) {
+    if (!SAFE_METADATA_KEY_PATTERN.test(key) || FORBIDDEN_METADATA_KEY_PATTERN.test(key)) {
+      throw new KnowledgeTeamArtifactStoreError(
+        'publication-blocked',
+        'Knowledge team artifact metadata key is not safe for backend-neutral descriptors.'
+      );
+    }
+    if (SECRET_VALUE_PATTERN.test(value) || BACKEND_URL_PATTERN.test(value)) {
+      throw new KnowledgeTeamArtifactStoreError(
+        'publication-blocked',
+        'Knowledge team artifact metadata value is not safe for backend-neutral descriptors.'
+      );
+    }
+  }
+}
+
+function cloneMetadata(metadata: Record<string, string> | undefined): Record<string, string> {
+  const clone = Object.fromEntries(Object.entries(metadata ?? {}));
+  assertSafeMetadata(clone);
+  return clone;
+}
+
+interface StoredMockObject {
+  bytes: Buffer;
+  contentType: KnowledgeTeamArtifactContentType;
+  metadata: Record<string, string>;
+  sha256: string;
+}
+
+function objectHead(
+  backendKind: KnowledgeTeamArtifactBackendKind,
+  key: string,
+  object: StoredMockObject
+): KnowledgeTeamArtifactStoredObject {
+  return {
+    backendKind,
+    key,
+    sha256: object.sha256,
+    byteLength: object.bytes.byteLength,
+    contentType: object.contentType,
+    metadata: { ...object.metadata }
+  };
+}
+
+export class MockS3CompatibleKnowledgeArtifactStore implements KnowledgeTeamArtifactStore {
+  readonly backendKind: KnowledgeTeamArtifactBackendKind = 'mock-s3-compatible';
+
+  readonly #objects = new Map<string, StoredMockObject>();
+
+  async putObject(input: KnowledgeTeamArtifactPutInput): Promise<KnowledgeTeamArtifactPutResult> {
+    assertSafeObjectKey(input.key);
+    assertContentType(input.contentType);
+
+    const bytes = Buffer.from(input.bytes);
+    const metadata = cloneMetadata(input.metadata);
+    const sha256 = hashBytes(bytes);
+    const existing = this.#objects.get(input.key);
+    if (existing !== undefined) {
+      if (!existing.bytes.equals(bytes)) {
+        throw new KnowledgeTeamArtifactStoreError(
+          'object-conflict',
+          'Knowledge team artifact object key already stores different content.'
+        );
+      }
+      return {
+        ...objectHead(this.backendKind, input.key, existing),
+        alreadyPresent: true
+      };
+    }
+
+    this.#objects.set(input.key, {
+      bytes,
+      contentType: input.contentType,
+      metadata,
+      sha256
+    });
+
+    return {
+      backendKind: this.backendKind,
+      key: input.key,
+      sha256,
+      byteLength: bytes.byteLength,
+      contentType: input.contentType,
+      metadata: { ...metadata },
+      alreadyPresent: false
+    };
+  }
+
+  async headObject(key: string): Promise<KnowledgeTeamArtifactStoredObject | null> {
+    assertSafeObjectKey(key);
+    const object = this.#objects.get(key);
+    return object === undefined
+      ? null
+      : objectHead(this.backendKind, key, object);
+  }
+
+  async getObject(key: string): Promise<KnowledgeTeamArtifactStoredBytes | null> {
+    assertSafeObjectKey(key);
+    const object = this.#objects.get(key);
+    return object === undefined
+      ? null
+      : {
+          ...objectHead(this.backendKind, key, object),
+          bytes: Buffer.from(object.bytes)
+        };
+  }
+}
+
+export function createMockS3CompatibleKnowledgeArtifactStore(): KnowledgeTeamArtifactStore {
+  return new MockS3CompatibleKnowledgeArtifactStore();
 }
