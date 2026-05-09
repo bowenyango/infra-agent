@@ -36,6 +36,17 @@ export type KnowledgeTeamPublicationPlanBlockerCode =
   | 'descriptor-mismatch'
   | 'invalid-artifact-json'
   | 'unsupported-artifact-kind';
+export type KnowledgeTeamPublicationReadinessStatus =
+  | 'already-published'
+  | 'blocked'
+  | 'conflict'
+  | 'upload-required';
+export type KnowledgeTeamPublicationReadinessBlockerCode =
+  | KnowledgeTeamPublicationPlanBlockerCode
+  | 'index-artifact-mismatch'
+  | 'index-backend-mismatch'
+  | 'index-object-mismatch'
+  | 'index-publication-mismatch';
 
 export interface KnowledgeTeamArtifactDescriptor {
   kind: 'infra-agent.knowledge-team-artifact-descriptor';
@@ -122,6 +133,95 @@ export interface KnowledgeTeamPublicationPlan {
   };
 }
 
+export interface KnowledgeTeamArtifactIndexEntry {
+  kind: 'infra-agent.knowledge-team-artifact-index-entry';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  backendKind: KnowledgeTeamArtifactBackendKind;
+  sourceManifestId: KnowledgeArtifactManifest['manifestId'];
+  index: {
+    key: string;
+    source: 'descriptor';
+  };
+  object: {
+    key: string;
+    sha256: string;
+    byteLength: number;
+    contentType: KnowledgeTeamArtifactContentType;
+  };
+  artifact: {
+    kind: 'infra-agent.knowledge-pack';
+    id: string;
+    sourceCount: number;
+    factCount: number;
+    staleSourceCount: number;
+    storagePolicy: KnowledgeStoragePolicySummary;
+  };
+  publication: {
+    shareableByDefault: boolean;
+    requiresExplicitOptIn: boolean;
+    publishableByDefaultSourceCount: number;
+    blockedSourceCount: number;
+    requiredValidationCount: number;
+    reason: string;
+  };
+}
+
+export interface KnowledgeTeamPublicationReadinessBlocker {
+  code: KnowledgeTeamPublicationReadinessBlockerCode;
+  path: string;
+  message: string;
+}
+
+export interface KnowledgeTeamPublicationReadinessReport {
+  kind: 'infra-agent.knowledge-team-publication-readiness';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  executionMode: 'dry-run';
+  remoteWriteAllowed: false;
+  credentialRequired: false;
+  uploadCommand: null;
+  plannedBackendKind: KnowledgeTeamArtifactBackendKind;
+  manifestId: KnowledgeArtifactManifest['manifestId'];
+  object: {
+    key: string;
+    sha256: string;
+    byteLength: number;
+    contentType: KnowledgeTeamArtifactContentType;
+  };
+  artifact: {
+    kind: 'infra-agent.knowledge-pack';
+    id: string;
+    sourceCount: number;
+    factCount: number;
+    staleSourceCount: number;
+    storagePolicy: KnowledgeStoragePolicySummary;
+  };
+  publication: {
+    allowed: boolean;
+    blockerCount: number;
+    blockerCodes: KnowledgeTeamPublicationPlanBlockerCode[];
+  };
+  indexEntry: {
+    provided: boolean;
+    matches: boolean | null;
+    key: string | null;
+    objectKey: string | null;
+  };
+  readiness: {
+    status: KnowledgeTeamPublicationReadinessStatus;
+    nextAction:
+      | 'none'
+      | 'prepare-explicit-upload'
+      | 'resolve-blockers'
+      | 'review-index-conflict';
+    blockerCount: number;
+    blockerCodes: KnowledgeTeamPublicationReadinessBlockerCode[];
+    blockers: KnowledgeTeamPublicationReadinessBlocker[];
+    reason: string;
+  };
+}
+
 export interface KnowledgeTeamArtifactStoredObject {
   backendKind: KnowledgeTeamArtifactBackendKind;
   key: string;
@@ -175,6 +275,19 @@ export interface KnowledgeTeamArtifactRetrieveResult {
   storedObject: KnowledgeTeamArtifactStoredObject;
   payload: KnowledgePack;
   bytes: Buffer;
+}
+
+export interface KnowledgeTeamArtifactIndexPutResult {
+  entry: KnowledgeTeamArtifactIndexEntry;
+  alreadyPresent: boolean;
+}
+
+export interface KnowledgeTeamArtifactMetadataIndex {
+  readonly backendKind: KnowledgeTeamArtifactBackendKind;
+  putEntry(entry: KnowledgeTeamArtifactIndexEntry): Promise<KnowledgeTeamArtifactIndexPutResult>;
+  getEntry(key: string): Promise<KnowledgeTeamArtifactIndexEntry | null>;
+  findEntryForObject(objectKey: string): Promise<KnowledgeTeamArtifactIndexEntry | null>;
+  listEntries(): Promise<KnowledgeTeamArtifactIndexEntry[]>;
 }
 
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
@@ -297,6 +410,18 @@ export function buildKnowledgeTeamArtifactObjectKey(input: {
 
   const family = artifactFamily(input.artifactKind);
   return `knowledge-artifacts/v1/${family}/sha256/${input.sha256.slice(0, 2)}/${input.sha256}.json`;
+}
+
+export function buildKnowledgeTeamArtifactIndexEntryKey(input: {
+  artifactKind: KnowledgeArtifactPayload['kind'];
+  sha256: string;
+}): string {
+  if (!isKnowledgeTeamArtifactSha256(input.sha256)) {
+    throw new Error('Knowledge team artifact index entry key requires a SHA-256 hex digest.');
+  }
+
+  const family = artifactFamily(input.artifactKind);
+  return `knowledge-index/v1/${family}/sha256/${input.sha256.slice(0, 2)}/${input.sha256}.json`;
 }
 
 export function isSafeKnowledgeTeamArtifactObjectKey(key: string): boolean {
