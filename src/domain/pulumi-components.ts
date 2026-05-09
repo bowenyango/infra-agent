@@ -5,8 +5,9 @@ import {
   shouldIgnoreDirectory
 } from '../tools/repository/repository-tools.ts';
 import { buildKnowledgeCacheId } from '../knowledge/cache.ts';
+import { extractPulumiLanguageResourceTokens } from './pulumi-resource-tokens.ts';
 import type { KnowledgeSource } from '../types/knowledge.ts';
-import type { PulumiProjectSummary } from '../types/repository.ts';
+import type { PulumiProjectSummary, PulumiResourceTokenSummary } from '../types/repository.ts';
 
 export interface PulumiComponentInputSummary {
   name: string;
@@ -23,6 +24,16 @@ export interface PulumiComponentOutputSummary {
   type?: string;
 }
 
+export interface PulumiComponentChildResourceSummary {
+  name: string;
+  type: string;
+  packageName: string;
+  moduleName: string;
+  typeName: string;
+  sourcePath: string;
+  sourceLocator: string;
+}
+
 export interface PulumiComponentSummary {
   className: string;
   sourcePath: string;
@@ -31,6 +42,7 @@ export interface PulumiComponentSummary {
   argsType?: string;
   inputs: PulumiComponentInputSummary[];
   outputs: PulumiComponentOutputSummary[];
+  childResources: PulumiComponentChildResourceSummary[];
 }
 
 export interface PulumiComponentKnowledgeSummary extends PulumiComponentSummary {
@@ -392,6 +404,71 @@ function parseOutputProperties(input: {
   return outputs.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function resourceTokenLine(token: PulumiResourceTokenSummary): number | null {
+  const locator = token.evidence?.sourceLocator;
+  if (!locator) {
+    return null;
+  }
+
+  const line = Number.parseInt(locator.split(':').at(-1) ?? '', 10);
+  return Number.isInteger(line) && line > 0 ? line : null;
+}
+
+function toPulumiComponentChildResourceSummary(
+  token: PulumiResourceTokenSummary
+): PulumiComponentChildResourceSummary | null {
+  const sourcePath = token.evidence?.sourcePath;
+  const sourceLocator = token.evidence?.sourceLocator;
+  if (!sourcePath || !sourceLocator) {
+    return null;
+  }
+
+  return {
+    name: token.name,
+    type: token.type,
+    packageName: token.packageName,
+    moduleName: token.moduleName,
+    typeName: token.typeName,
+    sourcePath,
+    sourceLocator
+  };
+}
+
+function childResourcesForClass(input: {
+  resourceTokens: PulumiResourceTokenSummary[];
+  startLine: number;
+  endLine: number;
+}): PulumiComponentChildResourceSummary[] {
+  const resources: PulumiComponentChildResourceSummary[] = [];
+  const seen = new Set<string>();
+
+  for (const token of input.resourceTokens) {
+    const line = resourceTokenLine(token);
+    if (line === null || line < input.startLine || line > input.endLine) {
+      continue;
+    }
+
+    const summary = toPulumiComponentChildResourceSummary(token);
+    if (!summary) {
+      continue;
+    }
+
+    const key = `${summary.name}\0${summary.type}\0${summary.sourceLocator}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    resources.push(summary);
+  }
+
+  return resources.sort((left, right) =>
+    left.type.localeCompare(right.type)
+    || left.name.localeCompare(right.name)
+    || left.sourceLocator.localeCompare(right.sourceLocator)
+  );
+}
+
 export function extractPulumiComponentSummaries(
   content: string,
   options: {
@@ -400,6 +477,7 @@ export function extractPulumiComponentSummaries(
 ): PulumiComponentSummary[] {
   const maskedContent = maskComments(content);
   const bindings = collectPulumiBindings(maskedContent);
+  const resourceTokens = extractPulumiLanguageResourceTokens(content, options);
   const components: PulumiComponentSummary[] = [];
   const seen = new Set<string>();
 
@@ -423,7 +501,9 @@ export function extractPulumiComponentSummaries(
     const classBody = content.slice(openBraceIndex + 1, closeBraceIndex);
     const argsType = parseConstructorArgsType(classBody);
     const typeToken = parseComponentTypeToken(classBody);
-    const sourceLocator = `${options.sourcePath}:${lineNumberAt(content, match.index)}`;
+    const startLine = lineNumberAt(content, match.index);
+    const endLine = lineNumberAt(content, closeBraceIndex);
+    const sourceLocator = `${options.sourcePath}:${startLine}`;
     const key = `${className}\0${sourceLocator}`;
     if (seen.has(key)) {
       continue;
@@ -448,6 +528,11 @@ export function extractPulumiComponentSummaries(
         classBody,
         classBodyOffset: openBraceIndex + 1,
         sourcePath: options.sourcePath
+      }),
+      childResources: childResourcesForClass({
+        resourceTokens,
+        startLine,
+        endLine
       })
     });
   }

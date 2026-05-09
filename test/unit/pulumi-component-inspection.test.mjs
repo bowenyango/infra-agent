@@ -103,6 +103,71 @@ test('extracts Pulumi components from direct ComponentResource imports', () => {
   assert.equal(summaries[0]?.outputs[0]?.name, 'queueUrl');
 });
 
+test('extracts child resources declared inside Pulumi component classes', () => {
+  const summaries = extractPulumiComponentSummaries([
+    'import * as pulumi from "@pulumi/pulumi";',
+    'import * as aws from "@pulumi/aws";',
+    'import { Bucket } from "@pulumi/aws/s3";',
+    'const k8s = require("@pulumi/kubernetes");',
+    '',
+    'class ApiService extends pulumi.ComponentResource {',
+    '  public readonly endpoint: pulumi.Output<string>;',
+    '  constructor(name: string, args: ApiServiceArgs) {',
+    '    super("pkg:index:ApiService", name, {}, undefined);',
+    '    const assets = new aws.s3.Bucket("assets", { bucket: name });',
+    '    const logs = new Bucket("logs", {});',
+    '    const deployment = new k8s.apps.v1.Deployment("api-deploy", {});',
+    '    const ignored = "new aws.s3.Bucket(\\"stringBucket\\", {})";',
+    '    // new aws.s3.Bucket("commentBucket", {});',
+    '  }',
+    '}',
+    '',
+    'new aws.s3.Bucket("rootBucket", {});',
+    ''
+  ].join('\n'), {
+    sourcePath: 'infra/api/components.ts'
+  });
+
+  assert.equal(summaries.length, 1);
+  assert.deepEqual(summaries[0]?.childResources.map(resource => ({
+    name: resource.name,
+    type: resource.type,
+    packageName: resource.packageName,
+    moduleName: resource.moduleName,
+    typeName: resource.typeName
+  })), [
+    {
+      name: 'assets',
+      type: 'aws:s3/bucket:Bucket',
+      packageName: 'aws',
+      moduleName: 's3/bucket',
+      typeName: 'Bucket'
+    },
+    {
+      name: 'logs',
+      type: 'aws:s3/bucket:Bucket',
+      packageName: 'aws',
+      moduleName: 's3/bucket',
+      typeName: 'Bucket'
+    },
+    {
+      name: 'api-deploy',
+      type: 'kubernetes:apps/v1:Deployment',
+      packageName: 'kubernetes',
+      moduleName: 'apps/v1',
+      typeName: 'Deployment'
+    }
+  ]);
+  assert.ok(summaries[0]?.childResources.every(resource =>
+    resource.sourcePath === 'infra/api/components.ts'
+    && resource.sourceLocator.startsWith('infra/api/components.ts:')
+  ));
+  assert.doesNotMatch(
+    JSON.stringify(summaries[0]?.childResources),
+    /rootBucket|stringBucket|commentBucket/
+  );
+});
+
 test('ignores commented components and secret-like component fields', () => {
   const summaries = extractPulumiComponentSummaries([
     'import * as pulumi from "@pulumi/pulumi";',
@@ -203,6 +268,7 @@ test('builds Pulumi component knowledge sources and summary content', async () =
     assert.equal(summary.typeToken, 'pkg:index:ApiService');
     assert.deepEqual(summary.inputs.map(input => input.name), ['image']);
     assert.deepEqual(summary.outputs.map(output => output.name), ['endpoint']);
+    assert.deepEqual(summary.childResources, []);
     assert.doesNotMatch(content, /class ApiService|super\(|@pulumi\/pulumi|TestOnly/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
