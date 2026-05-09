@@ -7,6 +7,7 @@ import type {
   RetrievedContextPacket
 } from '../types/knowledge.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
+import { normalizeOfficialKnowledgeContent } from './official-doc-normalize.ts';
 import { isPublicReferenceCapableSourceKind } from './storage-policy.ts';
 
 export type KnowledgeFetcher = (source: KnowledgeSource) => Promise<KnowledgeCacheWrite | null>;
@@ -157,17 +158,24 @@ export async function fetchOfficialKnowledgeSource(
 
   const fetchImpl = options.fetchImpl ?? (fetch as unknown as (url: string) => Promise<FetchResponseLike>);
   const response = await fetchImpl(source.url);
+  const contentTypeHeader = response.headers.get('content-type');
 
   if (!response.ok) {
     throw new Error(`Failed to fetch knowledge source ${source.url}: ${response.status} ${response.statusText}`);
   }
 
+  const normalized = normalizeOfficialKnowledgeContent({
+    content: await response.text(),
+    contentType: normalizeContentType(contentTypeHeader),
+    contentTypeHeader
+  });
   const write: KnowledgeCacheWrite = {
     source,
-    contentType: normalizeContentType(response.headers.get('content-type')),
-    content: await response.text(),
+    contentType: normalized.contentType,
+    content: normalized.content,
     metadata: {
-      retrieval: 'official-url'
+      retrieval: 'official-url',
+      ...(normalized.normalization ? { normalization: normalized.normalization } : {})
     }
   };
 
