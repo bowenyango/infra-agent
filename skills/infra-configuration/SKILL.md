@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -142,6 +142,11 @@ credentials must still come from environment variables.
    private backend config for future explicit-upload design; it does not
    perform live backend checks, read credential values, write remote objects,
    mutate a metadata index, emit an upload command, or approve upload.
+   Use `knowledge backend-reference-readiness` only as a dry-run review of a
+   private S3-compatible backend config against a private reference registry;
+   it may report required environment variable names, but it does not read
+   their values, validate credential presence, probe backend reachability, or
+   approve upload.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or
