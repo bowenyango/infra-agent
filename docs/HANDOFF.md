@@ -43,9 +43,8 @@ Current guardrails:
 
 Status:
 
-- Implementation complete; full verification pending. This slice pauses feature
-  expansion and repairs the Pulumi validation/config safety boundary found
-  during the project review.
+- Completed. This slice paused feature expansion and repaired the Pulumi
+  validation/config safety boundary found during the project review.
 - The core goal is to keep agent-loop validation read-only, require explicit
   approval for bounded native Pulumi stack config writes, and align docs,
   result surfaces, tests, and handoff notes with that boundary.
@@ -151,6 +150,15 @@ Progress log:
   architecture notes, and the bundled infra skill to clarify preview-only
   Pulumi validation and default native stack config approval. Focused
   validation: `git diff --check`.
+- Commit 12 aligns smoke coverage with the new boundary: the smoke script now
+  verifies unapproved Pulumi stack config writes stop at the approval gate, then
+  prepares explicit temporary stack context before exercising an approved
+  bounded `pulumi_config_set` write. Focused validation: `npm run smoke`;
+  `git diff --check`.
+- Commit 13 records final verification results in this handoff. Full
+  validation: `npm run verify` passed lint, test structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+  Coverage summary: 89.04% lines, 77.86% branches, 96.28% functions.
 
 Design decisions:
 
@@ -164,6 +172,10 @@ Design decisions:
   session harness boundary and explicit stack context at execution time.
 - Knowledge pack text output now matches compact/JSON freshness posture by
   reporting unchecked source counts without exposing raw source content.
+- The first full verification attempt exposed the old smoke assumption that
+  approved Pulumi config writes implicitly initialized local stack context. The
+  fix kept the product boundary intact by updating smoke setup, not by
+  restoring hidden stack initialization in production code.
 
 Remaining risks and constraints:
 
