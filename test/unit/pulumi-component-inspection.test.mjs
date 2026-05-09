@@ -210,6 +210,7 @@ test('builds Pulumi component knowledge sources and summary content', async () =
       join(projectRoot, 'components.ts'),
       [
         'import * as pulumi from "@pulumi/pulumi";',
+        'import * as aws from "@pulumi/aws";',
         '',
         'export interface ApiServiceArgs {',
         '  image: string;',
@@ -219,6 +220,7 @@ test('builds Pulumi component knowledge sources and summary content', async () =
         '  public readonly endpoint: string;',
         '  constructor(name: string, args: ApiServiceArgs) {',
         '    super("pkg:index:ApiService", name, {}, undefined);',
+        '    const assets = new aws.s3.Bucket("assets", { bucket: args.image });',
         '  }',
         '}',
         ''
@@ -268,8 +270,21 @@ test('builds Pulumi component knowledge sources and summary content', async () =
     assert.equal(summary.typeToken, 'pkg:index:ApiService');
     assert.deepEqual(summary.inputs.map(input => input.name), ['image']);
     assert.deepEqual(summary.outputs.map(output => output.name), ['endpoint']);
-    assert.deepEqual(summary.childResources, []);
-    assert.doesNotMatch(content, /class ApiService|super\(|@pulumi\/pulumi|TestOnly/);
+    assert.deepEqual(summary.childResources.map(resource => ({
+      name: resource.name,
+      type: resource.type,
+      sourceLocator: resource.sourceLocator
+    })), [
+      {
+        name: 'assets',
+        type: 'aws:s3/bucket:Bucket',
+        sourceLocator: 'infra/api/components.ts:12'
+      }
+    ]);
+    assert.doesNotMatch(
+      content,
+      /class ApiService|super\(|@pulumi\/pulumi|@pulumi\/aws|bucket:\s*args\.image|TestOnly/
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
