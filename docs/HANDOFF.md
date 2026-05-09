@@ -43,8 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice pauses feature expansion and repairs the Pulumi
-  validation/config safety boundary found during the project review.
+- Implementation complete; full verification pending. This slice pauses feature
+  expansion and repairs the Pulumi validation/config safety boundary found
+  during the project review.
 - The core goal is to keep agent-loop validation read-only, require explicit
   approval for bounded native Pulumi stack config writes, and align docs,
   result surfaces, tests, and handoff notes with that boundary.
@@ -95,6 +96,74 @@ Planned commits and checkpoints:
 11. Refresh this handoff with completed checkpoints, remaining risks, and
     focused verification results.
 12. Run the full verification gate and record final results before handoff.
+
+Progress log:
+
+- Commit 1 records this active remediation plan, subagent inputs, architecture
+  boundary, and acceptance checkpoints in `docs/HANDOFF.md`. Focused
+  validation: `git diff --check`.
+- Commit 2 tightens `classifyUnsafeValidationCommand` so shell setup,
+  `pulumi stack init/select`, `pulumi login`, and `pulumi config set/rm` are
+  unsafe validation commands, while plain `pulumi preview` remains allowed.
+  Focused validation:
+  `node --experimental-strip-types --test test/unit/tool-execution-validation.test.mjs`;
+  `git diff --check`.
+- Commit 3 removes validation-time `mkdir` and `pulumi stack init` bootstrap
+  from default Pulumi preflight commands. Focused validation:
+  `node --experimental-strip-types --test test/unit/workspace-profile-targeting.test.mjs`;
+  `node --experimental-strip-types --test test/unit/tool-execution-validation.test.mjs`;
+  `git diff --check`.
+- Commit 4 adds preflight regression coverage proving generated Pulumi
+  validation commands are preview-only and pass the unsafe-command classifier.
+  Focused validation:
+  `node --experimental-strip-types --test test/unit/workspace-profile-targeting.test.mjs`;
+  `node --experimental-strip-types --test test/unit/tool-execution-validation.test.mjs`;
+  `git diff --check`.
+- Commit 5 makes `native-stack-config-write` approval required by default in
+  workspace policy. Focused validation:
+  `node --experimental-strip-types --test test/unit/workspace-approval-policy.test.mjs`;
+  `git diff --check`.
+- Commit 6 covers the default native stack config approval policy and the
+  default approval signal for Pulumi config operations. Focused validation:
+  `node --experimental-strip-types --test test/unit/workspace-approval-policy.test.mjs`;
+  `git diff --check`.
+- Commit 7 adds runtime coverage proving `runSingleStep` stops at the
+  `native-stack-config-write` approval gate before any Pulumi config-set tool
+  execution. Focused validation:
+  `node --experimental-strip-types --test test/integration/agent-runtime-execution.test.mjs`;
+  `git diff --check`.
+- Commit 8 removes implicit `mkdir` and `pulumi stack init` from
+  `PulumiConfigSetTool`; the direct tool test now prepares explicit temporary
+  stack context before invoking the bounded native CLI write. Focused
+  validation:
+  `node --experimental-strip-types test/unit/tool-execution-validation.test.mjs`;
+  `node --experimental-strip-types --test test/integration/agent-runtime-execution.test.mjs`;
+  `git diff --check`.
+- Commit 9 adds `uncheckedSources` to `knowledge pack` text summaries. Focused
+  validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`;
+  `git diff --check`.
+- Commit 10 adds a dedicated text-mode knowledge pack integration shard without
+  growing the larger JSON pack shard. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pack-text-main.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 11 updates `AGENTS.md`, README, agent rules, roadmap, Claude Code
+  architecture notes, and the bundled infra skill to clarify preview-only
+  Pulumi validation and default native stack config approval. Focused
+  validation: `git diff --check`.
+
+Design decisions:
+
+- Validation command generation no longer performs Pulumi local-state setup.
+  If preview requires missing backend/stack context, that is a blocker or
+  operator handoff instead of an agent-loop bootstrap step.
+- Validation command safety now rejects shell setup and Pulumi stack/config
+  mutations before `validate_targets` executes any command.
+- `pulumi_config_set` remains a bounded native stack config tool, but it no
+  longer initializes stacks internally. It requires explicit approval at the
+  session harness boundary and explicit stack context at execution time.
+- Knowledge pack text output now matches compact/JSON freshness posture by
+  reporting unchecked source counts without exposing raw source content.
 
 Remaining risks and constraints:
 
