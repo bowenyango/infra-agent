@@ -1,5 +1,9 @@
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
-import { buildKnowledgeCacheId } from './cache.ts';
+import {
+  resolveKnowledgeSourceCacheStatus,
+  type KnowledgeSourceCacheStatus
+} from './cache-status.ts';
+import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 import {
   resolveKnowledgeStoragePolicy,
   summarizeKnowledgeStoragePolicies,
@@ -14,6 +18,7 @@ export interface KnowledgeSourceReportEntry {
   domain: InfraDomainId;
   targetPath: string;
   requiresFetch: boolean;
+  cacheStatus: KnowledgeSourceCacheStatus;
   storagePolicy: KnowledgeStoragePolicy;
   source: KnowledgeSource;
 }
@@ -30,6 +35,13 @@ export interface KnowledgeSourcesReport {
   summary: {
     local: number;
     external: number;
+    cacheStatus: {
+      local: number;
+      fresh: number;
+      stale: number;
+      missing: number;
+      refreshRecommended: number;
+    };
     storagePolicy: KnowledgeStoragePolicySummary;
     byDomain: Partial<Record<InfraDomainId, number>>;
   };
@@ -45,6 +57,15 @@ function summarizeSources(sources: KnowledgeSourceReportEntry[]): KnowledgeSourc
   return {
     local: sources.filter(source => !source.requiresFetch).length,
     external: sources.filter(source => source.requiresFetch).length,
+    cacheStatus: {
+      local: sources.filter(source => source.cacheStatus === 'local').length,
+      fresh: sources.filter(source => source.cacheStatus === 'fresh').length,
+      stale: sources.filter(source => source.cacheStatus === 'stale').length,
+      missing: sources.filter(source => source.cacheStatus === 'missing').length,
+      refreshRecommended: sources.filter(source =>
+        source.cacheStatus === 'stale' || source.cacheStatus === 'missing'
+      ).length
+    },
     storagePolicy: summarizeKnowledgeStoragePolicies(sources.map(source => source.storagePolicy)),
     byDomain
   };
@@ -55,17 +76,21 @@ export async function buildKnowledgeSourcesReport(
   options: {
     domains?: InfraDomainId[];
     targetPaths?: string[];
+    store?: KnowledgeStore;
+    now?: Date;
   } = {}
 ): Promise<KnowledgeSourcesReport> {
   const candidates = await collectWorkspaceKnowledgeSources(inspection, options);
-  const sources = candidates.map(candidate => ({
-    id: buildKnowledgeCacheId(candidate.source),
+  const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
+  const sources = await Promise.all(candidates.map(async candidate => ({
+    id: store.buildId(candidate.source),
     domain: candidate.domain,
     targetPath: candidate.targetPath,
     requiresFetch: Boolean(candidate.source.url),
+    cacheStatus: await resolveKnowledgeSourceCacheStatus(candidate.source, store, options.now),
     storagePolicy: resolveKnowledgeStoragePolicy(candidate.source),
     source: candidate.source
-  }));
+  })));
 
   return {
     kind: 'infra-agent.knowledge-sources',
