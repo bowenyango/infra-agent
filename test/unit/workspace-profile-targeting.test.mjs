@@ -18,6 +18,7 @@ import { buildTargetCandidates } from '../../src/domain/task-targeting.ts';
 import { buildRunPreflight } from '../../src/agent/build-run-preflight.ts';
 import { selectValidationCommands } from '../../src/agent/select-validation-commands.ts';
 import { buildValidationPreflight } from '../../src/validators/preflight.ts';
+import { classifyUnsafeValidationCommand } from '../../src/validators/command-safety.ts';
 import { RuleBasedPlanningModel } from '../../src/agent/rule-based-planner.ts';
 import { buildEditPlan } from '../../src/agent/build-edit-plan.ts';
 import { collectApprovalSignals } from '../../src/agent/collect-approval-signals.ts';
@@ -163,6 +164,23 @@ test('domain-aware validation selection keeps only Pulumi commands in mixed work
   assert.ok(commands.length > 0);
   assert.ok(commands.every(command => command.includes('pulumi preview')));
   assert.ok(commands.every(command => !command.includes('helm ')));
+});
+
+test('Pulumi validation preflight uses preview-only commands without local-state bootstrap', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const validation = buildValidationPreflight(inspection);
+  const pulumiCommands = validation.plan
+    .filter(entry => entry.kind === 'pulumi')
+    .flatMap(entry => entry.commands);
+
+  assert.ok(pulumiCommands.length > 0);
+  for (const command of pulumiCommands) {
+    assert.match(command, /\bpulumi preview\b/);
+    assert.doesNotMatch(command, /\bmkdir\b/);
+    assert.doesNotMatch(command, /\bpulumi stack init\b/);
+    assert.doesNotMatch(command, /\bpulumi login\b/);
+    assert.equal(classifyUnsafeValidationCommand(command), null);
+  }
 });
 
 test('domain-aware validation selection keeps only Helm commands in mixed workspaces for Helm tasks', async () => {
