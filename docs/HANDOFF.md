@@ -39,6 +39,74 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active S3-Compatible Reference Registry Plan
+
+Status:
+
+- In progress. This slice adds an offline credential/source reference registry
+  contract for the existing private S3-compatible backend config.
+- Scope is registry parsing, safe environment-variable-name validation,
+  config-reference matching, fail-closed resolution planning, guard tests, and
+  documentation only. It must not add cloud SDKs, perform network calls, read
+  environment variable values, create clients, generate upload commands, mutate
+  remote objects/indexes, or change public team artifact/readiness JSON
+  schemas.
+
+Why this direction:
+
+- The previous S3-compatible slice intentionally stopped at safe structural
+  references (`storageProfileRef`, `authProfileRef`). The next safe step is to
+  validate those references against a private offline registry that names the
+  required environment variables without reading their values.
+- Claude Code architecture notes favor compact contracts, parser-enforced
+  handoffs, injected dependencies, and explicit mutation gates. This stage
+  keeps credential/source ownership explicit while preserving fail-closed real
+  backend resolution.
+
+Planned checkpoints:
+
+1. Record the reference-registry plan and acceptance criteria.
+2. Add a private S3-compatible reference registry parser with safe defaults.
+3. Cover happy-path registry parsing and deterministic required env var names.
+4. Reject unsafe env var names, duplicate refs, and inline backend/credential
+   values without echoing private input.
+5. Validate backend configs against registry refs and produce a sanitized
+   offline summary.
+6. Integrate optional registry validation into backend adapter resolution while
+   keeping real S3-compatible adapters blocked.
+7. Extend no-SDK/no-network guards to the new registry module.
+8. Update project rules, architecture notes, roadmap, and handoff records.
+9. Run focused tests, lint/structure checks, diff check, and full verify.
+
+Acceptance criteria:
+
+- Registry entries may contain only safe structural refs and environment
+  variable names; they must not contain endpoint URLs, bucket names,
+  credential values, signed URLs, headers, or absolute local paths.
+- Registry validation must never read `process.env` values. It may report only
+  required environment variable names.
+- Config-reference validation must fail closed when the referenced storage or
+  auth profile is missing or the registry itself is unsafe.
+- `planKnowledgeTeamBackendAdapterResolution()` may consume registry validation
+  as offline metadata, but real `s3-compatible` resolution must remain blocked
+  with no client, no network, no upload command, and no mutation permission.
+- Public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, and backend-readiness schemas remain unchanged.
+
+Current risks and constraints:
+
+- The registry is a private contract, not a credential loader. Env var names
+  must not be confused with env var values or upload permission.
+- The existing backend readiness report must remain compact and cannot copy
+  private refs, backend details, or registry contents.
+- Guard tests must include any new backend contract module before a real SDK or
+  network path is introduced.
+
+Next step:
+
+- Implement the private registry parser and tests, then add config-reference
+  validation on top of it.
+
 ## 2026-05-09 Active S3-Compatible Backend Contract Plan
 
 Status:
