@@ -43,7 +43,7 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice implements the first Team Backend Abstraction step
+- Completed. This slice implements the first Team Backend Abstraction step
   from `docs/ROADMAP.md`: a backend-neutral, content-addressed artifact store
   contract plus a mocked S3-compatible adapter for knowledge packs.
 - Scope is intentionally narrow. Local filesystem remains the default cache and
@@ -115,6 +115,89 @@ Acceptance criteria:
 - Retrieval re-hashes stored bytes and rejects tampering before returning the
   artifact payload.
 - Full verification passes before the stage is considered complete.
+
+Core files changed:
+
+- `src/knowledge/team-artifact-store.ts`
+- `src/knowledge/validate.ts`
+- `test/unit/knowledge-team-storage-contracts.test.mjs`
+- `test/unit/knowledge-s3-compatible-storage.test.mjs`
+- `test/unit/knowledge-team-publication-policy.test.mjs`
+- `test/unit/knowledge-team-artifact-roundtrip.test.mjs`
+- `test/unit/knowledge-team-artifact-descriptor-validation.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+- `skills/infra-configuration/SKILL.md`
+
+What changed:
+
+- Added canonical knowledge artifact JSON serialization and full SHA-256 object
+  key helpers under `knowledge-artifacts/v1/<family>/sha256/<prefix>/<hash>.json`.
+- Added `infra-agent.knowledge-team-artifact-descriptor` as a compact,
+  backend-neutral descriptor for staged public-reference knowledge packs.
+- Added a `KnowledgeTeamArtifactStore` interface and in-memory
+  `mock-s3-compatible` adapter with put/head/get, idempotent writes, content
+  type checks, safe metadata checks, unsafe key rejection, missing-object
+  behavior, and conflict detection.
+- Added publication-policy gating that rejects non-pack artifacts, forged
+  publication plans, workspace-private sources, stale sources, unchecked
+  sources, explicit-opt-in-required sources, and hash/metadata mismatches before
+  a mock store write.
+- Added high-level staging and retrieval helpers. Staging re-hashes bytes,
+  parses the pack, checks manifest metadata, evaluates policy, stores by
+  content address, and returns a compact descriptor. Retrieval checks backend
+  kind, content type, byte length, byte hash, and descriptor/payload metadata
+  before returning the pack.
+- Extended `knowledge validate` to accept and validate compact team artifact
+  descriptors without performing any remote read or write.
+
+Design notes:
+
+- This is still an abstraction slice, not a remote backend. It adds no AWS SDK,
+  cloud provider dependency, endpoint, bucket, credential, signed URL, upload
+  command, environment variable, network path, CLI publication command, or
+  agent-loop publication behavior.
+- The existing source-cache `KnowledgeStore` remains separate and local-first.
+  Team artifact storage is a distinct pack/blob object-store boundary.
+- Object identity uses the full artifact byte SHA-256, not the short pack id or
+  a local file path.
+- Descriptors intentionally omit manifest `artifact.path`, `workspaceRoot`,
+  `cacheRoot`, backend URLs, buckets, endpoints, headers, credentials, raw docs,
+  and raw repo content.
+
+Known validation:
+
+- `node --experimental-strip-types test/unit/knowledge-team-storage-contracts.test.mjs`:
+  passed with 3 tests.
+- `node --experimental-strip-types test/unit/knowledge-s3-compatible-storage.test.mjs`:
+  passed with 3 tests.
+- `node --experimental-strip-types test/unit/knowledge-team-publication-policy.test.mjs`:
+  passed with 4 tests.
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-roundtrip.test.mjs`:
+  passed with 4 tests.
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-descriptor-validation.test.mjs`:
+  passed with 3 tests.
+- `npm run lint`: passed with 214 checked files.
+- `npm run test:structure`: passed with 77 checked files.
+- `npm run verify`: passed. This covered lint, test structure, unit,
+  integration, contract, isolated shards, smoke, e2e, coverage, and package
+  dry-run.
+- Coverage remained above gates: 89.33% lines, 78.11% branches, and 96.55%
+  functions.
+- Package dry-run passed with 139 entries, including
+  `src/knowledge/team-artifact-store.ts`.
+
+Remaining risks and constraints:
+
+- No real S3/GCS/Azure/Postgres backend exists yet.
+- No metadata index, search/query API, or CLI publication command exists yet.
+- There is no explicit opt-in path for sharing workspace-private packs. Private,
+  stale, and unchecked sources remain blocked by default.
+- The mocked S3-compatible adapter is intentionally in-memory and test/injected
+  only. It proves object identity and safety gates, not cloud provider
+  integration.
 
 ## 2026-05-09 Active Official-Doc HTML Normalization Plan
 
