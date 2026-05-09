@@ -39,6 +39,74 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-08 Active Knowledge Freshness Reporting Plan
+
+Status:
+
+- In progress. This session is continuing `infra-agent` development under the
+  existing architecture and safety rules, with at least 10 meaningful commits
+  planned for this slice.
+- The selected product slice is local knowledge freshness and staleness
+  reporting polish: make repo-local fact drift and unchecked local source
+  posture visible in validation reports, CLI output, compact `knowledgeFacts`,
+  result cards, and durable docs without exposing raw source content.
+
+Why this direction:
+
+- `docs/ROADMAP.md` lists local fact refresh/staleness reporting as the next
+  remaining knowledge-system gap after Pulumi component facts.
+- The completed Pulumi component slice added recheckable local fingerprints;
+  this slice makes that freshness state easier for downstream agents and human
+  operators to route on before they reuse saved facts or packs.
+- This follows the Claude Code patterns already adopted here: session-owned
+  harness state, compact parser-validated handoff, budgeted context, explicit
+  permission/freshness posture, and no recursive subagent runtime.
+
+Subagent plan:
+
+- `Epicurus` is the read-only project-plan explorer for durable Plan, Rules,
+  roadmap, handoff, and documentation fit.
+- `Singer` is the read-only codebase explorer for knowledge validation,
+  fingerprint, CLI, compact-output, and test surfaces.
+- `Laplace` is the read-only architecture explorer for
+  `learning-claude-code` pattern alignment and anti-pattern boundaries.
+- The main agent owns edits, focused validation, durable handoff updates,
+  staging, and commits.
+
+Planned commits and checkpoints:
+
+1. Record this active execution plan in `docs/HANDOFF.md`.
+2. Extend local source fingerprint checks with safe stale/missing path detail.
+3. Add a structured knowledge validation freshness summary contract.
+4. Cover fact-set validation freshness details for repo-local drift.
+5. Cover pack validation freshness details for local pack sources.
+6. Surface freshness details in `knowledge validate` CLI text and JSON paths.
+7. Add compact `knowledgeFacts` unchecked-source posture.
+8. Ensure stale compact facts are not handed off as high-confidence context.
+9. Mirror unchecked/stale source posture in result cards and compact contracts.
+10. Cover runtime/CLI handoff behavior for freshness counts.
+11. Update roadmap, rules, README, and bundled skill guidance.
+12. Run full verification and record final validation in this handoff.
+
+Current risks and constraints:
+
+- This slice reports freshness only. It does not implement team storage
+  backends, automatic external refresh, live network calls in the agent loop,
+  Pulumi non-Node parsing, component dataflow, or state/deploy operations.
+- Stale or unchecked repo-local facts remain advisory and must not be treated
+  as validator-grade authority. Native validation, `pulumi preview`, Terraform
+  validation, Helm rendering, and provider/schema checks remain authoritative.
+- Freshness reports may include safe workspace-relative paths, source ids,
+  source kinds, source names, stale reasons, and aggregate fact counts. They
+  must not expose raw source content, raw cache payloads, secrets, backend URLs,
+  or per-file content hashes in ordinary compact handoff.
+
+Progress log:
+
+- Commit 1 records this active knowledge freshness reporting plan, subagent
+  responsibilities, planned checkpoints, architecture boundary, and risk
+  constraints. Focused validation: `git diff --check`.
+
 ## 2026-05-08 Active Pulumi Component Facts Plan
 
 Status:
