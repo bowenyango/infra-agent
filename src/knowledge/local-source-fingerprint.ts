@@ -11,6 +11,13 @@ export interface KnowledgeSourceFingerprintCheck {
   fingerprint: KnowledgeSourceFingerprint;
   sourceStale: boolean;
   sourceStaleReason?: KnowledgeSourceStaleReason;
+  fileChecks: KnowledgeSourceFingerprintFileCheck[];
+}
+
+export interface KnowledgeSourceFingerprintFileCheck {
+  path: string;
+  stale: boolean;
+  staleReason?: KnowledgeSourceStaleReason;
 }
 
 const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
@@ -99,6 +106,7 @@ export async function checkKnowledgeSourceFingerprint(
   fingerprint: KnowledgeSourceFingerprint
 ): Promise<KnowledgeSourceFingerprintCheck> {
   const files: KnowledgeSourceFileFingerprint[] = [];
+  const fileChecks: KnowledgeSourceFingerprintFileCheck[] = [];
   let missing = false;
   let mismatch = false;
 
@@ -113,12 +121,22 @@ export async function checkKnowledgeSourceFingerprint(
         contentHash: file.contentHash,
         stale
       });
+      fileChecks.push({
+        path: file.path,
+        stale,
+        ...(stale ? { staleReason: 'local-file-hash-mismatch' as const } : {})
+      });
     } catch {
       missing = true;
       files.push({
         path: file.path,
         contentHash: file.contentHash,
         stale: true
+      });
+      fileChecks.push({
+        path: file.path,
+        stale: true,
+        staleReason: 'local-file-missing'
       });
     }
   }
@@ -127,6 +145,7 @@ export async function checkKnowledgeSourceFingerprint(
   return {
     fingerprint: checkedFingerprint,
     sourceStale: missing || mismatch,
+    fileChecks,
     ...(missing
       ? { sourceStaleReason: 'local-file-missing' as const }
       : mismatch

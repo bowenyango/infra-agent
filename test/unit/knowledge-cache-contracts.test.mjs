@@ -662,12 +662,31 @@ test('knowledge source fingerprints detect local file changes and missing files'
       'charts/api/Chart.lock'
     ]);
 
-    assert.equal((await checkKnowledgeSourceFingerprint(tempRoot, fingerprint)).sourceStale, false);
+    const fresh = await checkKnowledgeSourceFingerprint(tempRoot, fingerprint);
+    assert.equal(fresh.sourceStale, false);
+    assert.deepEqual(fresh.fileChecks.map(file => ({
+      path: file.path,
+      stale: file.stale
+    })), [
+      {
+        path: 'charts/api/Chart.lock',
+        stale: false
+      },
+      {
+        path: 'charts/api/Chart.yaml',
+        stale: false
+      }
+    ]);
 
     await writeFile(join(tempRoot, 'charts/api/Chart.yaml'), 'name: api\nversion: 0.2.0\n', 'utf8');
     const changed = await checkKnowledgeSourceFingerprint(tempRoot, fingerprint);
     assert.equal(changed.sourceStale, true);
     assert.equal(changed.sourceStaleReason, 'local-file-hash-mismatch');
+    assert.ok(changed.fileChecks.some(file =>
+      file.path === 'charts/api/Chart.yaml'
+      && file.stale === true
+      && file.staleReason === 'local-file-hash-mismatch'
+    ));
     assert.ok(changed.fingerprint.files.some(file =>
       file.path === 'charts/api/Chart.yaml'
       && file.stale === true
@@ -677,6 +696,11 @@ test('knowledge source fingerprints detect local file changes and missing files'
     const missing = await checkKnowledgeSourceFingerprint(tempRoot, fingerprint);
     assert.equal(missing.sourceStale, true);
     assert.equal(missing.sourceStaleReason, 'local-file-missing');
+    assert.ok(missing.fileChecks.some(file =>
+      file.path === 'charts/api/Chart.lock'
+      && file.stale === true
+      && file.staleReason === 'local-file-missing'
+    ));
     assert.ok(missing.fingerprint.files.some(file =>
       file.path === 'charts/api/Chart.lock'
       && file.stale === true
