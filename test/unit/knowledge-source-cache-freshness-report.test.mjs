@@ -1,7 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  mkdir,
+  mkdtemp,
+  rm,
+  writeFile
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import {
+  join,
+  resolve
+} from 'node:path';
 import { isKnowledgeCacheEntryStale } from '../../src/knowledge/cache.ts';
 import { resolveKnowledgeSourceCacheStatus } from '../../src/knowledge/cache-status.ts';
+import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
+import { buildKnowledgeSourcesReport } from '../../src/knowledge/sources.ts';
 
 const fixedNow = new Date('2026-05-09T00:00:00.000Z');
 
@@ -92,4 +105,91 @@ test('knowledge cache status reports stale external cache entries', async () => 
     await resolveKnowledgeSourceCacheStatus(source, createStore(entry), fixedNow),
     'stale'
   );
+});
+
+test('knowledge sources report summarizes external cache freshness without fetching', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-source-cache-report-'));
+
+  try {
+    const projectRoot = join(tempRoot, 'infra/api');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      join(projectRoot, 'Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: nodejs',
+        'config:',
+        '  api:imageTag:',
+        '    type: string',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'package.json'),
+      `${JSON.stringify({
+        dependencies: {
+          '@pulumi/aws': '^7.0.0',
+          '@pulumi/kubernetes': '4.20.1'
+        }
+      }, null, 2)}\n`,
+      'utf8'
+    );
+    await writeFile(
+      join(projectRoot, 'index.ts'),
+      [
+        'import * as aws from "@pulumi/aws";',
+        'const bucket = new aws.s3.Bucket("api-bucket", {});',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const store = {
+      root: 'memory://source-cache-report',
+      buildId(source) {
+        return source.name;
+      },
+      async read(source) {
+        if (source.name === 'pulumi-docs:package:aws') {
+          return cacheEntry(source, '2026-06-09T00:00:00.000Z');
+        }
+        if (source.name === 'pulumi-docs:resource:aws:s3/bucket') {
+          return cacheEntry(source, '2026-05-01T00:00:00.000Z');
+        }
+        return null;
+      },
+      async write() {
+        throw new Error('write is not used by source reports');
+      },
+      isStale(entry, now) {
+        return isKnowledgeCacheEntryStale(entry, now);
+      }
+    };
+    const report = await buildKnowledgeSourcesReport(inspection, {
+      domains: ['pulumi'],
+      targetPaths: ['infra/api'],
+      store,
+      now: fixedNow
+    });
+    const byName = new Map(report.sources.map(source => [source.source.name, source]));
+
+    assert.equal(byName.get('pulumi-docs:package:aws')?.cacheStatus, 'fresh');
+    assert.equal(byName.get('pulumi-docs:resource:aws:s3/bucket')?.cacheStatus, 'stale');
+    assert.equal(byName.get('pulumi-docs:package:kubernetes')?.cacheStatus, 'missing');
+    assert.ok(report.sources.some(source =>
+      source.source.kind === 'pulumi-config'
+      && source.cacheStatus === 'local'
+    ));
+    assert.equal(report.summary.cacheStatus.fresh, 1);
+    assert.equal(report.summary.cacheStatus.stale, 1);
+    assert.ok(report.summary.cacheStatus.missing >= 1);
+    assert.equal(
+      report.summary.cacheStatus.refreshRecommended,
+      report.summary.cacheStatus.stale + report.summary.cacheStatus.missing
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
