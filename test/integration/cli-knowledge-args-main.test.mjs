@@ -182,3 +182,24 @@ test('knowledge pack CLI args accept bounded fact pack flags', () => {
   assert.equal(parsed.manifestOutputPath, 'artifacts/knowledge-pack.manifest.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge publish-plan CLI args accept manifest descriptor and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'publish-plan',
+    'artifacts/knowledge-pack.manifest.json',
+    '--descriptor',
+    'artifacts/knowledge-pack.descriptor.json',
+    '--out',
+    'artifacts/knowledge-pack.publication-plan.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'publish-plan');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.manifest.json');
+  assert.equal(parsed.descriptorInputPath, 'artifacts/knowledge-pack.descriptor.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.publication-plan.json');
+  assert.equal(parsed.json, true);
+});
