@@ -69,3 +69,60 @@ test('team backend readiness accepts safe dry-run backend configs', () => {
   assert.deepEqual(report.readiness.blockers, []);
   assertNoBackendReadinessLeaks(report);
 });
+
+test('team backend readiness blocks remote mutation and backend detail leakage', () => {
+  const report = buildKnowledgeTeamBackendReadinessReport(validBackendConfig({
+    remoteWriteDefault: true,
+    liveCheckDefault: true,
+    bucket: 'private-team-cache',
+    endpointUrl: 'https://s3.example.test/private',
+    accessToken: 'secret-token',
+    workspaceRoot: '/workspace/private-project'
+  }));
+
+  assert.equal(report.remoteWriteAllowed, false);
+  assert.equal(report.liveCheckAllowed, false);
+  assert.equal(report.credentialValuesExposed, false);
+  assert.equal(report.uploadCommand, null);
+  assert.equal(report.readiness.status, 'blocked');
+  assert.equal(report.readiness.nextAction, 'fix-backend-config');
+  assert.ok(report.readiness.blockerCodes.includes('remote-write-enabled'));
+  assert.ok(report.readiness.blockerCodes.includes('live-check-enabled'));
+  assert.ok(report.readiness.blockerCodes.includes('backend-detail-leak'));
+  assert.equal(
+    report.readiness.blockers.some(blocker => blocker.path === '$.config'),
+    true
+  );
+  assertNoBackendReadinessLeaks(report);
+});
+
+test('team backend readiness blocks incomplete or unsafe config shape', () => {
+  const report = buildKnowledgeTeamBackendReadinessReport({
+    kind: 'infra-agent.knowledge-team-backend-config',
+    schemaVersion: 2,
+    mutationAllowed: true,
+    backendKind: 'gcs',
+    name: '../team-cache',
+    artifactPrefix: 'team-artifacts',
+    credentialMode: 'inline',
+    remoteWriteDefault: false,
+    liveCheckDefault: false
+  });
+
+  assert.equal(report.backendKind, 'unsupported');
+  assert.equal(report.config.name, null);
+  assert.equal(report.config.artifactPrefix, null);
+  assert.equal(report.config.indexPrefix, null);
+  assert.equal(report.config.credentialMode, 'unsupported');
+  assert.equal(report.config.remoteWriteDefault, false);
+  assert.equal(report.config.liveCheckDefault, false);
+  assert.equal(report.readiness.status, 'blocked');
+  assert.ok(report.readiness.blockerCodes.includes('invalid-schema-version'));
+  assert.ok(report.readiness.blockerCodes.includes('mutation-enabled'));
+  assert.ok(report.readiness.blockerCodes.includes('unsupported-backend-kind'));
+  assert.ok(report.readiness.blockerCodes.includes('unsafe-config-name'));
+  assert.ok(report.readiness.blockerCodes.includes('unsafe-prefix'));
+  assert.ok(report.readiness.blockerCodes.includes('unsupported-credential-mode'));
+  assert.ok(report.readiness.blockerCodes.includes('missing-required-field'));
+  assertNoBackendReadinessLeaks(report);
+});
