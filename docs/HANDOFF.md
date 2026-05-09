@@ -39,6 +39,78 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Upload Approval Intent Plan
+
+Status:
+
+- In progress. This slice adds a private offline upload approval intent review
+  surface for future real S3-compatible team backend work.
+- Scope is contract-first planning only: compose an existing team publication
+  readiness report with an existing S3-compatible backend reference validation
+  summary, then emit a compact intent that says whether explicit human upload
+  approval would be required after all dry-run preconditions are met.
+- The slice must not add a cloud SDK, perform network calls, read credential
+  values, check credential presence, create clients, generate upload commands,
+  mutate remote objects/indexes, or change public team artifact/readiness JSON
+  schemas.
+
+Why this direction:
+
+- Previous slices made backend config, reference registries, and reference
+  readiness reviewable without side effects. The next safe step is to model the
+  approval boundary that would sit immediately before any future upload path.
+- The design follows the Claude Code-style permission pattern: structured
+  runtime state can request explicit approval, but approval is separate from
+  execution and no mutation capability appears in the handoff object.
+
+Planned commits and checkpoints:
+
+1. Record this active upload approval intent plan.
+2. Add the private upload approval intent contract and builder.
+3. Cover the approval-required happy path from dry-run readiness inputs.
+4. Cover blocked publication-readiness preconditions.
+5. Cover blocked backend-reference preconditions.
+6. Add leak and no-runtime-credential guard coverage.
+7. Parse `knowledge upload-approval-intent` CLI arguments.
+8. Print and wire `knowledge upload-approval-intent` CLI output.
+9. Add CLI integration coverage for JSON, text, and `--out`.
+10. Lock the private upload approval intent shape with contract tests.
+11. Update README, rules, roadmap, Claude Code pattern notes, and skill
+    guidance.
+12. Record focused checks, full verification, remaining risks, and next-stage
+    plan.
+
+Acceptance criteria:
+
+- `infra-agent knowledge upload-approval-intent <publication-readiness.json>
+  --backend-reference <reference-readiness.json> [--out <intent.json>] [--json]`
+  reads only local JSON files.
+- The output kind is a private
+  `infra-agent.knowledge-team-upload-approval-intent` summary. It may list
+  required/optional environment variable names inherited from the reference
+  summary, but it must never read or report environment variable values.
+- The intent can report `approval-required` only when publication readiness is
+  `upload-required`, publication is allowed, and backend reference validation is
+  `valid`.
+- The intent must keep `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`, and
+  `uploadCommand=null`.
+- Existing public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, backend-readiness, and backend-reference-readiness
+  contracts remain unchanged.
+
+Current risks to monitor:
+
+- The command name and text output must not imply that an upload was approved
+  or that credentials/backend reachability were checked.
+- Environment variable names are allowed private routing metadata; environment
+  variable values remain forbidden.
+- Approval intent must not become a remote mutation command or SDK adapter
+  factory.
+- A valid intent still requires a future separate implementation slice for any
+  real backend adapter, live-check policy, credential value access boundary, and
+  explicit approval continuation.
+
 ## 2026-05-09 Active S3-Compatible Reference Readiness CLI Plan
 
 Status:
