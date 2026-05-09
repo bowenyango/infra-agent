@@ -6,6 +6,7 @@ import {
   htmlToMarkdown,
   normalizeOfficialKnowledgeContent
 } from '../../src/knowledge/official-doc-normalize.ts';
+import { fetchOfficialKnowledgeSource } from '../../src/knowledge/retrieve.ts';
 
 test('official doc normalization detects HTML by content type and document shape', () => {
   assert.equal(contentLooksLikeHtml('# Markdown', 'text/markdown'), false);
@@ -66,6 +67,77 @@ test('official doc normalization passes through non-HTML content', () => {
   assert.equal(normalized.content, content);
   assert.equal(normalized.normalized, false);
   assert.equal(normalized.normalization, undefined);
+});
+
+test('official knowledge fetcher normalizes HTML responses before cache writes', async () => {
+  const source = {
+    kind: 'pulumi-docs',
+    name: 'pulumi-docs:resource:aws:s3/bucket',
+    packageName: '@pulumi/aws',
+    module: 'aws:s3/bucket:Bucket',
+    url: 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+  };
+  const fetched = await fetchOfficialKnowledgeSource(source, {
+    fetchedAt: '2026-05-09T00:00:00.000Z',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        get: name => name.toLowerCase() === 'content-type' ? 'text/html; charset=utf-8' : null
+      },
+      text: async () => [
+        '<!doctype html>',
+        '<html><body>',
+        '<script>window.secretToken = "hidden";</script>',
+        '<h1>Bucket</h1>',
+        '<table>',
+        '<tr><th>Name</th><th>Type</th><th>Description</th></tr>',
+        '<tr><td><code>bucket</code></td><td>string</td><td>Name of the bucket to create.</td></tr>',
+        '</table>',
+        '</body></html>'
+      ].join('')
+    })
+  });
+
+  assert.ok(fetched);
+  assert.equal(fetched.contentType, 'text/markdown');
+  assert.equal(fetched.staleAfter, '2026-06-08T00:00:00.000Z');
+  assert.equal(fetched.metadata?.retrieval, 'official-url');
+  assert.equal(fetched.metadata?.normalization, 'html-to-markdown');
+  assert.match(fetched.content, /^# Bucket/m);
+  assert.match(fetched.content, /\| `bucket` \| string \| Name of the bucket to create\. \|/);
+  assert.doesNotMatch(fetched.content, /<html|<script|secretToken|contentHash|authorization/i);
+});
+
+test('official knowledge fetcher preserves non-HTML markdown responses', async () => {
+  const source = {
+    kind: 'chart-docs',
+    name: 'api:home',
+    chart: 'api',
+    url: 'https://charts.example.test/api/'
+  };
+  const content = '# API chart\n\n- `image.repository` - Container image repository.';
+  const fetched = await fetchOfficialKnowledgeSource(source, {
+    fetchedAt: '2026-05-09T00:00:00.000Z',
+    staleAfter: '2026-05-20T00:00:00.000Z',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        get: name => name.toLowerCase() === 'content-type' ? 'text/markdown' : null
+      },
+      text: async () => content
+    })
+  });
+
+  assert.ok(fetched);
+  assert.equal(fetched.contentType, 'text/markdown');
+  assert.equal(fetched.content, content);
+  assert.equal(fetched.staleAfter, '2026-05-20T00:00:00.000Z');
+  assert.equal(fetched.metadata?.retrieval, 'official-url');
+  assert.equal(fetched.metadata?.normalization, undefined);
 });
 
 test('htmlToMarkdown strips high-noise blocks before text extraction', () => {
