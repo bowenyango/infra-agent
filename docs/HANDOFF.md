@@ -39,6 +39,97 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Official-Doc Cache Freshness UX Plan
+
+Status:
+
+- In progress. This slice implements deliberate official-doc cache freshness
+  reporting for `knowledge sources` and clearer previous-cache posture for
+  `knowledge prefetch`.
+- Scope is reporting and explicit prefetch UX only. No agent-loop live refresh,
+  background network fetch, team cache backend, retrieval semantic rewrite, or
+  raw cached-content exposure is in scope.
+
+Why this direction:
+
+- `docs/ROADMAP.md` leaves deliberate refresh UX for stale public docs as a
+  remaining knowledge gap after local knowledge freshness work.
+- `knowledge sources` already reports source and storage posture, but it does
+  not tell the operator whether public official-doc cache entries are fresh,
+  stale, or missing before a deliberate prefetch run.
+- `knowledge prefetch` already distinguishes cached, fetched, stale-cache,
+  skipped, and failed outcomes, but it does not expose compact prior cache
+  posture for each source.
+- The Claude Code architecture lesson stays bounded here: cache and tool
+  outputs are summarized into compact state, permissioned refresh remains
+  explicit, and raw documents never enter planner or handoff surfaces.
+
+Subagent review inputs:
+
+- `Averroes` recommended an additive cache freshness classifier, source report
+  summary counts, previous-cache posture on prefetch results, and docs updates
+  that preserve cache-first official-doc rules.
+- `Wegener` recommended a new focused unit shard for source freshness reports,
+  extending the existing prefetch unit shard, and extending the existing
+  `cli-knowledge-sources-main` integration shard while avoiding near-limit
+  knowledge pack/source retrieval tests.
+- Architecture review is tracking the same boundary: reuse existing
+  `KnowledgeStore` staleness semantics, avoid changing existing prefetch
+  status strings, and keep network access limited to explicit prefetch.
+
+Planned commits and checkpoints:
+
+1. Record this active official-doc cache freshness UX plan in
+   `docs/HANDOFF.md`.
+2. Add a shared cache-status classifier around `KnowledgeStore.read` and
+   `store.isStale`.
+3. Add focused unit coverage for local, missing, fresh, and stale cache
+   status classification.
+4. Extend `knowledge sources` report entries with compact cache status.
+5. Add source report summary counts for external fresh, stale, and missing
+   cache entries.
+6. Surface source cache posture in `knowledge sources` text output.
+7. Add focused unit/integration coverage for `knowledge sources` JSON and text
+   cache freshness reporting.
+8. Extend `knowledge prefetch` source results with additive previous-cache
+   posture.
+9. Surface previous-cache posture in `knowledge prefetch` text/JSON output and
+   add focused prefetch coverage.
+10. Update README, agent rules, roadmap, bundled skill docs, and this handoff
+    with completed behavior and remaining risks.
+11. Run focused validation after each important stage and the full
+    `npm run verify` gate before final handoff.
+
+Acceptance criteria:
+
+- `infra-agent knowledge sources --json` reports cache freshness for public
+  URL-backed official-doc sources without fetching.
+- Local workspace-private sources remain marked local and do not get stale
+  public-doc refresh guidance.
+- `knowledge sources` text output clearly identifies fresh, stale, and missing
+  external cache entries and when deliberate `knowledge prefetch` is useful.
+- `knowledge prefetch` remains the only deliberate refresh path and reports
+  each source's previous cache posture without changing existing status values.
+- JSON/text outputs do not expose raw cache content, cache hashes, request
+  headers, credentials, or raw markdown.
+- Tests use injected stores/fetchers or local fixture cache entries with fixed
+  dates; no unit, integration, smoke, or e2e test requires network access.
+
+Progress log:
+
+- Commit 1 records this active official-doc cache freshness UX plan,
+  subagent review inputs, acceptance criteria, and stage checkpoints in
+  `docs/HANDOFF.md`. Focused validation: `git diff --check`.
+
+Remaining risks and constraints:
+
+- This slice is additive. Existing prefetch `status` values and retrieval
+  fallback semantics should not change.
+- Cache freshness is advisory metadata based on current cache entries. It does
+  not validate whether an upstream official doc changed since the last fetch.
+- Freshness reports must stay compact and must not become a side channel for
+  raw cached content, hashes, timestamps in compact handoff, or fetched payloads.
+
 ## 2026-05-09 Active Pulumi Component Internals Plan
 
 Status:
