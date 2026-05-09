@@ -457,7 +457,7 @@ function validateKnowledgePackSource(
   value: unknown,
   path: string,
   issues: KnowledgeValidationIssue[]
-): Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy' | 'fingerprint'> | null {
+): Pick<KnowledgePackSource, 'id' | 'kind' | 'name' | 'factCount' | 'stale' | 'staleReason' | 'storagePolicy' | 'fingerprint'> | null {
   if (!isRecord(value)) {
     issues.push(error(path, 'Knowledge pack source must be an object.'));
     return null;
@@ -474,8 +474,12 @@ function validateKnowledgePackSource(
   if (sourceKind === null) {
     issues.push(error(`${path}.kind`, 'Knowledge pack source kind must be supported.'));
   }
-  readNonEmptyString(value.name, `${path}.name`, issues);
+  const name = readNonEmptyString(value.name, `${path}.name`, issues);
   const factCount = readNonNegativeInteger(value.factCount, `${path}.factCount`, issues);
+  const staleReason = typeof value.staleReason === 'string'
+    && KNOWLEDGE_SOURCE_STALE_REASONS.includes(value.staleReason as KnowledgeSourceStaleReason)
+      ? value.staleReason as KnowledgeSourceStaleReason
+      : undefined;
 
   if (typeof value.contentHash !== 'string' || !SHA256_HEX_PATTERN.test(value.contentHash)) {
     issues.push(error(`${path}.contentHash`, 'Knowledge pack source contentHash must be a SHA-256 hex string.'));
@@ -546,14 +550,17 @@ function validateKnowledgePackSource(
     issues.push(error(`${path}.fingerprint`, 'Fresh workspace-private knowledge pack sources must include a recheckable fingerprint.'));
   }
 
-  if (id === null || factCount === null || stale === null || storagePolicy === null) {
+  if (id === null || sourceKind === null || name === null || factCount === null || stale === null || storagePolicy === null) {
     return null;
   }
 
   return {
     id,
+    kind: sourceKind,
+    name,
     factCount,
     stale,
+    ...(staleReason !== undefined ? { staleReason } : {}),
     storagePolicy,
     ...(fingerprint !== null ? { fingerprint } : {})
   };
@@ -664,7 +671,7 @@ function validateKnowledgePackPayload(
   const staleSourceCount = readNonNegativeInteger(payload.staleSourceCount, '$.staleSourceCount', issues);
 
   const storagePolicySummary = validateKnowledgeStoragePolicySummary(payload.storagePolicy, '$.storagePolicy', issues);
-  const sources: Array<Pick<KnowledgePackSource, 'id' | 'factCount' | 'stale' | 'storagePolicy' | 'fingerprint'>> = [];
+  const sources: Array<Pick<KnowledgePackSource, 'id' | 'kind' | 'name' | 'factCount' | 'stale' | 'staleReason' | 'storagePolicy' | 'fingerprint'>> = [];
   if (!Array.isArray(payload.sources)) {
     issues.push(error('$.sources', 'Knowledge pack sources must be an array.'));
   } else {
@@ -1159,7 +1166,7 @@ export async function validateKnowledgePayloadWithLocalSources(
   }
 
   if (payload.kind === 'infra-agent.knowledge-pack' && Array.isArray(payload.sources)) {
-    const sources: Array<Pick<KnowledgePackSource, 'id' | 'stale' | 'storagePolicy' | 'fingerprint'>> = [];
+    const sources: Array<Pick<KnowledgePackSource, 'id' | 'kind' | 'name' | 'factCount' | 'stale' | 'staleReason' | 'storagePolicy' | 'fingerprint'>> = [];
     payload.sources.forEach((source, index) => {
       const validated = validateKnowledgePackSource(source, `$.sources[${index}]`, []);
       if (validated) {

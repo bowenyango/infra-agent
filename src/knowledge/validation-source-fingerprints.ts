@@ -250,7 +250,7 @@ export function validateKnowledgeSourceFingerprintContract(
 }
 
 export async function validatePackSourceFingerprints(
-  sources: Array<Pick<KnowledgePackSource, 'id' | 'stale' | 'storagePolicy' | 'fingerprint'>>,
+  sources: Array<Pick<KnowledgePackSource, 'id' | 'kind' | 'name' | 'factCount' | 'stale' | 'staleReason' | 'storagePolicy' | 'fingerprint'>>,
   workspaceRoot: string | undefined,
   issues: KnowledgeValidationIssue[]
 ): Promise<LocalSourceValidationStats> {
@@ -262,11 +262,33 @@ export async function validatePackSourceFingerprints(
   };
 
   for (const [index, source] of sources.entries()) {
+    if (source.stale) {
+      stats.staleSourceDetails.push({
+        sourceId: source.id,
+        sourceKind: source.kind,
+        sourceName: source.name,
+        factCount: source.factCount,
+        path: `$.sources[${index}]`,
+        staleReason: source.staleReason ?? 'time-expired',
+        stalePaths: [],
+        missingPaths: [],
+        ...(source.fingerprint !== undefined
+          ? {
+              fingerprintDigest: source.fingerprint.digest,
+              fingerprintFileCount: source.fingerprint.fileCount
+            }
+          : {})
+      });
+    }
+
     if (source.fingerprint === undefined) {
       if (source.storagePolicy.scope === 'workspace-private' || source.storagePolicy.requiresExplicitOptIn) {
         stats.uncheckedLocalSourceCount += 1;
         stats.uncheckedLocalSourceDetails.push(buildLocalSourceUncheckedDetail({
           sourceId: source.id,
+          sourceKind: source.kind,
+          sourceName: source.name,
+          factCount: source.factCount,
           path: `$.sources[${index}].fingerprint`,
           uncheckedReason: 'missing-fingerprint'
         }));
@@ -285,6 +307,9 @@ export async function validatePackSourceFingerprints(
       stats.uncheckedLocalSourceCount += 1;
       stats.uncheckedLocalSourceDetails.push(buildLocalSourceUncheckedDetail({
         sourceId: source.id,
+        sourceKind: source.kind,
+        sourceName: source.name,
+        factCount: source.factCount,
         path: `$.sources[${index}].fingerprint`,
         uncheckedReason: 'workspace-not-provided',
         fingerprint: source.fingerprint
@@ -302,6 +327,9 @@ export async function validatePackSourceFingerprints(
         stats.staleSourceIds.add(source.id);
         stats.staleSourceDetails.push(buildLocalSourceStaleDetail({
           sourceId: source.id,
+          sourceKind: source.kind,
+          sourceName: source.name,
+          factCount: source.factCount,
           path: `$.sources[${index}].fingerprint`,
           fingerprint: source.fingerprint,
           staleReason: check.sourceStaleReason ?? 'local-file-hash-mismatch',
@@ -316,6 +344,9 @@ export async function validatePackSourceFingerprints(
       stats.staleSourceIds.add(source.id);
       stats.staleSourceDetails.push({
         sourceId: source.id,
+        sourceKind: source.kind,
+        sourceName: source.name,
+        factCount: source.factCount,
         path: `$.sources[${index}].fingerprint`,
         staleReason: 'local-file-hash-mismatch',
         stalePaths: [],

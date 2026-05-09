@@ -106,6 +106,8 @@ test('knowledge pack validation rechecks local source fingerprints with a worksp
       workspaceRoot
     });
     assert.equal(freshReport.valid, true);
+    assert.equal(freshReport.freshness.staleSourceCount, 0);
+    assert.equal(freshReport.freshness.uncheckedLocalSourceCount, 0);
 
     const chartPath = join(workspaceRoot, 'charts/payments-api/Chart.yaml');
     const chartContent = await readFile(chartPath, 'utf8');
@@ -116,6 +118,12 @@ test('knowledge pack validation rechecks local source fingerprints with a worksp
 
     assert.equal(staleReport.valid, false);
     assert.ok(staleReport.staleSourceCount > 0);
+    assert.ok(staleReport.freshness.staleSources.some(source =>
+      source.sourceKind === 'chart-metadata'
+      && source.sourceName === 'payments-api:Chart.yaml'
+      && source.staleReason === 'local-file-hash-mismatch'
+      && source.stalePaths?.includes('charts/payments-api/Chart.yaml')
+    ));
     assert.ok(staleReport.issues.some(issue =>
       issue.path.startsWith('$.sources[')
       && /local-file-hash-mismatch/.test(issue.message)
@@ -143,6 +151,10 @@ test('knowledge pack validation detects missing local fingerprint files', async 
     });
 
     assert.equal(report.valid, false);
+    assert.ok(report.freshness.staleSources.some(source =>
+      source.staleReason === 'local-file-missing'
+      && source.missingPaths?.includes('charts/payments-api/values.schema.json')
+    ));
     assert.ok(report.issues.some(issue =>
       issue.path.startsWith('$.sources[')
       && /local-file-missing/.test(issue.message)
