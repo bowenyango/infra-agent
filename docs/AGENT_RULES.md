@@ -144,7 +144,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   source fingerprints instead of raw file content. Recheck those fingerprints
   with `infra-agent knowledge validate <knowledge.json> --workspace <workspace>`
   before reusing saved extraction output after workspace files may have
-  changed.
+  changed. Read the validation report's `freshness` summary before reuse:
+  stale sources identify safe source ids, source kinds/names, stale reasons,
+  affected fact counts, and safe workspace-relative stale or missing paths;
+  unchecked local sources require re-extraction or workspace validation before
+  their facts are trusted.
 - Use the `infra-agent knowledge` namespace for reusable knowledge workflows:
   `sources` to inspect selected sources, `prefetch` to deliberately refresh
   bounded official-doc cache entries, `extract` to create fact sets from cache
@@ -154,8 +158,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Treat compact `knowledgeFacts` as the validated handoff surface for extracted
   provider/resource/chart/module/Pulumi-config/Pulumi-component facts. Read it
   before asking for raw docs, honor `includedFactCount`, `omittedFactCount`,
-  `staleSourceCount`, and `--context-fact-limit`, and never treat omitted
-  samples as exhaustive.
+  `staleSourceCount`, `uncheckedSourceCount`, and `--context-fact-limit`, and
+  never treat omitted samples as exhaustive. Stale or unchecked source facts
+  must not be treated as high-confidence planner evidence.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants
@@ -263,11 +268,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Validate compact `knowledgeFacts` before using extracted fact summaries in
   handoff: schema marker, `mutationAllowed=false`, pack-id shape, max-fact
   budget alignment with `harness.queryConfig.retrievedContextBudget.maxFacts`,
-  source/fact count arithmetic, source/fact linkage, stale source counts,
-  supported domain/source/fact/extraction enums, `harness.stateSummary`
-  alignment, `handoffCheckpoint.budgets.knowledgeFacts`, and no raw cache/doc
-  fields such as `source`, `content`, `contentHash`, `fetchedAt`, `url`, or
-  `localPath`.
+  source/fact count arithmetic, source/fact linkage, stale and unchecked source
+  counts, supported domain/source/fact/extraction enums, high-confidence fact
+  exclusion for stale or unchecked sources, `harness.stateSummary` alignment,
+  `handoffCheckpoint.budgets.knowledgeFacts`, and no raw cache/doc fields such
+  as `source`, `content`, `contentHash`, `fetchedAt`, `url`, or `localPath`.
 - Validate compact `knowledgeCache` as handoff metadata only: non-empty root
   string and one of the supported source labels for environment override,
   workspace config, or default user cache. Do not re-derive workspace path

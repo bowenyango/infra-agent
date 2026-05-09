@@ -85,8 +85,9 @@ Planned commits and checkpoints:
 8. Ensure stale compact facts are not handed off as high-confidence context.
 9. Mirror unchecked/stale source posture in result cards and compact contracts.
 10. Cover runtime/CLI handoff behavior for freshness counts.
-11. Update roadmap, rules, README, and bundled skill guidance.
-12. Run full verification and record final validation in this handoff.
+11. Split freshness budget tests to keep unit shards within project limits.
+12. Update roadmap, rules, README, and bundled skill guidance.
+13. Run full verification and record final validation in this handoff.
 
 Current risks and constraints:
 
@@ -106,6 +107,61 @@ Progress log:
 - Commit 1 records this active knowledge freshness reporting plan, subagent
   responsibilities, planned checkpoints, architecture boundary, and risk
   constraints. Focused validation: `git diff --check`.
+- Commit 2 extends local source fingerprint checks with safe per-file stale and
+  missing path details. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-cache-contracts.test.mjs`;
+  `git diff --check`.
+- Commit 3 adds the structured
+  `infra-agent.knowledge-freshness-summary` validation report surface. Focused
+  validation:
+  `node --experimental-strip-types --test test/unit/knowledge-extraction-content.test.mjs`;
+  `git diff --check`.
+- Commit 4 reports stale repo-local fact-set sources with safe source metadata,
+  stale reasons, fact counts, and workspace-relative stale/missing paths.
+  Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-extraction-content.test.mjs`;
+  `node --experimental-strip-types --test test/unit/knowledge-cache-contracts.test.mjs`;
+  `git diff --check`.
+- Commit 5 reports stale local pack sources through validation freshness
+  details. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-artifact-integrity.test.mjs`;
+  `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`;
+  `git diff --check`.
+- Commit 6 surfaces freshness summaries in `knowledge validate` text output and
+  JSON paths without leaking raw source content or hashes. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`;
+  `node --experimental-strip-types --test test/unit/knowledge-artifact-integrity.test.mjs`;
+  `git diff --check`.
+- Commit 7 adds compact `knowledgeFacts.uncheckedSourceCount` and parser
+  arithmetic checks. Focused validation:
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`;
+  `node --experimental-strip-types --test test/unit/agent-output-result-card.test.mjs`;
+  `git diff --check`.
+- Commit 8 downgrades compact facts from stale or unchecked sources and rejects
+  high-confidence compact handoff facts from those sources. Focused validation:
+  `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`;
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`;
+  `git diff --check`.
+- Commit 9 mirrors unchecked knowledge source posture in result cards. Focused
+  validation:
+  `node --experimental-strip-types --test test/unit/agent-output-result-card.test.mjs`;
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`;
+  `git diff --check`.
+- Commit 10 covers runtime and compact handoff behavior for unchecked source
+  counts. Focused validation:
+  `node --experimental-strip-types test/integration/agent-runtime-execution.test.mjs`;
+  `node --experimental-strip-types test/integration/agent-runtime-handoff.test.mjs`;
+  `git diff --check`.
+- Commit 11 splits unchecked-source fact budget coverage into a dedicated unit
+  test shard so the existing ranking shard stays under the project structure
+  limit. Focused validation: `npm run test:structure`;
+  `node --experimental-strip-types --test test/unit/knowledge-fact-budget-freshness.test.mjs`;
+  `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`;
+  `git diff --check`.
+- Commit 12 updates roadmap, rules, README, bundled skill guidance, and this
+  handoff so downstream agents can see the implemented freshness contract,
+  compact unchecked-source posture, remaining gaps, and validation workflow.
+  Focused validation: `npm run test:structure`; `git diff --check`.
 
 ## 2026-05-08 Active Pulumi Component Facts Plan
 

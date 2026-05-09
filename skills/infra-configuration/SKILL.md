@@ -97,13 +97,16 @@ credentials must still come from environment variables.
    `knowledgeCache` for the resolved cache root/source, `knowledgeContext`
    to see which retrieved docs or schemas were included or omitted by context
    budget, and `knowledgeFacts` for bounded extracted facts, omitted fact
-   counts, source counts, and stale source counts. The human result card mirrors
-   packet, token, fact, stale-source, and omission posture without exposing raw
-   excerpts or cache payloads. Use `infra-agent knowledge
+   counts, source counts, stale source counts, and unchecked source counts. The
+   human result card mirrors packet, token, fact, stale-source,
+   unchecked-source, and omission posture without exposing raw excerpts or cache
+   payloads. Use `infra-agent knowledge
    sources/prefetch/extract/validate/pack` when you need reusable provider,
    resource, chart, module, or Pulumi component facts; validate extracted data
    before planner use and use `knowledge validate --workspace <workspace>`
    before reusing saved repo-derived facts after local files may have changed.
+   Read the validation report's freshness summary for stale or unchecked local
+   source posture before treating saved facts as current.
    Prefer bounded `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
@@ -171,7 +174,8 @@ credentials must still come from environment variables.
   fields should appear before examples under small budgets, but facts remain
   advisory and do not replace native validation, plan, preview, or provider
   schema context. Source freshness and fingerprint digest fields are handoff
-  signals; stale sources should not be used as high-confidence guidance.
+  signals; stale or unchecked source facts should be revalidated or
+  re-extracted and should not be used as high-confidence guidance.
 - For Terraform local modules, prefer `terraform-module` knowledge facts over
   raw module file reads when the module source is literal and workspace-local.
   These facts describe inputs and outputs only; remote, registry, git, dynamic,

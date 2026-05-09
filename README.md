@@ -164,7 +164,11 @@ Current behavior is intentionally runtime-foundation oriented:
   disabled publication posture before any future team-cache backend is used. Pass
   `knowledge validate --workspace <workspace>` to recheck repo-derived fact
   fingerprints against current files and reject stale local knowledge before it
-  reaches a planner.
+  reaches a planner. Validation reports include a structured freshness summary
+  with stale and unchecked source counts, affected fact counts, safe source
+  ids, source kinds/names, stale reasons, and safe workspace-relative
+  stale/missing paths so saved facts can be re-extracted or rebuilt before
+  planner use.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`
@@ -418,10 +422,12 @@ Current behavior is intentionally runtime-foundation oriented:
   entry shape, omitted-reason coherence, derived token totals, excerpt-char
   limits, and the absence of raw context fields.
   Extracted provider/resource/chart facts are budgeted separately as
-  `knowledgeFacts`, with source counts, stale-source counts, included/omitted
-  fact counts, and raw-field exclusion. Compact consumers validate those counts
-  against `handoffCheckpoint.budgets.knowledgeFacts` and
-  `harness.stateSummary.knowledgeFactCount`.
+  `knowledgeFacts`, with source counts, stale-source and unchecked-source
+  counts, included/omitted fact counts, and raw-field exclusion. Compact
+  consumers validate those counts against
+  `handoffCheckpoint.budgets.knowledgeFacts` and
+  `harness.stateSummary.knowledgeFactCount`, and reject stale or unchecked
+  source facts when they are handed off as high-confidence evidence.
   `knowledgeCache` records the resolved cache root and whether it came from the
   environment, workspace config, or the default user cache. Compact consumers
   validate those fields as handoff metadata; path-safety policy stays in the
