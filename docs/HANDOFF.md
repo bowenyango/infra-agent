@@ -39,6 +39,100 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Official-Doc HTML Normalization Plan
+
+Status:
+
+- In progress. This slice adds lightweight HTML-to-Markdown normalization for
+  official docs fetched through the explicit `prefetch` / `knowledge prefetch`
+  path.
+- Scope is fetched-cache normalization only. No agent-loop live refresh, no
+  background network fetch, no team cache backend, no broad HTML parser
+  dependency, and no raw official-doc expansion into compact handoff is in
+  scope.
+
+Why this direction:
+
+- `docs/ROADMAP.md` now leaves optional live-doc markdown normalization as the
+  next public official-doc gap after cache freshness UX.
+- Existing Pulumi and Helm markdown extractors intentionally skip HTML-shaped
+  cache entries. Normalizing explicit fetch results to bounded Markdown lets
+  the existing cache-first extract/pack path use official docs without
+  weakening the agent-loop boundary.
+- The Claude Code architecture lesson stays bounded here: normalize tool/fetch
+  output at the cache boundary, keep compact facts and summaries downstream,
+  and avoid passing raw fetched pages into planner prompts.
+
+Subagent review inputs:
+
+- Architecture review is running read-only against `retrieve.ts`, fact
+  extractors, and CLI prefetch behavior. Expected boundary: normalize only in
+  the explicit fetcher, preserve `KnowledgeStore` and cache ID semantics, and
+  leave agent-loop retrieval cache-first.
+- Test planning is running read-only against current shard sizes. Expected
+  shape: add focused normalization unit coverage and targeted extraction tests
+  without growing near-limit source-retrieval or pack-ranking shards.
+- PM review is running read-only against handoff, roadmap, rules, and
+  Claude Code architecture notes. Expected shape: at least 10 meaningful
+  commits, stage validations, durable docs, and clear non-goals.
+
+Planned commits and checkpoints:
+
+1. Record this active official-doc HTML normalization plan in
+   `docs/HANDOFF.md`.
+2. Add a small deterministic official-doc content normalizer with HTML
+   detection and unsafe-block stripping.
+3. Cover HTML detection, unsafe block stripping, heading/list/code/link
+   Markdown conversion, and entity decoding.
+4. Extend the normalizer with compact HTML table-to-Markdown conversion.
+5. Cover normalized table output for Pulumi resource-style and Helm
+   value-style docs.
+6. Integrate the normalizer into `fetchOfficialKnowledgeSource` so explicit
+   official-doc fetches store normalized Markdown when the response is HTML.
+7. Cover official fetch normalization, metadata, stale-after preservation, and
+   non-HTML passthrough.
+8. Cover normalized Pulumi official docs flowing through cached fact
+   extraction without raw HTML.
+9. Cover normalized Helm chart docs flowing through cached fact extraction
+   without raw HTML.
+10. Update README, agent rules, roadmap, bundled skill docs, and this handoff
+    with completed behavior and remaining risks.
+11. Run focused validation after each important phase and the full
+    `npm run verify` gate before final handoff.
+
+Acceptance criteria:
+
+- `fetchOfficialKnowledgeSource` converts `text/html` official-doc responses
+  into compact `text/markdown` cache writes before persistence.
+- Normalization handles common headings, paragraphs, bullets, code spans,
+  links, and simple HTML tables used by Pulumi Registry and Helm docs.
+- Scripts, styles, SVG, comments, and other unsafe or high-noise blocks are
+  stripped before cache writes.
+- Existing cached Markdown, JSON, YAML, and plain text behavior remains
+  compatible.
+- Pulumi and Helm cached-doc fact extraction can consume normalized explicit
+  fetch output without accepting raw HTML-shaped cache entries directly.
+- No live refresh is added to `agent`, `run`, planner prompts, or automatic
+  retrieval paths.
+- JSON/text compact outputs do not expose raw fetched HTML, raw Markdown,
+  cache hashes, request headers, or credentials.
+
+Progress log:
+
+- Commit 1 records this active official-doc HTML normalization plan, scope,
+  acceptance criteria, and checkpoints in `docs/HANDOFF.md`. Focused
+  validation: `git diff --check`.
+
+Remaining risks and constraints:
+
+- The normalizer is intentionally lightweight and deterministic. It is not a
+  browser, sanitizer for untrusted display, or general-purpose HTML-to-Markdown
+  engine.
+- Normalized docs remain advisory cache content. Native validators, plan/preview
+  output, and repo-local facts remain authoritative.
+- This slice does not implement team storage, remote cache sharing, or automatic
+  agent-loop fetches.
+
 ## 2026-05-09 Active Official-Doc Cache Freshness UX Plan
 
 Status:
