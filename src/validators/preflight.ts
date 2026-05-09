@@ -59,18 +59,16 @@ function buildValidationPlan(inspection: WorkspaceInspection): ValidationPlanEnt
     for (const stackName of stackNames) {
       const stackArg = stackName ? ` --stack ${stackName}` : '';
       const localPulumiEnv = [
+        'PULUMI_SKIP_UPDATE_CHECK=true',
         'PULUMI_HOME=$PWD/.pulumi-home',
         'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state',
         'PULUMI_CONFIG_PASSPHRASE=infra-agent'
       ].join(' ');
-      const ensureLocalState = stackName
-        ? `mkdir -p .pulumi-home .pulumi-state && (${localPulumiEnv} pulumi stack init ${stackName} --cwd ${project.projectRoot} --non-interactive >/dev/null 2>&1 || true) && `
-        : '';
       plan.push({
         kind: 'pulumi',
         target: project.projectRoot,
         commands: [
-          `${ensureLocalState}${localPulumiEnv} pulumi preview --cwd ${project.projectRoot}${stackArg} --non-interactive`
+          `${localPulumiEnv} pulumi preview --cwd ${project.projectRoot}${stackArg} --non-interactive`
         ]
       });
     }
