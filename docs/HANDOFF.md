@@ -39,6 +39,65 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Team Backend Readiness Boundary Plan
+
+Status:
+
+- In progress. This slice defines the safe boundary for future real team-cache
+  backend adapters without implementing cloud SDKs, network access, remote
+  writes, upload commands, or credential handling.
+- Scope is a private backend config parser, a compact backend readiness report,
+  validation and CLI coverage for that readiness report, and documentation that
+  keeps existing descriptor/publication-plan/index-entry/readiness public
+  contracts free of backend details.
+
+Why this direction:
+
+- The previous slice locked compact team artifact public contracts. The next
+  backend-oriented step needs an explicit adapter/config/readiness boundary
+  before any remote mutation can be designed safely.
+- Claude Code architecture notes favor parser-enforced compact handoff surfaces
+  and permission gates before mutation. A dry-run backend readiness report is
+  the smallest useful next surface: it can describe whether a local backend
+  config is structurally ready for future explicit upload while keeping
+  `remoteWriteAllowed=false`.
+
+Planned commits and checkpoints:
+
+1. Record this active backend readiness plan in `docs/HANDOFF.md`.
+2. Add private team backend config/readiness types and builder helpers.
+3. Add unit tests for valid backend readiness and safe compact output.
+4. Add unit tests for blocked backend readiness from unsafe config.
+5. Add `knowledge validate` support for backend readiness reports.
+6. Add contract tests for backend readiness public handoff shape and leak
+   rejection.
+7. Add CLI argument parsing for `knowledge backend-readiness`.
+8. Add CLI implementation and text/JSON output for backend readiness.
+9. Add integration tests for CLI backend readiness write/validate behavior.
+10. Update README, Roadmap, Rules, and skill docs with the new boundary and
+    explicit non-goals.
+11. Run focused unit/contract/integration checks, lint, structure, and diff
+    checks.
+12. Run full `npm run verify`, then record completed commits, validation,
+    remaining risks, and next stage in this handoff.
+
+Acceptance criteria:
+
+- A local backend config can produce a compact
+  `infra-agent.knowledge-team-backend-readiness` report.
+- The readiness report is dry-run only: `mutationAllowed=false`,
+  `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, and `uploadCommand=null`.
+- The readiness report must not expose backend URLs, buckets, endpoints,
+  headers, credential values, absolute paths, raw docs, raw facts, or raw source
+  arrays.
+- Unsafe or incomplete backend configs produce blocked readiness reports rather
+  than throwing away structured blocker state.
+- Existing descriptor, publication-plan, index-entry, and publication-readiness
+  payloads remain unchanged and backend-neutral.
+- No real backend adapter, SDK, network call, credential lookup, upload command,
+  remote object read/write, or metadata index mutation is introduced.
+
 ## 2026-05-09 Team Artifact Public Contract Hardening
 
 Status:
