@@ -39,6 +39,71 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Team Metadata Index Readiness Plan
+
+Status:
+
+- In progress. This slice extends the completed team artifact descriptor and
+  publication-plan dry run with a compact metadata index/readiness boundary.
+- Scope is still non-mutating with respect to real team infrastructure. It may
+  model an injected mock metadata index and read local JSON artifacts, but it
+  must not introduce AWS/GCS/Azure SDKs, credentials, buckets, endpoints,
+  signed URLs, network reads, remote writes, or a real upload command.
+
+Why this direction:
+
+- `knowledge publish-plan` can now prove whether a persisted pack is eligible
+  for future publication. The next safe step is to model the metadata record a
+  future team cache would index and a compact readiness report that says
+  `already-published`, `upload-required`, `blocked`, or `conflict` without
+  touching real infrastructure.
+- This follows the Claude Code architecture notes: downstream agents should
+  route on compact validated state, not raw artifacts, backend details, or
+  prose-only assumptions.
+
+Planned commits and checkpoints:
+
+1. Record this active metadata index/readiness plan in `docs/HANDOFF.md`.
+2. Add compact team artifact index-entry and readiness-report contracts.
+3. Add builders that derive an index entry from a descriptor and readiness from
+   a publication plan plus an optional index entry.
+4. Cover index entry creation, deterministic compactness, and leak rejection.
+5. Cover readiness outcomes for already-published, upload-required, blocked,
+   object-mismatch, artifact-mismatch, and stale-index cases.
+6. Add an injected mock metadata index with safe put/get/list behavior and
+   conflict detection.
+7. Cover mock index idempotency, conflicts, safe key enforcement, and no
+   backend-detail leakage.
+8. Extend `knowledge validate` to accept index entries and readiness reports.
+9. Cover validator acceptance and forged/leaky payload rejection.
+10. Add `knowledge publish-readiness <plan.json> [--index-entry <entry.json>]
+    [--out <readiness.json>] [--json]` argument parsing.
+11. Implement the CLI command and safe text output.
+12. Cover CLI JSON/text behavior and validation round trips.
+13. Update README, roadmap, agent rules, skill docs, and this handoff with
+    completed behavior and remaining risks.
+14. Run focused checks after major phases and full `npm run verify` before
+    final handoff.
+
+Acceptance criteria:
+
+- New payloads use `mutationAllowed=false`, `remoteWriteAllowed=false`,
+  `credentialRequired=false`, and `uploadCommand=null` where publication
+  posture is discussed.
+- Index entries are compact metadata records derived from validated team
+  artifact descriptors. They may include backend kind, object key, hash, byte
+  length, artifact id/counts, storage-policy summary, and publication counts,
+  but not backend URLs, buckets, endpoints, credentials, headers, absolute
+  paths, raw docs, or raw repo content.
+- Readiness reports are compact dry-run decisions derived from a publication
+  plan and optional compact index entry. They must not call a store, read a
+  remote index, or mutate an index.
+- Blocked publication plans remain valid readiness inputs and produce blocked
+  readiness reports with compact blocker codes.
+- `knowledge validate` can validate saved index-entry and readiness JSON
+  artifacts without remote reads or writes.
+- CLI behavior remains local-only and explicitly dry-run.
+
 ## 2026-05-09 Team Publication Plan Dry-Run
 
 Status:
