@@ -207,10 +207,12 @@ Current behavior is intentionally runtime-foundation oriented:
   factory, and a mock-only resolver that rejects credential, endpoint, bucket,
   URL, absolute-path, live-check, and remote-write leakage. The first
   S3-compatible backend family now has a contract-first private config parser,
-  sanitized internal descriptor, readiness-input projection, and fail-closed
-  resolution plan for future real adapter work; it still does not create a
-  client or read credentials. There is still no real remote storage backend or
-  CLI upload command. Internally, team artifact and backend readiness
+  an offline reference registry for storage/auth refs and required environment
+  variable names, sanitized internal descriptor metadata, readiness-input
+  projection, and fail-closed resolution planning for future real adapter work;
+  it still does not create a client or read credential values. There is still
+  no real remote storage backend or CLI upload command. Internally, team
+  artifact and backend readiness
   validation now lives in focused modules while `knowledge validate` remains
   the public dispatcher; this keeps the next real-backend work from expanding
   the generic validation entrypoint.

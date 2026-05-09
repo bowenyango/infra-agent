@@ -212,6 +212,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   they must not be copied into public team artifact/readiness JSON, used to
   read environment credential values, converted into SDK clients, probed over
   the network, or treated as permission to upload.
+- Treat the S3-compatible reference registry as an offline private contract
+  for matching `storageProfileRef` / `authProfileRef` and validating required
+  environment variable names. It must not read `process.env` values, store
+  endpoint or bucket values, expose credentials, create clients, perform live
+  checks, or change public team artifact/readiness JSON.
 - Treat team artifact descriptor, publication-plan, index-entry, and readiness
   JSON as public contract data. Do not add raw facts, raw source arrays,
   workspace/cache paths, backend details, credentials, upload commands, or

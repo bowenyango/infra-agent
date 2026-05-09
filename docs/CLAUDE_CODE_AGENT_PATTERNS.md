@@ -258,6 +258,10 @@ durable design reference for infra-agent development.
   boundary, and mutation approval model exists. This mirrors Claude Code-style
   handoffs: compact structured state is useful for routing, but it is not proof
   of live provider reachability or permission to mutate infrastructure.
+- S3-compatible reference registries are offline routing contracts only. They
+  may validate safe storage/auth refs and required environment variable names,
+  but they must not read environment values, carry backend endpoints or bucket
+  values, or turn a fail-closed resolution plan into a real adapter.
 
 ## Current Non-Goals
 

@@ -128,6 +128,10 @@ credentials must still come from environment variables.
    safe structural references can prepare a future adapter design, but they do
    not create a client, read credential values, probe a backend, or approve
    upload.
+   The S3-compatible reference registry is also private and offline-only: it
+   may match storage/auth refs and validate required environment variable
+   names, but it must not read `process.env` values, carry bucket/endpoint
+   values, expose credentials, create clients, or approve upload.
    Do not infer that a descriptor approves real remote publication. Use
    `knowledge publish-plan` only as a dry-run review artifact; it does not
    upload, call a store write, or approve future publication. Use
