@@ -292,12 +292,28 @@ test('validation command safety allows read-only validators and blocks mutation 
   assert.equal(
     classifyUnsafeValidationCommand(
       'mkdir -p .pulumi-home .pulumi-state && (PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi stack init dev --cwd infra/payments-api --non-interactive >/dev/null 2>&1 || true) && PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive'
-    ),
-    null
+    )?.matchedPattern,
+    'shell-filesystem-mutation'
   );
 
   assert.match(classifyUnsafeValidationCommand('terraform -chdir=terraform/payments-api apply -auto-approve')?.reason ?? '', /not validation/i);
   assert.match(classifyUnsafeValidationCommand('pulumi up --cwd infra/payments-api --stack prod --yes')?.reason ?? '', /deployment/i);
+  assert.equal(
+    classifyUnsafeValidationCommand('pulumi stack init dev --cwd infra/payments-api --non-interactive')?.matchedPattern,
+    'pulumi-stack-bootstrap'
+  );
+  assert.equal(
+    classifyUnsafeValidationCommand('pulumi stack select dev --cwd infra/payments-api --non-interactive')?.matchedPattern,
+    'pulumi-stack-bootstrap'
+  );
+  assert.equal(
+    classifyUnsafeValidationCommand('pulumi login file://$PWD/.pulumi-state')?.matchedPattern,
+    'pulumi-login'
+  );
+  assert.equal(
+    classifyUnsafeValidationCommand('pulumi config set image.tag v2 --cwd infra/payments-api --stack dev')?.matchedPattern,
+    'pulumi-config-mutation'
+  );
   assert.match(classifyUnsafeValidationCommand('helm upgrade payments-api charts/payments-api')?.reason ?? '', /deployment/i);
   assert.match(classifyUnsafeValidationCommand('kubectl delete deployment payments-api')?.reason ?? '', /cluster state/i);
 });
@@ -324,6 +340,28 @@ test('validate_targets blocks unsafe validation commands before execution', asyn
   assert.equal(issues[0]?.metadata?.unsafeCommand, 'terraform -chdir=terraform/payments-api apply -auto-approve');
   assert.match(issues[0]?.metadata?.unsafeReason ?? '', /Terraform apply and destroy/i);
   assert.match(issues[0]?.guidance ?? '', /Remove deploy, apply, state mutation/i);
+});
+
+test('validate_targets blocks Pulumi local-state setup before execution', async () => {
+  const result = await executeTool(ValidateTargetsTool, {
+    commands: [
+      'mkdir -p .pulumi-home .pulumi-state && PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi stack init dev --cwd infra/payments-api --non-interactive'
+    ]
+  }, {
+    workspaceRoot: resolve('fixtures/sample-workspace'),
+    workspaceConfig: null
+  });
+
+  assert.equal(result.output.results.length, 1);
+  assert.equal(result.output.results[0]?.exitCode, 1);
+  assert.match(result.output.results[0]?.stderr ?? '', /blocked unsafe validation command/i);
+  assert.match(result.output.results[0]?.stderr ?? '', /Shell filesystem mutation/i);
+
+  const issues = classifyValidationIssues(result.output.results);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0]?.kind, 'unsafe-validation-command');
+  assert.equal(issues[0]?.repairable, false);
+  assert.match(issues[0]?.metadata?.unsafeReason ?? '', /Shell filesystem mutation/i);
 });
 
 test('classifyValidationIssues marks ingress.enabled failures as repairable', () => {

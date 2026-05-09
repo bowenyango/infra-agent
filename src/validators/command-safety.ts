@@ -11,6 +11,11 @@ interface UnsafeValidationCommandRule {
 
 const UNSAFE_VALIDATION_COMMAND_RULES: UnsafeValidationCommandRule[] = [
   {
+    id: 'shell-filesystem-mutation',
+    pattern: /^(?:mkdir|rm|mv|cp|touch|chmod|chown|ln)\b/i,
+    reason: 'Shell filesystem mutation commands are setup or write operations, not validation.'
+  },
+  {
     id: 'terraform-apply-destroy',
     pattern: /\bterraform\b.*\b(?:apply|destroy)\b/i,
     reason: 'Terraform apply and destroy commands are deploy/state mutation operations, not validation.'
@@ -27,8 +32,23 @@ const UNSAFE_VALIDATION_COMMAND_RULES: UnsafeValidationCommandRule[] = [
   },
   {
     id: 'pulumi-import-refresh-state',
-    pattern: /\bpulumi\b.*\b(?:import|refresh|state\s+\S+|stack\s+rm)\b/i,
-    reason: 'Pulumi import, refresh, stack removal, and state commands require explicit review and are not validation.'
+    pattern: /\bpulumi\b.*\b(?:import|refresh|state\s+\S+|stack\s+(?:export|import|rm))\b/i,
+    reason: 'Pulumi import, refresh, stack removal/export/import, and state commands require explicit review and are not validation.'
+  },
+  {
+    id: 'pulumi-stack-bootstrap',
+    pattern: /\bpulumi\b.*\bstack\s+(?:init|select|rename|change-secrets-provider|tag\s+(?:set|rm))\b/i,
+    reason: 'Pulumi stack bootstrap, selection, rename, secret-provider, and tag mutations are setup or state operations, not validation.'
+  },
+  {
+    id: 'pulumi-login',
+    pattern: /\bpulumi\b.*\blogin\b/i,
+    reason: 'Pulumi login changes backend/session state and is not validation.'
+  },
+  {
+    id: 'pulumi-config-mutation',
+    pattern: /\bpulumi\b.*\bconfig\s+(?:set|rm|refresh|cp)\b/i,
+    reason: 'Pulumi config mutation commands require explicit approval and are not validation.'
   },
   {
     id: 'helm-release-mutation',
