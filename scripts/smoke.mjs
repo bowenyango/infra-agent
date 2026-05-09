@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, cp, rm, readFile, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, cp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { inspectWorkspace } from '../src/domain/inspect-workspace.ts';
@@ -36,6 +37,32 @@ async function smokeGraph(workspacePath) {
 
 async function writeIdentityConflictFixture(path) {
   await writeFile(path, JSON.stringify(buildIdentityConflictAgentResultFixture()), 'utf8');
+}
+
+async function preparePulumiStackContext(workspaceRoot) {
+  const pulumiHome = join(workspaceRoot, '.pulumi-home');
+  const pulumiState = join(workspaceRoot, '.pulumi-state');
+  await mkdir(pulumiHome, { recursive: true });
+  await mkdir(pulumiState, { recursive: true });
+  const setup = spawnSync('pulumi', [
+    'stack',
+    'init',
+    'dev',
+    '--cwd',
+    'infra/payments-api',
+    '--non-interactive'
+  ], {
+    cwd: workspaceRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PULUMI_SKIP_UPDATE_CHECK: 'true',
+      PULUMI_HOME: pulumiHome,
+      PULUMI_BACKEND_URL: `file://${pulumiState}`,
+      PULUMI_CONFIG_PASSPHRASE: 'infra-agent'
+    }
+  });
+  assert.equal(setup.status, 0, setup.stderr || setup.stdout);
 }
 
 async function main() {
@@ -101,11 +128,76 @@ async function main() {
     assert.match(probeValues, /probes:/);
     assert.match(deploymentTemplate, /readinessProbe:/);
 
-    await runSingleStep(
+    const unapprovedPulumiRun = await runSingleStep(
       'update pulumi dev stack for payments-api image tag to 1.2.3',
       pulumiWorkspaceRoot,
       undefined,
       'rule-based'
+    );
+    assert.equal(unapprovedPulumiRun.outcome, 'approval-required');
+    await preparePulumiStackContext(pulumiWorkspaceRoot);
+    const pulumiWrite = {
+      path: 'infra/payments-api/Pulumi.dev.yaml',
+      content: 'config:\n  payments-api:environment: dev\n  payments-api:imageTag: 1.2.3\n',
+      reason: 'Smoke Pulumi stack config update.'
+    };
+    const pulumiApplyModel = {
+      name: 'smoke-pulumi-apply-model',
+      async decideNextAction() {
+        return {
+          action: {
+            kind: 'apply-edit-plan',
+            summary: 'Apply approved Pulumi stack config update.',
+            rationale: 'Smoke approved native stack config write.',
+            payload: {
+              actionFamily: 'pulumi-bounded-stack-config',
+              writes: [pulumiWrite],
+              editPlan: {
+                kind: 'pulumi-stack-config',
+                summary: 'Apply approved Pulumi stack config update.',
+                rationale: 'Smoke approved native stack config write.',
+                pulumiConfigOperations: [
+                  {
+                    projectRoot: 'infra/payments-api',
+                    stackName: 'dev',
+                    key: 'payments-api:imageTag',
+                    value: '1.2.3'
+                  }
+                ],
+                writes: [pulumiWrite]
+              }
+            }
+          },
+          confidence: 'high'
+        };
+      }
+    };
+    const approvedPulumiRun = await runSingleStep(
+      'update pulumi dev stack for payments-api image tag to 1.2.3',
+      pulumiWorkspaceRoot,
+      pulumiApplyModel,
+      'rule-based',
+      {
+        approvedWriteRisks: ['high', 'medium'],
+        approvedWritePaths: ['infra/payments-api'],
+        approvedToolCategories: ['native-stack-config-write']
+      }
+    );
+    assert.notEqual(approvedPulumiRun.outcome, 'approval-required');
+    assert.ok(
+      approvedPulumiRun.turns.some(turn => turn.execution?.executedTools.some(tool => tool.toolName === 'pulumi_config_set')),
+      JSON.stringify({
+        outcome: approvedPulumiRun.outcome,
+        turns: approvedPulumiRun.turns.map(turn => ({
+          action: turn.decision.action.kind,
+          executionStatus: turn.execution?.status,
+          reason: turn.execution?.reason,
+          tools: turn.execution?.executedTools.map(tool => ({
+            name: tool.toolName,
+            output: tool.output
+          }))
+        }))
+      })
     );
     const pulumiStack = await readFile(join(pulumiWorkspaceRoot, 'infra/payments-api/Pulumi.dev.yaml'), 'utf8');
     assert.match(pulumiStack, /payments-api:imageTag: 1\.2\.3/);
