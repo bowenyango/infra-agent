@@ -39,6 +39,58 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Team Backend Adapter Interface Plan
+
+Status:
+
+- In progress. This slice defines a backend adapter interface boundary and
+  mock-backed contract tests before any real team storage backend is added.
+- Scope is interface, dependency-boundary, and mock adapter work only. It must
+  not add cloud SDKs, perform network calls, read credential values, generate
+  upload commands, mutate remote objects/indexes, or change public team
+  artifact/readiness JSON schemas.
+
+Why this direction:
+
+- The previous validation split made `knowledge validate` a dispatcher and
+  isolated team artifact/backend readiness contracts. The next safe step is a
+  typed adapter seam that future real backends can implement without changing
+  compact public contracts.
+- Claude Code architecture notes favor parser-enforced compact contracts,
+  explicit permission/mutation gates, and injected dependencies. This stage
+  keeps backend behavior injected and mock-backed while preserving those gates.
+
+Planned commits and checkpoints:
+
+1. Record this active adapter-interface plan in `docs/HANDOFF.md`.
+2. Add characterization coverage for team artifact key helpers.
+3. Extract team artifact key/content-address helpers into a focused module.
+4. Add backend adapter capability and descriptor types.
+5. Add direct tests for adapter capability descriptors.
+6. Add a mock backend adapter factory that composes the existing mock object
+   store and metadata index.
+7. Add contract tests for adapter object-store behavior.
+8. Add contract tests for adapter metadata-index behavior.
+9. Add safe adapter resolver/config parsing for mock-only adapters.
+10. Add resolver tests that reject unsupported or leaky adapter configs.
+11. Update README, Rules, Roadmap/pattern notes, and this handoff with the
+    adapter boundary and non-goals.
+12. Run focused checks and full `npm run verify`, then record completed
+    commits, validation, remaining risks, and next stage in this handoff.
+
+Acceptance criteria:
+
+- Existing team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, and backend-readiness public schemas remain unchanged.
+- Adapter capabilities explicitly preserve `mutationAllowed=false`,
+  `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, and `uploadCommand=null`.
+- The only implemented adapter is mock/in-memory and injected by tests or
+  callers; no real S3/GCS/Azure/Postgres client is created.
+- Existing staging/retrieval/publication helper behavior remains compatible
+  with the current mock store and metadata index.
+- Focused adapter tests, lint, structure, diff check, and full verify pass.
+
 ## 2026-05-09 Active Team Validation Helper Split Plan
 
 Status:
