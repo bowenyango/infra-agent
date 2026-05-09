@@ -31,6 +31,7 @@ import {
   type KnowledgeTeamPublicationPlan
 } from '../knowledge/team-artifact-store.ts';
 import { buildKnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
+import { validateKnowledgeTeamS3CompatibleBackendReferences } from '../knowledge/team-s3-compatible-reference-registry.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -49,6 +50,7 @@ import {
   printInspection,
   printKnowledgePrefetchResult,
   printKnowledgeTeamBackendReadinessReport,
+  printKnowledgeTeamS3CompatibleReferenceValidationSummary,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
@@ -1438,6 +1440,40 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamBackendReadinessReport(readiness);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'backend-reference-readiness') {
+    if (!parsed.inputPath) {
+      fail('knowledge backend-reference-readiness requires exactly one backend config path.');
+    }
+    if (!parsed.registryInputPath) {
+      fail('knowledge backend-reference-readiness requires --registry <reference-registry.json>.');
+    }
+
+    const configPath = resolveFromCwd(parsed.inputPath);
+    const registryPath = resolveFromCwd(parsed.registryInputPath);
+    const config = await readJsonObject(configPath);
+    const registry = await readJsonObject(registryPath);
+    const readiness = validateKnowledgeTeamS3CompatibleBackendReferences(config, registry);
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), readiness)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...readiness,
+            outputPath: writtenPath
+          }
+        : readiness, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamS3CompatibleReferenceValidationSummary(readiness);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
