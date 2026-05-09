@@ -1,11 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  mkdir,
   mkdtemp,
-  rm
+  rm,
+  writeFile
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import {
+  join,
+  resolve
+} from 'node:path';
 import {
   contentLooksLikeHtml,
   decodeHtmlEntities,
@@ -15,6 +20,8 @@ import {
 import { fetchOfficialKnowledgeSource } from '../../src/knowledge/retrieve.ts';
 import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../../src/knowledge/facts.ts';
+import { prefetchWorkspaceKnowledge } from '../../src/knowledge/prefetch.ts';
+import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 
 test('official doc normalization detects HTML by content type and document shape', () => {
   assert.equal(contentLooksLikeHtml('# Markdown', 'text/markdown'), false);
@@ -249,6 +256,160 @@ test('normalized Helm chart HTML extracts chart value facts without raw HTML', a
     ));
     assert.equal(factSet.facts.some(fact => /secretToken|Secret token/i.test(JSON.stringify(fact))), false);
     assert.doesNotMatch(JSON.stringify(factSet), /<html|<table|<td|raw/i);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge prefetch stores normalized HTML docs through the explicit fetch path', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-normalized-prefetch-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://charts.example.test/api/',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const writes = [];
+    const store = {
+      root: 'memory://normalized-prefetch',
+      buildId(source) {
+        return source.name;
+      },
+      async read() {
+        return null;
+      },
+      async write(input) {
+        const entry = await writeKnowledgeCacheEntry(tempRoot, input);
+        writes.push(entry);
+        return entry;
+      },
+      isStale() {
+        return false;
+      }
+    };
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['helm'],
+      targetPaths: ['charts/api'],
+      maxSources: 3,
+      store,
+      fetcher: source => fetchOfficialKnowledgeSource(source, {
+        fetchedAt: '2026-05-09T00:00:00.000Z',
+        fetchImpl: async () => ({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: {
+            get: name => name.toLowerCase() === 'content-type' ? 'text/html' : null
+          },
+          text: async () => [
+            '<html><body>',
+            '<h1>API chart</h1>',
+            '<table>',
+            '<tr><th>Parameter</th><th>Description</th></tr>',
+            '<tr><td><code>ingress.enabled</code></td><td>Enables ingress resources.</td></tr>',
+            '</table>',
+            '</body></html>'
+          ].join('')
+        })
+      })
+    });
+    const chartDocsResult = result.sources.find(source =>
+      source.status === 'fetched'
+      && source.source.kind === 'chart-docs'
+      && source.source.name === 'api:home'
+    );
+    const writtenChartDocs = writes.find(entry => entry.source.name === 'api:home');
+
+    assert.ok(chartDocsResult);
+    assert.equal(chartDocsResult.contentType, 'text/markdown');
+    assert.equal(chartDocsResult.previousCacheStatus, 'missing');
+    assert.ok(writtenChartDocs);
+    assert.equal(writtenChartDocs.contentType, 'text/markdown');
+    assert.equal(writtenChartDocs.metadata?.normalization, 'html-to-markdown');
+    assert.match(writtenChartDocs.content, /\| `ingress\.enabled` \| Enables ingress resources\. \|/);
+    assert.doesNotMatch(writtenChartDocs.content, /<html|<table|<td/i);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge prefetch does not rewrite fresh cache entries for normalization', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-normalized-prefetch-fresh-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.2.0',
+        'home: https://charts.example.test/api/',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    let fetchCount = 0;
+    let writeCount = 0;
+    const store = {
+      root: 'memory://normalized-prefetch-fresh',
+      buildId(source) {
+        return source.name;
+      },
+      async read(source) {
+        if (source.kind !== 'chart-docs') {
+          return null;
+        }
+        return {
+          id: source.name,
+          source,
+          contentType: 'text/plain',
+          content: '<html><body>old cached html</body></html>',
+          contentHash: 'e'.repeat(64),
+          fetchedAt: '2026-05-09T00:00:00.000Z',
+          staleAfter: '2099-01-01T00:00:00.000Z'
+        };
+      },
+      async write() {
+        writeCount += 1;
+        throw new Error('fresh cache entries should not be rewritten');
+      },
+      isStale() {
+        return false;
+      }
+    };
+    const result = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['helm'],
+      targetPaths: ['charts/api'],
+      maxSources: 3,
+      store,
+      fetcher: async () => {
+        fetchCount += 1;
+        return null;
+      }
+    });
+
+    assert.ok(result.sources.some(source =>
+      source.status === 'cached'
+      && source.previousCacheStatus === 'fresh'
+      && source.source.kind === 'chart-docs'
+    ));
+    assert.equal(fetchCount, 0);
+    assert.equal(writeCount, 0);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
