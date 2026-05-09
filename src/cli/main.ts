@@ -66,12 +66,13 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
   descriptorInputPath?: string | null;
   indexEntryInputPath?: string | null;
+  registryInputPath?: string | null;
   outputPath?: string | null;
   manifestOutputPath?: string | null;
   validationWorkspace?: string | null;
@@ -121,6 +122,7 @@ function printUsage(): void {
       '  infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]',
       '  infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]',
       '  infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]',
+      '  infra-agent knowledge backend-reference-readiness <backend-config.json> --registry <reference-registry.json> [--out <readiness.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -603,8 +605,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'publish-plan'
       && knowledgeAction !== 'publish-readiness'
       && knowledgeAction !== 'backend-readiness'
+      && knowledgeAction !== 'backend-reference-readiness'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness.');
     }
 
     let workspace = cwd();
@@ -617,6 +620,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let manifestOutputPath: string | null = null;
     let descriptorInputPath: string | null = null;
     let indexEntryInputPath: string | null = null;
+    let registryInputPath: string | null = null;
     let validationWorkspace: string | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
@@ -625,7 +629,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness') {
           fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
@@ -639,7 +643,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness') {
           fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
@@ -692,8 +696,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'publish-plan'
           && knowledgeAction !== 'publish-readiness'
           && knowledgeAction !== 'backend-readiness'
+          && knowledgeAction !== 'backend-reference-readiness'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, or knowledge backend-readiness.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, or knowledge backend-reference-readiness.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -717,6 +722,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         indexEntryInputPath = indexEntryValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--registry') {
+        const registryValue = actionArgs[index + 1]?.trim();
+        if (!registryValue) {
+          fail('Missing value for --registry.');
+        }
+        if (knowledgeAction !== 'backend-reference-readiness') {
+          fail('--registry is only supported for knowledge backend-reference-readiness.');
+        }
+        if (registryInputPath !== null) {
+          fail('Registry path can be provided at most once.');
+        }
+
+        registryInputPath = registryValue;
         index += 1;
         continue;
       }
@@ -807,6 +829,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'backend-readiness' && positionalArgs.length !== 1) {
       fail('knowledge backend-readiness requires exactly one backend config path.');
     }
+    if (knowledgeAction === 'backend-reference-readiness' && positionalArgs.length !== 1) {
+      fail('knowledge backend-reference-readiness requires exactly one backend config path.');
+    }
+    if (knowledgeAction === 'backend-reference-readiness' && registryInputPath === null) {
+      fail('knowledge backend-reference-readiness requires --registry <reference-registry.json>.');
+    }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
@@ -817,10 +845,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' ? positionalArgs[0] : null,
+      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' ? positionalArgs[0] : null,
       descriptorInputPath,
       indexEntryInputPath,
+      registryInputPath,
       outputPath,
       manifestOutputPath,
       validationWorkspace,

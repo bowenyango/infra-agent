@@ -242,3 +242,24 @@ test('knowledge backend-readiness CLI args accept config and output paths', () =
   assert.equal(parsed.outputPath, 'artifacts/team-backend.readiness.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge backend-reference-readiness CLI args accept config registry and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'backend-reference-readiness',
+    'artifacts/team-backend.config.json',
+    '--registry',
+    'artifacts/team-backend.reference-registry.json',
+    '--out',
+    'artifacts/team-backend.reference-readiness.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'backend-reference-readiness');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/team-backend.config.json');
+  assert.equal(parsed.registryInputPath, 'artifacts/team-backend.reference-registry.json');
+  assert.equal(parsed.outputPath, 'artifacts/team-backend.reference-readiness.json');
+  assert.equal(parsed.json, true);
+});
