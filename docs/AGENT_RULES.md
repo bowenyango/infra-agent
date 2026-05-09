@@ -192,6 +192,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   publish/upload command. It may read a manifest and its referenced pack
   artifact and write a local plan file, but it must not call a store write,
   remote backend, upload command, or agent-loop publication path.
+- `infra-agent knowledge publish-readiness` is also a dry-run review command.
+  It may read a saved publication plan and an optional compact index entry, but
+  it must not read or write a real metadata index, call a remote backend, carry
+  credentials, or approve an upload.
 - For Terraform Registry docs, prefer provider source and locked provider version from `required_providers` and `.terraform.lock.hcl` before falling back to local-name heuristics.
 - For local Terraform provider schema context, use only root-scoped exports such as `.infra-agent/terraform-provider-schema.json` or `.infra-agent/terraform-providers-schema.json`. Extract compact facts for resources used by the selected root, preserve `.terraform.lock.hcl` provider version labels when available, do not pass full provider schema JSON into planner prompts, and do not infer replacement safety from schema shape alone.
 - For local Terraform modules, use only literal workspace-contained module

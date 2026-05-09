@@ -101,9 +101,9 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan` when you need reusable
-   provider, resource, chart, module, or Pulumi component facts; validate
-   extracted data before planner use and use
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness` when
+   you need reusable provider, resource, chart, module, or Pulumi component
+   facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
    repo-derived facts after local files may have changed.
    Read the validation report's freshness summary for stale or unchecked local
@@ -124,7 +124,9 @@ credentials must still come from environment variables.
    backend-neutral and secret-safe. Do not infer that a descriptor approves
    real remote publication. Use `knowledge publish-plan` only as a dry-run
    review artifact; it does not upload, call a store write, or approve future
-   publication.
+   publication. Use `knowledge publish-readiness` only to compare a saved
+   plan with an optional compact index entry; it does not read or write a real
+   metadata index or approve future upload.
    Prefer bounded `knowledgeFacts`/packs over raw docs. Read
    `validation.selectedPlan` for intended domain validators,
    `validation.commands` for executed validation command summaries,
@@ -206,6 +208,9 @@ credentials must still come from environment variables.
 - Treat team publication plans as non-mutating dry-run review artifacts. A
   blocked plan is useful handoff context, not a failure to work around, and an
   allowed plan is not approval to publish to a real backend.
+- Treat team publication readiness reports as compact routing artifacts only.
+  `already-published`, `upload-required`, `blocked`, and `conflict` are planning
+  states, not permission to execute a remote upload or mutate a metadata index.
 - For Terraform local modules, prefer `terraform-module` knowledge facts over
   raw module file reads when the module source is literal and workspace-local.
   These facts describe inputs and outputs only; remote, registry, git, dynamic,

@@ -104,6 +104,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]`
 - `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]`
 - `infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]`
+- `infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -182,13 +183,19 @@ Current behavior is intentionally runtime-foundation oriented:
   manifest's referenced pack artifact and emits a non-mutating
   `infra-agent.knowledge-team-publication-plan` dry run for future team-cache
   publication review; it may write a local `--out` plan file but never calls a
-  store, remote backend, or upload command. `knowledge validate` also accepts compact
-  `infra-agent.knowledge-team-artifact-descriptor` payloads produced by the
-  internal mocked S3-compatible team artifact store abstraction. Those
-  descriptors are content-addressed and backend-neutral; they do not include
-  backend URLs, buckets, endpoints, credentials, absolute workspace paths, raw
-  docs, or raw repo content. It also validates saved publication-plan dry runs.
-  There is still no real remote storage backend or CLI upload command.
+  store, remote backend, or upload command. `knowledge publish-readiness
+  <plan.json>` reads a saved dry-run plan and an optional compact
+  `infra-agent.knowledge-team-artifact-index-entry`, then emits a local
+  `infra-agent.knowledge-team-publication-readiness` report showing
+  `already-published`, `upload-required`, `blocked`, or `conflict` posture
+  without reading or writing a real remote index. `knowledge validate` also
+  accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
+  produced by the internal mocked S3-compatible team artifact store
+  abstraction, compact index entries, saved publication-plan dry runs, and
+  readiness reports. Those payloads are content-addressed and backend-neutral;
+  they do not include backend URLs, buckets, endpoints, credentials, absolute
+  workspace paths, raw docs, or raw repo content. There is still no real remote
+  storage backend or CLI upload command.
   Validation reports include a structured freshness summary
   with stale and unchecked source counts, affected fact counts, safe source
   ids, source kinds/names, stale reasons, and safe workspace-relative
