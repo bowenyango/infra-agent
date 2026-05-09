@@ -39,6 +39,86 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Pulumi Component Internals Plan
+
+Status:
+
+- In progress. This slice extends the existing conservative Node.js/TypeScript
+  Pulumi `ComponentResource` knowledge path from component interface facts to
+  bounded child-resource facts.
+- Scope is read-only static evidence. No validation-time Pulumi stack
+  bootstrap, `pulumi stack init`, deployment, state mutation, import, refresh,
+  or automatic resource repair is in scope.
+- The output remains advisory compact knowledge. `pulumi preview`, project
+  type checks, and repository tests remain authoritative for runtime behavior.
+
+Why this direction:
+
+- `docs/ROADMAP.md` already lists richer Pulumi component internals as a
+  remaining knowledge gap after component input/output facts landed.
+- Subagent review split three possible next slices:
+  component internals, public-doc cache refresh UX, and tool-output/lifecycle
+  guardrails. Component internals is the most direct product capability gap for
+  Infra-Agent's local IaC understanding.
+- The Claude Code architecture lesson stays bounded here: strengthen compact
+  handoff facts and parser contracts, but do not introduce a coordinator
+  engine, recursive runtime subagents, live refresh in the query loop, or raw
+  source/tool-output handoff.
+
+Subagent review inputs:
+
+- `Lagrange` recommended a Pulumi component internals slice limited to
+  read-only Node.js/TypeScript evidence. Acceptance: detect child Pulumi
+  resource constructors inside conservative `ComponentResource` class bodies,
+  keep facts compact, skip raw constructor args/secrets/generated/test files,
+  and treat the result as advisory only.
+- `Lorentz` recommended a deliberate official-doc refresh UX slice. That is
+  valid follow-up work, but not this slice; no live agent-loop refresh is being
+  added now.
+- `Bacon` recommended borrowing Claude Code's deterministic output-budget and
+  lifecycle discipline. This slice applies that as a constraint: only bounded
+  knowledge summaries, source locators, fact counts, and compact contract
+  updates are allowed into planner/handoff surfaces.
+
+Planned commits and checkpoints:
+
+1. Record this active Pulumi component internals plan in `docs/HANDOFF.md`.
+2. Add parser coverage for child resource constructors inside component
+   classes, including namespace imports, named class imports, and comment/string
+   masking.
+3. Implement conservative child resource extraction in
+   `src/domain/pulumi-components.ts`.
+4. Include child resource summaries in component knowledge content without raw
+   source, constructor args, or import text.
+5. Add `pulumi-component-child-resource` to the knowledge fact schema and
+   parser contract.
+6. Extract child resource facts from component summaries with safe paths,
+   values, source locators, and related workspace paths.
+7. Rank child resource facts as local component evidence below required inputs
+   and above public Pulumi docs guidance.
+8. Cover bounded packs and planner prompt compaction for child resource facts.
+9. Cover CLI knowledge extract/pack behavior in a focused new shard instead of
+   growing near-limit integration tests.
+10. Update rules, roadmap, README/skill docs, and this handoff with the new
+    boundary and remaining risks.
+11. Run focused validation after each important phase and the full
+    `npm run verify` gate before final handoff.
+
+Acceptance criteria:
+
+- Child-resource facts are emitted only for resource constructors inside a
+  detected Pulumi `ComponentResource` class body.
+- Supported evidence is conservative Node.js/TypeScript `@pulumi/*`
+  import/require constructor syntax already compatible with Pulumi resource
+  token detection patterns.
+- Facts include resource name, Pulumi type token, component class, source
+  locator, source id, extraction method, confidence, and safe related paths.
+- Facts exclude raw source content, constructor argument objects, import text,
+  external URLs, cache hashes/timestamps in compact handoff, generated/test
+  files, declaration files, and secret-like names or tokens.
+- Stale/unchecked source confidence downgrade behavior remains unchanged.
+- Existing Pulumi validation/config safety boundaries remain intact.
+
 ## 2026-05-09 Active Pulumi Safety Remediation Plan
 
 Status:
