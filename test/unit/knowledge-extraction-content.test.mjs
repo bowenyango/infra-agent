@@ -584,6 +584,17 @@ test('knowledge validation accepts extraction reports and rejects count drift', 
   assert.equal(validReport.valid, true);
   assert.equal(validReport.factSetCount, extraction.factSetCount);
   assert.equal(validReport.factCount, extraction.factCount);
+  assert.deepEqual(validReport.freshness, {
+    kind: 'infra-agent.knowledge-freshness-summary',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    staleSourceCount: 0,
+    uncheckedLocalSourceCount: 0,
+    staleFactCount: 0,
+    uncheckedFactCount: 0,
+    staleSources: [],
+    uncheckedLocalSources: []
+  });
 
   const invalidReport = validateKnowledgePayload({
     ...extraction,

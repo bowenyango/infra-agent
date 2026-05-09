@@ -45,12 +45,38 @@ export interface KnowledgeValidationReport {
   factCount: number;
   staleSourceCount: number;
   uncheckedLocalSourceCount: number;
+  freshness: KnowledgeValidationFreshnessSummary;
   issueCount: number;
   issues: KnowledgeValidationIssue[];
 }
 
 export interface KnowledgeValidationOptions {
   workspaceRoot?: string;
+}
+
+export interface KnowledgeValidationFreshnessSource {
+  sourceId: string;
+  sourceKind: KnowledgeSourceKind | null;
+  sourceName: string | null;
+  factCount: number;
+  staleReason?: KnowledgeSourceStaleReason;
+  uncheckedReason?: 'workspace-not-provided' | 'missing-fingerprint';
+  stalePaths?: string[];
+  missingPaths?: string[];
+  fingerprintDigest?: string;
+  fingerprintFileCount?: number;
+}
+
+export interface KnowledgeValidationFreshnessSummary {
+  kind: 'infra-agent.knowledge-freshness-summary';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  staleSourceCount: number;
+  uncheckedLocalSourceCount: number;
+  staleFactCount: number;
+  uncheckedFactCount: number;
+  staleSources: KnowledgeValidationFreshnessSource[];
+  uncheckedLocalSources: KnowledgeValidationFreshnessSource[];
 }
 
 interface ValidatedKnowledgeFactSet {
@@ -122,6 +148,10 @@ function createReport(
     ...factSets.filter(factSet => factSet.sourceStale).map(factSet => factSet.sourceId),
     ...localSourceStats.staleSourceIds
   ]);
+  const freshness = buildFreshnessSummary(factSets, localSourceStats, {
+    staleSourceCount: countOverrides.staleSourceCount ?? staleSourceIds.size,
+    uncheckedLocalSourceCount: localSourceStats.uncheckedLocalSourceCount
+  });
   return {
     kind: 'infra-agent.knowledge-validation',
     schemaVersion: 1,
@@ -134,8 +164,53 @@ function createReport(
     factCount,
     staleSourceCount: countOverrides.staleSourceCount ?? staleSourceIds.size,
     uncheckedLocalSourceCount: localSourceStats.uncheckedLocalSourceCount,
+    freshness,
     issueCount: issues.length,
     issues
+  };
+}
+
+function buildFreshnessSummary(
+  factSets: KnowledgeFactSet[],
+  localSourceStats: LocalSourceValidationStats,
+  counts: Pick<KnowledgeValidationFreshnessSummary, 'staleSourceCount' | 'uncheckedLocalSourceCount'>
+): KnowledgeValidationFreshnessSummary {
+  void localSourceStats;
+  const staleBySourceId = new Map<string, KnowledgeValidationFreshnessSource>();
+  for (const factSet of factSets) {
+    if (!factSet.sourceStale) {
+      continue;
+    }
+
+    staleBySourceId.set(factSet.sourceId, {
+      sourceId: factSet.sourceId,
+      sourceKind: factSet.source.kind,
+      sourceName: factSet.source.name,
+      factCount: factSet.factCount,
+      staleReason: factSet.sourceStaleReason ?? 'time-expired',
+      ...(factSet.sourceFingerprint !== undefined
+        ? {
+            fingerprintDigest: factSet.sourceFingerprint.digest,
+            fingerprintFileCount: factSet.sourceFingerprint.fileCount
+          }
+        : {})
+    });
+  }
+
+  const staleSources = Array.from(staleBySourceId.values())
+    .sort((left, right) => left.sourceId.localeCompare(right.sourceId));
+  const uncheckedLocalSources: KnowledgeValidationFreshnessSource[] = [];
+
+  return {
+    kind: 'infra-agent.knowledge-freshness-summary',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    staleSourceCount: counts.staleSourceCount,
+    uncheckedLocalSourceCount: counts.uncheckedLocalSourceCount,
+    staleFactCount: staleSources.reduce((total, source) => total + source.factCount, 0),
+    uncheckedFactCount: uncheckedLocalSources.reduce((total, source) => total + source.factCount, 0),
+    staleSources,
+    uncheckedLocalSources
   };
 }
 
