@@ -43,8 +43,8 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice adds a dry-run file/CLI review path for the private
-  S3-compatible reference registry contract.
+- Completed and verified. This slice adds a dry-run file/CLI review path for
+  the private S3-compatible reference registry contract.
 - Scope is CLI argument parsing, local JSON loading, text/JSON output,
   integration/contract tests, and documentation. It must not read environment
   variable values, perform live backend checks, import SDKs, create clients,
@@ -61,21 +61,20 @@ Why this direction:
   private inputs, emit bounded structured state, and keep mutation and
   reachability separate from planning metadata.
 
-Planned checkpoints:
+Completed commits and checkpoints:
 
-1. Record the reference-readiness CLI plan and acceptance criteria.
-2. Add `knowledge backend-reference-readiness` argument parsing with a required
-   `--registry <reference-registry.json>` option.
-3. Add text output for S3-compatible reference validation summaries.
-4. Wire CLI execution to load backend config plus registry JSON and emit the
-   existing private validation summary.
-5. Cover CLI argument parsing and missing/unsupported option behavior.
-6. Cover valid JSON output and `--out` writes.
-7. Cover no environment value reads in the CLI path.
-8. Cover blocked text output without echoing private input values.
-9. Add a contract-style regression for the private validation summary shape.
-10. Update README, rules, roadmap, skill, and handoff records.
-11. Run focused checks and full `npm run verify`.
+1. `6ec2fb5` docs: record s3 reference readiness cli plan.
+2. `6b1e98c` feat: parse s3 reference readiness cli args.
+3. `02328bf` feat: print s3 reference readiness summaries.
+4. `007c4ce` feat: wire s3 reference readiness cli.
+5. `d00cdaa` test: cover s3 reference readiness cli.
+6. `c42b55b` test: lock s3 reference readiness contract.
+7. `30f020c` docs: add s3 reference readiness cli usage.
+8. `44a1c2f` docs: define s3 reference readiness boundary.
+9. `94edcbe` docs: update s3 reference readiness roadmap.
+10. `193195f` test: expose s3 reference readiness in help.
+11. Final handoff update: record focused checks, full verification, remaining
+    risks, and next-stage plan.
 
 Acceptance criteria:
 
@@ -91,17 +90,63 @@ Acceptance criteria:
 - Focused CLI, parser, registry, public contract, lint, structure, and full
   verify checks pass.
 
-Current risks and constraints:
+Current design:
+
+- `infra-agent knowledge backend-reference-readiness <backend-config.json>
+  --registry <reference-registry.json> [--out <readiness.json>] [--json]`
+  loads only local JSON files and calls
+  `validateKnowledgeTeamS3CompatibleBackendReferences()`.
+- The command emits
+  `infra-agent.knowledge-team-s3-compatible-reference-validation`, the same
+  private validation summary produced by the registry module. It may report
+  required/optional environment variable names, but it never reads or reports
+  environment variable values.
+- Text output uses
+  `printKnowledgeTeamS3CompatibleReferenceValidationSummary()` and shows status,
+  backend/config refs, disabled capability flags, required/optional env var
+  names, and blocker issues. Blocked summaries remain review results rather
+  than fatal process failures; only argument/file/JSON loading failures are
+  fatal.
+- `--out` writes the pure private validation summary JSON locally. JSON stdout
+  adds `outputPath` only as command metadata when `--out` is used.
+- The existing public `knowledge backend-readiness` command and public team
+  artifact/readiness contracts are unchanged. Registry refs and env var names
+  still do not enter public backend-readiness JSON.
+
+Verification completed:
+
+- Focused new CLI tests passed:
+  `cli-knowledge-args-main.test.mjs`,
+  `cli-knowledge-backend-reference-readiness-main.test.mjs`,
+  `knowledge-team-s3-reference-validation-contract.test.mjs`, and
+  `cli-core-main.test.mjs`.
+- Focused existing registry/backend tests passed:
+  `knowledge-team-s3-compatible-reference-registry.test.mjs`,
+  `knowledge-team-s3-compatible-backend-config.test.mjs`,
+  `knowledge-team-backend-adapter-resolver.test.mjs`, and
+  `knowledge-team-backend-no-sdk.test.mjs`.
+- Focused public regression tests passed:
+  `cli-knowledge-backend-readiness-main.test.mjs`,
+  `knowledge-team-backend-readiness-contract.test.mjs`, and
+  `knowledge-team-artifact-public-contract.test.mjs`.
+- `npm run test:structure` passed with 102 test files checked.
+
+Remaining risks and constraints:
 
 - The command name must not imply credential validation or backend
   reachability. It is only an offline registry/config consistency review.
 - Env var names containing words like `SECRET` or `TOKEN` are valid names, but
   env var values must never be read or echoed.
 - The command must not become an upload approval path.
+- S3-compatible support still has no real client, no SDK dependency, no live
+  backend probe, no credential presence check, no upload command, and no remote
+  mutation.
 
 Next step:
 
-- Implement CLI argument parsing for `knowledge backend-reference-readiness`.
+- Run full `npm run verify` on the final handoff commit, then move only to a
+  separate design slice for credential-boundary and explicit upload approval if
+  real S3 adapter work is required.
 
 ## 2026-05-09 Active S3-Compatible Reference Registry Plan
 
