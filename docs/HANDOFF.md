@@ -43,7 +43,8 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice extends the existing conservative Node.js/TypeScript
+- Implementation complete; final verification pending. This slice extends the
+  existing conservative Node.js/TypeScript
   Pulumi `ComponentResource` knowledge path from component interface facts to
   bounded child-resource facts.
 - Scope is read-only static evidence. No validation-time Pulumi stack
@@ -118,6 +119,75 @@ Acceptance criteria:
   files, declaration files, and secret-like names or tokens.
 - Stale/unchecked source confidence downgrade behavior remains unchanged.
 - Existing Pulumi validation/config safety boundaries remain intact.
+
+Progress log:
+
+- Commit 1 records this active component-internals plan, subagent inputs,
+  acceptance criteria, and stage checkpoints in `docs/HANDOFF.md`. Focused
+  validation: `git diff --check`.
+- Commit 2 adds conservative child-resource summary extraction by reusing
+  existing Pulumi Node.js/TypeScript resource-token parsing and filtering
+  evidence to detected `ComponentResource` class-body line ranges. Focused
+  validation:
+  `node --experimental-strip-types --test test/unit/pulumi-component-inspection.test.mjs`;
+  `git diff --check`.
+- Commit 3 extends component summary content-safety coverage so child resource
+  summaries appear in JSON while raw source, imports, `super(...)`, and
+  constructor argument objects stay out. Focused validation:
+  `node --experimental-strip-types test/unit/pulumi-component-inspection.test.mjs`;
+  `git diff --check`.
+- Commit 4 adds `pulumi-component-child-resource` to the knowledge fact schema,
+  compact agent-result contract, ranking table, and schema-constant coverage.
+  Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-cache-contracts.test.mjs`;
+  `git diff --check`.
+- Commit 5 extracts child-resource facts from component summaries with safe
+  fact paths, resource type tokens, source locators, and related source paths.
+  Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-component-facts.test.mjs`;
+  `git diff --check`.
+- Commit 6 verifies bounded knowledge packs include component input and child
+  resource facts without raw source. Focused validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-component-facts.test.mjs`;
+  `git diff --check`.
+- Commit 7 verifies local component child-resource facts rank above public
+  Pulumi docs guidance while required component inputs remain first. Focused
+  validation:
+  `node --experimental-strip-types test/unit/knowledge-pulumi-component-facts.test.mjs`;
+  `git diff --check`.
+- Commit 8 covers planner prompt compaction for child-resource facts and raw
+  source exclusion. Focused validation:
+  `node --experimental-strip-types test/unit/planner-knowledge-facts-prompt.test.mjs`;
+  `git diff --check`.
+- Commit 9 covers compact `agent --json` result contract acceptance for the new
+  fact kind while still rejecting raw source/cache fields. Focused validation:
+  `node --experimental-strip-types test/contract/agent-result-knowledge-contract.test.mjs`;
+  `git diff --check`.
+- Commit 10 adds a focused CLI integration shard for `knowledge extract` and
+  `knowledge pack` child-resource facts instead of growing near-limit main
+  shards. Focused validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pulumi-component-child-main.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 11 aligns the CLI shard with subagent review: clearer filename, shared
+  JSON CLI helper, `--max-facts 3`, and a stronger raw-source guard. Focused
+  validation:
+  `node --experimental-strip-types test/integration/cli-knowledge-pulumi-component-child-resources-main.test.mjs`;
+  `npm run test:structure`; `git diff --check`.
+- Commit 12 updates README, agent rules, roadmap, and bundled skill docs with
+  the new component child-resource fact boundary. Focused validation:
+  `git diff --check`.
+
+Remaining risks and constraints:
+
+- Static evidence is intentionally conservative and can miss dynamic factories,
+  alias/dataflow-driven constructors, non-Node languages, generated code, and
+  deeper component internals.
+- Child-resource facts are advisory local knowledge only. They do not prove
+  runtime deployment state, replacement safety, provider defaults, or preview
+  impact.
+- Public Pulumi resource docs selection may see root-level resource constructor
+  evidence separately; component child-resource facts do not automatically turn
+  public docs into validator-grade authority.
 
 ## 2026-05-09 Active Pulumi Safety Remediation Plan
 
