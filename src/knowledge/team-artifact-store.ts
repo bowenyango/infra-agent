@@ -6,12 +6,26 @@ import type {
 } from './artifact-manifest.ts';
 import type { KnowledgePack } from './pack.ts';
 import type { KnowledgeStoragePolicySummary } from './storage-policy.ts';
+import {
+  buildKnowledgeTeamArtifactIndexEntryKey,
+  buildKnowledgeTeamArtifactObjectKey,
+  isKnowledgeTeamArtifactSha256,
+  isSafeKnowledgeTeamArtifactObjectKey,
+  type KnowledgeTeamArtifactBackendKind,
+  type KnowledgeTeamArtifactContentType
+} from './team-artifact-keys.ts';
 
-export type KnowledgeTeamArtifactBackendKind = 'mock-s3-compatible';
-export type KnowledgeTeamArtifactFamily =
-  | 'knowledge-extraction'
-  | 'knowledge-pack';
-export type KnowledgeTeamArtifactContentType = 'application/json';
+export {
+  buildKnowledgeTeamArtifactIndexEntryKey,
+  buildKnowledgeTeamArtifactObjectKey,
+  isKnowledgeTeamArtifactSha256,
+  isSafeKnowledgeTeamArtifactObjectKey
+} from './team-artifact-keys.ts';
+export type {
+  KnowledgeTeamArtifactBackendKind,
+  KnowledgeTeamArtifactContentType,
+  KnowledgeTeamArtifactFamily
+} from './team-artifact-keys.ts';
 export type KnowledgeTeamArtifactStoreErrorCode =
   | 'artifact-hash-mismatch'
   | 'artifact-metadata-mismatch'
@@ -290,8 +304,6 @@ export interface KnowledgeTeamArtifactMetadataIndex {
   listEntries(): Promise<KnowledgeTeamArtifactIndexEntry[]>;
 }
 
-const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
-const SAFE_OBJECT_KEY_PATTERN = /^[a-z0-9][a-z0-9/_\-.]*$/;
 const SAFE_METADATA_KEY_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,63}$/;
 const FORBIDDEN_METADATA_KEY_PATTERN = /(bucket|endpoint|url|credential|secret|token|password|authorization|header)/i;
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
@@ -341,12 +353,6 @@ function canonicalizeJsonValue(value: unknown, path = '$'): unknown {
   }
 
   throw new TypeError(`${path} must be JSON-serializable.`);
-}
-
-function artifactFamily(artifactKind: KnowledgeArtifactPayload['kind']): KnowledgeTeamArtifactFamily {
-  return artifactKind === 'infra-agent.knowledge-pack'
-    ? 'knowledge-pack'
-    : 'knowledge-extraction';
 }
 
 function isKnowledgePackPayload(value: unknown): value is KnowledgePack {
@@ -416,44 +422,6 @@ export function hashKnowledgeArtifactPayload(payload: KnowledgeArtifactPayload):
   return createHash('sha256')
     .update(serializeKnowledgeArtifactPayload(payload))
     .digest('hex');
-}
-
-export function isKnowledgeTeamArtifactSha256(value: string): boolean {
-  return SHA256_HEX_PATTERN.test(value);
-}
-
-export function buildKnowledgeTeamArtifactObjectKey(input: {
-  artifactKind: KnowledgeArtifactPayload['kind'];
-  sha256: string;
-}): string {
-  if (!isKnowledgeTeamArtifactSha256(input.sha256)) {
-    throw new Error('Knowledge team artifact object key requires a SHA-256 hex digest.');
-  }
-
-  const family = artifactFamily(input.artifactKind);
-  return `knowledge-artifacts/v1/${family}/sha256/${input.sha256.slice(0, 2)}/${input.sha256}.json`;
-}
-
-export function buildKnowledgeTeamArtifactIndexEntryKey(input: {
-  artifactKind: KnowledgeArtifactPayload['kind'];
-  sha256: string;
-}): string {
-  if (!isKnowledgeTeamArtifactSha256(input.sha256)) {
-    throw new Error('Knowledge team artifact index entry key requires a SHA-256 hex digest.');
-  }
-
-  const family = artifactFamily(input.artifactKind);
-  return `knowledge-index/v1/${family}/sha256/${input.sha256.slice(0, 2)}/${input.sha256}.json`;
-}
-
-export function isSafeKnowledgeTeamArtifactObjectKey(key: string): boolean {
-  return SAFE_OBJECT_KEY_PATTERN.test(key)
-    && !key.startsWith('/')
-    && !key.includes('//')
-    && !key.split('/').includes('..')
-    && !key.includes('\\')
-    && !key.includes('?')
-    && !key.includes('#');
 }
 
 export function evaluateKnowledgeTeamArtifactPublicationPolicy(input: {
