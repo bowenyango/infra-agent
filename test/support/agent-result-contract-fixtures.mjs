@@ -595,6 +595,7 @@ export function buildAgentResultContractFixtures() {
       includedFactCount: 2,
       omittedFactCount: 0,
       staleSourceCount: 0,
+      uncheckedSourceCount: 0,
       sources: [
         {
           id: 'terraform-registry/aws-lb-listener-rule',

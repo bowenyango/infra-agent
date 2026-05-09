@@ -270,6 +270,29 @@ test('compact agent result contract rejects knowledge context and cache drift', 
     }),
     /knowledgeFacts\.sources\[0\]\.freshness/
   );
+  assert.equal(parseCompactAgentRunResult({
+    ...validResult,
+    knowledgeFacts: {
+      ...validResult.knowledgeFacts,
+      uncheckedSourceCount: 1,
+      sources: [
+        {
+          ...validResult.knowledgeFacts.sources[0],
+          freshness: 'unchecked'
+        }
+      ]
+    }
+  }).knowledgeFacts.uncheckedSourceCount, 1);
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        uncheckedSourceCount: 1
+      }
+    }),
+    /knowledgeFacts\.uncheckedSourceCount/
+  );
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,

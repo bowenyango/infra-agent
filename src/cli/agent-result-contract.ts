@@ -4161,7 +4161,8 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     'totalFactCount',
     'includedFactCount',
     'omittedFactCount',
-    'staleSourceCount'
+    'staleSourceCount',
+    'uncheckedSourceCount'
   ]) {
     assertIntegerField(
       value.knowledgeFacts,
@@ -4178,6 +4179,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   const knowledgeFactIncludedCount = value.knowledgeFacts.includedFactCount as number;
   const knowledgeFactOmittedCount = value.knowledgeFacts.omittedFactCount as number;
   const knowledgeFactStaleSourceCount = value.knowledgeFacts.staleSourceCount as number;
+  const knowledgeFactUncheckedSourceCount = value.knowledgeFacts.uncheckedSourceCount as number;
 
   if (knowledgeFactTotalCount > 0 && value.knowledgeFacts.packId === null) {
     throw new Error('compact result input knowledgeFacts.packId is required when facts are present.');
@@ -4219,6 +4221,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   const knowledgeFactSourceIds = new Set<string>();
   const staleKnowledgeFactSourceIds = new Set<string>();
   let derivedKnowledgeFactStaleSourceCount = 0;
+  let derivedKnowledgeFactUncheckedSourceCount = 0;
   let derivedKnowledgeFactTotalCount = 0;
 
   for (let index = 0; index < value.knowledgeFacts.sources.length; index += 1) {
@@ -4297,6 +4300,9 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       derivedKnowledgeFactStaleSourceCount += 1;
       staleKnowledgeFactSourceIds.add(source.id as string);
     }
+    if (source.freshness === 'unchecked') {
+      derivedKnowledgeFactUncheckedSourceCount += 1;
+    }
   }
 
   if (derivedKnowledgeFactTotalCount !== knowledgeFactTotalCount) {
@@ -4305,6 +4311,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
   if (derivedKnowledgeFactStaleSourceCount !== knowledgeFactStaleSourceCount) {
     throw new Error('compact result input knowledgeFacts.staleSourceCount must match sources.');
+  }
+
+  if (derivedKnowledgeFactUncheckedSourceCount !== knowledgeFactUncheckedSourceCount) {
+    throw new Error('compact result input knowledgeFacts.uncheckedSourceCount must match sources.');
   }
 
   for (let index = 0; index < value.knowledgeFacts.facts.length; index += 1) {

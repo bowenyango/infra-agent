@@ -41,6 +41,7 @@ export interface KnowledgeFactBudgetSummary {
   includedFactCount: number;
   omittedFactCount: number;
   staleSourceCount: number;
+  uncheckedSourceCount: number;
   sources: BudgetedKnowledgeFactSource[];
   facts: BudgetedKnowledgeFact[];
 }
@@ -108,6 +109,7 @@ export function budgetKnowledgePackFacts(
     includedFactCount: facts.length,
     omittedFactCount: Math.max(0, totalFactCount - facts.length),
     staleSourceCount: pack?.staleSourceCount ?? 0,
+    uncheckedSourceCount: (pack?.sources ?? []).filter(source => source.freshness === 'unchecked').length,
     sources: (pack?.sources ?? []).map(compactSource),
     facts
   };
