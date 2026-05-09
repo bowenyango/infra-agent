@@ -4220,6 +4220,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
   const knowledgeFactSourceIds = new Set<string>();
   const staleKnowledgeFactSourceIds = new Set<string>();
+  const uncheckedKnowledgeFactSourceIds = new Set<string>();
   let derivedKnowledgeFactStaleSourceCount = 0;
   let derivedKnowledgeFactUncheckedSourceCount = 0;
   let derivedKnowledgeFactTotalCount = 0;
@@ -4302,6 +4303,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     }
     if (source.freshness === 'unchecked') {
       derivedKnowledgeFactUncheckedSourceCount += 1;
+      uncheckedKnowledgeFactSourceIds.add(source.id as string);
     }
   }
 
@@ -4353,6 +4355,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
 
     if (staleKnowledgeFactSourceIds.has(fact.sourceId as string) && fact.confidence === 'high') {
       throw new Error(`compact result input ${factPath}.confidence must not be high when source is stale.`);
+    }
+
+    if (uncheckedKnowledgeFactSourceIds.has(fact.sourceId as string) && fact.confidence === 'high') {
+      throw new Error(`compact result input ${factPath}.confidence must not be high when source is unchecked.`);
     }
 
     if ('required' in fact && typeof fact.required !== 'boolean') {

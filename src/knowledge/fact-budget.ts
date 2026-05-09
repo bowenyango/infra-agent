@@ -53,12 +53,15 @@ function normalizeMaxFacts(maxFacts: number | undefined, fallback: number): numb
   return Math.max(1, value);
 }
 
-function compactFact(fact: KnowledgePackFact): BudgetedKnowledgeFact {
+function compactFact(fact: KnowledgePackFact, source: KnowledgePackSource | undefined): BudgetedKnowledgeFact {
+  const confidence = (source?.stale || source?.freshness === 'unchecked') && fact.confidence === 'high'
+    ? 'medium'
+    : fact.confidence;
   return {
     kind: fact.kind,
     path: fact.path,
     summary: fact.summary,
-    confidence: fact.confidence,
+    confidence,
     extractionMethod: fact.extractionMethod,
     sourceId: fact.sourceId,
     sourceLocator: fact.sourceLocator,
@@ -94,7 +97,10 @@ export function budgetKnowledgePackFacts(
 ): KnowledgeFactBudgetSummary {
   const fallbackMaxFacts = pack?.maxFacts ?? 1;
   const maxFacts = normalizeMaxFacts(options.maxFacts, fallbackMaxFacts);
-  const facts = (pack?.facts ?? []).slice(0, maxFacts).map(compactFact);
+  const sourceById = new Map((pack?.sources ?? []).map(source => [source.id, source]));
+  const facts = (pack?.facts ?? [])
+    .slice(0, maxFacts)
+    .map(fact => compactFact(fact, sourceById.get(fact.sourceId)));
   const totalFactCount = pack?.factCount ?? 0;
 
   return {
