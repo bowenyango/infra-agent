@@ -43,9 +43,9 @@ Current guardrails:
 
 Status:
 
-- Implemented; final full verification is pending. This slice adds deliberate
-  official-doc cache freshness reporting for `knowledge sources` and clearer
-  previous-cache posture for `knowledge prefetch`.
+- Completed. This slice adds deliberate official-doc cache freshness reporting
+  for `knowledge sources` and clearer previous-cache posture for
+  `knowledge prefetch`.
 - Scope is reporting and explicit prefetch UX only. No agent-loop live refresh,
   background network fetch, team cache backend, retrieval semantic rewrite, or
   raw cached-content exposure is in scope.
@@ -165,6 +165,10 @@ Progress log:
 - Commit 12 updates README, roadmap, agent rules, skill docs, and this handoff
   with the implemented official-doc cache freshness UX. Focused validation:
   `git diff --check`.
+- Commit 13 records final verification results in this handoff. Full
+  validation: `npm run verify` passed lint, test structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+  Coverage summary: 89.24% lines, 78.01% branches, 96.53% functions.
 
 Remaining risks and constraints:
 
