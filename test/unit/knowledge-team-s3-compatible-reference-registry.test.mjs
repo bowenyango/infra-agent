@@ -61,6 +61,32 @@ test('s3-compatible reference registry accepts safe offline env var names', () =
   });
 });
 
+test('s3-compatible reference registry accepts auth refs without optional session token', () => {
+  const registry = buildKnowledgeTeamS3CompatibleReferenceRegistry({
+    authProfiles: [
+      {
+        ref: 'team-cache-auth',
+        accessKeyIdEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_ACCESS_KEY_ID',
+        secretAccessKeyEnvVar: 'INFRA_AGENT_TEAM_CACHE_S3_SECRET_ACCESS_KEY'
+      }
+    ]
+  });
+  const summary = validateKnowledgeTeamS3CompatibleBackendReferences(
+    buildKnowledgeTeamS3CompatibleBackendConfig(),
+    registry
+  );
+
+  assert.equal(summary.status, 'valid');
+  assert.deepEqual(summary.optionalEnvironmentVariables, []);
+  assert.deepEqual(summary.requiredEnvironmentVariables, [
+    'INFRA_AGENT_TEAM_CACHE_S3_ENDPOINT_URL',
+    'INFRA_AGENT_TEAM_CACHE_S3_BUCKET_NAME',
+    'INFRA_AGENT_TEAM_CACHE_S3_REGION',
+    'INFRA_AGENT_TEAM_CACHE_S3_ACCESS_KEY_ID',
+    'INFRA_AGENT_TEAM_CACHE_S3_SECRET_ACCESS_KEY'
+  ]);
+});
+
 test('s3-compatible reference validation reports only required env var names', () => {
   const summary = validateKnowledgeTeamS3CompatibleBackendReferences(
     buildKnowledgeTeamS3CompatibleBackendConfig(),
@@ -213,6 +239,46 @@ test('s3-compatible reference registry rejects duplicate refs and inline detail 
   ]) {
     assert.equal(issueText.includes(forbidden), false, forbidden);
   }
+});
+
+test('s3-compatible reference registry rejects unsafe registry shape', () => {
+  const result = parseKnowledgeTeamS3CompatibleReferenceRegistry({
+    kind: 'wrong-kind',
+    schemaVersion: 2,
+    mutationAllowed: true,
+    storageProfiles: [
+      'not-a-storage-profile'
+    ],
+    authProfiles: [],
+    label: 'extra-safe-label'
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.registry, null);
+  const codes = new Set(result.issues.map(issue => issue.code));
+  for (const expected of [
+    'invalid-registry-kind',
+    'invalid-schema-version',
+    'mutation-enabled',
+    'missing-required-field',
+    'unsupported-field'
+  ]) {
+    assert.equal(codes.has(expected), true, expected);
+  }
+
+  const issueText = JSON.stringify(result.issues);
+  assert.equal(issueText.includes('wrong-kind'), false);
+  assert.equal(issueText.includes('extra-safe-label'), false);
+});
+
+test('s3-compatible reference registry builder throws for unsafe drafts', () => {
+  assert.throws(
+    () => buildKnowledgeTeamS3CompatibleReferenceRegistry({
+      storageProfiles: [],
+      authProfiles: []
+    }),
+    /S3-compatible reference registry draft is not safe\./
+  );
 });
 
 test('s3-compatible reference validation blocks missing storage and auth refs', () => {
