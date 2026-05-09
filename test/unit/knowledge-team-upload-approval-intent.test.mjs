@@ -32,6 +32,26 @@ function blockedBackendReferenceSummary() {
   );
 }
 
+function withEnvValues(updates, callback) {
+  const previous = {};
+  for (const [key, value] of Object.entries(updates)) {
+    previous[key] = process.env[key];
+    process.env[key] = value;
+  }
+
+  return Promise.resolve()
+    .then(callback)
+    .finally(() => {
+      for (const [key, value] of Object.entries(previous)) {
+        if (typeof value === 'undefined') {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    });
+}
+
 test('upload approval intent reports approval-required for dry-run upload preconditions', async () => {
   const fixture = await buildKnowledgeTeamArtifactContractFixture();
   const intent = buildKnowledgeTeamUploadApprovalIntent({
@@ -111,4 +131,45 @@ test('upload approval intent blocks when backend references are blocked', async 
   assert.equal(intent.preconditions.uploadApproval.approvalProvided, false);
   assert.equal(intent.readiness.nextAction, 'resolve-blockers');
   assert.equal(intent.readiness.blockerCodes.includes('backend-reference-blocked'), true);
+});
+
+test('upload approval intent does not read env values or copy upload commands', async () => {
+  const fixture = await buildKnowledgeTeamArtifactContractFixture();
+  await withEnvValues({
+    INFRA_AGENT_TEAM_CACHE_S3_ENDPOINT_URL: 'https://should-not-read.example.test',
+    INFRA_AGENT_TEAM_CACHE_S3_BUCKET_NAME: 'should-not-read-bucket',
+    INFRA_AGENT_TEAM_CACHE_S3_SECRET_ACCESS_KEY: 'should-not-read-secret'
+  }, async () => {
+    const backendReferenceValidation = validBackendReferenceSummary();
+    const intent = buildKnowledgeTeamUploadApprovalIntent({
+      publicationReadiness: {
+        ...fixture.uploadRequiredReadiness,
+        uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+      },
+      backendReferenceValidation: {
+        ...backendReferenceValidation,
+        capabilities: {
+          ...backendReferenceValidation.capabilities,
+          credentialValuesExposed: true,
+          uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+        }
+      }
+    });
+
+    const text = JSON.stringify(intent);
+    assert.equal(intent.status, 'blocked');
+    assert.equal(intent.uploadCommand, null);
+    assert.equal(intent.readiness.blockerCodes.includes('upload-command-present'), true);
+    assert.equal(intent.readiness.blockerCodes.includes('credential-values-exposed'), true);
+    for (const forbidden of [
+      'https://should-not-read.example.test',
+      'should-not-read-bucket',
+      'should-not-read-secret',
+      'aws s3 cp',
+      's3://private-bucket',
+      'private-key'
+    ]) {
+      assert.equal(text.includes(forbidden), false, forbidden);
+    }
+  });
 });

@@ -9,7 +9,8 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-backend-adapter-resolver.ts',
   'src/knowledge/team-backend-readiness.ts',
   'src/knowledge/team-s3-compatible-backend-config.ts',
-  'src/knowledge/team-s3-compatible-reference-registry.ts'
+  'src/knowledge/team-s3-compatible-reference-registry.ts',
+  'src/knowledge/team-upload-approval-intent.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
