@@ -52,6 +52,7 @@ import type {
 } from '../knowledge/team-artifact-store.ts';
 import type { KnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
 import type { KnowledgeTeamS3CompatibleReferenceValidationSummary } from '../knowledge/team-s3-compatible-reference-registry.ts';
+import type { KnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3613,6 +3614,41 @@ export function printKnowledgeTeamS3CompatibleReferenceValidationSummary(
   printList(
     summary.issues.map(issue => `${issue.code} ${issue.path}: ${issue.message}`),
     'No team backend reference readiness blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadApprovalIntent(
+  intent: KnowledgeTeamUploadApprovalIntent
+): void {
+  printHeader('Knowledge team upload approval intent');
+  process.stdout.write(`status: ${intent.status}\n`);
+  process.stdout.write(`next action: ${intent.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${intent.plannedOperation}\n`);
+  process.stdout.write(`execution: ${intent.executionMode}\n`);
+  process.stdout.write(`remote write: ${intent.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${intent.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${intent.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${intent.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${intent.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`backend: ${intent.backendKind}\n`);
+  process.stdout.write(`publication backend: ${intent.publicationBackendKind}\n`);
+  process.stdout.write(`manifest: ${intent.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`object: ${intent.object.key ?? 'invalid'}\n`);
+  process.stdout.write(`artifact: ${intent.artifact.id ?? 'invalid'}\n`);
+  process.stdout.write(`publication readiness: ${intent.preconditions.publicationReadiness.status ?? 'invalid'}\n`);
+  process.stdout.write(`backend reference: ${intent.preconditions.backendReference.status ?? 'invalid'}\n`);
+  process.stdout.write(`approval provided: ${intent.preconditions.uploadApproval.approvalProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: requiredEnv=${intent.preconditions.credentialBoundary.requiredEnvironmentVariables.length}, optionalEnv=${intent.preconditions.credentialBoundary.optionalEnvironmentVariables.length}, blockers=${intent.readiness.blockerCount}\n\n`);
+  printHeader('Required environment names');
+  printList(intent.preconditions.credentialBoundary.requiredEnvironmentVariables, 'No required environment variable names.');
+  process.stdout.write('\n');
+  printHeader('Optional environment names');
+  printList(intent.preconditions.credentialBoundary.optionalEnvironmentVariables, 'No optional environment variable names.');
+  process.stdout.write('\n');
+  printHeader('Blockers');
+  printList(
+    intent.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload approval intent blockers.'
   );
 }
 

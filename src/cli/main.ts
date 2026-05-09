@@ -32,6 +32,7 @@ import {
 } from '../knowledge/team-artifact-store.ts';
 import { buildKnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
 import { validateKnowledgeTeamS3CompatibleBackendReferences } from '../knowledge/team-s3-compatible-reference-registry.ts';
+import { buildKnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -51,6 +52,7 @@ import {
   printKnowledgePrefetchResult,
   printKnowledgeTeamBackendReadinessReport,
   printKnowledgeTeamS3CompatibleReferenceValidationSummary,
+  printKnowledgeTeamUploadApprovalIntent,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
@@ -1503,6 +1505,43 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamS3CompatibleReferenceValidationSummary(readiness);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-approval-intent') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-approval-intent requires exactly one publication readiness path.');
+    }
+    if (!parsed.backendReferenceInputPath) {
+      fail('knowledge upload-approval-intent requires --backend-reference <reference-readiness.json>.');
+    }
+
+    const readinessPath = resolveFromCwd(parsed.inputPath);
+    const backendReferencePath = resolveFromCwd(parsed.backendReferenceInputPath);
+    const publicationReadiness = await readJsonObject(readinessPath);
+    const backendReferenceValidation = await readJsonObject(backendReferencePath);
+    const intent = buildKnowledgeTeamUploadApprovalIntent({
+      publicationReadiness,
+      backendReferenceValidation
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), intent)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...intent,
+            outputPath: writtenPath
+          }
+        : intent, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadApprovalIntent(intent);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
