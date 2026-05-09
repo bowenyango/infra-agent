@@ -200,6 +200,60 @@ test('normalized Pulumi resource HTML extracts argument facts without raw HTML',
   }
 });
 
+test('normalized Helm chart HTML extracts chart value facts without raw HTML', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-normalized-chart-docs-'));
+
+  try {
+    const source = {
+      kind: 'chart-docs',
+      name: 'api:home',
+      chart: 'api',
+      version: '0.2.0',
+      url: 'https://charts.example.test/api/'
+    };
+    const fetched = await fetchOfficialKnowledgeSource(source, {
+      fetchedAt: '2026-05-09T00:00:00.000Z',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get: name => name.toLowerCase() === 'content-type' ? 'text/html' : null
+        },
+        text: async () => [
+          '<html><body>',
+          '<h1>API chart</h1>',
+          '<table>',
+          '<tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th><th>Required</th></tr>',
+          '<tr><td><code>image.repository</code></td><td>string</td><td><code>nginx</code></td><td>Container image repository.</td><td>yes</td></tr>',
+          '<tr><td><code>secretToken</code></td><td>string</td><td><code>token</code></td><td>Secret token should be skipped.</td><td>no</td></tr>',
+          '</table>',
+          '</body></html>'
+        ].join('')
+      })
+    });
+    assert.ok(fetched);
+    const entry = await writeKnowledgeCacheEntry(tempRoot, fetched);
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      now: new Date('2026-05-10T00:00:00.000Z')
+    });
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.path === 'chart.api.image.repository'
+      && fact.summary === 'Container image repository.'
+      && fact.type === 'string'
+      && fact.defaultValue === 'nginx'
+      && fact.required === true
+      && fact.extractionMethod === 'helm-chart-docs-markdown'
+    ));
+    assert.equal(factSet.facts.some(fact => /secretToken|Secret token/i.test(JSON.stringify(fact))), false);
+    assert.doesNotMatch(JSON.stringify(factSet), /<html|<table|<td|raw/i);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('htmlToMarkdown strips high-noise blocks before text extraction', () => {
   const markdown = htmlToMarkdown([
     '<article>',
