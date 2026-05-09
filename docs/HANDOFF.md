@@ -43,7 +43,7 @@ Current guardrails:
 
 Status:
 
-- Implementation complete; final verification pending. This slice extends the
+- Completed. This slice extends the
   existing conservative Node.js/TypeScript
   Pulumi `ComponentResource` knowledge path from component interface facts to
   bounded child-resource facts.
@@ -176,6 +176,10 @@ Progress log:
 - Commit 12 updates README, agent rules, roadmap, and bundled skill docs with
   the new component child-resource fact boundary. Focused validation:
   `git diff --check`.
+- Commit 13 records final verification results in this handoff. Full
+  validation: `npm run verify` passed lint, test structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+  Coverage summary: 89.08% lines, 77.95% branches, 96.30% functions.
 
 Remaining risks and constraints:
 
