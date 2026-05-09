@@ -43,9 +43,8 @@ Current guardrails:
 
 Status:
 
-- Implementation complete; final full verification is next. This slice defines
-  the first real backend family as a contract-first, private S3-compatible
-  configuration shell.
+- Completed and verified. This slice defines the first real backend family as
+  a contract-first, private S3-compatible configuration shell.
 - Scope is private config parsing, sanitized internal descriptors, resolver
   fail-closed behavior, and mock-backed conformance tests only. It must not add
   cloud SDKs, perform network calls, read credential values, generate upload
@@ -75,10 +74,9 @@ Completed commits and checkpoints:
 8. `8c36349` feat: describe s3 backend capabilities safely.
 9. `3606697` test: block team backend sdk imports.
 10. `65642fc` test: block team backend network clients.
-11. In progress: update README, Rules, Roadmap/pattern notes, infra skill, and
-    this handoff with the contract-first boundary and non-goals.
-12. Pending: run focused checks and full `npm run verify`, then record final
-    validation, remaining risks, and next stage in this handoff.
+11. `feb0826` docs: document s3 backend contract shell.
+12. Final handoff update: record focused checks, full verification, remaining
+    risks, and next-stage plan.
 
 Acceptance criteria:
 
@@ -117,6 +115,50 @@ Current design:
 - `test/support/knowledge-team-backend-adapter-conformance.mjs` defines
   mock-backed object-store and metadata-index conformance checks that future
   real adapters must satisfy.
+
+Verification completed:
+
+- Focused new S3/backend tests passed:
+  `knowledge-team-s3-compatible-backend-config.test.mjs`,
+  `knowledge-team-backend-adapter-resolver.test.mjs`,
+  `knowledge-team-backend-adapter-conformance.test.mjs`, and
+  `knowledge-team-backend-no-sdk.test.mjs`.
+- Focused existing team-storage tests passed:
+  `knowledge-team-backend-readiness.test.mjs`,
+  `knowledge-team-backend-readiness-validation.test.mjs`,
+  `knowledge-team-backend-adapter-store.test.mjs`,
+  `knowledge-team-backend-adapter-index.test.mjs`,
+  `knowledge-team-artifact-public-contract.test.mjs`,
+  `knowledge-team-backend-readiness-contract.test.mjs`, and
+  `cli-knowledge-backend-readiness-main.test.mjs`.
+- Repo checks passed: `git diff --check`, `npm run lint`,
+  `npm run test:structure`, and full `npm run verify`.
+- Full verify included lint, structure, unit, integration, contract, isolated,
+  smoke, e2e, coverage, and package dry-run checks. Unit reported 449 passing
+  tests, coverage reported 577 passing tests in the coverage run, isolated
+  execution checked 85 shards, and package dry-run reported 149 packaged
+  entries.
+
+Remaining risks and constraints:
+
+- S3-compatible support is a private config contract and fail-closed resolution
+  plan only. There is still no real S3 client, no SDK dependency, no credential
+  lookup, no live backend probe, no upload command, and no remote mutation.
+- Safe structural refs (`storageProfileRef`, `authProfileRef`) are internal
+  design inputs. They must not be copied into public team artifact/readiness
+  JSON or treated as bucket/endpoint/credential values.
+- Public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, and backend-readiness schemas remain compact and
+  unchanged. Future real adapter work should preserve those contracts unless a
+  dedicated schema migration is planned and tested.
+
+Next recommended stage:
+
+- Add an explicit offline credential/source reference registry contract for
+  S3-compatible configs. It should validate reference names and required
+  environment variable names without reading values, keep resolution
+  fail-closed, and extend the no-SDK/no-network guards before any real client
+  or upload path is introduced.
 
 ## 2026-05-09 Active Team Backend Adapter Interface Plan
 
