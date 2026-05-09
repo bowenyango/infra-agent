@@ -2599,7 +2599,8 @@ function summarizeKnowledgeFacts(state: AgentRunState): string {
     `max ${summary.maxFacts}`,
     `omitted ${omittedSummary}`,
     `sources ${summary.sourceCount}`,
-    `stale sources ${summary.staleSourceCount}`
+    `stale sources ${summary.staleSourceCount}`,
+    `unchecked sources ${summary.uncheckedSourceCount}`
   ].join('; ');
 }
 

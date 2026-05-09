@@ -216,7 +216,7 @@ test('summarizeResultCard includes budgeted knowledge fact counts', async () => 
   });
 
   assert.ok(summary.some(line =>
-    new RegExp(`Knowledge facts: 2/${knowledgeFacts.factCount} fact\\(s\\) included; max 2; omitted ${knowledgeFacts.factCount - 2}; sources ${knowledgeFacts.sourceCount}; stale sources ${knowledgeFacts.staleSourceCount}`, 'i').test(line)
+    new RegExp(`Knowledge facts: 2/${knowledgeFacts.factCount} fact\\(s\\) included; max 2; omitted ${knowledgeFacts.factCount - 2}; sources ${knowledgeFacts.sourceCount}; stale sources ${knowledgeFacts.staleSourceCount}; unchecked sources 0`, 'i').test(line)
   ));
 });
 
