@@ -240,6 +240,7 @@ export function buildIdentityConflictAgentResultFixture(workspaceRoot = '/worksp
       includedFactCount: 0,
       omittedFactCount: 0,
       staleSourceCount: 0,
+      uncheckedSourceCount: 0,
       sources: [],
       facts: []
     }
