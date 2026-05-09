@@ -127,8 +127,8 @@ function validateNoBackendConfigLeakage(
     ) {
       pushBlocker(blockers, blocker(
         'backend-detail-leak',
-        path,
-        'Team backend readiness configs must not expose backend URLs, credential values, or absolute local paths.'
+        '$.config',
+        'Team backend readiness configs must not expose backend detail, credential values, or absolute local paths.'
       ));
     }
     return;
@@ -150,8 +150,8 @@ function validateNoBackendConfigLeakage(
     if (FORBIDDEN_BACKEND_CONFIG_KEY_PATTERN.test(key) && key !== 'credentialMode') {
       pushBlocker(blockers, blocker(
         'backend-detail-leak',
-        entryPath,
-        'Team backend readiness configs must not expose backend detail, credential, or header fields.'
+        '$.config',
+        'Team backend readiness configs must not expose backend detail, credential values, or absolute local paths.'
       ));
     }
     validateNoBackendConfigLeakage(entry, entryPath, blockers);
