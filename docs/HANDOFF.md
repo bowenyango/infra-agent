@@ -39,17 +39,17 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
-## 2026-05-09 Active Team Backend Readiness Boundary Plan
+## 2026-05-09 Team Backend Readiness Boundary
 
 Status:
 
-- In progress. This slice defines the safe boundary for future real team-cache
+- Completed. This slice defines the safe boundary for future real team-cache
   backend adapters without implementing cloud SDKs, network access, remote
   writes, upload commands, or credential handling.
-- Scope is a private backend config parser, a compact backend readiness report,
-  validation and CLI coverage for that readiness report, and documentation that
-  keeps existing descriptor/publication-plan/index-entry/readiness public
-  contracts free of backend details.
+- Scope stayed limited to a private backend config parser, a compact backend
+  readiness report, validation and CLI coverage for that readiness report, and
+  documentation that keeps existing descriptor/publication-plan/index-entry/
+  readiness public contracts free of backend details.
 
 Why this direction:
 
@@ -62,24 +62,68 @@ Why this direction:
   config is structurally ready for future explicit upload while keeping
   `remoteWriteAllowed=false`.
 
-Planned commits and checkpoints:
+Subagent review inputs:
 
-1. Record this active backend readiness plan in `docs/HANDOFF.md`.
-2. Add private team backend config/readiness types and builder helpers.
-3. Add unit tests for valid backend readiness and safe compact output.
-4. Add unit tests for blocked backend readiness from unsafe config.
-5. Add `knowledge validate` support for backend readiness reports.
-6. Add contract tests for backend readiness public handoff shape and leak
-   rejection.
-7. Add CLI argument parsing for `knowledge backend-readiness`.
-8. Add CLI implementation and text/JSON output for backend readiness.
-9. Add integration tests for CLI backend readiness write/validate behavior.
-10. Update README, Roadmap, Rules, and skill docs with the new boundary and
-    explicit non-goals.
-11. Run focused unit/contract/integration checks, lint, structure, and diff
-    checks.
-12. Run full `npm run verify`, then record completed commits, validation,
-    remaining risks, and next stage in this handoff.
+- `Hilbert` recommended backend readiness/config boundary as the next main
+  slice rather than a broad validation refactor. It called out no SDK, no
+  network, no upload, no credential-value reads, and no readiness-as-approval.
+- `Cicero` recommended a separate pure module for backend readiness metadata
+  rather than adding cloud-provider details to `team-artifact-store.ts` or the
+  existing public artifact contracts.
+- `Nash` recommended one focused unit shard, one contract shard, one CLI
+  integration shard, args coverage, leak regressions, and the full `verify`
+  gate.
+
+Completed commits:
+
+1. `3ec8b13` docs: record team backend readiness plan
+2. `7ac49ab` feat: add team backend readiness model
+3. `723a6a7` test: cover team backend readiness success path
+4. `ad7f5f8` fix: sanitize team backend readiness blockers
+5. `2d75494` test: cover blocked team backend readiness
+6. `137d61f` feat: validate team backend readiness payloads
+7. `9a6d9c9` test: lock team backend readiness contract
+8. `1c561c6` feat: parse team backend readiness args
+9. `813f98f` feat: add team backend readiness command
+10. `31efdd4` test: cover team backend readiness command
+11. `0021d35` docs: document team backend readiness boundary
+12. This handoff update records final verification for the slice.
+
+Core files changed:
+
+- `src/knowledge/team-backend-readiness.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-backend-readiness.test.mjs`
+- `test/contract/knowledge-team-backend-readiness-contract.test.mjs`
+- `test/integration/cli-knowledge-backend-readiness-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/ROADMAP.md`
+- `docs/HANDOFF.md`
+- `skills/infra-configuration/SKILL.md`
+
+What changed:
+
+- Added `infra-agent.knowledge-team-backend-readiness`, a compact dry-run
+  report derived from a local private backend config.
+- Added a pure readiness builder for `s3-compatible` backend config shape. It
+  never reads environment values, creates a backend client, performs a live
+  check, writes remote objects, mutates a metadata index, or produces an upload
+  command.
+- Blocked configs keep structured blocker codes and sanitized blocker paths
+  while avoiding backend detail, credential-value, URL, and absolute-path
+  leakage.
+- Extended `knowledge validate` to accept and reject backend-readiness payloads
+  with status/action/blocker consistency checks.
+- Added `infra-agent knowledge backend-readiness <backend-config.json>
+  [--out <readiness.json>] [--json]` for local readiness reporting. `--out`
+  only writes a local JSON artifact.
+- Updated docs and the infra skill so downstream agents treat backend readiness
+  as routing state for future explicit-upload design, not upload approval or
+  proof that a remote backend was checked.
 
 Acceptance criteria:
 
@@ -97,6 +141,43 @@ Acceptance criteria:
   payloads remain unchanged and backend-neutral.
 - No real backend adapter, SDK, network call, credential lookup, upload command,
   remote object read/write, or metadata index mutation is introduced.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-backend-readiness.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-backend-readiness-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-backend-readiness-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `npm run test:structure`
+- `npm run lint`
+- `git diff --check`
+- `npm run verify`
+
+Full verification result:
+
+- `npm run verify` passed on 2026-05-09.
+- Coverage gate passed at 89.16% lines, 77.30% branches, and 96.50%
+  functions.
+- `npm pack --dry-run --json` passed with 140 package entries.
+
+Remaining risks:
+
+- There is still no real S3/GCS/Azure/Postgres backend adapter, no real remote
+  metadata index service, and no CLI upload/publication command.
+- Backend readiness reports prove only local config shape. They do not prove
+  remote reachability, credentials, object existence, or index state.
+- `src/knowledge/validate.ts` is now larger after adding another compact
+  payload. The next backend-oriented implementation should split team artifact
+  and backend readiness validation helpers before adding real adapter behavior.
+
+Next stage:
+
+- Split team artifact/backend readiness validation helpers into focused modules,
+  then design the real adapter interface behind the already-validated readiness
+  and public artifact contracts.
+- Keep remote write execution behind a separate explicit approval model; do not
+  let backend readiness, publication readiness, or CLI `--out` imply upload
+  approval.
 
 ## 2026-05-09 Team Artifact Public Contract Hardening
 
