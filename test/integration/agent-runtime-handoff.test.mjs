@@ -232,6 +232,10 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
     assert.equal(compact.knowledgeFacts.maxFacts, 2);
     assert.ok(compact.knowledgeFacts.totalFactCount > 0);
     assert.ok(compact.knowledgeFacts.includedFactCount <= 2);
+    assert.equal(
+      compact.knowledgeFacts.uncheckedSourceCount,
+      compact.knowledgeFacts.sources.filter(source => source.freshness === 'unchecked').length
+    );
     assert.deepEqual(compact.handoffCheckpoint.budgets.knowledgeFacts, {
       includedCount: compact.knowledgeFacts.includedFactCount,
       omittedCount: compact.knowledgeFacts.omittedFactCount

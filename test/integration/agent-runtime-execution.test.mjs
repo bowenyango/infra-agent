@@ -465,6 +465,14 @@ test('runSingleStep respects the configured maximum turn count', async () => {
     assert.equal(compact.knowledgeFacts.mutationAllowed, false);
     assert.ok(compact.knowledgeFacts.totalFactCount > 0);
     assert.ok(compact.knowledgeFacts.includedFactCount <= 3);
+    assert.equal(
+      compact.knowledgeFacts.uncheckedSourceCount,
+      compact.knowledgeFacts.sources.filter(source => source.freshness === 'unchecked').length
+    );
+    assert.ok(compact.knowledgeFacts.facts.every(fact =>
+      fact.confidence !== 'high'
+      || compact.knowledgeFacts.sources.find(source => source.id === fact.sourceId)?.freshness !== 'unchecked'
+    ));
     assert.equal(compact.harness.stateSummary.knowledgeFactCount, compact.knowledgeFacts.totalFactCount);
     assert.deepEqual(compact.handoffCheckpoint.budgets.knowledgeFacts, {
       includedCount: compact.knowledgeFacts.includedFactCount,
