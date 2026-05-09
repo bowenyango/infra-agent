@@ -8,7 +8,8 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-backend-adapter-mock.ts',
   'src/knowledge/team-backend-adapter-resolver.ts',
   'src/knowledge/team-backend-readiness.ts',
-  'src/knowledge/team-s3-compatible-backend-config.ts'
+  'src/knowledge/team-s3-compatible-backend-config.ts',
+  'src/knowledge/team-s3-compatible-reference-registry.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -27,6 +28,11 @@ const FORBIDDEN_SDK_IMPORTS = [
   'fetch('
 ];
 
+const FORBIDDEN_RUNTIME_CREDENTIAL_READS = [
+  'process.env[',
+  'process.env.'
+];
+
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
   const root = process.cwd();
 
@@ -37,6 +43,21 @@ test('team backend contract modules do not import cloud SDK or network clients',
         source.includes(forbidden),
         false,
         `${relativePath} must not import ${forbidden}`
+      );
+    }
+  }
+});
+
+test('team backend contract modules do not read runtime credential environment values', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of TEAM_BACKEND_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_RUNTIME_CREDENTIAL_READS) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not read runtime credentials via ${forbidden}`
       );
     }
   }
