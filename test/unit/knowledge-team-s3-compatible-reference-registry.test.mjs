@@ -211,3 +211,25 @@ test('s3-compatible reference registry rejects duplicate refs and inline detail 
     assert.equal(issueText.includes(forbidden), false, forbidden);
   }
 });
+
+test('s3-compatible reference validation blocks missing storage and auth refs', () => {
+  const summary = validateKnowledgeTeamS3CompatibleBackendReferences(
+    buildKnowledgeTeamS3CompatibleBackendConfig({
+      storageProfileRef: 'missing-storage-profile',
+      authProfileRef: 'missing-auth-profile'
+    }),
+    buildKnowledgeTeamS3CompatibleReferenceRegistry()
+  );
+
+  assert.equal(summary.status, 'blocked');
+  assert.equal(summary.backendKind, 's3-compatible');
+  assert.equal(summary.configName, 'team-cache');
+  assert.deepEqual(summary.requiredEnvironmentVariables, []);
+  assert.deepEqual(summary.optionalEnvironmentVariables, []);
+  assert.equal(summary.issueCodes.includes('missing-storage-profile-reference'), true);
+  assert.equal(summary.issueCodes.includes('missing-auth-profile-reference'), true);
+  assert.equal(summary.capabilities.remoteWriteAllowed, false);
+  assert.equal(summary.capabilities.liveCheckAllowed, false);
+  assert.equal(summary.capabilities.credentialValuesExposed, false);
+  assert.equal(summary.capabilities.uploadCommand, null);
+});
