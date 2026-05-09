@@ -43,8 +43,9 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice adds a private offline upload approval intent review
-  surface for future real S3-compatible team backend work.
+- Implementation complete; full verification pending before final handoff. This
+  slice adds a private offline upload approval intent review surface for future
+  real S3-compatible team backend work.
 - Scope is contract-first planning only: compose an existing team publication
   readiness report with an existing S3-compatible backend reference validation
   summary, then emit a compact intent that says whether explicit human upload
@@ -63,22 +64,44 @@ Why this direction:
   runtime state can request explicit approval, but approval is separate from
   execution and no mutation capability appears in the handoff object.
 
-Planned commits and checkpoints:
+Completed commits and checkpoints:
 
-1. Record this active upload approval intent plan.
-2. Add the private upload approval intent contract and builder.
-3. Cover the approval-required happy path from dry-run readiness inputs.
-4. Cover blocked publication-readiness preconditions.
-5. Cover blocked backend-reference preconditions.
-6. Add leak and no-runtime-credential guard coverage.
-7. Parse `knowledge upload-approval-intent` CLI arguments.
-8. Print and wire `knowledge upload-approval-intent` CLI output.
-9. Add CLI integration coverage for JSON, text, and `--out`.
-10. Lock the private upload approval intent shape with contract tests.
-11. Update README, rules, roadmap, Claude Code pattern notes, and skill
-    guidance.
-12. Record focused checks, full verification, remaining risks, and next-stage
-    plan.
+1. `58bb307` docs: record upload approval intent plan.
+2. `370941b` feat: add upload approval intent contract.
+3. `cfc05bf` test: cover upload approval intent happy path.
+4. `37b304e` test: block upload intent on publication readiness.
+5. `22e37db` test: block upload intent on backend references.
+6. `ecf4cdf` test: guard upload intent credential boundary.
+7. `4641900` feat: parse upload approval intent args.
+8. `fea27e0` feat: wire upload approval intent cli.
+9. `ef6418b` test: cover upload approval intent cli.
+10. `f8aebf8` test: lock upload approval intent contract.
+11. `055cf98` test: expose upload approval intent in help.
+12. `305af0c` docs: document upload approval intent boundary.
+
+Current design:
+
+- `src/knowledge/team-upload-approval-intent.ts` owns the private
+  `infra-agent.knowledge-team-upload-approval-intent` contract and builder. It
+  composes saved `infra-agent.knowledge-team-publication-readiness` and saved
+  `infra-agent.knowledge-team-s3-compatible-reference-validation` inputs.
+- The intent reports `approval-required` only when publication readiness is
+  `upload-required`, publication is allowed, and backend reference readiness is
+  `valid`. Otherwise it reports `blocked` with fixed, non-leaky blocker codes.
+- Credential boundary is modeled as a private precondition inside the intent:
+  environment variable names can be listed, while credential values and
+  credential presence checks remain disabled.
+- `src/cli/main.ts` adds
+  `infra-agent knowledge upload-approval-intent <publication-readiness.json>
+  --backend-reference <reference-readiness.json> [--out <intent.json>] [--json]`.
+  It reads only local JSON files and writes only the local `--out` file when
+  requested.
+- `src/cli/output.ts` adds safe text output for the intent. Text and JSON output
+  never include upload commands, credential values, backend URLs, buckets,
+  endpoints, or absolute paths.
+- Public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, backend-readiness, and backend-reference-readiness
+  JSON shapes are unchanged.
 
 Acceptance criteria:
 
@@ -110,6 +133,25 @@ Current risks to monitor:
 - A valid intent still requires a future separate implementation slice for any
   real backend adapter, live-check policy, credential value access boundary, and
   explicit approval continuation.
+
+Verification completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-approval-intent.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-approval-intent-main.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-approval-intent-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-artifact-public-contract.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-backend-readiness-contract.test.mjs`
+- `npm run test:structure`
+- `npm run lint`
+
+Next step:
+
+- Run full `npm run verify` on the final handoff commit. Future real backend
+  work should stay in a separate slice and start with adapter dependency
+  injection plus an explicit approval continuation model, not an upload command.
 
 ## 2026-05-09 Active S3-Compatible Reference Readiness CLI Plan
 
