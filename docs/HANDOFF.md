@@ -73,8 +73,7 @@ Completed commits and checkpoints:
 8. `44a1c2f` docs: define s3 reference readiness boundary.
 9. `94edcbe` docs: update s3 reference readiness roadmap.
 10. `193195f` test: expose s3 reference readiness in help.
-11. Final handoff update: record focused checks, full verification, remaining
-    risks, and next-stage plan.
+11. `328fa1f` docs: record s3 reference readiness verification.
 
 Acceptance criteria:
 
@@ -130,6 +129,9 @@ Verification completed:
   `knowledge-team-backend-readiness-contract.test.mjs`, and
   `knowledge-team-artifact-public-contract.test.mjs`.
 - `npm run test:structure` passed with 102 test files checked.
+- Full `npm run verify` passed. This covered lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. The package dry-run reported `entryCount` 150.
 
 Remaining risks and constraints:
 
@@ -144,9 +146,8 @@ Remaining risks and constraints:
 
 Next step:
 
-- Run full `npm run verify` on the final handoff commit, then move only to a
-  separate design slice for credential-boundary and explicit upload approval if
-  real S3 adapter work is required.
+- Move only to a separate design slice for credential-boundary and explicit
+  upload approval if real S3 adapter work is required.
 
 ## 2026-05-09 Active S3-Compatible Reference Registry Plan
 
