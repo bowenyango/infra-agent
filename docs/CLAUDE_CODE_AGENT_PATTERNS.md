@@ -73,9 +73,11 @@ durable design reference for infra-agent development.
 - Private team upload approval contracts extend the same permission pattern:
   `upload-approval-intent` can expose a deterministic scope fingerprint, and
   `upload-approval-continuation` can record that the operator supplied a
-  matching fingerprint, but both remain dry-run routing state with upload
-  approval, upload execution, client creation, credential reads, live checks,
-  and remote writes disabled.
+  matching fingerprint. `upload-adapter-preflight` can review a saved mock
+  adapter resolution plan for future dependency injection. All three remain
+  dry-run routing state with upload approval, upload execution, adapter
+  injection, client creation, credential reads, live checks, and remote writes
+  disabled.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without

@@ -222,6 +222,18 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `uploadExecutionAllowed=false`, `clientCreated=false`, `remoteWriteAllowed=false`,
   `liveCheckAllowed=false`, `credentialValuesExposed=false`,
   `credentialPresenceChecked=false`, and `uploadCommand=null`.
+- `infra-agent knowledge upload-adapter-preflight` is a dry-run private adapter
+  dependency review command. It may read a saved upload approval continuation
+  and a saved adapter resolution plan, then report whether a future test harness
+  could inject a safe mock adapter dependency. `preflight-ready` is not upload
+  permission and is not execution readiness: it must keep `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `clientCreated=false`, `adapterInjected=false`,
+  `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`, and
+  `uploadCommand=null`. It must not instantiate real adapters, create SDK
+  clients, read credentials or credential presence, copy endpoint/bucket
+  details, probe backends, build upload commands, or mutate remote
+  objects/indexes.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
