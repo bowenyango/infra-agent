@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Rollback Plan Boundary Plan
+## 2026-05-10 Completed Upload Rollback Plan Boundary
 
 Status:
 
-- In progress. This slice adds the next private dry-run boundary after
+- Completed. This slice adds the next private dry-run boundary after
   `upload-execution-lease-boundary`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-lease-boundary` and emit a
@@ -33,7 +33,7 @@ Why this direction:
   explicit next actions, no implicit mutation, and fail-closed validation for
   malformed, forged, or leaky inputs.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-rollback-plan-boundary`.
@@ -45,7 +45,7 @@ Planned artifact and CLI:
 - Ready next action is expected to be `design-audit-record-boundary`; blocked
   next action remains `resolve-blockers`.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `rollback-plan-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-execution-lease-boundary` with
@@ -70,20 +70,93 @@ Planned acceptance criteria:
    prerequisite plan, mutation approval review, mutation plan, execution gate,
    mock harness, continuation, and team backend no-SDK boundaries remain valid.
 
-Commit checklist:
+Completed commits for this slice:
 
-1. Record this active rollback plan boundary plan and non-goals.
-2. Add the private rollback plan boundary builder/contract.
-3. Add unit coverage for the ready path.
-4. Add unit coverage for blocked execution lease boundary inputs.
-5. Add forged-state and leak guard coverage.
-6. Add validator support for rollback plan boundary artifacts.
-7. Add contract coverage for the JSON shape.
-8. Add CLI parser support.
-9. Wire CLI command and text output.
-10. Add CLI integration and help/no-SDK guard coverage.
-11. Update durable docs and handoff progress.
-12. Run focused checks and full `npm run verify`.
+1. `91993c1` docs: record upload rollback plan boundary plan
+2. `df5a588` feat: add upload rollback plan boundary contract
+3. `1bbfbd4` test: cover upload rollback plan boundary ready path
+4. `8188e64` test: block unsafe upload rollback plan inputs
+5. `45db6d8` test: guard upload rollback plan boundary
+6. `970b46b` feat: validate upload rollback plan boundaries
+7. `0467d2a` test: cover upload rollback plan boundary contract
+8. `704455d` feat: parse upload rollback plan boundary args
+9. `16c0cae` feat: wire upload rollback plan boundary cli
+10. `3f6a2e1` test: cover upload rollback plan boundary cli
+11. `303f0a8` docs: document upload rollback plan boundary
+
+Verification completed before this handoff update:
+
+- Focused unit:
+  `node --experimental-strip-types test/unit/knowledge-team-upload-rollback-plan-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types test/contract/knowledge-team-upload-rollback-plan-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types test/integration/cli-knowledge-upload-rollback-plan-boundary-main.test.mjs`
+- Focused parser/help/no-SDK:
+  `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Documentation script check:
+  `npm run validate:content` is not available in this package; `npm run`
+  confirms the current scripts are lint/test/verify/package gates.
+- Lint:
+  `npm run lint` passed.
+- Coverage:
+  `npm run test:coverage` passed with total coverage above thresholds; the new
+  `team-upload-rollback-plan-boundary.ts` file reports 97.95% line, 95.00%
+  branch, and 100.00% function coverage.
+- Full gate:
+  `npm run verify` passed after code, test, and documentation updates.
+
+Key files changed:
+
+- `src/knowledge/team-upload-rollback-plan-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-rollback-plan-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-rollback-plan-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-rollback-plan-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Subagent review alignment:
+
+- Architecture, implementation, and test review subagents all converged on the
+  same non-goal: rollback-plan boundary must not become rollback-plan
+  creation. The implemented artifact keeps `rollbackPlanCreated=false` at the
+  top level, in `rollbackPlanBoundary`, and in remaining execution boundaries.
+- Review notes recommended consuming exactly one saved execution lease boundary
+  and keeping status/next-action explicit. The implementation uses
+  `rollback-plan-boundary-ready` and advances only to
+  `design-audit-record-boundary`.
+- Test review asked for ready, blocked, forged-state, leak, validator,
+  contract, CLI, help, and no-SDK coverage; those checks are now present.
+
+Current remaining risks:
+
+- There is still no real rollback artifact, audit writer, token issuer,
+  execution lease implementation, adapter injection, artifact byte handoff, or
+  backend mutation.
+- The upload chain remains intentionally private and dry-run. A
+  `rollback-plan-boundary-ready` artifact is only a prerequisite signal for the
+  next audit-record boundary, not executable authorization.
+
+Next recommended stage:
+
+- Design a separate audit-record boundary artifact that consumes the rollback
+  plan boundary as a prerequisite signal only. It should keep audit record
+  creation, rollback creation, lease creation, token issuance, adapter
+  injection, artifact byte handoff, object/index writes, SDK clients,
+  credential reads, live checks, upload commands, and upload execution
+  disabled until each is split into explicit future boundaries.
 
 ## 2026-05-10 Completed Upload Execution Lease Boundary
 
