@@ -273,6 +273,78 @@ Next step:
   needed before real backend clients. Keep real remote writes disabled until
   that separate slice is documented and approved.
 
+## 2026-05-09 Active Upload Mutation Approval Review Plan
+
+Status:
+
+- In progress. This slice adds a private dry-run human mutation approval review
+  record after `upload-mutation-plan`.
+- Scope is still non-executable review only: consume a saved
+  `infra-agent.knowledge-team-upload-mutation-plan` plus an explicit
+  operator-supplied mutation approval fingerprint, verify the fingerprint
+  against the plan's approval-audit fingerprint, and emit sanitized review
+  state for later execution-prerequisite design.
+- This slice must not grant upload approval, allow upload execution, issue
+  write tokens, create execution leases, create rollback artifacts, inject
+  adapters into execution, create SDK clients, read artifact bytes, read
+  credential values or presence, run live backend checks, generate upload
+  commands, or mutate object/index storage.
+
+Why this direction:
+
+- The previous slice produced the auditable plan but intentionally did not
+  record human review. The next safe step is to make the human fingerprint
+  review machine-checkable while still keeping actual mutation capability
+  absent.
+- This follows the learning-claude-code permission pattern: plan, human review,
+  execution prerequisites, and mutation execution stay separate. `review-ready`
+  must mean "the operator supplied the expected mutation-plan fingerprint", not
+  upload-ready or executable.
+
+Planned checkpoints:
+
+1. Record this active mutation approval review plan and non-goals before
+   feature changes.
+2. Add a private
+   `infra-agent.knowledge-team-upload-mutation-approval-review` contract.
+3. Cover the ready path from a saved `plan-ready` mutation plan and matching
+   approval fingerprint.
+4. Block non-ready, invalid, or leaky mutation-plan artifacts.
+5. Block mismatched, missing, unsafe, or forged approval fingerprints.
+6. Block forged approval, token, lease, command, client, artifact-byte, and
+   write state.
+7. Add validation support behind `knowledge validate`.
+8. Add contract tests for stable private JSON shape and non-executable review
+   fields.
+9. Add CLI parsing for
+   `infra-agent knowledge upload-mutation-approval-review <mutation-plan.json>
+   --approval-fingerprint <sha256> [--out <review.json>] [--json]`.
+10. Wire the CLI command and safe text output.
+11. Add CLI integration, help, and no-SDK/no-env guard coverage.
+12. Update rules, roadmap, README, skill, and handoff docs with validation
+    results and remaining risks.
+
+Acceptance criteria:
+
+- Review can report `review-ready` only for a valid `plan-ready` mutation plan
+  and exact matching supplied fingerprint.
+- Output may record `humanReviewRecorded=true` only inside the review section
+  when the fingerprint is verified, but must keep `mutationApprovalGranted=false`
+  and all execution capabilities disabled.
+- Output must keep `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, `adapterInjected=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `artifactBytesProvided=false`,
+  `writeTokenIssued=false`, `executionLeaseCreated=false`,
+  `rollbackPlanCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`.
+- CLI reads only local mutation-plan JSON and one fingerprint flag, and writes
+  only the optional local `--out` artifact.
+- Existing upload intent, upload continuation, upload adapter preflight, upload
+  mock harness, upload execution gate, upload mutation plan, backend reference
+  readiness, and public team artifact contracts remain unchanged.
+
 ## 2026-05-09 Active Upload Mutation Plan
 
 Status:
