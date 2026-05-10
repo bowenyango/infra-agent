@@ -6,6 +6,48 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Live Check Boundary Plan
+
+Status:
+
+- Active. This slice continues the private dry-run upload boundary chain after
+  `upload-credential-presence-boundary`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-credential-presence-boundary` and emit a
+  private live-check boundary artifact that records the future live-check
+  requirements needed before upload-command or mutation design.
+- This slice must not read credential values, check credential presence,
+  perform live backend checks, create SDK clients, inject adapters, bind object
+  stores or metadata indexes, read or stage artifact bytes, generate upload
+  commands, write object storage, write metadata indexes, or perform remote
+  mutations.
+
+Planned implementation checkpoints:
+
+1. Add the live-check boundary contract and builder from the saved credential
+   presence boundary.
+2. Add focused unit coverage for ready and blocked inputs.
+3. Add validator dispatch and contract coverage for ready, blocked, and drifted
+   payloads.
+4. Add CLI parsing, JSON/text output, help text, and integration coverage.
+5. Add no-SDK/no-live-check guard coverage and update rules, roadmap, skill,
+   and handoff docs after verification.
+
+Planned commit sequence:
+
+1. `docs: plan upload live check boundary`
+2. `feat: add upload live check boundary contract`
+3. `test: cover upload live check boundary ready path`
+4. `test: block invalid upload live check inputs`
+5. `feat: validate upload live check boundaries`
+6. `test: cover upload live check validation drift`
+7. `test: cover upload live check contract`
+8. `feat: wire upload live check boundary cli`
+9. `test: cover upload live check cli parsing`
+10. `test: cover upload live check cli`
+11. `test: guard upload live check boundary no sdk`
+12. `docs: document upload live check boundary`
+
 ## 2026-05-10 Completed Upload Credential Presence Boundary
 
 Status:
