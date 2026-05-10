@@ -44,6 +44,7 @@ import {
   validateKnowledgeTeamUploadArtifactBytesBoundaryPayload,
   validateKnowledgeTeamUploadAuditRecordBoundaryPayload,
   validateKnowledgeTeamUploadClientCreationBoundaryPayload,
+  validateKnowledgeTeamUploadCredentialReadBoundaryPayload,
   validateKnowledgeTeamUploadExecutionLeaseBoundaryPayload,
   validateKnowledgeTeamUploadExecutionGatePayload,
   validateKnowledgeTeamUploadExecutionPrerequisitePlanPayload,
@@ -1135,6 +1136,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-client-creation-boundary') {
     return validateKnowledgeTeamUploadClientCreationBoundaryPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-credential-read-boundary') {
+    return validateKnowledgeTeamUploadCredentialReadBoundaryPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

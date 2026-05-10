@@ -118,6 +118,14 @@ const UPLOAD_CLIENT_CREATION_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-client-crea
 const UPLOAD_CLIENT_CREATION_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_CLIENT_CREATION_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
 const UPLOAD_CLIENT_CREATION_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_STATUSES = ['credential-read-boundary-ready', 'blocked'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_NEXT_ACTIONS = ['design-credential-presence-boundary', 'resolve-blockers'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_SOURCE_STATUSES = ['client-creation-boundary-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_SOURCE_KINDS = ['client-creation-boundary-dry-run', 'unsupported'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-credential-read-boundary', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -635,6 +643,47 @@ const UPLOAD_CLIENT_CREATION_BOUNDARY_BLOCKERS = [
   'upload-execution-enabled',
   'write-token-issued'
 ] as const;
+const UPLOAD_CREDENTIAL_READ_BOUNDARY_BLOCKERS = [
+  'adapter-dependency-leak',
+  'adapter-injected',
+  'artifact-bytes-provided',
+  'artifact-object-store-bound',
+  'audit-record-created',
+  'backend-detail-leak',
+  'client-created',
+  'client-creation-boundary-next-action-invalid',
+  'client-creation-boundary-not-ready',
+  'client-creation-not-required',
+  'client-dependency-leak',
+  'credential-dependency-leak',
+  'credential-presence-check-enabled',
+  'credential-read-not-required',
+  'credential-values-exposed',
+  'executable-state-enabled',
+  'execution-lease-created',
+  'invalid-boundary-kind',
+  'invalid-client-creation-boundary-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'metadata-index-bound',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mutation-approval-already-granted',
+  'mutation-enabled',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'review-fingerprint-unverified',
+  'rollback-plan-created',
+  'scope-not-matched',
+  'unsupported-adapter-backend',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'write-token-issued'
+] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl)/i;
 const FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN = /(artifactBytesValue|artifactBytesBase64|artifactBytesContent|artifactBytesPayload|artifactContent|artifactPayload|rawArtifact|byteBuffer|bytesBase64|contentBase64|buffer|stream|arrayBuffer|blob|readPath|filePath|localPath|artifactPath|serializedPayload|stagedBytes)/i;
 const FORBIDDEN_ADAPTER_DEPENDENCY_KEY_PATTERN = /(adapterInstance|adapterObject|adapterValue|adapterDescriptorValue|adapterClient|clientInstance|clientObject|clientValue|clientFactory|clientConfig|sdkClient|objectStoreHandle|metadataIndexHandle|putObject|putEntry|fetch)/i;
@@ -647,6 +696,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-artifact-bytes-boundary',
   'infra-agent.knowledge-team-upload-adapter-injection-boundary',
   'infra-agent.knowledge-team-upload-client-creation-boundary',
+  'infra-agent.knowledge-team-upload-credential-read-boundary',
   'upload-write-token-boundary',
   'upload-execution-lease-boundary',
   'upload-rollback-plan-boundary',
@@ -654,6 +704,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'upload-artifact-bytes-boundary',
   'upload-adapter-injection-boundary',
   'upload-client-creation-boundary',
+  'upload-credential-read-boundary',
   'write-token-boundary-dry-run',
   'write-token-boundary-ready',
   'execution-lease-boundary-dry-run',
@@ -668,6 +719,8 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'adapter-injection-boundary-ready',
   'client-creation-boundary-dry-run',
   'client-creation-boundary-ready',
+  'credential-read-boundary-dry-run',
+  'credential-read-boundary-ready',
   'design-write-token-boundary',
   'design-execution-lease-boundary',
   'design-rollback-plan-boundary',
@@ -676,6 +729,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'design-adapter-injection-boundary',
   'design-client-creation-boundary',
   'design-credential-read-boundary',
+  'design-credential-presence-boundary',
   'write-token-boundary-design',
   'write-token-issued',
   'write-token-not-required',
@@ -700,7 +754,11 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'artifact-object-store-bound',
   'client-creation-not-required',
   'client-dependency-leak',
+  'credential-dependency-leak',
+  'credential-read-not-required',
   'executable-state-enabled',
+  'client-creation-boundary-next-action-invalid',
+  'client-creation-boundary-not-ready',
   'metadata-index-bound',
   'artifact-bytes-boundary-next-action-invalid',
   'artifact-bytes-boundary-not-ready',
@@ -876,7 +934,16 @@ function validateNoUploadApprovalLeakage(
       || key === 'clientCreationRequired'
       || key === 'clientCreated'
       || key === 'adapterName'
-      || key === 'adapterBackendKind';
+      || key === 'adapterBackendKind'
+      || key === 'sourceClientCreationBoundary'
+      || key === 'credentialReadBoundary'
+      || key === 'credentialReadRequiredBeforeExecution'
+      || key === 'credentialReadRequiredAfterClientBoundary'
+      || key === 'clientCreationBoundaryRequired'
+      || key === 'credentialSourceDescriptorRequired'
+      || key === 'credentialReferenceOnlyRequired'
+      || key === 'credentialValueRedactionRequired'
+      || key === 'credentialValuesRead';
     if (!safeControlField && FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include raw artifact bytes, byte buffers, streams, content payloads, or local artifact paths.'));
     }
@@ -4406,6 +4473,341 @@ export function validateKnowledgeTeamUploadClientCreationBoundaryPayload(
       }
       if (payload.readiness.blockerCount !== 0) {
         issues.push(error('$.readiness.blockerCount', 'must be 0 for client-creation-boundary-ready payloads.'));
+      }
+    }
+    if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
+      issues.push(error('$.readiness.nextAction', 'must resolve blockers for blocked payloads.'));
+    }
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadCredentialReadBoundaryPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload credential read boundary');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_CREDENTIAL_READ_BOUNDARY_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload credential read boundary status must be supported.'));
+  }
+  if (payload.boundaryKind !== 'credential-read-boundary-dry-run') {
+    issues.push(error('$.boundaryKind', 'Knowledge team upload credential read boundary kind must be credential-read-boundary-dry-run.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload credential read boundary operation must be stage-knowledge-pack.'));
+  }
+  for (const key of [
+    'uploadApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ]) {
+    if (payload[key] !== false) {
+      issues.push(error(`$.${key}`, 'Knowledge team upload credential read boundary must keep mutation and execution fields false.'));
+    }
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload credential read boundary target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be null or a safe 24-character id.'));
+      }
+      if (payload.status === 'credential-read-boundary-ready' && payload.target[key] === null) {
+        issues.push(error(`$.target.${key}`, 'must be set for credential-read-boundary-ready payloads.'));
+      }
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.status === 'credential-read-boundary-ready' && payload.target.objectSha256 === null) {
+      issues.push(error('$.target.objectSha256', 'must be set for credential-read-boundary-ready payloads.'));
+    }
+    if (payload.target.objectKey !== null && (typeof payload.target.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.target.objectKey))) {
+      issues.push(error('$.target.objectKey', 'must be null or a safe team artifact object key.'));
+    }
+    if (payload.status === 'credential-read-boundary-ready' && payload.target.objectKey === null) {
+      issues.push(error('$.target.objectKey', 'must be set for credential-read-boundary-ready payloads.'));
+    }
+  }
+
+  if (!isRecord(payload.sourceClientCreationBoundary)) {
+    issues.push(error('$.sourceClientCreationBoundary', 'Knowledge team upload credential read boundary sourceClientCreationBoundary must be an object.'));
+  } else {
+    if (payload.sourceClientCreationBoundary.source !== 'upload-client-creation-boundary') {
+      issues.push(error('$.sourceClientCreationBoundary.source', 'must be upload-client-creation-boundary.'));
+    }
+    if (!isOneOf(payload.sourceClientCreationBoundary.boundaryStatus, UPLOAD_CREDENTIAL_READ_BOUNDARY_SOURCE_STATUSES)) {
+      issues.push(error('$.sourceClientCreationBoundary.boundaryStatus', 'must be a supported client creation boundary status.'));
+    }
+    if (!isOneOf(payload.sourceClientCreationBoundary.boundaryKind, UPLOAD_CREDENTIAL_READ_BOUNDARY_SOURCE_KINDS)) {
+      issues.push(error('$.sourceClientCreationBoundary.boundaryKind', 'must be a supported client creation boundary kind.'));
+    }
+    if (!isOneOf(payload.sourceClientCreationBoundary.boundaryNextAction, UPLOAD_CREDENTIAL_READ_BOUNDARY_SOURCE_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceClientCreationBoundary.boundaryNextAction', 'must be a supported client creation boundary next action.'));
+    }
+    if (!isOneOf(payload.sourceClientCreationBoundary.reviewStatus, UPLOAD_CREDENTIAL_READ_BOUNDARY_REVIEW_STATUSES)) {
+      issues.push(error('$.sourceClientCreationBoundary.reviewStatus', 'must be a supported review status.'));
+    }
+    if (!isOneOf(payload.sourceClientCreationBoundary.reviewKind, UPLOAD_CREDENTIAL_READ_BOUNDARY_REVIEW_KINDS)) {
+      issues.push(error('$.sourceClientCreationBoundary.reviewKind', 'must be a supported review kind.'));
+    }
+    if (!isOneOf(payload.sourceClientCreationBoundary.adapterBackendKind, UPLOAD_CREDENTIAL_READ_BOUNDARY_ADAPTER_BACKENDS)) {
+      issues.push(error('$.sourceClientCreationBoundary.adapterBackendKind', 'must be a supported adapter backend kind.'));
+    }
+    for (const key of [
+      'scopeMatched',
+      'humanReviewRecorded',
+      'fingerprintVerified',
+      'sourceFingerprintVerified',
+      'dryRunOnly',
+      'clientCreationRequiredBeforeExecution',
+      'clientCreationRequiredAfterAdapter',
+      'adapterInjectionRequiredBeforeClient',
+      'adapterDependencyInjectionOnly',
+      'mockAdapterRequired',
+      'clientFactoryDescriptorRequired',
+      'credentialReadBoundaryRequired',
+      'credentialPresenceBoundaryRequired',
+      'liveCheckBoundaryRequired',
+      'uploadCommandBoundaryRequired',
+      'artifactObjectStoreDependencyRequired',
+      'metadataIndexDependencyRequired',
+      'contentAddressedObjectKeysRequired',
+      'contentAddressedIndexKeysRequired',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired',
+      'clientCreated',
+      'sdkClientCreated',
+      'adapterInjected',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'liveCheckPerformed',
+      'uploadExecutionAllowed',
+      'uploadCommandGenerated',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed',
+      'executable'
+    ]) {
+      if (typeof payload.sourceClientCreationBoundary[key] !== 'boolean') {
+        issues.push(error(`$.sourceClientCreationBoundary.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.sourceClientCreationBoundary.adapterName !== null) {
+      if (typeof payload.sourceClientCreationBoundary.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.sourceClientCreationBoundary.adapterName)) {
+        issues.push(error('$.sourceClientCreationBoundary.adapterName', 'must be null or a safe adapter name.'));
+      }
+    }
+    if (payload.status === 'credential-read-boundary-ready') {
+      if (payload.sourceClientCreationBoundary.boundaryStatus !== 'client-creation-boundary-ready') {
+        issues.push(error('$.sourceClientCreationBoundary.boundaryStatus', 'must be client-creation-boundary-ready for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.boundaryKind !== 'client-creation-boundary-dry-run') {
+        issues.push(error('$.sourceClientCreationBoundary.boundaryKind', 'must be client-creation-boundary-dry-run for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.boundaryNextAction !== 'design-credential-read-boundary') {
+        issues.push(error('$.sourceClientCreationBoundary.boundaryNextAction', 'must design the credential read boundary for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.reviewStatus !== 'review-ready') {
+        issues.push(error('$.sourceClientCreationBoundary.reviewStatus', 'must be review-ready for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.reviewKind !== 'human-fingerprint-dry-run') {
+        issues.push(error('$.sourceClientCreationBoundary.reviewKind', 'must be human-fingerprint-dry-run for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.scopeMatched !== true) {
+        issues.push(error('$.sourceClientCreationBoundary.scopeMatched', 'must be true for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.humanReviewRecorded !== true) {
+        issues.push(error('$.sourceClientCreationBoundary.humanReviewRecorded', 'must be true for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.fingerprintVerified !== true) {
+        issues.push(error('$.sourceClientCreationBoundary.fingerprintVerified', 'must be true for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.sourceFingerprintVerified !== true) {
+        issues.push(error('$.sourceClientCreationBoundary.sourceFingerprintVerified', 'must be true for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.adapterName === null) {
+        issues.push(error('$.sourceClientCreationBoundary.adapterName', 'must be set for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.sourceClientCreationBoundary.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.sourceClientCreationBoundary.adapterBackendKind', 'must be mock-s3-compatible for credential-read-boundary-ready payloads.'));
+      }
+      for (const key of [
+        'dryRunOnly',
+        'clientCreationRequiredBeforeExecution',
+        'clientCreationRequiredAfterAdapter',
+        'adapterInjectionRequiredBeforeClient',
+        'adapterDependencyInjectionOnly',
+        'mockAdapterRequired',
+        'clientFactoryDescriptorRequired',
+        'credentialReadBoundaryRequired',
+        'credentialPresenceBoundaryRequired',
+        'liveCheckBoundaryRequired',
+        'uploadCommandBoundaryRequired',
+        'artifactObjectStoreDependencyRequired',
+        'metadataIndexDependencyRequired',
+        'contentAddressedObjectKeysRequired',
+        'contentAddressedIndexKeysRequired',
+        'idempotentWritesRequired',
+        'explicitUploadApprovalRequired'
+      ]) {
+        if (payload.sourceClientCreationBoundary[key] !== true) {
+          issues.push(error(`$.sourceClientCreationBoundary.${key}`, 'must be true for credential-read-boundary-ready payloads.'));
+        }
+      }
+      for (const key of [
+        'clientCreated',
+        'sdkClientCreated',
+        'adapterInjected',
+        'artifactObjectStoreBound',
+        'metadataIndexBound',
+        'credentialValuesExposed',
+        'credentialPresenceChecked',
+        'liveCheckPerformed',
+        'uploadExecutionAllowed',
+        'uploadCommandGenerated',
+        'objectWriteAttempted',
+        'metadataIndexWriteAttempted',
+        'remoteMutationPerformed',
+        'executable'
+      ]) {
+        if (payload.sourceClientCreationBoundary[key] !== false) {
+          issues.push(error(`$.sourceClientCreationBoundary.${key}`, 'must be false for credential-read-boundary-ready payloads.'));
+        }
+      }
+    }
+  }
+
+  if (!isRecord(payload.credentialReadBoundary)) {
+    issues.push(error('$.credentialReadBoundary', 'Knowledge team upload credential read boundary credentialReadBoundary must be an object.'));
+  } else {
+    for (const key of [
+      'dryRunOnly',
+      'credentialReadRequiredBeforeExecution',
+      'credentialReadRequiredAfterClientBoundary',
+      'clientCreationBoundaryRequired',
+      'credentialSourceDescriptorRequired',
+      'credentialReferenceOnlyRequired',
+      'credentialValueRedactionRequired',
+      'mockAdapterRequired',
+      'clientFactoryDescriptorRequired',
+      'credentialPresenceBoundaryRequired',
+      'liveCheckBoundaryRequired',
+      'uploadCommandBoundaryRequired',
+      'artifactObjectStoreDependencyRequired',
+      'metadataIndexDependencyRequired',
+      'contentAddressedObjectKeysRequired',
+      'contentAddressedIndexKeysRequired',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired'
+    ]) {
+      if (payload.credentialReadBoundary[key] !== true) {
+        issues.push(error(`$.credentialReadBoundary.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'credentialValuesRead',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'clientCreated',
+      'sdkClientCreated',
+      'adapterInjected',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'liveCheckPerformed',
+      'uploadExecutionAllowed',
+      'uploadCommandGenerated',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed',
+      'executable'
+    ]) {
+      if (payload.credentialReadBoundary[key] !== false) {
+        issues.push(error(`$.credentialReadBoundary.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.remainingExecutionBoundaries)) {
+    issues.push(error('$.remainingExecutionBoundaries', 'Knowledge team upload credential read boundary remainingExecutionBoundaries must be an object.'));
+  } else {
+    for (const key of [
+      'artifactBytesRequired',
+      'adapterInjectionRequired',
+      'clientCreationRequired',
+      'credentialReadRequired',
+      'credentialPresenceCheckRequired',
+      'liveCheckRequired',
+      'uploadCommandRequired',
+      'writeTokenRequired',
+      'executionLeaseRequired',
+      'rollbackPlanRequired',
+      'auditRecordRequired'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== true) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'artifactBytesProvided',
+      'adapterInjected',
+      'clientCreated',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'liveCheckPerformed',
+      'uploadCommandGenerated',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'objectWriteAllowed',
+      'metadataIndexWriteAllowed',
+      'remoteMutationAllowed'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== false) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload credential read boundary readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_CREDENTIAL_READ_BOUNDARY_BLOCKERS,
+      supportedStatuses: UPLOAD_CREDENTIAL_READ_BOUNDARY_STATUSES,
+      supportedNextActions: UPLOAD_CREDENTIAL_READ_BOUNDARY_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+    if (payload.status !== payload.readiness.status) {
+      issues.push(error('$.readiness.status', 'must match payload status.'));
+    }
+    if (payload.status === 'credential-read-boundary-ready') {
+      if (payload.readiness.nextAction !== 'design-credential-presence-boundary') {
+        issues.push(error('$.readiness.nextAction', 'must design the credential presence boundary for credential-read-boundary-ready payloads.'));
+      }
+      if (payload.readiness.blockerCount !== 0) {
+        issues.push(error('$.readiness.blockerCount', 'must be 0 for credential-read-boundary-ready payloads.'));
       }
     }
     if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
