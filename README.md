@@ -113,6 +113,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge upload-mock-harness <preflight.json> [--out <harness.json>] [--json]`
 - `infra-agent knowledge upload-execution-gate <continuation.json> --mock-harness <harness.json> [--out <gate.json>] [--json]`
 - `infra-agent knowledge upload-mutation-plan <gate.json> [--out <mutation-plan.json>] [--json]`
+- `infra-agent knowledge upload-mutation-approval-review <mutation-plan.json> --approval-fingerprint <sha256> [--out <review.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -249,13 +250,21 @@ Current behavior is intentionally runtime-foundation oriented:
   tokens, create leases, provide artifact bytes, create SDK clients, inject
   adapters, check credentials, generate upload commands, or attempt
   object/index writes.
+  `knowledge upload-mutation-approval-review <mutation-plan.json>
+  --approval-fingerprint <sha256>` reads one saved mutation plan and records
+  that the operator reviewed the exact plan fingerprint. A `review-ready`
+  result is still only a private review record: it keeps
+  `mutationApprovalGranted=false`, `uploadExecutionAllowed=false`, and all
+  token, lease, client, adapter, artifact-byte, command, credential, live-check,
+  object-write, index-write, and remote-mutation fields disabled.
   `knowledge validate` also
   accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
   produced by the internal mocked S3-compatible team artifact store
   abstraction, compact index entries, saved publication-plan dry runs, and
   readiness reports, plus compact backend-readiness, upload-intent,
   upload-continuation, upload-adapter-preflight, upload-mock-harness,
-  upload-execution-gate, and upload-mutation-plan reports. Team artifact
+  upload-execution-gate, upload-mutation-plan, and
+  upload-mutation-approval-review reports. Team artifact
   payloads are content-addressed and
   backend-neutral;
   they do not include backend URLs, buckets, endpoints, credentials, absolute

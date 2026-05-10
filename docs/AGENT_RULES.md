@@ -275,6 +275,22 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   approval fingerprints, artifact bytes, write tokens, leases, SDK clients,
   adapters, credential values or presence checks, live checks, upload commands,
   or object/index mutation.
+- `infra-agent knowledge upload-mutation-approval-review` is a dry-run private
+  human fingerprint review record command. It may read one saved upload
+  mutation plan and compare an explicit operator-supplied approval fingerprint
+  with the plan's deterministic approval-audit fingerprint. `review-ready`
+  records only that the exact plan fingerprint was reviewed; it is not mutation
+  approval and is not execution readiness. It must keep
+  `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `mutationApprovalGranted=false`, `clientCreated=false`,
+  `adapterInjected=false`, `artifactBytesProvided=false`,
+  `writeTokenIssued=false`, `executionLeaseCreated=false`,
+  `rollbackPlanCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept backend configs, registries, mock
+  harnesses, artifact bytes, write tokens, leases, SDK clients, adapters,
+  credential values or presence checks, live checks, upload commands, or
+  object/index mutation.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

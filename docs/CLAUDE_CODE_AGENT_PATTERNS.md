@@ -81,7 +81,10 @@ durable design reference for infra-agent development.
   permission/audit state needed before a separate mutation design.
   `upload-mutation-plan` can consume that saved gate and emit a private
   approval-audit plan for a later human mutation review, without granting that
-  approval or making the plan executable. All six
+  approval or making the plan executable. `upload-mutation-approval-review`
+  can consume that saved plan plus an explicit operator-supplied fingerprint
+  and record only that the exact plan fingerprint was reviewed; it still does
+  not grant mutation approval or unlock execution. All seven
   remain dry-run routing state with upload approval, upload execution, write
   token issuance, execution lease creation, adapter injection, client creation,
   credential reads, live checks, object/index writes, and remote writes
