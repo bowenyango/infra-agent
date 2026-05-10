@@ -207,6 +207,7 @@ const SAFE_CONTROL_KEYS = new Set([
   'uploadCommand',
   'uploadCommandGenerated',
   'uploadExecutionAllowed',
+  'writeTokenRequiredBeforeExecution',
   'writeTokenIssued'
 ]);
 
@@ -456,7 +457,7 @@ function parseMutationPlanForApprovalReview(
   }
 
   const target = isRecord(input.target) ? input.target : {};
-  const sourcePlan = isRecord(input.sourcePlan) ? input.sourcePlan : {};
+  const sourcePlan = isRecord(input.sourceGate) ? input.sourceGate : {};
   const approvalAudit = isRecord(input.approvalAudit) ? input.approvalAudit : {};
   const approvalFingerprint = isRecord(approvalAudit.approvalScopeFingerprint)
     ? approvalAudit.approvalScopeFingerprint
@@ -526,49 +527,49 @@ function parseMutationPlanForApprovalReview(
   if (sourcePlan.source !== 'upload-execution-gate') {
     pushBlockerOnce(blockers, blocker(
       'invalid-mutation-plan-kind',
-      '$.mutationPlan.sourcePlan.source',
+      '$.mutationPlan.sourceGate.source',
       'Upload mutation approval review requires a mutation plan derived from an upload execution gate.'
     ));
   }
   if (sourcePlan.gateStatus !== 'gate-ready') {
     pushBlockerOnce(blockers, blocker(
       'mutation-plan-not-ready',
-      '$.mutationPlan.sourcePlan.gateStatus',
+      '$.mutationPlan.sourceGate.gateStatus',
       'Upload mutation approval review requires gate-ready source state.'
     ));
   }
   if (sourcePlan.gateKind !== 'approval-gated-dry-run') {
     pushBlockerOnce(blockers, blocker(
       'invalid-plan-kind',
-      '$.mutationPlan.sourcePlan.gateKind',
+      '$.mutationPlan.sourceGate.gateKind',
       'Upload mutation approval review requires approval-gated dry-run source state.'
     ));
   }
   if (sourcePlan.scopeMatched !== true) {
     pushBlockerOnce(blockers, blocker(
       'scope-not-matched',
-      '$.mutationPlan.sourcePlan.scopeMatched',
+      '$.mutationPlan.sourceGate.scopeMatched',
       'Upload mutation approval review requires matched source scope.'
     ));
   }
   if (sourcePlan.sourceFingerprintVerified !== true && sourcePlan.fingerprintVerified !== true) {
     pushBlockerOnce(blockers, blocker(
       'plan-fingerprint-mismatch',
-      '$.mutationPlan.sourcePlan.sourceFingerprintVerified',
+      '$.mutationPlan.sourceGate.fingerprintVerified',
       'Upload mutation approval review requires verified source fingerprints.'
     ));
   }
   if (sourcePlan.mockHarnessStatus !== 'harness-ready' || sourcePlan.mockHarnessKind !== 'in-memory-mock') {
     pushBlockerOnce(blockers, blocker(
       'mock-harness-not-ready',
-      '$.mutationPlan.sourcePlan.mockHarnessStatus',
+      '$.mutationPlan.sourceGate.mockHarnessStatus',
       'Upload mutation approval review requires a ready in-memory mock harness summary.'
     ));
   }
   if (sourcePlan.adapterBackendKind !== 'mock-s3-compatible') {
     pushBlockerOnce(blockers, blocker(
       'unsupported-adapter-backend',
-      '$.mutationPlan.sourcePlan.adapterBackendKind',
+      '$.mutationPlan.sourceGate.adapterBackendKind',
       'Upload mutation approval review only accepts mock-s3-compatible source summaries.'
     ));
   }
@@ -576,7 +577,7 @@ function parseMutationPlanForApprovalReview(
     if (typeof sourcePlan.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(sourcePlan.adapterName)) {
       pushBlockerOnce(blockers, blocker(
         'unsafe-adapter-name',
-        '$.mutationPlan.sourcePlan.adapterName',
+        '$.mutationPlan.sourceGate.adapterName',
         'Upload mutation approval review requires safe adapter names.'
       ));
     }
