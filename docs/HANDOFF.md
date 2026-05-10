@@ -6,12 +6,12 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Execution Lease Boundary Plan
+## 2026-05-10 Completed Upload Execution Lease Boundary
 
 Status:
 
-- In progress. This slice adds the next private dry-run boundary after
-  `upload-write-token-boundary`.
+- Completed and verified. This slice adds the next private dry-run boundary
+  after `upload-write-token-boundary`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-write-token-boundary` and emit a private
   execution lease boundary artifact that records lease requirements needed
@@ -27,13 +27,13 @@ Why this direction:
 - The completed write-token boundary only modeled the token contract. It did
   not issue a token and deliberately advanced to execution lease boundary
   design.
-- The next safe step is to isolate the execution lease boundary before any
+- The safe next step was to isolate the execution lease boundary before any
   rollback, audit, adapter, artifact-byte, or backend mutation design exists.
 - This keeps the Claude Code-style permission model intact: compact state,
   explicit next actions, no implicit mutation, and fail-closed validation for
   malformed, forged, or leaky inputs.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-execution-lease-boundary`.
@@ -44,7 +44,7 @@ Planned artifact and CLI:
   requirements are modeled. It is not lease creation and not execution
   readiness.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `execution-lease-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-write-token-boundary` with
@@ -68,20 +68,89 @@ Planned acceptance criteria:
    review, mutation plan, execution gate, mock harness, continuation, and team
    backend no-SDK boundaries remain valid.
 
-Commit checklist:
+Completed commits for this slice:
 
-1. Record this active execution lease boundary plan and non-goals.
-2. Add the private execution lease boundary builder/contract.
-3. Add unit coverage for the ready path.
-4. Add unit coverage for blocked write-token boundary inputs.
-5. Add forged-state and leak guard coverage.
-6. Add validator support for execution lease boundary artifacts.
-7. Add contract coverage for the JSON shape.
-8. Add CLI parser support.
-9. Wire CLI command and text output.
-10. Add CLI integration and help/arg/no-SDK guard coverage.
-11. Update durable docs and handoff progress.
-12. Run focused checks and full `npm run verify`.
+1. `d395fff` docs: record upload execution lease boundary plan
+2. `f12bb3a` feat: add upload execution lease boundary contract
+3. `08987b6` test: cover upload execution lease boundary ready path
+4. `0e2a7f1` test: block unsafe upload execution lease inputs
+5. `5edfdaa` test: guard upload execution lease boundary
+6. `9adc41d` feat: validate upload execution lease boundaries
+7. `649e102` test: cover upload execution lease boundary contract
+8. `aec61df` feat: parse upload execution lease boundary args
+9. `217ae33` feat: wire upload execution lease boundary cli
+10. `c346865` test: cover upload execution lease boundary cli
+11. `595eb82` docs: document upload execution lease boundary
+
+Verification completed:
+
+- Focused unit:
+  `node --experimental-strip-types test/unit/knowledge-team-upload-execution-lease-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types test/contract/knowledge-team-upload-execution-lease-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-lease-boundary-main.test.mjs`
+- Focused parser/help/no-SDK:
+  `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Lint:
+  `npm run lint` passed.
+- Coverage:
+  `npm run test:coverage` passed with total coverage above thresholds; the new
+  `team-upload-execution-lease-boundary.ts` file reports 100% line, branch, and
+  function coverage.
+- Full gate:
+  `npm run verify` passed after code, test, and documentation updates.
+
+Key files changed:
+
+- `src/knowledge/team-upload-execution-lease-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-lease-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-execution-lease-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-execution-lease-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `README.md`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Subagent review alignment:
+
+- Architecture, implementation, and test review subagents agreed on the core
+  direction: consume only a saved write-token boundary, model lease
+  requirements, keep token issuance and lease creation false, and advance to a
+  separate rollback-plan boundary.
+- Minor naming differences from review notes were resolved in favor of the
+  existing project style: the implemented nested section uses
+  `executionLeaseBoundary.executionLeaseRequiredBeforeExecution` and
+  `executionLeaseBoundary.executionLeaseCreated` to stay aligned with existing
+  `executionLeaseCreated` field naming across the upload chain.
+
+Current remaining risks:
+
+- There is still no real token issuer, execution lease implementation, rollback
+  artifact, audit writer, adapter injection, artifact byte handoff, or backend
+  mutation.
+- The upload chain remains intentionally private and dry-run. An
+  `execution-lease-boundary-ready` artifact is only a prerequisite signal for
+  the next boundary, not executable authorization.
+
+Next recommended stage:
+
+- Design a separate rollback plan boundary artifact that consumes the execution
+  lease boundary as a prerequisite signal only. It should keep lease creation,
+  token issuance, rollback creation, adapter injection, artifact byte handoff,
+  object/index writes, SDK clients, credential reads, live checks, upload
+  commands, and upload execution disabled until each is split into explicit
+  future boundaries.
 
 ## 2026-05-10 Completed Upload Write Token Boundary
 
