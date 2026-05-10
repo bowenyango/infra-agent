@@ -271,3 +271,67 @@ test('upload audit record boundary blocks malformed rollback plan metadata', asy
   assert.equal(codes.has('unsafe-artifact-reference'), true);
   assertExecutionDisabled(boundary);
 });
+
+test('upload audit record boundary blocks forged execution and audit state', async () => {
+  const rollbackPlanBoundary = await validRollbackPlanBoundary();
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({
+    rollbackPlanBoundary: {
+      ...rollbackPlanBoundary,
+      uploadExecutionAllowed: true,
+      auditRecordCreated: true,
+      rollbackPlanBoundary: {
+        ...rollbackPlanBoundary.rollbackPlanBoundary,
+        rollbackPlanCreated: true,
+        rollbackScopeBoundToArtifact: true,
+        rollbackReviewed: true,
+        auditBindingCreated: true,
+        auditRecordCreated: true,
+        executable: true
+      },
+      remainingExecutionBoundaries: {
+        ...rollbackPlanBoundary.remainingExecutionBoundaries,
+        artifactBytesProvided: true,
+        rollbackPlanCreated: true,
+        auditRecordCreated: true,
+        remoteMutationAllowed: true
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('audit-record-created'), true);
+  assert.equal(codes.has('rollback-plan-created'), true);
+  assert.equal(codes.has('rollback-scope-already-bound'), true);
+  assert.equal(codes.has('rollback-review-already-recorded'), true);
+  assert.equal(codes.has('audit-binding-created'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload audit record boundary reports private input details without copying values', async () => {
+  const rollbackPlanBoundary = await validRollbackPlanBoundary();
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({
+    rollbackPlanBoundary: {
+      ...rollbackPlanBoundary,
+      sourceExecutionLeaseBoundary: {
+        ...rollbackPlanBoundary.sourceExecutionLeaseBoundary,
+        endpointUrl: 'https://should-not-copy.example.test',
+        bucketName: 'should-not-copy-bucket'
+      },
+      rollbackPlanBoundary: {
+        ...rollbackPlanBoundary.rollbackPlanBoundary,
+        auditCommand: 'aws s3 cp s3://private-bucket/object ./private-key'
+      },
+      auditMaterial: 'audit-secret-value'
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
