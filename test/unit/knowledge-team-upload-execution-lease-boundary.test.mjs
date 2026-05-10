@@ -352,3 +352,126 @@ test('upload execution lease boundary blocks missing nested write-token sections
   assert.equal(codes.has('write-token-not-required'), true);
   assert.equal(codes.has('execution-lease-not-required'), true);
 });
+
+test('upload execution lease boundary blocks forged lease and execution state', async () => {
+  const writeTokenBoundary = await validWriteTokenBoundary();
+  const forgedBoundary = {
+    ...writeTokenBoundary,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    clientCreated: true,
+    adapterInjected: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    auditRecordCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    uploadCommand: 'aws s3 cp should-not-copy',
+    writeTokenBoundary: {
+      ...writeTokenBoundary.writeTokenBoundary,
+      tokenIssued: true,
+      tokenScopeBoundToArtifact: true,
+      singleUseTokenIssued: true,
+      tokenExpirySet: true,
+      auditBindingCreated: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      executable: true
+    },
+    remainingExecutionBoundaries: {
+      ...writeTokenBoundary.remainingExecutionBoundaries,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      remoteMutationAllowed: true
+    },
+    executionLeaseBoundary: {
+      executionLeaseCreated: true,
+      leaseScopeBoundToArtifact: true,
+      singleUseLeaseCreated: true,
+      leaseExpirySet: true,
+      writeTokenIssued: true,
+      auditBindingCreated: true,
+      rollbackPlanCreated: true,
+      executable: true
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({
+    writeTokenBoundary: forgedBoundary
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  for (const code of [
+    'upload-approval-already-provided',
+    'upload-execution-enabled',
+    'mutation-approval-already-granted',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'rollback-plan-created',
+    'audit-record-created',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'remote-mutation-performed',
+    'upload-command-present',
+    'token-scope-already-bound',
+    'token-expiry-already-set',
+    'audit-binding-created',
+    'lease-scope-already-bound',
+    'lease-expiry-already-set'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+  assertNoPrivateValues(boundary);
+});
+
+test('upload execution lease boundary blocks backend and token material leakage without copying private values', async () => {
+  const writeTokenBoundary = await validWriteTokenBoundary();
+  const leakyBoundary = {
+    ...writeTokenBoundary,
+    endpointUrl: 'https://should-not-copy.example.test',
+    target: {
+      ...writeTokenBoundary.target,
+      objectKey: 's3://private-bucket/should-not-copy'
+    },
+    sourcePrerequisitePlan: {
+      ...writeTokenBoundary.sourcePrerequisitePlan,
+      bucketName: 'should-not-copy-bucket',
+      adapterName: '../unsafe-adapter'
+    },
+    privateCredential: {
+      secretAccessKey: 'should-not-copy-secret',
+      privateKey: 'private-key'
+    },
+    writeTokenBoundary: {
+      ...writeTokenBoundary.writeTokenBoundary,
+      tokenValue: 'should-not-copy-secret'
+    },
+    executionLeaseBoundary: {
+      leaseValue: 'private-key'
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({
+    writeTokenBoundary: leakyBoundary
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(blockerCodes(boundary).has('backend-detail-leak'), true);
+  assert.equal(blockerCodes(boundary).has('unsafe-artifact-reference'), true);
+  assert.equal(blockerCodes(boundary).has('unsafe-adapter-name'), true);
+  assertNoPrivateValues(boundary);
+});
