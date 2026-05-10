@@ -6,13 +6,13 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Client Creation Boundary Plan
+## 2026-05-10 Completed Upload Client Creation Boundary
 
 Status:
 
-- In progress. This slice continues the private dry-run upload boundary chain
+- Completed. This slice continues the private dry-run upload boundary chain
   after `upload-adapter-injection-boundary`.
-- Planned scope is local JSON planning only: consume one saved
+- Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-adapter-injection-boundary` and emit a
   private client creation boundary artifact that records the future client
   creation requirements needed before credential, live-check, command, or
@@ -36,20 +36,20 @@ Why this direction:
   blocked states do not advance implicitly, and handoff artifacts must be
   validated contracts rather than prose-only assumptions.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-client-creation-boundary`.
 - CLI:
   `infra-agent knowledge upload-client-creation-boundary <adapter-injection-boundary.json> [--out <client-creation-boundary.json>] [--json]`.
-- Ready status should be `client-creation-boundary-ready`, meaning only that
+- Ready status is `client-creation-boundary-ready`, meaning only that
   the saved adapter injection boundary is safe and future client-creation
   requirements are modeled. It is not client creation and not credential
   access.
-- Ready next action should be `design-credential-read-boundary`; blocked next
+- Ready next action is `design-credential-read-boundary`; blocked next
   action remains `resolve-blockers`.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `client-creation-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-adapter-injection-boundary` with
@@ -81,19 +81,69 @@ Planned acceptance criteria:
    mutation plan, execution gate, mock harness, continuation, and team backend
    no-SDK boundaries remain valid.
 
-Planned commit sequence:
+Completed commits for this slice:
 
-1. Document the client creation boundary plan.
-2. Add the client creation boundary builder and artifact contract.
-3. Cover the ready path with focused unit tests.
-4. Cover invalid, forged, and leaky source inputs.
-5. Add validation support behind `knowledge validate`.
-6. Cover validation drift and contract shape.
-7. Wire CLI parser/help and text output.
-8. Cover CLI parsing and help.
-9. Cover CLI JSON write and blocked text output.
-10. Extend no-SDK/no-client guards.
-11. Update rules, roadmap, skill guidance, and final handoff.
+1. `9549ed4` docs: plan upload client creation boundary
+2. `a843c80` feat: add upload client creation boundary contract
+3. `f6f42f8` test: cover upload client creation boundary ready path
+4. `f05d368` test: block invalid upload client creation inputs
+5. `9c1b23d` feat: validate upload client creation boundaries
+6. `565c3b3` test: cover upload client creation validation drift
+7. `7ba2805` test: cover upload client creation contract
+8. `2cc89a5` feat: wire upload client creation boundary cli
+9. `d9aa0a9` test: cover upload client creation cli parsing
+10. `6dc5ed6` test: cover upload client creation cli
+11. `82fb6ff` test: guard upload client creation boundary no sdk
+
+Verification performed during the slice:
+
+- Focused builder/unit:
+  `node --experimental-strip-types ./test/unit/knowledge-team-upload-client-creation-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types ./test/contract/knowledge-team-upload-client-creation-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-upload-client-creation-boundary-main.test.mjs`
+- Parser/help/no-SDK:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Lint:
+  `npm run lint` passed during implementation.
+- Coverage:
+  `npm run test:coverage` passed with total coverage above thresholds:
+  89.78% lines, 75.01% branches, and 96.83% functions.
+- Full final verification:
+  `npm run verify` passed after code, test, and documentation updates.
+
+Core files changed:
+
+- `src/knowledge/team-upload-client-creation-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-client-creation-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-client-creation-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-client-creation-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Current remaining risk:
+
+- The artifact still models only a client-creation boundary; it does not
+  instantiate SDK clients, inject adapters, bind object stores or metadata
+  indexes, read credentials, check credential presence, perform live checks,
+  generate upload commands, read/hash/stage bytes, upload, or mutate remote
+  state.
+- Next safe step is `design-credential-read-boundary`: consume the saved
+  client creation boundary and model future credential-read requirements while
+  keeping credential values, credential presence checks, live checks, commands,
+  clients, adapters, object writes, index writes, and remote mutation disabled.
 
 ## 2026-05-10 Completed Upload Adapter Injection Boundary
 

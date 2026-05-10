@@ -116,7 +116,15 @@ durable design reference for infra-agent development.
   execution, mock adapter descriptor, object-store and metadata-index
   dependencies, content-addressed keys, idempotent writes, explicit approval,
   and client-creation preconditions. It still does not instantiate, inject, bind,
-  or expose adapters or clients. All fourteen remain dry-run routing state with
+  or expose adapters or clients. `upload-client-creation-boundary` can consume
+  that adapter injection boundary and model future client-creation
+  requirements: client factory descriptor, credential-read and
+  credential-presence boundaries, live-check and upload-command boundaries,
+  object-store and metadata-index dependencies, content-addressed keys,
+  idempotent writes, and explicit approval. It still does not create SDK
+  clients, read credentials, check credential presence, perform live checks,
+  generate commands, or bind stores/indexes. All fifteen remain dry-run routing
+  state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter
   injection, client creation, credential reads, live checks, upload commands,
