@@ -102,10 +102,15 @@ durable design reference for infra-agent development.
   execution, artifact scope binding, rollback review, write-token and
   execution-lease preconditions, artifact bytes, audit binding, and audit
   record precondition. It still does not create, activate, or expose a rollback
-  plan. All eleven remain dry-run routing state with upload approval,
+  plan. `upload-audit-record-boundary` can consume that rollback boundary and
+  model the future audit contract: audit record before execution, artifact
+  scope binding, audit review, write-token, execution-lease, rollback-plan, and
+  artifact-byte preconditions. It still does not create, activate, or expose an
+  audit record. All twelve remain dry-run routing state with upload approval,
   upload execution, write token issuance, execution lease creation, rollback
-  creation, adapter injection, client creation, credential reads, live checks,
-  object/index writes, and remote writes disabled.
+  creation, audit creation, artifact bytes, adapter injection, client creation,
+  credential reads, live checks, upload commands, object/index writes, and
+  remote writes disabled.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without

@@ -363,6 +363,25 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   bytes, concrete write tokens, concrete leases, concrete rollback plans, SDK
   clients, adapters, credential values or presence checks, live checks, upload
   commands, or object/index mutation.
+- `infra-agent knowledge upload-audit-record-boundary` is a dry-run private
+  audit record boundary command. It may read one saved upload rollback plan
+  boundary and record the required audit contract for future execution: audit
+  record before execution, artifact scope binding, audit review, write-token,
+  execution-lease, rollback-plan, and artifact-byte preconditions. An
+  `audit-record-boundary-ready` result is not audit record creation, rollback
+  plan creation, lease creation, token issuance, or upload execution readiness.
+  It must keep `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `mutationApprovalGranted=false`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+  `auditRecordCreated=false`, `auditScopeBoundToArtifact=false`,
+  `auditReviewed=false`, `artifactBytesProvided=false`,
+  `adapterInjected=false`, `clientCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept backend configs, registries, mock
+  harnesses, mutation plans, artifact bytes, concrete write tokens, concrete
+  leases, concrete rollback plans, concrete audit records, SDK clients,
+  adapters, credential values or presence checks, live checks, upload commands,
+  or object/index mutation.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

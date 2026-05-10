@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Audit Record Boundary Plan
+## 2026-05-10 Completed Upload Audit Record Boundary
 
 Status:
 
-- In progress. This slice adds the next private dry-run boundary after
+- Completed. This slice adds the next private dry-run boundary after
   `upload-rollback-plan-boundary`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-rollback-plan-boundary` and emit a
@@ -33,7 +33,7 @@ Why this direction:
   explicit next actions, no implicit mutation, and fail-closed validation for
   malformed, forged, or leaky inputs.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-audit-record-boundary`.
@@ -45,7 +45,7 @@ Planned artifact and CLI:
 - Ready next action is expected to be `design-artifact-bytes-boundary`; blocked
   next action remains `resolve-blockers`.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `audit-record-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-rollback-plan-boundary` with
@@ -71,20 +71,42 @@ Planned acceptance criteria:
    execution gate, mock harness, continuation, and team backend no-SDK
    boundaries remain valid.
 
-Commit checklist:
+Verification performed during the slice:
 
-1. Record this active audit record boundary plan and non-goals.
-2. Add the private audit record boundary builder/contract.
-3. Add unit coverage for the ready path.
-4. Add unit coverage for blocked rollback plan boundary inputs.
-5. Add forged-state and leak guard coverage.
-6. Add validator support for audit record boundary artifacts.
-7. Add contract coverage for the JSON shape.
-8. Add CLI parser support.
-9. Wire CLI command and text output.
-10. Add CLI integration and help/no-SDK guard coverage.
-11. Update durable docs and handoff progress.
-12. Run focused checks and full `npm run verify`.
+- Focused builder/unit:
+  `node --experimental-strip-types ./test/unit/knowledge-team-upload-audit-record-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types ./test/contract/knowledge-team-upload-audit-record-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-upload-audit-record-boundary-main.test.mjs`
+- CLI import/help checks:
+  `node --experimental-strip-types -e "import('./src/cli/main.ts').then(() => console.log('cli import ok'))"`
+  and `node --experimental-strip-types ./src/cli/main.ts --help`
+
+Core files changed:
+
+- `src/knowledge/team-upload-audit-record-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-audit-record-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-audit-record-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-audit-record-boundary-main.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Current remaining risk:
+
+- The artifact still models only an audit-record boundary; it does not produce
+  audit content, verify persisted audit records, load artifact bytes, inject
+  adapters, issue write tokens, create leases, or execute uploads.
+- Next safe step is `design-artifact-bytes-boundary`: consume the saved audit
+  record boundary and model the future local artifact-byte staging
+  preconditions while keeping adapters, clients, credentials, live checks,
+  commands, object writes, index writes, and remote mutation disabled.
 
 ## 2026-05-10 Completed Upload Rollback Plan Boundary
 
