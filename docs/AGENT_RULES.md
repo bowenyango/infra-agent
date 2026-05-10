@@ -382,6 +382,25 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   leases, concrete rollback plans, concrete audit records, SDK clients,
   adapters, credential values or presence checks, live checks, upload commands,
   or object/index mutation.
+- `infra-agent knowledge upload-artifact-bytes-boundary` is a dry-run private
+  artifact-byte boundary command. It may read one saved upload audit record
+  boundary and record required future byte-staging contracts: bytes before
+  adapter/execution, digest verification, artifact scope binding, audit,
+  write-token, execution-lease, rollback-plan, and adapter-injection
+  preconditions. An `artifact-bytes-boundary-ready` result is not byte staging,
+  digest verification, adapter injection, audit creation, or upload execution
+  readiness. It must keep `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `mutationApprovalGranted=false`,
+  `writeTokenIssued=false`, `executionLeaseCreated=false`,
+  `rollbackPlanCreated=false`, `auditRecordCreated=false`,
+  `artifactBytesProvided=false`, `adapterInjected=false`,
+  `clientCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept backend configs, registries, mock
+  harnesses, mutation plans, raw bytes, local artifact paths, concrete write
+  tokens, concrete leases, concrete rollback plans, concrete audit records, SDK
+  clients, adapters, credential values or presence checks, live checks, upload
+  commands, or object/index mutation.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary/upload-rollback-plan-boundary/upload-audit-record-boundary` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary/upload-rollback-plan-boundary/upload-audit-record-boundary/upload-artifact-bytes-boundary` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -242,6 +242,16 @@ credentials must still come from environment variables.
    execution, provide artifact bytes, and does not allow adapter injection,
    client creation, credential reads, live checks, upload commands, object
    writes, index writes, or remote writes.
+   Use `knowledge upload-artifact-bytes-boundary` only as a dry-run private
+   artifact-byte boundary from a saved upload audit record boundary. An
+   `artifact-bytes-boundary-ready` result means artifact-byte staging
+   requirements were modeled, not satisfied: bytes before adapter/execution,
+   digest verification, artifact scope binding, and audit, rollback, lease,
+   token, and adapter preconditions still need separate design. It does not
+   read, hash, stage, or provide bytes, create audit records, create rollback
+   plans, create leases, issue or bind tokens, allow execution, inject adapters,
+   create clients, read credentials, perform live checks, generate commands, or
+   write object/index entries.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or

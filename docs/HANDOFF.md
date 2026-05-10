@@ -6,13 +6,13 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Artifact Bytes Boundary Plan
+## 2026-05-10 Completed Upload Artifact Bytes Boundary
 
 Status:
 
-- In progress. This slice continues the private dry-run upload boundary chain
+- Completed. This slice continues the private dry-run upload boundary chain
   after `upload-audit-record-boundary`.
-- Planned scope is local JSON planning only: consume one saved
+- Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-audit-record-boundary` and emit a private
   artifact bytes boundary artifact that records the future artifact-byte
   staging requirements needed before any later adapter or execution design.
@@ -21,19 +21,30 @@ Status:
   tokens, approvals, adapters, clients, credential reads, live checks, upload
   commands, object writes, index writes, or remote mutations.
 
-Planned artifact and CLI:
+Why this direction:
+
+- The completed audit record boundary only modeled audit requirements. It did
+  not create an audit record and deliberately advanced to artifact-byte boundary
+  design.
+- The next safe step is to model byte-staging preconditions without accepting
+  raw bytes, local paths, hash work, adapters, clients, or backend mutation.
+- This preserves the Claude Code-style permission model: compact routing state,
+  explicit next actions, no implicit mutation, and fail-closed validation for
+  malformed, forged, byte-leaking, or backend-leaking inputs.
+
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-artifact-bytes-boundary`.
 - CLI:
   `infra-agent knowledge upload-artifact-bytes-boundary <audit-record-boundary.json> [--out <artifact-bytes-boundary.json>] [--json]`.
-- Ready status should be `artifact-bytes-boundary-ready`, meaning only that the
+- Ready status is `artifact-bytes-boundary-ready`, meaning only that the
   saved audit boundary is safe and future artifact-byte requirements are
   modeled. It is not byte staging and not execution readiness.
-- Ready next action should be `design-adapter-injection-boundary`; blocked next
+- Ready next action is `design-adapter-injection-boundary`; blocked next
   action remains `resolve-blockers`.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `artifact-bytes-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-audit-record-boundary` with
@@ -59,6 +70,70 @@ Planned acceptance criteria:
 6. Existing audit record, rollback plan, execution lease, write-token,
    prerequisite plan, mutation approval review, mutation plan, execution gate,
    mock harness, continuation, and team backend no-SDK boundaries remain valid.
+
+Completed commits for this slice:
+
+1. `1425efb` docs: plan upload artifact bytes boundary
+2. `94fb600` feat: add upload artifact bytes boundary contract
+3. `bbb6a22` test: cover upload artifact bytes boundary ready path
+4. `e3bcf89` test: block invalid upload artifact bytes inputs
+5. `08617e6` test: guard upload artifact bytes boundary
+6. `e47ab40` feat: validate upload artifact bytes boundaries
+7. `908deee` feat: dispatch upload artifact bytes validation
+8. `6a1b8f8` test: cover upload artifact bytes validation drift
+9. `2b909af` test: cover upload artifact bytes contract
+10. `aa5bb1c` feat: wire upload artifact bytes boundary cli
+11. `2320684` test: cover upload artifact bytes cli parsing
+12. `6d10cc4` test: cover upload artifact bytes cli
+13. `ecc09f0` test: guard upload artifact bytes boundary no sdk
+
+Verification performed during the slice:
+
+- Focused builder/unit:
+  `node --experimental-strip-types ./test/unit/knowledge-team-upload-artifact-bytes-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types ./test/contract/knowledge-team-upload-artifact-bytes-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-upload-artifact-bytes-boundary-main.test.mjs`
+- Parser/help/no-SDK:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Lint:
+  `npm run lint` passed.
+- Coverage:
+  `npm run test:coverage` passed with total coverage above thresholds; the new
+  `team-upload-artifact-bytes-boundary.ts` file reports 100.00% line, branch,
+  and function coverage.
+- Full final verification:
+  `npm run verify` passed after code, test, and documentation updates.
+
+Core files changed:
+
+- `src/knowledge/team-upload-artifact-bytes-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-artifact-bytes-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-artifact-bytes-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-artifact-bytes-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Current remaining risk:
+
+- The artifact still models only an artifact-byte boundary; it does not read,
+  hash, stage, upload, or provide artifact bytes.
+- Next safe step is `design-adapter-injection-boundary`: consume the saved
+  artifact bytes boundary and model future adapter injection preconditions while
+  keeping bytes, clients, credentials, live checks, commands, object writes,
+  index writes, and remote mutation disabled.
 
 ## 2026-05-10 Completed Upload Audit Record Boundary
 
