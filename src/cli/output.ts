@@ -60,6 +60,7 @@ import type { KnowledgeTeamUploadExecutionPrerequisitePlan } from '../knowledge/
 import type { KnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
 import type { KnowledgeTeamUploadMutationApprovalReview } from '../knowledge/team-upload-mutation-approval-review.ts';
 import type { KnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-mutation-plan.ts';
+import type { KnowledgeTeamUploadWriteTokenBoundary } from '../knowledge/team-upload-write-token-boundary.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3965,6 +3966,62 @@ export function printKnowledgeTeamUploadExecutionPrerequisitePlan(
   printList(
     plan.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload execution prerequisite plan blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadWriteTokenBoundary(
+  boundary: KnowledgeTeamUploadWriteTokenBoundary
+): void {
+  printHeader('Knowledge team upload write-token boundary');
+  process.stdout.write(`status: ${boundary.status}\n`);
+  process.stdout.write(`next action: ${boundary.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${boundary.plannedOperation}\n`);
+  process.stdout.write(`execution: ${boundary.executionMode}\n`);
+  process.stdout.write(`boundary: ${boundary.boundaryKind}\n`);
+  process.stdout.write(`remote write: ${boundary.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${boundary.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${boundary.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${boundary.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${boundary.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${boundary.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${boundary.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${boundary.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${boundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${boundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${boundary.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${boundary.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${boundary.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${boundary.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${boundary.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${boundary.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${boundary.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${boundary.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source prerequisite: ${boundary.sourcePrerequisitePlan.prerequisiteStatus}\n`);
+  process.stdout.write(`source prerequisite action: ${boundary.sourcePrerequisitePlan.prerequisiteNextAction}\n`);
+  process.stdout.write(`source review: ${boundary.sourcePrerequisitePlan.reviewStatus}\n`);
+  process.stdout.write(`scope matched: ${boundary.sourcePrerequisitePlan.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human review recorded: ${boundary.sourcePrerequisitePlan.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${boundary.sourcePrerequisitePlan.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${boundary.sourcePrerequisitePlan.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${boundary.sourcePrerequisitePlan.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${boundary.sourcePrerequisitePlan.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`token required before execution: ${boundary.writeTokenBoundary.tokenRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`token issued: ${boundary.writeTokenBoundary.tokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`token scope binding required: ${boundary.writeTokenBoundary.tokenScopeBindingRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`token scope bound to artifact: ${boundary.writeTokenBoundary.tokenScopeBoundToArtifact ? 'yes' : 'no'}\n`);
+  process.stdout.write(`single-use token required: ${boundary.writeTokenBoundary.tokenSingleUseRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`token expiry required: ${boundary.writeTokenBoundary.tokenExpiryRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`token expiry set: ${boundary.writeTokenBoundary.tokenExpirySet ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit binding required: ${boundary.writeTokenBoundary.auditBindingRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease required before issuance: ${boundary.writeTokenBoundary.executionLeaseRequiredBeforeIssuance ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan required before issuance: ${boundary.writeTokenBoundary.rollbackPlanRequiredBeforeIssuance ? 'yes' : 'no'}\n`);
+  process.stdout.write(`executable: ${boundary.writeTokenBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`dry run only: ${boundary.writeTokenBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: tokenIssued=${boundary.writeTokenBoundary.tokenIssued ? 'yes' : 'no'}, tokenScopeBound=${boundary.writeTokenBoundary.tokenScopeBoundToArtifact ? 'yes' : 'no'}, lease=${boundary.executionLeaseCreated ? 'yes' : 'no'}, objectWrite=${boundary.objectWriteAttempted ? 'yes' : 'no'}, blockers=${boundary.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload write-token boundary blockers.'
   );
 }
 
