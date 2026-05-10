@@ -66,6 +66,9 @@ import {
   buildKnowledgeTeamUploadWriteTokenBoundary
 } from '../../src/knowledge/team-upload-write-token-boundary.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -469,4 +472,198 @@ test('upload live check boundary reports credential, backend, and probe details 
   assert.equal(codes.has('live-check-enabled'), true);
   assertExecutionAndLiveCheckDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload live check boundary validation rejects forged live check state', async () => {
+  const credentialPresenceBoundary = await validCredentialPresenceBoundary();
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({ credentialPresenceBoundary });
+  const readyValidation = validateKnowledgePayload(boundary, 'knowledge-pack.upload-live-check-boundary.json');
+
+  assert.equal(readyValidation.valid, true);
+
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    clientCreated: true,
+    adapterInjected: true,
+    sourceCredentialPresenceBoundary: {
+      ...boundary.sourceCredentialPresenceBoundary,
+      source: 'upload-credential-read-boundary',
+      boundaryStatus: 'blocked',
+      boundaryKind: 'unsupported',
+      boundaryNextAction: 'resolve-blockers',
+      adapterBackendKind: 's3-compatible',
+      credentialValuesRead: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      credentialPresenceResultExposed: true,
+      clientCreated: true,
+      sdkClientCreated: true,
+      adapterInjected: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      executable: true
+    },
+    liveCheckBoundary: {
+      ...boundary.liveCheckBoundary,
+      credentialValuesRead: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      credentialPresenceResultExposed: true,
+      clientCreated: true,
+      sdkClientCreated: true,
+      adapterInjected: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      liveCheckAllowed: true,
+      liveCheckPerformed: true,
+      liveCheckResultExposed: true,
+      uploadExecutionAllowed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true,
+      executable: true,
+      liveCheckResult: 'should-not-exist'
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      clientCreated: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      remoteMutationAllowed: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      nextAction: 'resolve-blockers',
+      blockerCount: 1
+    }
+  }, 'knowledge-pack.upload-live-check-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialValuesExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjected'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.source'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.boundaryStatus'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.boundaryKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.boundaryNextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.adapterBackendKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.credentialValuesRead'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.credentialPresenceResultExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.liveCheckPerformed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.uploadCommandGenerated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.executable'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.credentialValuesRead'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.liveCheckAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.liveCheckPerformed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.liveCheckResultExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.liveCheckResult'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.objectWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.remoteMutationAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
+});
+
+test('upload live check boundary validation rejects missing ready prerequisites', async () => {
+  const credentialPresenceBoundary = await validCredentialPresenceBoundary();
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({ credentialPresenceBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    auditRecordCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    target: {
+      ...boundary.target,
+      manifestId: null,
+      artifactId: 'not-a-safe-id',
+      objectSha256: null,
+      objectKey: null
+    },
+    sourceCredentialPresenceBoundary: {
+      ...boundary.sourceCredentialPresenceBoundary,
+      reviewStatus: 'blocked',
+      reviewKind: 'unsupported',
+      scopeMatched: false,
+      humanReviewRecorded: false,
+      fingerprintVerified: false,
+      sourceFingerprintVerified: false,
+      adapterName: null,
+      dryRunOnly: false,
+      credentialPresenceCheckRequiredBeforeExecution: false,
+      credentialPresenceCheckRequiredAfterCredentialReadBoundary: false,
+      credentialReadBoundaryRequired: false,
+      credentialSourceDescriptorRequired: false,
+      credentialReferenceOnlyRequired: false,
+      credentialValueRedactionRequired: false,
+      credentialPresenceSignalRequired: false,
+      credentialPresenceResultRedactionRequired: false,
+      mockAdapterRequired: false,
+      clientFactoryDescriptorRequired: false,
+      liveCheckBoundaryRequired: false,
+      uploadCommandBoundaryRequired: false,
+      artifactObjectStoreDependencyRequired: false,
+      metadataIndexDependencyRequired: false,
+      contentAddressedObjectKeysRequired: false,
+      contentAddressedIndexKeysRequired: false,
+      idempotentWritesRequired: false,
+      explicitUploadApprovalRequired: false
+    },
+    liveCheckBoundary: {
+      ...boundary.liveCheckBoundary,
+      dryRunOnly: false,
+      liveCheckRequiredBeforeExecution: false,
+      liveCheckRequiredAfterCredentialPresenceBoundary: false,
+      credentialPresenceBoundaryRequired: false,
+      credentialReadBoundaryRequired: false,
+      liveCheckPolicyRequired: false,
+      liveCheckReadOnlyRequired: false,
+      liveCheckResultRedactionRequired: false
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      artifactBytesRequired: false,
+      adapterInjectionRequired: false,
+      clientCreationRequired: false,
+      credentialReadRequired: false,
+      credentialPresenceCheckRequired: false,
+      liveCheckRequired: false,
+      uploadCommandRequired: false,
+      writeTokenRequired: false,
+      executionLeaseRequired: false,
+      rollbackPlanRequired: false,
+      auditRecordRequired: false
+    }
+  }, 'knowledge-pack.upload-live-check-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.uploadApproved'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.manifestId'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.artifactId'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.reviewStatus'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.adapterName'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialPresenceBoundary.liveCheckBoundaryRequired'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.liveCheckPolicyRequired'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.liveCheckBoundary.liveCheckRequiredBeforeExecution'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.liveCheckRequired'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.uploadCommandRequired'), true);
 });
