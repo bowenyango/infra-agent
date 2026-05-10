@@ -41,6 +41,7 @@ import {
   validateKnowledgeTeamUploadApprovalContinuationPayload,
   validateKnowledgeTeamUploadApprovalIntentPayload,
   validateKnowledgeTeamUploadExecutionGatePayload,
+  validateKnowledgeTeamUploadExecutionPrerequisitePlanPayload,
   validateKnowledgeTeamUploadMutationApprovalReviewPayload,
   validateKnowledgeTeamUploadMutationPlanPayload,
   validateKnowledgeTeamUploadMockHarnessPayload
@@ -1095,6 +1096,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-mutation-approval-review') {
     return validateKnowledgeTeamUploadMutationApprovalReviewPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-execution-prerequisite-plan') {
+    return validateKnowledgeTeamUploadExecutionPrerequisitePlanPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

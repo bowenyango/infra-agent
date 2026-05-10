@@ -36,6 +36,9 @@ import {
   buildKnowledgeTeamUploadMutationPlan
 } from '../../src/knowledge/team-upload-mutation-plan.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -364,4 +367,16 @@ test('upload execution prerequisite plan blocks backend detail leakage without c
   assert.equal(blockerCodes(plan).has('unsafe-artifact-reference'), true);
   assert.equal(blockerCodes(plan).has('unsafe-adapter-name'), true);
   assertNoPrivateValues(plan);
+});
+
+test('upload execution prerequisite plan validates through knowledge validation dispatch', async () => {
+  const approvalReview = await validApprovalReview();
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({ approvalReview });
+  const report = validateKnowledgePayload(plan, {
+    inputPath: 'execution-prerequisite-plan.json'
+  });
+
+  assert.equal(report.valid, true);
+  assert.equal(report.inputKind, 'infra-agent.knowledge-team-upload-execution-prerequisite-plan');
+  assert.equal(report.issueCount, 0);
 });
