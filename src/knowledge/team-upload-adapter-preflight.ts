@@ -1,6 +1,9 @@
 import {
   isSafeKnowledgeTeamBackendAdapterName
 } from './team-backend-adapter.ts';
+import {
+  isSafeKnowledgeTeamArtifactObjectKey
+} from './team-artifact-store.ts';
 import type {
   KnowledgeTeamBackendAdapterResolutionPlan
 } from './team-backend-adapter-resolver.ts';
@@ -30,6 +33,7 @@ export type KnowledgeTeamUploadAdapterPreflightBlockerCode =
   | 'invalid-adapter-plan-kind'
   | 'invalid-continuation-kind'
   | 'invalid-schema-version'
+  | 'live-check-enabled'
   | 'missing-required-field'
   | 'mutation-enabled'
   | 'real-backend-not-implemented'
@@ -132,7 +136,6 @@ interface ParsedAdapterPlanForPreflight {
 
 const SAFE_SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_ID_PATTERN = /^[a-f0-9]{24}$/;
-const SAFE_OBJECT_KEY_PATTERN = /^[a-f0-9]{2}\/[a-f0-9]{64}\.json$/;
 const FORBIDDEN_LEAK_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|client|clientConfig|signedUrl|putObject|fetch)/i;
 const FORBIDDEN_LEAK_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|token|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
 const SAFE_CONTROL_KEYS = new Set([
@@ -243,6 +246,30 @@ function readSafeString(
   return value;
 }
 
+function readSafeObjectKey(
+  value: unknown,
+  path: string,
+  blockers: KnowledgeTeamUploadAdapterPreflightBlocker[]
+): string | null {
+  if (typeof value !== 'string' || value.length === 0) {
+    pushBlockerOnce(blockers, blocker(
+      'missing-required-field',
+      path,
+      'Upload adapter preflight requires this field.'
+    ));
+    return null;
+  }
+  if (!isSafeKnowledgeTeamArtifactObjectKey(value)) {
+    pushBlockerOnce(blockers, blocker(
+      'unsafe-artifact-reference',
+      path,
+      'Upload adapter preflight requires a safe content-addressed object key.'
+    ));
+    return null;
+  }
+  return value;
+}
+
 function parseContinuationForPreflight(
   input: unknown,
   blockers: KnowledgeTeamUploadAdapterPreflightBlocker[]
@@ -296,7 +323,7 @@ function parseContinuationForPreflight(
   }
   if (input.liveCheckAllowed !== false) {
     pushBlockerOnce(blockers, blocker(
-      'adapter-live-check-enabled',
+      'live-check-enabled',
       '$.continuation.liveCheckAllowed',
       'Upload adapter preflight requires live backend checks to remain disabled.'
     ));
@@ -373,7 +400,7 @@ function parseContinuationForPreflight(
     fingerprintVerified,
     backendKind: input.backendKind === 's3-compatible' ? 's3-compatible' : 'unsupported',
     manifestId: readSafeString(target.manifestId, '$.continuation.target.manifestId', SAFE_ID_PATTERN, 'unsafe-artifact-reference', blockers),
-    objectKey: readSafeString(target.objectKey, '$.continuation.target.objectKey', SAFE_OBJECT_KEY_PATTERN, 'unsafe-artifact-reference', blockers),
+    objectKey: readSafeObjectKey(target.objectKey, '$.continuation.target.objectKey', blockers),
     objectSha256: readSafeString(target.objectSha256, '$.continuation.target.objectSha256', SAFE_SHA256_PATTERN, 'unsafe-artifact-reference', blockers),
     artifactId: readSafeString(target.artifactId, '$.continuation.target.artifactId', SAFE_ID_PATTERN, 'unsafe-artifact-reference', blockers)
   };
