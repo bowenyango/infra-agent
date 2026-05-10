@@ -142,6 +142,10 @@ function assertExecutionDisabled(boundary) {
   assert.equal(boundary.remainingExecutionBoundaries.remoteMutationAllowed, false);
 }
 
+function blockerCodes(boundary) {
+  return new Set(boundary.readiness.blockerCodes);
+}
+
 test('upload rollback plan boundary records rollback requirements without creating a rollback plan', async () => {
   const executionLeaseBoundary = await validExecutionLeaseBoundary();
   const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({ executionLeaseBoundary });
@@ -184,5 +188,101 @@ test('upload rollback plan boundary records rollback requirements without creati
   assert.equal(boundary.readiness.nextAction, 'design-audit-record-boundary');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload rollback plan boundary blocks non-ready execution lease boundaries', async () => {
+  const executionLeaseBoundary = await validExecutionLeaseBoundary();
+  const blockedExecutionLeaseBoundary = {
+    ...executionLeaseBoundary,
+    status: 'blocked',
+    sourceWriteTokenBoundary: {
+      ...executionLeaseBoundary.sourceWriteTokenBoundary,
+      fingerprintVerified: false
+    },
+    readiness: {
+      ...executionLeaseBoundary.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-unverified'],
+      blockers: [{
+        code: 'review-fingerprint-unverified',
+        path: '$.sourceWriteTokenBoundary.fingerprintVerified',
+        message: 'fingerprint not verified'
+      }]
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({
+    executionLeaseBoundary: blockedExecutionLeaseBoundary
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('lease-boundary-not-ready'), true);
+  assert.equal(codes.has('lease-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload rollback plan boundary blocks invalid execution lease inputs', () => {
+  const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({ executionLeaseBoundary: null });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceExecutionLeaseBoundary.boundaryStatus, 'invalid');
+  assert.equal(codes.has('missing-required-field'), true);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload rollback plan boundary blocks malformed execution lease metadata', async () => {
+  const executionLeaseBoundary = await validExecutionLeaseBoundary();
+  const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({
+    executionLeaseBoundary: {
+      ...executionLeaseBoundary,
+      kind: 'infra-agent.knowledge-team-upload-write-token-boundary',
+      schemaVersion: 2,
+      boundaryKind: 'write-token-boundary-dry-run',
+      target: {
+        ...executionLeaseBoundary.target,
+        objectKey: '../unsafe.json',
+        objectSha256: 'not-a-sha'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('invalid-execution-lease-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload rollback plan boundary blocks missing nested execution lease sections', async () => {
+  const executionLeaseBoundary = await validExecutionLeaseBoundary();
+  const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({
+    executionLeaseBoundary: {
+      ...executionLeaseBoundary,
+      sourceWriteTokenBoundary: undefined,
+      executionLeaseBoundary: undefined,
+      remainingExecutionBoundaries: undefined
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('write-token-not-required'), true);
+  assert.equal(codes.has('execution-lease-not-required'), true);
+  assert.equal(codes.has('rollback-plan-not-required'), true);
+  assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
 });
