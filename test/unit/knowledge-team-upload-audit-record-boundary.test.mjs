@@ -147,6 +147,10 @@ function assertExecutionDisabled(boundary) {
   assert.equal(boundary.remainingExecutionBoundaries.remoteMutationAllowed, false);
 }
 
+function blockerCodes(boundary) {
+  return new Set(boundary.readiness.blockerCodes);
+}
+
 test('upload audit record boundary records audit requirements without creating an audit record', async () => {
   const rollbackPlanBoundary = await validRollbackPlanBoundary();
   const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({ rollbackPlanBoundary });
@@ -193,4 +197,77 @@ test('upload audit record boundary records audit requirements without creating a
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
   assertNoPrivateValues(boundary);
+});
+
+test('upload audit record boundary blocks non-ready rollback plan boundaries', async () => {
+  const rollbackPlanBoundary = await validRollbackPlanBoundary();
+  const blockedRollbackPlanBoundary = {
+    ...rollbackPlanBoundary,
+    status: 'blocked',
+    sourceExecutionLeaseBoundary: {
+      ...rollbackPlanBoundary.sourceExecutionLeaseBoundary,
+      fingerprintVerified: false
+    },
+    readiness: {
+      ...rollbackPlanBoundary.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-unverified'],
+      blockers: [{
+        code: 'review-fingerprint-unverified',
+        path: '$.sourceExecutionLeaseBoundary.fingerprintVerified',
+        message: 'fingerprint not verified'
+      }]
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({
+    rollbackPlanBoundary: blockedRollbackPlanBoundary
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('rollback-boundary-not-ready'), true);
+  assert.equal(codes.has('rollback-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload audit record boundary blocks invalid rollback plan inputs', () => {
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({ rollbackPlanBoundary: null });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceRollbackPlanBoundary.boundaryStatus, 'invalid');
+  assert.equal(codes.has('missing-required-field'), true);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload audit record boundary blocks malformed rollback plan metadata', async () => {
+  const rollbackPlanBoundary = await validRollbackPlanBoundary();
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({
+    rollbackPlanBoundary: {
+      ...rollbackPlanBoundary,
+      kind: 'infra-agent.knowledge-team-upload-execution-lease-boundary',
+      schemaVersion: 2,
+      boundaryKind: 'execution-lease-boundary-dry-run',
+      target: {
+        ...rollbackPlanBoundary.target,
+        objectKey: '../unsafe.json',
+        objectSha256: 'not-a-sha'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceRollbackPlanBoundary.boundaryKind, 'unsupported');
+  assert.equal(codes.has('invalid-rollback-plan-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assertExecutionDisabled(boundary);
 });
