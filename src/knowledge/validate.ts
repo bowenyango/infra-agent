@@ -44,7 +44,8 @@ import {
   validateKnowledgeTeamUploadExecutionPrerequisitePlanPayload,
   validateKnowledgeTeamUploadMutationApprovalReviewPayload,
   validateKnowledgeTeamUploadMutationPlanPayload,
-  validateKnowledgeTeamUploadMockHarnessPayload
+  validateKnowledgeTeamUploadMockHarnessPayload,
+  validateKnowledgeTeamUploadWriteTokenBoundaryPayload
 } from './team-upload-approval-validation.ts';
 
 export interface KnowledgeValidationIssue {
@@ -1100,6 +1101,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-execution-prerequisite-plan') {
     return validateKnowledgeTeamUploadExecutionPrerequisitePlanPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-write-token-boundary') {
+    return validateKnowledgeTeamUploadWriteTokenBoundaryPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

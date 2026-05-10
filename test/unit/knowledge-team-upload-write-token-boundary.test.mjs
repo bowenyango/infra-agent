@@ -39,6 +39,9 @@ import {
   buildKnowledgeTeamUploadWriteTokenBoundary
 } from '../../src/knowledge/team-upload-write-token-boundary.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -453,4 +456,16 @@ test('upload write token boundary blocks backend detail leakage without copying 
   assert.equal(blockerCodes(boundary).has('unsafe-artifact-reference'), true);
   assert.equal(blockerCodes(boundary).has('unsafe-adapter-name'), true);
   assertNoPrivateValues(boundary);
+});
+
+test('upload write token boundary validates through knowledge validation dispatch', async () => {
+  const prerequisitePlan = await validPrerequisitePlan();
+  const boundary = buildKnowledgeTeamUploadWriteTokenBoundary({ prerequisitePlan });
+  const report = validateKnowledgePayload(boundary, {
+    inputPath: 'write-token-boundary.json'
+  });
+
+  assert.equal(report.valid, true);
+  assert.equal(report.inputKind, 'infra-agent.knowledge-team-upload-write-token-boundary');
+  assert.equal(report.issueCount, 0);
 });
