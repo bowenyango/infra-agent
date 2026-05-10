@@ -58,6 +58,20 @@ async function validContinuationAndHarness() {
   return { continuation, mockHarness };
 }
 
+function assertNoPrivateValues(value) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  for (const forbidden of [
+    'https://should-not-copy.example.test',
+    'should-not-copy-bucket',
+    'should-not-copy-secret',
+    'aws s3 cp',
+    's3://private-bucket',
+    'private-key'
+  ]) {
+    assert.equal(text.includes(forbidden), false, forbidden);
+  }
+}
+
 test('upload execution gate accepts matching continuation and mock harness without enabling execution', async () => {
   const { continuation, mockHarness } = await validContinuationAndHarness();
   const gate = buildKnowledgeTeamUploadExecutionGate({
@@ -129,4 +143,50 @@ test('upload execution gate accepts matching continuation and mock harness witho
   assert.equal(gate.readiness.nextAction, 'request-separate-mutation-approval');
   assert.equal(gate.readiness.blockerCount, 0);
   assert.deepEqual(gate.readiness.blockerCodes, []);
+});
+
+test('upload execution gate blocks forged continuation execution flags', async () => {
+  const { continuation, mockHarness } = await validContinuationAndHarness();
+  const gate = buildKnowledgeTeamUploadExecutionGate({
+    continuation: {
+      ...continuation,
+      endpointUrl: 'https://should-not-copy.example.test',
+      bucketName: 'should-not-copy-bucket',
+      uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+      mutationAllowed: true,
+      remoteWriteAllowed: true,
+      liveCheckAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      clientCreated: true
+    },
+    mockHarness
+  });
+
+  assert.equal(gate.status, 'blocked');
+  assert.equal(gate.uploadApproved, false);
+  assert.equal(gate.uploadExecutionAllowed, false);
+  assert.equal(gate.clientCreated, false);
+  assert.equal(gate.adapterInjected, false);
+  assert.equal(gate.writeTokenIssued, false);
+  assert.equal(gate.executionLeaseCreated, false);
+  assert.equal(gate.objectWriteAttempted, false);
+  assert.equal(gate.metadataIndexWriteAttempted, false);
+  assert.equal(gate.remoteMutationPerformed, false);
+  assert.equal(gate.uploadCommand, null);
+  assert.equal(gate.executionBoundary.adapterInjectionReviewed, false);
+  assert.equal(gate.readiness.nextAction, 'resolve-blockers');
+  assert.equal(gate.readiness.blockerCodes.includes('backend-detail-leak'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('mutation-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('remote-write-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('live-check-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('credential-values-exposed'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('credential-presence-check-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('upload-approval-already-provided'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('upload-execution-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('client-created'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('upload-command-present'), true);
+  assertNoPrivateValues(gate);
 });
