@@ -82,6 +82,51 @@ function assertNoPrivateValues(value) {
   }
 }
 
+function blockerCodes(review) {
+  return new Set(review.readiness.blockerCodes);
+}
+
+function assertExecutionDisabled(review) {
+  assert.equal(review.mutationAllowed, false);
+  assert.equal(review.executionMode, 'dry-run');
+  assert.equal(review.remoteWriteAllowed, false);
+  assert.equal(review.liveCheckAllowed, false);
+  assert.equal(review.credentialValuesExposed, false);
+  assert.equal(review.credentialPresenceChecked, false);
+  assert.equal(review.uploadApproved, false);
+  assert.equal(review.uploadExecutionAllowed, false);
+  assert.equal(review.mutationApprovalGranted, false);
+  assert.equal(review.clientCreated, false);
+  assert.equal(review.adapterInjected, false);
+  assert.equal(review.artifactBytesProvided, false);
+  assert.equal(review.writeTokenIssued, false);
+  assert.equal(review.executionLeaseCreated, false);
+  assert.equal(review.rollbackPlanCreated, false);
+  assert.equal(review.objectWriteAttempted, false);
+  assert.equal(review.metadataIndexWriteAttempted, false);
+  assert.equal(review.remoteMutationPerformed, false);
+  assert.equal(review.uploadCommand, null);
+  assert.equal(review.approvalReview.mutationApprovalGranted, false);
+  assert.equal(review.approvalReview.uploadApproved, false);
+  assert.equal(review.approvalReview.uploadExecutionAllowed, false);
+  assert.equal(review.executionBoundary.executable, false);
+  assert.equal(review.executionBoundary.dryRunOnly, true);
+  assert.equal(review.executionBoundary.artifactBytesProvided, false);
+  assert.equal(review.executionBoundary.adapterInjected, false);
+  assert.equal(review.executionBoundary.writeTokenIssued, false);
+  assert.equal(review.executionBoundary.executionLeaseCreated, false);
+  assert.equal(review.executionBoundary.rollbackPlanCreated, false);
+  assert.equal(review.executionBoundary.auditRecordCreated, false);
+  assert.equal(review.executionBoundary.clientCreated, false);
+  assert.equal(review.executionBoundary.credentialValuesRead, false);
+  assert.equal(review.executionBoundary.credentialPresenceChecked, false);
+  assert.equal(review.executionBoundary.liveCheckPerformed, false);
+  assert.equal(review.executionBoundary.uploadCommandGenerated, false);
+  assert.equal(review.executionBoundary.objectWriteAttempted, false);
+  assert.equal(review.executionBoundary.metadataIndexWriteAttempted, false);
+  assert.equal(review.executionBoundary.remoteMutationPerformed, false);
+}
+
 test('upload mutation approval review records matching fingerprint without enabling execution', async () => {
   const mutationPlan = await validMutationPlan();
   const review = buildKnowledgeTeamUploadMutationApprovalReview({
@@ -166,5 +211,215 @@ test('upload mutation approval review records matching fingerprint without enabl
   assert.equal(review.readiness.nextAction, 'plan-execution-prerequisite-boundaries');
   assert.equal(review.readiness.blockerCount, 0);
   assert.deepEqual(review.readiness.blockerCodes, []);
+  assertNoPrivateValues(review);
+});
+
+test('upload mutation approval review blocks non-ready mutation plans', async () => {
+  const mutationPlan = await validMutationPlan();
+  const blockedPlan = {
+    ...mutationPlan,
+    status: 'blocked',
+    readiness: {
+      ...mutationPlan.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['operator-review-required'],
+      blockers: [{
+        code: 'operator-review-required',
+        path: '$.approvalAudit',
+        message: 'Operator review is required before planning execution prerequisites.'
+      }]
+    }
+  };
+
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan: blockedPlan,
+    approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+  });
+  const codes = blockerCodes(review);
+
+  assert.equal(review.status, 'blocked');
+  assert.equal(review.readiness.status, 'blocked');
+  assert.equal(review.readiness.nextAction, 'resolve-blockers');
+  assert.equal(review.approvalReview.humanReviewRecorded, false);
+  assert.equal(review.approvalReview.fingerprintVerified, false);
+  assert.equal(codes.has('mutation-plan-not-ready'), true);
+  assertExecutionDisabled(review);
+  assertNoPrivateValues(review);
+});
+
+test('upload mutation approval review blocks invalid plan artifacts without leaking private fields', async () => {
+  const mutationPlan = await validMutationPlan();
+  const invalidPlan = {
+    ...mutationPlan,
+    kind: 'infra-agent.knowledge-team-upload-execution-gate',
+    schemaVersion: 2,
+    planKind: 'execution-ready',
+    endpointUrl: 'https://should-not-copy.example.test',
+    bucketName: 'should-not-copy-bucket',
+    uploadCommand: 'aws s3 cp artifact.tgz s3://private-bucket/private-key'
+  };
+
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan: invalidPlan,
+    approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+  });
+  const codes = blockerCodes(review);
+
+  assert.equal(review.status, 'blocked');
+  assert.equal(codes.has('invalid-mutation-plan-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-plan-kind'), true);
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(review.approvalReview.humanReviewRecorded, false);
+  assert.equal(review.approvalReview.fingerprintVerified, false);
+  assertExecutionDisabled(review);
+  assertNoPrivateValues(review);
+});
+
+test('upload mutation approval review blocks missing unsafe and mismatched fingerprints', async () => {
+  const mutationPlan = await validMutationPlan();
+
+  for (const [approvalFingerprint, expectedCode] of [
+    [null, 'review-fingerprint-missing'],
+    ['not-a-sha256', 'unsafe-review-fingerprint'],
+    ['0'.repeat(64), 'review-fingerprint-mismatch']
+  ]) {
+    const review = buildKnowledgeTeamUploadMutationApprovalReview({
+      mutationPlan,
+      approvalFingerprint
+    });
+    const codes = blockerCodes(review);
+
+    assert.equal(review.status, 'blocked', expectedCode);
+    assert.equal(codes.has(expectedCode), true, expectedCode);
+    assert.equal(review.approvalReview.humanReviewRecorded, false);
+    assert.equal(review.approvalReview.fingerprintVerified, false);
+    assertExecutionDisabled(review);
+    assertNoPrivateValues(review);
+  }
+});
+
+test('upload mutation approval review blocks missing unsafe and mismatched plan fingerprints', async () => {
+  const mutationPlan = await validMutationPlan();
+
+  for (const [approvalScopeFingerprint, expectedCode] of [
+    [null, 'plan-fingerprint-missing'],
+    [{
+      ...mutationPlan.approvalAudit.approvalScopeFingerprint,
+      value: 'not-a-sha256'
+    }, 'unsafe-review-fingerprint'],
+    [{
+      ...mutationPlan.approvalAudit.approvalScopeFingerprint,
+      value: '0'.repeat(64)
+    }, 'review-fingerprint-mismatch']
+  ]) {
+    const plan = {
+      ...mutationPlan,
+      approvalAudit: {
+        ...mutationPlan.approvalAudit,
+        approvalScopeFingerprint
+      }
+    };
+    const review = buildKnowledgeTeamUploadMutationApprovalReview({
+      mutationPlan: plan,
+      approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+    });
+    const codes = blockerCodes(review);
+
+    assert.equal(review.status, 'blocked', expectedCode);
+    assert.equal(codes.has(expectedCode), true, expectedCode);
+    assert.equal(review.approvalReview.humanReviewRecorded, false);
+    assert.equal(review.approvalReview.fingerprintVerified, false);
+    assertExecutionDisabled(review);
+    assertNoPrivateValues(review);
+  }
+});
+
+test('upload mutation approval review blocks forged mutation and execution state', async () => {
+  const mutationPlan = await validMutationPlan();
+  const forgedPlan = {
+    ...mutationPlan,
+    mutationAllowed: true,
+    executionMode: 'live',
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    clientCreated: true,
+    adapterInjected: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    uploadCommand: 'aws s3 cp artifact.tgz s3://private-bucket/private-key',
+    approvalAudit: {
+      ...mutationPlan.approvalAudit,
+      humanApprovalRequestIssued: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true
+    },
+    executionPlan: {
+      ...mutationPlan.executionPlan,
+      executable: true,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      clientCreated: true,
+      credentialValuesRead: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true
+    }
+  };
+
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan: forgedPlan,
+    approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+  });
+  const codes = blockerCodes(review);
+
+  for (const code of [
+    'mutation-enabled',
+    'remote-write-enabled',
+    'live-check-enabled',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'upload-approval-already-provided',
+    'upload-execution-enabled',
+    'mutation-approval-already-granted',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'rollback-plan-created',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'remote-mutation-performed',
+    'upload-command-present',
+    'backend-detail-leak'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+  assert.equal(review.status, 'blocked');
+  assert.equal(review.approvalReview.humanReviewRecorded, false);
+  assert.equal(review.approvalReview.fingerprintVerified, false);
+  assertExecutionDisabled(review);
   assertNoPrivateValues(review);
 });
