@@ -131,7 +131,7 @@ function assertNoPrivateValues(value) {
     'client-secret-value',
     'credential-secret-value',
     'raw-artifact-bytes',
-    'live-check-result',
+    'private-live-check-output',
     'signed-upload-command'
   ]) {
     assert.equal(text.includes(forbidden), false, forbidden);
@@ -191,6 +191,10 @@ function assertExecutionAndCommandDisabled(boundary) {
   assert.equal(boundary.remainingExecutionBoundaries.remoteMutationAllowed, false);
 }
 
+function blockerCodes(boundary) {
+  return new Set(boundary.readiness.blockerCodes);
+}
+
 test('upload command boundary records command requirements without generating commands', async () => {
   const liveCheckBoundary = await validLiveCheckBoundary();
   const boundary = buildKnowledgeTeamUploadCommandBoundary({ liveCheckBoundary });
@@ -241,5 +245,179 @@ test('upload command boundary records command requirements without generating co
   assert.equal(boundary.readiness.nextAction, 'design-object-index-binding-boundary');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload command boundary blocks non-ready live check boundaries', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({
+    liveCheckBoundary: {
+      ...liveCheckBoundary,
+      status: 'blocked',
+      readiness: {
+        ...liveCheckBoundary.readiness,
+        status: 'blocked',
+        nextAction: 'resolve-blockers',
+        blockerCount: 1,
+        blockerCodes: ['live-check-enabled'],
+        blockers: [{
+          code: 'live-check-enabled',
+          path: '$.liveCheckBoundary.liveCheckPerformed',
+          message: 'live check was performed'
+        }]
+      }
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('live-check-boundary-not-ready'), true);
+  assert.equal(codes.has('live-check-boundary-next-action-invalid'), true);
+  assert.equal(boundary.sourceLiveCheckBoundary.boundaryStatus, 'blocked');
+  assertExecutionAndCommandDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload command boundary blocks invalid live check inputs', () => {
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({
+    liveCheckBoundary: 'not-json'
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('invalid-live-check-boundary-kind'), true);
+  assert.equal(boundary.target.objectKeyRedacted, true);
+  assertExecutionAndCommandDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload command boundary blocks malformed live check metadata', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({
+    liveCheckBoundary: {
+      ...liveCheckBoundary,
+      kind: 'wrong-kind',
+      schemaVersion: 2,
+      boundaryKind: 'wrong-boundary',
+      readiness: {
+        ...liveCheckBoundary.readiness,
+        nextAction: 'execute-upload'
+      },
+      sourceCredentialPresenceBoundary: {
+        ...liveCheckBoundary.sourceCredentialPresenceBoundary,
+        adapterName: 'unsafe adapter name',
+        adapterBackendKind: 's3-compatible',
+        fingerprintVerified: false
+      }
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('invalid-live-check-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('live-check-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('unsafe-adapter-name'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assertExecutionAndCommandDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload command boundary blocks missing live check sections', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const {
+    sourceCredentialPresenceBoundary,
+    liveCheckBoundary: liveCheckBoundarySection,
+    remainingExecutionBoundaries,
+    ...missingSections
+  } = liveCheckBoundary;
+  assert.equal(sourceCredentialPresenceBoundary.source, 'upload-credential-presence-boundary');
+  assert.equal(liveCheckBoundarySection.dryRunOnly, true);
+  assert.equal(remainingExecutionBoundaries.uploadCommandRequired, true);
+
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({
+    liveCheckBoundary: missingSections
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('upload-command-not-required'), true);
+  assert.equal(codes.has('live-check-not-required'), true);
+  assertExecutionAndCommandDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload command boundary blocks forged command and execution state', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({
+    liveCheckBoundary: {
+      ...liveCheckBoundary,
+      uploadExecutionAllowed: true,
+      remoteMutationPerformed: true,
+      uploadCommand: { argv: ['aws', 's3', 'cp'] },
+      liveCheckBoundary: {
+        ...liveCheckBoundary.liveCheckBoundary,
+        liveCheckPerformed: true,
+        liveCheckResultExposed: true,
+        uploadCommandGenerated: true,
+        executable: true
+      },
+      remainingExecutionBoundaries: {
+        ...liveCheckBoundary.remainingExecutionBoundaries,
+        uploadCommandGenerated: true,
+        objectWriteAllowed: true,
+        remoteMutationAllowed: true
+      }
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('live-check-result-exposed'), true);
+  assert.equal(codes.has('upload-command-generated'), true);
+  assert.equal(codes.has('executable-state-enabled'), true);
+  assert.equal(codes.has('remote-write-enabled'), true);
+  assertExecutionAndCommandDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload command boundary reports command, backend, and credential details without copying values', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({
+    liveCheckBoundary: {
+      ...liveCheckBoundary,
+      uploadCommandPayload: 'aws s3 cp ./private s3://private-bucket/object',
+      commandLine: 'curl https://should-not-copy.example.test',
+      backend: {
+        endpoint: 'https://should-not-copy.example.test',
+        bucket: 'should-not-copy-bucket',
+        authorization: 'should-not-copy-secret'
+      },
+      credentialValuePayload: 'credential-secret-value',
+      liveCheckResultPayload: 'private-live-check-output',
+      clientConfig: {
+        secret: 'client-secret-value'
+      },
+      artifactBytesBase64: 'raw-artifact-bytes'
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assert.equal(codes.has('credential-dependency-leak'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('client-dependency-leak'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assertExecutionAndCommandDisabled(boundary);
   assertNoPrivateValues(boundary);
 });
