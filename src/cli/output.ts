@@ -55,6 +55,7 @@ import type { KnowledgeTeamS3CompatibleReferenceValidationSummary } from '../kno
 import type { KnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
 import type { KnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
 import type { KnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
+import type { KnowledgeTeamUploadExecutionGate } from '../knowledge/team-upload-execution-gate.ts';
 import type { KnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
@@ -3757,6 +3758,54 @@ export function printKnowledgeTeamUploadMockHarness(
   printList(
     harness.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload mock harness blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadExecutionGate(
+  gate: KnowledgeTeamUploadExecutionGate
+): void {
+  printHeader('Knowledge team upload execution gate');
+  process.stdout.write(`status: ${gate.status}\n`);
+  process.stdout.write(`next action: ${gate.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${gate.plannedOperation}\n`);
+  process.stdout.write(`execution: ${gate.executionMode}\n`);
+  process.stdout.write(`gate: ${gate.gateKind}\n`);
+  process.stdout.write(`remote write: ${gate.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${gate.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${gate.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${gate.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${gate.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${gate.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${gate.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${gate.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${gate.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${gate.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${gate.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${gate.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${gate.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${gate.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`continuation: ${gate.approvalGate.continuationStatus}\n`);
+  process.stdout.write(`approval provided: ${gate.approvalGate.approvalProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${gate.approvalGate.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval required: ${gate.approvalGate.mutationApprovalRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${gate.approvalGate.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`scope matched: ${gate.approvalGate.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mock harness: ${gate.mockHarness.status}\n`);
+  process.stdout.write(`harness kind: ${gate.mockHarness.harnessKind}\n`);
+  process.stdout.write(`mock adapter instantiated: ${gate.mockHarness.mockAdapterInstantiated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${gate.mockHarness.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${gate.mockHarness.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`descriptor matched: ${gate.mockHarness.descriptorMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${gate.executionBoundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injection reviewed: ${gate.executionBoundary.adapterInjectionReviewed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan required: ${gate.executionBoundary.rollbackPlanRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record required: ${gate.executionBoundary.auditRecordRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command generated: ${gate.executionBoundary.uploadCommandGenerated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: mutationApproval=${gate.approvalGate.mutationApprovalGranted ? 'yes' : 'no'}, writeToken=${gate.writeTokenIssued ? 'yes' : 'no'}, lease=${gate.executionLeaseCreated ? 'yes' : 'no'}, objectWrite=${gate.objectWriteAttempted ? 'yes' : 'no'}, blockers=${gate.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    gate.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload execution gate blockers.'
   );
 }
 

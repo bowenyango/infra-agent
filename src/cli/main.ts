@@ -36,6 +36,7 @@ import { buildKnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload
 import { buildKnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
 import { buildKnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
 import { buildKnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
+import { buildKnowledgeTeamUploadExecutionGate } from '../knowledge/team-upload-execution-gate.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -58,6 +59,7 @@ import {
   printKnowledgeTeamUploadAdapterPreflight,
   printKnowledgeTeamUploadApprovalContinuation,
   printKnowledgeTeamUploadApprovalIntent,
+  printKnowledgeTeamUploadExecutionGate,
   printKnowledgeTeamUploadMockHarness,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
@@ -1742,6 +1744,43 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadMockHarness(harness);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-execution-gate') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-execution-gate requires exactly one upload approval continuation path.');
+    }
+    if (!parsed.mockHarnessInputPath) {
+      fail('knowledge upload-execution-gate requires --mock-harness <harness.json>.');
+    }
+
+    const continuationPath = resolveFromCwd(parsed.inputPath);
+    const mockHarnessPath = resolveFromCwd(parsed.mockHarnessInputPath);
+    const continuation = await readJsonObject(continuationPath);
+    const mockHarness = await readJsonObject(mockHarnessPath);
+    const gate = buildKnowledgeTeamUploadExecutionGate({
+      continuation,
+      mockHarness
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), gate)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...gate,
+            outputPath: writtenPath
+          }
+        : gate, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadExecutionGate(gate);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
