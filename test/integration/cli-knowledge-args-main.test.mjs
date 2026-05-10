@@ -530,3 +530,21 @@ test('knowledge upload-adapter-injection-boundary CLI args accept artifact bytes
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-adapter-injection-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-client-creation-boundary CLI args accept adapter injection boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-client-creation-boundary',
+    'artifacts/knowledge-pack.upload-adapter-injection-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-client-creation-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-client-creation-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-adapter-injection-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-client-creation-boundary.json');
+  assert.equal(parsed.json, true);
+});

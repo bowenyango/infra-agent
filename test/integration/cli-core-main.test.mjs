@@ -321,6 +321,12 @@ test('help output includes upload adapter injection boundary command', async () 
   assert.match(output, /infra-agent knowledge upload-adapter-injection-boundary <artifact-bytes-boundary\.json>/);
 });
 
+test('help output includes upload client creation boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-client-creation-boundary <adapter-injection-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
