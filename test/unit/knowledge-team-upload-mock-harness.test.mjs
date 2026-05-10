@@ -24,6 +24,9 @@ import {
   buildKnowledgeTeamUploadMockHarness
 } from '../../src/knowledge/team-upload-mock-harness.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -243,4 +246,54 @@ test('upload mock harness blocks backend detail and store leakage', async () => 
   assert.equal(harness.remoteMutationPerformed, false);
   assert.equal(harness.readiness.blockerCodes.includes('backend-detail-leak'), true);
   assertNoPrivateValues(harness);
+});
+
+test('knowledge validation accepts and rejects upload mock harness artifacts', async () => {
+  const harness = buildKnowledgeTeamUploadMockHarness({ preflight: await validPreflight() });
+  const validReport = validateKnowledgePayload(harness, 'upload-mock-harness.json');
+
+  assert.equal(validReport.valid, true);
+  assert.equal(validReport.inputKind, 'infra-agent.knowledge-team-upload-mock-harness');
+  assert.equal(validReport.issueCount, 0);
+
+  const forgedReport = validateKnowledgePayload({
+    ...harness,
+    remoteWriteAllowed: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    clientCreated: true,
+    adapterInjected: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+    preflight: {
+      ...harness.preflight,
+      adapterBackendKind: 's3-compatible'
+    },
+    mockHarness: {
+      ...harness.mockHarness,
+      backendKind: 'unsupported',
+      objectWriteAttempted: true,
+      indexWriteAttempted: true,
+      remoteMutationPerformed: true
+    }
+  }, 'forged-upload-mock-harness.json');
+
+  assert.equal(forgedReport.valid, false);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.remoteWriteAllowed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.uploadApproved'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.uploadExecutionAllowed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.clientCreated'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.adapterInjected'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.objectWriteAttempted'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.metadataIndexWriteAttempted'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.remoteMutationPerformed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.uploadCommand'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.preflight.adapterBackendKind'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.mockHarness.backendKind'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.mockHarness.objectWriteAttempted'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.mockHarness.indexWriteAttempted'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.mockHarness.remoteMutationPerformed'), true);
+  assertNoPrivateValues(forgedReport);
 });

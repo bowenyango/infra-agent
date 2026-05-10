@@ -9,6 +9,8 @@ import {
   type KnowledgeValidationIssue,
   type KnowledgeValidationReport
 } from './validation-primitives.ts';
+import { isSafeKnowledgeTeamBackendAdapterName } from './team-backend-adapter.ts';
+import { isSafeKnowledgeTeamArtifactObjectKey } from './team-artifact-store.ts';
 
 const SAFE_SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_ENV_VAR_NAME_PATTERN = /^[A-Z_][A-Z0-9_]{0,127}$/;
@@ -21,6 +23,9 @@ const UPLOAD_ADAPTER_PREFLIGHT_NEXT_ACTIONS = ['inject-mock-adapter-in-test-harn
 const UPLOAD_ADAPTER_PREFLIGHT_CONTINUATION_STATUSES = ['continuation-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_ADAPTER_PREFLIGHT_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_ADAPTER_PREFLIGHT_RESOLUTION_STATUSES = ['resolvable', 'blocked', 'not-resolved'] as const;
+const UPLOAD_MOCK_HARNESS_STATUSES = ['harness-ready', 'blocked'] as const;
+const UPLOAD_MOCK_HARNESS_NEXT_ACTIONS = ['run-mock-only-contract-tests', 'resolve-blockers'] as const;
+const UPLOAD_MOCK_HARNESS_BACKENDS = ['mock-s3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -80,6 +85,33 @@ const UPLOAD_ADAPTER_PREFLIGHT_BLOCKERS = [
   'live-check-enabled',
   'missing-required-field',
   'mutation-enabled',
+  'real-backend-not-implemented',
+  'remote-write-enabled',
+  'unsupported-adapter-backend',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference'
+] as const;
+const UPLOAD_MOCK_HARNESS_BLOCKERS = [
+  'adapter-capability-disabled',
+  'adapter-credential-values-exposed',
+  'adapter-injected',
+  'adapter-live-check-enabled',
+  'adapter-mock-probe-failed',
+  'adapter-remote-write-enabled',
+  'adapter-upload-command-present',
+  'backend-detail-leak',
+  'client-created',
+  'credential-presence-check-enabled',
+  'credential-values-exposed',
+  'invalid-preflight-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'missing-required-field',
+  'mutation-enabled',
+  'preflight-not-ready',
   'real-backend-not-implemented',
   'remote-write-enabled',
   'unsupported-adapter-backend',
@@ -522,6 +554,157 @@ export function validateKnowledgeTeamUploadAdapterPreflightPayload(
       supportedCodes: UPLOAD_ADAPTER_PREFLIGHT_BLOCKERS,
       supportedStatuses: UPLOAD_ADAPTER_PREFLIGHT_STATUSES,
       supportedNextActions: UPLOAD_ADAPTER_PREFLIGHT_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadMockHarnessPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload mock harness');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_MOCK_HARNESS_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload mock harness status must be supported.'));
+  }
+  if (payload.harnessKind !== 'in-memory-mock') {
+    issues.push(error('$.harnessKind', 'Knowledge team upload mock harness kind must be in-memory-mock.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload mock harness operation must be stage-knowledge-pack.'));
+  }
+  if (payload.uploadApproved !== false) {
+    issues.push(error('$.uploadApproved', 'Knowledge team upload mock harness must not approve upload.'));
+  }
+  if (payload.uploadExecutionAllowed !== false) {
+    issues.push(error('$.uploadExecutionAllowed', 'Knowledge team upload mock harness must not allow upload execution.'));
+  }
+  if (payload.clientCreated !== false) {
+    issues.push(error('$.clientCreated', 'Knowledge team upload mock harness must not create clients.'));
+  }
+  if (payload.adapterInjected !== false) {
+    issues.push(error('$.adapterInjected', 'Knowledge team upload mock harness must not inject adapters.'));
+  }
+  if (typeof payload.mockAdapterInstantiated !== 'boolean') {
+    issues.push(error('$.mockAdapterInstantiated', 'Knowledge team upload mock harness mockAdapterInstantiated must be a boolean.'));
+  }
+  if (payload.objectWriteAttempted !== false) {
+    issues.push(error('$.objectWriteAttempted', 'Knowledge team upload mock harness must not attempt object writes.'));
+  }
+  if (payload.metadataIndexWriteAttempted !== false) {
+    issues.push(error('$.metadataIndexWriteAttempted', 'Knowledge team upload mock harness must not attempt metadata index writes.'));
+  }
+  if (payload.remoteMutationPerformed !== false) {
+    issues.push(error('$.remoteMutationPerformed', 'Knowledge team upload mock harness must not perform remote mutations.'));
+  }
+
+  if (!isRecord(payload.preflight)) {
+    issues.push(error('$.preflight', 'Knowledge team upload mock harness preflight must be an object.'));
+  } else {
+    if (!isOneOf(payload.preflight.status, UPLOAD_ADAPTER_PREFLIGHT_STATUSES)) {
+      issues.push(error('$.preflight.status', 'must be a supported preflight status.'));
+    }
+    if (payload.preflight.adapterBackendKind !== 'mock-s3-compatible' && payload.preflight.adapterBackendKind !== 's3-compatible' && payload.preflight.adapterBackendKind !== 'unsupported') {
+      issues.push(error('$.preflight.adapterBackendKind', 'must be mock-s3-compatible, s3-compatible, or unsupported.'));
+    }
+    if (payload.preflight.adapterName !== null) {
+      if (typeof payload.preflight.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.preflight.adapterName)) {
+        issues.push(error('$.preflight.adapterName', 'must be null or a safe mock adapter name.'));
+      }
+    }
+    if (typeof payload.preflight.injectionCandidate !== 'boolean') {
+      issues.push(error('$.preflight.injectionCandidate', 'must be a boolean.'));
+    }
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.preflight[key] !== null && (typeof payload.preflight[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.preflight[key]))) {
+        issues.push(error(`$.preflight.${key}`, 'must be null or a safe 24-character id.'));
+      }
+    }
+    if (payload.preflight.objectSha256 !== null && (typeof payload.preflight.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.preflight.objectSha256))) {
+      issues.push(error('$.preflight.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.preflight.objectKey !== null && (typeof payload.preflight.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.preflight.objectKey))) {
+      issues.push(error('$.preflight.objectKey', 'must be null or a safe team artifact object key.'));
+    }
+    if (payload.status === 'harness-ready') {
+      if (payload.preflight.status !== 'preflight-ready') {
+        issues.push(error('$.preflight.status', 'must be preflight-ready for harness-ready payloads.'));
+      }
+      if (payload.preflight.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.preflight.adapterBackendKind', 'must be mock-s3-compatible for harness-ready payloads.'));
+      }
+      if (payload.preflight.injectionCandidate !== true) {
+        issues.push(error('$.preflight.injectionCandidate', 'must be true for harness-ready payloads.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.mockHarness)) {
+    issues.push(error('$.mockHarness', 'Knowledge team upload mock harness mockHarness must be an object.'));
+  } else {
+    if (payload.mockHarness.adapterFactory !== 'createMockKnowledgeTeamBackendAdapter') {
+      issues.push(error('$.mockHarness.adapterFactory', 'must be createMockKnowledgeTeamBackendAdapter.'));
+    }
+    if (payload.mockHarness.adapterName !== null) {
+      if (typeof payload.mockHarness.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.mockHarness.adapterName)) {
+        issues.push(error('$.mockHarness.adapterName', 'must be null or a safe mock adapter name.'));
+      }
+    }
+    if (!isOneOf(payload.mockHarness.backendKind, UPLOAD_MOCK_HARNESS_BACKENDS)) {
+      issues.push(error('$.mockHarness.backendKind', 'must be mock-s3-compatible or unsupported.'));
+    }
+    for (const key of [
+      'descriptorMatched',
+      'artifactObjectStoreAvailable',
+      'metadataIndexAvailable'
+    ]) {
+      if (typeof payload.mockHarness[key] !== 'boolean') {
+        issues.push(error(`$.mockHarness.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.mockHarness.objectWriteAttempted !== false) {
+      issues.push(error('$.mockHarness.objectWriteAttempted', 'must be false.'));
+    }
+    if (payload.mockHarness.indexWriteAttempted !== false) {
+      issues.push(error('$.mockHarness.indexWriteAttempted', 'must be false.'));
+    }
+    if (payload.mockHarness.remoteMutationPerformed !== false) {
+      issues.push(error('$.mockHarness.remoteMutationPerformed', 'must be false.'));
+    }
+    if (payload.status === 'harness-ready') {
+      if (payload.mockAdapterInstantiated !== true) {
+        issues.push(error('$.mockAdapterInstantiated', 'must be true for harness-ready payloads.'));
+      }
+      if (payload.mockHarness.backendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.mockHarness.backendKind', 'must be mock-s3-compatible for harness-ready payloads.'));
+      }
+      if (payload.mockHarness.descriptorMatched !== true) {
+        issues.push(error('$.mockHarness.descriptorMatched', 'must be true for harness-ready payloads.'));
+      }
+      if (payload.mockHarness.artifactObjectStoreAvailable !== true) {
+        issues.push(error('$.mockHarness.artifactObjectStoreAvailable', 'must be true for harness-ready payloads.'));
+      }
+      if (payload.mockHarness.metadataIndexAvailable !== true) {
+        issues.push(error('$.mockHarness.metadataIndexAvailable', 'must be true for harness-ready payloads.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload mock harness readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_MOCK_HARNESS_BLOCKERS,
+      supportedStatuses: UPLOAD_MOCK_HARNESS_STATUSES,
+      supportedNextActions: UPLOAD_MOCK_HARNESS_NEXT_ACTIONS,
       path: '$.readiness',
       issues
     });

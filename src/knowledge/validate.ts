@@ -39,7 +39,8 @@ import { validateKnowledgeTeamBackendReadinessPayload } from './team-backend-rea
 import {
   validateKnowledgeTeamUploadAdapterPreflightPayload,
   validateKnowledgeTeamUploadApprovalContinuationPayload,
-  validateKnowledgeTeamUploadApprovalIntentPayload
+  validateKnowledgeTeamUploadApprovalIntentPayload,
+  validateKnowledgeTeamUploadMockHarnessPayload
 } from './team-upload-approval-validation.ts';
 
 export interface KnowledgeValidationIssue {
@@ -1075,6 +1076,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-adapter-preflight') {
     return validateKnowledgeTeamUploadAdapterPreflightPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-mock-harness') {
+    return validateKnowledgeTeamUploadMockHarnessPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {
