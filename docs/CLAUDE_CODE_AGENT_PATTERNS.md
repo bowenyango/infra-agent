@@ -76,8 +76,11 @@ durable design reference for infra-agent development.
   matching fingerprint. `upload-adapter-preflight` can review a saved mock
   adapter resolution plan for future dependency injection, and
   `upload-mock-harness` can instantiate only the in-memory mock descriptor
-  boundary from a saved preflight. All four remain dry-run routing state with
-  upload approval, upload execution, adapter injection, client creation,
+  boundary from a saved preflight. `upload-execution-gate` can compare a saved
+  continuation and saved harness for scope consistency, then report only the
+  permission/audit state needed before a separate mutation design. All five
+  remain dry-run routing state with upload approval, upload execution, write
+  token issuance, execution lease creation, adapter injection, client creation,
   credential reads, live checks, object/index writes, and remote writes
   disabled.
 - CLI exit codes are part of the harness contract for automation. Keep

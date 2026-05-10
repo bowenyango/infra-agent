@@ -246,6 +246,21 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `uploadCommand=null`. It must not accept artifact bytes, backend configs,
   credential names, SDK clients, upload commands, endpoint/bucket details, or
   live/remote write operations.
+- `infra-agent knowledge upload-execution-gate` is a dry-run private execution
+  gate review command. It may read a saved upload approval continuation and a
+  saved upload mock harness, verify that their artifact scope matches, and
+  report whether a separate mutation design could be requested. `gate-ready`
+  is not upload permission and is not execution approval: it must keep
+  `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, `adapterInjected=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept artifact bytes, issue write tokens,
+  create execution leases, inject adapters into execution, create SDK clients,
+  read credential values or presence, run live checks, generate commands, or
+  mutate object/index storage.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
