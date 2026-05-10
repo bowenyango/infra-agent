@@ -12,6 +12,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-s3-compatible-reference-registry.ts',
   'src/knowledge/team-upload-approval-intent.ts',
   'src/knowledge/team-upload-approval-continuation.ts',
+  'src/knowledge/team-upload-adapter-preflight.ts',
   'src/knowledge/team-upload-approval-validation.ts'
 ];
 
