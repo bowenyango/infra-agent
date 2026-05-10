@@ -422,3 +422,21 @@ test('knowledge upload-execution-prerequisite-plan CLI args accept approval revi
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-prerequisite-plan.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-write-token-boundary CLI args accept prerequisite plan and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-write-token-boundary',
+    'artifacts/knowledge-pack.upload-execution-prerequisite-plan.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-write-token-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-write-token-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-execution-prerequisite-plan.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-write-token-boundary.json');
+  assert.equal(parsed.json, true);
+});
