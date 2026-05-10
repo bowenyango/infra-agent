@@ -21,13 +21,19 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-rollback-plan-boundary.ts',
   'src/knowledge/team-upload-audit-record-boundary.ts',
   'src/knowledge/team-upload-artifact-bytes-boundary.ts',
+  'src/knowledge/team-upload-adapter-injection-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
 ];
 
 const ARTIFACT_BYTE_BOUNDARY_MODULES = [
-  'src/knowledge/team-upload-artifact-bytes-boundary.ts'
+  'src/knowledge/team-upload-artifact-bytes-boundary.ts',
+  'src/knowledge/team-upload-adapter-injection-boundary.ts'
+];
+
+const ADAPTER_INJECTION_BOUNDARY_MODULES = [
+  'src/knowledge/team-upload-adapter-injection-boundary.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -61,6 +67,18 @@ const FORBIDDEN_ARTIFACT_BYTE_READS = [
   'new Blob',
   'Blob(',
   'ReadableStream'
+];
+
+const FORBIDDEN_ADAPTER_INJECTION_EXECUTION = [
+  'createMockKnowledgeTeamBackendAdapter(',
+  'new KnowledgeTeamBackendAdapter',
+  'new S3',
+  'putObject(',
+  'putEntry(',
+  'artifactStore.put',
+  'metadataIndex.put',
+  'clientCreated: true',
+  'adapterInjected: true'
 ];
 
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
@@ -103,6 +121,21 @@ test('artifact bytes boundary does not read or materialize artifact bytes', asyn
         source.includes(forbidden),
         false,
         `${relativePath} must not read or materialize artifact bytes via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('adapter injection boundary does not instantiate adapters, clients, or writes', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of ADAPTER_INJECTION_BOUNDARY_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_ADAPTER_INJECTION_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not instantiate adapters, create clients, or write via ${forbidden}`
       );
     }
   }
