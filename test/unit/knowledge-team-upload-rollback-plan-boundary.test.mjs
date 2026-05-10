@@ -286,3 +286,107 @@ test('upload rollback plan boundary blocks missing nested execution lease sectio
   assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
 });
+
+test('upload rollback plan boundary blocks forged rollback and execution state', async () => {
+  const executionLeaseBoundary = await validExecutionLeaseBoundary();
+  const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({
+    executionLeaseBoundary: {
+      ...executionLeaseBoundary,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true,
+      uploadCommand: 'upload now',
+      executionLeaseBoundary: {
+        ...executionLeaseBoundary.executionLeaseBoundary,
+        executionLeaseCreated: true,
+        leaseScopeBoundToArtifact: true,
+        singleUseLeaseCreated: true,
+        leaseExpirySet: true,
+        writeTokenIssued: true,
+        auditBindingCreated: true,
+        rollbackPlanCreated: true,
+        executable: true
+      },
+      remainingExecutionBoundaries: {
+        ...executionLeaseBoundary.remainingExecutionBoundaries,
+        artifactBytesProvided: true,
+        adapterInjected: true,
+        writeTokenIssued: true,
+        executionLeaseCreated: true,
+        rollbackPlanCreated: true,
+        auditRecordCreated: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true,
+        remoteMutationAllowed: true
+      },
+      rollbackPlanBoundary: {
+        rollbackPlanCreated: true,
+        rollbackScopeBoundToArtifact: true,
+        rollbackReviewed: true,
+        writeTokenIssued: true,
+        executionLeaseCreated: true,
+        artifactBytesProvided: true,
+        auditBindingCreated: true,
+        auditRecordCreated: true,
+        executable: true
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('upload-approval-already-provided'), true);
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('mutation-approval-already-granted'), true);
+  assert.equal(codes.has('client-created'), true);
+  assert.equal(codes.has('adapter-injected'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('write-token-issued'), true);
+  assert.equal(codes.has('execution-lease-created'), true);
+  assert.equal(codes.has('rollback-plan-created'), true);
+  assert.equal(codes.has('audit-record-created'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('lease-scope-already-bound'), true);
+  assert.equal(codes.has('lease-expiry-already-set'), true);
+  assert.equal(codes.has('audit-binding-created'), true);
+  assert.equal(codes.has('rollback-scope-already-bound'), true);
+  assert.equal(codes.has('rollback-review-already-recorded'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload rollback plan boundary blocks backend and rollback material leakage without copying private values', async () => {
+  const executionLeaseBoundary = await validExecutionLeaseBoundary();
+  const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({
+    executionLeaseBoundary: {
+      ...executionLeaseBoundary,
+      endpointUrl: 'https://should-not-copy.example.test',
+      bucketName: 'should-not-copy-bucket',
+      secretAccessKey: 'should-not-copy-secret',
+      uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+      rollbackPlanBoundary: {
+        rollbackMaterial: 'private-key',
+        rollbackCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+      }
+    }
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(blockerCodes(boundary).has('backend-detail-leak'), true);
+  assert.equal(blockerCodes(boundary).has('upload-command-present'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
