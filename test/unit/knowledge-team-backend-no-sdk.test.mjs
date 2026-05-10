@@ -18,6 +18,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-execution-prerequisite-plan.ts',
   'src/knowledge/team-upload-write-token-boundary.ts',
   'src/knowledge/team-upload-execution-lease-boundary.ts',
+  'src/knowledge/team-upload-rollback-plan-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
