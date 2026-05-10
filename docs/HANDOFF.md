@@ -6,6 +6,96 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Credential Read Boundary Plan
+
+Status:
+
+- In progress. This slice continues the private dry-run upload boundary chain
+  after `upload-client-creation-boundary`.
+- Planned scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-client-creation-boundary` and emit a
+  private credential read boundary artifact that records the future credential
+  read requirements needed before credential presence, live-check, command, or
+  mutation design.
+- This slice must not read credential values, check credential presence,
+  create SDK clients, inject adapters, bind object stores or metadata indexes,
+  read or stage artifact bytes, perform live checks, generate upload commands,
+  write object storage, write metadata indexes, or perform remote mutations.
+
+Why this direction:
+
+- The completed client creation boundary only modeled future client factory
+  and dependency requirements. It did not create clients, inject adapters, read
+  credentials, check credential presence, or perform execution.
+- The next safe step is to model credential-read preconditions without reading
+  environment variables, credential files, secret stores, backend details,
+  credential presence, clients, adapters, live checks, or mutation commands.
+- This follows the `learning-claude-code` agent design lesson used in this
+  project: handoff between agents is compact structured state; terminal and
+  blocked states never advance implicitly; and permission-sensitive work is
+  represented as validated contracts before implementation.
+
+Planned artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-credential-read-boundary`.
+- CLI:
+  `infra-agent knowledge upload-credential-read-boundary <client-creation-boundary.json> [--out <credential-read-boundary.json>] [--json]`.
+- Ready status should be `credential-read-boundary-ready`, meaning only that
+  the saved client creation boundary is safe and future credential-read
+  requirements are modeled. It is not credential access and not credential
+  presence checking.
+- Ready next action should be `design-credential-presence-boundary`; blocked
+  next action remains `resolve-blockers`.
+
+Planned acceptance criteria:
+
+1. `credential-read-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-client-creation-boundary` with
+   `client-creation-boundary-ready`,
+   `nextAction=design-credential-read-boundary`, safe target references,
+   verified prior review state, matched scope, mock adapter backend posture,
+   modeled client-creation requirements, credential read still required, and
+   no blockers.
+2. Matching client creation boundary state is recorded as a prerequisite signal
+   only; top-level `credentialValuesExposed`, `credentialPresenceChecked`,
+   `clientCreated`, `adapterInjected`, `artifactBytesProvided`,
+   `auditRecordCreated`, `rollbackPlanCreated`, `executionLeaseCreated`,
+   `writeTokenIssued`, `mutationApprovalGranted`, `uploadApproved`, and
+   `uploadExecutionAllowed` remain false.
+3. The output explicitly records credential-read requirements for future
+   design: credential source descriptor, credential value redaction,
+   environment/key reference only posture, credential presence boundary,
+   live-check boundary, upload-command boundary, client creation boundary, and
+   object/index mutation disabled. Each required item remains unread,
+   unchecked, uncreated, uninjected, unbound, and non-executable.
+4. Mismatched, missing, malformed, blocked, forged, credential-value-leaking,
+   credential-presence-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, live-check, or command-bearing client
+   creation boundary inputs produce a blocked credential read boundary with
+   safe blocker codes and without copying private values.
+5. The CLI reads only one local client creation boundary JSON file and writes
+   only an optional local `--out` JSON artifact.
+6. Existing client creation, adapter injection, artifact bytes, audit record,
+   rollback plan, execution lease, write-token, prerequisite plan, mutation
+   approval review, mutation plan, execution gate, mock harness, continuation,
+   and team backend no-SDK boundaries remain valid.
+
+Planned commit sequence:
+
+1. Document the credential read boundary plan.
+2. Add the credential read boundary builder and artifact contract.
+3. Cover the ready path with focused unit tests.
+4. Cover invalid, forged, credential-leaking, and dependency-leaking source
+   inputs.
+5. Add validation support behind `knowledge validate`.
+6. Cover validation drift and contract shape.
+7. Wire CLI parser/help and text output.
+8. Cover CLI parsing and help.
+9. Cover CLI JSON write and blocked text output.
+10. Extend no-SDK/no-env/no-network guards.
+11. Update rules, roadmap, skill guidance, and final handoff.
+
 ## 2026-05-10 Completed Upload Client Creation Boundary
 
 Status:
