@@ -237,3 +237,236 @@ test('upload live check boundary records live-check requirements without probing
   assert.deepEqual(boundary.readiness.blockerCodes, []);
   assertNoPrivateValues(boundary);
 });
+
+test('upload live check boundary blocks non-ready credential presence boundaries', async () => {
+  const credentialPresenceBoundary = await validCredentialPresenceBoundary();
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({
+    credentialPresenceBoundary: {
+      ...credentialPresenceBoundary,
+      status: 'blocked',
+      readiness: {
+        ...credentialPresenceBoundary.readiness,
+        status: 'blocked',
+        nextAction: 'resolve-blockers',
+        blockerCount: 1,
+        blockerCodes: ['credential-presence-check-enabled'],
+        blockers: [{
+          code: 'credential-presence-check-enabled',
+          path: '$.credentialPresenceBoundary.credentialPresenceChecked',
+          message: 'presence was checked'
+        }]
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('credential-presence-boundary-not-ready'), true);
+  assert.equal(codes.has('credential-presence-boundary-next-action-invalid'), true);
+  assertExecutionAndLiveCheckDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload live check boundary blocks invalid credential presence inputs', () => {
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({ credentialPresenceBoundary: null });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceCredentialPresenceBoundary.boundaryStatus, 'invalid');
+  assert.equal(codes.has('missing-required-field'), true);
+  assertExecutionAndLiveCheckDisabled(boundary);
+});
+
+test('upload live check boundary blocks malformed credential presence metadata', async () => {
+  const credentialPresenceBoundary = await validCredentialPresenceBoundary();
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({
+    credentialPresenceBoundary: {
+      ...credentialPresenceBoundary,
+      kind: 'infra-agent.knowledge-team-upload-credential-read-boundary',
+      schemaVersion: 2,
+      boundaryKind: 'credential-read-boundary-dry-run',
+      target: {
+        ...credentialPresenceBoundary.target,
+        manifestId: 'not-a-safe-id',
+        objectKey: '../unsafe.json',
+        objectSha256: 'not-a-sha',
+        artifactId: 'not-a-safe-id'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceCredentialPresenceBoundary.boundaryKind, 'unsupported');
+  assert.equal(codes.has('invalid-credential-presence-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assertExecutionAndLiveCheckDisabled(boundary);
+});
+
+test('upload live check boundary blocks missing credential presence sections', () => {
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({
+    credentialPresenceBoundary: {
+      kind: 'infra-agent.knowledge-team-upload-credential-presence-boundary',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      executionMode: 'dry-run',
+      boundaryKind: 'credential-presence-boundary-dry-run',
+      status: 'not-a-status',
+      plannedOperation: 'stage-knowledge-pack',
+      remoteWriteAllowed: false,
+      liveCheckAllowed: false,
+      credentialValuesExposed: false,
+      credentialPresenceChecked: false,
+      uploadApproved: false,
+      uploadExecutionAllowed: false,
+      mutationApprovalGranted: false,
+      clientCreated: false,
+      adapterInjected: false,
+      artifactBytesProvided: false,
+      writeTokenIssued: false,
+      executionLeaseCreated: false,
+      rollbackPlanCreated: false,
+      auditRecordCreated: false,
+      objectWriteAttempted: false,
+      metadataIndexWriteAttempted: false,
+      remoteMutationPerformed: false,
+      uploadCommand: null,
+      target: null,
+      readiness: null,
+      sourceCredentialReadBoundary: null,
+      credentialPresenceBoundary: null,
+      remainingExecutionBoundaries: null
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceCredentialPresenceBoundary.boundaryStatus, 'invalid');
+  assert.equal(boundary.sourceCredentialPresenceBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.sourceCredentialPresenceBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceCredentialPresenceBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceCredentialPresenceBoundary.adapterBackendKind, 'unsupported');
+  assert.equal(codes.has('credential-presence-boundary-not-ready'), true);
+  assert.equal(codes.has('credential-presence-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsafe-adapter-name'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('credential-presence-check-not-required'), true);
+  assert.equal(codes.has('live-check-not-required'), true);
+  assertExecutionAndLiveCheckDisabled(boundary);
+});
+
+test('upload live check boundary blocks forged live check, command, and mutation state', async () => {
+  const credentialPresenceBoundary = await validCredentialPresenceBoundary();
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({
+    credentialPresenceBoundary: {
+      ...credentialPresenceBoundary,
+      remoteWriteAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      uploadCommand: 'infra-agent upload --should-not-run',
+      credentialPresenceBoundary: {
+        ...credentialPresenceBoundary.credentialPresenceBoundary,
+        credentialValuesRead: true,
+        credentialValuesExposed: true,
+        credentialPresenceChecked: true,
+        credentialPresenceResultExposed: true,
+        clientCreated: true,
+        sdkClientCreated: true,
+        adapterInjected: true,
+        artifactObjectStoreBound: true,
+        metadataIndexBound: true,
+        liveCheckPerformed: true,
+        uploadExecutionAllowed: true,
+        uploadCommandGenerated: true,
+        objectWriteAttempted: true,
+        metadataIndexWriteAttempted: true,
+        remoteMutationPerformed: true,
+        executable: true
+      },
+      remainingExecutionBoundaries: {
+        ...credentialPresenceBoundary.remainingExecutionBoundaries,
+        credentialValuesExposed: true,
+        credentialPresenceChecked: true,
+        liveCheckPerformed: true,
+        uploadCommandGenerated: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true,
+        remoteMutationAllowed: true
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('remote-write-enabled'), true);
+  assert.equal(codes.has('credential-values-exposed'), true);
+  assert.equal(codes.has('credential-values-read'), true);
+  assert.equal(codes.has('credential-presence-check-enabled'), true);
+  assert.equal(codes.has('credential-presence-result-exposed'), true);
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('mutation-approval-already-granted'), true);
+  assert.equal(codes.has('client-created'), true);
+  assert.equal(codes.has('adapter-injected'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('artifact-object-store-bound'), true);
+  assert.equal(codes.has('metadata-index-bound'), true);
+  assert.equal(codes.has('executable-state-enabled'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assertExecutionAndLiveCheckDisabled(boundary);
+});
+
+test('upload live check boundary reports credential, backend, and probe details without copying values', async () => {
+  const credentialPresenceBoundary = await validCredentialPresenceBoundary();
+  const boundary = buildKnowledgeTeamUploadLiveCheckBoundary({
+    credentialPresenceBoundary: {
+      ...credentialPresenceBoundary,
+      sourceCredentialReadBoundary: {
+        ...credentialPresenceBoundary.sourceCredentialReadBoundary,
+        endpointUrl: 'https://should-not-copy.example.test',
+        bucketName: 'should-not-copy-bucket'
+      },
+      credentialPresenceBoundary: {
+        ...credentialPresenceBoundary.credentialPresenceBoundary,
+        clientConfig: {
+          accessKey: 'should-not-copy-secret'
+        },
+        clientFactoryValue: 'client-secret-value',
+        credentialValue: 'credential-secret-value',
+        credentialFile: '/home/private/credential.json',
+        credentialPresenceResultValue: true,
+        liveCheckResult: 'live-check-result',
+        artifactBytesValue: 'raw-artifact-bytes'
+      },
+      adapterInstance: {
+        adapterMaterial: 'adapter-secret-value'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assert.equal(codes.has('client-dependency-leak'), true);
+  assert.equal(codes.has('credential-dependency-leak'), true);
+  assert.equal(codes.has('adapter-dependency-leak'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assertExecutionAndLiveCheckDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
