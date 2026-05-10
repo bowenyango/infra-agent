@@ -284,3 +284,24 @@ test('knowledge upload-approval-intent CLI args accept readiness reference and o
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-intent.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-approval-continuation CLI args accept intent fingerprint and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-approval-continuation',
+    'artifacts/knowledge-pack.upload-intent.json',
+    '--approval-fingerprint',
+    'a'.repeat(64),
+    '--out',
+    'artifacts/knowledge-pack.upload-continuation.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-approval-continuation');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-intent.json');
+  assert.equal(parsed.approvalFingerprint, 'a'.repeat(64));
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-continuation.json');
+  assert.equal(parsed.json, true);
+});

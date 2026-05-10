@@ -33,6 +33,7 @@ import {
 import { buildKnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
 import { validateKnowledgeTeamS3CompatibleBackendReferences } from '../knowledge/team-s3-compatible-reference-registry.ts';
 import { buildKnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
+import { buildKnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -52,6 +53,7 @@ import {
   printKnowledgePrefetchResult,
   printKnowledgeTeamBackendReadinessReport,
   printKnowledgeTeamS3CompatibleReferenceValidationSummary,
+  printKnowledgeTeamUploadApprovalContinuation,
   printKnowledgeTeamUploadApprovalIntent,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
@@ -70,10 +72,11 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
+  approvalFingerprint?: string | null;
   backendReferenceInputPath?: string | null;
   descriptorInputPath?: string | null;
   indexEntryInputPath?: string | null;
@@ -129,6 +132,7 @@ function printUsage(): void {
       '  infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]',
       '  infra-agent knowledge backend-reference-readiness <backend-config.json> --registry <reference-registry.json> [--out <readiness.json>] [--json]',
       '  infra-agent knowledge upload-approval-intent <publication-readiness.json> --backend-reference <reference-readiness.json> [--out <intent.json>] [--json]',
+      '  infra-agent knowledge upload-approval-continuation <intent.json> --approval-fingerprint <sha256> [--out <continuation.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -613,8 +617,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'backend-readiness'
       && knowledgeAction !== 'backend-reference-readiness'
       && knowledgeAction !== 'upload-approval-intent'
+      && knowledgeAction !== 'upload-approval-continuation'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation.');
     }
 
     let workspace = cwd();
@@ -625,6 +630,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let maxFacts: number | null = null;
     let outputPath: string | null = null;
     let manifestOutputPath: string | null = null;
+    let approvalFingerprint: string | null = null;
     let backendReferenceInputPath: string | null = null;
     let descriptorInputPath: string | null = null;
     let indexEntryInputPath: string | null = null;
@@ -637,7 +643,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation') {
           fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
@@ -651,7 +657,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation') {
           fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
@@ -706,8 +712,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'backend-readiness'
           && knowledgeAction !== 'backend-reference-readiness'
           && knowledgeAction !== 'upload-approval-intent'
+          && knowledgeAction !== 'upload-approval-continuation'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, or knowledge upload-approval-intent.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, or knowledge upload-approval-continuation.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -765,6 +772,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         backendReferenceInputPath = backendReferenceValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--approval-fingerprint') {
+        const approvalFingerprintValue = actionArgs[index + 1]?.trim();
+        if (!approvalFingerprintValue) {
+          fail('Missing value for --approval-fingerprint.');
+        }
+        if (knowledgeAction !== 'upload-approval-continuation') {
+          fail('--approval-fingerprint is only supported for knowledge upload-approval-continuation.');
+        }
+        if (approvalFingerprint !== null) {
+          fail('Approval fingerprint can be provided at most once.');
+        }
+
+        approvalFingerprint = approvalFingerprintValue;
         index += 1;
         continue;
       }
@@ -861,11 +885,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'upload-approval-intent' && positionalArgs.length !== 1) {
       fail('knowledge upload-approval-intent requires exactly one publication readiness path.');
     }
+    if (knowledgeAction === 'upload-approval-continuation' && positionalArgs.length !== 1) {
+      fail('knowledge upload-approval-continuation requires exactly one upload approval intent path.');
+    }
     if (knowledgeAction === 'backend-reference-readiness' && registryInputPath === null) {
       fail('knowledge backend-reference-readiness requires --registry <reference-registry.json>.');
     }
     if (knowledgeAction === 'upload-approval-intent' && backendReferenceInputPath === null) {
       fail('knowledge upload-approval-intent requires --backend-reference <reference-readiness.json>.');
+    }
+    if (knowledgeAction === 'upload-approval-continuation' && approvalFingerprint === null) {
+      fail('knowledge upload-approval-continuation requires --approval-fingerprint <sha256>.');
     }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
@@ -877,8 +907,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' ? positionalArgs[0] : null,
+      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' ? positionalArgs[0] : null,
+      approvalFingerprint,
       backendReferenceInputPath,
       descriptorInputPath,
       indexEntryInputPath,
@@ -1542,6 +1573,41 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadApprovalIntent(intent);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-approval-continuation') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-approval-continuation requires exactly one upload approval intent path.');
+    }
+    if (!parsed.approvalFingerprint) {
+      fail('knowledge upload-approval-continuation requires --approval-fingerprint <sha256>.');
+    }
+
+    const intentPath = resolveFromCwd(parsed.inputPath);
+    const approvalIntent = await readJsonObject(intentPath);
+    const continuation = buildKnowledgeTeamUploadApprovalContinuation({
+      approvalIntent,
+      approvalFingerprint: parsed.approvalFingerprint
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), continuation)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...continuation,
+            outputPath: writtenPath
+          }
+        : continuation, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadApprovalContinuation(continuation);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }

@@ -243,6 +243,12 @@ test('help output includes upload approval intent command', async () => {
   assert.match(output, /infra-agent knowledge upload-approval-intent <publication-readiness\.json> --backend-reference <reference-readiness\.json>/);
 });
 
+test('help output includes upload approval continuation command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-approval-continuation <intent\.json> --approval-fingerprint <sha256>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);

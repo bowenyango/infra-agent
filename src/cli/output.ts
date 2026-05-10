@@ -52,6 +52,7 @@ import type {
 } from '../knowledge/team-artifact-store.ts';
 import type { KnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
 import type { KnowledgeTeamS3CompatibleReferenceValidationSummary } from '../knowledge/team-s3-compatible-reference-registry.ts';
+import type { KnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
 import type { KnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
@@ -3635,6 +3636,7 @@ export function printKnowledgeTeamUploadApprovalIntent(
   process.stdout.write(`manifest: ${intent.manifestId ?? 'invalid'}\n`);
   process.stdout.write(`object: ${intent.object.key ?? 'invalid'}\n`);
   process.stdout.write(`artifact: ${intent.artifact.id ?? 'invalid'}\n`);
+  process.stdout.write(`approval fingerprint: ${intent.approvalFingerprint.value ?? 'unavailable'}\n`);
   process.stdout.write(`publication readiness: ${intent.preconditions.publicationReadiness.status ?? 'invalid'}\n`);
   process.stdout.write(`backend reference: ${intent.preconditions.backendReference.status ?? 'invalid'}\n`);
   process.stdout.write(`approval provided: ${intent.preconditions.uploadApproval.approvalProvided ? 'yes' : 'no'}\n`);
@@ -3649,6 +3651,39 @@ export function printKnowledgeTeamUploadApprovalIntent(
   printList(
     intent.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload approval intent blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadApprovalContinuation(
+  continuation: KnowledgeTeamUploadApprovalContinuation
+): void {
+  printHeader('Knowledge team upload approval continuation');
+  process.stdout.write(`status: ${continuation.status}\n`);
+  process.stdout.write(`next action: ${continuation.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${continuation.plannedOperation}\n`);
+  process.stdout.write(`execution: ${continuation.executionMode}\n`);
+  process.stdout.write(`remote write: ${continuation.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${continuation.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${continuation.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${continuation.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${continuation.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${continuation.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${continuation.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${continuation.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`backend: ${continuation.backendKind}\n`);
+  process.stdout.write(`manifest: ${continuation.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`object: ${continuation.target.objectKey ?? 'invalid'}\n`);
+  process.stdout.write(`artifact: ${continuation.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`approval provided: ${continuation.approval.provided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${continuation.approval.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`expected fingerprint: ${continuation.approval.expectedFingerprint ?? 'unavailable'}\n`);
+  process.stdout.write(`adapter injected: ${continuation.adapterBoundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`real backend implemented: ${continuation.adapterBoundary.realBackendImplemented ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: requiredEnv=${continuation.credentialBoundary.requiredEnvironmentVariableCount}, optionalEnv=${continuation.credentialBoundary.optionalEnvironmentVariableCount}, blockers=${continuation.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    continuation.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload approval continuation blockers.'
   );
 }
 
