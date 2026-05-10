@@ -56,6 +56,9 @@ import {
 import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
 
 function validBackendReferenceSummary() {
   return validateKnowledgeTeamS3CompatibleBackendReferences(
@@ -431,4 +434,55 @@ test('upload adapter injection boundary reports private adapter and byte details
   assert.equal(codes.has('artifact-bytes-provided'), true);
   assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload adapter injection boundary validation rejects forged adapter state and dependency payloads', async () => {
+  const artifactBytesBoundary = await validArtifactBytesBoundary();
+  const boundary = buildKnowledgeTeamUploadAdapterInjectionBoundary({ artifactBytesBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    adapterInjected: true,
+    clientCreated: true,
+    adapterInjectionBoundary: {
+      ...boundary.adapterInjectionBoundary,
+      adapterInjected: true,
+      clientCreated: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      executable: true,
+      adapterInstance: {
+        putObject: 'should-not-exist'
+      }
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      adapterInjected: true,
+      clientCreated: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      remoteMutationAllowed: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      nextAction: 'resolve-blockers',
+      blockerCount: 1
+    }
+  }, 'knowledge-pack.upload-adapter-injection-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjected'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjectionBoundary.adapterInjected'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjectionBoundary.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjectionBoundary.artifactObjectStoreBound'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjectionBoundary.metadataIndexBound'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjectionBoundary.executable'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjectionBoundary.adapterInstance'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.adapterInjected'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.objectWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.remoteMutationAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
 });
