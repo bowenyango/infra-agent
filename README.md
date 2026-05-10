@@ -107,6 +107,8 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]`
 - `infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]`
 - `infra-agent knowledge backend-reference-readiness <backend-config.json> --registry <reference-registry.json> [--out <readiness.json>] [--json]`
+- `infra-agent knowledge upload-approval-intent <publication-readiness.json> --backend-reference <reference-readiness.json> [--out <intent.json>] [--json]`
+- `infra-agent knowledge upload-approval-continuation <intent.json> --approval-fingerprint <sha256> [--out <continuation.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -205,13 +207,20 @@ Current behavior is intentionally runtime-foundation oriented:
   a private `infra-agent.knowledge-team-upload-approval-intent` review summary;
   it can say that explicit upload approval is required, but it does not grant
   approval, check credential presence, read credential values, create a client,
-  generate an upload command, or write remote objects.
+  generate an upload command, or write remote objects. It also emits a safe
+  approval fingerprint over the intended artifact/backend-reference scope.
+  `knowledge upload-approval-continuation <intent.json>
+  --approval-fingerprint <sha256>` records a matching explicit fingerprint as
+  private dry-run continuation state for future dependency-injected adapter
+  design; it keeps `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, and `uploadCommand=null`.
   `knowledge validate` also
   accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
   produced by the internal mocked S3-compatible team artifact store
   abstraction, compact index entries, saved publication-plan dry runs, and
-  readiness reports, plus compact backend-readiness reports. Team artifact
-  payloads are content-addressed and backend-neutral;
+  readiness reports, plus compact backend-readiness, upload-intent, and
+  upload-continuation reports. Team artifact payloads are content-addressed and
+  backend-neutral;
   they do not include backend URLs, buckets, endpoints, credentials, absolute
   workspace paths, raw docs, or raw repo content. Contract tests now lock these
   compact team artifact shapes, including content-addressed key/hash
@@ -222,10 +231,11 @@ Current behavior is intentionally runtime-foundation oriented:
   S3-compatible backend family now has a contract-first private config parser,
   an offline reference registry for storage/auth refs and required environment
   variable names, a dry-run CLI review path for those references, a private
-  upload approval intent review surface, sanitized internal descriptor
-  metadata, readiness-input projection, and fail-closed resolution planning for
-  future real adapter work; it still does not create a client or read
-  credential values. There is still no real remote storage
+  upload approval intent review surface, a private explicit approval
+  continuation surface, sanitized internal descriptor metadata,
+  readiness-input projection, and fail-closed resolution planning for future
+  real adapter work; it still does not create a client or read credential
+  values. There is still no real remote storage
   backend or CLI upload command. Internally, team
   artifact and backend readiness
   validation now lives in focused modules while `knowledge validate` remains

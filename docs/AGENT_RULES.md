@@ -214,6 +214,14 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   grant approval, read credential values, validate credential presence, create
   clients, generate upload commands, probe backend reachability, mutate remote
   objects/indexes, or change public artifact/readiness JSON.
+- `infra-agent knowledge upload-approval-continuation` is a dry-run private
+  approval continuation review command. It may read a saved upload approval
+  intent and compare an explicit operator-supplied approval fingerprint with the
+  deterministic intent scope fingerprint. A matching continuation is still not
+  upload authorization: it must keep `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `clientCreated=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, and `uploadCommand=null`.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

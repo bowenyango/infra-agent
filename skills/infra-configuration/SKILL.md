@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -152,6 +152,11 @@ credentials must still come from environment variables.
    may report that explicit human upload approval is required, but it does not
    grant approval, read credential values, check credential presence, create
    clients, generate upload commands, or write remote objects/indexes.
+   Use `knowledge upload-approval-continuation` only as a dry-run private
+   continuation review from a saved upload approval intent plus an explicit
+   approval fingerprint. A matching continuation is not upload permission; it
+   must keep upload approval, upload execution, client creation, credential
+   reads, live checks, and remote writes disabled.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or
