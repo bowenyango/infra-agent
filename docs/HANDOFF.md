@@ -6,6 +6,79 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Adapter Injection Boundary Plan
+
+Status:
+
+- In progress. This slice continues the private dry-run upload boundary chain
+  after `upload-artifact-bytes-boundary`.
+- Planned scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-artifact-bytes-boundary` and emit a
+  private adapter injection boundary artifact that records the future
+  dependency-injection requirements needed before any later client or execution
+  design.
+- This slice must not inject adapters, create clients, read or stage artifact
+  bytes, verify artifact digests, create audit records, create rollback plans,
+  create execution leases, issue write tokens, grant approvals, read
+  credentials, perform live checks, generate upload commands, write object
+  storage, write metadata indexes, or perform remote mutations.
+
+Why this direction:
+
+- The completed artifact bytes boundary only modeled byte-staging requirements.
+  It did not read, hash, stage, or provide bytes and deliberately advanced to
+  adapter-injection boundary design.
+- The next safe step is to model adapter injection preconditions without
+  accepting adapter instances, SDK clients, backend configs, credential
+  material, live checks, or mutation commands.
+- This preserves the Claude Code-style permission model: compact routing state,
+  explicit next actions, no implicit mutation, and fail-closed validation for
+  malformed, forged, adapter/client-leaking, byte-leaking, or backend-leaking
+  inputs.
+
+Planned artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-adapter-injection-boundary`.
+- CLI:
+  `infra-agent knowledge upload-adapter-injection-boundary <artifact-bytes-boundary.json> [--out <adapter-injection-boundary.json>] [--json]`.
+- Ready status should be `adapter-injection-boundary-ready`, meaning only that
+  the saved artifact bytes boundary is safe and future adapter-injection
+  requirements are modeled. It is not adapter injection and not client creation.
+- Ready next action should be `design-client-creation-boundary`; blocked next
+  action remains `resolve-blockers`.
+
+Planned acceptance criteria:
+
+1. `adapter-injection-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-artifact-bytes-boundary` with
+   `artifact-bytes-boundary-ready`,
+   `nextAction=design-adapter-injection-boundary`, safe target references,
+   verified prior review state, matched scope, mock adapter backend posture,
+   modeled artifact-byte, token, lease, rollback, and audit requirements, and
+   no blockers.
+2. Matching artifact bytes boundary state is recorded as a prerequisite signal
+   only; top-level `adapterInjected`, `clientCreated`,
+   `artifactBytesProvided`, `auditRecordCreated`, `rollbackPlanCreated`,
+   `executionLeaseCreated`, `writeTokenIssued`, `mutationApprovalGranted`,
+   `uploadApproved`, and `uploadExecutionAllowed` remain false.
+3. The output explicitly records adapter-injection requirements for future
+   dependency injection: mock adapter dependency, dependency-injection-only
+   posture, bytes-before-adapter precondition, client-after-adapter
+   precondition, audit/rollback/lease/token preconditions, and object/index
+   mutation disabled. Each required item remains uninjected, uncreated,
+   unprovided, and non-executable.
+4. Mismatched, missing, malformed, blocked, forged, adapter-leaking,
+   client-leaking, byte-leaking, backend-leaking, or command-bearing artifact
+   bytes boundary inputs produce a blocked adapter injection boundary with safe
+   blocker codes and without copying private values.
+5. The CLI reads only one local artifact bytes boundary JSON file and writes
+   only an optional local `--out` JSON artifact.
+6. Existing artifact bytes, audit record, rollback plan, execution lease,
+   write-token, prerequisite plan, mutation approval review, mutation plan,
+   execution gate, mock harness, continuation, and team backend no-SDK
+   boundaries remain valid.
+
 ## 2026-05-10 Completed Upload Artifact Bytes Boundary
 
 Status:
