@@ -95,3 +95,72 @@ test('upload adapter preflight accepts continuation-ready with a mock adapter pl
   assert.equal(preflight.readiness.blockerCount, 0);
   assert.deepEqual(preflight.readiness.blockerCodes, []);
 });
+
+test('upload adapter preflight blocks continuation artifacts that are not ready', async () => {
+  const continuation = {
+    ...(await validContinuation()),
+    status: 'blocked',
+    approval: {
+      required: true,
+      provided: true,
+      source: 'cli-flag',
+      intentStatus: 'blocked',
+      suppliedFingerprint: 'b'.repeat(64),
+      expectedFingerprint: 'a'.repeat(64),
+      fingerprintVerified: false
+    }
+  };
+  const preflight = buildKnowledgeTeamUploadAdapterPreflight({
+    continuation,
+    adapterResolutionPlan: validMockAdapterPlan()
+  });
+
+  assert.equal(preflight.status, 'blocked');
+  assert.equal(preflight.uploadExecutionAllowed, false);
+  assert.equal(preflight.clientCreated, false);
+  assert.equal(preflight.adapterInjected, false);
+  assert.equal(preflight.uploadCommand, null);
+  assert.equal(preflight.adapterDependency.injectionCandidate, false);
+  assert.equal(preflight.readiness.nextAction, 'resolve-blockers');
+  assert.equal(preflight.readiness.blockerCodes.includes('continuation-not-ready'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('approval-fingerprint-unverified'), true);
+});
+
+test('upload adapter preflight rejects forged continuation mutation flags', async () => {
+  const continuation = {
+    ...(await validContinuation()),
+    mutationAllowed: true,
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    clientCreated: true,
+    uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+  };
+  const preflight = buildKnowledgeTeamUploadAdapterPreflight({
+    continuation,
+    adapterResolutionPlan: validMockAdapterPlan()
+  });
+
+  assert.equal(preflight.status, 'blocked');
+  assert.equal(preflight.remoteWriteAllowed, false);
+  assert.equal(preflight.liveCheckAllowed, false);
+  assert.equal(preflight.credentialValuesExposed, false);
+  assert.equal(preflight.credentialPresenceChecked, false);
+  assert.equal(preflight.uploadApproved, false);
+  assert.equal(preflight.uploadExecutionAllowed, false);
+  assert.equal(preflight.clientCreated, false);
+  assert.equal(preflight.adapterInjected, false);
+  assert.equal(preflight.uploadCommand, null);
+  assert.equal(preflight.readiness.blockerCodes.includes('mutation-enabled'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('remote-write-enabled'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('live-check-enabled'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('credential-values-exposed'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('credential-presence-check-enabled'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('upload-approval-already-provided'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('upload-execution-enabled'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('client-created'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('upload-command-present'), true);
+});
