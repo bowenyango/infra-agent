@@ -6,6 +6,80 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Write Token Boundary Plan
+
+Status:
+
+- In progress. This slice adds the next private dry-run boundary after
+  `upload-execution-prerequisite-plan`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-execution-prerequisite-plan` and emit a
+  private write-token boundary artifact that records the token requirements
+  needed before any future upload execution design can proceed.
+- This slice does not issue write tokens, grant mutation approval, allow upload
+  execution, create execution leases, stage artifact bytes, create rollback
+  plans, inject adapters, create SDK clients, read credential values, check
+  credential presence, perform live checks, generate upload commands, mutate
+  object storage, or mutate a metadata index.
+
+Why this direction:
+
+- The completed prerequisite plan made future boundaries explicit. The next
+  safe step is to isolate the write-token boundary before any lease, rollback,
+  audit, adapter, artifact-byte, or mutation design exists.
+- A ready write-token boundary must mean "token requirements are modeled", not
+  "a token exists" and not "upload execution is allowed".
+- This preserves the Claude Code-style permission-gate pattern already used in
+  the upload chain: each boundary is a compact artifact, has validator coverage,
+  and fails closed on malformed, forged, or leaky inputs.
+
+Planned artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-write-token-boundary`.
+- CLI:
+  `infra-agent knowledge upload-write-token-boundary <execution-prerequisite-plan.json> [--out <write-token-boundary.json>] [--json]`.
+- Ready status is `write-token-boundary-ready`, meaning only that the source
+  prerequisite plan is safe and the future write-token requirements are
+  modeled. It is not token issuance and not execution readiness.
+
+Planned acceptance criteria:
+
+1. `write-token-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-execution-prerequisite-plan` with
+   `prerequisite-plan-ready`, `nextAction=design-write-token-boundary`, safe
+   target references, verified human review state, matched scope, and
+   `writeTokenRequiredBeforeExecution=true`.
+2. Matching prerequisite state is recorded as a prerequisite signal only;
+   top-level `writeTokenIssued`, `mutationApprovalGranted`, `uploadApproved`,
+   and `uploadExecutionAllowed` remain false.
+3. The output explicitly records write-token requirements: token scope binding,
+   single-use semantics, expiry policy, audit binding, lease precondition, and
+   rollback precondition. Each required item remains unissued/uncreated.
+4. Mismatched, missing, malformed, blocked, forged, or leaky prerequisite inputs
+   produce a blocked write-token boundary with safe blocker codes and without
+   copying private values.
+5. The CLI reads only one local prerequisite plan JSON file and writes only an
+   optional local `--out` JSON artifact.
+6. Existing upload prerequisite plan, mutation approval review, mutation plan,
+   execution gate, mock harness, continuation, and team backend no-SDK
+   boundaries remain valid.
+
+Commit checklist:
+
+1. Record this active write-token boundary plan and non-goals.
+2. Add the private write-token boundary builder/contract.
+3. Add unit coverage for the ready path.
+4. Add unit coverage for blocked prerequisite inputs.
+5. Add forged-state and leak guard coverage.
+6. Add validator support for write-token boundary artifacts.
+7. Add contract coverage for the JSON shape.
+8. Add CLI parser support.
+9. Wire CLI command and text output.
+10. Add CLI integration and help/arg/no-SDK guard coverage.
+11. Update durable docs and handoff progress.
+12. Run focused checks and full `npm run verify`.
+
 ## 2026-05-10 Completed Upload Execution Prerequisite Plan
 
 Status:
