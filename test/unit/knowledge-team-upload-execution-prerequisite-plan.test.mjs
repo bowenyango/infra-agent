@@ -132,6 +132,10 @@ function assertExecutionDisabled(plan) {
   assert.equal(plan.executionBoundary.remoteMutationPerformed, false);
 }
 
+function blockerCodes(plan) {
+  return new Set(plan.readiness.blockerCodes);
+}
+
 test('upload execution prerequisite plan records required boundaries without enabling execution', async () => {
   const approvalReview = await validApprovalReview();
   const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({ approvalReview });
@@ -178,4 +182,79 @@ test('upload execution prerequisite plan records required boundaries without ena
   assert.equal(plan.readiness.blockerCount, 0);
   assert.deepEqual(plan.readiness.blockerCodes, []);
   assertNoPrivateValues(plan);
+});
+
+test('upload execution prerequisite plan blocks non-ready approval reviews', async () => {
+  const approvalReview = await validApprovalReview();
+  const blockedReview = {
+    ...approvalReview,
+    status: 'blocked',
+    approvalReview: {
+      ...approvalReview.approvalReview,
+      humanReviewRecorded: false
+    },
+    readiness: {
+      ...approvalReview.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-mismatch'],
+      blockers: [{
+        code: 'review-fingerprint-mismatch',
+        path: '$.approvalFingerprint',
+        message: 'mismatch'
+      }]
+    }
+  };
+
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: blockedReview
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.readiness.status, 'blocked');
+  assert.equal(plan.readiness.nextAction, 'resolve-blockers');
+  assertExecutionDisabled(plan);
+  assert.equal(plan.sourceReview.reviewStatus, 'blocked');
+  assert.equal(plan.sourceReview.humanReviewRecorded, false);
+  assert.equal(blockerCodes(plan).has('review-not-ready'), true);
+  assert.equal(blockerCodes(plan).has('review-next-action-invalid'), true);
+  assert.equal(blockerCodes(plan).has('mutation-approval-not-reviewed'), true);
+  assertNoPrivateValues(plan);
+});
+
+test('upload execution prerequisite plan blocks unverified review fingerprints', async () => {
+  const approvalReview = await validApprovalReview();
+  const unverifiedReview = {
+    ...approvalReview,
+    approvalReview: {
+      ...approvalReview.approvalReview,
+      fingerprintVerified: false
+    }
+  };
+
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: unverifiedReview
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assertExecutionDisabled(plan);
+  assert.equal(plan.sourceReview.fingerprintVerified, false);
+  assert.equal(plan.prerequisitePlan.fingerprintVerified, false);
+  assert.equal(blockerCodes(plan).has('review-fingerprint-unverified'), true);
+});
+
+test('upload execution prerequisite plan blocks invalid review inputs', () => {
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: null
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assertExecutionDisabled(plan);
+  assert.equal(plan.sourceReview.reviewStatus, 'invalid');
+  assert.equal(blockerCodes(plan).has('missing-required-field'), true);
+  assert.equal(plan.target.manifestId, null);
+  assert.equal(plan.target.objectKey, null);
+  assert.equal(plan.target.objectSha256, null);
+  assert.equal(plan.target.artifactId, null);
 });
