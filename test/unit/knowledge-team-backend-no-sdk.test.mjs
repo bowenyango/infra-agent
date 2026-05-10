@@ -19,9 +19,15 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-write-token-boundary.ts',
   'src/knowledge/team-upload-execution-lease-boundary.ts',
   'src/knowledge/team-upload-rollback-plan-boundary.ts',
+  'src/knowledge/team-upload-audit-record-boundary.ts',
+  'src/knowledge/team-upload-artifact-bytes-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
+];
+
+const ARTIFACT_BYTE_BOUNDARY_MODULES = [
+  'src/knowledge/team-upload-artifact-bytes-boundary.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -43,6 +49,18 @@ const FORBIDDEN_SDK_IMPORTS = [
 const FORBIDDEN_RUNTIME_CREDENTIAL_READS = [
   'process.env[',
   'process.env.'
+];
+
+const FORBIDDEN_ARTIFACT_BYTE_READS = [
+  'node:fs',
+  'fs/promises',
+  'readFile(',
+  'createReadStream(',
+  'Buffer.from(',
+  'arrayBuffer(',
+  'new Blob',
+  'Blob(',
+  'ReadableStream'
 ];
 
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
@@ -70,6 +88,21 @@ test('team backend contract modules do not read runtime credential environment v
         source.includes(forbidden),
         false,
         `${relativePath} must not read runtime credentials via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('artifact bytes boundary does not read or materialize artifact bytes', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of ARTIFACT_BYTE_BOUNDARY_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_ARTIFACT_BYTE_READS) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not read or materialize artifact bytes via ${forbidden}`
       );
     }
   }
