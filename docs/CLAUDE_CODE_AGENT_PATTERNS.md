@@ -78,7 +78,10 @@ durable design reference for infra-agent development.
   `upload-mock-harness` can instantiate only the in-memory mock descriptor
   boundary from a saved preflight. `upload-execution-gate` can compare a saved
   continuation and saved harness for scope consistency, then report only the
-  permission/audit state needed before a separate mutation design. All five
+  permission/audit state needed before a separate mutation design.
+  `upload-mutation-plan` can consume that saved gate and emit a private
+  approval-audit plan for a later human mutation review, without granting that
+  approval or making the plan executable. All six
   remain dry-run routing state with upload approval, upload execution, write
   token issuance, execution lease creation, adapter injection, client creation,
   credential reads, live checks, object/index writes, and remote writes

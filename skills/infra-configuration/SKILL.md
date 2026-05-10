@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -177,6 +177,13 @@ credentials must still come from environment variables.
    does not create execution leases, does not inject adapters, does not provide
    artifact bytes, and does not allow credential reads, live checks, upload
    commands, object writes, index writes, or remote writes.
+   Use `knowledge upload-mutation-plan` only as a dry-run private
+   approval-audit plan from a saved upload execution gate. A `plan-ready`
+   result means a later human mutation review can be requested; it is not
+   mutation approval, does not allow execution, does not issue write tokens,
+   does not create leases or rollback plans, does not provide artifact bytes,
+   and does not allow adapter injection, client creation, credential reads,
+   live checks, upload commands, object writes, index writes, or remote writes.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or
