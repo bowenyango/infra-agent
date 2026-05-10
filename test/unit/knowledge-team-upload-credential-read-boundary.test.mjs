@@ -567,6 +567,122 @@ test('upload credential read boundary validation rejects forged credential state
   assert.equal(validation.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
 });
 
+test('upload credential read boundary validation rejects missing ready prerequisites', async () => {
+  const clientCreationBoundary = await validClientCreationBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({ clientCreationBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    auditRecordCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    target: {
+      ...boundary.target,
+      manifestId: null,
+      artifactId: 'not-a-safe-id',
+      objectSha256: null,
+      objectKey: null
+    },
+    sourceClientCreationBoundary: {
+      ...boundary.sourceClientCreationBoundary,
+      reviewStatus: 'blocked',
+      reviewKind: 'unsupported',
+      scopeMatched: false,
+      humanReviewRecorded: false,
+      fingerprintVerified: false,
+      sourceFingerprintVerified: false,
+      adapterName: null,
+      dryRunOnly: false,
+      clientCreationRequiredBeforeExecution: false,
+      clientCreationRequiredAfterAdapter: false,
+      adapterInjectionRequiredBeforeClient: false,
+      adapterDependencyInjectionOnly: false,
+      mockAdapterRequired: false,
+      clientFactoryDescriptorRequired: false,
+      credentialReadBoundaryRequired: false,
+      credentialPresenceBoundaryRequired: false,
+      liveCheckBoundaryRequired: false,
+      uploadCommandBoundaryRequired: false,
+      artifactObjectStoreDependencyRequired: false,
+      metadataIndexDependencyRequired: false,
+      contentAddressedObjectKeysRequired: false,
+      contentAddressedIndexKeysRequired: false,
+      idempotentWritesRequired: false,
+      explicitUploadApprovalRequired: 'not-boolean'
+    },
+    credentialReadBoundary: {
+      ...boundary.credentialReadBoundary,
+      dryRunOnly: false,
+      credentialReadRequiredBeforeExecution: false,
+      credentialReadRequiredAfterClientBoundary: false,
+      clientCreationBoundaryRequired: false,
+      credentialSourceDescriptorRequired: false,
+      credentialReferenceOnlyRequired: false,
+      credentialValueRedactionRequired: false,
+      mockAdapterRequired: false,
+      clientFactoryDescriptorRequired: false,
+      credentialPresenceBoundaryRequired: false,
+      liveCheckBoundaryRequired: false,
+      uploadCommandBoundaryRequired: false,
+      artifactObjectStoreDependencyRequired: false,
+      metadataIndexDependencyRequired: false,
+      contentAddressedObjectKeysRequired: false,
+      contentAddressedIndexKeysRequired: false,
+      idempotentWritesRequired: false,
+      explicitUploadApprovalRequired: false
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      artifactBytesRequired: false,
+      adapterInjectionRequired: false,
+      clientCreationRequired: false,
+      credentialReadRequired: false,
+      credentialPresenceCheckRequired: false,
+      liveCheckRequired: false,
+      uploadCommandRequired: false,
+      writeTokenRequired: false,
+      executionLeaseRequired: false,
+      rollbackPlanRequired: false,
+      auditRecordRequired: false,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      status: 'blocked'
+    }
+  }, 'knowledge-pack.upload-credential-read-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.uploadApproved'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.manifestId'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.artifactId'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.objectSha256'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.objectKey'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.reviewStatus'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.reviewKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.scopeMatched'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.adapterName'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.dryRunOnly'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.explicitUploadApprovalRequired'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.dryRunOnly'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.credentialReadRequiredBeforeExecution'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.artifactBytesRequired'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.artifactBytesProvided'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.status'), true);
+});
+
 export {
   assertExecutionAndCredentialReadsDisabled,
   assertNoPrivateValues,
