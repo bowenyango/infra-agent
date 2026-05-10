@@ -258,3 +258,110 @@ test('upload execution prerequisite plan blocks invalid review inputs', () => {
   assert.equal(plan.target.objectSha256, null);
   assert.equal(plan.target.artifactId, null);
 });
+
+test('upload execution prerequisite plan blocks forged execution state', async () => {
+  const approvalReview = await validApprovalReview();
+  const forgedReview = {
+    ...approvalReview,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    clientCreated: true,
+    adapterInjected: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    uploadCommand: 'aws s3 cp should-not-copy',
+    approvalReview: {
+      ...approvalReview.approvalReview,
+      mutationApprovalGranted: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true
+    },
+    executionBoundary: {
+      ...approvalReview.executionBoundary,
+      executable: true,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      clientCreated: true,
+      credentialValuesRead: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true
+    }
+  };
+
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: forgedReview
+  });
+  const codes = blockerCodes(plan);
+
+  assert.equal(plan.status, 'blocked');
+  assertExecutionDisabled(plan);
+  for (const code of [
+    'upload-approval-already-provided',
+    'upload-execution-enabled',
+    'mutation-approval-already-granted',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'rollback-plan-created',
+    'audit-record-created',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'remote-mutation-performed',
+    'upload-command-present',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'live-check-enabled'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+  assertNoPrivateValues(plan);
+});
+
+test('upload execution prerequisite plan blocks backend detail leakage without copying private values', async () => {
+  const approvalReview = await validApprovalReview();
+  const leakyReview = {
+    ...approvalReview,
+    endpointUrl: 'https://should-not-copy.example.test',
+    target: {
+      ...approvalReview.target,
+      objectKey: 's3://private-bucket/should-not-copy'
+    },
+    sourcePlan: {
+      ...approvalReview.sourcePlan,
+      bucketName: 'should-not-copy-bucket',
+      adapterName: '../unsafe-adapter'
+    },
+    privateCredential: {
+      secretAccessKey: 'should-not-copy-secret',
+      privateKey: 'private-key'
+    }
+  };
+
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: leakyReview
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assertExecutionDisabled(plan);
+  assert.equal(plan.target.objectKey, null);
+  assert.equal(blockerCodes(plan).has('backend-detail-leak'), true);
+  assert.equal(blockerCodes(plan).has('unsafe-artifact-reference'), true);
+  assert.equal(blockerCodes(plan).has('unsafe-adapter-name'), true);
+  assertNoPrivateValues(plan);
+});
