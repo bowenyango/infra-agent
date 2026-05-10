@@ -341,3 +341,77 @@ test('upload artifact bytes boundary blocks missing audit record boundary sectio
   assert.equal(codes.has('artifact-bytes-not-required'), true);
   assertExecutionDisabled(boundary);
 });
+
+test('upload artifact bytes boundary blocks forged byte, adapter, command, and mutation state', async () => {
+  const auditRecordBoundary = await validAuditRecordBoundary();
+  const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({
+    auditRecordBoundary: {
+      ...auditRecordBoundary,
+      remoteWriteAllowed: true,
+      uploadExecutionAllowed: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      uploadCommand: 'infra-agent upload --should-not-run',
+      auditRecordBoundary: {
+        ...auditRecordBoundary.auditRecordBoundary,
+        auditRecordCreated: true,
+        auditScopeBoundToArtifact: true,
+        auditReviewed: true,
+        artifactBytesProvided: true,
+        executable: true
+      },
+      remainingExecutionBoundaries: {
+        ...auditRecordBoundary.remainingExecutionBoundaries,
+        artifactBytesProvided: true,
+        adapterInjected: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true,
+        remoteMutationAllowed: true
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('remote-write-enabled'), true);
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('client-created'), true);
+  assert.equal(codes.has('adapter-injected'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('audit-record-created'), true);
+  assert.equal(codes.has('audit-scope-already-bound'), true);
+  assert.equal(codes.has('audit-review-already-recorded'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload artifact bytes boundary reports private input and byte details without copying values', async () => {
+  const auditRecordBoundary = await validAuditRecordBoundary();
+  const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({
+    auditRecordBoundary: {
+      ...auditRecordBoundary,
+      sourceRollbackPlanBoundary: {
+        ...auditRecordBoundary.sourceRollbackPlanBoundary,
+        endpointUrl: 'https://should-not-copy.example.test',
+        bucketName: 'should-not-copy-bucket'
+      },
+      auditRecordBoundary: {
+        ...auditRecordBoundary.auditRecordBoundary,
+        artifactBytesValue: 'raw-artifact-bytes',
+        artifactPath: '/home/private/knowledge-pack.json'
+      },
+      artifactMaterial: 'artifact-secret-value'
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assert.equal(codes.has('artifact-bytes-leak'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
