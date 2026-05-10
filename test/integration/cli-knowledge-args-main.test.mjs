@@ -512,3 +512,21 @@ test('knowledge upload-artifact-bytes-boundary CLI args accept audit record boun
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-artifact-bytes-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-adapter-injection-boundary CLI args accept artifact bytes boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-adapter-injection-boundary',
+    'artifacts/knowledge-pack.upload-artifact-bytes-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-adapter-injection-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-adapter-injection-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-artifact-bytes-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-adapter-injection-boundary.json');
+  assert.equal(parsed.json, true);
+});
