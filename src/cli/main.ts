@@ -42,6 +42,7 @@ import { buildKnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-m
 import { buildKnowledgeTeamUploadMutationApprovalReview } from '../knowledge/team-upload-mutation-approval-review.ts';
 import { buildKnowledgeTeamUploadWriteTokenBoundary } from '../knowledge/team-upload-write-token-boundary.ts';
 import { buildKnowledgeTeamUploadExecutionLeaseBoundary } from '../knowledge/team-upload-execution-lease-boundary.ts';
+import { buildKnowledgeTeamUploadRollbackPlanBoundary } from '../knowledge/team-upload-rollback-plan-boundary.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -71,6 +72,7 @@ import {
   printKnowledgeTeamUploadMockHarness,
   printKnowledgeTeamUploadWriteTokenBoundary,
   printKnowledgeTeamUploadExecutionLeaseBoundary,
+  printKnowledgeTeamUploadRollbackPlanBoundary,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
@@ -1987,6 +1989,37 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadExecutionLeaseBoundary(boundary);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-rollback-plan-boundary') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-rollback-plan-boundary requires exactly one upload execution lease boundary path.');
+    }
+
+    const executionLeaseBoundaryPath = resolveFromCwd(parsed.inputPath);
+    const executionLeaseBoundary = await readJsonObject(executionLeaseBoundaryPath);
+    const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({
+      executionLeaseBoundary
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), boundary)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...boundary,
+            outputPath: writtenPath
+          }
+        : boundary, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadRollbackPlanBoundary(boundary);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
