@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { KnowledgeStoragePolicySummary } from './storage-policy.ts';
 import {
   isKnowledgeTeamArtifactSha256,
@@ -68,6 +69,12 @@ export interface KnowledgeTeamUploadApprovalIntent {
     staleSourceCount: number | null;
     storagePolicy: KnowledgeStoragePolicySummary | null;
   };
+  approvalFingerprint: {
+    algorithm: 'sha256';
+    scope: 'stage-knowledge-pack-intent-v1';
+    value: string | null;
+    canonicalFieldCount: number;
+  };
   preconditions: {
     publicationReadiness: {
       status: KnowledgeTeamPublicationReadinessStatus | 'invalid' | null;
@@ -135,6 +142,7 @@ const MANIFEST_ID_PATTERN = /^[a-f0-9]{24}$/;
 const PACK_ID_PATTERN = MANIFEST_ID_PATTERN;
 const SAFE_REFERENCE_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,127}$/;
 const SAFE_ENV_VAR_NAME_PATTERN = /^[A-Z_][A-Z0-9_]{0,127}$/;
+const APPROVAL_FINGERPRINT_FIELD_COUNT = 13;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -695,6 +703,62 @@ function intentReason(status: KnowledgeTeamUploadApprovalIntentStatus): string {
     : 'Upload approval intent is blocked until publication readiness and backend reference preconditions are fixed.';
 }
 
+function buildApprovalFingerprint(input: {
+  enabled: boolean;
+  plannedOperation: KnowledgeTeamUploadApprovalIntent['plannedOperation'];
+  backendKind: KnowledgeTeamUploadApprovalIntent['backendKind'];
+  publicationBackendKind: KnowledgeTeamUploadApprovalIntent['publicationBackendKind'];
+  manifestId: string | null;
+  object: KnowledgeTeamUploadApprovalIntent['object'];
+  artifactId: string | null;
+  configName: string | null;
+  storageProfileRef: string | null;
+  authProfileRef: string | null;
+}): KnowledgeTeamUploadApprovalIntent['approvalFingerprint'] {
+  if (!input.enabled) {
+    return {
+      algorithm: 'sha256',
+      scope: 'stage-knowledge-pack-intent-v1',
+      value: null,
+      canonicalFieldCount: APPROVAL_FINGERPRINT_FIELD_COUNT
+    };
+  }
+
+  const fields = [
+    input.plannedOperation,
+    input.backendKind,
+    input.publicationBackendKind,
+    input.manifestId,
+    input.object.key,
+    input.object.sha256,
+    input.object.byteLength,
+    input.object.contentType,
+    input.artifactId,
+    input.configName,
+    input.storageProfileRef,
+    input.authProfileRef,
+    'schemaVersion:1'
+  ];
+
+  if (fields.some(field => field === null || typeof field === 'undefined')) {
+    return {
+      algorithm: 'sha256',
+      scope: 'stage-knowledge-pack-intent-v1',
+      value: null,
+      canonicalFieldCount: APPROVAL_FINGERPRINT_FIELD_COUNT
+    };
+  }
+
+  return {
+    algorithm: 'sha256',
+    scope: 'stage-knowledge-pack-intent-v1',
+    value: createHash('sha256')
+      .update(JSON.stringify(fields))
+      .digest('hex'),
+    canonicalFieldCount: APPROVAL_FINGERPRINT_FIELD_COUNT
+  };
+}
+
 export function buildKnowledgeTeamUploadApprovalIntent(input: {
   publicationReadiness: unknown;
   backendReferenceValidation: unknown;
@@ -702,10 +766,23 @@ export function buildKnowledgeTeamUploadApprovalIntent(input: {
   const blockers: KnowledgeTeamUploadApprovalIntentBlocker[] = [];
   const publication = parsePublicationReadiness(input.publicationReadiness, blockers);
   const backendReference = parseBackendReference(input.backendReferenceValidation, blockers);
+  const plannedOperation: KnowledgeTeamUploadApprovalIntent['plannedOperation'] = 'stage-knowledge-pack';
   const status: KnowledgeTeamUploadApprovalIntentStatus = blockers.length === 0
     ? 'approval-required'
     : 'blocked';
   const blockerCodes = [...new Set(blockers.map(entry => entry.code))].sort();
+  const approvalFingerprint = buildApprovalFingerprint({
+    enabled: status === 'approval-required',
+    plannedOperation,
+    backendKind: backendReference.backendKind,
+    publicationBackendKind: publication.backendKind,
+    manifestId: publication.manifestId,
+    object: publication.object,
+    artifactId: publication.artifact.id,
+    configName: backendReference.configName,
+    storageProfileRef: backendReference.storageProfileRef,
+    authProfileRef: backendReference.authProfileRef
+  });
 
   return {
     kind: 'infra-agent.knowledge-team-upload-approval-intent',
@@ -713,7 +790,7 @@ export function buildKnowledgeTeamUploadApprovalIntent(input: {
     mutationAllowed: false,
     executionMode: 'dry-run',
     status,
-    plannedOperation: 'stage-knowledge-pack',
+    plannedOperation,
     remoteWriteAllowed: false,
     liveCheckAllowed: false,
     credentialValuesExposed: false,
@@ -724,6 +801,7 @@ export function buildKnowledgeTeamUploadApprovalIntent(input: {
     manifestId: publication.manifestId,
     object: publication.object,
     artifact: publication.artifact,
+    approvalFingerprint,
     preconditions: {
       publicationReadiness: {
         status: publication.status,

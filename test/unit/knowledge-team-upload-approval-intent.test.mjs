@@ -75,6 +75,10 @@ test('upload approval intent reports approval-required for dry-run upload precon
   assert.equal(intent.manifestId, fixture.manifest.manifestId);
   assert.equal(intent.object.key, fixture.uploadRequiredReadiness.object.key);
   assert.equal(intent.artifact.id, fixture.pack.packId);
+  assert.equal(intent.approvalFingerprint.algorithm, 'sha256');
+  assert.equal(intent.approvalFingerprint.scope, 'stage-knowledge-pack-intent-v1');
+  assert.match(intent.approvalFingerprint.value, /^[a-f0-9]{64}$/);
+  assert.equal(intent.approvalFingerprint.canonicalFieldCount, 13);
   assert.equal(intent.preconditions.publicationReadiness.status, 'upload-required');
   assert.equal(intent.preconditions.publicationReadiness.uploadRequired, true);
   assert.equal(intent.preconditions.backendReference.status, 'valid');
@@ -126,6 +130,7 @@ test('upload approval intent blocks when backend references are blocked', async 
   assert.equal(intent.status, 'blocked');
   assert.equal(intent.preconditions.publicationReadiness.uploadRequired, true);
   assert.equal(intent.preconditions.backendReference.status, 'blocked');
+  assert.equal(intent.approvalFingerprint.value, null);
   assert.equal(intent.preconditions.credentialBoundary.requiredEnvironmentVariables.length, 0);
   assert.equal(intent.preconditions.credentialBoundary.optionalEnvironmentVariables.length, 0);
   assert.equal(intent.preconditions.uploadApproval.approvalProvided, false);

@@ -33,6 +33,7 @@ function assertUploadIntentShape(intent) {
     'manifestId',
     'object',
     'artifact',
+    'approvalFingerprint',
     'preconditions',
     'readiness'
   ]);
@@ -49,6 +50,12 @@ function assertUploadIntentShape(intent) {
     'factCount',
     'staleSourceCount',
     'storagePolicy'
+  ]);
+  assert.deepEqual(Object.keys(intent.approvalFingerprint), [
+    'algorithm',
+    'scope',
+    'value',
+    'canonicalFieldCount'
   ]);
   assert.deepEqual(Object.keys(intent.preconditions), [
     'publicationReadiness',
@@ -107,6 +114,10 @@ test('upload approval intent contract accepts compact approval-required summarie
   assert.equal(intent.credentialValuesExposed, false);
   assert.equal(intent.credentialPresenceChecked, false);
   assert.equal(intent.uploadCommand, null);
+  assert.equal(intent.approvalFingerprint.algorithm, 'sha256');
+  assert.equal(intent.approvalFingerprint.scope, 'stage-knowledge-pack-intent-v1');
+  assert.match(intent.approvalFingerprint.value, /^[a-f0-9]{64}$/);
+  assert.equal(intent.approvalFingerprint.canonicalFieldCount, 13);
   assert.equal(intent.preconditions.uploadApproval.explicitUploadApprovalRequired, true);
   assert.equal(intent.preconditions.uploadApproval.approvalProvided, false);
   assert.equal(intent.preconditions.uploadApproval.uploadCommandGenerated, false);
@@ -132,6 +143,10 @@ test('upload approval intent contract keeps blocked summaries safe', async () =>
   assertUploadIntentShape(intent);
   assert.equal(intent.status, 'blocked');
   assert.equal(intent.uploadCommand, null);
+  assert.equal(intent.approvalFingerprint.algorithm, 'sha256');
+  assert.equal(intent.approvalFingerprint.scope, 'stage-knowledge-pack-intent-v1');
+  assert.equal(intent.approvalFingerprint.value, null);
+  assert.equal(intent.approvalFingerprint.canonicalFieldCount, 13);
   assert.equal(intent.readiness.nextAction, 'resolve-blockers');
   assert.equal(intent.readiness.blockerCodes.includes('publication-readiness-blocked'), true);
   assert.equal(intent.readiness.blockerCodes.includes('credential-values-exposed'), true);
