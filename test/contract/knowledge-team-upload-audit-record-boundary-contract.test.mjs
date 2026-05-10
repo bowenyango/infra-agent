@@ -222,3 +222,123 @@ test('knowledge team upload audit record boundary contract stays dry-run and exp
   assert.equal(boundary.remainingExecutionBoundaries.remoteMutationAllowed, false);
   assert.equal(validation.valid, true);
 });
+
+test('knowledge team upload audit record boundary contract accepts blocked safe boundaries', () => {
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({ rollbackPlanBoundary: null });
+  const validation = validateKnowledgePayload(boundary, 'knowledge-pack.upload-audit-record-boundary.json');
+
+  assertAuditRecordBoundaryShape(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.sourceRollbackPlanBoundary.boundaryStatus, 'invalid');
+  assert.equal(validation.valid, true);
+});
+
+test('knowledge team upload audit record boundary contract rejects missing core objects', async () => {
+  const rollbackPlanBoundary = await validRollbackPlanBoundary();
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({ rollbackPlanBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    target: null,
+    sourceRollbackPlanBoundary: null,
+    auditRecordBoundary: null,
+    remainingExecutionBoundaries: null,
+    readiness: null
+  }, 'knowledge-pack.upload-audit-record-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceRollbackPlanBoundary'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.auditRecordBoundary'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness'), true);
+});
+
+test('knowledge team upload audit record boundary contract rejects ready payload drift', async () => {
+  const rollbackPlanBoundary = await validRollbackPlanBoundary();
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({ rollbackPlanBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    sourceRollbackPlanBoundary: {
+      ...boundary.sourceRollbackPlanBoundary,
+      source: 'upload-execution-lease-boundary',
+      boundaryStatus: 'blocked',
+      boundaryKind: 'unsupported',
+      boundaryNextAction: 'resolve-blockers',
+      reviewStatus: 'blocked',
+      reviewKind: 'unsupported',
+      scopeMatched: false,
+      humanReviewRecorded: false,
+      fingerprintVerified: false,
+      sourceFingerprintVerified: false,
+      adapterName: null,
+      adapterBackendKind: 'unsupported',
+      tokenRequiredBeforeExecution: false,
+      tokenScopeBindingRequired: false,
+      tokenSingleUseRequired: false,
+      tokenExpiryRequired: false,
+      executionLeaseRequiredBeforeExecution: false,
+      leaseScopeBindingRequired: false,
+      leaseSingleUseRequired: false,
+      leaseExpiryRequired: false,
+      writeTokenRequiredBeforeLease: false,
+      auditBindingRequired: false,
+      rollbackPlanRequiredBeforeExecution: false,
+      rollbackScopeBindingRequired: false,
+      rollbackReviewRequired: false,
+      auditRecordRequiredBeforeExecution: false
+    },
+    auditRecordBoundary: {
+      ...boundary.auditRecordBoundary,
+      dryRunOnly: false,
+      auditRecordRequiredBeforeExecution: false,
+      auditRecordCreated: true,
+      auditScopeBindingRequired: false,
+      auditScopeBoundToArtifact: true,
+      auditReviewRequired: false,
+      auditReviewed: true,
+      writeTokenRequiredBeforeAudit: false,
+      writeTokenIssued: true,
+      executionLeaseRequiredBeforeAudit: false,
+      executionLeaseCreated: true,
+      rollbackPlanRequiredBeforeAudit: false,
+      rollbackPlanCreated: true,
+      artifactBytesRequiredBeforeAudit: false,
+      artifactBytesProvided: true,
+      auditBindingRequired: false,
+      auditBindingCreated: true,
+      executable: true
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      artifactBytesRequired: false,
+      artifactBytesProvided: true,
+      adapterInjectionRequired: false,
+      adapterInjected: true,
+      writeTokenRequired: false,
+      writeTokenIssued: true,
+      executionLeaseRequired: false,
+      executionLeaseCreated: true,
+      rollbackPlanRequired: false,
+      rollbackPlanCreated: true,
+      auditRecordRequired: false,
+      auditRecordCreated: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      remoteMutationAllowed: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      nextAction: 'resolve-blockers',
+      blockerCount: 1
+    }
+  }, 'knowledge-pack.upload-audit-record-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceRollbackPlanBoundary.source'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceRollbackPlanBoundary.boundaryStatus'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.auditRecordBoundary.auditRecordCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.remoteMutationAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+});

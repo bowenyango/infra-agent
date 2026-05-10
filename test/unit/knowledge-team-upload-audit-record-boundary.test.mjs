@@ -261,8 +261,10 @@ test('upload audit record boundary blocks malformed rollback plan metadata', asy
       boundaryKind: 'execution-lease-boundary-dry-run',
       target: {
         ...rollbackPlanBoundary.target,
+        manifestId: 'not-a-safe-id',
         objectKey: '../unsafe.json',
-        objectSha256: 'not-a-sha'
+        objectSha256: 'not-a-sha',
+        artifactId: 'not-a-safe-id'
       }
     }
   });
@@ -274,6 +276,64 @@ test('upload audit record boundary blocks malformed rollback plan metadata', asy
   assert.equal(codes.has('invalid-schema-version'), true);
   assert.equal(codes.has('invalid-boundary-kind'), true);
   assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload audit record boundary blocks missing rollback plan boundary sections', () => {
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({
+    rollbackPlanBoundary: {
+      kind: 'infra-agent.knowledge-team-upload-rollback-plan-boundary',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      executionMode: 'dry-run',
+      boundaryKind: 'rollback-plan-boundary-dry-run',
+      status: 'not-a-status',
+      plannedOperation: 'stage-knowledge-pack',
+      remoteWriteAllowed: false,
+      liveCheckAllowed: false,
+      credentialValuesExposed: false,
+      credentialPresenceChecked: false,
+      uploadApproved: false,
+      uploadExecutionAllowed: false,
+      mutationApprovalGranted: false,
+      clientCreated: false,
+      adapterInjected: false,
+      artifactBytesProvided: false,
+      writeTokenIssued: false,
+      executionLeaseCreated: false,
+      rollbackPlanCreated: false,
+      auditRecordCreated: false,
+      objectWriteAttempted: false,
+      metadataIndexWriteAttempted: false,
+      remoteMutationPerformed: false,
+      uploadCommand: null,
+      target: null,
+      readiness: null,
+      sourceExecutionLeaseBoundary: null,
+      rollbackPlanBoundary: null,
+      remainingExecutionBoundaries: null
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceRollbackPlanBoundary.boundaryStatus, 'invalid');
+  assert.equal(boundary.sourceRollbackPlanBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.sourceRollbackPlanBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceRollbackPlanBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceRollbackPlanBoundary.adapterBackendKind, 'unsupported');
+  assert.equal(codes.has('rollback-boundary-not-ready'), true);
+  assert.equal(codes.has('rollback-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsafe-adapter-name'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('write-token-not-required'), true);
+  assert.equal(codes.has('execution-lease-not-required'), true);
+  assert.equal(codes.has('rollback-plan-not-required'), true);
+  assert.equal(codes.has('audit-record-not-required'), true);
   assertExecutionDisabled(boundary);
 });
 
