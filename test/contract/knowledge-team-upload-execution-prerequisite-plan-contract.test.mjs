@@ -226,6 +226,10 @@ function assertNonExecutable(plan) {
   }
 }
 
+function issuePaths(report) {
+  return new Set(report.issues.map(issue => issue.path));
+}
+
 test('upload execution prerequisite plan contract accepts ready prerequisite plans', async () => {
   const approvalReview = await validApprovalReview();
   const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({ approvalReview });
@@ -292,4 +296,213 @@ test('upload execution prerequisite plan contract rejects executable drift', asy
   assert.ok(report.issues.some(issue => issue.path === '$.writeTokenIssued'));
   assert.ok(report.issues.some(issue => issue.path === '$.executionBoundary.executable'));
   assert.ok(report.issues.some(issue => issue.path === '$.readiness.blockerCount'));
+});
+
+test('upload execution prerequisite plan contract rejects missing core objects', async () => {
+  const approvalReview = await validApprovalReview();
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({ approvalReview });
+  const forgedPlan = {
+    ...plan,
+    status: 'invalid-status',
+    prerequisitePlanKind: 'runtime-prerequisite',
+    plannedOperation: 'delete-knowledge-pack',
+    uploadApproved: true,
+    auditRecordCreated: true,
+    target: null,
+    sourceReview: null,
+    prerequisitePlan: null,
+    executionBoundary: null,
+    readiness: null
+  };
+  const report = validateKnowledgePayload(forgedPlan, {
+    inputPath: 'execution-prerequisite-plan.missing-core.json'
+  });
+  const paths = issuePaths(report);
+
+  assert.equal(report.valid, false);
+  for (const path of [
+    '$.status',
+    '$.prerequisitePlanKind',
+    '$.plannedOperation',
+    '$.uploadApproved',
+    '$.auditRecordCreated',
+    '$.target',
+    '$.sourceReview',
+    '$.prerequisitePlan',
+    '$.executionBoundary',
+    '$.readiness'
+  ]) {
+    assert.equal(paths.has(path), true, path);
+  }
+});
+
+test('upload execution prerequisite plan contract rejects ready payload drift', async () => {
+  const approvalReview = await validApprovalReview();
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({ approvalReview });
+  const forgedPlan = {
+    ...plan,
+    target: {
+      manifestId: null,
+      objectKey: null,
+      objectSha256: null,
+      artifactId: 'UNSAFE'
+    },
+    sourceReview: {
+      ...plan.sourceReview,
+      source: 'manual-review',
+      reviewStatus: 'blocked',
+      reviewKind: 'unsupported',
+      reviewNextAction: 'resolve-blockers',
+      planStatus: 'blocked',
+      planNextAction: 'resolve-blockers',
+      gateStatus: 'blocked',
+      scopeMatched: false,
+      humanReviewRecorded: false,
+      fingerprintVerified: false,
+      sourceFingerprintVerified: false,
+      suppliedFingerprint: 'not-a-sha',
+      expectedFingerprint: '0'.repeat(64),
+      adapterName: '../unsafe-adapter',
+      adapterBackendKind: 's3-compatible'
+    },
+    prerequisitePlan: {
+      ...plan.prerequisitePlan,
+      humanReviewRequired: false,
+      humanReviewRecorded: 'yes',
+      fingerprintVerified: 'no',
+      mutationApprovalRequired: false,
+      mutationApprovalGranted: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      executionPrerequisitesRequired: false,
+      executionAllowed: true,
+      nextRequiredBoundary: 'execute-now'
+    },
+    executionBoundary: {
+      ...plan.executionBoundary,
+      executable: true,
+      dryRunOnly: false,
+      artifactBytesRequiredBeforeExecution: false,
+      artifactBytesProvided: true,
+      adapterInjectionRequiredBeforeExecution: false,
+      adapterInjected: true,
+      writeTokenRequiredBeforeExecution: false,
+      writeTokenIssued: true,
+      executionLeaseRequiredBeforeExecution: false,
+      executionLeaseCreated: true,
+      rollbackPlanRequiredBeforeExecution: false,
+      rollbackPlanCreated: true,
+      auditRecordRequiredBeforeExecution: false,
+      auditRecordCreated: true,
+      clientCreated: true,
+      credentialValuesRead: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true
+    },
+    readiness: {
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['unsupported-adapter-backend'],
+      blockers: [{
+        code: 'unsupported-adapter-backend',
+        path: '$.sourceReview.adapterBackendKind',
+        message: 'adapter backend must stay mock-only'
+      }],
+      reason: 'blocked'
+    }
+  };
+  const report = validateKnowledgePayload(forgedPlan, {
+    inputPath: 'execution-prerequisite-plan.ready-drift.json'
+  });
+  const paths = issuePaths(report);
+
+  assert.equal(report.valid, false);
+  for (const path of [
+    '$.target.manifestId',
+    '$.target.objectKey',
+    '$.target.objectSha256',
+    '$.target.artifactId',
+    '$.sourceReview.source',
+    '$.sourceReview.reviewStatus',
+    '$.sourceReview.reviewKind',
+    '$.sourceReview.reviewNextAction',
+    '$.sourceReview.planStatus',
+    '$.sourceReview.planNextAction',
+    '$.sourceReview.gateStatus',
+    '$.sourceReview.scopeMatched',
+    '$.sourceReview.humanReviewRecorded',
+    '$.sourceReview.fingerprintVerified',
+    '$.sourceReview.sourceFingerprintVerified',
+    '$.sourceReview.suppliedFingerprint',
+    '$.sourceReview.adapterName',
+    '$.sourceReview.adapterBackendKind',
+    '$.prerequisitePlan.humanReviewRequired',
+    '$.prerequisitePlan.humanReviewRecorded',
+    '$.prerequisitePlan.fingerprintVerified',
+    '$.prerequisitePlan.mutationApprovalRequired',
+    '$.prerequisitePlan.mutationApprovalGranted',
+    '$.prerequisitePlan.uploadApproved',
+    '$.prerequisitePlan.uploadExecutionAllowed',
+    '$.prerequisitePlan.executionPrerequisitesRequired',
+    '$.prerequisitePlan.executionAllowed',
+    '$.prerequisitePlan.nextRequiredBoundary',
+    '$.executionBoundary.executable',
+    '$.executionBoundary.dryRunOnly',
+    '$.executionBoundary.artifactBytesRequiredBeforeExecution',
+    '$.executionBoundary.artifactBytesProvided',
+    '$.executionBoundary.adapterInjectionRequiredBeforeExecution',
+    '$.executionBoundary.adapterInjected',
+    '$.executionBoundary.writeTokenRequiredBeforeExecution',
+    '$.executionBoundary.writeTokenIssued',
+    '$.executionBoundary.executionLeaseRequiredBeforeExecution',
+    '$.executionBoundary.executionLeaseCreated',
+    '$.executionBoundary.rollbackPlanRequiredBeforeExecution',
+    '$.executionBoundary.rollbackPlanCreated',
+    '$.executionBoundary.auditRecordRequiredBeforeExecution',
+    '$.executionBoundary.auditRecordCreated',
+    '$.executionBoundary.clientCreated',
+    '$.executionBoundary.credentialValuesRead',
+    '$.executionBoundary.credentialPresenceChecked',
+    '$.executionBoundary.liveCheckPerformed',
+    '$.executionBoundary.uploadCommandGenerated',
+    '$.executionBoundary.objectWriteAttempted',
+    '$.executionBoundary.metadataIndexWriteAttempted',
+    '$.executionBoundary.remoteMutationPerformed',
+    '$.readiness.status',
+    '$.readiness.nextAction',
+    '$.readiness.blockerCount'
+  ]) {
+    assert.equal(paths.has(path), true, path);
+  }
+});
+
+test('upload execution prerequisite plan contract rejects blocked next action drift', async () => {
+  const approvalReview = await validApprovalReview();
+  const blockedPlan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: {
+      ...approvalReview,
+      approvalReview: {
+        ...approvalReview.approvalReview,
+        fingerprintVerified: false
+      }
+    }
+  });
+  const forgedPlan = {
+    ...blockedPlan,
+    readiness: {
+      ...blockedPlan.readiness,
+      nextAction: 'design-write-token-boundary'
+    }
+  };
+  const report = validateKnowledgePayload(forgedPlan, {
+    inputPath: 'execution-prerequisite-plan.blocked-drift.json'
+  });
+
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some(issue => issue.path === '$.readiness.nextAction'));
 });

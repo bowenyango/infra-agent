@@ -262,6 +262,109 @@ test('upload execution prerequisite plan blocks invalid review inputs', () => {
   assert.equal(plan.target.artifactId, null);
 });
 
+test('upload execution prerequisite plan blocks malformed review metadata', () => {
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: {
+      kind: 'infra-agent.other-artifact',
+      schemaVersion: 2,
+      reviewKind: 'operator-note',
+      status: 'queued',
+      target: {
+        manifestId: 'unsafe-id',
+        objectKey: '../unsafe-object',
+        objectSha256: 'not-a-sha',
+        artifactId: 'unsafe-artifact'
+      },
+      sourcePlan: {
+        planStatus: 'queued',
+        planNextAction: 'deploy',
+        gateStatus: 'open',
+        sourceFingerprintVerified: false,
+        scopeMatched: false,
+        adapterName: 'mock-team-cache',
+        adapterBackendKind: 'real-s3'
+      },
+      approvalReview: {
+        humanReviewRecorded: false,
+        fingerprintVerified: false,
+        suppliedFingerprint: 'not-a-fingerprint',
+        expectedFingerprint: null
+      },
+      executionBoundary: {},
+      readiness: {
+        nextAction: 'execute-upload',
+        blockerCount: 1
+      }
+    }
+  });
+  const codes = blockerCodes(plan);
+
+  assert.equal(plan.status, 'blocked');
+  assertExecutionDisabled(plan);
+  assert.equal(plan.sourceReview.reviewStatus, 'invalid');
+  assert.equal(plan.sourceReview.reviewKind, 'unsupported');
+  assert.equal(plan.sourceReview.reviewNextAction, 'invalid');
+  assert.equal(plan.sourceReview.planStatus, 'invalid');
+  assert.equal(plan.sourceReview.planNextAction, 'invalid');
+  assert.equal(plan.sourceReview.gateStatus, 'invalid');
+  assert.equal(plan.sourceReview.adapterBackendKind, 'unsupported');
+  assert.equal(plan.target.manifestId, null);
+  assert.equal(plan.target.objectKey, null);
+  assert.equal(plan.target.objectSha256, null);
+  assert.equal(plan.target.artifactId, null);
+  for (const code of [
+    'invalid-approval-review-kind',
+    'invalid-schema-version',
+    'invalid-review-kind',
+    'review-not-ready',
+    'unsafe-artifact-reference',
+    'review-next-action-invalid',
+    'mutation-approval-not-reviewed',
+    'review-fingerprint-unverified',
+    'scope-not-matched',
+    'unsupported-adapter-backend',
+    'review-fingerprint-missing'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+});
+
+test('upload execution prerequisite plan blocks missing nested review sections', () => {
+  const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+    approvalReview: {
+      kind: 'infra-agent.knowledge-team-upload-mutation-approval-review',
+      schemaVersion: 1,
+      reviewKind: 'human-fingerprint-dry-run',
+      status: 'review-ready',
+      target: null,
+      sourcePlan: null,
+      approvalReview: null,
+      executionBoundary: null,
+      readiness: null
+    }
+  });
+  const codes = blockerCodes(plan);
+
+  assert.equal(plan.status, 'blocked');
+  assertExecutionDisabled(plan);
+  assert.equal(plan.sourceReview.reviewNextAction, 'invalid');
+  assert.equal(plan.sourceReview.planStatus, 'invalid');
+  assert.equal(plan.sourceReview.planNextAction, 'invalid');
+  assert.equal(plan.sourceReview.gateStatus, 'invalid');
+  assert.equal(plan.target.manifestId, null);
+  assert.equal(plan.target.objectKey, null);
+  assert.equal(plan.target.objectSha256, null);
+  assert.equal(plan.target.artifactId, null);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('review-next-action-invalid'), true);
+  assert.equal(codes.has('mutation-approval-not-reviewed'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('review-fingerprint-missing'), true);
+});
+
 test('upload execution prerequisite plan blocks forged execution state', async () => {
   const approvalReview = await validApprovalReview();
   const forgedReview = {
