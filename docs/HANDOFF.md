@@ -43,7 +43,8 @@ Current guardrails:
 
 Status:
 
-- Active. This slice adds a private explicit upload approval continuation
+- Implemented through focused verification. This slice adds a private explicit
+  upload approval continuation
   contract for team knowledge publication planning.
 - Scope is still dry-run planning only: consume a saved
   `infra-agent.knowledge-team-upload-approval-intent` plus an explicit matching
@@ -63,23 +64,42 @@ Why this direction:
   metadata can preserve an approval scope, but execution remains separate and
   mutation-disabled until a later explicitly gated implementation exists.
 
-Planned commits and checkpoints:
+Completed commits and checkpoints:
 
-1. Record the active continuation plan and non-goals.
-2. Add a deterministic safe approval fingerprint to the private upload intent.
-3. Cover the intent fingerprint and no-leak posture in unit tests.
-4. Add the private upload approval continuation contract and builder.
-5. Cover continuation-ready behavior for a matching explicit fingerprint.
-6. Cover blocked continuation behavior for blocked intents and mismatched
-   fingerprints.
-7. Lock the continuation JSON shape with contract tests.
-8. Add validation dispatcher coverage for upload intent and continuation
-   payloads.
-9. Add CLI argument parsing for `knowledge upload-approval-continuation`.
-10. Wire CLI JSON/text/`--out` output for the continuation artifact.
-11. Add CLI integration, help, and parser regression tests.
-12. Extend no-SDK/no-network/no-env-read guard coverage.
-13. Update README, rules, roadmap, skill, and final handoff.
+1. `f76ed8a` docs: record upload approval continuation plan.
+2. `0b76115` feat: fingerprint upload approval intent scope.
+3. `9ca6156` feat: add upload approval continuation contract.
+4. `fea03e4` test: cover upload approval continuation paths.
+5. `aeb1790` test: lock upload approval continuation contract.
+6. `2f68f4b` test: validate upload approval continuation artifacts.
+7. `b8b6f9b` feat: wire upload approval continuation cli.
+8. `1859ec1` test: guard upload continuation backend boundary.
+9. `3c7a7df` docs: document upload approval continuation boundary.
+
+Current design:
+
+- `src/knowledge/team-upload-approval-intent.ts` now emits an
+  `approvalFingerprint` object for approval-required intents. The fingerprint is
+  a SHA-256 digest over safe canonical scope fields: planned operation,
+  backend/publication backend kinds, manifest id, content-addressed object
+  metadata, artifact id, and private reference names. Blocked intents keep the
+  fingerprint value `null`.
+- `src/knowledge/team-upload-approval-continuation.ts` owns the private
+  `infra-agent.knowledge-team-upload-approval-continuation` contract and
+  builder. It consumes a saved upload approval intent and an explicit
+  fingerprint string, recomputes the expected fingerprint, and reports either
+  `continuation-ready` or `blocked`.
+- A continuation-ready payload is still inert. It keeps
+  `uploadApproved=false`, `uploadExecutionAllowed=false`, `clientCreated=false`,
+  `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`, and
+  `uploadCommand=null`.
+- `src/knowledge/team-upload-approval-validation.ts` validates both upload
+  approval intent and continuation payloads behind `knowledge validate`.
+- `src/cli/main.ts` adds
+  `infra-agent knowledge upload-approval-continuation <intent.json>
+  --approval-fingerprint <sha256> [--out <continuation.json>] [--json]`.
+  `src/cli/output.ts` adds safe text output for the continuation artifact.
 
 Acceptance criteria:
 
@@ -111,6 +131,27 @@ Current risks to monitor:
   or durable authorization mechanism.
 - The continuation artifact must remain private routing state and must not be
   embedded into public artifact/readiness JSON.
+
+Verification completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-approval-continuation.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-approval-continuation-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-approval-continuation-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-upload-approval-intent.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-approval-intent-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-approval-intent-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `npm run test:structure`
+- `npm run lint`
+
+Next step:
+
+- Run full `npm run verify`. If it passes, record the full verification result.
+  Future work should keep the next real-backend slice separate and start from a
+  dependency-injected adapter execution design guarded by explicit approval,
+  not from a direct upload command.
 
 ## 2026-05-09 Active Upload Approval Intent Plan
 
