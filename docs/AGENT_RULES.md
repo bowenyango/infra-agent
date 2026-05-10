@@ -307,6 +307,24 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   harnesses, mutation plans, artifact bytes, write tokens, leases, SDK clients,
   adapters, credential values or presence checks, live checks, upload commands,
   or object/index mutation.
+- `infra-agent knowledge upload-write-token-boundary` is a dry-run private
+  write-token boundary planning command. It may read one saved upload execution
+  prerequisite plan and record the required token contract for future execution:
+  token required before execution, scope binding, single use, expiry, audit
+  binding, execution lease precondition, and rollback precondition.
+  `write-token-boundary-ready` is not token issuance or upload execution
+  readiness. It must keep `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `mutationApprovalGranted=false`,
+  `writeTokenIssued=false`, `tokenScopeBoundToArtifact=false`,
+  `singleUseTokenIssued=false`, `tokenExpirySet=false`,
+  `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+  `artifactBytesProvided=false`, `adapterInjected=false`,
+  `clientCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept backend configs, registries, mock
+  harnesses, mutation plans, artifact bytes, concrete write tokens, leases,
+  SDK clients, adapters, credential values or presence checks, live checks,
+  upload commands, or object/index mutation.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

@@ -88,11 +88,15 @@ durable design reference for infra-agent development.
   `upload-execution-prerequisite-plan` can consume that review record and make
   the required future boundaries explicit: artifact bytes, adapter injection,
   write token, execution lease, rollback plan, and audit record. It still does
-  not create any of them and is not execution readiness. All eight
-  remain dry-run routing state with upload approval, upload execution, write
-  token issuance, execution lease creation, rollback creation, adapter
-  injection, client creation, credential reads, live checks, object/index
-  writes, and remote writes disabled.
+  not create any of them and is not execution readiness.
+  `upload-write-token-boundary` can consume that prerequisite plan and model
+  the future token contract: token-before-execution, artifact scope binding,
+  single-use issuance, expiry, audit binding, execution lease precondition, and
+  rollback precondition. It still does not issue, bind, activate, or expose a
+  token. All nine remain dry-run routing state with upload approval, upload
+  execution, write token issuance, execution lease creation, rollback creation,
+  adapter injection, client creation, credential reads, live checks,
+  object/index writes, and remote writes disabled.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without
