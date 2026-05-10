@@ -21,6 +21,9 @@ import {
   buildKnowledgeTeamUploadApprovalIntent
 } from '../../src/knowledge/team-upload-approval-intent.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -238,4 +241,46 @@ test('upload adapter preflight blocks unsafe adapter capability drift', async ()
   assert.equal(preflight.readiness.blockerCodes.includes('adapter-upload-command-present'), true);
   assert.equal(preflight.readiness.blockerCodes.includes('backend-detail-leak'), true);
   assertNoPrivateValues(preflight);
+});
+
+test('knowledge validation accepts and rejects upload adapter preflight artifacts', async () => {
+  const preflight = buildKnowledgeTeamUploadAdapterPreflight({
+    continuation: await validContinuation(),
+    adapterResolutionPlan: validMockAdapterPlan()
+  });
+  const validReport = validateKnowledgePayload(preflight, 'preflight.json');
+
+  assert.equal(validReport.valid, true);
+  assert.equal(validReport.inputKind, 'infra-agent.knowledge-team-upload-adapter-preflight');
+  assert.equal(validReport.issueCount, 0);
+
+  const forgedReport = validateKnowledgePayload({
+    ...preflight,
+    remoteWriteAllowed: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    clientCreated: true,
+    adapterInjected: true,
+    uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+    adapterDependency: {
+      ...preflight.adapterDependency,
+      remoteWriteAllowed: true,
+      liveCheckAllowed: true,
+      credentialValuesExposed: true,
+      uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+    }
+  }, 'forged-preflight.json');
+
+  assert.equal(forgedReport.valid, false);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.remoteWriteAllowed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.uploadApproved'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.uploadExecutionAllowed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.clientCreated'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.adapterInjected'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.uploadCommand'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.adapterDependency.remoteWriteAllowed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.adapterDependency.liveCheckAllowed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.adapterDependency.credentialValuesExposed'), true);
+  assert.equal(forgedReport.issues.some(issue => issue.path === '$.adapterDependency.uploadCommand'), true);
+  assertNoPrivateValues(forgedReport);
 });
