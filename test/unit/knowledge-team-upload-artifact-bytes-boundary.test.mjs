@@ -53,6 +53,9 @@ import {
 import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
 
 function validBackendReferenceSummary() {
   return validateKnowledgeTeamS3CompatibleBackendReferences(
@@ -160,6 +163,7 @@ function blockerCodes(boundary) {
 test('upload artifact bytes boundary records byte staging requirements without reading bytes', async () => {
   const auditRecordBoundary = await validAuditRecordBoundary();
   const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({ auditRecordBoundary });
+  const validation = validateKnowledgePayload(boundary, 'knowledge-pack.upload-artifact-bytes-boundary.json');
 
   assert.equal(boundary.kind, 'infra-agent.knowledge-team-upload-artifact-bytes-boundary');
   assert.equal(boundary.schemaVersion, 1);
@@ -205,6 +209,7 @@ test('upload artifact bytes boundary records byte staging requirements without r
   assert.equal(boundary.readiness.nextAction, 'design-adapter-injection-boundary');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assert.equal(validation.valid, true);
   assertNoPrivateValues(boundary);
 });
 
@@ -414,4 +419,47 @@ test('upload artifact bytes boundary reports private input and byte details with
   assert.equal(codes.has('artifact-bytes-leak'), true);
   assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload artifact bytes boundary validation rejects forged byte state and payloads', async () => {
+  const auditRecordBoundary = await validAuditRecordBoundary();
+  const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({ auditRecordBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    artifactBytesProvided: true,
+    artifactBytesBoundary: {
+      ...boundary.artifactBytesBoundary,
+      artifactBytesProvided: true,
+      artifactDigestVerified: true,
+      artifactScopeBoundToArtifact: true,
+      executable: true,
+      artifactBytesValue: 'raw-artifact-bytes'
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      artifactBytesProvided: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      remoteMutationAllowed: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      nextAction: 'resolve-blockers',
+      blockerCount: 1
+    }
+  }, 'knowledge-pack.upload-artifact-bytes-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.artifactBytesProvided'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.artifactBytesBoundary.artifactBytesProvided'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.artifactBytesBoundary.artifactDigestVerified'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.artifactBytesBoundary.artifactScopeBoundToArtifact'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.artifactBytesBoundary.executable'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.artifactBytesBoundary.artifactBytesValue'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.artifactBytesProvided'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.objectWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.remoteMutationAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
 });
