@@ -69,6 +69,7 @@ import type { KnowledgeTeamUploadAdapterInjectionBoundary } from '../knowledge/t
 import type { KnowledgeTeamUploadClientCreationBoundary } from '../knowledge/team-upload-client-creation-boundary.ts';
 import type { KnowledgeTeamUploadCredentialReadBoundary } from '../knowledge/team-upload-credential-read-boundary.ts';
 import type { KnowledgeTeamUploadCredentialPresenceBoundary } from '../knowledge/team-upload-credential-presence-boundary.ts';
+import type { KnowledgeTeamUploadLiveCheckBoundary } from '../knowledge/team-upload-live-check-boundary.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -4553,6 +4554,70 @@ export function printKnowledgeTeamUploadCredentialPresenceBoundary(
   printList(
     boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload credential presence boundary blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadLiveCheckBoundary(
+  boundary: KnowledgeTeamUploadLiveCheckBoundary
+): void {
+  printHeader('Knowledge team upload live check boundary');
+  process.stdout.write(`status: ${boundary.status}\n`);
+  process.stdout.write(`next action: ${boundary.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${boundary.plannedOperation}\n`);
+  process.stdout.write(`execution: ${boundary.executionMode}\n`);
+  process.stdout.write(`boundary: ${boundary.boundaryKind}\n`);
+  process.stdout.write(`target manifest: ${boundary.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object: ${boundary.target.objectKey}\n`);
+  process.stdout.write(`target artifact: ${boundary.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${boundary.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check allowed: ${boundary.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${boundary.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${boundary.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${boundary.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${boundary.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${boundary.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${boundary.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${boundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${boundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${boundary.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${boundary.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${boundary.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${boundary.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${boundary.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${boundary.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${boundary.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${boundary.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source credential presence boundary: ${boundary.sourceCredentialPresenceBoundary.boundaryStatus}\n`);
+  process.stdout.write(`source credential presence action: ${boundary.sourceCredentialPresenceBoundary.boundaryNextAction}\n`);
+  process.stdout.write(`source review: ${boundary.sourceCredentialPresenceBoundary.reviewStatus}\n`);
+  process.stdout.write(`scope matched: ${boundary.sourceCredentialPresenceBoundary.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human review recorded: ${boundary.sourceCredentialPresenceBoundary.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${boundary.sourceCredentialPresenceBoundary.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${boundary.sourceCredentialPresenceBoundary.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${boundary.sourceCredentialPresenceBoundary.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${boundary.sourceCredentialPresenceBoundary.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`source credential values read: ${boundary.sourceCredentialPresenceBoundary.credentialValuesRead ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source credential values exposed: ${boundary.sourceCredentialPresenceBoundary.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source credential presence checked: ${boundary.sourceCredentialPresenceBoundary.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source live check performed: ${boundary.sourceCredentialPresenceBoundary.liveCheckPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check policy required: ${boundary.liveCheckBoundary.liveCheckPolicyRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check read-only required: ${boundary.liveCheckBoundary.liveCheckReadOnlyRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check result redaction required: ${boundary.liveCheckBoundary.liveCheckResultRedactionRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check allowed: ${boundary.liveCheckBoundary.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check performed: ${boundary.liveCheckBoundary.liveCheckPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check result exposed: ${boundary.liveCheckBoundary.liveCheckResultExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command boundary required: ${boundary.liveCheckBoundary.uploadCommandBoundaryRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential read required: ${boundary.remainingExecutionBoundaries.credentialReadRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence check required: ${boundary.remainingExecutionBoundaries.credentialPresenceCheckRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check required: ${boundary.remainingExecutionBoundaries.liveCheckRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command required: ${boundary.remainingExecutionBoundaries.uploadCommandRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`dry run only: ${boundary.liveCheckBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`executable: ${boundary.liveCheckBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: credentialValuesRead=${boundary.liveCheckBoundary.credentialValuesRead ? 'yes' : 'no'}, credentialPresenceChecked=${boundary.liveCheckBoundary.credentialPresenceChecked ? 'yes' : 'no'}, liveCheckPerformed=${boundary.liveCheckBoundary.liveCheckPerformed ? 'yes' : 'no'}, uploadCommandGenerated=${boundary.liveCheckBoundary.uploadCommandGenerated ? 'yes' : 'no'}, blockers=${boundary.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload live check boundary blockers.'
   );
 }
 
