@@ -6,6 +6,49 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Command Boundary Plan
+
+Status:
+
+- Active. This slice continues the private dry-run upload boundary chain after
+  `upload-live-check-boundary`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-live-check-boundary` and emit a private
+  upload-command boundary artifact that records the future upload-command
+  requirements needed before object/index binding or mutation design.
+- This slice must not generate a real upload command, expose command payloads,
+  read credential values, check credential presence, perform live backend
+  checks, create SDK clients, inject adapters, bind object stores or metadata
+  indexes, read or stage artifact bytes, write object storage, write metadata
+  indexes, or perform remote mutations.
+
+Planned implementation checkpoints:
+
+1. Add the upload-command boundary contract and builder from the saved live
+   check boundary.
+2. Add focused unit coverage for ready, blocked, malformed, forged, and leaky
+   inputs.
+3. Add validator dispatch and contract coverage for ready, blocked, and drifted
+   payloads.
+4. Add CLI parsing, JSON/text output, help text, and integration coverage.
+5. Add no-SDK/no-command-generation guard coverage and update rules, roadmap,
+   skill, and handoff docs after verification.
+
+Planned commit sequence:
+
+1. `docs: plan upload command boundary`
+2. `feat: add upload command boundary contract`
+3. `test: cover upload command boundary ready path`
+4. `test: block invalid upload command inputs`
+5. `feat: validate upload command boundaries`
+6. `test: cover upload command validation drift`
+7. `test: cover upload command contract`
+8. `feat: wire upload command boundary cli`
+9. `test: cover upload command cli parsing`
+10. `test: cover upload command cli`
+11. `test: guard upload command boundary no sdk`
+12. `docs: document upload command boundary`
+
 ## 2026-05-10 Completed Upload Live Check Boundary
 
 Status:
