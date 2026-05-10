@@ -626,3 +626,168 @@ test('upload mutation approval review validation rejects executable review shape
     assert.equal(issuePaths.has(path), true, path);
   }
 });
+
+test('upload mutation approval review validation accepts blocked safe review records', () => {
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan: null,
+    approvalFingerprint: ''
+  });
+  const report = validateKnowledgePayload(review, 'blocked-review.json');
+
+  assert.equal(review.status, 'blocked');
+  assert.equal(report.valid, true);
+  assert.equal(report.issueCount, 0);
+});
+
+test('upload mutation approval review validation rejects malformed review record drift', async () => {
+  const mutationPlan = await validMutationPlan();
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan,
+    approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+  });
+  const malformedReview = {
+    ...review,
+    schemaVersion: 2,
+    executionMode: 'live',
+    reviewKind: 'approval-grant',
+    status: 'review-ready',
+    plannedOperation: 'upload',
+    target: {
+      manifestId: 'bad',
+      objectKey: '../private',
+      objectSha256: 'bad',
+      artifactId: 'bad'
+    },
+    sourcePlan: {
+      ...review.sourcePlan,
+      source: 'upload-execution-gate',
+      planStatus: 'blocked',
+      planKind: 'unsupported',
+      planNextAction: 'resolve-blockers',
+      gateStatus: 'blocked',
+      gateKind: 'unsupported',
+      scopeMatched: false,
+      continuationStatus: 'blocked',
+      approvalProvided: false,
+      sourceFingerprintVerified: false,
+      mockHarnessStatus: 'blocked',
+      mockHarnessKind: 'unsupported',
+      mockAdapterInstantiated: false,
+      adapterName: 'unsafe adapter name',
+      adapterBackendKind: 's3-compatible',
+      approvalFingerprint: {
+        algorithm: 'md5',
+        scope: 'unsupported',
+        value: 'bad',
+        canonicalFieldCount: -1
+      }
+    },
+    approvalReview: {
+      ...review.approvalReview,
+      mutationApprovalRequired: false,
+      humanReviewRequired: false,
+      humanReviewRecorded: false,
+      source: 'env',
+      suppliedFingerprint: 'bad',
+      expectedFingerprint: '0'.repeat(64),
+      fingerprintVerified: false,
+      mutationApprovalGranted: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true
+    },
+    executionBoundary: {
+      ...review.executionBoundary,
+      executable: true,
+      dryRunOnly: false,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      clientCreated: true,
+      credentialValuesRead: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true
+    },
+    readiness: {
+      ...review.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['unsupported-code'],
+      blockers: [{
+        code: 'unsupported-code',
+        path: '',
+        message: ''
+      }]
+    }
+  };
+
+  const report = validateKnowledgePayload(malformedReview, 'malformed-review.json');
+  const issuePaths = new Set(report.issues.map(issue => issue.path));
+
+  assert.equal(report.valid, false);
+  for (const path of [
+    '$.schemaVersion',
+    '$.executionMode',
+    '$.reviewKind',
+    '$.plannedOperation',
+    '$.target.manifestId',
+    '$.target.objectKey',
+    '$.target.objectSha256',
+    '$.target.artifactId',
+    '$.sourcePlan.source',
+    '$.sourcePlan.planStatus',
+    '$.sourcePlan.planKind',
+    '$.sourcePlan.planNextAction',
+    '$.sourcePlan.gateStatus',
+    '$.sourcePlan.gateKind',
+    '$.sourcePlan.scopeMatched',
+    '$.sourcePlan.continuationStatus',
+    '$.sourcePlan.approvalProvided',
+    '$.sourcePlan.sourceFingerprintVerified',
+    '$.sourcePlan.mockHarnessStatus',
+    '$.sourcePlan.mockHarnessKind',
+    '$.sourcePlan.mockAdapterInstantiated',
+    '$.sourcePlan.adapterName',
+    '$.sourcePlan.adapterBackendKind',
+    '$.sourcePlan.approvalFingerprint.algorithm',
+    '$.sourcePlan.approvalFingerprint.canonicalFieldCount',
+    '$.sourcePlan.approvalFingerprint.value',
+    '$.approvalReview.mutationApprovalRequired',
+    '$.approvalReview.humanReviewRequired',
+    '$.approvalReview.source',
+    '$.approvalReview.suppliedFingerprint',
+    '$.approvalReview.mutationApprovalGranted',
+    '$.approvalReview.uploadApproved',
+    '$.approvalReview.uploadExecutionAllowed',
+    '$.executionBoundary.executable',
+    '$.executionBoundary.dryRunOnly',
+    '$.executionBoundary.artifactBytesProvided',
+    '$.executionBoundary.adapterInjected',
+    '$.executionBoundary.writeTokenIssued',
+    '$.executionBoundary.executionLeaseCreated',
+    '$.executionBoundary.rollbackPlanCreated',
+    '$.executionBoundary.auditRecordCreated',
+    '$.executionBoundary.clientCreated',
+    '$.executionBoundary.credentialValuesRead',
+    '$.executionBoundary.credentialPresenceChecked',
+    '$.executionBoundary.liveCheckPerformed',
+    '$.executionBoundary.uploadCommandGenerated',
+    '$.executionBoundary.objectWriteAttempted',
+    '$.executionBoundary.metadataIndexWriteAttempted',
+    '$.executionBoundary.remoteMutationPerformed',
+    '$.readiness.status',
+    '$.readiness.blockerCodes[0]',
+    '$.readiness.blockers[0].code',
+    '$.readiness.blockers[0].path',
+    '$.readiness.blockers[0].message'
+  ]) {
+    assert.equal(issuePaths.has(path), true, path);
+  }
+});
