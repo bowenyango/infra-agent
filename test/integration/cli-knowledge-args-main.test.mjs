@@ -476,3 +476,39 @@ test('knowledge upload-rollback-plan-boundary CLI args accept execution lease bo
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-rollback-plan-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-audit-record-boundary CLI args accept rollback plan boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-audit-record-boundary',
+    'artifacts/knowledge-pack.upload-rollback-plan-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-audit-record-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-audit-record-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-rollback-plan-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-audit-record-boundary.json');
+  assert.equal(parsed.json, true);
+});
+
+test('knowledge upload-artifact-bytes-boundary CLI args accept audit record boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-artifact-bytes-boundary',
+    'artifacts/knowledge-pack.upload-audit-record-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-artifact-bytes-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-artifact-bytes-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-audit-record-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-artifact-bytes-boundary.json');
+  assert.equal(parsed.json, true);
+});

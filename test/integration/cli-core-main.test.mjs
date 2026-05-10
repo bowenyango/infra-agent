@@ -303,6 +303,18 @@ test('help output includes upload rollback plan boundary command', async () => {
   assert.match(output, /infra-agent knowledge upload-rollback-plan-boundary <execution-lease-boundary\.json>/);
 });
 
+test('help output includes upload audit record boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-audit-record-boundary <rollback-plan-boundary\.json>/);
+});
+
+test('help output includes upload artifact bytes boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-artifact-bytes-boundary <audit-record-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
