@@ -229,6 +229,240 @@ test('upload credential read boundary records credential requirements without re
   assertNoPrivateValues(boundary);
 });
 
+test('upload credential read boundary blocks non-ready client creation boundaries', async () => {
+  const clientCreationBoundary = await validClientCreationBoundary();
+  const blockedClientCreationBoundary = {
+    ...clientCreationBoundary,
+    status: 'blocked',
+    sourceClientCreationBoundary: {
+      ...clientCreationBoundary.sourceClientCreationBoundary,
+      fingerprintVerified: false
+    },
+    readiness: {
+      ...clientCreationBoundary.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-unverified'],
+      blockers: [{
+        code: 'review-fingerprint-unverified',
+        path: '$.sourceClientCreationBoundary.fingerprintVerified',
+        message: 'fingerprint not verified'
+      }]
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({
+    clientCreationBoundary: blockedClientCreationBoundary
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('client-creation-boundary-not-ready'), true);
+  assert.equal(codes.has('client-creation-boundary-next-action-invalid'), true);
+  assertExecutionAndCredentialReadsDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload credential read boundary blocks invalid client creation inputs', () => {
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({ clientCreationBoundary: null });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceClientCreationBoundary.boundaryStatus, 'invalid');
+  assert.equal(codes.has('missing-required-field'), true);
+  assertExecutionAndCredentialReadsDisabled(boundary);
+});
+
+test('upload credential read boundary blocks malformed client creation metadata', async () => {
+  const clientCreationBoundary = await validClientCreationBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({
+    clientCreationBoundary: {
+      ...clientCreationBoundary,
+      kind: 'infra-agent.knowledge-team-upload-adapter-injection-boundary',
+      schemaVersion: 2,
+      boundaryKind: 'adapter-injection-boundary-dry-run',
+      target: {
+        ...clientCreationBoundary.target,
+        manifestId: 'not-a-safe-id',
+        objectKey: '../unsafe.json',
+        objectSha256: 'not-a-sha',
+        artifactId: 'not-a-safe-id'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceClientCreationBoundary.boundaryKind, 'unsupported');
+  assert.equal(codes.has('invalid-client-creation-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assertExecutionAndCredentialReadsDisabled(boundary);
+});
+
+test('upload credential read boundary blocks missing client creation sections', () => {
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({
+    clientCreationBoundary: {
+      kind: 'infra-agent.knowledge-team-upload-client-creation-boundary',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      executionMode: 'dry-run',
+      boundaryKind: 'client-creation-boundary-dry-run',
+      status: 'not-a-status',
+      plannedOperation: 'stage-knowledge-pack',
+      remoteWriteAllowed: false,
+      liveCheckAllowed: false,
+      credentialValuesExposed: false,
+      credentialPresenceChecked: false,
+      uploadApproved: false,
+      uploadExecutionAllowed: false,
+      mutationApprovalGranted: false,
+      clientCreated: false,
+      adapterInjected: false,
+      artifactBytesProvided: false,
+      writeTokenIssued: false,
+      executionLeaseCreated: false,
+      rollbackPlanCreated: false,
+      auditRecordCreated: false,
+      objectWriteAttempted: false,
+      metadataIndexWriteAttempted: false,
+      remoteMutationPerformed: false,
+      uploadCommand: null,
+      target: null,
+      readiness: null,
+      sourceAdapterInjectionBoundary: null,
+      clientCreationBoundary: null,
+      remainingExecutionBoundaries: null
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceClientCreationBoundary.boundaryStatus, 'invalid');
+  assert.equal(boundary.sourceClientCreationBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.sourceClientCreationBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceClientCreationBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceClientCreationBoundary.adapterBackendKind, 'unsupported');
+  assert.equal(codes.has('client-creation-boundary-not-ready'), true);
+  assert.equal(codes.has('client-creation-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsafe-adapter-name'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('client-creation-not-required'), true);
+  assert.equal(codes.has('credential-read-not-required'), true);
+  assertExecutionAndCredentialReadsDisabled(boundary);
+});
+
+test('upload credential read boundary blocks forged credential, client, command, and mutation state', async () => {
+  const clientCreationBoundary = await validClientCreationBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({
+    clientCreationBoundary: {
+      ...clientCreationBoundary,
+      remoteWriteAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      uploadCommand: 'infra-agent upload --should-not-run',
+      clientCreationBoundary: {
+        ...clientCreationBoundary.clientCreationBoundary,
+        clientCreated: true,
+        sdkClientCreated: true,
+        adapterInjected: true,
+        artifactObjectStoreBound: true,
+        metadataIndexBound: true,
+        credentialValuesExposed: true,
+        credentialPresenceChecked: true,
+        liveCheckPerformed: true,
+        uploadExecutionAllowed: true,
+        uploadCommandGenerated: true,
+        objectWriteAttempted: true,
+        metadataIndexWriteAttempted: true,
+        remoteMutationPerformed: true,
+        executable: true
+      },
+      remainingExecutionBoundaries: {
+        ...clientCreationBoundary.remainingExecutionBoundaries,
+        clientCreated: true,
+        credentialValuesExposed: true,
+        credentialPresenceChecked: true,
+        liveCheckPerformed: true,
+        uploadCommandGenerated: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true,
+        remoteMutationAllowed: true
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('remote-write-enabled'), true);
+  assert.equal(codes.has('credential-values-exposed'), true);
+  assert.equal(codes.has('credential-presence-check-enabled'), true);
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('mutation-approval-already-granted'), true);
+  assert.equal(codes.has('client-created'), true);
+  assert.equal(codes.has('adapter-injected'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('artifact-object-store-bound'), true);
+  assert.equal(codes.has('metadata-index-bound'), true);
+  assert.equal(codes.has('executable-state-enabled'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assertExecutionAndCredentialReadsDisabled(boundary);
+});
+
+test('upload credential read boundary reports credential and backend details without copying values', async () => {
+  const clientCreationBoundary = await validClientCreationBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({
+    clientCreationBoundary: {
+      ...clientCreationBoundary,
+      sourceAdapterInjectionBoundary: {
+        ...clientCreationBoundary.sourceAdapterInjectionBoundary,
+        endpointUrl: 'https://should-not-copy.example.test',
+        bucketName: 'should-not-copy-bucket'
+      },
+      clientCreationBoundary: {
+        ...clientCreationBoundary.clientCreationBoundary,
+        clientConfig: {
+          accessKey: 'should-not-copy-secret'
+        },
+        clientFactoryValue: 'client-secret-value',
+        credentialValue: 'credential-secret-value',
+        credentialFile: '/home/private/credential.json',
+        credentialPresenceResult: true,
+        artifactBytesValue: 'raw-artifact-bytes'
+      },
+      adapterInstance: {
+        adapterMaterial: 'adapter-secret-value'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assert.equal(codes.has('client-dependency-leak'), true);
+  assert.equal(codes.has('credential-dependency-leak'), true);
+  assert.equal(codes.has('adapter-dependency-leak'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assertExecutionAndCredentialReadsDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
 export {
   assertExecutionAndCredentialReadsDisabled,
   assertNoPrivateValues,
