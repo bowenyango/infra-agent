@@ -60,6 +60,9 @@ import {
   buildKnowledgeTeamUploadWriteTokenBoundary
 } from '../../src/knowledge/team-upload-write-token-boundary.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -461,6 +464,107 @@ test('upload credential read boundary reports credential and backend details wit
   assert.equal(codes.has('artifact-bytes-provided'), true);
   assertExecutionAndCredentialReadsDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload credential read boundary validation rejects forged credential state and dependency payloads', async () => {
+  const clientCreationBoundary = await validClientCreationBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialReadBoundary({ clientCreationBoundary });
+  const readyValidation = validateKnowledgePayload(boundary, 'knowledge-pack.upload-credential-read-boundary.json');
+
+  assert.equal(readyValidation.valid, true);
+
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    clientCreated: true,
+    adapterInjected: true,
+    sourceClientCreationBoundary: {
+      ...boundary.sourceClientCreationBoundary,
+      source: 'upload-adapter-injection-boundary',
+      boundaryStatus: 'blocked',
+      boundaryKind: 'unsupported',
+      boundaryNextAction: 'resolve-blockers',
+      adapterBackendKind: 's3-compatible',
+      clientCreated: true,
+      sdkClientCreated: true,
+      adapterInjected: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      executable: true
+    },
+    credentialReadBoundary: {
+      ...boundary.credentialReadBoundary,
+      credentialValuesRead: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      clientCreated: true,
+      sdkClientCreated: true,
+      adapterInjected: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      liveCheckPerformed: true,
+      uploadExecutionAllowed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true,
+      executable: true,
+      credentialValue: 'should-not-exist'
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      clientCreated: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      remoteMutationAllowed: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      nextAction: 'resolve-blockers',
+      blockerCount: 1
+    }
+  }, 'knowledge-pack.upload-credential-read-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialValuesExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjected'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.source'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.boundaryStatus'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.boundaryKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.boundaryNextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.adapterBackendKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.sdkClientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.credentialValuesExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.liveCheckPerformed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.uploadCommandGenerated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceClientCreationBoundary.executable'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.credentialValuesRead'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.credentialValuesExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.sdkClientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.liveCheckPerformed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.uploadCommandGenerated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialReadBoundary.credentialValue'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.objectWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.remoteMutationAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
 });
 
 export {
