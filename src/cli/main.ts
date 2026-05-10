@@ -34,6 +34,7 @@ import { buildKnowledgeTeamBackendReadinessReport } from '../knowledge/team-back
 import { validateKnowledgeTeamS3CompatibleBackendReferences } from '../knowledge/team-s3-compatible-reference-registry.ts';
 import { buildKnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import { buildKnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
+import { buildKnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -53,6 +54,7 @@ import {
   printKnowledgePrefetchResult,
   printKnowledgeTeamBackendReadinessReport,
   printKnowledgeTeamS3CompatibleReferenceValidationSummary,
+  printKnowledgeTeamUploadAdapterPreflight,
   printKnowledgeTeamUploadApprovalContinuation,
   printKnowledgeTeamUploadApprovalIntent,
   printKnowledgeExtractionReport,
@@ -1637,6 +1639,43 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadApprovalContinuation(continuation);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-adapter-preflight') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-adapter-preflight requires exactly one upload approval continuation path.');
+    }
+    if (!parsed.adapterPlanInputPath) {
+      fail('knowledge upload-adapter-preflight requires --adapter-plan <adapter-plan.json>.');
+    }
+
+    const continuationPath = resolveFromCwd(parsed.inputPath);
+    const adapterPlanPath = resolveFromCwd(parsed.adapterPlanInputPath);
+    const continuation = await readJsonObject(continuationPath);
+    const adapterResolutionPlan = await readJsonObject(adapterPlanPath);
+    const preflight = buildKnowledgeTeamUploadAdapterPreflight({
+      continuation,
+      adapterResolutionPlan
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), preflight)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...preflight,
+            outputPath: writtenPath
+          }
+        : preflight, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadAdapterPreflight(preflight);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }

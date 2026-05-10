@@ -52,6 +52,7 @@ import type {
 } from '../knowledge/team-artifact-store.ts';
 import type { KnowledgeTeamBackendReadinessReport } from '../knowledge/team-backend-readiness.ts';
 import type { KnowledgeTeamS3CompatibleReferenceValidationSummary } from '../knowledge/team-s3-compatible-reference-registry.ts';
+import type { KnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
 import type { KnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
 import type { KnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
@@ -3684,6 +3685,39 @@ export function printKnowledgeTeamUploadApprovalContinuation(
   printList(
     continuation.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload approval continuation blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadAdapterPreflight(
+  preflight: KnowledgeTeamUploadAdapterPreflight
+): void {
+  printHeader('Knowledge team upload adapter preflight');
+  process.stdout.write(`status: ${preflight.status}\n`);
+  process.stdout.write(`next action: ${preflight.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${preflight.plannedOperation}\n`);
+  process.stdout.write(`execution: ${preflight.executionMode}\n`);
+  process.stdout.write(`remote write: ${preflight.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${preflight.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${preflight.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${preflight.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${preflight.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${preflight.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${preflight.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${preflight.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${preflight.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`continuation: ${preflight.continuation.status}\n`);
+  process.stdout.write(`fingerprint verified: ${preflight.continuation.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter source: ${preflight.adapterDependency.source}\n`);
+  process.stdout.write(`adapter backend: ${preflight.adapterDependency.backendKind}\n`);
+  process.stdout.write(`adapter name: ${preflight.adapterDependency.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`adapter resolution: ${preflight.adapterDependency.resolutionStatus}\n`);
+  process.stdout.write(`injection candidate: ${preflight.adapterDependency.injectionCandidate ? 'yes' : 'no'}\n`);
+  process.stdout.write(`real backend implemented: ${preflight.adapterDependency.realBackendImplemented ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: artifactObjectStore=${preflight.adapterDependency.artifactObjectStore ? 'yes' : 'no'}, metadataIndex=${preflight.adapterDependency.metadataIndex ? 'yes' : 'no'}, blockers=${preflight.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    preflight.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload adapter preflight blockers.'
   );
 }
 
