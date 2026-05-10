@@ -255,6 +255,12 @@ test('help output includes upload adapter preflight command', async () => {
   assert.match(output, /infra-agent knowledge upload-adapter-preflight <continuation\.json> --adapter-plan <adapter-plan\.json>/);
 });
 
+test('help output includes upload mock harness command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-mock-harness <preflight\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
