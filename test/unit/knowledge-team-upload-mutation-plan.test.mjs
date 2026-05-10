@@ -220,3 +220,110 @@ test('upload mutation plan blocks invalid execution gate artifacts', async () =>
   assert.equal(plan.readiness.blockerCodes.includes('backend-detail-leak'), true);
   assertNoPrivateValues(plan);
 });
+
+test('upload mutation plan blocks forged execution and mutation state', async () => {
+  const executionGate = await validExecutionGate();
+  const plan = buildKnowledgeTeamUploadMutationPlan({
+    executionGate: {
+      ...executionGate,
+      mutationAllowed: true,
+      remoteWriteAllowed: true,
+      liveCheckAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true,
+      uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+      approvalGate: {
+        ...executionGate.approvalGate,
+        mutationApprovalGranted: true,
+        uploadApproved: true,
+        uploadExecutionAllowed: true,
+        scopeMatched: false
+      },
+      mockHarness: {
+        ...executionGate.mockHarness,
+        status: 'blocked',
+        adapterBackendKind: 's3-compatible',
+        objectWriteAttempted: true,
+        indexWriteAttempted: true,
+        remoteMutationPerformed: true
+      },
+      executionBoundary: {
+        ...executionGate.executionBoundary,
+        artifactBytesProvided: true,
+        adapterInjected: true,
+        clientCreated: true,
+        credentialValuesRead: true,
+        credentialPresenceChecked: true,
+        liveCheckPerformed: true,
+        writeTokenIssued: true,
+        executionLeaseCreated: true,
+        uploadCommandGenerated: true,
+        objectWriteAttempted: true,
+        metadataIndexWriteAttempted: true,
+        remoteMutationPerformed: true
+      }
+    }
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.uploadApproved, false);
+  assert.equal(plan.uploadExecutionAllowed, false);
+  assert.equal(plan.mutationApprovalGranted, false);
+  assert.equal(plan.clientCreated, false);
+  assert.equal(plan.adapterInjected, false);
+  assert.equal(plan.artifactBytesProvided, false);
+  assert.equal(plan.writeTokenIssued, false);
+  assert.equal(plan.executionLeaseCreated, false);
+  assert.equal(plan.rollbackPlanCreated, false);
+  assert.equal(plan.objectWriteAttempted, false);
+  assert.equal(plan.metadataIndexWriteAttempted, false);
+  assert.equal(plan.remoteMutationPerformed, false);
+  assert.equal(plan.uploadCommand, null);
+  assert.equal(plan.approvalAudit.mutationApprovalGranted, false);
+  assert.equal(plan.approvalAudit.uploadApproved, false);
+  assert.equal(plan.approvalAudit.uploadExecutionAllowed, false);
+  assert.equal(plan.executionPlan.artifactBytesProvided, false);
+  assert.equal(plan.executionPlan.writeTokenIssued, false);
+  assert.equal(plan.executionPlan.executionLeaseCreated, false);
+  assert.equal(plan.executionPlan.rollbackPlanCreated, false);
+  assert.equal(plan.executionPlan.objectWriteAttempted, false);
+  assert.equal(plan.executionPlan.metadataIndexWriteAttempted, false);
+  assert.equal(plan.executionPlan.remoteMutationPerformed, false);
+  for (const code of [
+    'mutation-enabled',
+    'remote-write-enabled',
+    'live-check-enabled',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'upload-approval-already-provided',
+    'upload-execution-enabled',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'mutation-approval-already-granted',
+    'rollback-plan-created',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'remote-mutation-performed',
+    'upload-command-present',
+    'scope-not-matched',
+    'mock-harness-not-ready',
+    'unsupported-adapter-backend'
+  ]) {
+    assert.equal(plan.readiness.blockerCodes.includes(code), true, code);
+  }
+  assertNoPrivateValues(plan);
+});

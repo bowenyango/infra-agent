@@ -483,6 +483,13 @@ function parseExecutionGateForMutationPlan(
       'Upload mutation plan must not receive injected adapters.'
     ));
   }
+  if (input.artifactBytesProvided !== undefined && input.artifactBytesProvided !== false) {
+    pushBlockerOnce(blockers, blocker(
+      'artifact-bytes-provided',
+      '$.executionGate.artifactBytesProvided',
+      'Upload mutation plan must not receive artifact bytes.'
+    ));
+  }
   if (input.writeTokenIssued !== false) {
     pushBlockerOnce(blockers, blocker(
       'write-token-issued',
@@ -495,6 +502,13 @@ function parseExecutionGateForMutationPlan(
       'execution-lease-created',
       '$.executionGate.executionLeaseCreated',
       'Upload mutation plan must not receive execution leases.'
+    ));
+  }
+  if (input.rollbackPlanCreated !== undefined && input.rollbackPlanCreated !== false) {
+    pushBlockerOnce(blockers, blocker(
+      'rollback-plan-created',
+      '$.executionGate.rollbackPlanCreated',
+      'Upload mutation plan must not receive rollback plans.'
     ));
   }
   if (input.objectWriteAttempted !== false) {
@@ -667,6 +681,13 @@ function parseExecutionGateForMutationPlan(
         'Upload mutation plan requires execution boundary mutation fields to remain false.'
       ));
     }
+  }
+  if (executionBoundary.rollbackPlanCreated !== undefined && executionBoundary.rollbackPlanCreated !== false) {
+    pushBlockerOnce(blockers, blocker(
+      'rollback-plan-created',
+      '$.executionGate.executionBoundary.rollbackPlanCreated',
+      'Upload mutation plan must not receive nested rollback plans.'
+    ));
   }
 
   return {
