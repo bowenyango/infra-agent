@@ -337,3 +337,120 @@ test('upload write token boundary blocks missing nested prerequisite sections', 
   assert.equal(codes.has('unsupported-adapter-backend'), true);
   assert.equal(codes.has('write-token-not-required'), true);
 });
+
+test('upload write token boundary blocks forged token and execution state', async () => {
+  const prerequisitePlan = await validPrerequisitePlan();
+  const forgedPlan = {
+    ...prerequisitePlan,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    clientCreated: true,
+    adapterInjected: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    auditRecordCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    uploadCommand: 'aws s3 cp should-not-copy',
+    prerequisitePlan: {
+      ...prerequisitePlan.prerequisitePlan,
+      mutationApprovalGranted: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      executionAllowed: true
+    },
+    executionBoundary: {
+      ...prerequisitePlan.executionBoundary,
+      executable: true,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      clientCreated: true,
+      credentialValuesRead: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true
+    },
+    writeTokenBoundary: {
+      tokenIssued: true,
+      tokenScopeBoundToArtifact: true,
+      tokenExpirySet: true,
+      singleUseTokenIssued: true
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadWriteTokenBoundary({
+    prerequisitePlan: forgedPlan
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  for (const code of [
+    'upload-approval-already-provided',
+    'upload-execution-enabled',
+    'mutation-approval-already-granted',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'rollback-plan-created',
+    'audit-record-created',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'remote-mutation-performed',
+    'upload-command-present',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'live-check-enabled',
+    'token-scope-already-bound',
+    'token-expiry-already-set'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+  assertNoPrivateValues(boundary);
+});
+
+test('upload write token boundary blocks backend detail leakage without copying private values', async () => {
+  const prerequisitePlan = await validPrerequisitePlan();
+  const leakyPlan = {
+    ...prerequisitePlan,
+    endpointUrl: 'https://should-not-copy.example.test',
+    target: {
+      ...prerequisitePlan.target,
+      objectKey: 's3://private-bucket/should-not-copy'
+    },
+    sourceReview: {
+      ...prerequisitePlan.sourceReview,
+      bucketName: 'should-not-copy-bucket',
+      adapterName: '../unsafe-adapter'
+    },
+    privateCredential: {
+      secretAccessKey: 'should-not-copy-secret',
+      privateKey: 'private-key'
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadWriteTokenBoundary({
+    prerequisitePlan: leakyPlan
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(blockerCodes(boundary).has('backend-detail-leak'), true);
+  assert.equal(blockerCodes(boundary).has('unsafe-artifact-reference'), true);
+  assert.equal(blockerCodes(boundary).has('unsafe-adapter-name'), true);
+  assertNoPrivateValues(boundary);
+});
