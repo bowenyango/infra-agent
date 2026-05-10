@@ -566,3 +566,21 @@ test('knowledge upload-credential-read-boundary CLI args accept client creation 
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-credential-read-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-credential-presence-boundary CLI args accept credential read boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-credential-presence-boundary',
+    'artifacts/knowledge-pack.upload-credential-read-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-credential-presence-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-credential-presence-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-credential-read-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-credential-presence-boundary.json');
+  assert.equal(parsed.json, true);
+});
