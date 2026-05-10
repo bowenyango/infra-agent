@@ -6,13 +6,13 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Credential Read Boundary Plan
+## 2026-05-10 Completed Upload Credential Read Boundary
 
 Status:
 
-- In progress. This slice continues the private dry-run upload boundary chain
+- Completed. This slice continues the private dry-run upload boundary chain
   after `upload-client-creation-boundary`.
-- Planned scope is local JSON planning only: consume one saved
+- Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-client-creation-boundary` and emit a
   private credential read boundary artifact that records the future credential
   read requirements needed before credential presence, live-check, command, or
@@ -35,20 +35,20 @@ Why this direction:
   blocked states never advance implicitly; and permission-sensitive work is
   represented as validated contracts before implementation.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-credential-read-boundary`.
 - CLI:
   `infra-agent knowledge upload-credential-read-boundary <client-creation-boundary.json> [--out <credential-read-boundary.json>] [--json]`.
-- Ready status should be `credential-read-boundary-ready`, meaning only that
+- Ready status is `credential-read-boundary-ready`, meaning only that
   the saved client creation boundary is safe and future credential-read
   requirements are modeled. It is not credential access and not credential
   presence checking.
-- Ready next action should be `design-credential-presence-boundary`; blocked
+- Ready next action is `design-credential-presence-boundary`; blocked
   next action remains `resolve-blockers`.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `credential-read-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-client-creation-boundary` with
@@ -81,20 +81,72 @@ Planned acceptance criteria:
    approval review, mutation plan, execution gate, mock harness, continuation,
    and team backend no-SDK boundaries remain valid.
 
-Planned commit sequence:
+Completed commits for this slice:
 
-1. Document the credential read boundary plan.
-2. Add the credential read boundary builder and artifact contract.
-3. Cover the ready path with focused unit tests.
-4. Cover invalid, forged, credential-leaking, and dependency-leaking source
-   inputs.
-5. Add validation support behind `knowledge validate`.
-6. Cover validation drift and contract shape.
-7. Wire CLI parser/help and text output.
-8. Cover CLI parsing and help.
-9. Cover CLI JSON write and blocked text output.
-10. Extend no-SDK/no-env/no-network guards.
-11. Update rules, roadmap, skill guidance, and final handoff.
+1. `e53e386` docs: plan upload credential read boundary
+2. `d48156f` feat: add upload credential read boundary contract
+3. `d8fda2f` test: cover upload credential read boundary ready path
+4. `6c4c636` test: block invalid upload credential read inputs
+5. `5f2c28f` feat: validate upload credential read boundaries
+6. `9bd78e8` test: cover upload credential read validation drift
+7. `ded557b` test: cover upload credential read contract
+8. `1fed2f2` feat: wire upload credential read boundary cli
+9. `12869f7` test: cover upload credential read cli parsing
+10. `52499b6` test: cover upload credential read cli
+11. `0d43543` test: guard upload credential read boundary no sdk
+12. `11b2fb1` test: cover credential read ready prerequisite drift
+
+Verification performed during the slice:
+
+- Focused builder/unit:
+  `node --experimental-strip-types ./test/unit/knowledge-team-upload-credential-read-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types ./test/contract/knowledge-team-upload-credential-read-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-upload-credential-read-boundary-main.test.mjs`
+- Parser/help/no-SDK:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Lint:
+  `npm run lint` passed during implementation.
+- Coverage:
+  `npm run test:coverage` passed after the credential read ready-prerequisite
+  drift test; all files reported 89.98% lines, 75.04% branches, and 96.87%
+  functions.
+- Full final verification:
+  `npm run verify` passed after code, test, rules, roadmap, skill, and handoff
+  updates.
+
+Core files changed:
+
+- `src/knowledge/team-upload-credential-read-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-credential-read-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-credential-read-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-credential-read-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Current remaining risk:
+
+- The artifact still models only a credential-read boundary; it does not read
+  credential values, check credential presence, instantiate SDK clients, inject
+  adapters, bind object stores or metadata indexes, read/hash/stage bytes,
+  perform live checks, generate upload commands, upload, or mutate remote
+  state.
+- Next safe step is `design-credential-presence-boundary`: consume the saved
+  credential read boundary and model future credential presence requirements
+  while keeping credential value reads, clients, adapters, live checks,
+  commands, object writes, index writes, and remote mutation disabled.
 
 ## 2026-05-10 Completed Upload Client Creation Boundary
 

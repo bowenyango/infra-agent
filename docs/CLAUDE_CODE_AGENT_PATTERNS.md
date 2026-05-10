@@ -123,12 +123,21 @@ durable design reference for infra-agent development.
   object-store and metadata-index dependencies, content-addressed keys,
   idempotent writes, and explicit approval. It still does not create SDK
   clients, read credentials, check credential presence, perform live checks,
-  generate commands, or bind stores/indexes. All fifteen remain dry-run routing
-  state with
+  generate commands, or bind stores/indexes. `upload-credential-read-boundary`
+  can consume that client creation boundary and model future credential-read
+  requirements: credential source descriptor, credential reference-only
+  posture, credential value redaction, credential-presence boundary,
+  live-check and upload-command boundaries, client-creation boundary, object
+  store and metadata-index dependencies, content-addressed keys, idempotent
+  writes, and explicit approval. It still does not read credential values,
+  check credential presence, create clients, inject adapters, perform live
+  checks, generate commands, or bind stores/indexes. All sixteen remain
+  dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter
-  injection, client creation, credential reads, live checks, upload commands,
-  object/index writes, and remote writes disabled.
+  injection, client creation, credential reads, credential presence checks,
+  live checks, upload commands, object/index writes, and remote writes
+  disabled.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without
