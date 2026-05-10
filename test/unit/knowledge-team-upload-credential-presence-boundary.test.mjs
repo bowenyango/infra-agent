@@ -232,6 +232,241 @@ test('upload credential presence boundary records presence requirements without 
   assertNoPrivateValues(boundary);
 });
 
+test('upload credential presence boundary blocks non-ready credential read boundaries', async () => {
+  const credentialReadBoundary = await validCredentialReadBoundary();
+  const blockedCredentialReadBoundary = {
+    ...credentialReadBoundary,
+    status: 'blocked',
+    sourceClientCreationBoundary: {
+      ...credentialReadBoundary.sourceClientCreationBoundary,
+      fingerprintVerified: false
+    },
+    readiness: {
+      ...credentialReadBoundary.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-unverified'],
+      blockers: [{
+        code: 'review-fingerprint-unverified',
+        path: '$.sourceClientCreationBoundary.fingerprintVerified',
+        message: 'fingerprint not verified'
+      }]
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({
+    credentialReadBoundary: blockedCredentialReadBoundary
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('credential-read-boundary-not-ready'), true);
+  assert.equal(codes.has('credential-presence-boundary-next-action-invalid'), true);
+  assertExecutionAndCredentialPresenceDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload credential presence boundary blocks invalid credential read inputs', () => {
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({ credentialReadBoundary: null });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceCredentialReadBoundary.boundaryStatus, 'invalid');
+  assert.equal(codes.has('missing-required-field'), true);
+  assertExecutionAndCredentialPresenceDisabled(boundary);
+});
+
+test('upload credential presence boundary blocks malformed credential read metadata', async () => {
+  const credentialReadBoundary = await validCredentialReadBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({
+    credentialReadBoundary: {
+      ...credentialReadBoundary,
+      kind: 'infra-agent.knowledge-team-upload-client-creation-boundary',
+      schemaVersion: 2,
+      boundaryKind: 'client-creation-boundary-dry-run',
+      target: {
+        ...credentialReadBoundary.target,
+        manifestId: 'not-a-safe-id',
+        objectKey: '../unsafe.json',
+        objectSha256: 'not-a-sha',
+        artifactId: 'not-a-safe-id'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceCredentialReadBoundary.boundaryKind, 'unsupported');
+  assert.equal(codes.has('invalid-credential-read-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assertExecutionAndCredentialPresenceDisabled(boundary);
+});
+
+test('upload credential presence boundary blocks missing credential read sections', () => {
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({
+    credentialReadBoundary: {
+      kind: 'infra-agent.knowledge-team-upload-credential-read-boundary',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      executionMode: 'dry-run',
+      boundaryKind: 'credential-read-boundary-dry-run',
+      status: 'not-a-status',
+      plannedOperation: 'stage-knowledge-pack',
+      remoteWriteAllowed: false,
+      liveCheckAllowed: false,
+      credentialValuesExposed: false,
+      credentialPresenceChecked: false,
+      uploadApproved: false,
+      uploadExecutionAllowed: false,
+      mutationApprovalGranted: false,
+      clientCreated: false,
+      adapterInjected: false,
+      artifactBytesProvided: false,
+      writeTokenIssued: false,
+      executionLeaseCreated: false,
+      rollbackPlanCreated: false,
+      auditRecordCreated: false,
+      objectWriteAttempted: false,
+      metadataIndexWriteAttempted: false,
+      remoteMutationPerformed: false,
+      uploadCommand: null,
+      target: null,
+      readiness: null,
+      sourceClientCreationBoundary: null,
+      credentialReadBoundary: null,
+      remainingExecutionBoundaries: null
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceCredentialReadBoundary.boundaryStatus, 'invalid');
+  assert.equal(boundary.sourceCredentialReadBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.sourceCredentialReadBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceCredentialReadBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceCredentialReadBoundary.adapterBackendKind, 'unsupported');
+  assert.equal(codes.has('credential-read-boundary-not-ready'), true);
+  assert.equal(codes.has('credential-presence-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsafe-adapter-name'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('credential-read-not-required'), true);
+  assert.equal(codes.has('credential-presence-check-not-required'), true);
+  assertExecutionAndCredentialPresenceDisabled(boundary);
+});
+
+test('upload credential presence boundary blocks forged credential, client, command, and mutation state', async () => {
+  const credentialReadBoundary = await validCredentialReadBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({
+    credentialReadBoundary: {
+      ...credentialReadBoundary,
+      remoteWriteAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      uploadCommand: 'infra-agent upload --should-not-run',
+      credentialReadBoundary: {
+        ...credentialReadBoundary.credentialReadBoundary,
+        credentialValuesRead: true,
+        credentialValuesExposed: true,
+        credentialPresenceChecked: true,
+        clientCreated: true,
+        sdkClientCreated: true,
+        adapterInjected: true,
+        artifactObjectStoreBound: true,
+        metadataIndexBound: true,
+        liveCheckPerformed: true,
+        uploadExecutionAllowed: true,
+        uploadCommandGenerated: true,
+        objectWriteAttempted: true,
+        metadataIndexWriteAttempted: true,
+        remoteMutationPerformed: true,
+        executable: true
+      },
+      remainingExecutionBoundaries: {
+        ...credentialReadBoundary.remainingExecutionBoundaries,
+        credentialValuesExposed: true,
+        credentialPresenceChecked: true,
+        liveCheckPerformed: true,
+        uploadCommandGenerated: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true,
+        remoteMutationAllowed: true
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('remote-write-enabled'), true);
+  assert.equal(codes.has('credential-values-exposed'), true);
+  assert.equal(codes.has('credential-values-read'), true);
+  assert.equal(codes.has('credential-presence-check-enabled'), true);
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('mutation-approval-already-granted'), true);
+  assert.equal(codes.has('client-created'), true);
+  assert.equal(codes.has('adapter-injected'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('artifact-object-store-bound'), true);
+  assert.equal(codes.has('metadata-index-bound'), true);
+  assert.equal(codes.has('executable-state-enabled'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assertExecutionAndCredentialPresenceDisabled(boundary);
+});
+
+test('upload credential presence boundary reports credential and backend details without copying values', async () => {
+  const credentialReadBoundary = await validCredentialReadBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({
+    credentialReadBoundary: {
+      ...credentialReadBoundary,
+      sourceClientCreationBoundary: {
+        ...credentialReadBoundary.sourceClientCreationBoundary,
+        endpointUrl: 'https://should-not-copy.example.test',
+        bucketName: 'should-not-copy-bucket'
+      },
+      credentialReadBoundary: {
+        ...credentialReadBoundary.credentialReadBoundary,
+        clientConfig: {
+          accessKey: 'should-not-copy-secret'
+        },
+        clientFactoryValue: 'client-secret-value',
+        credentialValue: 'credential-secret-value',
+        credentialFile: '/home/private/credential.json',
+        credentialPresenceResult: true,
+        artifactBytesValue: 'raw-artifact-bytes'
+      },
+      adapterInstance: {
+        adapterMaterial: 'adapter-secret-value'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assert.equal(codes.has('client-dependency-leak'), true);
+  assert.equal(codes.has('credential-dependency-leak'), true);
+  assert.equal(codes.has('adapter-dependency-leak'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assertExecutionAndCredentialPresenceDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
 export {
   assertExecutionAndCredentialPresenceDisabled,
   assertNoPrivateValues,
