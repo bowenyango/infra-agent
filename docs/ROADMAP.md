@@ -246,6 +246,16 @@ Target artifact families:
   rollback-plan creation, adapter injection, SDK clients, credential reads,
   live checks, upload commands, object writes, metadata index writes, and
   remote mutations stay disabled.
+- `infra-agent.knowledge-team-upload-execution-prerequisite-plan`: a private
+  dry-run execution prerequisite boundary plan derived from a saved mutation
+  approval review. It can report `prerequisite-plan-ready` only when the review
+  is ready, human review is recorded, and the fingerprint is verified. It
+  records artifact bytes, adapter injection, write token, execution lease,
+  rollback plan, and audit record as future required boundaries, while mutation
+  approval, upload execution, artifact bytes, write tokens, execution leases,
+  rollback-plan creation, adapter injection, SDK clients, credential reads,
+  live checks, upload commands, object writes, metadata index writes, and
+  remote mutations stay disabled.
 
 Team artifact public contracts:
 

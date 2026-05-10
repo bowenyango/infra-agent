@@ -192,6 +192,16 @@ credentials must still come from environment variables.
    rollback plans, does not provide artifact bytes, and does not allow adapter
    injection, client creation, credential reads, live checks, upload commands,
    object writes, index writes, or remote writes.
+   Use `knowledge upload-execution-prerequisite-plan` only as a dry-run private
+   prerequisite boundary plan from a saved upload mutation approval review. A
+   `prerequisite-plan-ready` result means required future boundaries were
+   modeled, not satisfied: artifact bytes, adapter injection, write token,
+   execution lease, rollback plan, and audit record still need separate design.
+   It is not mutation approval, does not allow execution, does not issue write
+   tokens, does not create leases or rollback plans, does not provide artifact
+   bytes, and does not allow adapter injection, client creation, credential
+   reads, live checks, upload commands, object writes, index writes, or remote
+   writes.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or

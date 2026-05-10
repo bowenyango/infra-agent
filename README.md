@@ -257,6 +257,15 @@ Current behavior is intentionally runtime-foundation oriented:
   `mutationApprovalGranted=false`, `uploadExecutionAllowed=false`, and all
   token, lease, client, adapter, artifact-byte, command, credential, live-check,
   object-write, index-write, and remote-mutation fields disabled.
+  `knowledge upload-execution-prerequisite-plan <approval-review.json>` reads
+  one saved mutation approval review and emits a private
+  `infra-agent.knowledge-team-upload-execution-prerequisite-plan` dry-run
+  boundary plan. `prerequisite-plan-ready` means only that the review can be
+  used as a prerequisite signal for future boundary design; it does not grant
+  mutation approval, allow upload execution, issue write tokens, create leases,
+  create rollback plans, provide artifact bytes, inject adapters, create
+  clients, check credentials, generate upload commands, or attempt object/index
+  writes.
   `knowledge validate` also
   accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
   produced by the internal mocked S3-compatible team artifact store
@@ -264,7 +273,8 @@ Current behavior is intentionally runtime-foundation oriented:
   readiness reports, plus compact backend-readiness, upload-intent,
   upload-continuation, upload-adapter-preflight, upload-mock-harness,
   upload-execution-gate, upload-mutation-plan, and
-  upload-mutation-approval-review reports. Team artifact
+  upload-mutation-approval-review, and upload-execution-prerequisite-plan
+  reports. Team artifact
   payloads are content-addressed and
   backend-neutral;
   they do not include backend URLs, buckets, endpoints, credentials, absolute

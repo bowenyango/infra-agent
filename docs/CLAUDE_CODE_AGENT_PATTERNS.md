@@ -84,11 +84,15 @@ durable design reference for infra-agent development.
   approval or making the plan executable. `upload-mutation-approval-review`
   can consume that saved plan plus an explicit operator-supplied fingerprint
   and record only that the exact plan fingerprint was reviewed; it still does
-  not grant mutation approval or unlock execution. All seven
+  not grant mutation approval or unlock execution.
+  `upload-execution-prerequisite-plan` can consume that review record and make
+  the required future boundaries explicit: artifact bytes, adapter injection,
+  write token, execution lease, rollback plan, and audit record. It still does
+  not create any of them and is not execution readiness. All eight
   remain dry-run routing state with upload approval, upload execution, write
-  token issuance, execution lease creation, adapter injection, client creation,
-  credential reads, live checks, object/index writes, and remote writes
-  disabled.
+  token issuance, execution lease creation, rollback creation, adapter
+  injection, client creation, credential reads, live checks, object/index
+  writes, and remote writes disabled.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,
   no-safe-action, and repair-budget-exhausted outcomes distinguishable without

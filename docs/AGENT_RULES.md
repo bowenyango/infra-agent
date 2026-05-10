@@ -291,6 +291,22 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   harnesses, artifact bytes, write tokens, leases, SDK clients, adapters,
   credential values or presence checks, live checks, upload commands, or
   object/index mutation.
+- `infra-agent knowledge upload-execution-prerequisite-plan` is a dry-run
+  private prerequisite boundary planning command. It may read one saved upload
+  mutation approval review and record that artifact bytes, adapter injection,
+  write token, execution lease, rollback plan, and audit record are still
+  required before any later execution design. `prerequisite-plan-ready` is not
+  upload execution readiness. It must keep `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `mutationApprovalGranted=false`,
+  `clientCreated=false`, `adapterInjected=false`,
+  `artifactBytesProvided=false`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+  `auditRecordCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept backend configs, registries, mock
+  harnesses, mutation plans, artifact bytes, write tokens, leases, SDK clients,
+  adapters, credential values or presence checks, live checks, upload commands,
+  or object/index mutation.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
