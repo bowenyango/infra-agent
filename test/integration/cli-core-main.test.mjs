@@ -339,6 +339,12 @@ test('help output includes upload credential presence boundary command', async (
   assert.match(output, /infra-agent knowledge upload-credential-presence-boundary <credential-read-boundary\.json>/);
 });
 
+test('help output includes upload live check boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-live-check-boundary <credential-presence-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
