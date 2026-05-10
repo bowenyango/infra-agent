@@ -49,6 +49,29 @@ function validMockAdapterPlan() {
   );
 }
 
+function realS3AdapterPlan() {
+  return planKnowledgeTeamBackendAdapterResolution(
+    buildKnowledgeTeamS3CompatibleBackendConfig(),
+    {
+      referenceRegistry: buildKnowledgeTeamS3CompatibleReferenceRegistry()
+    }
+  );
+}
+
+function assertNoPrivateValues(value) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  for (const forbidden of [
+    'https://should-not-copy.example.test',
+    'should-not-copy-bucket',
+    'should-not-copy-secret',
+    'aws s3 cp',
+    's3://private-bucket',
+    'private-key'
+  ]) {
+    assert.equal(text.includes(forbidden), false, forbidden);
+  }
+}
+
 test('upload adapter preflight accepts continuation-ready with a mock adapter plan', async () => {
   const continuation = await validContinuation();
   const adapterResolutionPlan = validMockAdapterPlan();
@@ -163,4 +186,56 @@ test('upload adapter preflight rejects forged continuation mutation flags', asyn
   assert.equal(preflight.readiness.blockerCodes.includes('upload-execution-enabled'), true);
   assert.equal(preflight.readiness.blockerCodes.includes('client-created'), true);
   assert.equal(preflight.readiness.blockerCodes.includes('upload-command-present'), true);
+});
+
+test('upload adapter preflight blocks real backend adapter plans', async () => {
+  const preflight = buildKnowledgeTeamUploadAdapterPreflight({
+    continuation: await validContinuation(),
+    adapterResolutionPlan: realS3AdapterPlan()
+  });
+
+  assert.equal(preflight.status, 'blocked');
+  assert.equal(preflight.adapterDependency.backendKind, 's3-compatible');
+  assert.equal(preflight.adapterDependency.resolutionStatus, 'blocked');
+  assert.equal(preflight.adapterDependency.injectionCandidate, false);
+  assert.equal(preflight.adapterDependency.realBackendImplemented, false);
+  assert.equal(preflight.remoteWriteAllowed, false);
+  assert.equal(preflight.uploadExecutionAllowed, false);
+  assert.equal(preflight.clientCreated, false);
+  assert.equal(preflight.uploadCommand, null);
+  assert.equal(preflight.readiness.blockerCodes.includes('adapter-plan-blocked'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('real-backend-not-implemented'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('unsupported-adapter-backend'), true);
+});
+
+test('upload adapter preflight blocks unsafe adapter capability drift', async () => {
+  const adapterResolutionPlan = {
+    ...validMockAdapterPlan(),
+    endpointUrl: 'https://should-not-copy.example.test',
+    bucketName: 'should-not-copy-bucket',
+    capabilities: {
+      ...validMockAdapterPlan().capabilities,
+      remoteWriteAllowed: true,
+      liveCheckAllowed: true,
+      credentialValuesExposed: true,
+      uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+    }
+  };
+  const preflight = buildKnowledgeTeamUploadAdapterPreflight({
+    continuation: await validContinuation(),
+    adapterResolutionPlan
+  });
+
+  assert.equal(preflight.status, 'blocked');
+  assert.equal(preflight.adapterDependency.injectionCandidate, false);
+  assert.equal(preflight.adapterDependency.remoteWriteAllowed, false);
+  assert.equal(preflight.adapterDependency.liveCheckAllowed, false);
+  assert.equal(preflight.adapterDependency.credentialValuesExposed, false);
+  assert.equal(preflight.adapterDependency.uploadCommand, null);
+  assert.equal(preflight.readiness.blockerCodes.includes('adapter-remote-write-enabled'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('adapter-live-check-enabled'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('adapter-credential-values-exposed'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('adapter-upload-command-present'), true);
+  assert.equal(preflight.readiness.blockerCodes.includes('backend-detail-leak'), true);
+  assertNoPrivateValues(preflight);
 });
