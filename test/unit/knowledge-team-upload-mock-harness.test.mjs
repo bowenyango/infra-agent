@@ -53,6 +53,20 @@ async function validPreflight() {
   });
 }
 
+function assertNoPrivateValues(value) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  for (const forbidden of [
+    'https://should-not-copy.example.test',
+    'should-not-copy-bucket',
+    'should-not-copy-secret',
+    'aws s3 cp',
+    's3://private-bucket',
+    'private-key'
+  ]) {
+    assert.equal(text.includes(forbidden), false, forbidden);
+  }
+}
+
 test('upload mock harness accepts preflight-ready artifacts without executing writes', async () => {
   const preflight = await validPreflight();
   const harness = buildKnowledgeTeamUploadMockHarness({ preflight });
@@ -163,4 +177,70 @@ test('upload mock harness rejects forged preflight execution flags', async () =>
   assert.equal(harness.readiness.blockerCodes.includes('client-created'), true);
   assert.equal(harness.readiness.blockerCodes.includes('adapter-injected'), true);
   assert.equal(harness.readiness.blockerCodes.includes('upload-command-present'), true);
+});
+
+test('upload mock harness blocks real backend and adapter capability drift', async () => {
+  const preflight = {
+    ...(await validPreflight()),
+    adapterDependency: {
+      ...(await validPreflight()).adapterDependency,
+      backendKind: 's3-compatible',
+      adapterName: 'mock-team-cache',
+      injectionCandidate: true,
+      resolutionStatus: 'resolvable',
+      artifactObjectStore: false,
+      metadataIndex: false,
+      remoteWriteAllowed: true,
+      liveCheckAllowed: true,
+      credentialValuesExposed: true,
+      uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+    }
+  };
+  const harness = buildKnowledgeTeamUploadMockHarness({ preflight });
+
+  assert.equal(harness.status, 'blocked');
+  assert.equal(harness.preflight.adapterBackendKind, 's3-compatible');
+  assert.equal(harness.mockHarness.backendKind, 'unsupported');
+  assert.equal(harness.mockAdapterInstantiated, false);
+  assert.equal(harness.objectWriteAttempted, false);
+  assert.equal(harness.metadataIndexWriteAttempted, false);
+  assert.equal(harness.remoteMutationPerformed, false);
+  assert.equal(harness.readiness.blockerCodes.includes('real-backend-not-implemented'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('unsupported-adapter-backend'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('adapter-capability-disabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('adapter-remote-write-enabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('adapter-live-check-enabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('adapter-credential-values-exposed'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('adapter-upload-command-present'), true);
+});
+
+test('upload mock harness blocks backend detail and store leakage', async () => {
+  const preflight = {
+    ...(await validPreflight()),
+    endpointUrl: 'https://should-not-copy.example.test',
+    bucketName: 'should-not-copy-bucket',
+    secretAccessKey: 'should-not-copy-secret',
+    artifactStore: {
+      putObject: 'should-not-be-present'
+    },
+    metadataIndex: {
+      putEntry: 'should-not-be-present'
+    },
+    adapterDependency: {
+      ...(await validPreflight()).adapterDependency,
+      clientConfig: {
+        endpointUrl: 'https://should-not-copy.example.test'
+      }
+    }
+  };
+  const harness = buildKnowledgeTeamUploadMockHarness({ preflight });
+
+  assert.equal(harness.status, 'blocked');
+  assert.equal(harness.mockAdapterInstantiated, false);
+  assert.equal(harness.uploadCommand, null);
+  assert.equal(harness.objectWriteAttempted, false);
+  assert.equal(harness.metadataIndexWriteAttempted, false);
+  assert.equal(harness.remoteMutationPerformed, false);
+  assert.equal(harness.readiness.blockerCodes.includes('backend-detail-leak'), true);
+  assertNoPrivateValues(harness);
 });
