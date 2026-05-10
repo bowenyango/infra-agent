@@ -291,6 +291,12 @@ test('help output includes upload write token boundary command', async () => {
   assert.match(output, /infra-agent knowledge upload-write-token-boundary <execution-prerequisite-plan\.json>/);
 });
 
+test('help output includes upload execution lease boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-execution-lease-boundary <write-token-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
