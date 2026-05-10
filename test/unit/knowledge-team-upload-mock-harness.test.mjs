@@ -95,3 +95,72 @@ test('upload mock harness accepts preflight-ready artifacts without executing wr
   assert.equal(harness.readiness.blockerCount, 0);
   assert.deepEqual(harness.readiness.blockerCodes, []);
 });
+
+test('upload mock harness blocks preflight artifacts that are not ready', async () => {
+  const preflight = {
+    ...(await validPreflight()),
+    status: 'blocked',
+    adapterDependency: {
+      ...(await validPreflight()).adapterDependency,
+      injectionCandidate: false,
+      resolutionStatus: 'blocked'
+    }
+  };
+  const harness = buildKnowledgeTeamUploadMockHarness({ preflight });
+
+  assert.equal(harness.status, 'blocked');
+  assert.equal(harness.uploadExecutionAllowed, false);
+  assert.equal(harness.clientCreated, false);
+  assert.equal(harness.adapterInjected, false);
+  assert.equal(harness.mockAdapterInstantiated, false);
+  assert.equal(harness.objectWriteAttempted, false);
+  assert.equal(harness.metadataIndexWriteAttempted, false);
+  assert.equal(harness.remoteMutationPerformed, false);
+  assert.equal(harness.uploadCommand, null);
+  assert.equal(harness.mockHarness.objectWriteAttempted, false);
+  assert.equal(harness.mockHarness.indexWriteAttempted, false);
+  assert.equal(harness.readiness.nextAction, 'resolve-blockers');
+  assert.equal(harness.readiness.blockerCodes.includes('preflight-not-ready'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('adapter-resolution-not-ready'), true);
+});
+
+test('upload mock harness rejects forged preflight execution flags', async () => {
+  const preflight = {
+    ...(await validPreflight()),
+    mutationAllowed: true,
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    clientCreated: true,
+    adapterInjected: true,
+    uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key'
+  };
+  const harness = buildKnowledgeTeamUploadMockHarness({ preflight });
+
+  assert.equal(harness.status, 'blocked');
+  assert.equal(harness.remoteWriteAllowed, false);
+  assert.equal(harness.liveCheckAllowed, false);
+  assert.equal(harness.credentialValuesExposed, false);
+  assert.equal(harness.credentialPresenceChecked, false);
+  assert.equal(harness.uploadApproved, false);
+  assert.equal(harness.uploadExecutionAllowed, false);
+  assert.equal(harness.clientCreated, false);
+  assert.equal(harness.adapterInjected, false);
+  assert.equal(harness.objectWriteAttempted, false);
+  assert.equal(harness.metadataIndexWriteAttempted, false);
+  assert.equal(harness.remoteMutationPerformed, false);
+  assert.equal(harness.uploadCommand, null);
+  assert.equal(harness.readiness.blockerCodes.includes('mutation-enabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('remote-write-enabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('live-check-enabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('credential-values-exposed'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('credential-presence-check-enabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('upload-approval-already-provided'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('upload-execution-enabled'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('client-created'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('adapter-injected'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('upload-command-present'), true);
+});
