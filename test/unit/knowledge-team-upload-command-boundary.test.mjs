@@ -71,6 +71,9 @@ import {
 import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
 
 function validBackendReferenceSummary() {
   return validateKnowledgeTeamS3CompatibleBackendReferences(
@@ -245,6 +248,7 @@ test('upload command boundary records command requirements without generating co
   assert.equal(boundary.readiness.nextAction, 'design-object-index-binding-boundary');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assert.equal(validateKnowledgePayload(boundary, 'knowledge-pack.upload-command-boundary.json').valid, true);
   assertNoPrivateValues(boundary);
 });
 
@@ -277,6 +281,39 @@ test('upload command boundary blocks non-ready live check boundaries', async () 
   assert.equal(boundary.sourceLiveCheckBoundary.boundaryStatus, 'blocked');
   assertExecutionAndCommandDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload command boundary validation rejects forged command state', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({ liveCheckBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    uploadCommand: { argv: ['aws', 's3', 'cp'] },
+    target: {
+      ...boundary.target,
+      objectKey: liveCheckBoundary.target.objectKey
+    },
+    uploadCommandBoundary: {
+      ...boundary.uploadCommandBoundary,
+      uploadCommandGenerated: true,
+      uploadCommandMaterialized: true,
+      uploadCommandExposed: true,
+      executable: true
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      uploadCommandGenerated: true
+    }
+  }, 'knowledge-pack.upload-command-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommand'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.target.objectKey'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommandBoundary.uploadCommandGenerated'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommandBoundary.uploadCommandMaterialized'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommandBoundary.uploadCommandExposed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommandBoundary.executable'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.uploadCommandGenerated'), true);
 });
 
 test('upload command boundary blocks invalid live check inputs', () => {

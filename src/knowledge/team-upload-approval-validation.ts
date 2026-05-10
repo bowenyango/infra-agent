@@ -142,6 +142,14 @@ const UPLOAD_LIVE_CHECK_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-live-check-bound
 const UPLOAD_LIVE_CHECK_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_LIVE_CHECK_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
 const UPLOAD_LIVE_CHECK_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_COMMAND_BOUNDARY_STATUSES = ['upload-command-boundary-ready', 'blocked'] as const;
+const UPLOAD_COMMAND_BOUNDARY_NEXT_ACTIONS = ['design-object-index-binding-boundary', 'resolve-blockers'] as const;
+const UPLOAD_COMMAND_BOUNDARY_SOURCE_STATUSES = ['live-check-boundary-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_COMMAND_BOUNDARY_SOURCE_KINDS = ['live-check-boundary-dry-run', 'unsupported'] as const;
+const UPLOAD_COMMAND_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-upload-command-boundary', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_COMMAND_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_COMMAND_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
+const UPLOAD_COMMAND_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -788,7 +796,53 @@ const UPLOAD_LIVE_CHECK_BOUNDARY_BLOCKERS = [
   'upload-execution-enabled',
   'write-token-issued'
 ] as const;
-const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl|liveCheckResult|liveCheckResponse|liveCheckProbe|liveBackendProbe|remoteProbeResult|healthCheckResult)/i;
+const UPLOAD_COMMAND_BOUNDARY_BLOCKERS = [
+  'adapter-dependency-leak',
+  'adapter-injected',
+  'artifact-bytes-provided',
+  'artifact-object-store-bound',
+  'audit-record-created',
+  'backend-detail-leak',
+  'client-created',
+  'client-dependency-leak',
+  'credential-dependency-leak',
+  'credential-presence-check-enabled',
+  'credential-presence-result-exposed',
+  'credential-values-exposed',
+  'credential-values-read',
+  'executable-state-enabled',
+  'execution-lease-created',
+  'invalid-boundary-kind',
+  'invalid-live-check-boundary-kind',
+  'invalid-schema-version',
+  'live-check-boundary-next-action-invalid',
+  'live-check-boundary-not-ready',
+  'live-check-enabled',
+  'live-check-not-required',
+  'live-check-result-exposed',
+  'metadata-index-bound',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mutation-approval-already-granted',
+  'mutation-enabled',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'review-fingerprint-unverified',
+  'rollback-plan-created',
+  'scope-not-matched',
+  'unsupported-adapter-backend',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'upload-approval-already-provided',
+  'upload-command-exposed',
+  'upload-command-generated',
+  'upload-command-not-required',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'write-token-issued'
+] as const;
+const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl|liveCheckResult|liveCheckResponse|liveCheckProbe|liveBackendProbe|remoteProbeResult|healthCheckResult|uploadCommand(?:Value|Payload|Material|Data|Body|Line)|commandLine|shellCommand|signedUploadCommand)/i;
 const FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN = /(artifactBytesValue|artifactBytesBase64|artifactBytesContent|artifactBytesPayload|artifactContent|artifactPayload|rawArtifact|byteBuffer|bytesBase64|contentBase64|buffer|stream|arrayBuffer|blob|readPath|filePath|localPath|artifactPath|serializedPayload|stagedBytes)/i;
 const FORBIDDEN_ADAPTER_DEPENDENCY_KEY_PATTERN = /(adapterInstance|adapterObject|adapterValue|adapterDescriptorValue|adapterClient|clientInstance|clientObject|clientValue|clientFactory|clientConfig|sdkClient|objectStoreHandle|metadataIndexHandle|putObject|putEntry|fetch)/i;
 const FORBIDDEN_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|token|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
@@ -803,6 +857,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-credential-read-boundary',
   'infra-agent.knowledge-team-upload-credential-presence-boundary',
   'infra-agent.knowledge-team-upload-live-check-boundary',
+  'infra-agent.knowledge-team-upload-command-boundary',
   'upload-write-token-boundary',
   'upload-execution-lease-boundary',
   'upload-rollback-plan-boundary',
@@ -813,6 +868,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'upload-credential-read-boundary',
   'upload-credential-presence-boundary',
   'upload-live-check-boundary',
+  'upload-command-boundary',
   'write-token-boundary-dry-run',
   'write-token-boundary-ready',
   'execution-lease-boundary-dry-run',
@@ -833,6 +889,8 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'credential-presence-boundary-ready',
   'live-check-boundary-dry-run',
   'live-check-boundary-ready',
+  'upload-command-boundary-dry-run',
+  'upload-command-boundary-ready',
   'design-write-token-boundary',
   'design-execution-lease-boundary',
   'design-rollback-plan-boundary',
@@ -844,6 +902,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'design-credential-presence-boundary',
   'design-live-check-boundary',
   'design-upload-command-boundary',
+  'design-object-index-binding-boundary',
   'write-token-boundary-design',
   'write-token-issued',
   'write-token-not-required',
@@ -1073,7 +1132,18 @@ function validateNoUploadApprovalLeakage(
       || key === 'liveCheckReadOnlyRequired'
       || key === 'liveCheckResultRedactionRequired'
       || key === 'liveCheckAllowed'
-      || key === 'liveCheckResultExposed';
+      || key === 'liveCheckResultExposed'
+      || key === 'sourceLiveCheckBoundary'
+      || key === 'uploadCommandBoundary'
+      || key === 'uploadCommandRequiredBeforeExecution'
+      || key === 'uploadCommandRequiredAfterLiveCheckBoundary'
+      || key === 'uploadCommandDescriptorRequired'
+      || key === 'uploadCommandPayloadRedactionRequired'
+      || key === 'uploadCommandMaterialRedactionRequired'
+      || key === 'commandExecutionApprovalRequired'
+      || key === 'uploadCommandMaterialized'
+      || key === 'uploadCommandExposed'
+      || key === 'objectKeyRedacted';
     if (!safeControlField && FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include raw artifact bytes, byte buffers, streams, content payloads, or local artifact paths.'));
     }
@@ -5629,6 +5699,373 @@ export function validateKnowledgeTeamUploadLiveCheckBoundaryPayload(
       }
       if (payload.readiness.blockerCount !== 0) {
         issues.push(error('$.readiness.blockerCount', 'must be 0 for live-check-boundary-ready payloads.'));
+      }
+    }
+    if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
+      issues.push(error('$.readiness.nextAction', 'must resolve blockers for blocked payloads.'));
+    }
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadCommandBoundaryPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload command boundary');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_COMMAND_BOUNDARY_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload command boundary status must be supported.'));
+  }
+  if (payload.boundaryKind !== 'upload-command-boundary-dry-run') {
+    issues.push(error('$.boundaryKind', 'Knowledge team upload command boundary kind must be upload-command-boundary-dry-run.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload command boundary operation must be stage-knowledge-pack.'));
+  }
+  if (payload.uploadCommand !== null) {
+    issues.push(error('$.uploadCommand', 'Knowledge team upload command boundary must not include upload commands.'));
+  }
+  for (const key of [
+    'uploadApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ]) {
+    if (payload[key] !== false) {
+      issues.push(error(`$.${key}`, 'Knowledge team upload command boundary must keep mutation and execution fields false.'));
+    }
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload command boundary target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be null or a safe 24-character id.'));
+      }
+      if (payload.status === 'upload-command-boundary-ready' && payload.target[key] === null) {
+        issues.push(error(`$.target.${key}`, 'must be set for upload-command-boundary-ready payloads.'));
+      }
+    }
+    if (Object.hasOwn(payload.target, 'objectKey')) {
+      issues.push(error('$.target.objectKey', 'must not be copied into upload command boundary payloads.'));
+    }
+    if (payload.target.objectKeyRedacted !== true) {
+      issues.push(error('$.target.objectKeyRedacted', 'must be true.'));
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.status === 'upload-command-boundary-ready' && payload.target.objectSha256 === null) {
+      issues.push(error('$.target.objectSha256', 'must be set for upload-command-boundary-ready payloads.'));
+    }
+  }
+
+  if (!isRecord(payload.sourceLiveCheckBoundary)) {
+    issues.push(error('$.sourceLiveCheckBoundary', 'Knowledge team upload command boundary sourceLiveCheckBoundary must be an object.'));
+  } else {
+    if (payload.sourceLiveCheckBoundary.source !== 'upload-live-check-boundary') {
+      issues.push(error('$.sourceLiveCheckBoundary.source', 'must be upload-live-check-boundary.'));
+    }
+    if (!isOneOf(payload.sourceLiveCheckBoundary.boundaryStatus, UPLOAD_COMMAND_BOUNDARY_SOURCE_STATUSES)) {
+      issues.push(error('$.sourceLiveCheckBoundary.boundaryStatus', 'must be a supported live check boundary status.'));
+    }
+    if (!isOneOf(payload.sourceLiveCheckBoundary.boundaryKind, UPLOAD_COMMAND_BOUNDARY_SOURCE_KINDS)) {
+      issues.push(error('$.sourceLiveCheckBoundary.boundaryKind', 'must be a supported live check boundary kind.'));
+    }
+    if (!isOneOf(payload.sourceLiveCheckBoundary.boundaryNextAction, UPLOAD_COMMAND_BOUNDARY_SOURCE_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceLiveCheckBoundary.boundaryNextAction', 'must be a supported live check boundary next action.'));
+    }
+    if (!isOneOf(payload.sourceLiveCheckBoundary.reviewStatus, UPLOAD_COMMAND_BOUNDARY_REVIEW_STATUSES)) {
+      issues.push(error('$.sourceLiveCheckBoundary.reviewStatus', 'must be a supported review status.'));
+    }
+    if (!isOneOf(payload.sourceLiveCheckBoundary.reviewKind, UPLOAD_COMMAND_BOUNDARY_REVIEW_KINDS)) {
+      issues.push(error('$.sourceLiveCheckBoundary.reviewKind', 'must be a supported review kind.'));
+    }
+    if (!isOneOf(payload.sourceLiveCheckBoundary.adapterBackendKind, UPLOAD_COMMAND_BOUNDARY_ADAPTER_BACKENDS)) {
+      issues.push(error('$.sourceLiveCheckBoundary.adapterBackendKind', 'must be a supported adapter backend kind.'));
+    }
+    for (const key of [
+      'scopeMatched',
+      'humanReviewRecorded',
+      'fingerprintVerified',
+      'sourceFingerprintVerified',
+      'dryRunOnly',
+      'liveCheckRequiredBeforeExecution',
+      'liveCheckRequiredAfterCredentialPresenceBoundary',
+      'credentialPresenceBoundaryRequired',
+      'credentialReadBoundaryRequired',
+      'credentialSourceDescriptorRequired',
+      'credentialReferenceOnlyRequired',
+      'credentialValueRedactionRequired',
+      'credentialPresenceSignalRequired',
+      'credentialPresenceResultRedactionRequired',
+      'mockAdapterRequired',
+      'clientFactoryDescriptorRequired',
+      'liveCheckPolicyRequired',
+      'liveCheckReadOnlyRequired',
+      'liveCheckResultRedactionRequired',
+      'uploadCommandBoundaryRequired',
+      'artifactObjectStoreDependencyRequired',
+      'metadataIndexDependencyRequired',
+      'contentAddressedObjectKeysRequired',
+      'contentAddressedIndexKeysRequired',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired',
+      'credentialValuesRead',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'credentialPresenceResultExposed',
+      'clientCreated',
+      'sdkClientCreated',
+      'adapterInjected',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'liveCheckAllowed',
+      'liveCheckPerformed',
+      'liveCheckResultExposed',
+      'uploadExecutionAllowed',
+      'uploadCommandGenerated',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed',
+      'executable'
+    ]) {
+      if (typeof payload.sourceLiveCheckBoundary[key] !== 'boolean') {
+        issues.push(error(`$.sourceLiveCheckBoundary.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.sourceLiveCheckBoundary.adapterName !== null) {
+      if (typeof payload.sourceLiveCheckBoundary.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.sourceLiveCheckBoundary.adapterName)) {
+        issues.push(error('$.sourceLiveCheckBoundary.adapterName', 'must be null or a safe adapter name.'));
+      }
+    }
+    if (payload.status === 'upload-command-boundary-ready') {
+      if (payload.sourceLiveCheckBoundary.boundaryStatus !== 'live-check-boundary-ready') {
+        issues.push(error('$.sourceLiveCheckBoundary.boundaryStatus', 'must be live-check-boundary-ready for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.boundaryKind !== 'live-check-boundary-dry-run') {
+        issues.push(error('$.sourceLiveCheckBoundary.boundaryKind', 'must be live-check-boundary-dry-run for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.boundaryNextAction !== 'design-upload-command-boundary') {
+        issues.push(error('$.sourceLiveCheckBoundary.boundaryNextAction', 'must design the upload-command boundary for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.reviewStatus !== 'review-ready') {
+        issues.push(error('$.sourceLiveCheckBoundary.reviewStatus', 'must be review-ready for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.reviewKind !== 'human-fingerprint-dry-run') {
+        issues.push(error('$.sourceLiveCheckBoundary.reviewKind', 'must be human-fingerprint-dry-run for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.scopeMatched !== true) {
+        issues.push(error('$.sourceLiveCheckBoundary.scopeMatched', 'must be true for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.humanReviewRecorded !== true) {
+        issues.push(error('$.sourceLiveCheckBoundary.humanReviewRecorded', 'must be true for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.fingerprintVerified !== true) {
+        issues.push(error('$.sourceLiveCheckBoundary.fingerprintVerified', 'must be true for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.sourceFingerprintVerified !== true) {
+        issues.push(error('$.sourceLiveCheckBoundary.sourceFingerprintVerified', 'must be true for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.adapterName === null) {
+        issues.push(error('$.sourceLiveCheckBoundary.adapterName', 'must be set for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.sourceLiveCheckBoundary.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.sourceLiveCheckBoundary.adapterBackendKind', 'must be mock-s3-compatible for upload-command-boundary-ready payloads.'));
+      }
+      for (const key of [
+        'dryRunOnly',
+        'liveCheckRequiredBeforeExecution',
+        'liveCheckRequiredAfterCredentialPresenceBoundary',
+        'credentialPresenceBoundaryRequired',
+        'credentialReadBoundaryRequired',
+        'credentialSourceDescriptorRequired',
+        'credentialReferenceOnlyRequired',
+        'credentialValueRedactionRequired',
+        'credentialPresenceSignalRequired',
+        'credentialPresenceResultRedactionRequired',
+        'mockAdapterRequired',
+        'clientFactoryDescriptorRequired',
+        'liveCheckPolicyRequired',
+        'liveCheckReadOnlyRequired',
+        'liveCheckResultRedactionRequired',
+        'uploadCommandBoundaryRequired',
+        'artifactObjectStoreDependencyRequired',
+        'metadataIndexDependencyRequired',
+        'contentAddressedObjectKeysRequired',
+        'contentAddressedIndexKeysRequired',
+        'idempotentWritesRequired',
+        'explicitUploadApprovalRequired'
+      ]) {
+        if (payload.sourceLiveCheckBoundary[key] !== true) {
+          issues.push(error(`$.sourceLiveCheckBoundary.${key}`, 'must be true for upload-command-boundary-ready payloads.'));
+        }
+      }
+      for (const key of [
+        'credentialValuesRead',
+        'credentialValuesExposed',
+        'credentialPresenceChecked',
+        'credentialPresenceResultExposed',
+        'clientCreated',
+        'sdkClientCreated',
+        'adapterInjected',
+        'artifactObjectStoreBound',
+        'metadataIndexBound',
+        'liveCheckAllowed',
+        'liveCheckPerformed',
+        'liveCheckResultExposed',
+        'uploadExecutionAllowed',
+        'uploadCommandGenerated',
+        'objectWriteAttempted',
+        'metadataIndexWriteAttempted',
+        'remoteMutationPerformed',
+        'executable'
+      ]) {
+        if (payload.sourceLiveCheckBoundary[key] !== false) {
+          issues.push(error(`$.sourceLiveCheckBoundary.${key}`, 'must be false for upload-command-boundary-ready payloads.'));
+        }
+      }
+    }
+  }
+
+  if (!isRecord(payload.uploadCommandBoundary)) {
+    issues.push(error('$.uploadCommandBoundary', 'Knowledge team upload command boundary uploadCommandBoundary must be an object.'));
+  } else {
+    for (const key of [
+      'dryRunOnly',
+      'uploadCommandRequiredBeforeExecution',
+      'uploadCommandRequiredAfterLiveCheckBoundary',
+      'liveCheckBoundaryRequired',
+      'liveCheckPolicyRequired',
+      'liveCheckResultRedactionRequired',
+      'credentialPresenceBoundaryRequired',
+      'credentialReadBoundaryRequired',
+      'credentialSourceDescriptorRequired',
+      'credentialReferenceOnlyRequired',
+      'credentialValueRedactionRequired',
+      'credentialPresenceResultRedactionRequired',
+      'mockAdapterRequired',
+      'clientFactoryDescriptorRequired',
+      'uploadCommandDescriptorRequired',
+      'uploadCommandPayloadRedactionRequired',
+      'uploadCommandMaterialRedactionRequired',
+      'commandExecutionApprovalRequired',
+      'artifactObjectStoreDependencyRequired',
+      'metadataIndexDependencyRequired',
+      'contentAddressedObjectKeysRequired',
+      'contentAddressedIndexKeysRequired',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired'
+    ]) {
+      if (payload.uploadCommandBoundary[key] !== true) {
+        issues.push(error(`$.uploadCommandBoundary.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'credentialValuesRead',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'credentialPresenceResultExposed',
+      'clientCreated',
+      'sdkClientCreated',
+      'adapterInjected',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'liveCheckAllowed',
+      'liveCheckPerformed',
+      'liveCheckResultExposed',
+      'uploadCommandGenerated',
+      'uploadCommandMaterialized',
+      'uploadCommandExposed',
+      'uploadExecutionAllowed',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed',
+      'executable'
+    ]) {
+      if (payload.uploadCommandBoundary[key] !== false) {
+        issues.push(error(`$.uploadCommandBoundary.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.remainingExecutionBoundaries)) {
+    issues.push(error('$.remainingExecutionBoundaries', 'Knowledge team upload command boundary remainingExecutionBoundaries must be an object.'));
+  } else {
+    for (const key of [
+      'artifactBytesRequired',
+      'adapterInjectionRequired',
+      'clientCreationRequired',
+      'credentialReadRequired',
+      'credentialPresenceCheckRequired',
+      'liveCheckRequired',
+      'uploadCommandRequired',
+      'writeTokenRequired',
+      'executionLeaseRequired',
+      'rollbackPlanRequired',
+      'auditRecordRequired'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== true) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'artifactBytesProvided',
+      'adapterInjected',
+      'clientCreated',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'liveCheckPerformed',
+      'uploadCommandGenerated',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'objectWriteAllowed',
+      'metadataIndexWriteAllowed',
+      'remoteMutationAllowed'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== false) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload command boundary readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_COMMAND_BOUNDARY_BLOCKERS,
+      supportedStatuses: UPLOAD_COMMAND_BOUNDARY_STATUSES,
+      supportedNextActions: UPLOAD_COMMAND_BOUNDARY_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+    if (payload.status !== payload.readiness.status) {
+      issues.push(error('$.readiness.status', 'must match payload status.'));
+    }
+    if (payload.status === 'upload-command-boundary-ready') {
+      if (payload.readiness.nextAction !== 'design-object-index-binding-boundary') {
+        issues.push(error('$.readiness.nextAction', 'must design the object/index binding boundary for upload-command-boundary-ready payloads.'));
+      }
+      if (payload.readiness.blockerCount !== 0) {
+        issues.push(error('$.readiness.blockerCount', 'must be 0 for upload-command-boundary-ready payloads.'));
       }
     }
     if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
