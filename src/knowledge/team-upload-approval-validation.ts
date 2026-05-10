@@ -102,6 +102,14 @@ const UPLOAD_ARTIFACT_BYTES_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-artifact-byt
 const UPLOAD_ARTIFACT_BYTES_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_ARTIFACT_BYTES_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
 const UPLOAD_ARTIFACT_BYTES_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_STATUSES = ['adapter-injection-boundary-ready', 'blocked'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_NEXT_ACTIONS = ['design-client-creation-boundary', 'resolve-blockers'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_SOURCE_STATUSES = ['artifact-bytes-boundary-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_SOURCE_KINDS = ['artifact-bytes-boundary-dry-run', 'unsupported'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-adapter-injection-boundary', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -537,8 +545,51 @@ const UPLOAD_ARTIFACT_BYTES_BOUNDARY_BLOCKERS = [
   'write-token-issued',
   'write-token-not-required'
 ] as const;
+const UPLOAD_ADAPTER_INJECTION_BOUNDARY_BLOCKERS = [
+  'adapter-dependency-leak',
+  'adapter-injected',
+  'adapter-injection-not-required',
+  'artifact-bytes-boundary-next-action-invalid',
+  'artifact-bytes-boundary-not-ready',
+  'artifact-bytes-digest-already-verified',
+  'artifact-bytes-not-required',
+  'artifact-bytes-provided',
+  'artifact-bytes-scope-already-bound',
+  'audit-record-created',
+  'audit-record-not-required',
+  'backend-detail-leak',
+  'client-created',
+  'credential-presence-check-enabled',
+  'credential-values-exposed',
+  'execution-lease-created',
+  'execution-lease-not-required',
+  'invalid-artifact-bytes-boundary-kind',
+  'invalid-boundary-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mutation-approval-already-granted',
+  'mutation-enabled',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'review-fingerprint-unverified',
+  'rollback-plan-created',
+  'rollback-plan-not-required',
+  'scope-not-matched',
+  'unsupported-adapter-backend',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'write-token-issued',
+  'write-token-not-required'
+] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl)/i;
 const FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN = /(artifactBytesValue|artifactBytesBase64|artifactBytesContent|artifactBytesPayload|artifactContent|artifactPayload|rawArtifact|byteBuffer|bytesBase64|contentBase64|buffer|stream|arrayBuffer|blob|readPath|filePath|localPath|artifactPath|serializedPayload|stagedBytes)/i;
+const FORBIDDEN_ADAPTER_DEPENDENCY_KEY_PATTERN = /(adapterInstance|adapterObject|adapterValue|adapterDescriptorValue|adapterClient|sdkClient|objectStoreHandle|metadataIndexHandle|putObject|putEntry|fetch)/i;
 const FORBIDDEN_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|token|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
 const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-write-token-boundary',
@@ -546,11 +597,13 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-rollback-plan-boundary',
   'infra-agent.knowledge-team-upload-audit-record-boundary',
   'infra-agent.knowledge-team-upload-artifact-bytes-boundary',
+  'infra-agent.knowledge-team-upload-adapter-injection-boundary',
   'upload-write-token-boundary',
   'upload-execution-lease-boundary',
   'upload-rollback-plan-boundary',
   'upload-audit-record-boundary',
   'upload-artifact-bytes-boundary',
+  'upload-adapter-injection-boundary',
   'write-token-boundary-dry-run',
   'write-token-boundary-ready',
   'execution-lease-boundary-dry-run',
@@ -561,12 +614,15 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'audit-record-boundary-ready',
   'artifact-bytes-boundary-dry-run',
   'artifact-bytes-boundary-ready',
+  'adapter-injection-boundary-dry-run',
+  'adapter-injection-boundary-ready',
   'design-write-token-boundary',
   'design-execution-lease-boundary',
   'design-rollback-plan-boundary',
   'design-audit-record-boundary',
   'design-artifact-bytes-boundary',
   'design-adapter-injection-boundary',
+  'design-client-creation-boundary',
   'write-token-boundary-design',
   'write-token-issued',
   'write-token-not-required',
@@ -583,6 +639,11 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'artifact-bytes-not-required',
   'artifact-bytes-provided',
   'artifact-bytes-scope-already-bound',
+  'adapter-dependency-leak',
+  'adapter-injected',
+  'adapter-injection-not-required',
+  'artifact-bytes-boundary-next-action-invalid',
+  'artifact-bytes-boundary-not-ready',
   'audit-boundary-next-action-invalid',
   'audit-boundary-not-ready',
   'rollback-boundary-next-action-invalid',
@@ -715,9 +776,35 @@ function validateNoUploadApprovalLeakage(
       || key === 'writeTokenRequiredBeforeBytes'
       || key === 'executionLeaseRequiredBeforeBytes'
       || key === 'rollbackPlanRequiredBeforeBytes'
-      || key === 'adapterInjectionRequiredAfterBytes';
+      || key === 'adapterInjectionRequiredAfterBytes'
+      || key === 'sourceArtifactBytesBoundary'
+      || key === 'adapterInjectionBoundary'
+      || key === 'adapterInjectionRequired'
+      || key === 'adapterInjectionRequiredBeforeExecution'
+      || key === 'adapterDependencyInjectionOnly'
+      || key === 'mockAdapterRequired'
+      || key === 'adapterDescriptorRequired'
+      || key === 'artifactObjectStoreDependencyRequired'
+      || key === 'metadataIndexDependencyRequired'
+      || key === 'contentAddressedObjectKeysRequired'
+      || key === 'contentAddressedIndexKeysRequired'
+      || key === 'idempotentWritesRequired'
+      || key === 'explicitUploadApprovalRequired'
+      || key === 'writeTokenRequiredBeforeAdapter'
+      || key === 'executionLeaseRequiredBeforeAdapter'
+      || key === 'rollbackPlanRequiredBeforeAdapter'
+      || key === 'auditRecordRequiredBeforeAdapter'
+      || key === 'artifactObjectStoreBound'
+      || key === 'metadataIndexBound'
+      || key === 'clientCreationRequired'
+      || key === 'clientCreated'
+      || key === 'adapterName'
+      || key === 'adapterBackendKind';
     if (!safeControlField && FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include raw artifact bytes, byte buffers, streams, content payloads, or local artifact paths.'));
+    }
+    if (!safeControlField && FORBIDDEN_ADAPTER_DEPENDENCY_KEY_PATTERN.test(key)) {
+      issues.push(error(entryPath, 'Knowledge upload approval payloads must not include adapter instances, SDK clients, object store handles, metadata index handles, or write functions.'));
     }
     if (!safeControlField && FORBIDDEN_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include backend detail or credential fields.'));
@@ -3616,6 +3703,301 @@ export function validateKnowledgeTeamUploadArtifactBytesBoundaryPayload(
       }
       if (payload.readiness.blockerCount !== 0) {
         issues.push(error('$.readiness.blockerCount', 'must be 0 for artifact-bytes-boundary-ready payloads.'));
+      }
+    }
+    if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
+      issues.push(error('$.readiness.nextAction', 'must resolve blockers for blocked payloads.'));
+    }
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadAdapterInjectionBoundaryPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload adapter injection boundary');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_ADAPTER_INJECTION_BOUNDARY_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload adapter injection boundary status must be supported.'));
+  }
+  if (payload.boundaryKind !== 'adapter-injection-boundary-dry-run') {
+    issues.push(error('$.boundaryKind', 'Knowledge team upload adapter injection boundary kind must be adapter-injection-boundary-dry-run.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload adapter injection boundary operation must be stage-knowledge-pack.'));
+  }
+  for (const key of [
+    'uploadApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ]) {
+    if (payload[key] !== false) {
+      issues.push(error(`$.${key}`, 'Knowledge team upload adapter injection boundary must keep mutation and execution fields false.'));
+    }
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload adapter injection boundary target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be null or a safe 24-character id.'));
+      }
+      if (payload.status === 'adapter-injection-boundary-ready' && payload.target[key] === null) {
+        issues.push(error(`$.target.${key}`, 'must be set for adapter-injection-boundary-ready payloads.'));
+      }
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.status === 'adapter-injection-boundary-ready' && payload.target.objectSha256 === null) {
+      issues.push(error('$.target.objectSha256', 'must be set for adapter-injection-boundary-ready payloads.'));
+    }
+    if (payload.target.objectKey !== null && (typeof payload.target.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.target.objectKey))) {
+      issues.push(error('$.target.objectKey', 'must be null or a safe team artifact object key.'));
+    }
+    if (payload.status === 'adapter-injection-boundary-ready' && payload.target.objectKey === null) {
+      issues.push(error('$.target.objectKey', 'must be set for adapter-injection-boundary-ready payloads.'));
+    }
+  }
+
+  if (!isRecord(payload.sourceArtifactBytesBoundary)) {
+    issues.push(error('$.sourceArtifactBytesBoundary', 'Knowledge team upload adapter injection boundary sourceArtifactBytesBoundary must be an object.'));
+  } else {
+    if (payload.sourceArtifactBytesBoundary.source !== 'upload-artifact-bytes-boundary') {
+      issues.push(error('$.sourceArtifactBytesBoundary.source', 'must be upload-artifact-bytes-boundary.'));
+    }
+    if (!isOneOf(payload.sourceArtifactBytesBoundary.boundaryStatus, UPLOAD_ADAPTER_INJECTION_BOUNDARY_SOURCE_STATUSES)) {
+      issues.push(error('$.sourceArtifactBytesBoundary.boundaryStatus', 'must be a supported artifact bytes boundary status.'));
+    }
+    if (!isOneOf(payload.sourceArtifactBytesBoundary.boundaryKind, UPLOAD_ADAPTER_INJECTION_BOUNDARY_SOURCE_KINDS)) {
+      issues.push(error('$.sourceArtifactBytesBoundary.boundaryKind', 'must be a supported artifact bytes boundary kind.'));
+    }
+    if (!isOneOf(payload.sourceArtifactBytesBoundary.boundaryNextAction, UPLOAD_ADAPTER_INJECTION_BOUNDARY_SOURCE_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceArtifactBytesBoundary.boundaryNextAction', 'must be a supported artifact bytes boundary next action.'));
+    }
+    if (!isOneOf(payload.sourceArtifactBytesBoundary.reviewStatus, UPLOAD_ADAPTER_INJECTION_BOUNDARY_REVIEW_STATUSES)) {
+      issues.push(error('$.sourceArtifactBytesBoundary.reviewStatus', 'must be a supported review status.'));
+    }
+    if (!isOneOf(payload.sourceArtifactBytesBoundary.reviewKind, UPLOAD_ADAPTER_INJECTION_BOUNDARY_REVIEW_KINDS)) {
+      issues.push(error('$.sourceArtifactBytesBoundary.reviewKind', 'must be a supported review kind.'));
+    }
+    if (!isOneOf(payload.sourceArtifactBytesBoundary.adapterBackendKind, UPLOAD_ADAPTER_INJECTION_BOUNDARY_ADAPTER_BACKENDS)) {
+      issues.push(error('$.sourceArtifactBytesBoundary.adapterBackendKind', 'must be a supported adapter backend kind.'));
+    }
+    for (const key of [
+      'scopeMatched',
+      'humanReviewRecorded',
+      'fingerprintVerified',
+      'sourceFingerprintVerified',
+      'artifactBytesRequiredBeforeAdapter',
+      'artifactBytesRequiredBeforeExecution',
+      'artifactBytesProvided',
+      'artifactDigestRequired',
+      'artifactDigestVerified',
+      'artifactScopeBindingRequired',
+      'artifactScopeBoundToArtifact',
+      'auditRecordRequiredBeforeBytes',
+      'auditRecordCreated',
+      'writeTokenRequiredBeforeBytes',
+      'writeTokenIssued',
+      'executionLeaseRequiredBeforeBytes',
+      'executionLeaseCreated',
+      'rollbackPlanRequiredBeforeBytes',
+      'rollbackPlanCreated',
+      'adapterInjectionRequiredAfterBytes'
+    ]) {
+      if (typeof payload.sourceArtifactBytesBoundary[key] !== 'boolean') {
+        issues.push(error(`$.sourceArtifactBytesBoundary.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.sourceArtifactBytesBoundary.adapterName !== null) {
+      if (typeof payload.sourceArtifactBytesBoundary.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.sourceArtifactBytesBoundary.adapterName)) {
+        issues.push(error('$.sourceArtifactBytesBoundary.adapterName', 'must be null or a safe adapter name.'));
+      }
+    }
+    if (payload.status === 'adapter-injection-boundary-ready') {
+      if (payload.sourceArtifactBytesBoundary.boundaryStatus !== 'artifact-bytes-boundary-ready') {
+        issues.push(error('$.sourceArtifactBytesBoundary.boundaryStatus', 'must be artifact-bytes-boundary-ready for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.boundaryKind !== 'artifact-bytes-boundary-dry-run') {
+        issues.push(error('$.sourceArtifactBytesBoundary.boundaryKind', 'must be artifact-bytes-boundary-dry-run for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.boundaryNextAction !== 'design-adapter-injection-boundary') {
+        issues.push(error('$.sourceArtifactBytesBoundary.boundaryNextAction', 'must design the adapter injection boundary for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.reviewStatus !== 'review-ready') {
+        issues.push(error('$.sourceArtifactBytesBoundary.reviewStatus', 'must be review-ready for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.reviewKind !== 'human-fingerprint-dry-run') {
+        issues.push(error('$.sourceArtifactBytesBoundary.reviewKind', 'must be human-fingerprint-dry-run for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.scopeMatched !== true) {
+        issues.push(error('$.sourceArtifactBytesBoundary.scopeMatched', 'must be true for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.humanReviewRecorded !== true) {
+        issues.push(error('$.sourceArtifactBytesBoundary.humanReviewRecorded', 'must be true for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.fingerprintVerified !== true) {
+        issues.push(error('$.sourceArtifactBytesBoundary.fingerprintVerified', 'must be true for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.sourceFingerprintVerified !== true) {
+        issues.push(error('$.sourceArtifactBytesBoundary.sourceFingerprintVerified', 'must be true for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.adapterName === null) {
+        issues.push(error('$.sourceArtifactBytesBoundary.adapterName', 'must be set for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.sourceArtifactBytesBoundary.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.sourceArtifactBytesBoundary.adapterBackendKind', 'must be mock-s3-compatible for adapter-injection-boundary-ready payloads.'));
+      }
+      for (const key of [
+        'artifactBytesRequiredBeforeAdapter',
+        'artifactBytesRequiredBeforeExecution',
+        'artifactDigestRequired',
+        'artifactScopeBindingRequired',
+        'auditRecordRequiredBeforeBytes',
+        'writeTokenRequiredBeforeBytes',
+        'executionLeaseRequiredBeforeBytes',
+        'rollbackPlanRequiredBeforeBytes',
+        'adapterInjectionRequiredAfterBytes'
+      ]) {
+        if (payload.sourceArtifactBytesBoundary[key] !== true) {
+          issues.push(error(`$.sourceArtifactBytesBoundary.${key}`, 'must be true for adapter-injection-boundary-ready payloads.'));
+        }
+      }
+      for (const key of [
+        'artifactBytesProvided',
+        'artifactDigestVerified',
+        'artifactScopeBoundToArtifact',
+        'auditRecordCreated',
+        'writeTokenIssued',
+        'executionLeaseCreated',
+        'rollbackPlanCreated'
+      ]) {
+        if (payload.sourceArtifactBytesBoundary[key] !== false) {
+          issues.push(error(`$.sourceArtifactBytesBoundary.${key}`, 'must be false for adapter-injection-boundary-ready payloads.'));
+        }
+      }
+    }
+  }
+
+  if (!isRecord(payload.adapterInjectionBoundary)) {
+    issues.push(error('$.adapterInjectionBoundary', 'Knowledge team upload adapter injection boundary adapterInjectionBoundary must be an object.'));
+  } else {
+    for (const key of [
+      'dryRunOnly',
+      'adapterInjectionRequiredBeforeExecution',
+      'adapterInjectionRequiredAfterBytes',
+      'adapterDependencyInjectionOnly',
+      'mockAdapterRequired',
+      'adapterDescriptorRequired',
+      'artifactObjectStoreDependencyRequired',
+      'metadataIndexDependencyRequired',
+      'contentAddressedObjectKeysRequired',
+      'contentAddressedIndexKeysRequired',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired',
+      'artifactBytesRequiredBeforeAdapter',
+      'artifactDigestRequired',
+      'artifactScopeBindingRequired',
+      'writeTokenRequiredBeforeAdapter',
+      'executionLeaseRequiredBeforeAdapter',
+      'rollbackPlanRequiredBeforeAdapter',
+      'auditRecordRequiredBeforeAdapter'
+    ]) {
+      if (payload.adapterInjectionBoundary[key] !== true) {
+        issues.push(error(`$.adapterInjectionBoundary.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'artifactBytesProvided',
+      'artifactDigestVerified',
+      'artifactScopeBoundToArtifact',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'adapterInjected',
+      'clientCreated',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'executable'
+    ]) {
+      if (payload.adapterInjectionBoundary[key] !== false) {
+        issues.push(error(`$.adapterInjectionBoundary.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.remainingExecutionBoundaries)) {
+    issues.push(error('$.remainingExecutionBoundaries', 'Knowledge team upload adapter injection boundary remainingExecutionBoundaries must be an object.'));
+  } else {
+    for (const key of [
+      'artifactBytesRequired',
+      'adapterInjectionRequired',
+      'clientCreationRequired',
+      'writeTokenRequired',
+      'executionLeaseRequired',
+      'rollbackPlanRequired',
+      'auditRecordRequired'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== true) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'artifactBytesProvided',
+      'adapterInjected',
+      'clientCreated',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'objectWriteAllowed',
+      'metadataIndexWriteAllowed',
+      'remoteMutationAllowed'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== false) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload adapter injection boundary readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_ADAPTER_INJECTION_BOUNDARY_BLOCKERS,
+      supportedStatuses: UPLOAD_ADAPTER_INJECTION_BOUNDARY_STATUSES,
+      supportedNextActions: UPLOAD_ADAPTER_INJECTION_BOUNDARY_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+    if (payload.status !== payload.readiness.status) {
+      issues.push(error('$.readiness.status', 'must match payload status.'));
+    }
+    if (payload.status === 'adapter-injection-boundary-ready') {
+      if (payload.readiness.nextAction !== 'design-client-creation-boundary') {
+        issues.push(error('$.readiness.nextAction', 'must design the client creation boundary for adapter-injection-boundary-ready payloads.'));
+      }
+      if (payload.readiness.blockerCount !== 0) {
+        issues.push(error('$.readiness.blockerCount', 'must be 0 for adapter-injection-boundary-ready payloads.'));
       }
     }
     if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {

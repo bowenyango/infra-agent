@@ -38,6 +38,7 @@ import { validateKnowledgeStoragePolicySummary } from './storage-policy-validati
 import { validateKnowledgeTeamBackendReadinessPayload } from './team-backend-readiness-validation.ts';
 import {
   validateKnowledgeTeamUploadAdapterPreflightPayload,
+  validateKnowledgeTeamUploadAdapterInjectionBoundaryPayload,
   validateKnowledgeTeamUploadApprovalContinuationPayload,
   validateKnowledgeTeamUploadApprovalIntentPayload,
   validateKnowledgeTeamUploadArtifactBytesBoundaryPayload,
@@ -1125,6 +1126,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-artifact-bytes-boundary') {
     return validateKnowledgeTeamUploadArtifactBytesBoundaryPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-adapter-injection-boundary') {
+    return validateKnowledgeTeamUploadAdapterInjectionBoundaryPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {
