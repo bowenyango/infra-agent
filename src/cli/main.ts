@@ -37,6 +37,7 @@ import { buildKnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-
 import { buildKnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
 import { buildKnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
 import { buildKnowledgeTeamUploadExecutionGate } from '../knowledge/team-upload-execution-gate.ts';
+import { buildKnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-mutation-plan.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -60,6 +61,7 @@ import {
   printKnowledgeTeamUploadApprovalContinuation,
   printKnowledgeTeamUploadApprovalIntent,
   printKnowledgeTeamUploadExecutionGate,
+  printKnowledgeTeamUploadMutationPlan,
   printKnowledgeTeamUploadMockHarness,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
@@ -1787,6 +1789,35 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadExecutionGate(gate);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-mutation-plan') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-mutation-plan requires exactly one upload execution gate path.');
+    }
+
+    const gatePath = resolveFromCwd(parsed.inputPath);
+    const executionGate = await readJsonObject(gatePath);
+    const plan = buildKnowledgeTeamUploadMutationPlan({ executionGate });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), plan)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...plan,
+            outputPath: writtenPath
+          }
+        : plan, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadMutationPlan(plan);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }

@@ -57,6 +57,7 @@ import type { KnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-
 import type { KnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import type { KnowledgeTeamUploadExecutionGate } from '../knowledge/team-upload-execution-gate.ts';
 import type { KnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
+import type { KnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-mutation-plan.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3806,6 +3807,61 @@ export function printKnowledgeTeamUploadExecutionGate(
   printList(
     gate.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload execution gate blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadMutationPlan(
+  plan: KnowledgeTeamUploadMutationPlan
+): void {
+  printHeader('Knowledge team upload mutation plan');
+  process.stdout.write(`status: ${plan.status}\n`);
+  process.stdout.write(`next action: ${plan.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${plan.plannedOperation}\n`);
+  process.stdout.write(`execution: ${plan.executionMode}\n`);
+  process.stdout.write(`plan: ${plan.planKind}\n`);
+  process.stdout.write(`remote write: ${plan.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${plan.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${plan.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${plan.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${plan.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${plan.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${plan.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${plan.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${plan.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${plan.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${plan.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${plan.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${plan.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${plan.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${plan.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${plan.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${plan.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source gate: ${plan.sourceGate.gateStatus}\n`);
+  process.stdout.write(`source gate action: ${plan.sourceGate.gateNextAction}\n`);
+  process.stdout.write(`scope matched: ${plan.sourceGate.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`continuation: ${plan.sourceGate.continuationStatus}\n`);
+  process.stdout.write(`approval provided: ${plan.sourceGate.approvalProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${plan.sourceGate.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mock harness: ${plan.sourceGate.mockHarnessStatus}\n`);
+  process.stdout.write(`harness kind: ${plan.sourceGate.mockHarnessKind}\n`);
+  process.stdout.write(`mock adapter instantiated: ${plan.sourceGate.mockAdapterInstantiated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${plan.sourceGate.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${plan.sourceGate.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`mutation approval required: ${plan.approvalAudit.mutationApprovalRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human approval request issued: ${plan.approvalAudit.humanApprovalRequestIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`approval fingerprint: ${plan.approvalAudit.approvalScopeFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`executable: ${plan.executionPlan.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`dry run only: ${plan.executionPlan.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes required before execution: ${plan.executionPlan.artifactBytesRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token required before execution: ${plan.executionPlan.writeTokenRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease required before execution: ${plan.executionPlan.executionLeaseRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan required: ${plan.executionPlan.rollbackPlanRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record required: ${plan.executionPlan.auditRecordRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: mutationApproval=${plan.mutationApprovalGranted ? 'yes' : 'no'}, executable=${plan.executionPlan.executable ? 'yes' : 'no'}, writeToken=${plan.writeTokenIssued ? 'yes' : 'no'}, lease=${plan.executionLeaseCreated ? 'yes' : 'no'}, blockers=${plan.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    plan.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload mutation plan blockers.'
   );
 }
 
