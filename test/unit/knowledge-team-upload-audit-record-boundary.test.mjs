@@ -50,6 +50,9 @@ import {
 import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
 
 function validBackendReferenceSummary() {
   return validateKnowledgeTeamS3CompatibleBackendReferences(
@@ -154,6 +157,7 @@ function blockerCodes(boundary) {
 test('upload audit record boundary records audit requirements without creating an audit record', async () => {
   const rollbackPlanBoundary = await validRollbackPlanBoundary();
   const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({ rollbackPlanBoundary });
+  const validation = validateKnowledgePayload(boundary, 'knowledge-pack.upload-audit-record-boundary.json');
 
   assert.equal(boundary.kind, 'infra-agent.knowledge-team-upload-audit-record-boundary');
   assert.equal(boundary.schemaVersion, 1);
@@ -196,6 +200,7 @@ test('upload audit record boundary records audit requirements without creating a
   assert.equal(boundary.readiness.nextAction, 'design-artifact-bytes-boundary');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assert.equal(validation.valid, true);
   assertNoPrivateValues(boundary);
 });
 
@@ -334,4 +339,23 @@ test('upload audit record boundary reports private input details without copying
   assert.equal(codes.has('backend-detail-leak'), true);
   assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload audit record boundary validation rejects forged audit records', async () => {
+  const rollbackPlanBoundary = await validRollbackPlanBoundary();
+  const boundary = buildKnowledgeTeamUploadAuditRecordBoundary({ rollbackPlanBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    auditRecordCreated: true,
+    auditRecordBoundary: {
+      ...boundary.auditRecordBoundary,
+      auditRecordCreated: true,
+      executable: true
+    }
+  }, 'knowledge-pack.upload-audit-record-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.auditRecordCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.auditRecordBoundary.auditRecordCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.auditRecordBoundary.executable'), true);
 });
