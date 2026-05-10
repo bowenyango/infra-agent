@@ -247,3 +247,56 @@ test('upload execution gate blocks forged mock harness mutation flags', async ()
   assert.equal(gate.readiness.blockerCodes.includes('upload-command-present'), true);
   assertNoPrivateValues(gate);
 });
+
+test('upload execution gate blocks non-ready harness artifacts', async () => {
+  const { continuation, mockHarness } = await validContinuationAndHarness();
+  const gate = buildKnowledgeTeamUploadExecutionGate({
+    continuation,
+    mockHarness: {
+      ...mockHarness,
+      status: 'blocked',
+      mockAdapterInstantiated: false,
+      mockHarness: {
+        ...mockHarness.mockHarness,
+        backendKind: 'unsupported',
+        descriptorMatched: false
+      }
+    }
+  });
+
+  assert.equal(gate.status, 'blocked');
+  assert.equal(gate.mockHarness.status, 'blocked');
+  assert.equal(gate.mockHarness.mockAdapterInstantiated, false);
+  assert.equal(gate.mockHarness.adapterBackendKind, 'mock-s3-compatible');
+  assert.equal(gate.executionBoundary.adapterInjectionReviewed, false);
+  assert.equal(gate.readiness.blockerCodes.includes('harness-not-ready'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('mock-adapter-not-instantiated'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('unsupported-adapter-backend'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('mock-descriptor-not-matched'), true);
+});
+
+test('upload execution gate blocks continuation and harness scope mismatch', async () => {
+  const { continuation, mockHarness } = await validContinuationAndHarness();
+  const gate = buildKnowledgeTeamUploadExecutionGate({
+    continuation,
+    mockHarness: {
+      ...mockHarness,
+      preflight: {
+        ...mockHarness.preflight,
+        objectSha256: 'b'.repeat(64)
+      }
+    }
+  });
+
+  assert.equal(gate.status, 'blocked');
+  assert.equal(gate.target.manifestId, null);
+  assert.equal(gate.target.objectKey, null);
+  assert.equal(gate.target.objectSha256, null);
+  assert.equal(gate.target.artifactId, null);
+  assert.equal(gate.approvalGate.scopeMatched, false);
+  assert.equal(gate.readiness.blockerCodes.includes('scope-mismatch'), true);
+  assert.equal(gate.uploadExecutionAllowed, false);
+  assert.equal(gate.objectWriteAttempted, false);
+  assert.equal(gate.metadataIndexWriteAttempted, false);
+  assert.equal(gate.remoteMutationPerformed, false);
+});
