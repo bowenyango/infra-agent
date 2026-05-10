@@ -43,8 +43,7 @@ Current guardrails:
 
 Status:
 
-- Implemented through focused verification. This slice adds a private explicit
-  upload approval continuation
+- Completed and verified. This slice adds a private explicit upload approval continuation
   contract for team knowledge publication planning.
 - Scope is still dry-run planning only: consume a saved
   `infra-agent.knowledge-team-upload-approval-intent` plus an explicit matching
@@ -75,6 +74,7 @@ Completed commits and checkpoints:
 7. `b8b6f9b` feat: wire upload approval continuation cli.
 8. `1859ec1` test: guard upload continuation backend boundary.
 9. `3c7a7df` docs: document upload approval continuation boundary.
+10. Final handoff update: record focused and full verification.
 
 Current design:
 
@@ -145,11 +145,13 @@ Verification completed:
 - `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
 - `npm run test:structure`
 - `npm run lint`
+- Full `npm run verify` passed. This covered lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. The package dry-run reported `entryCount` 153.
 
 Next step:
 
-- Run full `npm run verify`. If it passes, record the full verification result.
-  Future work should keep the next real-backend slice separate and start from a
+- Future work should keep the next real-backend slice separate and start from a
   dependency-injected adapter execution design guarded by explicit approval,
   not from a direct upload command.
 
