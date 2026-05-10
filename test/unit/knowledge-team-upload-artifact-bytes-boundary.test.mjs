@@ -207,3 +207,137 @@ test('upload artifact bytes boundary records byte staging requirements without r
   assert.deepEqual(boundary.readiness.blockerCodes, []);
   assertNoPrivateValues(boundary);
 });
+
+test('upload artifact bytes boundary blocks non-ready audit record boundaries', async () => {
+  const auditRecordBoundary = await validAuditRecordBoundary();
+  const blockedAuditRecordBoundary = {
+    ...auditRecordBoundary,
+    status: 'blocked',
+    sourceRollbackPlanBoundary: {
+      ...auditRecordBoundary.sourceRollbackPlanBoundary,
+      fingerprintVerified: false
+    },
+    readiness: {
+      ...auditRecordBoundary.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-unverified'],
+      blockers: [{
+        code: 'review-fingerprint-unverified',
+        path: '$.sourceRollbackPlanBoundary.fingerprintVerified',
+        message: 'fingerprint not verified'
+      }]
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({
+    auditRecordBoundary: blockedAuditRecordBoundary
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('audit-boundary-not-ready'), true);
+  assert.equal(codes.has('audit-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload artifact bytes boundary blocks invalid audit record inputs', () => {
+  const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({ auditRecordBoundary: null });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceAuditRecordBoundary.boundaryStatus, 'invalid');
+  assert.equal(codes.has('missing-required-field'), true);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload artifact bytes boundary blocks malformed audit record metadata', async () => {
+  const auditRecordBoundary = await validAuditRecordBoundary();
+  const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({
+    auditRecordBoundary: {
+      ...auditRecordBoundary,
+      kind: 'infra-agent.knowledge-team-upload-rollback-plan-boundary',
+      schemaVersion: 2,
+      boundaryKind: 'rollback-plan-boundary-dry-run',
+      target: {
+        ...auditRecordBoundary.target,
+        manifestId: 'not-a-safe-id',
+        objectKey: '../unsafe.json',
+        objectSha256: 'not-a-sha',
+        artifactId: 'not-a-safe-id'
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceAuditRecordBoundary.boundaryKind, 'unsupported');
+  assert.equal(codes.has('invalid-audit-record-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload artifact bytes boundary blocks missing audit record boundary sections', () => {
+  const boundary = buildKnowledgeTeamUploadArtifactBytesBoundary({
+    auditRecordBoundary: {
+      kind: 'infra-agent.knowledge-team-upload-audit-record-boundary',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      executionMode: 'dry-run',
+      boundaryKind: 'audit-record-boundary-dry-run',
+      status: 'not-a-status',
+      plannedOperation: 'stage-knowledge-pack',
+      remoteWriteAllowed: false,
+      liveCheckAllowed: false,
+      credentialValuesExposed: false,
+      credentialPresenceChecked: false,
+      uploadApproved: false,
+      uploadExecutionAllowed: false,
+      mutationApprovalGranted: false,
+      clientCreated: false,
+      adapterInjected: false,
+      artifactBytesProvided: false,
+      writeTokenIssued: false,
+      executionLeaseCreated: false,
+      rollbackPlanCreated: false,
+      auditRecordCreated: false,
+      objectWriteAttempted: false,
+      metadataIndexWriteAttempted: false,
+      remoteMutationPerformed: false,
+      uploadCommand: null,
+      target: null,
+      readiness: null,
+      sourceRollbackPlanBoundary: null,
+      auditRecordBoundary: null,
+      remainingExecutionBoundaries: null
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.sourceAuditRecordBoundary.boundaryStatus, 'invalid');
+  assert.equal(boundary.sourceAuditRecordBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.sourceAuditRecordBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceAuditRecordBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceAuditRecordBoundary.adapterBackendKind, 'unsupported');
+  assert.equal(codes.has('audit-boundary-not-ready'), true);
+  assert.equal(codes.has('audit-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsafe-adapter-name'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('write-token-not-required'), true);
+  assert.equal(codes.has('execution-lease-not-required'), true);
+  assert.equal(codes.has('rollback-plan-not-required'), true);
+  assert.equal(codes.has('audit-record-not-required'), true);
+  assert.equal(codes.has('artifact-bytes-not-required'), true);
+  assertExecutionDisabled(boundary);
+});
