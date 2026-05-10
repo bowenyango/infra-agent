@@ -33,6 +33,9 @@ import {
   buildKnowledgeTeamUploadMutationApprovalReview
 } from '../../src/knowledge/team-upload-mutation-approval-review.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -422,4 +425,96 @@ test('upload mutation approval review blocks forged mutation and execution state
   assert.equal(review.approvalReview.fingerprintVerified, false);
   assertExecutionDisabled(review);
   assertNoPrivateValues(review);
+});
+
+test('upload mutation approval review validates through knowledge validation dispatch', async () => {
+  const mutationPlan = await validMutationPlan();
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan,
+    approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+  });
+
+  const report = validateKnowledgePayload(review, 'inline-review.json');
+
+  assert.equal(report.inputKind, 'infra-agent.knowledge-team-upload-mutation-approval-review');
+  assert.equal(report.valid, true);
+  assert.equal(report.issueCount, 0);
+});
+
+test('upload mutation approval review validation rejects executable review shapes', async () => {
+  const mutationPlan = await validMutationPlan();
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan,
+    approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+  });
+  const forgedReview = {
+    ...review,
+    remoteWriteAllowed: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    artifactBytesProvided: true,
+    clientCreated: true,
+    adapterInjected: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    uploadCommand: 'aws s3 cp artifact.tgz s3://private-bucket/private-key',
+    approvalReview: {
+      ...review.approvalReview,
+      mutationApprovalGranted: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true
+    },
+    executionBoundary: {
+      ...review.executionBoundary,
+      executable: true,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      auditRecordCreated: true,
+      clientCreated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true
+    }
+  };
+
+  const report = validateKnowledgePayload(forgedReview, 'inline-review.json');
+  const issuePaths = new Set(report.issues.map(issue => issue.path));
+
+  assert.equal(report.valid, false);
+  for (const path of [
+    '$.remoteWriteAllowed',
+    '$.uploadApproved',
+    '$.uploadExecutionAllowed',
+    '$.mutationApprovalGranted',
+    '$.writeTokenIssued',
+    '$.executionLeaseCreated',
+    '$.artifactBytesProvided',
+    '$.clientCreated',
+    '$.adapterInjected',
+    '$.objectWriteAttempted',
+    '$.metadataIndexWriteAttempted',
+    '$.remoteMutationPerformed',
+    '$.uploadCommand',
+    '$.approvalReview.mutationApprovalGranted',
+    '$.approvalReview.uploadApproved',
+    '$.approvalReview.uploadExecutionAllowed',
+    '$.executionBoundary.executable',
+    '$.executionBoundary.artifactBytesProvided',
+    '$.executionBoundary.adapterInjected',
+    '$.executionBoundary.writeTokenIssued',
+    '$.executionBoundary.executionLeaseCreated',
+    '$.executionBoundary.auditRecordCreated',
+    '$.executionBoundary.clientCreated',
+    '$.executionBoundary.objectWriteAttempted',
+    '$.executionBoundary.metadataIndexWriteAttempted',
+    '$.executionBoundary.remoteMutationPerformed'
+  ]) {
+    assert.equal(issuePaths.has(path), true, path);
+  }
 });
