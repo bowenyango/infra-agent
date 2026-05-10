@@ -748,6 +748,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-adapter-injection-boundary',
   'infra-agent.knowledge-team-upload-client-creation-boundary',
   'infra-agent.knowledge-team-upload-credential-read-boundary',
+  'infra-agent.knowledge-team-upload-credential-presence-boundary',
   'upload-write-token-boundary',
   'upload-execution-lease-boundary',
   'upload-rollback-plan-boundary',
@@ -756,6 +757,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'upload-adapter-injection-boundary',
   'upload-client-creation-boundary',
   'upload-credential-read-boundary',
+  'upload-credential-presence-boundary',
   'write-token-boundary-dry-run',
   'write-token-boundary-ready',
   'execution-lease-boundary-dry-run',
@@ -772,6 +774,8 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'client-creation-boundary-ready',
   'credential-read-boundary-dry-run',
   'credential-read-boundary-ready',
+  'credential-presence-boundary-dry-run',
+  'credential-presence-boundary-ready',
   'design-write-token-boundary',
   'design-execution-lease-boundary',
   'design-rollback-plan-boundary',
@@ -781,6 +785,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'design-client-creation-boundary',
   'design-credential-read-boundary',
   'design-credential-presence-boundary',
+  'design-live-check-boundary',
   'write-token-boundary-design',
   'write-token-issued',
   'write-token-not-required',
@@ -994,7 +999,14 @@ function validateNoUploadApprovalLeakage(
       || key === 'credentialSourceDescriptorRequired'
       || key === 'credentialReferenceOnlyRequired'
       || key === 'credentialValueRedactionRequired'
-      || key === 'credentialValuesRead';
+      || key === 'credentialValuesRead'
+      || key === 'sourceCredentialReadBoundary'
+      || key === 'credentialPresenceBoundary'
+      || key === 'credentialPresenceCheckRequiredBeforeExecution'
+      || key === 'credentialPresenceCheckRequiredAfterCredentialReadBoundary'
+      || key === 'credentialPresenceSignalRequired'
+      || key === 'credentialPresenceResultRedactionRequired'
+      || key === 'credentialPresenceResultExposed';
     if (!safeControlField && FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include raw artifact bytes, byte buffers, streams, content payloads, or local artifact paths.'));
     }
