@@ -27,6 +27,9 @@ import {
   buildKnowledgeTeamUploadMockHarness
 } from '../../src/knowledge/team-upload-mock-harness.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -299,4 +302,106 @@ test('upload execution gate blocks continuation and harness scope mismatch', asy
   assert.equal(gate.objectWriteAttempted, false);
   assert.equal(gate.metadataIndexWriteAttempted, false);
   assert.equal(gate.remoteMutationPerformed, false);
+});
+
+test('knowledge validation accepts and rejects upload execution gate artifacts', async () => {
+  const { continuation, mockHarness } = await validContinuationAndHarness();
+  const gate = buildKnowledgeTeamUploadExecutionGate({ continuation, mockHarness });
+  const validReport = validateKnowledgePayload(gate, 'upload-execution-gate.json');
+
+  assert.equal(validReport.valid, true);
+  assert.equal(validReport.inputKind, 'infra-agent.knowledge-team-upload-execution-gate');
+  assert.equal(validReport.issueCount, 0);
+
+  const forgedReport = validateKnowledgePayload({
+    ...gate,
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    clientCreated: true,
+    adapterInjected: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+    approvalGate: {
+      ...gate.approvalGate,
+      mutationApprovalGranted: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      scopeMatched: false
+    },
+    mockHarness: {
+      ...gate.mockHarness,
+      adapterBackendKind: 's3-compatible',
+      objectWriteAttempted: true,
+      indexWriteAttempted: true,
+      remoteMutationPerformed: true
+    },
+    executionBoundary: {
+      ...gate.executionBoundary,
+      dryRunOnly: false,
+      adapterInjectionReviewed: false,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      clientCreated: true,
+      credentialValuesRead: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true
+    }
+  }, 'forged-upload-execution-gate.json');
+
+  assert.equal(forgedReport.valid, false);
+  for (const path of [
+    '$.remoteWriteAllowed',
+    '$.liveCheckAllowed',
+    '$.credentialValuesExposed',
+    '$.credentialPresenceChecked',
+    '$.uploadApproved',
+    '$.uploadExecutionAllowed',
+    '$.clientCreated',
+    '$.adapterInjected',
+    '$.writeTokenIssued',
+    '$.executionLeaseCreated',
+    '$.objectWriteAttempted',
+    '$.metadataIndexWriteAttempted',
+    '$.remoteMutationPerformed',
+    '$.uploadCommand',
+    '$.approvalGate.mutationApprovalGranted',
+    '$.approvalGate.uploadApproved',
+    '$.approvalGate.uploadExecutionAllowed',
+    '$.approvalGate.scopeMatched',
+    '$.mockHarness.adapterBackendKind',
+    '$.mockHarness.objectWriteAttempted',
+    '$.mockHarness.indexWriteAttempted',
+    '$.mockHarness.remoteMutationPerformed',
+    '$.executionBoundary.dryRunOnly',
+    '$.executionBoundary.adapterInjectionReviewed',
+    '$.executionBoundary.artifactBytesProvided',
+    '$.executionBoundary.adapterInjected',
+    '$.executionBoundary.clientCreated',
+    '$.executionBoundary.credentialValuesRead',
+    '$.executionBoundary.credentialPresenceChecked',
+    '$.executionBoundary.liveCheckPerformed',
+    '$.executionBoundary.writeTokenIssued',
+    '$.executionBoundary.executionLeaseCreated',
+    '$.executionBoundary.uploadCommandGenerated',
+    '$.executionBoundary.objectWriteAttempted',
+    '$.executionBoundary.metadataIndexWriteAttempted',
+    '$.executionBoundary.remoteMutationPerformed'
+  ]) {
+    assert.equal(forgedReport.issues.some(issue => issue.path === path), true, path);
+  }
+  assertNoPrivateValues(forgedReport);
 });

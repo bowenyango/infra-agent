@@ -27,6 +27,12 @@ const UPLOAD_MOCK_HARNESS_STATUSES = ['harness-ready', 'blocked'] as const;
 const UPLOAD_MOCK_HARNESS_NEXT_ACTIONS = ['run-mock-only-contract-tests', 'resolve-blockers'] as const;
 const UPLOAD_MOCK_HARNESS_BACKENDS = ['mock-s3-compatible', 'unsupported'] as const;
 const UPLOAD_MOCK_HARNESS_PREFLIGHT_STATUSES = ['preflight-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_EXECUTION_GATE_STATUSES = ['gate-ready', 'blocked'] as const;
+const UPLOAD_EXECUTION_GATE_NEXT_ACTIONS = ['request-separate-mutation-approval', 'resolve-blockers'] as const;
+const UPLOAD_EXECUTION_GATE_CONTINUATION_STATUSES = ['continuation-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_EXECUTION_GATE_HARNESS_STATUSES = ['harness-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_EXECUTION_GATE_HARNESS_KINDS = ['in-memory-mock', 'unsupported'] as const;
+const UPLOAD_EXECUTION_GATE_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -126,6 +132,35 @@ const UPLOAD_MOCK_HARNESS_BLOCKERS = [
   'unsafe-adapter-name',
   'unsafe-artifact-reference'
 ] as const;
+const UPLOAD_EXECUTION_GATE_BLOCKERS = [
+  'adapter-injected',
+  'backend-detail-leak',
+  'client-created',
+  'credential-presence-check-enabled',
+  'credential-values-exposed',
+  'execution-lease-created',
+  'harness-not-ready',
+  'invalid-continuation-kind',
+  'invalid-harness-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mock-adapter-not-instantiated',
+  'mock-descriptor-not-matched',
+  'mutation-enabled',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'scope-mismatch',
+  'unsupported-adapter-backend',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'write-token-issued'
+] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl)/i;
 const FORBIDDEN_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|token|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
 
@@ -164,7 +199,8 @@ function validateNoUploadApprovalLeakage(
     const safeControlField = key === 'credentialValuesExposed'
       || key === 'credentialValuesRead'
       || key === 'credentialPresenceChecked'
-      || key === 'credentialBoundary';
+      || key === 'credentialBoundary'
+      || key === 'writeTokenIssued';
     if (!safeControlField && FORBIDDEN_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include backend detail or credential fields.'));
     }
@@ -710,6 +746,229 @@ export function validateKnowledgeTeamUploadMockHarnessPayload(
       supportedCodes: UPLOAD_MOCK_HARNESS_BLOCKERS,
       supportedStatuses: UPLOAD_MOCK_HARNESS_STATUSES,
       supportedNextActions: UPLOAD_MOCK_HARNESS_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadExecutionGatePayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload execution gate');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_EXECUTION_GATE_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload execution gate status must be supported.'));
+  }
+  if (payload.gateKind !== 'approval-gated-dry-run') {
+    issues.push(error('$.gateKind', 'Knowledge team upload execution gate kind must be approval-gated-dry-run.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload execution gate operation must be stage-knowledge-pack.'));
+  }
+  if (payload.uploadApproved !== false) {
+    issues.push(error('$.uploadApproved', 'Knowledge team upload execution gate must not approve upload.'));
+  }
+  if (payload.uploadExecutionAllowed !== false) {
+    issues.push(error('$.uploadExecutionAllowed', 'Knowledge team upload execution gate must not allow upload execution.'));
+  }
+  if (payload.clientCreated !== false) {
+    issues.push(error('$.clientCreated', 'Knowledge team upload execution gate must not create clients.'));
+  }
+  if (payload.adapterInjected !== false) {
+    issues.push(error('$.adapterInjected', 'Knowledge team upload execution gate must not inject adapters.'));
+  }
+  if (payload.writeTokenIssued !== false) {
+    issues.push(error('$.writeTokenIssued', 'Knowledge team upload execution gate must not issue write tokens.'));
+  }
+  if (payload.executionLeaseCreated !== false) {
+    issues.push(error('$.executionLeaseCreated', 'Knowledge team upload execution gate must not create execution leases.'));
+  }
+  if (payload.objectWriteAttempted !== false) {
+    issues.push(error('$.objectWriteAttempted', 'Knowledge team upload execution gate must not attempt object writes.'));
+  }
+  if (payload.metadataIndexWriteAttempted !== false) {
+    issues.push(error('$.metadataIndexWriteAttempted', 'Knowledge team upload execution gate must not attempt metadata index writes.'));
+  }
+  if (payload.remoteMutationPerformed !== false) {
+    issues.push(error('$.remoteMutationPerformed', 'Knowledge team upload execution gate must not perform remote mutations.'));
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload execution gate target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be null or a safe 24-character id.'));
+      }
+      if (payload.status === 'gate-ready' && payload.target[key] === null) {
+        issues.push(error(`$.target.${key}`, 'must be set for gate-ready payloads.'));
+      }
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.status === 'gate-ready' && payload.target.objectSha256 === null) {
+      issues.push(error('$.target.objectSha256', 'must be set for gate-ready payloads.'));
+    }
+    if (payload.target.objectKey !== null && (typeof payload.target.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.target.objectKey))) {
+      issues.push(error('$.target.objectKey', 'must be null or a safe team artifact object key.'));
+    }
+    if (payload.status === 'gate-ready' && payload.target.objectKey === null) {
+      issues.push(error('$.target.objectKey', 'must be set for gate-ready payloads.'));
+    }
+  }
+
+  if (!isRecord(payload.approvalGate)) {
+    issues.push(error('$.approvalGate', 'Knowledge team upload execution gate approvalGate must be an object.'));
+  } else {
+    if (payload.approvalGate.source !== 'upload-approval-continuation') {
+      issues.push(error('$.approvalGate.source', 'must be upload-approval-continuation.'));
+    }
+    if (!isOneOf(payload.approvalGate.continuationStatus, UPLOAD_EXECUTION_GATE_CONTINUATION_STATUSES)) {
+      issues.push(error('$.approvalGate.continuationStatus', 'must be a supported continuation status.'));
+    }
+    for (const key of ['approvalRequired', 'approvalProvided', 'fingerprintVerified', 'mutationApprovalRequired', 'scopeMatched']) {
+      if (typeof payload.approvalGate[key] !== 'boolean') {
+        issues.push(error(`$.approvalGate.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.approvalGate.approvalRequired !== true) {
+      issues.push(error('$.approvalGate.approvalRequired', 'must be true.'));
+    }
+    if (payload.approvalGate.mutationApprovalRequired !== true) {
+      issues.push(error('$.approvalGate.mutationApprovalRequired', 'must be true.'));
+    }
+    if (payload.approvalGate.mutationApprovalGranted !== false) {
+      issues.push(error('$.approvalGate.mutationApprovalGranted', 'must be false.'));
+    }
+    if (payload.approvalGate.uploadApproved !== false) {
+      issues.push(error('$.approvalGate.uploadApproved', 'must be false.'));
+    }
+    if (payload.approvalGate.uploadExecutionAllowed !== false) {
+      issues.push(error('$.approvalGate.uploadExecutionAllowed', 'must be false.'));
+    }
+    if (payload.status === 'gate-ready') {
+      if (payload.approvalGate.continuationStatus !== 'continuation-ready') {
+        issues.push(error('$.approvalGate.continuationStatus', 'must be continuation-ready for gate-ready payloads.'));
+      }
+      if (payload.approvalGate.approvalProvided !== true) {
+        issues.push(error('$.approvalGate.approvalProvided', 'must be true for gate-ready payloads.'));
+      }
+      if (payload.approvalGate.fingerprintVerified !== true) {
+        issues.push(error('$.approvalGate.fingerprintVerified', 'must be true for gate-ready payloads.'));
+      }
+      if (payload.approvalGate.scopeMatched !== true) {
+        issues.push(error('$.approvalGate.scopeMatched', 'must be true for gate-ready payloads.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.mockHarness)) {
+    issues.push(error('$.mockHarness', 'Knowledge team upload execution gate mockHarness must be an object.'));
+  } else {
+    if (payload.mockHarness.source !== 'upload-mock-harness') {
+      issues.push(error('$.mockHarness.source', 'must be upload-mock-harness.'));
+    }
+    if (!isOneOf(payload.mockHarness.status, UPLOAD_EXECUTION_GATE_HARNESS_STATUSES)) {
+      issues.push(error('$.mockHarness.status', 'must be a supported harness status.'));
+    }
+    if (!isOneOf(payload.mockHarness.harnessKind, UPLOAD_EXECUTION_GATE_HARNESS_KINDS)) {
+      issues.push(error('$.mockHarness.harnessKind', 'must be a supported harness kind.'));
+    }
+    if (payload.mockHarness.adapterName !== null) {
+      if (typeof payload.mockHarness.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.mockHarness.adapterName)) {
+        issues.push(error('$.mockHarness.adapterName', 'must be null or a safe mock adapter name.'));
+      }
+    }
+    if (!isOneOf(payload.mockHarness.adapterBackendKind, UPLOAD_EXECUTION_GATE_ADAPTER_BACKENDS)) {
+      issues.push(error('$.mockHarness.adapterBackendKind', 'must be a supported adapter backend kind.'));
+    }
+    for (const key of ['mockAdapterInstantiated', 'descriptorMatched']) {
+      if (typeof payload.mockHarness[key] !== 'boolean') {
+        issues.push(error(`$.mockHarness.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.mockHarness.objectWriteAttempted !== false) {
+      issues.push(error('$.mockHarness.objectWriteAttempted', 'must be false.'));
+    }
+    if (payload.mockHarness.indexWriteAttempted !== false) {
+      issues.push(error('$.mockHarness.indexWriteAttempted', 'must be false.'));
+    }
+    if (payload.mockHarness.remoteMutationPerformed !== false) {
+      issues.push(error('$.mockHarness.remoteMutationPerformed', 'must be false.'));
+    }
+    if (payload.status === 'gate-ready') {
+      if (payload.mockHarness.status !== 'harness-ready') {
+        issues.push(error('$.mockHarness.status', 'must be harness-ready for gate-ready payloads.'));
+      }
+      if (payload.mockHarness.harnessKind !== 'in-memory-mock') {
+        issues.push(error('$.mockHarness.harnessKind', 'must be in-memory-mock for gate-ready payloads.'));
+      }
+      if (payload.mockHarness.mockAdapterInstantiated !== true) {
+        issues.push(error('$.mockHarness.mockAdapterInstantiated', 'must be true for gate-ready payloads.'));
+      }
+      if (payload.mockHarness.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.mockHarness.adapterBackendKind', 'must be mock-s3-compatible for gate-ready payloads.'));
+      }
+      if (payload.mockHarness.descriptorMatched !== true) {
+        issues.push(error('$.mockHarness.descriptorMatched', 'must be true for gate-ready payloads.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.executionBoundary)) {
+    issues.push(error('$.executionBoundary', 'Knowledge team upload execution gate executionBoundary must be an object.'));
+  } else {
+    if (payload.executionBoundary.dryRunOnly !== true) {
+      issues.push(error('$.executionBoundary.dryRunOnly', 'must be true.'));
+    }
+    if (payload.executionBoundary.rollbackPlanRequired !== true) {
+      issues.push(error('$.executionBoundary.rollbackPlanRequired', 'must be true.'));
+    }
+    if (payload.executionBoundary.auditRecordRequired !== true) {
+      issues.push(error('$.executionBoundary.auditRecordRequired', 'must be true.'));
+    }
+    if (typeof payload.executionBoundary.adapterInjectionReviewed !== 'boolean') {
+      issues.push(error('$.executionBoundary.adapterInjectionReviewed', 'must be a boolean.'));
+    }
+    if (payload.status === 'gate-ready' && payload.executionBoundary.adapterInjectionReviewed !== true) {
+      issues.push(error('$.executionBoundary.adapterInjectionReviewed', 'must be true for gate-ready payloads.'));
+    }
+    for (const key of [
+      'artifactBytesProvided',
+      'adapterInjected',
+      'clientCreated',
+      'credentialValuesRead',
+      'credentialPresenceChecked',
+      'liveCheckPerformed',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'uploadCommandGenerated',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed'
+    ]) {
+      if (payload.executionBoundary[key] !== false) {
+        issues.push(error(`$.executionBoundary.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload execution gate readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_EXECUTION_GATE_BLOCKERS,
+      supportedStatuses: UPLOAD_EXECUTION_GATE_STATUSES,
+      supportedNextActions: UPLOAD_EXECUTION_GATE_NEXT_ACTIONS,
       path: '$.readiness',
       issues
     });
