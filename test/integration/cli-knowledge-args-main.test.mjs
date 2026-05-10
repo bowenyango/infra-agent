@@ -305,3 +305,24 @@ test('knowledge upload-approval-continuation CLI args accept intent fingerprint 
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-continuation.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-adapter-preflight CLI args accept continuation adapter plan and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-adapter-preflight',
+    'artifacts/knowledge-pack.upload-continuation.json',
+    '--adapter-plan',
+    'artifacts/team-backend.adapter-plan.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-adapter-preflight.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-adapter-preflight');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-continuation.json');
+  assert.equal(parsed.adapterPlanInputPath, 'artifacts/team-backend.adapter-plan.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-adapter-preflight.json');
+  assert.equal(parsed.json, true);
+});
