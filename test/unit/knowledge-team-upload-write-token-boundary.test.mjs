@@ -177,3 +177,163 @@ test('upload write token boundary records token requirements without issuing a t
   assert.deepEqual(boundary.readiness.blockerCodes, []);
   assertNoPrivateValues(boundary);
 });
+
+test('upload write token boundary blocks non-ready prerequisite plans', async () => {
+  const prerequisitePlan = await validPrerequisitePlan();
+  const blockedPrerequisitePlan = {
+    ...prerequisitePlan,
+    status: 'blocked',
+    sourcePrerequisitePlan: undefined,
+    sourceReview: {
+      ...prerequisitePlan.sourceReview,
+      humanReviewRecorded: false
+    },
+    readiness: {
+      ...prerequisitePlan.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-unverified'],
+      blockers: [{
+        code: 'review-fingerprint-unverified',
+        path: '$.sourceReview.fingerprintVerified',
+        message: 'fingerprint not verified'
+      }]
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadWriteTokenBoundary({
+    prerequisitePlan: blockedPrerequisitePlan
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourcePrerequisitePlan.prerequisiteStatus, 'blocked');
+  assert.equal(boundary.sourcePrerequisitePlan.humanReviewRecorded, false);
+  assert.equal(codes.has('prerequisite-plan-not-ready'), true);
+  assert.equal(codes.has('prerequisite-next-action-invalid'), true);
+  assert.equal(codes.has('mutation-approval-not-reviewed'), true);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload write token boundary blocks invalid prerequisite inputs', () => {
+  const boundary = buildKnowledgeTeamUploadWriteTokenBoundary({
+    prerequisitePlan: null
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourcePrerequisitePlan.prerequisiteStatus, 'invalid');
+  assert.equal(blockerCodes(boundary).has('missing-required-field'), true);
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.target.artifactId, null);
+});
+
+test('upload write token boundary blocks malformed prerequisite metadata', () => {
+  const boundary = buildKnowledgeTeamUploadWriteTokenBoundary({
+    prerequisitePlan: {
+      kind: 'infra-agent.other-artifact',
+      schemaVersion: 2,
+      prerequisitePlanKind: 'runtime-boundary',
+      status: 'queued',
+      target: {
+        manifestId: 'unsafe-id',
+        objectKey: '../unsafe-object',
+        objectSha256: 'not-a-sha',
+        artifactId: 'unsafe-artifact'
+      },
+      sourceReview: {
+        reviewStatus: 'queued',
+        reviewKind: 'operator-note',
+        scopeMatched: false,
+        humanReviewRecorded: false,
+        fingerprintVerified: false,
+        sourceFingerprintVerified: false,
+        adapterName: 'mock-team-cache',
+        adapterBackendKind: 'real-s3'
+      },
+      prerequisitePlan: {
+        mutationApprovalGranted: false,
+        uploadApproved: false,
+        uploadExecutionAllowed: false,
+        executionAllowed: false
+      },
+      executionBoundary: {
+        writeTokenRequiredBeforeExecution: false
+      },
+      readiness: {
+        nextAction: 'execute-upload',
+        blockerCount: 1
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourcePrerequisitePlan.prerequisiteStatus, 'invalid');
+  assert.equal(boundary.sourcePrerequisitePlan.prerequisitePlanKind, 'unsupported');
+  assert.equal(boundary.sourcePrerequisitePlan.prerequisiteNextAction, 'invalid');
+  assert.equal(boundary.sourcePrerequisitePlan.reviewStatus, 'invalid');
+  assert.equal(boundary.sourcePrerequisitePlan.reviewKind, 'unsupported');
+  assert.equal(boundary.sourcePrerequisitePlan.adapterBackendKind, 'unsupported');
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.target.artifactId, null);
+  for (const code of [
+    'invalid-prerequisite-plan-kind',
+    'invalid-schema-version',
+    'invalid-boundary-kind',
+    'prerequisite-plan-not-ready',
+    'unsafe-artifact-reference',
+    'prerequisite-next-action-invalid',
+    'mutation-approval-not-reviewed',
+    'review-fingerprint-unverified',
+    'scope-not-matched',
+    'unsupported-adapter-backend',
+    'write-token-not-required',
+    'missing-required-field'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+});
+
+test('upload write token boundary blocks missing nested prerequisite sections', () => {
+  const boundary = buildKnowledgeTeamUploadWriteTokenBoundary({
+    prerequisitePlan: {
+      kind: 'infra-agent.knowledge-team-upload-execution-prerequisite-plan',
+      schemaVersion: 1,
+      prerequisitePlanKind: 'execution-prerequisite-boundary-dry-run',
+      status: 'prerequisite-plan-ready',
+      target: null,
+      sourceReview: null,
+      prerequisitePlan: null,
+      executionBoundary: null,
+      readiness: null
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourcePrerequisitePlan.prerequisiteNextAction, 'invalid');
+  assert.equal(boundary.sourcePrerequisitePlan.writeTokenRequiredBeforeExecution, false);
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.target.artifactId, null);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('prerequisite-next-action-invalid'), true);
+  assert.equal(codes.has('mutation-approval-not-reviewed'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('write-token-not-required'), true);
+});
