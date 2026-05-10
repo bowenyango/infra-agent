@@ -37,6 +37,7 @@ import { buildKnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-
 import { buildKnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
 import { buildKnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
 import { buildKnowledgeTeamUploadExecutionGate } from '../knowledge/team-upload-execution-gate.ts';
+import { buildKnowledgeTeamUploadExecutionPrerequisitePlan } from '../knowledge/team-upload-execution-prerequisite-plan.ts';
 import { buildKnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-mutation-plan.ts';
 import { buildKnowledgeTeamUploadMutationApprovalReview } from '../knowledge/team-upload-mutation-approval-review.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
@@ -62,6 +63,7 @@ import {
   printKnowledgeTeamUploadApprovalContinuation,
   printKnowledgeTeamUploadApprovalIntent,
   printKnowledgeTeamUploadExecutionGate,
+  printKnowledgeTeamUploadExecutionPrerequisitePlan,
   printKnowledgeTeamUploadMutationApprovalReview,
   printKnowledgeTeamUploadMutationPlan,
   printKnowledgeTeamUploadMockHarness,
@@ -1870,6 +1872,37 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadMutationApprovalReview(review);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-execution-prerequisite-plan') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-execution-prerequisite-plan requires exactly one upload mutation approval review path.');
+    }
+
+    const approvalReviewPath = resolveFromCwd(parsed.inputPath);
+    const approvalReview = await readJsonObject(approvalReviewPath);
+    const plan = buildKnowledgeTeamUploadExecutionPrerequisitePlan({
+      approvalReview
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), plan)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...plan,
+            outputPath: writtenPath
+          }
+        : plan, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadExecutionPrerequisitePlan(plan);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
