@@ -24,6 +24,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-adapter-injection-boundary.ts',
   'src/knowledge/team-upload-client-creation-boundary.ts',
   'src/knowledge/team-upload-credential-read-boundary.ts',
+  'src/knowledge/team-upload-credential-presence-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -46,6 +47,10 @@ const CLIENT_CREATION_BOUNDARY_MODULES = [
 
 const CREDENTIAL_READ_BOUNDARY_MODULES = [
   'src/knowledge/team-upload-credential-read-boundary.ts'
+];
+
+const CREDENTIAL_PRESENCE_BOUNDARY_MODULES = [
+  'src/knowledge/team-upload-credential-presence-boundary.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -130,6 +135,32 @@ const FORBIDDEN_CREDENTIAL_READ_EXECUTION = [
   'credentialValuesRead: true',
   'credentialValuesExposed: true',
   'credentialPresenceChecked: true',
+  'liveCheckPerformed: true',
+  'uploadCommandGenerated: true',
+  'objectWriteAttempted: true',
+  'metadataIndexWriteAttempted: true'
+];
+
+const FORBIDDEN_CREDENTIAL_PRESENCE_EXECUTION = [
+  'createMockKnowledgeTeamBackendAdapter(',
+  'createClient(',
+  'new S3',
+  'new Client',
+  'putObject(',
+  'putEntry(',
+  'artifactStore.put',
+  'metadataIndex.put',
+  'readFile(',
+  'createReadStream(',
+  'process.env[',
+  'process.env.',
+  'clientCreated: true',
+  'sdkClientCreated: true',
+  'adapterInjected: true',
+  'credentialValuesRead: true',
+  'credentialValuesExposed: true',
+  'credentialPresenceChecked: true',
+  'credentialPresenceResultExposed: true',
   'liveCheckPerformed: true',
   'uploadCommandGenerated: true',
   'objectWriteAttempted: true',
@@ -221,6 +252,21 @@ test('credential read boundary does not read credentials, instantiate clients, o
         source.includes(forbidden),
         false,
         `${relativePath} must not read credentials, instantiate clients, perform checks, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('credential presence boundary does not check credentials, instantiate clients, or write', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of CREDENTIAL_PRESENCE_BOUNDARY_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_CREDENTIAL_PRESENCE_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not check credentials, instantiate clients, perform live checks, or write via ${forbidden}`
       );
     }
   }
