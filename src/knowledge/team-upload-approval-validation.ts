@@ -134,6 +134,14 @@ const UPLOAD_CREDENTIAL_PRESENCE_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-credent
 const UPLOAD_CREDENTIAL_PRESENCE_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_CREDENTIAL_PRESENCE_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
 const UPLOAD_CREDENTIAL_PRESENCE_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_STATUSES = ['live-check-boundary-ready', 'blocked'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_NEXT_ACTIONS = ['design-upload-command-boundary', 'resolve-blockers'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_SOURCE_STATUSES = ['credential-presence-boundary-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_SOURCE_KINDS = ['credential-presence-boundary-dry-run', 'unsupported'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-live-check-boundary', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -735,6 +743,51 @@ const UPLOAD_CREDENTIAL_PRESENCE_BOUNDARY_BLOCKERS = [
   'upload-execution-enabled',
   'write-token-issued'
 ] as const;
+const UPLOAD_LIVE_CHECK_BOUNDARY_BLOCKERS = [
+  'adapter-dependency-leak',
+  'adapter-injected',
+  'artifact-bytes-provided',
+  'artifact-object-store-bound',
+  'audit-record-created',
+  'backend-detail-leak',
+  'client-created',
+  'client-dependency-leak',
+  'credential-dependency-leak',
+  'credential-presence-boundary-next-action-invalid',
+  'credential-presence-boundary-not-ready',
+  'credential-presence-check-enabled',
+  'credential-presence-check-not-required',
+  'credential-presence-result-exposed',
+  'credential-read-not-required',
+  'credential-values-exposed',
+  'credential-values-read',
+  'executable-state-enabled',
+  'execution-lease-created',
+  'invalid-boundary-kind',
+  'invalid-credential-presence-boundary-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'live-check-not-required',
+  'live-check-result-exposed',
+  'metadata-index-bound',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mutation-approval-already-granted',
+  'mutation-enabled',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'review-fingerprint-unverified',
+  'rollback-plan-created',
+  'scope-not-matched',
+  'unsupported-adapter-backend',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'write-token-issued'
+] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl)/i;
 const FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN = /(artifactBytesValue|artifactBytesBase64|artifactBytesContent|artifactBytesPayload|artifactContent|artifactPayload|rawArtifact|byteBuffer|bytesBase64|contentBase64|buffer|stream|arrayBuffer|blob|readPath|filePath|localPath|artifactPath|serializedPayload|stagedBytes)/i;
 const FORBIDDEN_ADAPTER_DEPENDENCY_KEY_PATTERN = /(adapterInstance|adapterObject|adapterValue|adapterDescriptorValue|adapterClient|clientInstance|clientObject|clientValue|clientFactory|clientConfig|sdkClient|objectStoreHandle|metadataIndexHandle|putObject|putEntry|fetch)/i;
@@ -749,6 +802,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-client-creation-boundary',
   'infra-agent.knowledge-team-upload-credential-read-boundary',
   'infra-agent.knowledge-team-upload-credential-presence-boundary',
+  'infra-agent.knowledge-team-upload-live-check-boundary',
   'upload-write-token-boundary',
   'upload-execution-lease-boundary',
   'upload-rollback-plan-boundary',
@@ -758,6 +812,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'upload-client-creation-boundary',
   'upload-credential-read-boundary',
   'upload-credential-presence-boundary',
+  'upload-live-check-boundary',
   'write-token-boundary-dry-run',
   'write-token-boundary-ready',
   'execution-lease-boundary-dry-run',
@@ -776,6 +831,8 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'credential-read-boundary-ready',
   'credential-presence-boundary-dry-run',
   'credential-presence-boundary-ready',
+  'live-check-boundary-dry-run',
+  'live-check-boundary-ready',
   'design-write-token-boundary',
   'design-execution-lease-boundary',
   'design-rollback-plan-boundary',
@@ -786,6 +843,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'design-credential-read-boundary',
   'design-credential-presence-boundary',
   'design-live-check-boundary',
+  'design-upload-command-boundary',
   'write-token-boundary-design',
   'write-token-issued',
   'write-token-not-required',
@@ -1002,11 +1060,20 @@ function validateNoUploadApprovalLeakage(
       || key === 'credentialValuesRead'
       || key === 'sourceCredentialReadBoundary'
       || key === 'credentialPresenceBoundary'
+      || key === 'sourceCredentialPresenceBoundary'
+      || key === 'liveCheckBoundary'
       || key === 'credentialPresenceCheckRequiredBeforeExecution'
       || key === 'credentialPresenceCheckRequiredAfterCredentialReadBoundary'
       || key === 'credentialPresenceSignalRequired'
       || key === 'credentialPresenceResultRedactionRequired'
-      || key === 'credentialPresenceResultExposed';
+      || key === 'credentialPresenceResultExposed'
+      || key === 'liveCheckRequiredBeforeExecution'
+      || key === 'liveCheckRequiredAfterCredentialPresenceBoundary'
+      || key === 'liveCheckPolicyRequired'
+      || key === 'liveCheckReadOnlyRequired'
+      || key === 'liveCheckResultRedactionRequired'
+      || key === 'liveCheckAllowed'
+      || key === 'liveCheckResultExposed';
     if (!safeControlField && FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include raw artifact bytes, byte buffers, streams, content payloads, or local artifact paths.'));
     }
@@ -5212,6 +5279,356 @@ export function validateKnowledgeTeamUploadCredentialPresenceBoundaryPayload(
       }
       if (payload.readiness.blockerCount !== 0) {
         issues.push(error('$.readiness.blockerCount', 'must be 0 for credential-presence-boundary-ready payloads.'));
+      }
+    }
+    if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
+      issues.push(error('$.readiness.nextAction', 'must resolve blockers for blocked payloads.'));
+    }
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadLiveCheckBoundaryPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload live check boundary');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_LIVE_CHECK_BOUNDARY_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload live check boundary status must be supported.'));
+  }
+  if (payload.boundaryKind !== 'live-check-boundary-dry-run') {
+    issues.push(error('$.boundaryKind', 'Knowledge team upload live check boundary kind must be live-check-boundary-dry-run.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload live check boundary operation must be stage-knowledge-pack.'));
+  }
+  for (const key of [
+    'uploadApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ]) {
+    if (payload[key] !== false) {
+      issues.push(error(`$.${key}`, 'Knowledge team upload live check boundary must keep mutation and execution fields false.'));
+    }
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload live check boundary target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be null or a safe 24-character id.'));
+      }
+      if (payload.status === 'live-check-boundary-ready' && payload.target[key] === null) {
+        issues.push(error(`$.target.${key}`, 'must be set for live-check-boundary-ready payloads.'));
+      }
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.status === 'live-check-boundary-ready' && payload.target.objectSha256 === null) {
+      issues.push(error('$.target.objectSha256', 'must be set for live-check-boundary-ready payloads.'));
+    }
+    if (payload.target.objectKey !== null && (typeof payload.target.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.target.objectKey))) {
+      issues.push(error('$.target.objectKey', 'must be null or a safe team artifact object key.'));
+    }
+    if (payload.status === 'live-check-boundary-ready' && payload.target.objectKey === null) {
+      issues.push(error('$.target.objectKey', 'must be set for live-check-boundary-ready payloads.'));
+    }
+  }
+
+  if (!isRecord(payload.sourceCredentialPresenceBoundary)) {
+    issues.push(error('$.sourceCredentialPresenceBoundary', 'Knowledge team upload live check boundary sourceCredentialPresenceBoundary must be an object.'));
+  } else {
+    if (payload.sourceCredentialPresenceBoundary.source !== 'upload-credential-presence-boundary') {
+      issues.push(error('$.sourceCredentialPresenceBoundary.source', 'must be upload-credential-presence-boundary.'));
+    }
+    if (!isOneOf(payload.sourceCredentialPresenceBoundary.boundaryStatus, UPLOAD_LIVE_CHECK_BOUNDARY_SOURCE_STATUSES)) {
+      issues.push(error('$.sourceCredentialPresenceBoundary.boundaryStatus', 'must be a supported credential presence boundary status.'));
+    }
+    if (!isOneOf(payload.sourceCredentialPresenceBoundary.boundaryKind, UPLOAD_LIVE_CHECK_BOUNDARY_SOURCE_KINDS)) {
+      issues.push(error('$.sourceCredentialPresenceBoundary.boundaryKind', 'must be a supported credential presence boundary kind.'));
+    }
+    if (!isOneOf(payload.sourceCredentialPresenceBoundary.boundaryNextAction, UPLOAD_LIVE_CHECK_BOUNDARY_SOURCE_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceCredentialPresenceBoundary.boundaryNextAction', 'must be a supported credential presence boundary next action.'));
+    }
+    if (!isOneOf(payload.sourceCredentialPresenceBoundary.reviewStatus, UPLOAD_LIVE_CHECK_BOUNDARY_REVIEW_STATUSES)) {
+      issues.push(error('$.sourceCredentialPresenceBoundary.reviewStatus', 'must be a supported review status.'));
+    }
+    if (!isOneOf(payload.sourceCredentialPresenceBoundary.reviewKind, UPLOAD_LIVE_CHECK_BOUNDARY_REVIEW_KINDS)) {
+      issues.push(error('$.sourceCredentialPresenceBoundary.reviewKind', 'must be a supported review kind.'));
+    }
+    if (!isOneOf(payload.sourceCredentialPresenceBoundary.adapterBackendKind, UPLOAD_LIVE_CHECK_BOUNDARY_ADAPTER_BACKENDS)) {
+      issues.push(error('$.sourceCredentialPresenceBoundary.adapterBackendKind', 'must be a supported adapter backend kind.'));
+    }
+    for (const key of [
+      'scopeMatched',
+      'humanReviewRecorded',
+      'fingerprintVerified',
+      'sourceFingerprintVerified',
+      'dryRunOnly',
+      'credentialPresenceCheckRequiredBeforeExecution',
+      'credentialPresenceCheckRequiredAfterCredentialReadBoundary',
+      'credentialReadBoundaryRequired',
+      'credentialSourceDescriptorRequired',
+      'credentialReferenceOnlyRequired',
+      'credentialValueRedactionRequired',
+      'credentialPresenceSignalRequired',
+      'credentialPresenceResultRedactionRequired',
+      'mockAdapterRequired',
+      'clientFactoryDescriptorRequired',
+      'liveCheckBoundaryRequired',
+      'uploadCommandBoundaryRequired',
+      'artifactObjectStoreDependencyRequired',
+      'metadataIndexDependencyRequired',
+      'contentAddressedObjectKeysRequired',
+      'contentAddressedIndexKeysRequired',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired',
+      'credentialValuesRead',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'credentialPresenceResultExposed',
+      'clientCreated',
+      'sdkClientCreated',
+      'adapterInjected',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'liveCheckPerformed',
+      'uploadExecutionAllowed',
+      'uploadCommandGenerated',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed',
+      'executable'
+    ]) {
+      if (typeof payload.sourceCredentialPresenceBoundary[key] !== 'boolean') {
+        issues.push(error(`$.sourceCredentialPresenceBoundary.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.sourceCredentialPresenceBoundary.adapterName !== null) {
+      if (typeof payload.sourceCredentialPresenceBoundary.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.sourceCredentialPresenceBoundary.adapterName)) {
+        issues.push(error('$.sourceCredentialPresenceBoundary.adapterName', 'must be null or a safe adapter name.'));
+      }
+    }
+    if (payload.status === 'live-check-boundary-ready') {
+      if (payload.sourceCredentialPresenceBoundary.boundaryStatus !== 'credential-presence-boundary-ready') {
+        issues.push(error('$.sourceCredentialPresenceBoundary.boundaryStatus', 'must be credential-presence-boundary-ready for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.boundaryKind !== 'credential-presence-boundary-dry-run') {
+        issues.push(error('$.sourceCredentialPresenceBoundary.boundaryKind', 'must be credential-presence-boundary-dry-run for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.boundaryNextAction !== 'design-live-check-boundary') {
+        issues.push(error('$.sourceCredentialPresenceBoundary.boundaryNextAction', 'must design the live-check boundary for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.reviewStatus !== 'review-ready') {
+        issues.push(error('$.sourceCredentialPresenceBoundary.reviewStatus', 'must be review-ready for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.reviewKind !== 'human-fingerprint-dry-run') {
+        issues.push(error('$.sourceCredentialPresenceBoundary.reviewKind', 'must be human-fingerprint-dry-run for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.scopeMatched !== true) {
+        issues.push(error('$.sourceCredentialPresenceBoundary.scopeMatched', 'must be true for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.humanReviewRecorded !== true) {
+        issues.push(error('$.sourceCredentialPresenceBoundary.humanReviewRecorded', 'must be true for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.fingerprintVerified !== true) {
+        issues.push(error('$.sourceCredentialPresenceBoundary.fingerprintVerified', 'must be true for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.sourceFingerprintVerified !== true) {
+        issues.push(error('$.sourceCredentialPresenceBoundary.sourceFingerprintVerified', 'must be true for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.adapterName === null) {
+        issues.push(error('$.sourceCredentialPresenceBoundary.adapterName', 'must be set for live-check-boundary-ready payloads.'));
+      }
+      if (payload.sourceCredentialPresenceBoundary.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.sourceCredentialPresenceBoundary.adapterBackendKind', 'must be mock-s3-compatible for live-check-boundary-ready payloads.'));
+      }
+      for (const key of [
+        'dryRunOnly',
+        'credentialPresenceCheckRequiredBeforeExecution',
+        'credentialPresenceCheckRequiredAfterCredentialReadBoundary',
+        'credentialReadBoundaryRequired',
+        'credentialSourceDescriptorRequired',
+        'credentialReferenceOnlyRequired',
+        'credentialValueRedactionRequired',
+        'credentialPresenceSignalRequired',
+        'credentialPresenceResultRedactionRequired',
+        'mockAdapterRequired',
+        'clientFactoryDescriptorRequired',
+        'liveCheckBoundaryRequired',
+        'uploadCommandBoundaryRequired',
+        'artifactObjectStoreDependencyRequired',
+        'metadataIndexDependencyRequired',
+        'contentAddressedObjectKeysRequired',
+        'contentAddressedIndexKeysRequired',
+        'idempotentWritesRequired',
+        'explicitUploadApprovalRequired'
+      ]) {
+        if (payload.sourceCredentialPresenceBoundary[key] !== true) {
+          issues.push(error(`$.sourceCredentialPresenceBoundary.${key}`, 'must be true for live-check-boundary-ready payloads.'));
+        }
+      }
+      for (const key of [
+        'credentialValuesRead',
+        'credentialValuesExposed',
+        'credentialPresenceChecked',
+        'credentialPresenceResultExposed',
+        'clientCreated',
+        'sdkClientCreated',
+        'adapterInjected',
+        'artifactObjectStoreBound',
+        'metadataIndexBound',
+        'liveCheckPerformed',
+        'uploadExecutionAllowed',
+        'uploadCommandGenerated',
+        'objectWriteAttempted',
+        'metadataIndexWriteAttempted',
+        'remoteMutationPerformed',
+        'executable'
+      ]) {
+        if (payload.sourceCredentialPresenceBoundary[key] !== false) {
+          issues.push(error(`$.sourceCredentialPresenceBoundary.${key}`, 'must be false for live-check-boundary-ready payloads.'));
+        }
+      }
+    }
+  }
+
+  if (!isRecord(payload.liveCheckBoundary)) {
+    issues.push(error('$.liveCheckBoundary', 'Knowledge team upload live check boundary liveCheckBoundary must be an object.'));
+  } else {
+    for (const key of [
+      'dryRunOnly',
+      'liveCheckRequiredBeforeExecution',
+      'liveCheckRequiredAfterCredentialPresenceBoundary',
+      'credentialPresenceBoundaryRequired',
+      'credentialReadBoundaryRequired',
+      'credentialSourceDescriptorRequired',
+      'credentialReferenceOnlyRequired',
+      'credentialValueRedactionRequired',
+      'credentialPresenceSignalRequired',
+      'credentialPresenceResultRedactionRequired',
+      'mockAdapterRequired',
+      'clientFactoryDescriptorRequired',
+      'liveCheckPolicyRequired',
+      'liveCheckReadOnlyRequired',
+      'liveCheckResultRedactionRequired',
+      'uploadCommandBoundaryRequired',
+      'artifactObjectStoreDependencyRequired',
+      'metadataIndexDependencyRequired',
+      'contentAddressedObjectKeysRequired',
+      'contentAddressedIndexKeysRequired',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired'
+    ]) {
+      if (payload.liveCheckBoundary[key] !== true) {
+        issues.push(error(`$.liveCheckBoundary.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'credentialValuesRead',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'credentialPresenceResultExposed',
+      'clientCreated',
+      'sdkClientCreated',
+      'adapterInjected',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'liveCheckAllowed',
+      'liveCheckPerformed',
+      'liveCheckResultExposed',
+      'uploadExecutionAllowed',
+      'uploadCommandGenerated',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed',
+      'executable'
+    ]) {
+      if (payload.liveCheckBoundary[key] !== false) {
+        issues.push(error(`$.liveCheckBoundary.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.remainingExecutionBoundaries)) {
+    issues.push(error('$.remainingExecutionBoundaries', 'Knowledge team upload live check boundary remainingExecutionBoundaries must be an object.'));
+  } else {
+    for (const key of [
+      'artifactBytesRequired',
+      'adapterInjectionRequired',
+      'clientCreationRequired',
+      'credentialReadRequired',
+      'credentialPresenceCheckRequired',
+      'liveCheckRequired',
+      'uploadCommandRequired',
+      'writeTokenRequired',
+      'executionLeaseRequired',
+      'rollbackPlanRequired',
+      'auditRecordRequired'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== true) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'artifactBytesProvided',
+      'adapterInjected',
+      'clientCreated',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'liveCheckPerformed',
+      'uploadCommandGenerated',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'objectWriteAllowed',
+      'metadataIndexWriteAllowed',
+      'remoteMutationAllowed'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== false) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload live check boundary readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_LIVE_CHECK_BOUNDARY_BLOCKERS,
+      supportedStatuses: UPLOAD_LIVE_CHECK_BOUNDARY_STATUSES,
+      supportedNextActions: UPLOAD_LIVE_CHECK_BOUNDARY_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+    if (payload.status !== payload.readiness.status) {
+      issues.push(error('$.readiness.status', 'must match payload status.'));
+    }
+    if (payload.status === 'live-check-boundary-ready') {
+      if (payload.readiness.nextAction !== 'design-upload-command-boundary') {
+        issues.push(error('$.readiness.nextAction', 'must design the upload command boundary for live-check-boundary-ready payloads.'));
+      }
+      if (payload.readiness.blockerCount !== 0) {
+        issues.push(error('$.readiness.blockerCount', 'must be 0 for live-check-boundary-ready payloads.'));
       }
     }
     if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
