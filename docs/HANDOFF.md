@@ -277,13 +277,13 @@ Next step:
 
 Status:
 
-- In progress. This slice adds a private dry-run upload mutation plan after
-  `upload-execution-gate`.
-- Scope is still non-executable review only: consume a saved
+- Completed and verified. This slice adds a private dry-run upload mutation
+  plan after `upload-execution-gate`.
+- Scope remains non-executable review only: consume a saved
   `infra-agent.knowledge-team-upload-execution-gate`, verify that it is
   `gate-ready`, and emit the approval/audit plan that a later human mutation
   approval flow would review.
-- This slice must not grant upload approval, allow upload execution, issue
+- This slice does not grant upload approval, allow upload execution, issue
   write tokens, create execution leases, create rollback artifacts, inject
   adapters into execution, create SDK clients, read artifact bytes, read
   credential values or presence, run live backend checks, generate upload
@@ -298,26 +298,46 @@ Why this direction:
   approval request state, and mutation execution stay separate. `plan-ready`
   must mean "ready to request explicit mutation approval", not upload-ready.
 
-Planned checkpoints:
+Completed commits and checkpoints:
 
-1. Record this active mutation plan and non-goals before feature changes.
-2. Add a private `infra-agent.knowledge-team-upload-mutation-plan` contract.
-3. Cover the ready path from a saved `gate-ready` execution gate.
-4. Block non-ready or forged execution gate artifacts.
-5. Block forged mutation approval, token, lease, command, client, artifact-byte,
-   and write state.
-6. Add validation support behind `knowledge validate`.
-7. Add contract tests for stable private JSON shape and mutation-disabled
-   approval/audit fields.
-8. Add CLI parsing for
-   `infra-agent knowledge upload-mutation-plan <gate.json>
-   [--out <plan.json>] [--json]`.
-9. Wire the CLI command and safe text output.
-10. Add CLI integration, help, and no-SDK/no-env guard coverage.
-11. Update rules, roadmap, README, skill, and handoff docs with validation
-    results and remaining risks.
+1. `b931d9d` docs: record upload mutation plan.
+2. `e644331` feat: add upload mutation plan contract.
+3. `626b651` test: cover upload mutation plan ready path.
+4. `0462d0f` test: block non-ready upload mutation gates.
+5. `3696ddb` fix: block forged upload mutation state.
+6. `2ee2a08` feat: validate upload mutation plan artifacts.
+7. `6b2dde0` fix: allow safe blocker metadata validation.
+8. `450e2fc` test: cover upload mutation plan contract.
+9. `2a2d990` feat: parse upload mutation plan cli args.
+10. `7dbda51` feat: wire upload mutation plan cli.
+11. `bbc99f6` test: guard upload mutation plan cli surface.
+12. `05e567b` docs: document upload mutation plan boundary.
 
-Acceptance criteria:
+Current design:
+
+- `src/knowledge/team-upload-mutation-plan.ts` owns the private
+  `infra-agent.knowledge-team-upload-mutation-plan` contract and builder. It
+  consumes only a saved upload execution gate artifact and never imports SDK,
+  mock adapter, resolver, credential, object-store, or metadata-index write
+  APIs.
+- A `plan-ready` artifact requires a valid `gate-ready`
+  `approval-gated-dry-run` input, matched scope, verified continuation
+  fingerprint, ready in-memory mock harness summary, and safe manifest/object
+  references. Anything malformed, blocked, leaky, or already mutated becomes
+  `blocked`.
+- The output records a non-executable `approval-audit-dry-run` plan with a
+  safe mutation-plan fingerprint and next action
+  `request-human-mutation-approval`. It keeps every execution capability false
+  or null, including approval grants, artifact bytes, write token, execution
+  lease, rollback-plan creation, adapter injection, client creation, commands,
+  object/index writes, and remote mutation.
+- `src/knowledge/team-upload-approval-validation.ts` validates mutation-plan
+  artifacts behind `knowledge validate`; `src/cli/main.ts` adds
+  `infra-agent knowledge upload-mutation-plan <gate.json>
+  [--out <mutation-plan.json>] [--json]`; `src/cli/output.ts` adds safe text
+  output.
+
+Acceptance criteria met:
 
 - Plan can report `plan-ready` only for a valid `gate-ready` execution gate.
 - Output must keep `uploadApproved=false`, `uploadExecutionAllowed=false`,
@@ -333,6 +353,42 @@ Acceptance criteria:
 - Existing upload intent, upload continuation, upload adapter preflight, upload
   mock harness, upload execution gate, backend reference readiness, and public
   team artifact contracts remain unchanged.
+
+Verification completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-mutation-plan.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-mutation-plan-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-mutation-plan-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-gate.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-gate-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-gate-main.test.mjs`
+- `git diff --check`
+- Full `npm run verify` passed. This covered lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. The package dry-run reported `entryCount` 157.
+
+Current risks to monitor:
+
+- `plan-ready` may be mistaken for approval. It is only approval-audit plan
+  readiness and keeps `mutationApprovalGranted=false`.
+- The next slice must remain separate from this plan artifact. Do not widen
+  this command to accept backend configs, approval fingerprints, artifact
+  bytes, write tokens, leases, adapters, SDK clients, credential checks, upload
+  commands, object/index writes, or remote mutation.
+- Subagent reviews preferred longer names such as "mutation approval audit
+  plan"; the implemented CLI keeps the existing active-plan name
+  `upload-mutation-plan`, so docs now explicitly define it as
+  `approval-audit-dry-run` and non-executable.
+
+Next step:
+
+- Design a separate human mutation approval record/review artifact if remote
+  upload execution is still desired. Keep it separate from write-token issuance,
+  execution leases, byte staging, backend client construction, and actual
+  object/index mutation.
 
 ## 2026-05-09 Active Upload Execution Gate Plan
 
