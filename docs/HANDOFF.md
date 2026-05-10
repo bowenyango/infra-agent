@@ -6,6 +6,86 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Audit Record Boundary Plan
+
+Status:
+
+- In progress. This slice adds the next private dry-run boundary after
+  `upload-rollback-plan-boundary`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-rollback-plan-boundary` and emit a
+  private audit record boundary artifact that records audit requirements needed
+  before any future upload execution design can proceed.
+- This slice does not create audit records, create rollback plans, create
+  execution leases, issue write tokens, grant mutation approval, allow upload
+  execution, stage artifact bytes, inject adapters, create SDK clients, read
+  credential values, check credential presence, perform live checks, generate
+  upload commands, mutate object storage, or mutate a metadata index.
+
+Why this direction:
+
+- The completed rollback plan boundary only modeled the rollback contract. It
+  did not create a rollback plan and deliberately advanced to audit-record
+  boundary design.
+- The next safe step is to isolate audit-record planning before any artifact
+  bytes, adapter injection, client, or backend mutation design exists.
+- This preserves the Claude Code-style permission model: compact routing state,
+  explicit next actions, no implicit mutation, and fail-closed validation for
+  malformed, forged, or leaky inputs.
+
+Planned artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-audit-record-boundary`.
+- CLI:
+  `infra-agent knowledge upload-audit-record-boundary <rollback-plan-boundary.json> [--out <audit-record-boundary.json>] [--json]`.
+- Ready status is `audit-record-boundary-ready`, meaning only that the source
+  rollback plan boundary is safe and the future audit requirements are
+  modeled. It is not audit record creation and not execution readiness.
+- Ready next action is expected to be `design-artifact-bytes-boundary`; blocked
+  next action remains `resolve-blockers`.
+
+Planned acceptance criteria:
+
+1. `audit-record-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-rollback-plan-boundary` with
+   `rollback-plan-boundary-ready`,
+   `nextAction=design-audit-record-boundary`, safe target references, verified
+   prior review state, matched scope, modeled token requirements, modeled lease
+   requirements, and modeled rollback requirements.
+2. Matching rollback boundary state is recorded as a prerequisite signal only;
+   top-level `auditRecordCreated`, `rollbackPlanCreated`,
+   `executionLeaseCreated`, `writeTokenIssued`, `mutationApprovalGranted`,
+   `uploadApproved`, and `uploadExecutionAllowed` remain false.
+3. The output explicitly records audit record requirements: audit required
+   before execution, artifact scope binding, audit review, token precondition,
+   lease precondition, rollback precondition, and artifact-byte precondition.
+   Each required item remains uncreated/unbound.
+4. Mismatched, missing, malformed, blocked, forged, or leaky rollback plan
+   boundary inputs produce a blocked audit record boundary with safe blocker
+   codes and without copying private values.
+5. The CLI reads only one local rollback plan boundary JSON file and writes
+   only an optional local `--out` JSON artifact.
+6. Existing rollback plan boundary, execution lease boundary, write-token
+   boundary, prerequisite plan, mutation approval review, mutation plan,
+   execution gate, mock harness, continuation, and team backend no-SDK
+   boundaries remain valid.
+
+Commit checklist:
+
+1. Record this active audit record boundary plan and non-goals.
+2. Add the private audit record boundary builder/contract.
+3. Add unit coverage for the ready path.
+4. Add unit coverage for blocked rollback plan boundary inputs.
+5. Add forged-state and leak guard coverage.
+6. Add validator support for audit record boundary artifacts.
+7. Add contract coverage for the JSON shape.
+8. Add CLI parser support.
+9. Wire CLI command and text output.
+10. Add CLI integration and help/no-SDK guard coverage.
+11. Update durable docs and handoff progress.
+12. Run focused checks and full `npm run verify`.
+
 ## 2026-05-10 Completed Upload Rollback Plan Boundary
 
 Status:
