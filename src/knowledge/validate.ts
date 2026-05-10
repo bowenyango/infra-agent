@@ -36,6 +36,10 @@ import {
 } from './team-artifact-validation.ts';
 import { validateKnowledgeStoragePolicySummary } from './storage-policy-validation.ts';
 import { validateKnowledgeTeamBackendReadinessPayload } from './team-backend-readiness-validation.ts';
+import {
+  validateKnowledgeTeamUploadApprovalContinuationPayload,
+  validateKnowledgeTeamUploadApprovalIntentPayload
+} from './team-upload-approval-validation.ts';
 
 export interface KnowledgeValidationIssue {
   severity: 'error' | 'warning';
@@ -1058,6 +1062,14 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-backend-readiness') {
     return validateKnowledgeTeamBackendReadinessPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-approval-intent') {
+    return validateKnowledgeTeamUploadApprovalIntentPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-approval-continuation') {
+    return validateKnowledgeTeamUploadApprovalContinuationPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {
