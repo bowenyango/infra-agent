@@ -39,6 +39,79 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Upload Approval Continuation Plan
+
+Status:
+
+- Active. This slice adds a private explicit upload approval continuation
+  contract for team knowledge publication planning.
+- Scope is still dry-run planning only: consume a saved
+  `infra-agent.knowledge-team-upload-approval-intent` plus an explicit matching
+  approval fingerprint supplied by the operator, then emit compact continuation
+  state for a future dependency-injected adapter design.
+- This slice must not add a cloud SDK, perform network calls, read credential
+  values, check credential presence, create clients, generate upload commands,
+  mutate remote objects/indexes, or change public team artifact/readiness JSON
+  schemas.
+
+Why this direction:
+
+- The previous slice modeled the permission boundary before upload. The next
+  safe step is to make the explicit continuation boundary structured and
+  machine-checkable without treating it as upload permission.
+- This follows the Claude Code-style approval resume pattern: continuation
+  metadata can preserve an approval scope, but execution remains separate and
+  mutation-disabled until a later explicitly gated implementation exists.
+
+Planned commits and checkpoints:
+
+1. Record the active continuation plan and non-goals.
+2. Add a deterministic safe approval fingerprint to the private upload intent.
+3. Cover the intent fingerprint and no-leak posture in unit tests.
+4. Add the private upload approval continuation contract and builder.
+5. Cover continuation-ready behavior for a matching explicit fingerprint.
+6. Cover blocked continuation behavior for blocked intents and mismatched
+   fingerprints.
+7. Lock the continuation JSON shape with contract tests.
+8. Add validation dispatcher coverage for upload intent and continuation
+   payloads.
+9. Add CLI argument parsing for `knowledge upload-approval-continuation`.
+10. Wire CLI JSON/text/`--out` output for the continuation artifact.
+11. Add CLI integration, help, and parser regression tests.
+12. Extend no-SDK/no-network/no-env-read guard coverage.
+13. Update README, rules, roadmap, skill, and final handoff.
+
+Acceptance criteria:
+
+- `infra-agent knowledge upload-approval-continuation <intent.json>
+  --approval-fingerprint <sha256> [--out <continuation.json>] [--json]` reads
+  only local JSON and writes only the optional local output artifact.
+- Continuation can report `continuation-ready` only when the saved intent is
+  `approval-required`, all mutation/credential/live-check/upload-command flags
+  remain disabled, and the supplied fingerprint matches the deterministic intent
+  scope fingerprint.
+- Continuation output must keep `mutationAllowed=false`,
+  `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+  `uploadApproved=false`, `uploadExecutionAllowed=false`, `clientCreated=false`,
+  and `uploadCommand=null`.
+- Continuation must not copy raw backend config, endpoint/bucket details,
+  credential values, env var values, upload commands, signed URLs, or absolute
+  local paths.
+- Existing public team artifact descriptor, publication-plan, index-entry,
+  publication-readiness, backend-readiness, backend-reference-readiness, and
+  upload-intent public-adjacent contracts remain mutation-disabled and
+  no-leak.
+
+Current risks to monitor:
+
+- The command name and output must not imply that upload was executed or that a
+  real backend adapter/client now exists.
+- The approval fingerprint is a scope confirmation aid, not a secret, credential,
+  or durable authorization mechanism.
+- The continuation artifact must remain private routing state and must not be
+  embedded into public artifact/readiness JSON.
+
 ## 2026-05-09 Active Upload Approval Intent Plan
 
 Status:
