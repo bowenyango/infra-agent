@@ -261,6 +261,12 @@ test('help output includes upload mock harness command', async () => {
   assert.match(output, /infra-agent knowledge upload-mock-harness <preflight\.json>/);
 });
 
+test('help output includes upload execution gate command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-execution-gate <continuation\.json> --mock-harness <harness\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);

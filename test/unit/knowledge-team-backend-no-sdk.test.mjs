@@ -14,6 +14,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-approval-continuation.ts',
   'src/knowledge/team-upload-adapter-preflight.ts',
   'src/knowledge/team-upload-mock-harness.ts',
+  'src/knowledge/team-upload-execution-gate.ts',
   'src/knowledge/team-upload-approval-validation.ts'
 ];
 
