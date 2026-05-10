@@ -139,7 +139,15 @@ durable design reference for infra-agent development.
   metadata-index dependencies, content-addressed keys, idempotent writes, and
   explicit approval. It still does not read credential values, check credential
   presence, create clients, inject adapters, perform live checks, generate
-  commands, or bind stores/indexes. All seventeen remain
+  commands, or bind stores/indexes.
+  `upload-live-check-boundary` can consume that credential presence boundary
+  and model future live-check requirements: live check before upload-command
+  generation, credential-presence boundary, read-only live-check policy, result
+  redaction, upload-command boundary, object-store and metadata-index
+  dependencies, content-addressed keys, idempotent writes, and explicit
+  approval. It still does not read credentials, check credential presence,
+  create clients, inject adapters, perform live checks, expose live-check
+  results, generate commands, or bind stores/indexes. All eighteen remain
   dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter

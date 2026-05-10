@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary/upload-rollback-plan-boundary/upload-audit-record-boundary/upload-artifact-bytes-boundary/upload-adapter-injection-boundary/upload-client-creation-boundary/upload-credential-read-boundary/upload-credential-presence-boundary` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary/upload-rollback-plan-boundary/upload-audit-record-boundary/upload-artifact-bytes-boundary/upload-adapter-injection-boundary/upload-client-creation-boundary/upload-credential-read-boundary/upload-credential-presence-boundary/upload-live-check-boundary` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -298,6 +298,18 @@ credentials must still come from environment variables.
    credential presence results, instantiate SDK clients, inject adapters, bind
    stores or indexes, read/hash/stage bytes, perform live checks, generate
    commands, or write object/index entries.
+   Use `knowledge upload-live-check-boundary` only as a dry-run private
+   live-check boundary from a saved upload credential presence boundary. A
+   `live-check-boundary-ready` result means live-check requirements were
+   modeled, not satisfied: read-only live-check policy, credential-presence
+   boundary, credential-read boundary, live-check result redaction,
+   upload-command boundary, object-store and metadata-index dependencies,
+   content-addressed keys, idempotent writes, and explicit approval still need
+   separate design or execution approval. It does not probe backend
+   reachability, read credential values, check credential presence, expose
+   credential presence or live-check results, instantiate SDK clients, inject
+   adapters, bind stores or indexes, read/hash/stage bytes, generate commands,
+   or write object/index entries.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or

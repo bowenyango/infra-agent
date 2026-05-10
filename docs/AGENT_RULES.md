@@ -499,6 +499,35 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   values, credential files, credential presence results, object-store handles,
   metadata-index handles, live checks, upload commands, or object/index
   mutation.
+- `infra-agent knowledge upload-live-check-boundary` is a dry-run private live
+  check boundary command. It may read one saved upload credential presence
+  boundary and record required future live-check contracts: live check before
+  upload-command generation, credential-presence boundary requirement,
+  credential-read boundary requirement, credential reference/value redaction,
+  credential presence result redaction, read-only live-check policy,
+  live-check result redaction requirement, upload-command boundary
+  requirement, object-store and metadata-index dependency requirements,
+  content-addressed key requirements, idempotent write requirement, and
+  explicit approval requirement. A `live-check-boundary-ready` result is not
+  backend reachability, live probing, credential access, credential presence
+  checking, SDK instantiation, adapter injection, command generation,
+  object-store binding, metadata-index binding, byte staging, or upload
+  execution readiness. It must keep `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `mutationApprovalGranted=false`,
+  `writeTokenIssued=false`, `executionLeaseCreated=false`,
+  `rollbackPlanCreated=false`, `auditRecordCreated=false`,
+  `artifactBytesProvided=false`, `adapterInjected=false`,
+  `clientCreated=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `credentialPresenceResultExposed=false`,
+  `liveCheckAllowed=false`, `liveCheckPerformed=false`,
+  `liveCheckResultExposed=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept backend configs, registries, mock
+  harnesses, mutation plans, raw bytes, local artifact paths, concrete
+  adapters, SDK clients, client configs, credential values, credential files,
+  credential presence results, live-check probes/results, backend endpoints,
+  object-store handles, metadata-index handles, upload commands, or
+  object/index mutation.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
