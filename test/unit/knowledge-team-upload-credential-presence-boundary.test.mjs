@@ -63,6 +63,9 @@ import {
   buildKnowledgeTeamUploadWriteTokenBoundary
 } from '../../src/knowledge/team-upload-write-token-boundary.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -465,6 +468,229 @@ test('upload credential presence boundary reports credential and backend details
   assert.equal(codes.has('artifact-bytes-provided'), true);
   assertExecutionAndCredentialPresenceDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload credential presence boundary validation rejects forged credential presence state', async () => {
+  const credentialReadBoundary = await validCredentialReadBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({ credentialReadBoundary });
+  const readyValidation = validateKnowledgePayload(boundary, 'knowledge-pack.upload-credential-presence-boundary.json');
+
+  assert.equal(readyValidation.valid, true);
+
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    clientCreated: true,
+    adapterInjected: true,
+    sourceCredentialReadBoundary: {
+      ...boundary.sourceCredentialReadBoundary,
+      source: 'upload-client-creation-boundary',
+      boundaryStatus: 'blocked',
+      boundaryKind: 'unsupported',
+      boundaryNextAction: 'resolve-blockers',
+      adapterBackendKind: 's3-compatible',
+      credentialValuesRead: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      clientCreated: true,
+      sdkClientCreated: true,
+      adapterInjected: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      executable: true
+    },
+    credentialPresenceBoundary: {
+      ...boundary.credentialPresenceBoundary,
+      credentialValuesRead: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      credentialPresenceResultExposed: true,
+      clientCreated: true,
+      sdkClientCreated: true,
+      adapterInjected: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      liveCheckPerformed: true,
+      uploadExecutionAllowed: true,
+      uploadCommandGenerated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true,
+      executable: true,
+      credentialValue: 'should-not-exist'
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      clientCreated: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      remoteMutationAllowed: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      nextAction: 'resolve-blockers',
+      blockerCount: 1
+    }
+  }, 'knowledge-pack.upload-credential-presence-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialValuesExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.adapterInjected'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.source'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.boundaryStatus'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.boundaryKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.boundaryNextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.adapterBackendKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.credentialValuesRead'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.credentialValuesExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.sdkClientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.liveCheckPerformed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.uploadCommandGenerated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.executable'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.credentialValuesRead'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.credentialValuesExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.credentialPresenceChecked'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.credentialPresenceResultExposed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.sdkClientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.liveCheckPerformed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.uploadCommandGenerated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.credentialValue'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.clientCreated'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.objectWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexWriteAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.remoteMutationAllowed'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
+});
+
+test('upload credential presence boundary validation rejects missing ready prerequisites', async () => {
+  const credentialReadBoundary = await validCredentialReadBoundary();
+  const boundary = buildKnowledgeTeamUploadCredentialPresenceBoundary({ credentialReadBoundary });
+  const validation = validateKnowledgePayload({
+    ...boundary,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    auditRecordCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true,
+    target: {
+      ...boundary.target,
+      manifestId: null,
+      artifactId: 'not-a-safe-id',
+      objectSha256: null,
+      objectKey: null
+    },
+    sourceCredentialReadBoundary: {
+      ...boundary.sourceCredentialReadBoundary,
+      reviewStatus: 'blocked',
+      reviewKind: 'unsupported',
+      scopeMatched: false,
+      humanReviewRecorded: false,
+      fingerprintVerified: false,
+      sourceFingerprintVerified: false,
+      adapterName: null,
+      dryRunOnly: false,
+      credentialReadRequiredBeforeExecution: false,
+      credentialReadRequiredAfterClientBoundary: false,
+      clientCreationBoundaryRequired: false,
+      credentialSourceDescriptorRequired: false,
+      credentialReferenceOnlyRequired: false,
+      credentialValueRedactionRequired: false,
+      mockAdapterRequired: false,
+      clientFactoryDescriptorRequired: false,
+      credentialPresenceBoundaryRequired: false,
+      liveCheckBoundaryRequired: false,
+      uploadCommandBoundaryRequired: false,
+      artifactObjectStoreDependencyRequired: false,
+      metadataIndexDependencyRequired: false,
+      contentAddressedObjectKeysRequired: false,
+      contentAddressedIndexKeysRequired: false,
+      idempotentWritesRequired: false,
+      explicitUploadApprovalRequired: 'not-boolean'
+    },
+    credentialPresenceBoundary: {
+      ...boundary.credentialPresenceBoundary,
+      dryRunOnly: false,
+      credentialPresenceCheckRequiredBeforeExecution: false,
+      credentialPresenceCheckRequiredAfterCredentialReadBoundary: false,
+      credentialReadBoundaryRequired: false,
+      credentialSourceDescriptorRequired: false,
+      credentialReferenceOnlyRequired: false,
+      credentialValueRedactionRequired: false,
+      credentialPresenceSignalRequired: false,
+      credentialPresenceResultRedactionRequired: false,
+      mockAdapterRequired: false,
+      clientFactoryDescriptorRequired: false,
+      liveCheckBoundaryRequired: false,
+      uploadCommandBoundaryRequired: false,
+      artifactObjectStoreDependencyRequired: false,
+      metadataIndexDependencyRequired: false,
+      contentAddressedObjectKeysRequired: false,
+      contentAddressedIndexKeysRequired: false,
+      idempotentWritesRequired: false,
+      explicitUploadApprovalRequired: false
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      artifactBytesRequired: false,
+      adapterInjectionRequired: false,
+      clientCreationRequired: false,
+      credentialReadRequired: false,
+      credentialPresenceCheckRequired: false,
+      liveCheckRequired: false,
+      uploadCommandRequired: false,
+      writeTokenRequired: false,
+      executionLeaseRequired: false,
+      rollbackPlanRequired: false,
+      auditRecordRequired: false,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      status: 'blocked'
+    }
+  }, 'knowledge-pack.upload-credential-presence-boundary.json');
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some(issue => issue.path === '$.uploadApproved'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.manifestId'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.artifactId'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.objectSha256'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.target.objectKey'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.reviewStatus'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.reviewKind'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.scopeMatched'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.adapterName'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.dryRunOnly'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.sourceCredentialReadBoundary.explicitUploadApprovalRequired'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.dryRunOnly'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.credentialPresenceBoundary.credentialPresenceCheckRequiredBeforeExecution'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.artifactBytesRequired'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.artifactBytesProvided'), true);
+  assert.equal(validation.issues.some(issue => issue.path === '$.readiness.status'), true);
 });
 
 export {
