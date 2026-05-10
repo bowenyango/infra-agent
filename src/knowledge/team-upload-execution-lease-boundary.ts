@@ -190,7 +190,7 @@ interface ParsedWriteTokenBoundaryForExecutionLeaseBoundary {
 }
 
 const SAFE_ID_PATTERN = /^[a-f0-9]{24}$/;
-const FORBIDDEN_LEAK_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|password|authorization|header|accessKey|sessionToken|client|clientConfig|signedUrl|putObject|putEntry|fetch|artifactStore|tokenValue|tokenMaterial|leaseValue|leaseMaterial)/i;
+const FORBIDDEN_LEAK_KEY_PATTERN = /(bucket|endpoint|url|secret|password|authorization|header|accessKey|sessionToken|clientConfig|sdkClient|signedUrl|putObject|putEntry|fetch|artifactStore|tokenValue|tokenMaterial|leaseValue|leaseMaterial)/i;
 const FORBIDDEN_LEAK_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
