@@ -61,6 +61,20 @@ async function validExecutionGate() {
   return buildKnowledgeTeamUploadExecutionGate({ continuation, mockHarness });
 }
 
+function assertNoPrivateValues(value) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  for (const forbidden of [
+    'https://should-not-copy.example.test',
+    'should-not-copy-bucket',
+    'should-not-copy-secret',
+    'aws s3 cp',
+    's3://private-bucket',
+    'private-key'
+  ]) {
+    assert.equal(text.includes(forbidden), false, forbidden);
+  }
+}
+
 test('upload mutation plan accepts a gate-ready execution gate without enabling execution', async () => {
   const executionGate = await validExecutionGate();
   const plan = buildKnowledgeTeamUploadMutationPlan({ executionGate });
@@ -140,4 +154,69 @@ test('upload mutation plan accepts a gate-ready execution gate without enabling 
   assert.equal(plan.readiness.nextAction, 'request-human-mutation-approval');
   assert.equal(plan.readiness.blockerCount, 0);
   assert.deepEqual(plan.readiness.blockerCodes, []);
+});
+
+test('upload mutation plan blocks execution gates that are not gate-ready', async () => {
+  const executionGate = await validExecutionGate();
+  const plan = buildKnowledgeTeamUploadMutationPlan({
+    executionGate: {
+      ...executionGate,
+      status: 'blocked',
+      readiness: {
+        ...executionGate.readiness,
+        status: 'blocked',
+        nextAction: 'resolve-blockers',
+        blockerCount: 1,
+        blockerCodes: ['scope-mismatch'],
+        blockers: [{
+          code: 'scope-mismatch',
+          path: '$.scope',
+          message: 'test mismatch'
+        }],
+        reason: 'test blocked gate'
+      }
+    }
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.target.manifestId, null);
+  assert.equal(plan.target.objectKey, null);
+  assert.equal(plan.target.objectSha256, null);
+  assert.equal(plan.target.artifactId, null);
+  assert.equal(plan.sourceGate.gateStatus, 'blocked');
+  assert.equal(plan.sourceGate.gateNextAction, 'resolve-blockers');
+  assert.equal(plan.approvalAudit.approvalScopeFingerprint.value, null);
+  assert.equal(plan.uploadApproved, false);
+  assert.equal(plan.uploadExecutionAllowed, false);
+  assert.equal(plan.mutationApprovalGranted, false);
+  assert.equal(plan.writeTokenIssued, false);
+  assert.equal(plan.executionLeaseCreated, false);
+  assert.equal(plan.objectWriteAttempted, false);
+  assert.equal(plan.metadataIndexWriteAttempted, false);
+  assert.equal(plan.remoteMutationPerformed, false);
+  assert.equal(plan.uploadCommand, null);
+  assert.equal(plan.readiness.nextAction, 'resolve-blockers');
+  assert.equal(plan.readiness.blockerCodes.includes('execution-gate-not-ready'), true);
+});
+
+test('upload mutation plan blocks invalid execution gate artifacts', async () => {
+  const executionGate = await validExecutionGate();
+  const plan = buildKnowledgeTeamUploadMutationPlan({
+    executionGate: {
+      ...executionGate,
+      kind: 'infra-agent.knowledge-team-upload-execution-run',
+      schemaVersion: 2,
+      gateKind: 'executable',
+      endpointUrl: 'https://should-not-copy.example.test',
+      bucketName: 'should-not-copy-bucket'
+    }
+  });
+
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.sourceGate.gateKind, 'unsupported');
+  assert.equal(plan.approvalAudit.approvalScopeFingerprint.value, null);
+  assert.equal(plan.readiness.blockerCodes.includes('invalid-execution-gate-kind'), true);
+  assert.equal(plan.readiness.blockerCodes.includes('invalid-schema-version'), true);
+  assert.equal(plan.readiness.blockerCodes.includes('backend-detail-leak'), true);
+  assertNoPrivateValues(plan);
 });
