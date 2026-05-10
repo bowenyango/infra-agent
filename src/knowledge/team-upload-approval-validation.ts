@@ -217,6 +217,14 @@ function validateNoUploadApprovalLeakage(
     if (blockerCodePath && /^[a-z0-9-]+$/.test(value)) {
       return;
     }
+    const blockerJsonPath = /\.blockers\[\d+\]\.path$/.test(path);
+    if (blockerJsonPath && /^\$[A-Za-z0-9_$.[\]-]+$/.test(value)) {
+      return;
+    }
+    const blockerMessagePath = /\.blockers\[\d+\]\.message$/.test(path);
+    if (blockerMessagePath && !/(?:https?:\/\/|s3:\/\/|aws s3|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i.test(value)) {
+      return;
+    }
     if (SAFE_ENV_VAR_NAME_PATTERN.test(value)) {
       return;
     }
