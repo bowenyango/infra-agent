@@ -6,6 +6,60 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Artifact Bytes Boundary Plan
+
+Status:
+
+- In progress. This slice continues the private dry-run upload boundary chain
+  after `upload-audit-record-boundary`.
+- Planned scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-audit-record-boundary` and emit a private
+  artifact bytes boundary artifact that records the future artifact-byte
+  staging requirements needed before any later adapter or execution design.
+- This slice must not read, hash, stage, or provide artifact bytes. It also
+  must not create audit records, rollback plans, execution leases, write
+  tokens, approvals, adapters, clients, credential reads, live checks, upload
+  commands, object writes, index writes, or remote mutations.
+
+Planned artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-artifact-bytes-boundary`.
+- CLI:
+  `infra-agent knowledge upload-artifact-bytes-boundary <audit-record-boundary.json> [--out <artifact-bytes-boundary.json>] [--json]`.
+- Ready status should be `artifact-bytes-boundary-ready`, meaning only that the
+  saved audit boundary is safe and future artifact-byte requirements are
+  modeled. It is not byte staging and not execution readiness.
+- Ready next action should be `design-adapter-injection-boundary`; blocked next
+  action remains `resolve-blockers`.
+
+Planned acceptance criteria:
+
+1. `artifact-bytes-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-audit-record-boundary` with
+   `audit-record-boundary-ready`,
+   `nextAction=design-artifact-bytes-boundary`, safe target references,
+   verified prior review state, matched scope, modeled token, lease, rollback,
+   audit, and artifact-byte requirements, and no blockers.
+2. Matching audit boundary state is recorded as a prerequisite signal only;
+   top-level `artifactBytesProvided`, `adapterInjected`, `auditRecordCreated`,
+   `rollbackPlanCreated`, `executionLeaseCreated`, `writeTokenIssued`,
+   `mutationApprovalGranted`, `uploadApproved`, and `uploadExecutionAllowed`
+   remain false.
+3. The output explicitly records artifact-byte requirements for future staging:
+   bytes required before adapter/execution, artifact scope binding, digest
+   verification, audit precondition, rollback precondition, lease precondition,
+   write-token precondition, and adapter-injection precondition. Each required
+   item remains unprovided, unbound, unverified, and uncreated.
+4. Mismatched, missing, malformed, blocked, forged, or leaky audit boundary
+   inputs produce a blocked artifact bytes boundary with safe blocker codes and
+   without copying private values.
+5. The CLI reads only one local audit record boundary JSON file and writes only
+   an optional local `--out` JSON artifact.
+6. Existing audit record, rollback plan, execution lease, write-token,
+   prerequisite plan, mutation approval review, mutation plan, execution gate,
+   mock harness, continuation, and team backend no-SDK boundaries remain valid.
+
 ## 2026-05-10 Completed Upload Audit Record Boundary
 
 Status:
