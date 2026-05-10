@@ -440,3 +440,21 @@ test('knowledge upload-write-token-boundary CLI args accept prerequisite plan an
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-write-token-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-execution-lease-boundary CLI args accept write-token boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-execution-lease-boundary',
+    'artifacts/knowledge-pack.upload-write-token-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-lease-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-execution-lease-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-write-token-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-lease-boundary.json');
+  assert.equal(parsed.json, true);
+});
