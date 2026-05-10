@@ -41,6 +41,7 @@ import { buildKnowledgeTeamUploadExecutionPrerequisitePlan } from '../knowledge/
 import { buildKnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-mutation-plan.ts';
 import { buildKnowledgeTeamUploadMutationApprovalReview } from '../knowledge/team-upload-mutation-approval-review.ts';
 import { buildKnowledgeTeamUploadWriteTokenBoundary } from '../knowledge/team-upload-write-token-boundary.ts';
+import { buildKnowledgeTeamUploadExecutionLeaseBoundary } from '../knowledge/team-upload-execution-lease-boundary.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -69,6 +70,7 @@ import {
   printKnowledgeTeamUploadMutationPlan,
   printKnowledgeTeamUploadMockHarness,
   printKnowledgeTeamUploadWriteTokenBoundary,
+  printKnowledgeTeamUploadExecutionLeaseBoundary,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
@@ -1948,6 +1950,37 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadWriteTokenBoundary(boundary);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-execution-lease-boundary') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-execution-lease-boundary requires exactly one upload write-token boundary path.');
+    }
+
+    const writeTokenBoundaryPath = resolveFromCwd(parsed.inputPath);
+    const writeTokenBoundary = await readJsonObject(writeTokenBoundaryPath);
+    const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({
+      writeTokenBoundary
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), boundary)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...boundary,
+            outputPath: writtenPath
+          }
+        : boundary, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadExecutionLeaseBoundary(boundary);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
