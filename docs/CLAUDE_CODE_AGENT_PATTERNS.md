@@ -93,9 +93,13 @@ durable design reference for infra-agent development.
   the future token contract: token-before-execution, artifact scope binding,
   single-use issuance, expiry, audit binding, execution lease precondition, and
   rollback precondition. It still does not issue, bind, activate, or expose a
-  token. All nine remain dry-run routing state with upload approval, upload
-  execution, write token issuance, execution lease creation, rollback creation,
-  adapter injection, client creation, credential reads, live checks,
+  token. `upload-execution-lease-boundary` can consume that write-token boundary
+  and model the future lease contract: lease-before-execution, artifact scope
+  binding, single-use lease creation, expiry, write-token precondition, audit
+  binding, and rollback precondition. It still does not create, activate, or
+  expose a lease. All ten remain dry-run routing state with upload approval,
+  upload execution, write token issuance, execution lease creation, rollback
+  creation, adapter injection, client creation, credential reads, live checks,
   object/index writes, and remote writes disabled.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,

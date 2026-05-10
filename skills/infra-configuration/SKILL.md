@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -209,6 +209,16 @@ credentials must still come from environment variables.
    issuance, expiry, audit binding, execution lease precondition, and rollback
    precondition still need separate design. It does not issue or bind a token,
    does not allow execution, does not create leases or rollback plans, does not
+   provide artifact bytes, and does not allow adapter injection, client
+   creation, credential reads, live checks, upload commands, object writes,
+   index writes, or remote writes.
+   Use `knowledge upload-execution-lease-boundary` only as a dry-run private
+   execution lease boundary plan from a saved upload write-token boundary. A
+   `execution-lease-boundary-ready` result means lease requirements were
+   modeled, not satisfied: lease before execution, artifact scope binding,
+   single-use lease creation, expiry, write-token precondition, audit binding,
+   and rollback precondition still need separate design. It does not create a
+   lease, issue or bind a token, allow execution, create rollback plans,
    provide artifact bytes, and does not allow adapter injection, client
    creation, credential reads, live checks, upload commands, object writes,
    index writes, or remote writes.
