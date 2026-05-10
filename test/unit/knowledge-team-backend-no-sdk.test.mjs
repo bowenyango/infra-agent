@@ -23,6 +23,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-artifact-bytes-boundary.ts',
   'src/knowledge/team-upload-adapter-injection-boundary.ts',
   'src/knowledge/team-upload-client-creation-boundary.ts',
+  'src/knowledge/team-upload-credential-read-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -31,7 +32,8 @@ const TEAM_BACKEND_MODULES = [
 const ARTIFACT_BYTE_BOUNDARY_MODULES = [
   'src/knowledge/team-upload-artifact-bytes-boundary.ts',
   'src/knowledge/team-upload-adapter-injection-boundary.ts',
-  'src/knowledge/team-upload-client-creation-boundary.ts'
+  'src/knowledge/team-upload-client-creation-boundary.ts',
+  'src/knowledge/team-upload-credential-read-boundary.ts'
 ];
 
 const ADAPTER_INJECTION_BOUNDARY_MODULES = [
@@ -40,6 +42,10 @@ const ADAPTER_INJECTION_BOUNDARY_MODULES = [
 
 const CLIENT_CREATION_BOUNDARY_MODULES = [
   'src/knowledge/team-upload-client-creation-boundary.ts'
+];
+
+const CREDENTIAL_READ_BOUNDARY_MODULES = [
+  'src/knowledge/team-upload-credential-read-boundary.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -103,6 +109,31 @@ const FORBIDDEN_CLIENT_CREATION_EXECUTION = [
   'adapterInjected: true',
   'liveCheckPerformed: true',
   'uploadCommandGenerated: true'
+];
+
+const FORBIDDEN_CREDENTIAL_READ_EXECUTION = [
+  'createMockKnowledgeTeamBackendAdapter(',
+  'createClient(',
+  'new S3',
+  'new Client',
+  'putObject(',
+  'putEntry(',
+  'artifactStore.put',
+  'metadataIndex.put',
+  'readFile(',
+  'createReadStream(',
+  'process.env[',
+  'process.env.',
+  'clientCreated: true',
+  'sdkClientCreated: true',
+  'adapterInjected: true',
+  'credentialValuesRead: true',
+  'credentialValuesExposed: true',
+  'credentialPresenceChecked: true',
+  'liveCheckPerformed: true',
+  'uploadCommandGenerated: true',
+  'objectWriteAttempted: true',
+  'metadataIndexWriteAttempted: true'
 ];
 
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
@@ -175,6 +206,21 @@ test('client creation boundary does not instantiate SDK clients, adapters, reads
         source.includes(forbidden),
         false,
         `${relativePath} must not instantiate clients, adapters, read bytes, perform checks, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('credential read boundary does not read credentials, instantiate clients, or write', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of CREDENTIAL_READ_BOUNDARY_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_CREDENTIAL_READ_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not read credentials, instantiate clients, perform checks, or write via ${forbidden}`
       );
     }
   }
