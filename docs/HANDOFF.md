@@ -155,6 +155,65 @@ Next step:
   credential presence checks, live backend checks, upload commands, and remote
   writes out of scope until a separate approval-gated slice.
 
+## 2026-05-09 Active Upload Mock Harness Plan
+
+Status:
+
+- In progress. This slice adds a private dry-run in-memory mock harness review
+  after `upload-adapter-preflight`.
+- Scope is still review-only: consume a saved
+  `infra-agent.knowledge-team-upload-adapter-preflight`, construct only a
+  safe in-memory mock adapter descriptor boundary, and prove that future mock
+  dependency injection can be modeled without staging bytes or writing an
+  index.
+- This slice must not call `artifactStore.putObject`,
+  `metadataIndex.putEntry`, `stageKnowledgePackArtifactForTeamStore`, a real
+  resolver for S3-compatible backends, SDK clients, credential readers,
+  credential presence checks, live backend checks, upload command builders, or
+  remote object/index mutation.
+
+Why this direction:
+
+- The previous slice made dependency injection preflight explicit but did not
+  instantiate or inject anything. The next safe step is to model the mock-only
+  harness boundary and keep all write attempts disabled.
+- This follows the learning-claude-code pattern of separating permission
+  review, dependency review, and mutation execution. `harness-ready` must mean
+  "mock harness review is structurally ready", not upload-ready.
+
+Planned checkpoints:
+
+1. Record this active mock harness plan and non-goals before feature changes.
+2. Add a private `infra-agent.knowledge-team-upload-mock-harness` contract.
+3. Cover the ready path from a valid `upload-adapter-preflight`.
+4. Block forged or blocked preflight artifacts.
+5. Check mock adapter descriptor/capability shape without writing object/index
+   data.
+6. Add validator support behind `knowledge validate`.
+7. Add contract tests for stable private JSON shape and no-op write flags.
+8. Add CLI parsing and command support for
+   `infra-agent knowledge upload-mock-harness <preflight.json>
+   [--out <harness.json>] [--json]`.
+9. Add CLI, help, and no-SDK/no-env guard coverage.
+10. Update rules, roadmap, README, skill, and handoff docs with validation
+    results and remaining risks.
+
+Acceptance criteria:
+
+- Harness can report `harness-ready` only for `preflight-ready` input with a
+  mock adapter dependency.
+- Output must keep `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, `adapterInjected=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`.
+- CLI reads only local preflight JSON and writes only the optional local
+  `--out` artifact.
+- Existing upload intent, upload continuation, upload adapter preflight,
+  backend reference readiness, and public team artifact contracts remain
+  unchanged.
+
 ## 2026-05-09 Active Upload Approval Continuation Plan
 
 Status:
