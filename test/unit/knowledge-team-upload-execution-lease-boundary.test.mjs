@@ -137,6 +137,10 @@ function assertExecutionDisabled(boundary) {
   assert.equal(boundary.remainingExecutionBoundaries.remoteMutationAllowed, false);
 }
 
+function blockerCodes(boundary) {
+  return new Set(boundary.readiness.blockerCodes);
+}
+
 test('upload execution lease boundary records lease requirements without creating a lease', async () => {
   const writeTokenBoundary = await validWriteTokenBoundary();
   const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({ writeTokenBoundary });
@@ -183,4 +187,168 @@ test('upload execution lease boundary records lease requirements without creatin
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
   assertNoPrivateValues(boundary);
+});
+
+test('upload execution lease boundary blocks non-ready write-token boundaries', async () => {
+  const writeTokenBoundary = await validWriteTokenBoundary();
+  const blockedWriteTokenBoundary = {
+    ...writeTokenBoundary,
+    status: 'blocked',
+    sourceWriteTokenBoundary: undefined,
+    sourcePrerequisitePlan: {
+      ...writeTokenBoundary.sourcePrerequisitePlan,
+      fingerprintVerified: false
+    },
+    readiness: {
+      ...writeTokenBoundary.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['review-fingerprint-unverified'],
+      blockers: [{
+        code: 'review-fingerprint-unverified',
+        path: '$.sourcePrerequisitePlan.fingerprintVerified',
+        message: 'fingerprint not verified'
+      }]
+    }
+  };
+
+  const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({
+    writeTokenBoundary: blockedWriteTokenBoundary
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourceWriteTokenBoundary.boundaryStatus, 'blocked');
+  assert.equal(boundary.sourceWriteTokenBoundary.fingerprintVerified, false);
+  assert.equal(codes.has('token-boundary-not-ready'), true);
+  assert.equal(codes.has('token-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload execution lease boundary blocks invalid write-token inputs', () => {
+  const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({
+    writeTokenBoundary: null
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourceWriteTokenBoundary.boundaryStatus, 'invalid');
+  assert.equal(blockerCodes(boundary).has('missing-required-field'), true);
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.target.artifactId, null);
+});
+
+test('upload execution lease boundary blocks malformed write-token metadata', () => {
+  const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({
+    writeTokenBoundary: {
+      kind: 'infra-agent.other-artifact',
+      schemaVersion: 2,
+      boundaryKind: 'runtime-boundary',
+      status: 'queued',
+      target: {
+        manifestId: 'unsafe-id',
+        objectKey: '../unsafe-object',
+        objectSha256: 'not-a-sha',
+        artifactId: 'unsafe-artifact'
+      },
+      sourcePrerequisitePlan: {
+        reviewStatus: 'queued',
+        reviewKind: 'operator-note',
+        scopeMatched: false,
+        humanReviewRecorded: false,
+        fingerprintVerified: false,
+        sourceFingerprintVerified: false,
+        adapterName: 'mock-team-cache',
+        adapterBackendKind: 'real-s3'
+      },
+      writeTokenBoundary: {
+        tokenRequiredBeforeExecution: false,
+        tokenScopeBindingRequired: false,
+        tokenSingleUseRequired: false,
+        tokenExpiryRequired: false,
+        auditBindingRequired: false,
+        executionLeaseRequiredBeforeIssuance: false,
+        rollbackPlanRequiredBeforeIssuance: false
+      },
+      remainingExecutionBoundaries: {
+        executionLeaseRequired: false,
+        rollbackPlanRequired: false,
+        auditRecordRequired: false
+      },
+      readiness: {
+        nextAction: 'execute-upload',
+        blockerCount: 1
+      }
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourceWriteTokenBoundary.boundaryStatus, 'invalid');
+  assert.equal(boundary.sourceWriteTokenBoundary.boundaryKind, 'unsupported');
+  assert.equal(boundary.sourceWriteTokenBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.sourceWriteTokenBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceWriteTokenBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceWriteTokenBoundary.adapterBackendKind, 'unsupported');
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.target.artifactId, null);
+  for (const code of [
+    'invalid-write-token-boundary-kind',
+    'invalid-schema-version',
+    'invalid-boundary-kind',
+    'token-boundary-not-ready',
+    'unsafe-artifact-reference',
+    'token-boundary-next-action-invalid',
+    'review-fingerprint-unverified',
+    'scope-not-matched',
+    'unsupported-adapter-backend',
+    'write-token-not-required',
+    'execution-lease-not-required'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+});
+
+test('upload execution lease boundary blocks missing nested write-token sections', () => {
+  const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({
+    writeTokenBoundary: {
+      kind: 'infra-agent.knowledge-team-upload-write-token-boundary',
+      schemaVersion: 1,
+      boundaryKind: 'write-token-boundary-dry-run',
+      status: 'write-token-boundary-ready',
+      target: null,
+      sourcePrerequisitePlan: null,
+      writeTokenBoundary: null,
+      remainingExecutionBoundaries: null,
+      readiness: null
+    }
+  });
+  const codes = blockerCodes(boundary);
+
+  assert.equal(boundary.status, 'blocked');
+  assertExecutionDisabled(boundary);
+  assert.equal(boundary.sourceWriteTokenBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.sourceWriteTokenBoundary.tokenRequiredBeforeExecution, false);
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.objectKey, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.target.artifactId, null);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('token-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('scope-not-matched'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('write-token-not-required'), true);
+  assert.equal(codes.has('execution-lease-not-required'), true);
 });
