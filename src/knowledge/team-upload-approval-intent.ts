@@ -703,7 +703,7 @@ function intentReason(status: KnowledgeTeamUploadApprovalIntentStatus): string {
     : 'Upload approval intent is blocked until publication readiness and backend reference preconditions are fixed.';
 }
 
-function buildApprovalFingerprint(input: {
+export function computeKnowledgeTeamUploadApprovalIntentFingerprint(input: {
   enabled: boolean;
   plannedOperation: KnowledgeTeamUploadApprovalIntent['plannedOperation'];
   backendKind: KnowledgeTeamUploadApprovalIntent['backendKind'];
@@ -771,7 +771,7 @@ export function buildKnowledgeTeamUploadApprovalIntent(input: {
     ? 'approval-required'
     : 'blocked';
   const blockerCodes = [...new Set(blockers.map(entry => entry.code))].sort();
-  const approvalFingerprint = buildApprovalFingerprint({
+  const approvalFingerprint = computeKnowledgeTeamUploadApprovalIntentFingerprint({
     enabled: status === 'approval-required',
     plannedOperation,
     backendKind: backendReference.backendKind,
