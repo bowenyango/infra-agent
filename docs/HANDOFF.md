@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Credential Presence Boundary Plan
+## 2026-05-10 Completed Upload Credential Presence Boundary
 
 Status:
 
-- Active. This slice continues the private dry-run upload boundary chain after
+- Completed. This slice continues the private dry-run upload boundary chain after
   `upload-credential-read-boundary`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-credential-read-boundary` and emit a
@@ -22,31 +22,133 @@ Status:
   stage artifact bytes, perform live checks, generate upload commands, write
   object storage, write metadata indexes, or perform remote mutations.
 
-Planned implementation checkpoints:
+Why this direction:
 
-1. Add the credential presence boundary contract and builder from the saved
-   credential read boundary.
-2. Add focused unit coverage for ready and blocked inputs.
-3. Add validator dispatch and contract coverage for ready, blocked, and drifted
-   payloads.
-4. Add CLI parsing, JSON/text output, help text, and integration coverage.
-5. Add no-SDK guard coverage and update rules, roadmap, skill, and handoff
-   docs after verification.
+- The completed credential read boundary only modeled future credential source
+  and value-redaction requirements. It did not read credential values, check
+  credential presence, create clients, inject adapters, or perform execution.
+- The next safe step is to model credential-presence preconditions without
+  checking credentials, exposing presence results, accepting backend details,
+  accepting raw bytes, generating commands, or touching remote state.
+- This follows the `learning-claude-code` agent design lesson used in this
+  project: agents hand off compact structured state; terminal and blocked
+  states never advance implicitly; and permission-sensitive work is represented
+  as validated contracts before implementation.
 
-Planned commit sequence:
+Implemented artifact and CLI:
 
-1. `docs: plan upload credential presence boundary`
-2. `feat: add upload credential presence boundary contract`
-3. `test: cover upload credential presence boundary ready path`
-4. `test: block invalid upload credential presence inputs`
-5. `feat: validate upload credential presence boundaries`
-6. `test: cover upload credential presence validation drift`
-7. `test: cover upload credential presence contract`
-8. `feat: wire upload credential presence boundary cli`
-9. `test: cover upload credential presence cli parsing`
-10. `test: cover upload credential presence cli`
-11. `test: guard upload credential presence boundary no sdk`
-12. `docs: document upload credential presence boundary`
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-credential-presence-boundary`.
+- CLI:
+  `infra-agent knowledge upload-credential-presence-boundary <credential-read-boundary.json> [--out <credential-presence-boundary.json>] [--json]`.
+- Ready status is `credential-presence-boundary-ready`, meaning only that
+  the saved credential read boundary is safe and future credential-presence
+  requirements are modeled. It is not credential access and not credential
+  presence checking.
+- Ready next action is `design-live-check-boundary`; blocked next action
+  remains `resolve-blockers`.
+
+Implemented acceptance criteria:
+
+1. `credential-presence-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-credential-read-boundary` with
+   `credential-read-boundary-ready`,
+   `nextAction=design-credential-presence-boundary`, safe target references,
+   verified prior review state, matched scope, mock backend posture, modeled
+   credential-read requirements, credential presence still required, and no
+   blockers.
+2. Matching credential read boundary state is recorded as a prerequisite signal
+   only; top-level `credentialValuesExposed`, `credentialPresenceChecked`,
+   `clientCreated`, `adapterInjected`, `artifactBytesProvided`,
+   `auditRecordCreated`, `rollbackPlanCreated`, `executionLeaseCreated`,
+   `writeTokenIssued`, `mutationApprovalGranted`, `uploadApproved`,
+   `uploadExecutionAllowed`, `objectWriteAttempted`,
+   `metadataIndexWriteAttempted`, and `remoteMutationPerformed` remain false.
+3. The output explicitly records credential-presence requirements for future
+   design: presence signal requirement, result redaction, credential ref/value
+   redaction, credential read boundary, live-check boundary, upload-command
+   boundary, object/index dependencies, content-addressed keys, idempotent
+   writes, and approval. Each required item remains unread, unchecked,
+   uncreated, uninjected, unbound, and non-executable.
+4. Missing, malformed, blocked, forged, credential-value-leaking,
+   credential-presence-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, live-check, or command-bearing credential read
+   boundary inputs produce a blocked credential presence boundary with safe
+   blocker codes and without copying private values.
+5. The CLI reads only one local credential read boundary JSON file and writes
+   only an optional local `--out` JSON artifact.
+6. Existing credential read, client creation, adapter injection, artifact bytes,
+   audit record, rollback plan, execution lease, write-token, prerequisite plan,
+   mutation approval review, mutation plan, execution gate, mock harness,
+   continuation, and team backend no-SDK boundaries remain valid.
+
+Completed commits for this slice:
+
+1. `affc613` docs: plan upload credential presence boundary
+2. `eafd459` feat: add upload credential presence boundary contract
+3. `dc6938d` test: cover upload credential presence boundary ready path
+4. `c4c0ea7` test: block invalid upload credential presence inputs
+5. `340d240` feat: validate upload credential presence boundaries
+6. `b671125` test: cover upload credential presence validation drift
+7. `1216269` test: cover upload credential presence contract
+8. `ac88f88` feat: wire upload credential presence boundary cli
+9. `80f67c2` test: cover upload credential presence cli parsing
+10. `0b1bc0b` test: cover upload credential presence cli
+11. `ccb0569` test: guard upload credential presence boundary no sdk
+12. `45b4fe5` fix: allow upload credential presence validation controls
+
+Verification performed during the slice:
+
+- Focused builder/unit:
+  `node --experimental-strip-types ./test/unit/knowledge-team-upload-credential-presence-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types ./test/contract/knowledge-team-upload-credential-presence-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-upload-credential-presence-boundary-main.test.mjs`
+- Parser/help/no-SDK:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Lint:
+  `npm run lint` passed during implementation.
+- Coverage:
+  `npm run test:coverage` passed; all files reported 90.17% lines, 75.09%
+  branches, and 96.90% functions. The new
+  `team-upload-credential-presence-boundary.ts` file reported 100.00% lines,
+  branches, and functions.
+- Full final verification:
+  `npm run verify` passed after code, test, rules, roadmap, skill, and handoff
+  updates.
+
+Core files changed:
+
+- `src/knowledge/team-upload-credential-presence-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-credential-presence-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-credential-presence-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-credential-presence-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Current remaining risk:
+
+- The artifact still models only a credential-presence boundary; it does not
+  read credential values, check credential presence, instantiate SDK clients,
+  inject adapters, bind object stores or metadata indexes, read/hash/stage
+  bytes, perform live checks, generate upload commands, upload, or mutate
+  remote state.
+- Next safe step is `design-live-check-boundary`: consume the saved credential
+  presence boundary and model future live-check requirements while keeping
+  credential values, presence results, clients, adapters, commands, object
+  writes, index writes, and remote mutation disabled.
 
 ## 2026-05-10 Completed Upload Credential Read Boundary
 
