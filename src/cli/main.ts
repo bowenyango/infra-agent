@@ -35,6 +35,7 @@ import { validateKnowledgeTeamS3CompatibleBackendReferences } from '../knowledge
 import { buildKnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import { buildKnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
 import { buildKnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
+import { buildKnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -57,6 +58,7 @@ import {
   printKnowledgeTeamUploadAdapterPreflight,
   printKnowledgeTeamUploadApprovalContinuation,
   printKnowledgeTeamUploadApprovalIntent,
+  printKnowledgeTeamUploadMockHarness,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
@@ -1682,6 +1684,35 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadAdapterPreflight(preflight);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-mock-harness') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-mock-harness requires exactly one upload adapter preflight path.');
+    }
+
+    const preflightPath = resolveFromCwd(parsed.inputPath);
+    const preflight = await readJsonObject(preflightPath);
+    const harness = buildKnowledgeTeamUploadMockHarness({ preflight });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), harness)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...harness,
+            outputPath: writtenPath
+          }
+        : harness, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadMockHarness(harness);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }

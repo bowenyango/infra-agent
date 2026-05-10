@@ -55,6 +55,7 @@ import type { KnowledgeTeamS3CompatibleReferenceValidationSummary } from '../kno
 import type { KnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-upload-adapter-preflight.ts';
 import type { KnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-upload-approval-continuation.ts';
 import type { KnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
+import type { KnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -3718,6 +3719,44 @@ export function printKnowledgeTeamUploadAdapterPreflight(
   printList(
     preflight.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload adapter preflight blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadMockHarness(
+  harness: KnowledgeTeamUploadMockHarness
+): void {
+  printHeader('Knowledge team upload mock harness');
+  process.stdout.write(`status: ${harness.status}\n`);
+  process.stdout.write(`next action: ${harness.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${harness.plannedOperation}\n`);
+  process.stdout.write(`execution: ${harness.executionMode}\n`);
+  process.stdout.write(`harness: ${harness.harnessKind}\n`);
+  process.stdout.write(`remote write: ${harness.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${harness.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${harness.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${harness.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${harness.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${harness.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${harness.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${harness.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mock adapter instantiated: ${harness.mockAdapterInstantiated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${harness.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${harness.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${harness.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${harness.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`preflight: ${harness.preflight.status}\n`);
+  process.stdout.write(`adapter backend: ${harness.preflight.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${harness.preflight.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`injection candidate: ${harness.preflight.injectionCandidate ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter factory: ${harness.mockHarness.adapterFactory}\n`);
+  process.stdout.write(`descriptor matched: ${harness.mockHarness.descriptorMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact object store available: ${harness.mockHarness.artifactObjectStoreAvailable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index available: ${harness.mockHarness.metadataIndexAvailable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: mockAdapter=${harness.mockAdapterInstantiated ? 'yes' : 'no'}, objectWrite=${harness.mockHarness.objectWriteAttempted ? 'yes' : 'no'}, indexWrite=${harness.mockHarness.indexWriteAttempted ? 'yes' : 'no'}, blockers=${harness.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    harness.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload mock harness blockers.'
   );
 }
 
