@@ -6,6 +6,78 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Execution Prerequisite Plan
+
+Status:
+
+- In progress. This slice adds the next private dry-run boundary after
+  `upload-mutation-approval-review`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-mutation-approval-review` and emit a
+  private execution prerequisite plan that records which boundaries must exist
+  before any future upload execution can be designed.
+- This slice does not grant mutation approval, allow upload execution, issue
+  write tokens, create execution leases, stage artifact bytes, create rollback
+  plans, inject adapters, create SDK clients, read credential values, check
+  credential presence, perform live checks, generate upload commands, mutate
+  object storage, or mutate a metadata index.
+
+Why this direction:
+
+- The previous review artifact records only that a human reviewed the exact
+  mutation-plan fingerprint. It is a prerequisite signal, not execution
+  authority.
+- The next safe step is to make the execution prerequisites explicit and
+  contract-validated before any separate token, lease, rollback, audit, adapter,
+  artifact-byte, or backend mutation design exists.
+- This keeps planning, human review, prerequisite modeling, and actual mutation
+  execution as separate artifacts and commands.
+
+Planned artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-execution-prerequisite-plan`.
+- CLI:
+  `infra-agent knowledge upload-execution-prerequisite-plan <approval-review.json> [--out <plan.json>] [--json]`.
+- Ready status is `prerequisite-plan-ready`, meaning only that the prerequisite
+  boundary plan is well-formed and derived from a safe `review-ready` input.
+  It is not execution readiness.
+
+Planned acceptance criteria:
+
+1. `prerequisite-plan-ready` requires a valid
+   `infra-agent.knowledge-team-upload-mutation-approval-review` with
+   `review-ready`, `humanReviewRecorded=true`, `fingerprintVerified=true`, and
+   the existing next action `plan-execution-prerequisite-boundaries`.
+2. Matching review state is recorded as a prerequisite signal only; top-level
+   `mutationApprovalGranted`, `uploadApproved`, and `uploadExecutionAllowed`
+   remain false.
+3. The output explicitly records required future boundaries: artifact bytes,
+   adapter injection, write token, execution lease, rollback plan, and audit
+   record. Each required item remains uncreated/unprovided.
+4. Mismatched, missing, malformed, blocked, forged, or leaky review inputs
+   produce a blocked prerequisite plan with safe blocker codes and without
+   copying private values.
+5. The CLI reads only one local review JSON file and writes only an optional
+   local `--out` JSON artifact.
+6. Existing upload mutation approval review, mutation plan, execution gate,
+   mock harness, continuation, and team backend no-SDK boundaries remain valid.
+
+Commit checklist:
+
+1. Record this active execution prerequisite plan and non-goals.
+2. Add the private execution prerequisite plan builder/contract.
+3. Add unit coverage for the ready path.
+4. Add unit coverage for blocked review inputs.
+5. Add forged-state and leak guard coverage.
+6. Add validator support for prerequisite plan artifacts.
+7. Add contract coverage for the JSON shape.
+8. Add CLI parser support.
+9. Wire CLI command and text output.
+10. Add CLI integration and help/arg/no-SDK guard coverage.
+11. Update durable docs and handoff progress.
+12. Run focused checks and full `npm run verify`.
+
 ## Current Test Architecture
 
 Status as of 2026-05-06:
