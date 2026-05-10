@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Write Token Boundary Plan
+## 2026-05-10 Completed Upload Write Token Boundary
 
 Status:
 
-- In progress. This slice adds the next private dry-run boundary after
+- Completed and verified. This slice adds the next private dry-run boundary after
   `upload-execution-prerequisite-plan`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-prerequisite-plan` and emit a
@@ -33,7 +33,7 @@ Why this direction:
   the upload chain: each boundary is a compact artifact, has validator coverage,
   and fails closed on malformed, forged, or leaky inputs.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-write-token-boundary`.
@@ -43,7 +43,7 @@ Planned artifact and CLI:
   prerequisite plan is safe and the future write-token requirements are
   modeled. It is not token issuance and not execution readiness.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `write-token-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-execution-prerequisite-plan` with
@@ -65,20 +65,73 @@ Planned acceptance criteria:
    execution gate, mock harness, continuation, and team backend no-SDK
    boundaries remain valid.
 
-Commit checklist:
+Completed commits for this slice:
 
-1. Record this active write-token boundary plan and non-goals.
-2. Add the private write-token boundary builder/contract.
-3. Add unit coverage for the ready path.
-4. Add unit coverage for blocked prerequisite inputs.
-5. Add forged-state and leak guard coverage.
-6. Add validator support for write-token boundary artifacts.
-7. Add contract coverage for the JSON shape.
-8. Add CLI parser support.
-9. Wire CLI command and text output.
-10. Add CLI integration and help/arg/no-SDK guard coverage.
-11. Update durable docs and handoff progress.
-12. Run focused checks and full `npm run verify`.
+1. `4aa3faf` docs: record upload write token boundary plan
+2. `31f729d` feat: add upload write token boundary contract
+3. `f159f92` test: cover upload write token boundary ready path
+4. `a27fd39` test: block unsafe upload write token inputs
+5. `536c6b7` test: guard upload write token boundary
+6. `6fdf453` feat: validate upload write token boundaries
+7. `27e965b` test: cover upload write token boundary contract
+8. `6d8ca36` feat: parse upload write token boundary args
+9. `05a52ab` feat: wire upload write token boundary cli
+10. `3e922cd` test: cover upload write token boundary cli
+11. `b7673f2` test: guard upload write token boundary surface
+12. `f196fc8` docs: document upload write token boundary
+
+Verification completed:
+
+- Focused unit:
+  `node --experimental-strip-types test/unit/knowledge-team-upload-write-token-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types test/contract/knowledge-team-upload-write-token-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types test/integration/cli-knowledge-upload-write-token-boundary-main.test.mjs`
+- Focused parser/help/no-SDK:
+  `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Lint:
+  `npm run lint` passed.
+- Coverage:
+  `npm run test:coverage` passed with total coverage above thresholds; the new
+  `team-upload-write-token-boundary.ts` file reports 100% line, branch, and
+  function coverage.
+- Full gate:
+  `npm run verify` passed after code, test, and documentation updates.
+- Note: `npm run validate:content` and `npm run validate:pages` were attempted
+  but are not defined scripts in this package.
+
+Key files changed:
+
+- `src/knowledge/team-upload-write-token-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-write-token-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-write-token-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-write-token-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+
+Current remaining risks:
+
+- There is still no real token issuer, execution lease, rollback artifact,
+  audit writer, adapter injection, artifact byte handoff, or backend mutation.
+- The upload chain remains intentionally private and dry-run. A
+  `write-token-boundary-ready` artifact is only a prerequisite signal for the
+  next boundary, not executable authorization.
+
+Next recommended stage:
+
+- Design a separate execution lease boundary artifact that consumes the
+  write-token boundary as a prerequisite signal only. It should keep token
+  issuance, lease creation, rollback planning, adapter injection, artifact byte
+  handoff, object/index writes, SDK clients, credential reads, live checks, and
+  upload commands disabled until each is split into explicit future boundaries.
 
 ## 2026-05-10 Completed Upload Execution Prerequisite Plan
 
