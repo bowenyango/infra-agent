@@ -139,6 +139,7 @@ const SAFE_CONTROL_KEYS = new Set([
   'credentialPresenceChecked',
   'credentialValuesExposed',
   'liveCheckAllowed',
+  'metadataIndex',
   'objectKey',
   'remoteWriteAllowed',
   'uploadApproved',
