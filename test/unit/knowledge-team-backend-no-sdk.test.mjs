@@ -25,6 +25,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-client-creation-boundary.ts',
   'src/knowledge/team-upload-credential-read-boundary.ts',
   'src/knowledge/team-upload-credential-presence-boundary.ts',
+  'src/knowledge/team-upload-live-check-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -51,6 +52,10 @@ const CREDENTIAL_READ_BOUNDARY_MODULES = [
 
 const CREDENTIAL_PRESENCE_BOUNDARY_MODULES = [
   'src/knowledge/team-upload-credential-presence-boundary.ts'
+];
+
+const LIVE_CHECK_BOUNDARY_MODULES = [
+  'src/knowledge/team-upload-live-check-boundary.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -167,6 +172,34 @@ const FORBIDDEN_CREDENTIAL_PRESENCE_EXECUTION = [
   'metadataIndexWriteAttempted: true'
 ];
 
+const FORBIDDEN_LIVE_CHECK_EXECUTION = [
+  'createMockKnowledgeTeamBackendAdapter(',
+  'createClient(',
+  'new S3',
+  'new Client',
+  'putObject(',
+  'putEntry(',
+  'artifactStore.put',
+  'metadataIndex.put',
+  'readFile(',
+  'createReadStream(',
+  'process.env[',
+  'process.env.',
+  'clientCreated: true',
+  'sdkClientCreated: true',
+  'adapterInjected: true',
+  'credentialValuesRead: true',
+  'credentialValuesExposed: true',
+  'credentialPresenceChecked: true',
+  'credentialPresenceResultExposed: true',
+  'liveCheckAllowed: true',
+  'liveCheckPerformed: true',
+  'liveCheckResultExposed: true',
+  'uploadCommandGenerated: true',
+  'objectWriteAttempted: true',
+  'metadataIndexWriteAttempted: true'
+];
+
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
   const root = process.cwd();
 
@@ -267,6 +300,21 @@ test('credential presence boundary does not check credentials, instantiate clien
         source.includes(forbidden),
         false,
         `${relativePath} must not check credentials, instantiate clients, perform live checks, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('live check boundary does not probe remotes, instantiate clients, or write', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of LIVE_CHECK_BOUNDARY_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_LIVE_CHECK_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not probe remotes, instantiate clients, read credentials, or write via ${forbidden}`
       );
     }
   }
