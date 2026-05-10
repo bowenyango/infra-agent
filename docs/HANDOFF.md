@@ -6,6 +6,95 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Client Creation Boundary Plan
+
+Status:
+
+- In progress. This slice continues the private dry-run upload boundary chain
+  after `upload-adapter-injection-boundary`.
+- Planned scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-adapter-injection-boundary` and emit a
+  private client creation boundary artifact that records the future client
+  creation requirements needed before credential, live-check, command, or
+  mutation design.
+- This slice must not create SDK clients, inject adapters, bind object stores
+  or metadata indexes, read or stage artifact bytes, verify artifact digests,
+  read credentials, check credential presence, perform live checks, generate
+  upload commands, write object storage, write metadata indexes, or perform
+  remote mutations.
+
+Why this direction:
+
+- The completed adapter injection boundary only modeled dependency-injection
+  requirements. It did not inject adapters or create clients and deliberately
+  advanced to client-creation boundary design.
+- The next safe step is to model client creation preconditions without
+  accepting SDK clients, client configs, adapter instances, backend details,
+  credential material, live checks, or mutation commands.
+- This follows the `learning-claude-code` agent design lesson used in this
+  project: subagents and tasks pass compact structured state, terminal or
+  blocked states do not advance implicitly, and handoff artifacts must be
+  validated contracts rather than prose-only assumptions.
+
+Planned artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-client-creation-boundary`.
+- CLI:
+  `infra-agent knowledge upload-client-creation-boundary <adapter-injection-boundary.json> [--out <client-creation-boundary.json>] [--json]`.
+- Ready status should be `client-creation-boundary-ready`, meaning only that
+  the saved adapter injection boundary is safe and future client-creation
+  requirements are modeled. It is not client creation and not credential
+  access.
+- Ready next action should be `design-credential-read-boundary`; blocked next
+  action remains `resolve-blockers`.
+
+Planned acceptance criteria:
+
+1. `client-creation-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-adapter-injection-boundary` with
+   `adapter-injection-boundary-ready`,
+   `nextAction=design-client-creation-boundary`, safe target references,
+   verified prior review state, matched scope, mock adapter backend posture,
+   modeled adapter dependency requirements, client creation still required, and
+   no blockers.
+2. Matching adapter injection boundary state is recorded as a prerequisite
+   signal only; top-level `clientCreated`, `adapterInjected`,
+   `artifactBytesProvided`, `auditRecordCreated`, `rollbackPlanCreated`,
+   `executionLeaseCreated`, `writeTokenIssued`, `mutationApprovalGranted`,
+   `uploadApproved`, and `uploadExecutionAllowed` remain false.
+3. The output explicitly records client-creation requirements for future
+   design: client factory descriptor, mock backend posture, adapter dependency
+   prerequisites, credential-read boundary, credential-presence boundary,
+   live-check boundary, upload-command boundary, and object/index mutation
+   disabled. Each required item remains uncreated, unchecked, unbound, and
+   non-executable.
+4. Mismatched, missing, malformed, blocked, forged, SDK-client-leaking,
+   adapter-leaking, byte-leaking, backend-leaking, credential-leaking,
+   live-check, or command-bearing adapter injection boundary inputs produce a
+   blocked client creation boundary with safe blocker codes and without copying
+   private values.
+5. The CLI reads only one local adapter injection boundary JSON file and writes
+   only an optional local `--out` JSON artifact.
+6. Existing adapter injection, artifact bytes, audit record, rollback plan,
+   execution lease, write-token, prerequisite plan, mutation approval review,
+   mutation plan, execution gate, mock harness, continuation, and team backend
+   no-SDK boundaries remain valid.
+
+Planned commit sequence:
+
+1. Document the client creation boundary plan.
+2. Add the client creation boundary builder and artifact contract.
+3. Cover the ready path with focused unit tests.
+4. Cover invalid, forged, and leaky source inputs.
+5. Add validation support behind `knowledge validate`.
+6. Cover validation drift and contract shape.
+7. Wire CLI parser/help and text output.
+8. Cover CLI parsing and help.
+9. Cover CLI JSON write and blocked text output.
+10. Extend no-SDK/no-client guards.
+11. Update rules, roadmap, skill guidance, and final handoff.
+
 ## 2026-05-10 Completed Upload Adapter Injection Boundary
 
 Status:
