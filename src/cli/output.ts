@@ -57,6 +57,7 @@ import type { KnowledgeTeamUploadApprovalContinuation } from '../knowledge/team-
 import type { KnowledgeTeamUploadApprovalIntent } from '../knowledge/team-upload-approval-intent.ts';
 import type { KnowledgeTeamUploadExecutionGate } from '../knowledge/team-upload-execution-gate.ts';
 import type { KnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
+import type { KnowledgeTeamUploadMutationApprovalReview } from '../knowledge/team-upload-mutation-approval-review.ts';
 import type { KnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-mutation-plan.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
@@ -3862,6 +3863,54 @@ export function printKnowledgeTeamUploadMutationPlan(
   printList(
     plan.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload mutation plan blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadMutationApprovalReview(
+  review: KnowledgeTeamUploadMutationApprovalReview
+): void {
+  printHeader('Knowledge team upload mutation approval review');
+  process.stdout.write(`status: ${review.status}\n`);
+  process.stdout.write(`next action: ${review.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${review.plannedOperation}\n`);
+  process.stdout.write(`execution: ${review.executionMode}\n`);
+  process.stdout.write(`review: ${review.reviewKind}\n`);
+  process.stdout.write(`remote write: ${review.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${review.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${review.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${review.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${review.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${review.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${review.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${review.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${review.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${review.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${review.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${review.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${review.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${review.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${review.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${review.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${review.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source plan: ${review.sourcePlan.planStatus}\n`);
+  process.stdout.write(`source plan action: ${review.sourcePlan.planNextAction}\n`);
+  process.stdout.write(`source gate: ${review.sourcePlan.gateStatus}\n`);
+  process.stdout.write(`scope matched: ${review.sourcePlan.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${review.sourcePlan.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mock harness: ${review.sourcePlan.mockHarnessStatus}\n`);
+  process.stdout.write(`adapter backend: ${review.sourcePlan.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${review.sourcePlan.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`expected fingerprint: ${review.approvalReview.expectedFingerprint ?? 'unavailable'}\n`);
+  process.stdout.write(`supplied fingerprint: ${review.approvalReview.suppliedFingerprint ?? 'unavailable'}\n`);
+  process.stdout.write(`human review recorded: ${review.approvalReview.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${review.approvalReview.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`executable: ${review.executionBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`dry run only: ${review.executionBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: reviewRecorded=${review.approvalReview.humanReviewRecorded ? 'yes' : 'no'}, mutationApproval=${review.mutationApprovalGranted ? 'yes' : 'no'}, executable=${review.executionBoundary.executable ? 'yes' : 'no'}, writeToken=${review.writeTokenIssued ? 'yes' : 'no'}, lease=${review.executionLeaseCreated ? 'yes' : 'no'}, blockers=${review.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    review.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload mutation approval review blockers.'
   );
 }
 

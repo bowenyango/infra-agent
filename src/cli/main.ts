@@ -38,6 +38,7 @@ import { buildKnowledgeTeamUploadAdapterPreflight } from '../knowledge/team-uplo
 import { buildKnowledgeTeamUploadMockHarness } from '../knowledge/team-upload-mock-harness.ts';
 import { buildKnowledgeTeamUploadExecutionGate } from '../knowledge/team-upload-execution-gate.ts';
 import { buildKnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-mutation-plan.ts';
+import { buildKnowledgeTeamUploadMutationApprovalReview } from '../knowledge/team-upload-mutation-approval-review.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -61,6 +62,7 @@ import {
   printKnowledgeTeamUploadApprovalContinuation,
   printKnowledgeTeamUploadApprovalIntent,
   printKnowledgeTeamUploadExecutionGate,
+  printKnowledgeTeamUploadMutationApprovalReview,
   printKnowledgeTeamUploadMutationPlan,
   printKnowledgeTeamUploadMockHarness,
   printKnowledgeExtractionReport,
@@ -1827,6 +1829,41 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeTeamUploadMutationPlan(plan);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-mutation-approval-review') {
+    if (!parsed.inputPath) {
+      fail('knowledge upload-mutation-approval-review requires exactly one upload mutation plan path.');
+    }
+    if (!parsed.approvalFingerprint) {
+      fail('knowledge upload-mutation-approval-review requires --approval-fingerprint <sha256>.');
+    }
+
+    const mutationPlanPath = resolveFromCwd(parsed.inputPath);
+    const mutationPlan = await readJsonObject(mutationPlanPath);
+    const review = buildKnowledgeTeamUploadMutationApprovalReview({
+      mutationPlan,
+      approvalFingerprint: parsed.approvalFingerprint
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), review)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...review,
+            outputPath: writtenPath
+          }
+        : review, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeTeamUploadMutationApprovalReview(review);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
