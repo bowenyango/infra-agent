@@ -63,6 +63,7 @@ import type { KnowledgeTeamUploadMutationPlan } from '../knowledge/team-upload-m
 import type { KnowledgeTeamUploadWriteTokenBoundary } from '../knowledge/team-upload-write-token-boundary.ts';
 import type { KnowledgeTeamUploadExecutionLeaseBoundary } from '../knowledge/team-upload-execution-lease-boundary.ts';
 import type { KnowledgeTeamUploadRollbackPlanBoundary } from '../knowledge/team-upload-rollback-plan-boundary.ts';
+import type { KnowledgeTeamUploadAuditRecordBoundary } from '../knowledge/team-upload-audit-record-boundary.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -4152,6 +4153,71 @@ export function printKnowledgeTeamUploadRollbackPlanBoundary(
   printList(
     boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload rollback plan boundary blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadAuditRecordBoundary(
+  boundary: KnowledgeTeamUploadAuditRecordBoundary
+): void {
+  printHeader('Knowledge team upload audit record boundary');
+  process.stdout.write(`status: ${boundary.status}\n`);
+  process.stdout.write(`next action: ${boundary.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${boundary.plannedOperation}\n`);
+  process.stdout.write(`execution: ${boundary.executionMode}\n`);
+  process.stdout.write(`boundary: ${boundary.boundaryKind}\n`);
+  process.stdout.write(`target manifest: ${boundary.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object: ${boundary.target.objectKey}\n`);
+  process.stdout.write(`target artifact: ${boundary.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${boundary.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${boundary.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${boundary.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${boundary.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${boundary.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${boundary.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${boundary.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${boundary.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${boundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${boundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${boundary.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${boundary.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${boundary.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${boundary.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${boundary.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${boundary.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${boundary.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${boundary.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source rollback plan boundary: ${boundary.sourceRollbackPlanBoundary.boundaryStatus}\n`);
+  process.stdout.write(`source rollback plan action: ${boundary.sourceRollbackPlanBoundary.boundaryNextAction}\n`);
+  process.stdout.write(`source review: ${boundary.sourceRollbackPlanBoundary.reviewStatus}\n`);
+  process.stdout.write(`scope matched: ${boundary.sourceRollbackPlanBoundary.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human review recorded: ${boundary.sourceRollbackPlanBoundary.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${boundary.sourceRollbackPlanBoundary.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${boundary.sourceRollbackPlanBoundary.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${boundary.sourceRollbackPlanBoundary.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${boundary.sourceRollbackPlanBoundary.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`token required before execution: ${boundary.sourceRollbackPlanBoundary.tokenRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`lease required before execution: ${boundary.sourceRollbackPlanBoundary.executionLeaseRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan required before execution: ${boundary.sourceRollbackPlanBoundary.rollbackPlanRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback scope binding required: ${boundary.sourceRollbackPlanBoundary.rollbackScopeBindingRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback review required: ${boundary.sourceRollbackPlanBoundary.rollbackReviewRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record required before execution: ${boundary.sourceRollbackPlanBoundary.auditRecordRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record required: ${boundary.auditRecordBoundary.auditRecordRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${boundary.auditRecordBoundary.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit scope binding required: ${boundary.auditRecordBoundary.auditScopeBindingRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit scope bound to artifact: ${boundary.auditRecordBoundary.auditScopeBoundToArtifact ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit review required: ${boundary.auditRecordBoundary.auditReviewRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit reviewed: ${boundary.auditRecordBoundary.auditReviewed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token required before audit: ${boundary.auditRecordBoundary.writeTokenRequiredBeforeAudit ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease required before audit: ${boundary.auditRecordBoundary.executionLeaseRequiredBeforeAudit ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan required before audit: ${boundary.auditRecordBoundary.rollbackPlanRequiredBeforeAudit ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes required before audit: ${boundary.auditRecordBoundary.artifactBytesRequiredBeforeAudit ? 'yes' : 'no'}\n`);
+  process.stdout.write(`dry run only: ${boundary.auditRecordBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`executable: ${boundary.auditRecordBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: auditCreated=${boundary.auditRecordBoundary.auditRecordCreated ? 'yes' : 'no'}, auditScopeBound=${boundary.auditRecordBoundary.auditScopeBoundToArtifact ? 'yes' : 'no'}, rollbackCreated=${boundary.rollbackPlanCreated ? 'yes' : 'no'}, tokenIssued=${boundary.writeTokenIssued ? 'yes' : 'no'}, blockers=${boundary.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload audit record boundary blockers.'
   );
 }
 
