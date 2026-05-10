@@ -65,6 +65,7 @@ import type { KnowledgeTeamUploadExecutionLeaseBoundary } from '../knowledge/tea
 import type { KnowledgeTeamUploadRollbackPlanBoundary } from '../knowledge/team-upload-rollback-plan-boundary.ts';
 import type { KnowledgeTeamUploadAuditRecordBoundary } from '../knowledge/team-upload-audit-record-boundary.ts';
 import type { KnowledgeTeamUploadArtifactBytesBoundary } from '../knowledge/team-upload-artifact-bytes-boundary.ts';
+import type { KnowledgeTeamUploadAdapterInjectionBoundary } from '../knowledge/team-upload-adapter-injection-boundary.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -4286,6 +4287,68 @@ export function printKnowledgeTeamUploadArtifactBytesBoundary(
   printList(
     boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload artifact bytes boundary blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadAdapterInjectionBoundary(
+  boundary: KnowledgeTeamUploadAdapterInjectionBoundary
+): void {
+  printHeader('Knowledge team upload adapter injection boundary');
+  process.stdout.write(`status: ${boundary.status}\n`);
+  process.stdout.write(`next action: ${boundary.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${boundary.plannedOperation}\n`);
+  process.stdout.write(`execution: ${boundary.executionMode}\n`);
+  process.stdout.write(`boundary: ${boundary.boundaryKind}\n`);
+  process.stdout.write(`target manifest: ${boundary.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object: ${boundary.target.objectKey}\n`);
+  process.stdout.write(`target artifact: ${boundary.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${boundary.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${boundary.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${boundary.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${boundary.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${boundary.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${boundary.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${boundary.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${boundary.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${boundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${boundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${boundary.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${boundary.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${boundary.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${boundary.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${boundary.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${boundary.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${boundary.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${boundary.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source artifact bytes boundary: ${boundary.sourceArtifactBytesBoundary.boundaryStatus}\n`);
+  process.stdout.write(`source artifact bytes action: ${boundary.sourceArtifactBytesBoundary.boundaryNextAction}\n`);
+  process.stdout.write(`source review: ${boundary.sourceArtifactBytesBoundary.reviewStatus}\n`);
+  process.stdout.write(`scope matched: ${boundary.sourceArtifactBytesBoundary.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human review recorded: ${boundary.sourceArtifactBytesBoundary.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${boundary.sourceArtifactBytesBoundary.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${boundary.sourceArtifactBytesBoundary.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${boundary.sourceArtifactBytesBoundary.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${boundary.sourceArtifactBytesBoundary.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`artifact bytes required before adapter: ${boundary.sourceArtifactBytesBoundary.artifactBytesRequiredBeforeAdapter ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${boundary.sourceArtifactBytesBoundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact digest required: ${boundary.sourceArtifactBytesBoundary.artifactDigestRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact digest verified: ${boundary.sourceArtifactBytesBoundary.artifactDigestVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injection required after bytes: ${boundary.sourceArtifactBytesBoundary.adapterInjectionRequiredAfterBytes ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter dependency injection only: ${boundary.adapterInjectionBoundary.adapterDependencyInjectionOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mock adapter required: ${boundary.adapterInjectionBoundary.mockAdapterRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter descriptor required: ${boundary.adapterInjectionBoundary.adapterDescriptorRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact object store dependency required: ${boundary.adapterInjectionBoundary.artifactObjectStoreDependencyRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index dependency required: ${boundary.adapterInjectionBoundary.metadataIndexDependencyRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact object store bound: ${boundary.adapterInjectionBoundary.artifactObjectStoreBound ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index bound: ${boundary.adapterInjectionBoundary.metadataIndexBound ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client creation required: ${boundary.remainingExecutionBoundaries.clientCreationRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`dry run only: ${boundary.adapterInjectionBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`executable: ${boundary.adapterInjectionBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: adapterInjected=${boundary.adapterInjectionBoundary.adapterInjected ? 'yes' : 'no'}, clientCreated=${boundary.adapterInjectionBoundary.clientCreated ? 'yes' : 'no'}, objectStoreBound=${boundary.adapterInjectionBoundary.artifactObjectStoreBound ? 'yes' : 'no'}, metadataIndexBound=${boundary.adapterInjectionBoundary.metadataIndexBound ? 'yes' : 'no'}, blockers=${boundary.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload adapter injection boundary blockers.'
   );
 }
 
