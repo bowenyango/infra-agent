@@ -72,10 +72,11 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
+  adapterPlanInputPath?: string | null;
   approvalFingerprint?: string | null;
   backendReferenceInputPath?: string | null;
   descriptorInputPath?: string | null;
@@ -133,6 +134,7 @@ function printUsage(): void {
       '  infra-agent knowledge backend-reference-readiness <backend-config.json> --registry <reference-registry.json> [--out <readiness.json>] [--json]',
       '  infra-agent knowledge upload-approval-intent <publication-readiness.json> --backend-reference <reference-readiness.json> [--out <intent.json>] [--json]',
       '  infra-agent knowledge upload-approval-continuation <intent.json> --approval-fingerprint <sha256> [--out <continuation.json>] [--json]',
+      '  infra-agent knowledge upload-adapter-preflight <continuation.json> --adapter-plan <adapter-plan.json> [--out <preflight.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -618,8 +620,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'backend-reference-readiness'
       && knowledgeAction !== 'upload-approval-intent'
       && knowledgeAction !== 'upload-approval-continuation'
+      && knowledgeAction !== 'upload-adapter-preflight'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation, upload-adapter-preflight.');
     }
 
     let workspace = cwd();
@@ -628,6 +631,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const sourceIds: string[] = [];
     let maxSources: number | null = null;
     let maxFacts: number | null = null;
+    let adapterPlanInputPath: string | null = null;
     let outputPath: string | null = null;
     let manifestOutputPath: string | null = null;
     let approvalFingerprint: string | null = null;
@@ -643,7 +647,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight') {
           fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
@@ -657,7 +661,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight') {
           fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
@@ -713,8 +717,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'backend-reference-readiness'
           && knowledgeAction !== 'upload-approval-intent'
           && knowledgeAction !== 'upload-approval-continuation'
+          && knowledgeAction !== 'upload-adapter-preflight'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, or knowledge upload-approval-continuation.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, knowledge upload-approval-continuation, or knowledge upload-adapter-preflight.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -789,6 +794,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         approvalFingerprint = approvalFingerprintValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--adapter-plan') {
+        const adapterPlanValue = actionArgs[index + 1]?.trim();
+        if (!adapterPlanValue) {
+          fail('Missing value for --adapter-plan.');
+        }
+        if (knowledgeAction !== 'upload-adapter-preflight') {
+          fail('--adapter-plan is only supported for knowledge upload-adapter-preflight.');
+        }
+        if (adapterPlanInputPath !== null) {
+          fail('Adapter plan path can be provided at most once.');
+        }
+
+        adapterPlanInputPath = adapterPlanValue;
         index += 1;
         continue;
       }
@@ -888,6 +910,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'upload-approval-continuation' && positionalArgs.length !== 1) {
       fail('knowledge upload-approval-continuation requires exactly one upload approval intent path.');
     }
+    if (knowledgeAction === 'upload-adapter-preflight' && positionalArgs.length !== 1) {
+      fail('knowledge upload-adapter-preflight requires exactly one upload approval continuation path.');
+    }
     if (knowledgeAction === 'backend-reference-readiness' && registryInputPath === null) {
       fail('knowledge backend-reference-readiness requires --registry <reference-registry.json>.');
     }
@@ -896,6 +921,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
     if (knowledgeAction === 'upload-approval-continuation' && approvalFingerprint === null) {
       fail('knowledge upload-approval-continuation requires --approval-fingerprint <sha256>.');
+    }
+    if (knowledgeAction === 'upload-adapter-preflight' && adapterPlanInputPath === null) {
+      fail('knowledge upload-adapter-preflight requires --adapter-plan <adapter-plan.json>.');
     }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
@@ -907,8 +935,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' ? positionalArgs[0] : null,
+      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' ? positionalArgs[0] : null,
+      adapterPlanInputPath,
       approvalFingerprint,
       backendReferenceInputPath,
       descriptorInputPath,
