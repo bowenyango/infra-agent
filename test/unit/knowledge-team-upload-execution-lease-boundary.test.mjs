@@ -42,6 +42,9 @@ import {
   buildKnowledgeTeamUploadWriteTokenBoundary
 } from '../../src/knowledge/team-upload-write-token-boundary.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -474,4 +477,16 @@ test('upload execution lease boundary blocks backend and token material leakage 
   assert.equal(blockerCodes(boundary).has('unsafe-artifact-reference'), true);
   assert.equal(blockerCodes(boundary).has('unsafe-adapter-name'), true);
   assertNoPrivateValues(boundary);
+});
+
+test('upload execution lease boundary validates through knowledge validation dispatch', async () => {
+  const writeTokenBoundary = await validWriteTokenBoundary();
+  const boundary = buildKnowledgeTeamUploadExecutionLeaseBoundary({ writeTokenBoundary });
+  const report = validateKnowledgePayload(boundary, {
+    inputPath: 'execution-lease-boundary.json'
+  });
+
+  assert.equal(report.valid, true);
+  assert.equal(report.inputKind, 'infra-agent.knowledge-team-upload-execution-lease-boundary');
+  assert.equal(report.issueCount, 0);
 });
