@@ -6,6 +6,48 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Active Upload Credential Presence Boundary Plan
+
+Status:
+
+- Active. This slice continues the private dry-run upload boundary chain after
+  `upload-credential-read-boundary`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-credential-read-boundary` and emit a
+  private credential presence boundary artifact that records the future
+  credential presence-check requirements needed before live-check, command, or
+  mutation design.
+- This slice must not read credential values, check credential presence, create
+  SDK clients, inject adapters, bind object stores or metadata indexes, read or
+  stage artifact bytes, perform live checks, generate upload commands, write
+  object storage, write metadata indexes, or perform remote mutations.
+
+Planned implementation checkpoints:
+
+1. Add the credential presence boundary contract and builder from the saved
+   credential read boundary.
+2. Add focused unit coverage for ready and blocked inputs.
+3. Add validator dispatch and contract coverage for ready, blocked, and drifted
+   payloads.
+4. Add CLI parsing, JSON/text output, help text, and integration coverage.
+5. Add no-SDK guard coverage and update rules, roadmap, skill, and handoff
+   docs after verification.
+
+Planned commit sequence:
+
+1. `docs: plan upload credential presence boundary`
+2. `feat: add upload credential presence boundary contract`
+3. `test: cover upload credential presence boundary ready path`
+4. `test: block invalid upload credential presence inputs`
+5. `feat: validate upload credential presence boundaries`
+6. `test: cover upload credential presence validation drift`
+7. `test: cover upload credential presence contract`
+8. `feat: wire upload credential presence boundary cli`
+9. `test: cover upload credential presence cli parsing`
+10. `test: cover upload credential presence cli`
+11. `test: guard upload credential presence boundary no sdk`
+12. `docs: document upload credential presence boundary`
+
 ## 2026-05-10 Completed Upload Credential Read Boundary
 
 Status:
