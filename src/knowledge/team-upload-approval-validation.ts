@@ -26,6 +26,7 @@ const UPLOAD_ADAPTER_PREFLIGHT_RESOLUTION_STATUSES = ['resolvable', 'blocked', '
 const UPLOAD_MOCK_HARNESS_STATUSES = ['harness-ready', 'blocked'] as const;
 const UPLOAD_MOCK_HARNESS_NEXT_ACTIONS = ['run-mock-only-contract-tests', 'resolve-blockers'] as const;
 const UPLOAD_MOCK_HARNESS_BACKENDS = ['mock-s3-compatible', 'unsupported'] as const;
+const UPLOAD_MOCK_HARNESS_PREFLIGHT_STATUSES = ['preflight-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -99,8 +100,8 @@ const UPLOAD_MOCK_HARNESS_BLOCKERS = [
   'adapter-credential-values-exposed',
   'adapter-injected',
   'adapter-live-check-enabled',
-  'adapter-mock-probe-failed',
   'adapter-remote-write-enabled',
+  'adapter-resolution-not-ready',
   'adapter-upload-command-present',
   'backend-detail-leak',
   'client-created',
@@ -110,6 +111,10 @@ const UPLOAD_MOCK_HARNESS_BLOCKERS = [
   'invalid-schema-version',
   'live-check-enabled',
   'missing-required-field',
+  'mock-adapter-descriptor-mismatch',
+  'mock-adapter-factory-failed',
+  'mock-artifact-store-unavailable',
+  'mock-metadata-index-unavailable',
   'mutation-enabled',
   'preflight-not-ready',
   'real-backend-not-implemented',
@@ -608,7 +613,7 @@ export function validateKnowledgeTeamUploadMockHarnessPayload(
   if (!isRecord(payload.preflight)) {
     issues.push(error('$.preflight', 'Knowledge team upload mock harness preflight must be an object.'));
   } else {
-    if (!isOneOf(payload.preflight.status, UPLOAD_ADAPTER_PREFLIGHT_STATUSES)) {
+    if (!isOneOf(payload.preflight.status, UPLOAD_MOCK_HARNESS_PREFLIGHT_STATUSES)) {
       issues.push(error('$.preflight.status', 'must be a supported preflight status.'));
     }
     if (payload.preflight.adapterBackendKind !== 'mock-s3-compatible' && payload.preflight.adapterBackendKind !== 's3-compatible' && payload.preflight.adapterBackendKind !== 'unsupported') {
