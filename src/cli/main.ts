@@ -88,7 +88,7 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | 'upload-mock-harness' | 'upload-execution-gate' | 'upload-mutation-plan' | 'upload-mutation-approval-review' | 'upload-execution-prerequisite-plan' | 'upload-write-token-boundary' | 'upload-execution-lease-boundary' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | 'upload-mock-harness' | 'upload-execution-gate' | 'upload-mutation-plan' | 'upload-mutation-approval-review' | 'upload-execution-prerequisite-plan' | 'upload-write-token-boundary' | 'upload-execution-lease-boundary' | 'upload-rollback-plan-boundary' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -159,6 +159,7 @@ function printUsage(): void {
       '  infra-agent knowledge upload-execution-prerequisite-plan <approval-review.json> [--out <prerequisite-plan.json>] [--json]',
       '  infra-agent knowledge upload-write-token-boundary <execution-prerequisite-plan.json> [--out <write-token-boundary.json>] [--json]',
       '  infra-agent knowledge upload-execution-lease-boundary <write-token-boundary.json> [--out <execution-lease-boundary.json>] [--json]',
+      '  infra-agent knowledge upload-rollback-plan-boundary <execution-lease-boundary.json> [--out <rollback-plan-boundary.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -652,8 +653,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'upload-execution-prerequisite-plan'
       && knowledgeAction !== 'upload-write-token-boundary'
       && knowledgeAction !== 'upload-execution-lease-boundary'
+      && knowledgeAction !== 'upload-rollback-plan-boundary'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation, upload-adapter-preflight, upload-mock-harness, upload-execution-gate, upload-mutation-plan, upload-mutation-approval-review, upload-execution-prerequisite-plan, upload-write-token-boundary, upload-execution-lease-boundary.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation, upload-adapter-preflight, upload-mock-harness, upload-execution-gate, upload-mutation-plan, upload-mutation-approval-review, upload-execution-prerequisite-plan, upload-write-token-boundary, upload-execution-lease-boundary, upload-rollback-plan-boundary.');
     }
 
     let workspace = cwd();
@@ -679,7 +681,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary') {
           fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
@@ -693,7 +695,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary') {
           fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
@@ -757,8 +759,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'upload-execution-prerequisite-plan'
           && knowledgeAction !== 'upload-write-token-boundary'
           && knowledgeAction !== 'upload-execution-lease-boundary'
+          && knowledgeAction !== 'upload-rollback-plan-boundary'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, knowledge upload-approval-continuation, knowledge upload-adapter-preflight, knowledge upload-mock-harness, knowledge upload-execution-gate, knowledge upload-mutation-plan, knowledge upload-mutation-approval-review, knowledge upload-execution-prerequisite-plan, knowledge upload-write-token-boundary, or knowledge upload-execution-lease-boundary.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, knowledge upload-approval-continuation, knowledge upload-adapter-preflight, knowledge upload-mock-harness, knowledge upload-execution-gate, knowledge upload-mutation-plan, knowledge upload-mutation-approval-review, knowledge upload-execution-prerequisite-plan, knowledge upload-write-token-boundary, knowledge upload-execution-lease-boundary, or knowledge upload-rollback-plan-boundary.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -990,6 +993,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'upload-execution-lease-boundary' && positionalArgs.length !== 1) {
       fail('knowledge upload-execution-lease-boundary requires exactly one upload write-token boundary path.');
     }
+    if (knowledgeAction === 'upload-rollback-plan-boundary' && positionalArgs.length !== 1) {
+      fail('knowledge upload-rollback-plan-boundary requires exactly one upload execution lease boundary path.');
+    }
     if (knowledgeAction === 'backend-reference-readiness' && registryInputPath === null) {
       fail('knowledge backend-reference-readiness requires --registry <reference-registry.json>.');
     }
@@ -1018,8 +1024,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' ? positionalArgs[0] : null,
+      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' ? positionalArgs[0] : null,
       adapterPlanInputPath,
       mockHarnessInputPath,
       approvalFingerprint,
