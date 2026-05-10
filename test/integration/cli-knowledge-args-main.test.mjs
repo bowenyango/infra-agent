@@ -404,3 +404,21 @@ test('knowledge upload-mutation-approval-review CLI args accept mutation plan fi
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-mutation-approval-review.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-execution-prerequisite-plan CLI args accept approval review and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-execution-prerequisite-plan',
+    'artifacts/knowledge-pack.upload-mutation-approval-review.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-prerequisite-plan.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-execution-prerequisite-plan');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-mutation-approval-review.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-prerequisite-plan.json');
+  assert.equal(parsed.json, true);
+});
