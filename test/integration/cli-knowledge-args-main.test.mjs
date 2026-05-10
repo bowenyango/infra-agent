@@ -344,3 +344,24 @@ test('knowledge upload-mock-harness CLI args accept preflight and output paths',
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-mock-harness.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-execution-gate CLI args accept continuation mock harness and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-execution-gate',
+    'artifacts/knowledge-pack.upload-continuation.json',
+    '--mock-harness',
+    'artifacts/knowledge-pack.upload-mock-harness.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-gate.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-execution-gate');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-continuation.json');
+  assert.equal(parsed.mockHarnessInputPath, 'artifacts/knowledge-pack.upload-mock-harness.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-gate.json');
+  assert.equal(parsed.json, true);
+});

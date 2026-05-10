@@ -76,11 +76,12 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | 'upload-mock-harness' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | 'upload-mock-harness' | 'upload-execution-gate' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
   adapterPlanInputPath?: string | null;
+  mockHarnessInputPath?: string | null;
   approvalFingerprint?: string | null;
   backendReferenceInputPath?: string | null;
   descriptorInputPath?: string | null;
@@ -140,6 +141,7 @@ function printUsage(): void {
       '  infra-agent knowledge upload-approval-continuation <intent.json> --approval-fingerprint <sha256> [--out <continuation.json>] [--json]',
       '  infra-agent knowledge upload-adapter-preflight <continuation.json> --adapter-plan <adapter-plan.json> [--out <preflight.json>] [--json]',
       '  infra-agent knowledge upload-mock-harness <preflight.json> [--out <harness.json>] [--json]',
+      '  infra-agent knowledge upload-execution-gate <continuation.json> --mock-harness <harness.json> [--out <gate.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -627,8 +629,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'upload-approval-continuation'
       && knowledgeAction !== 'upload-adapter-preflight'
       && knowledgeAction !== 'upload-mock-harness'
+      && knowledgeAction !== 'upload-execution-gate'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation, upload-adapter-preflight, upload-mock-harness.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation, upload-adapter-preflight, upload-mock-harness, upload-execution-gate.');
     }
 
     let workspace = cwd();
@@ -638,6 +641,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let maxSources: number | null = null;
     let maxFacts: number | null = null;
     let adapterPlanInputPath: string | null = null;
+    let mockHarnessInputPath: string | null = null;
     let outputPath: string | null = null;
     let manifestOutputPath: string | null = null;
     let approvalFingerprint: string | null = null;
@@ -653,7 +657,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate') {
           fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
@@ -667,7 +671,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate') {
           fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
@@ -725,8 +729,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'upload-approval-continuation'
           && knowledgeAction !== 'upload-adapter-preflight'
           && knowledgeAction !== 'upload-mock-harness'
+          && knowledgeAction !== 'upload-execution-gate'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, knowledge upload-approval-continuation, knowledge upload-adapter-preflight, or knowledge upload-mock-harness.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, knowledge upload-approval-continuation, knowledge upload-adapter-preflight, knowledge upload-mock-harness, or knowledge upload-execution-gate.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -818,6 +823,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         adapterPlanInputPath = adapterPlanValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--mock-harness') {
+        const mockHarnessValue = actionArgs[index + 1]?.trim();
+        if (!mockHarnessValue) {
+          fail('Missing value for --mock-harness.');
+        }
+        if (knowledgeAction !== 'upload-execution-gate') {
+          fail('--mock-harness is only supported for knowledge upload-execution-gate.');
+        }
+        if (mockHarnessInputPath !== null) {
+          fail('Mock harness path can be provided at most once.');
+        }
+
+        mockHarnessInputPath = mockHarnessValue;
         index += 1;
         continue;
       }
@@ -923,6 +945,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'upload-mock-harness' && positionalArgs.length !== 1) {
       fail('knowledge upload-mock-harness requires exactly one upload adapter preflight path.');
     }
+    if (knowledgeAction === 'upload-execution-gate' && positionalArgs.length !== 1) {
+      fail('knowledge upload-execution-gate requires exactly one upload approval continuation path.');
+    }
     if (knowledgeAction === 'backend-reference-readiness' && registryInputPath === null) {
       fail('knowledge backend-reference-readiness requires --registry <reference-registry.json>.');
     }
@@ -935,6 +960,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'upload-adapter-preflight' && adapterPlanInputPath === null) {
       fail('knowledge upload-adapter-preflight requires --adapter-plan <adapter-plan.json>.');
     }
+    if (knowledgeAction === 'upload-execution-gate' && mockHarnessInputPath === null) {
+      fail('knowledge upload-execution-gate requires --mock-harness <harness.json>.');
+    }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
@@ -945,9 +973,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' ? positionalArgs[0] : null,
+      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' ? cwd() : workspace,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' ? positionalArgs[0] : null,
       adapterPlanInputPath,
+      mockHarnessInputPath,
       approvalFingerprint,
       backendReferenceInputPath,
       descriptorInputPath,
