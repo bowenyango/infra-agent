@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Execution Prerequisite Plan
+## 2026-05-10 Completed Upload Execution Prerequisite Plan
 
 Status:
 
-- In progress. This slice adds the next private dry-run boundary after
+- Completed and verified. This slice adds the next private dry-run boundary after
   `upload-mutation-approval-review`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-mutation-approval-review` and emit a
@@ -33,7 +33,7 @@ Why this direction:
 - This keeps planning, human review, prerequisite modeling, and actual mutation
   execution as separate artifacts and commands.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-execution-prerequisite-plan`.
@@ -43,7 +43,7 @@ Planned artifact and CLI:
   boundary plan is well-formed and derived from a safe `review-ready` input.
   It is not execution readiness.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `prerequisite-plan-ready` requires a valid
    `infra-agent.knowledge-team-upload-mutation-approval-review` with
@@ -63,20 +63,52 @@ Planned acceptance criteria:
 6. Existing upload mutation approval review, mutation plan, execution gate,
    mock harness, continuation, and team backend no-SDK boundaries remain valid.
 
-Commit checklist:
+Completed commits for this slice:
 
-1. Record this active execution prerequisite plan and non-goals.
-2. Add the private execution prerequisite plan builder/contract.
-3. Add unit coverage for the ready path.
-4. Add unit coverage for blocked review inputs.
-5. Add forged-state and leak guard coverage.
-6. Add validator support for prerequisite plan artifacts.
-7. Add contract coverage for the JSON shape.
-8. Add CLI parser support.
-9. Wire CLI command and text output.
-10. Add CLI integration and help/arg/no-SDK guard coverage.
-11. Update durable docs and handoff progress.
-12. Run focused checks and full `npm run verify`.
+1. `e9f1f87` docs: record upload execution prerequisite plan
+2. `ac7cc2e` feat: add upload execution prerequisite plan contract
+3. `0f109d7` test: cover upload execution prerequisite ready path
+4. `d9bb548` test: block unsafe upload execution prerequisites
+5. `51a834a` test: guard upload execution prerequisite boundary
+6. `92fd7c4` feat: validate upload execution prerequisite plans
+7. `c0408b1` test: cover upload execution prerequisite contract
+8. `4b27f33` feat: parse upload execution prerequisite args
+9. `8b01b63` feat: wire upload execution prerequisite cli
+10. `b78b828` test: guard upload execution prerequisite surface
+11. `9fc7297` docs: document upload execution prerequisite boundary
+12. `d3f102c` test: cover malformed execution prerequisite plans
+
+Verification completed:
+
+- Focused unit:
+  `node --experimental-strip-types test/unit/knowledge-team-upload-execution-prerequisite-plan.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types test/contract/knowledge-team-upload-execution-prerequisite-plan-contract.test.mjs`
+- Coverage:
+  `npm run test:coverage` passed with total branch coverage at 75.34%; the new
+  `team-upload-execution-prerequisite-plan.ts` file reports 100% line, branch,
+  and function coverage.
+- Full gate:
+  `npm run verify` passed after the code and test commits.
+
+Key files changed:
+
+- `src/knowledge/team-upload-execution-prerequisite-plan.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-prerequisite-plan.test.mjs`
+- `test/contract/knowledge-team-upload-execution-prerequisite-plan-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-execution-prerequisite-plan-main.test.mjs`
+
+Next recommended stage:
+
+- Design a separate write-token boundary artifact. It should consume the
+  prerequisite plan as a prerequisite signal only and still keep upload
+  execution disabled until token issuance, lease creation, rollback planning,
+  audit recording, adapter injection, artifact bytes, and backend mutation are
+  split into explicit future boundaries.
 
 ## Current Test Architecture
 
