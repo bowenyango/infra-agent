@@ -101,7 +101,7 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary` when
+   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary/upload-rollback-plan-boundary` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
@@ -222,6 +222,16 @@ credentials must still come from environment variables.
    provide artifact bytes, and does not allow adapter injection, client
    creation, credential reads, live checks, upload commands, object writes,
    index writes, or remote writes.
+   Use `knowledge upload-rollback-plan-boundary` only as a dry-run private
+   rollback plan boundary from a saved upload execution lease boundary. A
+   `rollback-plan-boundary-ready` result means rollback requirements were
+   modeled, not satisfied: rollback plan before execution, artifact scope
+   binding, rollback review, write-token and execution-lease preconditions,
+   artifact bytes, audit binding, and audit record precondition still need
+   separate design. It does not create a rollback plan, create a lease, issue
+   or bind a token, allow execution, provide artifact bytes, and does not
+   allow adapter injection, client creation, credential reads, live checks,
+   upload commands, object writes, index writes, or remote writes.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or

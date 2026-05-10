@@ -117,6 +117,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge upload-execution-prerequisite-plan <approval-review.json> [--out <prerequisite-plan.json>] [--json]`
 - `infra-agent knowledge upload-write-token-boundary <execution-prerequisite-plan.json> [--out <write-token-boundary.json>] [--json]`
 - `infra-agent knowledge upload-execution-lease-boundary <write-token-boundary.json> [--out <execution-lease-boundary.json>] [--json]`
+- `infra-agent knowledge upload-rollback-plan-boundary <execution-lease-boundary.json> [--out <rollback-plan-boundary.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -288,6 +289,15 @@ Current behavior is intentionally runtime-foundation oriented:
   execution, create rollback plans, provide artifact bytes, inject adapters,
   create clients, check credentials, generate upload commands, or attempt
   object/index writes.
+  `knowledge upload-rollback-plan-boundary <execution-lease-boundary.json>`
+  reads one saved execution lease boundary and emits a private
+  `infra-agent.knowledge-team-upload-rollback-plan-boundary` dry-run boundary.
+  `rollback-plan-boundary-ready` means only that a later audit boundary can
+  require rollback-plan scope binding, rollback review, write-token and
+  execution-lease preconditions, artifact bytes, and audit binding; it does not
+  create a rollback plan, create a lease, issue a token, grant approval, allow
+  upload execution, provide artifact bytes, inject adapters, create clients,
+  check credentials, generate upload commands, or attempt object/index writes.
   `knowledge validate` also
   accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
   produced by the internal mocked S3-compatible team artifact store
@@ -296,7 +306,8 @@ Current behavior is intentionally runtime-foundation oriented:
   upload-continuation, upload-adapter-preflight, upload-mock-harness,
   upload-execution-gate, upload-mutation-plan,
   upload-mutation-approval-review, upload-execution-prerequisite-plan,
-  upload-write-token-boundary, and upload-execution-lease-boundary reports. Team artifact
+  upload-write-token-boundary, upload-execution-lease-boundary, and
+  upload-rollback-plan-boundary reports. Team artifact
   payloads are content-addressed and
   backend-neutral;
   they do not include backend URLs, buckets, endpoints, credentials, absolute

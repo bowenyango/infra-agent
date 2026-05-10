@@ -97,7 +97,12 @@ durable design reference for infra-agent development.
   and model the future lease contract: lease-before-execution, artifact scope
   binding, single-use lease creation, expiry, write-token precondition, audit
   binding, and rollback precondition. It still does not create, activate, or
-  expose a lease. All ten remain dry-run routing state with upload approval,
+  expose a lease. `upload-rollback-plan-boundary` can consume that execution
+  lease boundary and model the future rollback contract: rollback-plan before
+  execution, artifact scope binding, rollback review, write-token and
+  execution-lease preconditions, artifact bytes, audit binding, and audit
+  record precondition. It still does not create, activate, or expose a rollback
+  plan. All eleven remain dry-run routing state with upload approval,
   upload execution, write token issuance, execution lease creation, rollback
   creation, adapter injection, client creation, credential reads, live checks,
   object/index writes, and remote writes disabled.
