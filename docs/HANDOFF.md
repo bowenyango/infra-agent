@@ -39,6 +39,70 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Upload Adapter Preflight Plan
+
+Status:
+
+- In progress. This slice adds a private dry-run adapter dependency preflight
+  for team knowledge upload routing after explicit upload approval
+  continuation.
+- Scope is local JSON review only: consume a saved
+  `infra-agent.knowledge-team-upload-approval-continuation` plus a saved backend
+  adapter resolution plan, then report whether a future test harness could
+  inject a safe mock adapter dependency.
+- This slice must not add a cloud SDK, perform network calls, read credential
+  values, check credential presence, create clients, instantiate real backend
+  adapters, generate upload commands, mutate remote objects/indexes, or treat
+  `continuation-ready` as upload authorization.
+
+Why this direction:
+
+- The previous slice made explicit approval continuation structured but still
+  inert. The next safe step is to model the adapter dependency boundary that
+  would sit before any future execution harness.
+- The design follows the learning-claude-code permission pattern: permission
+  state, dependency state, and mutation execution stay separate. This slice only
+  reviews dependency injection readiness and keeps mutation disabled.
+
+Planned checkpoints:
+
+1. Record this active plan and dry-run non-goals before feature changes.
+2. Add a private `infra-agent.knowledge-team-upload-adapter-preflight`
+   contract with all mutation, upload, credential, live-check, and client flags
+   disabled.
+3. Cover continuation-ready plus safe mock adapter resolution plan as
+   `preflight-ready`.
+4. Cover blocked or forged continuations so they never become preflight-ready.
+5. Validate adapter dependency plan shape without calling real resolver/client
+   creation paths.
+6. Block real S3-compatible and unsupported adapter plans until a later
+   explicitly gated backend implementation exists.
+7. Reject backend detail, credential, command, URL, bucket, endpoint, signed URL,
+   absolute path, and client/config leaks.
+8. Wire private validation support behind `knowledge validate`.
+9. Add a contract test that locks key order and disabled boundary fields.
+10. Add CLI parsing and command support for
+    `infra-agent knowledge upload-adapter-preflight <continuation.json>
+    --adapter-plan <adapter-plan.json> [--out <preflight.json>] [--json]`.
+11. Add CLI, help, and no-SDK/no-env guard coverage.
+12. Update rules, roadmap, README, skill, and handoff docs with validation
+    results and remaining risks.
+
+Acceptance criteria:
+
+- Preflight can report `preflight-ready` only for a continuation-ready artifact
+  plus a resolvable mock adapter resolution plan.
+- `preflight-ready` means structurally ready for a future dependency-injected
+  test harness, not upload-ready and not executable.
+- Output keeps `mutationAllowed=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `clientCreated=false`,
+  `adapterInjected=false`, and `uploadCommand=null`.
+- CLI reads only local JSON and writes only an optional local `--out` artifact.
+- Existing upload intent, upload continuation, backend reference readiness, and
+  public team artifact contracts remain unchanged.
+
 ## 2026-05-09 Active Upload Approval Continuation Plan
 
 Status:
