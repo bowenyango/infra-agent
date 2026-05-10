@@ -46,6 +46,7 @@ import {
   validateKnowledgeTeamUploadMutationApprovalReviewPayload,
   validateKnowledgeTeamUploadMutationPlanPayload,
   validateKnowledgeTeamUploadMockHarnessPayload,
+  validateKnowledgeTeamUploadRollbackPlanBoundaryPayload,
   validateKnowledgeTeamUploadWriteTokenBoundaryPayload
 } from './team-upload-approval-validation.ts';
 
@@ -1110,6 +1111,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-execution-lease-boundary') {
     return validateKnowledgeTeamUploadExecutionLeaseBoundaryPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-rollback-plan-boundary') {
+    return validateKnowledgeTeamUploadRollbackPlanBoundaryPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

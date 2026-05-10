@@ -78,6 +78,14 @@ const UPLOAD_EXECUTION_LEASE_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-execution-l
 const UPLOAD_EXECUTION_LEASE_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_EXECUTION_LEASE_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
 const UPLOAD_EXECUTION_LEASE_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_STATUSES = ['rollback-plan-boundary-ready', 'blocked'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_NEXT_ACTIONS = ['design-audit-record-boundary', 'resolve-blockers'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_SOURCE_STATUSES = ['execution-lease-boundary-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_SOURCE_KINDS = ['execution-lease-boundary-dry-run', 'unsupported'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-rollback-plan-boundary', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -384,24 +392,77 @@ const UPLOAD_EXECUTION_LEASE_BOUNDARY_BLOCKERS = [
   'write-token-issued',
   'write-token-not-required'
 ] as const;
+const UPLOAD_ROLLBACK_PLAN_BOUNDARY_BLOCKERS = [
+  'adapter-injected',
+  'artifact-bytes-provided',
+  'audit-binding-created',
+  'audit-record-created',
+  'backend-detail-leak',
+  'client-created',
+  'credential-presence-check-enabled',
+  'credential-values-exposed',
+  'execution-lease-created',
+  'execution-lease-not-required',
+  'invalid-boundary-kind',
+  'invalid-execution-lease-boundary-kind',
+  'invalid-schema-version',
+  'lease-boundary-next-action-invalid',
+  'lease-boundary-not-ready',
+  'lease-expiry-already-set',
+  'lease-scope-already-bound',
+  'live-check-enabled',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mutation-approval-already-granted',
+  'mutation-enabled',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'review-fingerprint-unverified',
+  'rollback-plan-created',
+  'rollback-plan-not-required',
+  'rollback-review-already-recorded',
+  'rollback-scope-already-bound',
+  'scope-not-matched',
+  'token-expiry-already-set',
+  'token-scope-already-bound',
+  'unsupported-adapter-backend',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'write-token-issued',
+  'write-token-not-required'
+] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl)/i;
 const FORBIDDEN_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|token|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
 const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-write-token-boundary',
   'infra-agent.knowledge-team-upload-execution-lease-boundary',
+  'infra-agent.knowledge-team-upload-rollback-plan-boundary',
   'upload-write-token-boundary',
+  'upload-execution-lease-boundary',
+  'upload-rollback-plan-boundary',
   'write-token-boundary-dry-run',
   'write-token-boundary-ready',
   'execution-lease-boundary-dry-run',
   'execution-lease-boundary-ready',
+  'rollback-plan-boundary-dry-run',
+  'rollback-plan-boundary-ready',
   'design-write-token-boundary',
   'design-execution-lease-boundary',
   'design-rollback-plan-boundary',
+  'design-audit-record-boundary',
   'write-token-boundary-design',
   'write-token-issued',
   'write-token-not-required',
   'execution-lease-created',
   'execution-lease-not-required',
+  'rollback-plan-created',
+  'rollback-plan-not-required',
+  'rollback-review-already-recorded',
+  'rollback-scope-already-bound',
   'lease-expiry-already-set',
   'lease-scope-already-bound',
   'token-expiry-already-set',
@@ -468,6 +529,7 @@ function validateNoUploadApprovalLeakage(
       || key === 'writeTokenRequiredBeforeLease'
       || key === 'writeTokenBoundary'
       || key === 'sourceWriteTokenBoundary'
+      || key === 'sourceExecutionLeaseBoundary'
       || key === 'tokenRequiredBeforeExecution'
       || key === 'tokenIssued'
       || key === 'tokenScopeBindingRequired'
@@ -488,7 +550,18 @@ function validateNoUploadApprovalLeakage(
       || key === 'leaseExpiryRequired'
       || key === 'leaseExpirySet'
       || key === 'auditBindingRequired'
-      || key === 'auditBindingCreated';
+      || key === 'auditBindingCreated'
+      || key === 'rollbackPlanBoundary'
+      || key === 'rollbackPlanCreated'
+      || key === 'rollbackPlanRequired'
+      || key === 'rollbackPlanRequiredBeforeExecution'
+      || key === 'rollbackScopeBindingRequired'
+      || key === 'rollbackScopeBoundToArtifact'
+      || key === 'rollbackReviewRequired'
+      || key === 'rollbackReviewed'
+      || key === 'writeTokenRequiredBeforeRollback'
+      || key === 'executionLeaseRequiredBeforeRollback'
+      || key === 'artifactBytesRequiredBeforeRollback';
     if (!safeControlField && FORBIDDEN_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include backend detail or credential fields.'));
     }
@@ -2573,6 +2646,270 @@ export function validateKnowledgeTeamUploadExecutionLeaseBoundaryPayload(
       }
       if (payload.readiness.blockerCount !== 0) {
         issues.push(error('$.readiness.blockerCount', 'must be 0 for execution-lease-boundary-ready payloads.'));
+      }
+    }
+    if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
+      issues.push(error('$.readiness.nextAction', 'must resolve blockers for blocked payloads.'));
+    }
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadRollbackPlanBoundaryPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload rollback plan boundary');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_ROLLBACK_PLAN_BOUNDARY_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload rollback plan boundary status must be supported.'));
+  }
+  if (payload.boundaryKind !== 'rollback-plan-boundary-dry-run') {
+    issues.push(error('$.boundaryKind', 'Knowledge team upload rollback plan boundary kind must be rollback-plan-boundary-dry-run.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload rollback plan boundary operation must be stage-knowledge-pack.'));
+  }
+  for (const key of [
+    'uploadApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ]) {
+    if (payload[key] !== false) {
+      issues.push(error(`$.${key}`, 'Knowledge team upload rollback plan boundary must keep mutation and execution fields false.'));
+    }
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload rollback plan boundary target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be null or a safe 24-character id.'));
+      }
+      if (payload.status === 'rollback-plan-boundary-ready' && payload.target[key] === null) {
+        issues.push(error(`$.target.${key}`, 'must be set for rollback-plan-boundary-ready payloads.'));
+      }
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.status === 'rollback-plan-boundary-ready' && payload.target.objectSha256 === null) {
+      issues.push(error('$.target.objectSha256', 'must be set for rollback-plan-boundary-ready payloads.'));
+    }
+    if (payload.target.objectKey !== null && (typeof payload.target.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.target.objectKey))) {
+      issues.push(error('$.target.objectKey', 'must be null or a safe team artifact object key.'));
+    }
+    if (payload.status === 'rollback-plan-boundary-ready' && payload.target.objectKey === null) {
+      issues.push(error('$.target.objectKey', 'must be set for rollback-plan-boundary-ready payloads.'));
+    }
+  }
+
+  if (!isRecord(payload.sourceExecutionLeaseBoundary)) {
+    issues.push(error('$.sourceExecutionLeaseBoundary', 'Knowledge team upload rollback plan boundary sourceExecutionLeaseBoundary must be an object.'));
+  } else {
+    if (payload.sourceExecutionLeaseBoundary.source !== 'upload-execution-lease-boundary') {
+      issues.push(error('$.sourceExecutionLeaseBoundary.source', 'must be upload-execution-lease-boundary.'));
+    }
+    if (!isOneOf(payload.sourceExecutionLeaseBoundary.boundaryStatus, UPLOAD_ROLLBACK_PLAN_BOUNDARY_SOURCE_STATUSES)) {
+      issues.push(error('$.sourceExecutionLeaseBoundary.boundaryStatus', 'must be a supported execution lease boundary status.'));
+    }
+    if (!isOneOf(payload.sourceExecutionLeaseBoundary.boundaryKind, UPLOAD_ROLLBACK_PLAN_BOUNDARY_SOURCE_KINDS)) {
+      issues.push(error('$.sourceExecutionLeaseBoundary.boundaryKind', 'must be a supported execution lease boundary kind.'));
+    }
+    if (!isOneOf(payload.sourceExecutionLeaseBoundary.boundaryNextAction, UPLOAD_ROLLBACK_PLAN_BOUNDARY_SOURCE_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceExecutionLeaseBoundary.boundaryNextAction', 'must be a supported execution lease boundary next action.'));
+    }
+    if (!isOneOf(payload.sourceExecutionLeaseBoundary.reviewStatus, UPLOAD_ROLLBACK_PLAN_BOUNDARY_REVIEW_STATUSES)) {
+      issues.push(error('$.sourceExecutionLeaseBoundary.reviewStatus', 'must be a supported review status.'));
+    }
+    if (!isOneOf(payload.sourceExecutionLeaseBoundary.reviewKind, UPLOAD_ROLLBACK_PLAN_BOUNDARY_REVIEW_KINDS)) {
+      issues.push(error('$.sourceExecutionLeaseBoundary.reviewKind', 'must be a supported review kind.'));
+    }
+    if (!isOneOf(payload.sourceExecutionLeaseBoundary.adapterBackendKind, UPLOAD_ROLLBACK_PLAN_BOUNDARY_ADAPTER_BACKENDS)) {
+      issues.push(error('$.sourceExecutionLeaseBoundary.adapterBackendKind', 'must be a supported adapter backend kind.'));
+    }
+    for (const key of [
+      'scopeMatched',
+      'humanReviewRecorded',
+      'fingerprintVerified',
+      'sourceFingerprintVerified',
+      'tokenRequiredBeforeExecution',
+      'tokenScopeBindingRequired',
+      'tokenSingleUseRequired',
+      'tokenExpiryRequired',
+      'executionLeaseRequiredBeforeExecution',
+      'leaseScopeBindingRequired',
+      'leaseSingleUseRequired',
+      'leaseExpiryRequired',
+      'writeTokenRequiredBeforeLease',
+      'auditBindingRequired',
+      'rollbackPlanRequiredBeforeExecution'
+    ]) {
+      if (typeof payload.sourceExecutionLeaseBoundary[key] !== 'boolean') {
+        issues.push(error(`$.sourceExecutionLeaseBoundary.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.sourceExecutionLeaseBoundary.adapterName !== null) {
+      if (typeof payload.sourceExecutionLeaseBoundary.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.sourceExecutionLeaseBoundary.adapterName)) {
+        issues.push(error('$.sourceExecutionLeaseBoundary.adapterName', 'must be null or a safe adapter name.'));
+      }
+    }
+    if (payload.status === 'rollback-plan-boundary-ready') {
+      if (payload.sourceExecutionLeaseBoundary.boundaryStatus !== 'execution-lease-boundary-ready') {
+        issues.push(error('$.sourceExecutionLeaseBoundary.boundaryStatus', 'must be execution-lease-boundary-ready for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.boundaryKind !== 'execution-lease-boundary-dry-run') {
+        issues.push(error('$.sourceExecutionLeaseBoundary.boundaryKind', 'must be execution-lease-boundary-dry-run for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.boundaryNextAction !== 'design-rollback-plan-boundary') {
+        issues.push(error('$.sourceExecutionLeaseBoundary.boundaryNextAction', 'must design the rollback plan boundary for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.reviewStatus !== 'review-ready') {
+        issues.push(error('$.sourceExecutionLeaseBoundary.reviewStatus', 'must be review-ready for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.reviewKind !== 'human-fingerprint-dry-run') {
+        issues.push(error('$.sourceExecutionLeaseBoundary.reviewKind', 'must be human-fingerprint-dry-run for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.scopeMatched !== true) {
+        issues.push(error('$.sourceExecutionLeaseBoundary.scopeMatched', 'must be true for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.humanReviewRecorded !== true) {
+        issues.push(error('$.sourceExecutionLeaseBoundary.humanReviewRecorded', 'must be true for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.fingerprintVerified !== true) {
+        issues.push(error('$.sourceExecutionLeaseBoundary.fingerprintVerified', 'must be true for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.sourceFingerprintVerified !== true) {
+        issues.push(error('$.sourceExecutionLeaseBoundary.sourceFingerprintVerified', 'must be true for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.adapterName === null) {
+        issues.push(error('$.sourceExecutionLeaseBoundary.adapterName', 'must be set for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.sourceExecutionLeaseBoundary.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.sourceExecutionLeaseBoundary.adapterBackendKind', 'must be mock-s3-compatible for rollback-plan-boundary-ready payloads.'));
+      }
+      for (const key of [
+        'tokenRequiredBeforeExecution',
+        'tokenScopeBindingRequired',
+        'tokenSingleUseRequired',
+        'tokenExpiryRequired',
+        'executionLeaseRequiredBeforeExecution',
+        'leaseScopeBindingRequired',
+        'leaseSingleUseRequired',
+        'leaseExpiryRequired',
+        'writeTokenRequiredBeforeLease',
+        'auditBindingRequired',
+        'rollbackPlanRequiredBeforeExecution'
+      ]) {
+        if (payload.sourceExecutionLeaseBoundary[key] !== true) {
+          issues.push(error(`$.sourceExecutionLeaseBoundary.${key}`, 'must be true for rollback-plan-boundary-ready payloads.'));
+        }
+      }
+    }
+  }
+
+  if (!isRecord(payload.rollbackPlanBoundary)) {
+    issues.push(error('$.rollbackPlanBoundary', 'Knowledge team upload rollback plan boundary rollbackPlanBoundary must be an object.'));
+  } else {
+    for (const key of [
+      'dryRunOnly',
+      'rollbackPlanRequiredBeforeExecution',
+      'rollbackScopeBindingRequired',
+      'rollbackReviewRequired',
+      'writeTokenRequiredBeforeRollback',
+      'executionLeaseRequiredBeforeRollback',
+      'artifactBytesRequiredBeforeRollback',
+      'auditBindingRequired',
+      'auditRecordRequiredBeforeExecution'
+    ]) {
+      if (payload.rollbackPlanBoundary[key] !== true) {
+        issues.push(error(`$.rollbackPlanBoundary.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'rollbackPlanCreated',
+      'rollbackScopeBoundToArtifact',
+      'rollbackReviewed',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'artifactBytesProvided',
+      'auditBindingCreated',
+      'auditRecordCreated',
+      'executable'
+    ]) {
+      if (payload.rollbackPlanBoundary[key] !== false) {
+        issues.push(error(`$.rollbackPlanBoundary.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.remainingExecutionBoundaries)) {
+    issues.push(error('$.remainingExecutionBoundaries', 'Knowledge team upload rollback plan boundary remainingExecutionBoundaries must be an object.'));
+  } else {
+    for (const key of [
+      'artifactBytesRequired',
+      'adapterInjectionRequired',
+      'writeTokenRequired',
+      'executionLeaseRequired',
+      'rollbackPlanRequired',
+      'auditRecordRequired'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== true) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'artifactBytesProvided',
+      'adapterInjected',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'objectWriteAllowed',
+      'metadataIndexWriteAllowed',
+      'remoteMutationAllowed'
+    ]) {
+      if (payload.remainingExecutionBoundaries[key] !== false) {
+        issues.push(error(`$.remainingExecutionBoundaries.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload rollback plan boundary readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_ROLLBACK_PLAN_BOUNDARY_BLOCKERS,
+      supportedStatuses: UPLOAD_ROLLBACK_PLAN_BOUNDARY_STATUSES,
+      supportedNextActions: UPLOAD_ROLLBACK_PLAN_BOUNDARY_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+    if (payload.status !== payload.readiness.status) {
+      issues.push(error('$.readiness.status', 'must match payload status.'));
+    }
+    if (payload.status === 'rollback-plan-boundary-ready') {
+      if (payload.readiness.nextAction !== 'design-audit-record-boundary') {
+        issues.push(error('$.readiness.nextAction', 'must design the audit record boundary for rollback-plan-boundary-ready payloads.'));
+      }
+      if (payload.readiness.blockerCount !== 0) {
+        issues.push(error('$.readiness.blockerCount', 'must be 0 for rollback-plan-boundary-ready payloads.'));
       }
     }
     if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {

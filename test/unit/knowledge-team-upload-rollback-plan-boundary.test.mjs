@@ -47,6 +47,9 @@ import {
 import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
 
 function validBackendReferenceSummary() {
   return validateKnowledgeTeamS3CompatibleBackendReferences(
@@ -389,4 +392,14 @@ test('upload rollback plan boundary blocks backend and rollback material leakage
   assert.equal(blockerCodes(boundary).has('upload-command-present'), true);
   assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
+});
+
+test('upload rollback plan boundary validates through knowledge validation dispatch', async () => {
+  const executionLeaseBoundary = await validExecutionLeaseBoundary();
+  const boundary = buildKnowledgeTeamUploadRollbackPlanBoundary({ executionLeaseBoundary });
+  const report = validateKnowledgePayload(boundary, 'rollback-plan-boundary.json');
+
+  assert.equal(report.valid, true);
+  assert.equal(report.inputKind, 'infra-agent.knowledge-team-upload-rollback-plan-boundary');
+  assert.equal(report.issueCount, 0);
 });
