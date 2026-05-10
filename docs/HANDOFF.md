@@ -39,6 +39,129 @@ Current guardrails:
 - package and CI scripts must keep the expected test, coverage, smoke/e2e, and
   package dry-run gates wired
 
+## 2026-05-09 Active Upload Mutation Approval Review Plan
+
+Status:
+
+- Completed and verified. This slice adds a private dry-run human fingerprint
+  review record after `upload-mutation-plan`.
+- Scope is local JSON review only: consume one saved
+  `infra-agent.knowledge-team-upload-mutation-plan` plus an explicit
+  operator-supplied `--approval-fingerprint`, then record whether the exact
+  mutation-plan approval-audit fingerprint was reviewed.
+- This slice does not grant mutation approval, allow upload execution, issue
+  write tokens, create execution leases, stage artifact bytes, create rollback
+  plans, inject adapters, create SDK clients, read credential values, check
+  credential presence, perform live checks, generate upload commands, mutate
+  object storage, or mutate a metadata index.
+
+Why this direction:
+
+- The previous `upload-mutation-plan` slice made a deterministic approval-audit
+  fingerprint available but intentionally stopped before human review. The next
+  safe step is a separate review record that proves the operator compared the
+  exact plan fingerprint without converting that review into execution
+  authority.
+- This keeps the learning-claude-code permission pattern intact: planning,
+  human review records, future execution prerequisites, and actual mutation
+  execution remain separate artifacts and commands.
+
+Completed commits and checkpoints:
+
+1. `690abb5` docs: record upload mutation approval review plan.
+2. `4efe144` feat: add upload mutation approval review contract.
+3. `6065d6c` test: cover upload mutation approval review ready path.
+4. `d9465ee` test: block unsafe mutation approval reviews.
+5. `b7819c1` feat: validate upload mutation approval reviews.
+6. `1b11502` test: cover upload mutation approval review contract.
+7. `2f9b100` feat: parse upload mutation approval review args.
+8. `8df6b43` feat: wire upload mutation approval review cli.
+9. `b7b73e8` test: guard upload mutation approval review surface.
+10. `7afc357` docs: document upload mutation approval review boundary.
+11. `9db3ac4` test: cover malformed mutation approval reviews.
+12. `5d08c28` test: cover mutation approval review validator drift.
+
+Current design:
+
+- `src/knowledge/team-upload-mutation-approval-review.ts` owns the private
+  `infra-agent.knowledge-team-upload-mutation-approval-review` contract and
+  builder. `review-ready` requires a `plan-ready`
+  `infra-agent.knowledge-team-upload-mutation-plan`, a safe
+  `stage-knowledge-pack-mutation-plan-v1` SHA-256 fingerprint, and an exact
+  supplied fingerprint match.
+- The output records human review only in `approvalReview` via
+  `humanReviewRecorded=true` and `fingerprintVerified=true`. Top-level
+  `mutationApprovalGranted`, `uploadApproved`, and `uploadExecutionAllowed`
+  remain false.
+- `executionBoundary` is explicitly non-executable and keeps artifact bytes,
+  adapter injection, write token, execution lease, rollback plan, audit record,
+  client, credential read/presence check, live check, upload command, object
+  write, metadata index write, and remote mutation flags false.
+- `src/knowledge/team-upload-approval-validation.ts` validates both ready and
+  blocked review artifacts through the `knowledge validate` dispatcher.
+- `src/cli/main.ts` adds
+  `infra-agent knowledge upload-mutation-approval-review <mutation-plan.json>
+  --approval-fingerprint <sha256> [--out <review.json>] [--json]`.
+  `src/cli/output.ts` prints safe text output that states review status while
+  keeping mutation approval, write tokens, leases, and execution disabled.
+
+Acceptance criteria:
+
+- `review-ready` can be emitted only for a valid `plan-ready` mutation plan and
+  an exact operator-supplied fingerprint match.
+- Matching fingerprint records a human review but does not grant mutation
+  approval and does not unlock execution.
+- Mismatched, missing, malformed, unsafe, blocked, forged, or leaky inputs
+  produce a blocked review artifact with safe blocker codes and without copying
+  private values.
+- CLI reads only one local mutation-plan JSON file plus the explicit
+  fingerprint flag, and writes only an optional local `--out` review JSON.
+- Existing upload mutation plan, execution gate, mock harness, continuation,
+  and team backend no-SDK boundaries remain valid.
+
+Verification completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-mutation-approval-review.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-mutation-approval-review-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-mutation-approval-review-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-upload-mutation-plan.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-mutation-plan-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-mutation-plan-main.test.mjs`
+- `git diff --check`
+- `npm run test:coverage`
+- Full `npm run verify` passed. This covered lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. The package dry-run reported `entryCount` 158.
+
+Notes from validation:
+
+- The first full `npm run verify` run reached `test:coverage` and failed at
+  branch coverage 74.49% after the new validator branches were added.
+  Additional malformed-input and validator-drift tests raised coverage above
+  the 75% branch threshold; `npm run test:coverage` and the final full
+  `npm run verify` both passed afterward.
+
+Current risks to monitor:
+
+- The command name includes "approval", so future agents must preserve the
+  "review record only" semantics. It is not an approval grant.
+- A future execution-prerequisite slice must not treat
+  `humanReviewRecorded=true` as sufficient authority to write. It should remain
+  a prerequisite signal only, with a separate token/lease/rollback/audit design.
+- The artifact is private chain state and must not be promoted to public
+  descriptor, publication plan, index entry, or readiness schemas.
+
+Next step:
+
+- Design the next dry-run execution-prerequisite boundary separately. Keep real
+  uploads, write-token issuance, execution leases, rollback artifact creation,
+  SDK clients, credential presence checks, live backend checks, upload commands,
+  and object/index mutation out of scope until each has an explicit approval
+  and audit artifact.
+
 ## 2026-05-09 Active Upload Adapter Preflight Plan
 
 Status:
