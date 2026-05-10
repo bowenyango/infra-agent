@@ -110,6 +110,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge upload-approval-intent <publication-readiness.json> --backend-reference <reference-readiness.json> [--out <intent.json>] [--json]`
 - `infra-agent knowledge upload-approval-continuation <intent.json> --approval-fingerprint <sha256> [--out <continuation.json>] [--json]`
 - `infra-agent knowledge upload-adapter-preflight <continuation.json> --adapter-plan <adapter-plan.json> [--out <preflight.json>] [--json]`
+- `infra-agent knowledge upload-mock-harness <preflight.json> [--out <harness.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -222,12 +223,20 @@ Current behavior is intentionally runtime-foundation oriented:
   future mock dependency injection harness. `preflight-ready` does not approve
   upload, inject an adapter, create a client, check credentials, run live
   backend checks, generate an upload command, or write remote objects.
+  `knowledge upload-mock-harness <preflight.json>` reads a saved adapter
+  preflight and emits a private `infra-agent.knowledge-team-upload-mock-harness`
+  dry-run contract for an in-memory mock adapter harness. It may instantiate
+  only the mock adapter descriptor boundary, but it does not inject an adapter
+  into upload execution, create SDK clients, check credential presence, read
+  credentials, run live backend checks, generate upload commands, or write
+  object-store/index entries. All output write-attempt flags remain false.
   `knowledge validate` also
   accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
   produced by the internal mocked S3-compatible team artifact store
   abstraction, compact index entries, saved publication-plan dry runs, and
   readiness reports, plus compact backend-readiness, upload-intent,
-  upload-continuation, and upload-adapter-preflight reports. Team artifact
+  upload-continuation, upload-adapter-preflight, and upload-mock-harness
+  reports. Team artifact
   payloads are content-addressed and
   backend-neutral;
   they do not include backend URLs, buckets, endpoints, credentials, absolute

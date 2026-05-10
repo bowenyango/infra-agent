@@ -74,9 +74,11 @@ durable design reference for infra-agent development.
   `upload-approval-intent` can expose a deterministic scope fingerprint, and
   `upload-approval-continuation` can record that the operator supplied a
   matching fingerprint. `upload-adapter-preflight` can review a saved mock
-  adapter resolution plan for future dependency injection. All three remain
-  dry-run routing state with upload approval, upload execution, adapter
-  injection, client creation, credential reads, live checks, and remote writes
+  adapter resolution plan for future dependency injection, and
+  `upload-mock-harness` can instantiate only the in-memory mock descriptor
+  boundary from a saved preflight. All four remain dry-run routing state with
+  upload approval, upload execution, adapter injection, client creation,
+  credential reads, live checks, object/index writes, and remote writes
   disabled.
 - CLI exit codes are part of the harness contract for automation. Keep
   completed, validation-blocked, approval-required, clarification-required,

@@ -234,6 +234,18 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   clients, read credentials or credential presence, copy endpoint/bucket
   details, probe backends, build upload commands, or mutate remote
   objects/indexes.
+- `infra-agent knowledge upload-mock-harness` is a dry-run private mock harness
+  review command. It may read a saved upload adapter preflight and instantiate
+  only the in-memory mock adapter descriptor boundary to prove the dependency
+  shape. `harness-ready` is not upload permission and is not remote execution:
+  it must keep `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, `adapterInjected=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`. It must not accept artifact bytes, backend configs,
+  credential names, SDK clients, upload commands, endpoint/bucket details, or
+  live/remote write operations.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
