@@ -427,6 +427,114 @@ test('upload mutation approval review blocks forged mutation and execution state
   assertNoPrivateValues(review);
 });
 
+test('upload mutation approval review blocks malformed non-object inputs', async () => {
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan: null,
+    approvalFingerprint: ''
+  });
+  const codes = blockerCodes(review);
+
+  assert.equal(review.status, 'blocked');
+  assert.equal(codes.has('invalid-mutation-plan-kind'), true);
+  assert.equal(codes.has('review-fingerprint-missing'), true);
+  assert.equal(review.target.manifestId, null);
+  assert.equal(review.target.objectKey, null);
+  assert.equal(review.target.objectSha256, null);
+  assert.equal(review.target.artifactId, null);
+  assert.equal(review.sourcePlan.planStatus, 'invalid');
+  assert.equal(review.sourcePlan.planKind, 'unsupported');
+  assert.equal(review.sourcePlan.planNextAction, 'invalid');
+  assert.equal(review.sourcePlan.gateStatus, 'invalid');
+  assert.equal(review.sourcePlan.gateKind, 'unsupported');
+  assert.equal(review.sourcePlan.approvalFingerprint.scope, 'unsupported');
+  assert.equal(review.sourcePlan.approvalFingerprint.value, null);
+  assert.equal(review.approvalReview.humanReviewRecorded, false);
+  assert.equal(review.approvalReview.fingerprintVerified, false);
+  assertExecutionDisabled(review);
+  assertNoPrivateValues(review);
+});
+
+test('upload mutation approval review blocks unsafe target and source summaries', async () => {
+  const mutationPlan = await validMutationPlan();
+  const unsafePlan = {
+    ...mutationPlan,
+    target: {
+      manifestId: 'not-a-safe-id',
+      objectKey: '../private-key',
+      objectSha256: 'not-a-sha256',
+      artifactId: null
+    },
+    sourceGate: {
+      ...mutationPlan.sourceGate,
+      source: 'upload-mock-harness',
+      gateStatus: 'blocked',
+      gateKind: 'unsupported',
+      scopeMatched: false,
+      continuationStatus: 'blocked',
+      approvalProvided: false,
+      fingerprintVerified: false,
+      mockHarnessStatus: 'blocked',
+      mockHarnessKind: 'unsupported',
+      adapterName: 'unsafe adapter name',
+      adapterBackendKind: 's3-compatible'
+    },
+    approvalAudit: {
+      ...mutationPlan.approvalAudit,
+      mutationApprovalRequired: false
+    },
+    executionPlan: {
+      ...mutationPlan.executionPlan,
+      credentialValuesRead: true,
+      credentialPresenceChecked: true,
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      auditRecordCreated: true
+    }
+  };
+
+  const review = buildKnowledgeTeamUploadMutationApprovalReview({
+    mutationPlan: unsafePlan,
+    approvalFingerprint: mutationPlan.approvalAudit.approvalScopeFingerprint.value
+  });
+  const codes = blockerCodes(review);
+
+  for (const code of [
+    'missing-required-field',
+    'unsafe-artifact-reference',
+    'invalid-mutation-plan-kind',
+    'mutation-plan-not-ready',
+    'invalid-plan-kind',
+    'scope-not-matched',
+    'plan-fingerprint-mismatch',
+    'mock-harness-not-ready',
+    'unsupported-adapter-backend',
+    'unsafe-adapter-name',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'live-check-enabled',
+    'upload-command-present',
+    'remote-mutation-performed',
+    'backend-detail-leak'
+  ]) {
+    assert.equal(codes.has(code), true, code);
+  }
+  assert.equal(review.status, 'blocked');
+  assert.equal(review.target.manifestId, null);
+  assert.equal(review.target.objectKey, null);
+  assert.equal(review.target.objectSha256, null);
+  assert.equal(review.target.artifactId, null);
+  assert.equal(review.sourcePlan.gateStatus, 'blocked');
+  assert.equal(review.sourcePlan.gateKind, 'unsupported');
+  assert.equal(review.sourcePlan.continuationStatus, 'blocked');
+  assert.equal(review.sourcePlan.mockHarnessStatus, 'blocked');
+  assert.equal(review.sourcePlan.mockHarnessKind, 'unsupported');
+  assert.equal(review.sourcePlan.adapterBackendKind, 's3-compatible');
+  assert.equal(review.approvalReview.humanReviewRecorded, false);
+  assert.equal(review.approvalReview.fingerprintVerified, false);
+  assertExecutionDisabled(review);
+  assertNoPrivateValues(review);
+});
+
 test('upload mutation approval review validates through knowledge validation dispatch', async () => {
   const mutationPlan = await validMutationPlan();
   const review = buildKnowledgeTeamUploadMutationApprovalReview({
