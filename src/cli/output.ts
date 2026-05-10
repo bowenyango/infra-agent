@@ -66,6 +66,7 @@ import type { KnowledgeTeamUploadRollbackPlanBoundary } from '../knowledge/team-
 import type { KnowledgeTeamUploadAuditRecordBoundary } from '../knowledge/team-upload-audit-record-boundary.ts';
 import type { KnowledgeTeamUploadArtifactBytesBoundary } from '../knowledge/team-upload-artifact-bytes-boundary.ts';
 import type { KnowledgeTeamUploadAdapterInjectionBoundary } from '../knowledge/team-upload-adapter-injection-boundary.ts';
+import type { KnowledgeTeamUploadClientCreationBoundary } from '../knowledge/team-upload-client-creation-boundary.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -4349,6 +4350,75 @@ export function printKnowledgeTeamUploadAdapterInjectionBoundary(
   printList(
     boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload adapter injection boundary blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadClientCreationBoundary(
+  boundary: KnowledgeTeamUploadClientCreationBoundary
+): void {
+  printHeader('Knowledge team upload client creation boundary');
+  process.stdout.write(`status: ${boundary.status}\n`);
+  process.stdout.write(`next action: ${boundary.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${boundary.plannedOperation}\n`);
+  process.stdout.write(`execution: ${boundary.executionMode}\n`);
+  process.stdout.write(`boundary: ${boundary.boundaryKind}\n`);
+  process.stdout.write(`target manifest: ${boundary.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object: ${boundary.target.objectKey}\n`);
+  process.stdout.write(`target artifact: ${boundary.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${boundary.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check: ${boundary.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${boundary.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${boundary.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${boundary.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${boundary.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${boundary.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${boundary.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${boundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${boundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${boundary.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${boundary.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${boundary.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${boundary.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${boundary.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${boundary.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${boundary.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${boundary.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source adapter injection boundary: ${boundary.sourceAdapterInjectionBoundary.boundaryStatus}\n`);
+  process.stdout.write(`source adapter injection action: ${boundary.sourceAdapterInjectionBoundary.boundaryNextAction}\n`);
+  process.stdout.write(`source review: ${boundary.sourceAdapterInjectionBoundary.reviewStatus}\n`);
+  process.stdout.write(`scope matched: ${boundary.sourceAdapterInjectionBoundary.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human review recorded: ${boundary.sourceAdapterInjectionBoundary.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`fingerprint verified: ${boundary.sourceAdapterInjectionBoundary.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${boundary.sourceAdapterInjectionBoundary.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${boundary.sourceAdapterInjectionBoundary.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${boundary.sourceAdapterInjectionBoundary.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`adapter dependency injection only: ${boundary.sourceAdapterInjectionBoundary.adapterDependencyInjectionOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mock adapter required: ${boundary.sourceAdapterInjectionBoundary.mockAdapterRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter descriptor required: ${boundary.sourceAdapterInjectionBoundary.adapterDescriptorRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact object store dependency required: ${boundary.sourceAdapterInjectionBoundary.artifactObjectStoreDependencyRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index dependency required: ${boundary.sourceAdapterInjectionBoundary.metadataIndexDependencyRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source adapter injected: ${boundary.sourceAdapterInjectionBoundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source client created: ${boundary.sourceAdapterInjectionBoundary.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source artifact object store bound: ${boundary.sourceAdapterInjectionBoundary.artifactObjectStoreBound ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source metadata index bound: ${boundary.sourceAdapterInjectionBoundary.metadataIndexBound ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client creation required before execution: ${boundary.clientCreationBoundary.clientCreationRequiredBeforeExecution ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client factory descriptor required: ${boundary.clientCreationBoundary.clientFactoryDescriptorRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential read boundary required: ${boundary.clientCreationBoundary.credentialReadBoundaryRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence boundary required: ${boundary.clientCreationBoundary.credentialPresenceBoundaryRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check boundary required: ${boundary.clientCreationBoundary.liveCheckBoundaryRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command boundary required: ${boundary.clientCreationBoundary.uploadCommandBoundaryRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`SDK client created: ${boundary.clientCreationBoundary.sdkClientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential read required: ${boundary.remainingExecutionBoundaries.credentialReadRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence check required: ${boundary.remainingExecutionBoundaries.credentialPresenceCheckRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check required: ${boundary.remainingExecutionBoundaries.liveCheckRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command required: ${boundary.remainingExecutionBoundaries.uploadCommandRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`dry run only: ${boundary.clientCreationBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`executable: ${boundary.clientCreationBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: clientCreated=${boundary.clientCreationBoundary.clientCreated ? 'yes' : 'no'}, sdkClientCreated=${boundary.clientCreationBoundary.sdkClientCreated ? 'yes' : 'no'}, credentialValuesExposed=${boundary.clientCreationBoundary.credentialValuesExposed ? 'yes' : 'no'}, liveCheckPerformed=${boundary.clientCreationBoundary.liveCheckPerformed ? 'yes' : 'no'}, blockers=${boundary.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload client creation boundary blockers.'
   );
 }
 
