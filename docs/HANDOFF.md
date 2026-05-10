@@ -159,14 +159,14 @@ Next step:
 
 Status:
 
-- In progress. This slice adds a private dry-run in-memory mock harness review
-  after `upload-adapter-preflight`.
-- Scope is still review-only: consume a saved
-  `infra-agent.knowledge-team-upload-adapter-preflight`, construct only a
-  safe in-memory mock adapter descriptor boundary, and prove that future mock
+- Completed and verified. This slice adds a private dry-run in-memory mock
+  harness review after `upload-adapter-preflight`.
+- Scope remains review-only: consume a saved
+  `infra-agent.knowledge-team-upload-adapter-preflight`, construct only a safe
+  in-memory mock adapter descriptor boundary, and prove that future mock
   dependency injection can be modeled without staging bytes or writing an
   index.
-- This slice must not call `artifactStore.putObject`,
+- The implementation does not call `artifactStore.putObject`,
   `metadataIndex.putEntry`, `stageKnowledgePackArtifactForTeamStore`, a real
   resolver for S3-compatible backends, SDK clients, credential readers,
   credential presence checks, live backend checks, upload command builders, or
@@ -181,22 +181,50 @@ Why this direction:
   review, dependency review, and mutation execution. `harness-ready` must mean
   "mock harness review is structurally ready", not upload-ready.
 
-Planned checkpoints:
+Completed commits and checkpoints:
 
-1. Record this active mock harness plan and non-goals before feature changes.
-2. Add a private `infra-agent.knowledge-team-upload-mock-harness` contract.
-3. Cover the ready path from a valid `upload-adapter-preflight`.
-4. Block forged or blocked preflight artifacts.
-5. Check mock adapter descriptor/capability shape without writing object/index
-   data.
-6. Add validator support behind `knowledge validate`.
-7. Add contract tests for stable private JSON shape and no-op write flags.
-8. Add CLI parsing and command support for
-   `infra-agent knowledge upload-mock-harness <preflight.json>
-   [--out <harness.json>] [--json]`.
-9. Add CLI, help, and no-SDK/no-env guard coverage.
-10. Update rules, roadmap, README, skill, and handoff docs with validation
-    results and remaining risks.
+1. `3d1b67f` docs: record upload mock harness plan.
+2. `36a510e` feat: add upload mock harness contract.
+3. `ebb8134` fix: allow safe mock harness metadata fields.
+4. `d3d2e51` test: cover upload mock harness ready path.
+5. `f7dea59` test: block unsafe upload mock harness preflights.
+6. `626b85a` test: block unsafe upload mock harness adapters.
+7. `df683fb` feat: validate upload mock harness artifacts.
+8. `b062310` test: cover upload mock harness contract.
+9. `44a08c7` feat: parse upload mock harness cli args.
+10. `fd6689a` feat: wire upload mock harness cli.
+11. `9acb1f7` test: guard upload mock harness cli surface.
+12. `8b9c3f9` docs: document upload mock harness boundary.
+
+Current design:
+
+- `src/knowledge/team-upload-mock-harness.ts` owns the private
+  `infra-agent.knowledge-team-upload-mock-harness` contract and builder. It
+  consumes saved preflight JSON and performs fail-closed parsing before any
+  mock probe is attempted.
+- A `harness-ready` artifact requires `preflight-ready` input with a safe
+  `mock-s3-compatible` adapter dependency. Real backend drift, adapter
+  capability drift, blocked preflight state, unsafe adapter names, unsafe
+  artifact references, backend details, client fields, upload commands, and
+  credential leakage all produce `blocked`.
+- The only instantiated dependency is
+  `createMockKnowledgeTeamBackendAdapter({ name })`, and only after the saved
+  preflight passes the dry-run safety checks. The harness checks descriptor and
+  method availability but never calls object-store or metadata-index write
+  methods.
+- The output keeps `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, `adapterInjected=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`.
+- `src/knowledge/team-upload-approval-validation.ts` validates upload mock
+  harness artifacts behind the `knowledge validate` dispatcher.
+- `src/cli/main.ts` adds
+  `infra-agent knowledge upload-mock-harness <preflight.json>
+  [--out <harness.json>] [--json]`. `src/cli/output.ts` adds safe text output
+  that reports no upload execution, no client creation, no adapter injection,
+  no object write attempt, no index write attempt, and no remote mutation.
 
 Acceptance criteria:
 
@@ -213,6 +241,37 @@ Acceptance criteria:
 - Existing upload intent, upload continuation, upload adapter preflight,
   backend reference readiness, and public team artifact contracts remain
   unchanged.
+
+Verification completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-mock-harness.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-mock-harness-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-mock-harness-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Full `npm run verify` passed. This covered lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. The package dry-run reported `entryCount` 155.
+
+Current risks to monitor:
+
+- `harness-ready` may be mistaken for upload-ready. It is only a private
+  dry-run mock harness review state.
+- The harness can instantiate the in-memory mock adapter descriptor boundary,
+  but it must not be widened into dependency injection for upload execution
+  without a separate approval-gated slice.
+- Real S3-compatible adapter implementation, SDK clients, credential presence
+  checks, live backend checks, upload commands, and remote writes remain out of
+  scope.
+
+Next step:
+
+- Design an explicit approval-gated execution slice before any real backend or
+  upload work. Start with permission state and mutation audit requirements,
+  then decide whether a mock-only dependency-injection execution harness is
+  needed before real backend clients. Keep real remote writes disabled until
+  that separate slice is documented and approved.
 
 ## 2026-05-09 Active Upload Approval Continuation Plan
 
