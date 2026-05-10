@@ -316,6 +316,51 @@ test('upload command boundary validation rejects forged command state', async ()
   assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.uploadCommandGenerated'), true);
 });
 
+test('upload command boundary validation rejects missing ready prerequisites', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({ liveCheckBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    status: 'upload-command-boundary-ready',
+    sourceLiveCheckBoundary: {
+      ...boundary.sourceLiveCheckBoundary,
+      boundaryStatus: 'blocked',
+      boundaryNextAction: 'resolve-blockers',
+      liveCheckPerformed: true,
+      uploadCommandGenerated: true,
+      adapterBackendKind: 's3-compatible'
+    },
+    uploadCommandBoundary: {
+      ...boundary.uploadCommandBoundary,
+      uploadCommandRequiredBeforeExecution: false,
+      commandExecutionApprovalRequired: false
+    },
+    readiness: {
+      ...boundary.readiness,
+      status: 'upload-command-boundary-ready',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['live-check-boundary-not-ready'],
+      blockers: [{
+        code: 'live-check-boundary-not-ready',
+        path: '$.sourceLiveCheckBoundary.boundaryStatus',
+        message: 'not ready'
+      }]
+    }
+  }, 'knowledge-pack.upload-command-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceLiveCheckBoundary.boundaryStatus'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceLiveCheckBoundary.boundaryNextAction'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceLiveCheckBoundary.liveCheckPerformed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceLiveCheckBoundary.uploadCommandGenerated'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceLiveCheckBoundary.adapterBackendKind'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommandBoundary.uploadCommandRequiredBeforeExecution'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommandBoundary.commandExecutionApprovalRequired'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
+});
+
 test('upload command boundary blocks invalid live check inputs', () => {
   const boundary = buildKnowledgeTeamUploadCommandBoundary({
     liveCheckBoundary: 'not-json'
