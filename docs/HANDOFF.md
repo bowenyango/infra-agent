@@ -277,8 +277,8 @@ Next step:
 
 Status:
 
-- In progress. This slice adds a private dry-run execution gate review after
-  `upload-approval-continuation` and `upload-mock-harness`.
+- Completed and verified. This slice adds a private dry-run execution gate
+  review after `upload-approval-continuation` and `upload-mock-harness`.
 - Scope is still review-only: consume a saved
   `infra-agent.knowledge-team-upload-approval-continuation` and a saved
   `infra-agent.knowledge-team-upload-mock-harness`, verify that their artifact
@@ -300,24 +300,47 @@ Why this direction:
   `gate-ready` must mean "ready to request a separately approved execution
   design", not upload-ready.
 
-Planned checkpoints:
+Completed commits and checkpoints:
 
-1. Record this active execution gate plan and non-goals before feature changes.
-2. Add a private `infra-agent.knowledge-team-upload-execution-gate` contract.
-3. Cover the ready path from matching continuation-ready and harness-ready
-   artifacts.
-4. Block forged continuation execution flags and unsafe continuation leakage.
-5. Block forged harness execution/write flags and unsafe harness leakage.
-6. Block continuation/harness artifact scope mismatches.
-7. Add validator support behind `knowledge validate`.
-8. Add contract tests for stable private JSON shape and mutation-disabled
-   audit fields.
-9. Add CLI parsing and command support for
-   `infra-agent knowledge upload-execution-gate <continuation.json>
-   --mock-harness <harness.json> [--out <gate.json>] [--json]`.
-10. Add CLI, help, and no-SDK/no-env guard coverage.
-11. Update rules, roadmap, README, skill, and handoff docs with validation
-    results and remaining risks.
+1. `e765b99` docs: record upload execution gate plan.
+2. `2e8f630` feat: add upload execution gate contract.
+3. `c8ca344` test: cover upload execution gate ready path.
+4. `613b348` test: block forged execution gate continuations.
+5. `8a6c2db` test: block forged execution gate harnesses.
+6. `e80b6e4` test: enforce execution gate scope matching.
+7. `b104851` feat: validate upload execution gate artifacts.
+8. `1bfb9b6` test: cover upload execution gate contract.
+9. `c4e17e1` feat: parse upload execution gate cli args.
+10. `f0b76fd` feat: wire upload execution gate cli.
+11. `66dfff9` test: guard upload execution gate cli surface.
+12. `c3f7c5c` docs: document upload execution gate boundary.
+
+Current design:
+
+- `src/knowledge/team-upload-execution-gate.ts` owns the private
+  `infra-agent.knowledge-team-upload-execution-gate` contract and builder. It
+  consumes saved continuation and mock-harness JSON, parses both fail-closed,
+  and never reads artifact bytes, credentials, environment values, SDK clients,
+  backend configs, or upload commands.
+- A `gate-ready` artifact requires a continuation-ready input with a verified
+  fingerprint and a harness-ready input for the same manifest id, object key,
+  object hash, and artifact id. Any scope mismatch clears the target summary
+  and emits `scope-mismatch`.
+- The output records explicit permission/audit state: upload approval is still
+  false, upload execution is still false, mutation approval is still false,
+  no write token is issued, no execution lease is created, no adapter is
+  injected, no artifact bytes are provided, and no object/index write is
+  attempted.
+- `src/knowledge/team-upload-approval-validation.ts` validates execution gate
+  artifacts behind the `knowledge validate` dispatcher, including forged output
+  states such as upload approval, execution approval, write tokens, leases,
+  adapter injection, artifact bytes, live checks, commands, and remote
+  mutation attempts.
+- `src/cli/main.ts` adds
+  `infra-agent knowledge upload-execution-gate <continuation.json>
+  --mock-harness <harness.json> [--out <gate.json>] [--json]`.
+  `src/cli/output.ts` adds safe text output that reports the permission/audit
+  boundary without echoing private backend details.
 
 Acceptance criteria:
 
@@ -336,6 +359,40 @@ Acceptance criteria:
 - Existing upload intent, upload continuation, upload adapter preflight,
   upload mock harness, backend reference readiness, and public team artifact
   contracts remain unchanged.
+
+Verification completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-gate.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-gate-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-gate-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `git diff --check`
+- Full `npm run verify` passed. This covered lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. The package dry-run reported `entryCount` 156.
+
+Current risks to monitor:
+
+- `gate-ready` may be mistaken for upload-ready. It is only a local
+  permission/audit review state for requesting a separate mutation design.
+- The gate currently proves scope consistency between continuation and
+  mock-harness artifacts, but it does not model rollback execution, write
+  tokens, leases, or actual artifact-byte handling. Those must remain in a
+  later explicitly approved slice.
+- Real S3-compatible adapter implementation, SDK clients, credential presence
+  checks, live backend checks, upload command generation, artifact-byte staging,
+  object writes, metadata index writes, and remote mutation remain out of
+  scope.
+
+Next step:
+
+- Design a separate mutation-approval slice that consumes the execution gate
+  artifact and produces only a non-executable approval/audit plan first. Do not
+  add a real backend upload command, credential presence checks, SDK client
+  creation, write-token issuance, lease creation, or remote writes until that
+  mutation plan has its own contract, validator, CLI surface, and tests.
 
 ## 2026-05-09 Active Upload Approval Continuation Plan
 
