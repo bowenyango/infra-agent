@@ -41,6 +41,7 @@ import {
   validateKnowledgeTeamUploadApprovalContinuationPayload,
   validateKnowledgeTeamUploadApprovalIntentPayload,
   validateKnowledgeTeamUploadExecutionGatePayload,
+  validateKnowledgeTeamUploadMutationPlanPayload,
   validateKnowledgeTeamUploadMockHarnessPayload
 } from './team-upload-approval-validation.ts';
 
@@ -1085,6 +1086,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-execution-gate') {
     return validateKnowledgeTeamUploadExecutionGatePayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-mutation-plan') {
+    return validateKnowledgeTeamUploadMutationPlanPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

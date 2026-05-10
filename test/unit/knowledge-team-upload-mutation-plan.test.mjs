@@ -30,6 +30,9 @@ import {
   buildKnowledgeTeamUploadMutationPlan
 } from '../../src/knowledge/team-upload-mutation-plan.ts';
 import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
+import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
 
@@ -326,4 +329,101 @@ test('upload mutation plan blocks forged execution and mutation state', async ()
     assert.equal(plan.readiness.blockerCodes.includes(code), true, code);
   }
   assertNoPrivateValues(plan);
+});
+
+test('knowledge validation accepts and rejects upload mutation plan artifacts', async () => {
+  const executionGate = await validExecutionGate();
+  const plan = buildKnowledgeTeamUploadMutationPlan({ executionGate });
+  const validReport = validateKnowledgePayload(plan, 'upload-mutation-plan.json');
+
+  assert.equal(validReport.valid, true);
+  assert.equal(validReport.inputKind, 'infra-agent.knowledge-team-upload-mutation-plan');
+  assert.equal(validReport.issueCount, 0);
+
+  const forgedReport = validateKnowledgePayload({
+    ...plan,
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    rollbackPlanCreated: true,
+    uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+    sourceGate: {
+      ...plan.sourceGate,
+      gateStatus: 'blocked',
+      gateNextAction: 'resolve-blockers',
+      scopeMatched: false,
+      endpointUrl: 'https://should-not-copy.example.test'
+    },
+    approvalAudit: {
+      ...plan.approvalAudit,
+      mutationApprovalGranted: true,
+      humanApprovalRequestIssued: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      approvalScopeFingerprint: {
+        ...plan.approvalAudit.approvalScopeFingerprint,
+        value: null
+      }
+    },
+    executionPlan: {
+      ...plan.executionPlan,
+      executable: true,
+      dryRunOnly: false,
+      artifactBytesProvided: true,
+      writeTokenIssued: true,
+      rollbackPlanCreated: true,
+      remoteMutationPerformed: true
+    },
+    readiness: {
+      ...plan.readiness,
+      blockerCount: 1,
+      blockerCodes: ['write-token-issued'],
+      blockers: [
+        {
+          code: 'write-token-issued',
+          path: '$.executionPlan.writeTokenIssued',
+          message: 'safe symbolic code'
+        }
+      ]
+    }
+  }, 'forged-upload-mutation-plan.json');
+
+  assert.equal(forgedReport.valid, false);
+  for (const path of [
+    '$.remoteWriteAllowed',
+    '$.liveCheckAllowed',
+    '$.credentialValuesExposed',
+    '$.credentialPresenceChecked',
+    '$.uploadApproved',
+    '$.uploadExecutionAllowed',
+    '$.mutationApprovalGranted',
+    '$.artifactBytesProvided',
+    '$.writeTokenIssued',
+    '$.rollbackPlanCreated',
+    '$.uploadCommand',
+    '$.sourceGate.endpointUrl',
+    '$.sourceGate.gateStatus',
+    '$.sourceGate.gateNextAction',
+    '$.sourceGate.scopeMatched',
+    '$.approvalAudit.mutationApprovalGranted',
+    '$.approvalAudit.humanApprovalRequestIssued',
+    '$.approvalAudit.uploadApproved',
+    '$.approvalAudit.uploadExecutionAllowed',
+    '$.approvalAudit.approvalScopeFingerprint.value',
+    '$.executionPlan.executable',
+    '$.executionPlan.dryRunOnly',
+    '$.executionPlan.artifactBytesProvided',
+    '$.executionPlan.writeTokenIssued',
+    '$.executionPlan.rollbackPlanCreated',
+    '$.executionPlan.remoteMutationPerformed'
+  ]) {
+    assert.equal(forgedReport.issues.some(issue => issue.path === path), true, path);
+  }
+  assertNoPrivateValues(forgedReport);
 });

@@ -33,6 +33,15 @@ const UPLOAD_EXECUTION_GATE_CONTINUATION_STATUSES = ['continuation-ready', 'bloc
 const UPLOAD_EXECUTION_GATE_HARNESS_STATUSES = ['harness-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_EXECUTION_GATE_HARNESS_KINDS = ['in-memory-mock', 'unsupported'] as const;
 const UPLOAD_EXECUTION_GATE_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_MUTATION_PLAN_STATUSES = ['plan-ready', 'blocked'] as const;
+const UPLOAD_MUTATION_PLAN_NEXT_ACTIONS = ['request-human-mutation-approval', 'resolve-blockers'] as const;
+const UPLOAD_MUTATION_PLAN_GATE_STATUSES = ['gate-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_MUTATION_PLAN_GATE_KINDS = ['approval-gated-dry-run', 'unsupported'] as const;
+const UPLOAD_MUTATION_PLAN_GATE_NEXT_ACTIONS = ['request-separate-mutation-approval', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_MUTATION_PLAN_CONTINUATION_STATUSES = ['continuation-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_MUTATION_PLAN_HARNESS_STATUSES = ['harness-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_MUTATION_PLAN_HARNESS_KINDS = ['in-memory-mock', 'unsupported'] as const;
+const UPLOAD_MUTATION_PLAN_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -161,6 +170,36 @@ const UPLOAD_EXECUTION_GATE_BLOCKERS = [
   'unsafe-artifact-reference',
   'write-token-issued'
 ] as const;
+const UPLOAD_MUTATION_PLAN_BLOCKERS = [
+  'adapter-injected',
+  'artifact-bytes-provided',
+  'backend-detail-leak',
+  'client-created',
+  'credential-presence-check-enabled',
+  'credential-values-exposed',
+  'execution-gate-not-ready',
+  'execution-lease-created',
+  'invalid-execution-gate-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mock-harness-not-ready',
+  'mutation-approval-already-granted',
+  'mutation-enabled',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'rollback-plan-created',
+  'scope-not-matched',
+  'unsupported-adapter-backend',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'write-token-issued'
+] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl)/i;
 const FORBIDDEN_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|token|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
 
@@ -174,6 +213,10 @@ function validateNoUploadApprovalLeakage(
   issues: KnowledgeValidationIssue[]
 ): void {
   if (typeof value === 'string') {
+    const blockerCodePath = path.includes('.blockerCodes[') || /\.blockers\[\d+\]\.code$/.test(path);
+    if (blockerCodePath && /^[a-z0-9-]+$/.test(value)) {
+      return;
+    }
     if (SAFE_ENV_VAR_NAME_PATTERN.test(value)) {
       return;
     }
@@ -200,7 +243,8 @@ function validateNoUploadApprovalLeakage(
       || key === 'credentialValuesRead'
       || key === 'credentialPresenceChecked'
       || key === 'credentialBoundary'
-      || key === 'writeTokenIssued';
+      || key === 'writeTokenIssued'
+      || key === 'writeTokenRequiredBeforeExecution';
     if (!safeControlField && FORBIDDEN_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include backend detail or credential fields.'));
     }
@@ -259,6 +303,39 @@ function validateFingerprintObject(
     issues.push(error(`${path}.canonicalFieldCount`, 'must be 13.'));
   }
   if (fingerprint.value === null && allowNullValue) {
+    return null;
+  }
+  if (typeof fingerprint.value !== 'string' || !SAFE_SHA256_PATTERN.test(fingerprint.value)) {
+    issues.push(error(`${path}.value`, 'must be a SHA-256 hex string.'));
+    return null;
+  }
+  return fingerprint.value;
+}
+
+function validateScopedSha256FingerprintObject(
+  fingerprint: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  input: {
+    expectedScope: string;
+    expectedCanonicalFieldCount: number;
+    allowNullValue: boolean;
+  }
+): string | null {
+  if (!isRecord(fingerprint)) {
+    issues.push(error(path, 'must be an object.'));
+    return null;
+  }
+  if (fingerprint.algorithm !== 'sha256') {
+    issues.push(error(`${path}.algorithm`, 'must be sha256.'));
+  }
+  if (fingerprint.scope !== input.expectedScope) {
+    issues.push(error(`${path}.scope`, `must be ${input.expectedScope}.`));
+  }
+  if (fingerprint.canonicalFieldCount !== input.expectedCanonicalFieldCount) {
+    issues.push(error(`${path}.canonicalFieldCount`, `must be ${input.expectedCanonicalFieldCount}.`));
+  }
+  if (fingerprint.value === null && input.allowNullValue) {
     return null;
   }
   if (typeof fingerprint.value !== 'string' || !SAFE_SHA256_PATTERN.test(fingerprint.value)) {
@@ -972,6 +1049,232 @@ export function validateKnowledgeTeamUploadExecutionGatePayload(
       path: '$.readiness',
       issues
     });
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadMutationPlanPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload mutation plan');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_MUTATION_PLAN_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload mutation plan status must be supported.'));
+  }
+  if (payload.planKind !== 'approval-audit-dry-run') {
+    issues.push(error('$.planKind', 'Knowledge team upload mutation plan kind must be approval-audit-dry-run.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload mutation plan operation must be stage-knowledge-pack.'));
+  }
+  for (const key of [
+    'uploadApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ]) {
+    if (payload[key] !== false) {
+      issues.push(error(`$.${key}`, 'Knowledge team upload mutation plan must keep mutation and execution fields false.'));
+    }
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload mutation plan target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be null or a safe 24-character id.'));
+      }
+      if (payload.status === 'plan-ready' && payload.target[key] === null) {
+        issues.push(error(`$.target.${key}`, 'must be set for plan-ready payloads.'));
+      }
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.status === 'plan-ready' && payload.target.objectSha256 === null) {
+      issues.push(error('$.target.objectSha256', 'must be set for plan-ready payloads.'));
+    }
+    if (payload.target.objectKey !== null && (typeof payload.target.objectKey !== 'string' || !isSafeKnowledgeTeamArtifactObjectKey(payload.target.objectKey))) {
+      issues.push(error('$.target.objectKey', 'must be null or a safe team artifact object key.'));
+    }
+    if (payload.status === 'plan-ready' && payload.target.objectKey === null) {
+      issues.push(error('$.target.objectKey', 'must be set for plan-ready payloads.'));
+    }
+  }
+
+  if (!isRecord(payload.sourceGate)) {
+    issues.push(error('$.sourceGate', 'Knowledge team upload mutation plan sourceGate must be an object.'));
+  } else {
+    if (payload.sourceGate.source !== 'upload-execution-gate') {
+      issues.push(error('$.sourceGate.source', 'must be upload-execution-gate.'));
+    }
+    if (!isOneOf(payload.sourceGate.gateStatus, UPLOAD_MUTATION_PLAN_GATE_STATUSES)) {
+      issues.push(error('$.sourceGate.gateStatus', 'must be a supported gate status.'));
+    }
+    if (!isOneOf(payload.sourceGate.gateKind, UPLOAD_MUTATION_PLAN_GATE_KINDS)) {
+      issues.push(error('$.sourceGate.gateKind', 'must be a supported gate kind.'));
+    }
+    if (!isOneOf(payload.sourceGate.gateNextAction, UPLOAD_MUTATION_PLAN_GATE_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceGate.gateNextAction', 'must be a supported gate next action.'));
+    }
+    if (!isOneOf(payload.sourceGate.continuationStatus, UPLOAD_MUTATION_PLAN_CONTINUATION_STATUSES)) {
+      issues.push(error('$.sourceGate.continuationStatus', 'must be a supported continuation status.'));
+    }
+    if (!isOneOf(payload.sourceGate.mockHarnessStatus, UPLOAD_MUTATION_PLAN_HARNESS_STATUSES)) {
+      issues.push(error('$.sourceGate.mockHarnessStatus', 'must be a supported mock harness status.'));
+    }
+    if (!isOneOf(payload.sourceGate.mockHarnessKind, UPLOAD_MUTATION_PLAN_HARNESS_KINDS)) {
+      issues.push(error('$.sourceGate.mockHarnessKind', 'must be a supported mock harness kind.'));
+    }
+    if (!isOneOf(payload.sourceGate.adapterBackendKind, UPLOAD_MUTATION_PLAN_ADAPTER_BACKENDS)) {
+      issues.push(error('$.sourceGate.adapterBackendKind', 'must be a supported adapter backend kind.'));
+    }
+    for (const key of ['scopeMatched', 'approvalProvided', 'fingerprintVerified', 'mockAdapterInstantiated']) {
+      if (typeof payload.sourceGate[key] !== 'boolean') {
+        issues.push(error(`$.sourceGate.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.sourceGate.adapterName !== null) {
+      if (typeof payload.sourceGate.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.sourceGate.adapterName)) {
+        issues.push(error('$.sourceGate.adapterName', 'must be null or a safe adapter name.'));
+      }
+    }
+    if (payload.status === 'plan-ready') {
+      if (payload.sourceGate.gateStatus !== 'gate-ready') {
+        issues.push(error('$.sourceGate.gateStatus', 'must be gate-ready for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.gateKind !== 'approval-gated-dry-run') {
+        issues.push(error('$.sourceGate.gateKind', 'must be approval-gated-dry-run for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.gateNextAction !== 'request-separate-mutation-approval') {
+        issues.push(error('$.sourceGate.gateNextAction', 'must request separate mutation approval for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.scopeMatched !== true) {
+        issues.push(error('$.sourceGate.scopeMatched', 'must be true for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.continuationStatus !== 'continuation-ready') {
+        issues.push(error('$.sourceGate.continuationStatus', 'must be continuation-ready for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.approvalProvided !== true) {
+        issues.push(error('$.sourceGate.approvalProvided', 'must be true for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.fingerprintVerified !== true) {
+        issues.push(error('$.sourceGate.fingerprintVerified', 'must be true for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.mockHarnessStatus !== 'harness-ready') {
+        issues.push(error('$.sourceGate.mockHarnessStatus', 'must be harness-ready for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.mockHarnessKind !== 'in-memory-mock') {
+        issues.push(error('$.sourceGate.mockHarnessKind', 'must be in-memory-mock for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.mockAdapterInstantiated !== true) {
+        issues.push(error('$.sourceGate.mockAdapterInstantiated', 'must be true for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.adapterName === null) {
+        issues.push(error('$.sourceGate.adapterName', 'must be set for plan-ready payloads.'));
+      }
+      if (payload.sourceGate.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.sourceGate.adapterBackendKind', 'must be mock-s3-compatible for plan-ready payloads.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.approvalAudit)) {
+    issues.push(error('$.approvalAudit', 'Knowledge team upload mutation plan approvalAudit must be an object.'));
+  } else {
+    if (payload.approvalAudit.mutationApprovalRequired !== true) {
+      issues.push(error('$.approvalAudit.mutationApprovalRequired', 'must be true.'));
+    }
+    for (const key of ['mutationApprovalGranted', 'humanApprovalRequestIssued', 'uploadApproved', 'uploadExecutionAllowed']) {
+      if (payload.approvalAudit[key] !== false) {
+        issues.push(error(`$.approvalAudit.${key}`, 'must be false.'));
+      }
+    }
+    const fingerprintValue = validateScopedSha256FingerprintObject(
+      payload.approvalAudit.approvalScopeFingerprint,
+      '$.approvalAudit.approvalScopeFingerprint',
+      issues,
+      {
+        expectedScope: 'stage-knowledge-pack-mutation-plan-v1',
+        expectedCanonicalFieldCount: 12,
+        allowNullValue: payload.status === 'blocked'
+      }
+    );
+    if (payload.status === 'plan-ready' && fingerprintValue === null) {
+      issues.push(error('$.approvalAudit.approvalScopeFingerprint.value', 'Plan-ready upload mutation plans require a fingerprint value.'));
+    }
+  }
+
+  if (!isRecord(payload.executionPlan)) {
+    issues.push(error('$.executionPlan', 'Knowledge team upload mutation plan executionPlan must be an object.'));
+  } else {
+    for (const key of [
+      'dryRunOnly',
+      'artifactBytesRequiredBeforeExecution',
+      'adapterInjectionRequiredBeforeExecution',
+      'writeTokenRequiredBeforeExecution',
+      'executionLeaseRequiredBeforeExecution',
+      'rollbackPlanRequired',
+      'auditRecordRequired'
+    ]) {
+      if (payload.executionPlan[key] !== true) {
+        issues.push(error(`$.executionPlan.${key}`, 'must be true.'));
+      }
+    }
+    for (const key of [
+      'executable',
+      'artifactBytesProvided',
+      'adapterInjected',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'clientCreated',
+      'credentialValuesRead',
+      'credentialPresenceChecked',
+      'liveCheckPerformed',
+      'uploadCommandGenerated',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed'
+    ]) {
+      if (payload.executionPlan[key] !== false) {
+        issues.push(error(`$.executionPlan.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload mutation plan readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_MUTATION_PLAN_BLOCKERS,
+      supportedStatuses: UPLOAD_MUTATION_PLAN_STATUSES,
+      supportedNextActions: UPLOAD_MUTATION_PLAN_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+    if (payload.status === 'plan-ready' && payload.readiness.status !== 'plan-ready') {
+      issues.push(error('$.readiness.status', 'must be plan-ready when payload status is plan-ready.'));
+    }
+    if (payload.status === 'plan-ready' && payload.readiness.nextAction !== 'request-human-mutation-approval') {
+      issues.push(error('$.readiness.nextAction', 'must request human mutation approval for plan-ready payloads.'));
+    }
   }
 
   return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
