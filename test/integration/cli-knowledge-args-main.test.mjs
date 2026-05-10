@@ -365,3 +365,21 @@ test('knowledge upload-execution-gate CLI args accept continuation mock harness 
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-gate.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-mutation-plan CLI args accept execution gate and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-mutation-plan',
+    'artifacts/knowledge-pack.upload-execution-gate.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-mutation-plan.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-mutation-plan');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-execution-gate.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-mutation-plan.json');
+  assert.equal(parsed.json, true);
+});
