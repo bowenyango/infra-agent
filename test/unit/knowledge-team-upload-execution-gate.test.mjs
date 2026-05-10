@@ -190,3 +190,60 @@ test('upload execution gate blocks forged continuation execution flags', async (
   assert.equal(gate.readiness.blockerCodes.includes('upload-command-present'), true);
   assertNoPrivateValues(gate);
 });
+
+test('upload execution gate blocks forged mock harness mutation flags', async () => {
+  const { continuation, mockHarness } = await validContinuationAndHarness();
+  const gate = buildKnowledgeTeamUploadExecutionGate({
+    continuation,
+    mockHarness: {
+      ...mockHarness,
+      uploadCommand: 'aws s3 cp private.json s3://private-bucket/private-key',
+      remoteWriteAllowed: true,
+      liveCheckAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      clientCreated: true,
+      adapterInjected: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true,
+      mockHarness: {
+        ...mockHarness.mockHarness,
+        objectWriteAttempted: true,
+        indexWriteAttempted: true,
+        remoteMutationPerformed: true
+      }
+    }
+  });
+
+  assert.equal(gate.status, 'blocked');
+  assert.equal(gate.uploadApproved, false);
+  assert.equal(gate.uploadExecutionAllowed, false);
+  assert.equal(gate.clientCreated, false);
+  assert.equal(gate.adapterInjected, false);
+  assert.equal(gate.writeTokenIssued, false);
+  assert.equal(gate.executionLeaseCreated, false);
+  assert.equal(gate.objectWriteAttempted, false);
+  assert.equal(gate.metadataIndexWriteAttempted, false);
+  assert.equal(gate.remoteMutationPerformed, false);
+  assert.equal(gate.uploadCommand, null);
+  assert.equal(gate.mockHarness.objectWriteAttempted, false);
+  assert.equal(gate.mockHarness.indexWriteAttempted, false);
+  assert.equal(gate.mockHarness.remoteMutationPerformed, false);
+  assert.equal(gate.executionBoundary.adapterInjectionReviewed, false);
+  assert.equal(gate.readiness.blockerCodes.includes('remote-write-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('live-check-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('credential-values-exposed'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('credential-presence-check-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('upload-approval-already-provided'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('upload-execution-enabled'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('client-created'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('adapter-injected'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('object-write-attempted'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('metadata-index-write-attempted'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('remote-mutation-performed'), true);
+  assert.equal(gate.readiness.blockerCodes.includes('upload-command-present'), true);
+  assertNoPrivateValues(gate);
+});
