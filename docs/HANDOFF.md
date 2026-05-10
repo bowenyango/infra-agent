@@ -273,6 +273,67 @@ Next step:
   needed before real backend clients. Keep real remote writes disabled until
   that separate slice is documented and approved.
 
+## 2026-05-09 Active Upload Mutation Plan
+
+Status:
+
+- In progress. This slice adds a private dry-run upload mutation plan after
+  `upload-execution-gate`.
+- Scope is still non-executable review only: consume a saved
+  `infra-agent.knowledge-team-upload-execution-gate`, verify that it is
+  `gate-ready`, and emit the approval/audit plan that a later human mutation
+  approval flow would review.
+- This slice must not grant upload approval, allow upload execution, issue
+  write tokens, create execution leases, create rollback artifacts, inject
+  adapters into execution, create SDK clients, read artifact bytes, read
+  credential values or presence, run live backend checks, generate upload
+  commands, or mutate object/index storage.
+
+Why this direction:
+
+- The previous slice made scope and execution-gate state machine-checkable, but
+  it intentionally stopped before any mutation approval. The next safe step is
+  to produce an auditable plan for what would need separate approval later.
+- This follows the learning-claude-code permission pattern: route state,
+  approval request state, and mutation execution stay separate. `plan-ready`
+  must mean "ready to request explicit mutation approval", not upload-ready.
+
+Planned checkpoints:
+
+1. Record this active mutation plan and non-goals before feature changes.
+2. Add a private `infra-agent.knowledge-team-upload-mutation-plan` contract.
+3. Cover the ready path from a saved `gate-ready` execution gate.
+4. Block non-ready or forged execution gate artifacts.
+5. Block forged mutation approval, token, lease, command, client, artifact-byte,
+   and write state.
+6. Add validation support behind `knowledge validate`.
+7. Add contract tests for stable private JSON shape and mutation-disabled
+   approval/audit fields.
+8. Add CLI parsing for
+   `infra-agent knowledge upload-mutation-plan <gate.json>
+   [--out <plan.json>] [--json]`.
+9. Wire the CLI command and safe text output.
+10. Add CLI integration, help, and no-SDK/no-env guard coverage.
+11. Update rules, roadmap, README, skill, and handoff docs with validation
+    results and remaining risks.
+
+Acceptance criteria:
+
+- Plan can report `plan-ready` only for a valid `gate-ready` execution gate.
+- Output must keep `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `mutationApprovalGranted=false`, `clientCreated=false`,
+  `adapterInjected=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+  `artifactBytesProvided=false`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+  `objectWriteAttempted=false`, `metadataIndexWriteAttempted=false`,
+  `remoteMutationPerformed=false`, and `uploadCommand=null`.
+- CLI reads only local execution-gate JSON and writes only the optional local
+  `--out` artifact.
+- Existing upload intent, upload continuation, upload adapter preflight, upload
+  mock harness, upload execution gate, backend reference readiness, and public
+  team artifact contracts remain unchanged.
+
 ## 2026-05-09 Active Upload Execution Gate Plan
 
 Status:
