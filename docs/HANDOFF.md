@@ -43,8 +43,8 @@ Current guardrails:
 
 Status:
 
-- In progress. This slice adds a private dry-run adapter dependency preflight
-  for team knowledge upload routing after explicit upload approval
+- Completed and verified. This slice adds a private dry-run adapter dependency
+  preflight for team knowledge upload routing after explicit upload approval
   continuation.
 - Scope is local JSON review only: consume a saved
   `infra-agent.knowledge-team-upload-approval-continuation` plus a saved backend
@@ -64,29 +64,48 @@ Why this direction:
   state, dependency state, and mutation execution stay separate. This slice only
   reviews dependency injection readiness and keeps mutation disabled.
 
-Planned checkpoints:
+Completed commits and checkpoints:
 
-1. Record this active plan and dry-run non-goals before feature changes.
-2. Add a private `infra-agent.knowledge-team-upload-adapter-preflight`
-   contract with all mutation, upload, credential, live-check, and client flags
-   disabled.
-3. Cover continuation-ready plus safe mock adapter resolution plan as
-   `preflight-ready`.
-4. Cover blocked or forged continuations so they never become preflight-ready.
-5. Validate adapter dependency plan shape without calling real resolver/client
-   creation paths.
-6. Block real S3-compatible and unsupported adapter plans until a later
-   explicitly gated backend implementation exists.
-7. Reject backend detail, credential, command, URL, bucket, endpoint, signed URL,
-   absolute path, and client/config leaks.
-8. Wire private validation support behind `knowledge validate`.
-9. Add a contract test that locks key order and disabled boundary fields.
-10. Add CLI parsing and command support for
-    `infra-agent knowledge upload-adapter-preflight <continuation.json>
-    --adapter-plan <adapter-plan.json> [--out <preflight.json>] [--json]`.
-11. Add CLI, help, and no-SDK/no-env guard coverage.
-12. Update rules, roadmap, README, skill, and handoff docs with validation
-    results and remaining risks.
+1. `0792b5a` docs: record upload adapter preflight plan.
+2. `a4339da` feat: add upload adapter preflight contract.
+3. `648febe` fix: accept safe artifact keys in adapter preflight.
+4. `ca50066` test: cover upload adapter preflight ready path.
+5. `8b3e017` test: block unsafe upload adapter continuations.
+6. `77e5e49` test: block unsafe upload adapter plans.
+7. `ce31c94` feat: validate upload adapter preflight artifacts.
+8. `06ef4b5` test: validate upload adapter preflight artifacts.
+9. `222ce1d` test: lock upload adapter preflight contract.
+10. `223bd26` feat: parse upload adapter preflight args.
+11. `97e4246` test: cover upload adapter preflight args.
+12. `9bf7602` feat: wire upload adapter preflight cli.
+13. `7e7334e` test: cover upload adapter preflight cli.
+14. `c04b86a` test: document upload adapter preflight help.
+15. `8d872b0` test: guard upload adapter preflight boundary.
+16. `8cd9a47` docs: document upload adapter preflight boundary.
+
+Current design:
+
+- `src/knowledge/team-upload-adapter-preflight.ts` owns the private
+  `infra-agent.knowledge-team-upload-adapter-preflight` contract and builder.
+  It consumes a saved upload approval continuation and a saved adapter
+  resolution plan. It does not call the adapter resolver, instantiate adapters,
+  create clients, or inspect environment variables.
+- A `preflight-ready` artifact requires a continuation-ready input with a
+  verified fingerprint and a resolvable `mock-s3-compatible` adapter resolution
+  plan. Real `s3-compatible` plans remain blocked with
+  `real-backend-not-implemented` and `unsupported-adapter-backend`.
+- The output keeps `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, `adapterInjected=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, and `uploadCommand=null`.
+- `src/knowledge/team-upload-approval-validation.ts` now validates
+  upload-adapter-preflight artifacts behind the `knowledge validate`
+  dispatcher.
+- `src/cli/main.ts` adds
+  `infra-agent knowledge upload-adapter-preflight <continuation.json>
+  --adapter-plan <adapter-plan.json> [--out <preflight.json>] [--json]`.
+  `src/cli/output.ts` adds safe text output that reports no upload execution,
+  no client creation, and no adapter injection.
 
 Acceptance criteria:
 
@@ -102,6 +121,39 @@ Acceptance criteria:
 - CLI reads only local JSON and writes only an optional local `--out` artifact.
 - Existing upload intent, upload continuation, backend reference readiness, and
   public team artifact contracts remain unchanged.
+
+Verification completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-adapter-preflight.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-adapter-preflight-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-adapter-preflight-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-upload-approval-continuation.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-approval-continuation-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-approval-continuation-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-adapter-resolver.test.mjs`
+- Full `npm run verify` passed. This covered lint, structure, unit,
+  integration, contract, isolated shard execution, smoke, e2e, coverage, and
+  package dry-run. The package dry-run reported `entryCount` 154.
+
+Current risks to monitor:
+
+- `preflight-ready` may be mistaken for upload-ready. It is only a local
+  dependency-injection review state for a future test harness.
+- The CLI currently consumes a saved adapter resolution plan. Producing that
+  plan remains an internal/module-level workflow; do not add a real backend
+  adapter-plan command unless it stays dry-run and side-effect free.
+- The next real-backend slice must remain separate and start with an explicit
+  mutation gate, not by widening this preflight artifact.
+
+Next step:
+
+- Design the explicit execution harness boundary for mock dependency injection
+  first. Keep real S3-compatible adapter implementation, SDK clients,
+  credential presence checks, live backend checks, upload commands, and remote
+  writes out of scope until a separate approval-gated slice.
 
 ## 2026-05-09 Active Upload Approval Continuation Plan
 
