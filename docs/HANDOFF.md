@@ -273,6 +273,70 @@ Next step:
   needed before real backend clients. Keep real remote writes disabled until
   that separate slice is documented and approved.
 
+## 2026-05-09 Active Upload Execution Gate Plan
+
+Status:
+
+- In progress. This slice adds a private dry-run execution gate review after
+  `upload-approval-continuation` and `upload-mock-harness`.
+- Scope is still review-only: consume a saved
+  `infra-agent.knowledge-team-upload-approval-continuation` and a saved
+  `infra-agent.knowledge-team-upload-mock-harness`, verify that their artifact
+  scope matches, and emit permission/audit state for a future approval-gated
+  execution design.
+- This slice must not grant upload approval, allow upload execution, issue
+  write tokens, create execution leases, inject adapters into execution, create
+  SDK clients, read credential values or presence, run live backend checks,
+  generate upload commands, stage artifact bytes, or mutate object/index
+  storage.
+
+Why this direction:
+
+- The previous slice proved the in-memory mock adapter descriptor boundary.
+  The next safe step is to model the execution gate and mutation audit
+  preconditions without crossing into execution.
+- This follows the learning-claude-code permission pattern: approval state,
+  dependency review, and mutation execution remain separate structured states.
+  `gate-ready` must mean "ready to request a separately approved execution
+  design", not upload-ready.
+
+Planned checkpoints:
+
+1. Record this active execution gate plan and non-goals before feature changes.
+2. Add a private `infra-agent.knowledge-team-upload-execution-gate` contract.
+3. Cover the ready path from matching continuation-ready and harness-ready
+   artifacts.
+4. Block forged continuation execution flags and unsafe continuation leakage.
+5. Block forged harness execution/write flags and unsafe harness leakage.
+6. Block continuation/harness artifact scope mismatches.
+7. Add validator support behind `knowledge validate`.
+8. Add contract tests for stable private JSON shape and mutation-disabled
+   audit fields.
+9. Add CLI parsing and command support for
+   `infra-agent knowledge upload-execution-gate <continuation.json>
+   --mock-harness <harness.json> [--out <gate.json>] [--json]`.
+10. Add CLI, help, and no-SDK/no-env guard coverage.
+11. Update rules, roadmap, README, skill, and handoff docs with validation
+    results and remaining risks.
+
+Acceptance criteria:
+
+- Gate can report `gate-ready` only for a continuation-ready artifact with a
+  verified fingerprint plus a harness-ready artifact for the same manifest,
+  object key, object hash, and artifact id.
+- Output must keep `uploadApproved=false`, `uploadExecutionAllowed=false`,
+  `clientCreated=false`, `adapterInjected=false`, `remoteWriteAllowed=false`,
+  `liveCheckAllowed=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `remoteMutationPerformed=false`, and
+  `uploadCommand=null`.
+- CLI reads only local continuation and harness JSON and writes only the
+  optional local `--out` artifact.
+- Existing upload intent, upload continuation, upload adapter preflight,
+  upload mock harness, backend reference readiness, and public team artifact
+  contracts remain unchanged.
+
 ## 2026-05-09 Active Upload Approval Continuation Plan
 
 Status:
