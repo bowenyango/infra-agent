@@ -16,6 +16,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-mock-harness.ts',
   'src/knowledge/team-upload-execution-gate.ts',
   'src/knowledge/team-upload-execution-prerequisite-plan.ts',
+  'src/knowledge/team-upload-write-token-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'

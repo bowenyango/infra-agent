@@ -285,6 +285,12 @@ test('help output includes upload execution prerequisite plan command', async ()
   assert.match(output, /infra-agent knowledge upload-execution-prerequisite-plan <approval-review\.json>/);
 });
 
+test('help output includes upload write token boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-write-token-boundary <execution-prerequisite-plan\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
