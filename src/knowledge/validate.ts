@@ -37,6 +37,7 @@ import {
 import { validateKnowledgeStoragePolicySummary } from './storage-policy-validation.ts';
 import { validateKnowledgeTeamBackendReadinessPayload } from './team-backend-readiness-validation.ts';
 import {
+  validateKnowledgeTeamUploadAdapterPreflightPayload,
   validateKnowledgeTeamUploadApprovalContinuationPayload,
   validateKnowledgeTeamUploadApprovalIntentPayload
 } from './team-upload-approval-validation.ts';
@@ -1070,6 +1071,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-approval-continuation') {
     return validateKnowledgeTeamUploadApprovalContinuationPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-adapter-preflight') {
+    return validateKnowledgeTeamUploadAdapterPreflightPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

@@ -16,6 +16,11 @@ const UPLOAD_INTENT_STATUSES = ['approval-required', 'blocked'] as const;
 const UPLOAD_INTENT_NEXT_ACTIONS = ['request-explicit-upload-approval', 'resolve-blockers'] as const;
 const UPLOAD_CONTINUATION_STATUSES = ['continuation-ready', 'blocked'] as const;
 const UPLOAD_CONTINUATION_NEXT_ACTIONS = ['inject-approved-adapter-dependencies', 'resolve-blockers'] as const;
+const UPLOAD_ADAPTER_PREFLIGHT_STATUSES = ['preflight-ready', 'blocked'] as const;
+const UPLOAD_ADAPTER_PREFLIGHT_NEXT_ACTIONS = ['inject-mock-adapter-in-test-harness', 'resolve-blockers'] as const;
+const UPLOAD_ADAPTER_PREFLIGHT_CONTINUATION_STATUSES = ['continuation-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_ADAPTER_PREFLIGHT_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_ADAPTER_PREFLIGHT_RESOLUTION_STATUSES = ['resolvable', 'blocked', 'not-resolved'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -54,6 +59,35 @@ const UPLOAD_CONTINUATION_BLOCKERS = [
   'upload-approval-already-provided',
   'upload-command-present',
   'upload-execution-enabled'
+] as const;
+const UPLOAD_ADAPTER_PREFLIGHT_BLOCKERS = [
+  'adapter-capability-disabled',
+  'adapter-credential-values-exposed',
+  'adapter-injected',
+  'adapter-live-check-enabled',
+  'adapter-plan-blocked',
+  'adapter-remote-write-enabled',
+  'adapter-upload-command-present',
+  'approval-fingerprint-unverified',
+  'backend-detail-leak',
+  'client-created',
+  'continuation-not-ready',
+  'credential-presence-check-enabled',
+  'credential-values-exposed',
+  'invalid-adapter-plan-kind',
+  'invalid-continuation-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'missing-required-field',
+  'mutation-enabled',
+  'real-backend-not-implemented',
+  'remote-write-enabled',
+  'unsupported-adapter-backend',
+  'upload-approval-already-provided',
+  'upload-command-present',
+  'upload-execution-enabled',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference'
 ] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl)/i;
 const FORBIDDEN_VALUE_PATTERN = /(?:https?:\/\/|s3:\/\/|aws s3|secret|token|password|authorization|bearer|private-key|\/(?:tmp|home|workspace|private|Users)\/|[A-Za-z]:\\)/i;
@@ -350,6 +384,144 @@ export function validateKnowledgeTeamUploadApprovalContinuationPayload(
       supportedCodes: UPLOAD_CONTINUATION_BLOCKERS,
       supportedStatuses: UPLOAD_CONTINUATION_STATUSES,
       supportedNextActions: UPLOAD_CONTINUATION_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadAdapterPreflightPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateCommonDryRunBoundary(payload, issues, 'Knowledge team upload adapter preflight');
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (!isOneOf(payload.status, UPLOAD_ADAPTER_PREFLIGHT_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload adapter preflight status must be supported.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload adapter preflight operation must be stage-knowledge-pack.'));
+  }
+  if (payload.uploadApproved !== false) {
+    issues.push(error('$.uploadApproved', 'Knowledge team upload adapter preflight must not approve upload.'));
+  }
+  if (payload.uploadExecutionAllowed !== false) {
+    issues.push(error('$.uploadExecutionAllowed', 'Knowledge team upload adapter preflight must not allow upload execution.'));
+  }
+  if (payload.clientCreated !== false) {
+    issues.push(error('$.clientCreated', 'Knowledge team upload adapter preflight must not create clients.'));
+  }
+  if (payload.adapterInjected !== false) {
+    issues.push(error('$.adapterInjected', 'Knowledge team upload adapter preflight must not inject adapters.'));
+  }
+
+  if (!isRecord(payload.continuation)) {
+    issues.push(error('$.continuation', 'Knowledge team upload adapter preflight continuation must be an object.'));
+  } else {
+    if (!isOneOf(payload.continuation.status, UPLOAD_ADAPTER_PREFLIGHT_CONTINUATION_STATUSES)) {
+      issues.push(error('$.continuation.status', 'must be a supported continuation status.'));
+    }
+    if (typeof payload.continuation.fingerprintVerified !== 'boolean') {
+      issues.push(error('$.continuation.fingerprintVerified', 'must be a boolean.'));
+    }
+    if (payload.continuation.backendKind !== 's3-compatible' && payload.continuation.backendKind !== 'unsupported') {
+      issues.push(error('$.continuation.backendKind', 'must be s3-compatible or unsupported.'));
+    }
+    if (payload.status === 'preflight-ready') {
+      if (payload.continuation.status !== 'continuation-ready') {
+        issues.push(error('$.continuation.status', 'must be continuation-ready for preflight-ready payloads.'));
+      }
+      if (payload.continuation.fingerprintVerified !== true) {
+        issues.push(error('$.continuation.fingerprintVerified', 'must be true for preflight-ready payloads.'));
+      }
+    }
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.continuation[key] !== null && (typeof payload.continuation[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.continuation[key]))) {
+        issues.push(error(`$.continuation.${key}`, 'must be null or a safe 24-character id.'));
+      }
+    }
+    if (payload.continuation.objectSha256 !== null && (typeof payload.continuation.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.continuation.objectSha256))) {
+      issues.push(error('$.continuation.objectSha256', 'must be null or a SHA-256 hex string.'));
+    }
+    if (payload.continuation.objectKey !== null && typeof payload.continuation.objectKey !== 'string') {
+      issues.push(error('$.continuation.objectKey', 'must be null or a string.'));
+    }
+  }
+
+  if (!isRecord(payload.adapterDependency)) {
+    issues.push(error('$.adapterDependency', 'Knowledge team upload adapter preflight adapterDependency must be an object.'));
+  } else {
+    if (payload.adapterDependency.source !== 'resolution-plan' && payload.adapterDependency.source !== 'none') {
+      issues.push(error('$.adapterDependency.source', 'must be resolution-plan or none.'));
+    }
+    if (payload.adapterDependency.dependencyInjectionOnly !== true) {
+      issues.push(error('$.adapterDependency.dependencyInjectionOnly', 'must be true.'));
+    }
+    if (typeof payload.adapterDependency.injectionCandidate !== 'boolean') {
+      issues.push(error('$.adapterDependency.injectionCandidate', 'must be a boolean.'));
+    }
+    if (!isOneOf(payload.adapterDependency.backendKind, UPLOAD_ADAPTER_PREFLIGHT_BACKENDS)) {
+      issues.push(error('$.adapterDependency.backendKind', 'must be a supported adapter backend kind.'));
+    }
+    if (payload.adapterDependency.adapterName !== null && typeof payload.adapterDependency.adapterName !== 'string') {
+      issues.push(error('$.adapterDependency.adapterName', 'must be null or a string.'));
+    }
+    if (!isOneOf(payload.adapterDependency.resolutionStatus, UPLOAD_ADAPTER_PREFLIGHT_RESOLUTION_STATUSES)) {
+      issues.push(error('$.adapterDependency.resolutionStatus', 'must be a supported resolution status.'));
+    }
+    if (payload.adapterDependency.realBackendImplemented !== false) {
+      issues.push(error('$.adapterDependency.realBackendImplemented', 'must be false.'));
+    }
+    for (const key of [
+      'artifactObjectStore',
+      'metadataIndex',
+      'contentAddressedObjectKeys',
+      'contentAddressedIndexKeys',
+      'idempotentWritesRequired',
+      'explicitUploadApprovalRequired'
+    ]) {
+      if (typeof payload.adapterDependency[key] !== 'boolean') {
+        issues.push(error(`$.adapterDependency.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.adapterDependency.remoteWriteAllowed !== false) {
+      issues.push(error('$.adapterDependency.remoteWriteAllowed', 'must be false.'));
+    }
+    if (payload.adapterDependency.liveCheckAllowed !== false) {
+      issues.push(error('$.adapterDependency.liveCheckAllowed', 'must be false.'));
+    }
+    if (payload.adapterDependency.credentialValuesExposed !== false) {
+      issues.push(error('$.adapterDependency.credentialValuesExposed', 'must be false.'));
+    }
+    if (payload.adapterDependency.uploadCommand !== null) {
+      issues.push(error('$.adapterDependency.uploadCommand', 'must be null.'));
+    }
+    if (payload.status === 'preflight-ready') {
+      if (payload.adapterDependency.injectionCandidate !== true) {
+        issues.push(error('$.adapterDependency.injectionCandidate', 'must be true for preflight-ready payloads.'));
+      }
+      if (payload.adapterDependency.backendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.adapterDependency.backendKind', 'must be mock-s3-compatible for preflight-ready payloads.'));
+      }
+      if (payload.adapterDependency.resolutionStatus !== 'resolvable') {
+        issues.push(error('$.adapterDependency.resolutionStatus', 'must be resolvable for preflight-ready payloads.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload adapter preflight readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_ADAPTER_PREFLIGHT_BLOCKERS,
+      supportedStatuses: UPLOAD_ADAPTER_PREFLIGHT_STATUSES,
+      supportedNextActions: UPLOAD_ADAPTER_PREFLIGHT_NEXT_ACTIONS,
       path: '$.readiness',
       issues
     });
