@@ -82,6 +82,10 @@ Verification performed during the slice:
 - CLI import/help checks:
   `node --experimental-strip-types -e "import('./src/cli/main.ts').then(() => console.log('cli import ok'))"`
   and `node --experimental-strip-types ./src/cli/main.ts --help`
+- Full final verification:
+  `npm run verify` passed after adding validator drift coverage; coverage
+  finished above thresholds at approximately 89.30% lines, 75.06% branches,
+  and 96.73% functions.
 
 Core files changed:
 
