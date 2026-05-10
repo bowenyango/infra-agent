@@ -110,7 +110,13 @@ durable design reference for infra-agent development.
   and model future artifact-byte staging requirements: bytes before
   adapter/execution, digest verification, artifact scope binding, and
   audit/rollback/lease/token preconditions. It still does not read, hash, stage,
-  provide, or expose bytes. All thirteen remain dry-run routing state with
+  provide, or expose bytes. `upload-adapter-injection-boundary` can consume
+  that artifact bytes boundary and model future adapter dependency-injection
+  requirements: adapter injection after bytes, adapter injection before
+  execution, mock adapter descriptor, object-store and metadata-index
+  dependencies, content-addressed keys, idempotent writes, explicit approval,
+  and client-creation preconditions. It still does not instantiate, inject, bind,
+  or expose adapters or clients. All fourteen remain dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter
   injection, client creation, credential reads, live checks, upload commands,

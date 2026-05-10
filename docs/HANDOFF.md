@@ -6,13 +6,13 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Adapter Injection Boundary Plan
+## 2026-05-10 Completed Upload Adapter Injection Boundary
 
 Status:
 
-- In progress. This slice continues the private dry-run upload boundary chain
+- Completed. This slice continues the private dry-run upload boundary chain
   after `upload-artifact-bytes-boundary`.
-- Planned scope is local JSON planning only: consume one saved
+- Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-artifact-bytes-boundary` and emit a
   private adapter injection boundary artifact that records the future
   dependency-injection requirements needed before any later client or execution
@@ -36,19 +36,19 @@ Why this direction:
   malformed, forged, adapter/client-leaking, byte-leaking, or backend-leaking
   inputs.
 
-Planned artifact and CLI:
+Implemented artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-adapter-injection-boundary`.
 - CLI:
   `infra-agent knowledge upload-adapter-injection-boundary <artifact-bytes-boundary.json> [--out <adapter-injection-boundary.json>] [--json]`.
-- Ready status should be `adapter-injection-boundary-ready`, meaning only that
+- Ready status is `adapter-injection-boundary-ready`, meaning only that
   the saved artifact bytes boundary is safe and future adapter-injection
   requirements are modeled. It is not adapter injection and not client creation.
-- Ready next action should be `design-client-creation-boundary`; blocked next
+- Ready next action is `design-client-creation-boundary`; blocked next
   action remains `resolve-blockers`.
 
-Planned acceptance criteria:
+Implemented acceptance criteria:
 
 1. `adapter-injection-boundary-ready` requires a valid
    `infra-agent.knowledge-team-upload-artifact-bytes-boundary` with
@@ -78,6 +78,70 @@ Planned acceptance criteria:
    write-token, prerequisite plan, mutation approval review, mutation plan,
    execution gate, mock harness, continuation, and team backend no-SDK
    boundaries remain valid.
+
+Completed commits for this slice:
+
+1. `2a9ecdf` docs: plan upload adapter injection boundary
+2. `1e51829` feat: add upload adapter injection boundary contract
+3. `ea6ac5d` test: cover upload adapter injection boundary ready path
+4. `90a5ead` test: block invalid upload adapter injection inputs
+5. `5514d2f` feat: validate upload adapter injection boundaries
+6. `a23b14c` test: cover upload adapter injection validation drift
+7. `7878f2e` test: cover upload adapter injection contract
+8. `db41732` feat: wire upload adapter injection boundary cli
+9. `dbc6d28` test: cover upload adapter injection cli parsing
+10. `9b03764` test: cover upload adapter injection cli
+11. `dfc74da` test: guard upload adapter injection boundary no sdk
+
+Verification performed during the slice:
+
+- Focused builder/unit:
+  `node --experimental-strip-types ./test/unit/knowledge-team-upload-adapter-injection-boundary.test.mjs`
+- Focused contract:
+  `node --experimental-strip-types ./test/contract/knowledge-team-upload-adapter-injection-boundary-contract.test.mjs`
+- Focused CLI:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-upload-adapter-injection-boundary-main.test.mjs`
+- Parser/help/no-SDK:
+  `node --experimental-strip-types ./test/integration/cli-knowledge-args-main.test.mjs`
+  `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
+  `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- Lint:
+  `npm run lint` passed.
+- Coverage:
+  `npm run test:coverage` passed with total coverage above thresholds; the new
+  `team-upload-adapter-injection-boundary.ts` file reports 100.00% line,
+  branch, and function coverage.
+- Full final verification:
+  `npm run verify` passed after code, test, and documentation updates.
+
+Core files changed:
+
+- `src/knowledge/team-upload-adapter-injection-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-adapter-injection-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-adapter-injection-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-adapter-injection-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `docs/AGENT_RULES.md`
+- `docs/CLAUDE_CODE_AGENT_PATTERNS.md`
+- `docs/ROADMAP.md`
+- `skills/infra-configuration/SKILL.md`
+
+Current remaining risk:
+
+- The artifact still models only an adapter-injection boundary; it does not
+  instantiate adapters, inject dependencies, bind object stores or metadata
+  indexes, create clients, read/hash/stage bytes, upload, or mutate remote
+  state.
+- Next safe step is `design-client-creation-boundary`: consume the saved
+  adapter injection boundary and model future client creation preconditions
+  while keeping clients, credentials, live checks, commands, object writes,
+  index writes, and remote mutation disabled.
 
 ## 2026-05-10 Completed Upload Artifact Bytes Boundary
 
