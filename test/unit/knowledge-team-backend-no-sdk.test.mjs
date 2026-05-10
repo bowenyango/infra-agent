@@ -22,6 +22,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-audit-record-boundary.ts',
   'src/knowledge/team-upload-artifact-bytes-boundary.ts',
   'src/knowledge/team-upload-adapter-injection-boundary.ts',
+  'src/knowledge/team-upload-client-creation-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -29,11 +30,16 @@ const TEAM_BACKEND_MODULES = [
 
 const ARTIFACT_BYTE_BOUNDARY_MODULES = [
   'src/knowledge/team-upload-artifact-bytes-boundary.ts',
-  'src/knowledge/team-upload-adapter-injection-boundary.ts'
+  'src/knowledge/team-upload-adapter-injection-boundary.ts',
+  'src/knowledge/team-upload-client-creation-boundary.ts'
 ];
 
 const ADAPTER_INJECTION_BOUNDARY_MODULES = [
   'src/knowledge/team-upload-adapter-injection-boundary.ts'
+];
+
+const CLIENT_CREATION_BOUNDARY_MODULES = [
+  'src/knowledge/team-upload-client-creation-boundary.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -79,6 +85,24 @@ const FORBIDDEN_ADAPTER_INJECTION_EXECUTION = [
   'metadataIndex.put',
   'clientCreated: true',
   'adapterInjected: true'
+];
+
+const FORBIDDEN_CLIENT_CREATION_EXECUTION = [
+  'createMockKnowledgeTeamBackendAdapter(',
+  'createClient(',
+  'new S3',
+  'new Client',
+  'putObject(',
+  'putEntry(',
+  'artifactStore.put',
+  'metadataIndex.put',
+  'readFile(',
+  'createReadStream(',
+  'clientCreated: true',
+  'sdkClientCreated: true',
+  'adapterInjected: true',
+  'liveCheckPerformed: true',
+  'uploadCommandGenerated: true'
 ];
 
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
@@ -136,6 +160,21 @@ test('adapter injection boundary does not instantiate adapters, clients, or writ
         source.includes(forbidden),
         false,
         `${relativePath} must not instantiate adapters, create clients, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('client creation boundary does not instantiate SDK clients, adapters, reads, or writes', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of CLIENT_CREATION_BOUNDARY_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_CLIENT_CREATION_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not instantiate clients, adapters, read bytes, perform checks, or write via ${forbidden}`
       );
     }
   }
