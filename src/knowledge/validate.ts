@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { buildKnowledgeCacheId } from './cache.ts';
 import { parseKnowledgeFactSet } from './facts-contract.ts';
 import { checkKnowledgeSourceFingerprint } from './local-source-fingerprint.ts';
-import type { KnowledgePackFact, KnowledgePackSource } from './pack.ts';
+import type { KnowledgePackFact, KnowledgePackSource, KnowledgePackUnit } from './pack.ts';
 import {
   isKnowledgeStoragePolicyCompatibleWithSourceKind,
   type KnowledgeStorageDefault,
@@ -937,6 +937,95 @@ function validateKnowledgePackFact(
   return sourceId === null ? null : { sourceId };
 }
 
+function validateKnowledgePackUnit(
+  value: unknown,
+  path: string,
+  sourceIds: Set<string>,
+  issues: KnowledgeValidationIssue[]
+): Pick<KnowledgePackUnit, 'sourceId' | 'unitType'> | null {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge pack unit must be an object.'));
+    return null;
+  }
+
+  if (typeof value.unitType !== 'string' || !KNOWLEDGE_UNIT_TYPES.includes(value.unitType as KnowledgeUnitType)) {
+    issues.push(error(`${path}.unitType`, 'Knowledge pack unit unitType must be supported.'));
+  }
+
+  const unitPath = readNonEmptyString(value.path, `${path}.path`, issues);
+  if (unitPath !== null) {
+    validateNoSecretLikeValue(unitPath, `${path}.path`, issues);
+  }
+  const summary = readNonEmptyString(value.summary, `${path}.summary`, issues);
+  if (summary !== null) {
+    validateNoSecretLikeValue(summary, `${path}.summary`, issues);
+  }
+  if (
+    typeof value.confidence !== 'string'
+    || !RETRIEVED_CONTEXT_CONFIDENCES.includes(value.confidence as RetrievedContextConfidence)
+  ) {
+    issues.push(error(`${path}.confidence`, 'Knowledge pack unit confidence must be supported.'));
+  }
+  if (
+    typeof value.extractionMethod !== 'string'
+    || !KNOWLEDGE_UNIT_EXTRACTION_METHODS.includes(value.extractionMethod as KnowledgeUnitExtractionMethod)
+  ) {
+    issues.push(error(`${path}.extractionMethod`, 'Knowledge pack unit extractionMethod must be supported.'));
+  }
+  if (
+    typeof value.privacyScope !== 'string'
+    || !KNOWLEDGE_UNIT_PRIVACY_SCOPES.includes(value.privacyScope as KnowledgeUnitPrivacyScope)
+  ) {
+    issues.push(error(`${path}.privacyScope`, 'Knowledge pack unit privacyScope must be supported.'));
+  }
+  if (value.tokenEstimate !== undefined) {
+    readNonNegativeInteger(value.tokenEstimate, `${path}.tokenEstimate`, issues);
+  }
+  validateOptionalStringArray(value.relatedPaths, `${path}.relatedPaths`, issues);
+
+  const sourceId = readNonEmptyString(value.sourceId, `${path}.sourceId`, issues);
+  if (sourceId !== null && !sourceIds.has(sourceId)) {
+    issues.push(error(`${path}.sourceId`, 'Knowledge pack unit sourceId must reference a source in sources.'));
+  }
+  const sourceLocator = readNonEmptyString(value.sourceLocator, `${path}.sourceLocator`, issues);
+  if (sourceLocator !== null) {
+    validateNoSecretLikeValue(sourceLocator, `${path}.sourceLocator`, issues);
+  }
+
+  switch (value.unitType) {
+    case 'fact':
+      if (typeof value.factKind !== 'string' || !KNOWLEDGE_FACT_KINDS.includes(value.factKind as KnowledgeFactKind)) {
+        issues.push(error(`${path}.factKind`, 'Knowledge pack fact unit factKind must be supported.'));
+      }
+      validateOptionalStringArray(value.values, `${path}.values`, issues);
+      if (value.required !== undefined) {
+        readBoolean(value.required, `${path}.required`, issues);
+      }
+      validateOptionalString(value.type, `${path}.type`, issues);
+      validateOptionalString(value.defaultValue, `${path}.defaultValue`, issues);
+      break;
+    case 'guidance':
+      validateGuidanceKnowledgeUnit(value, path, issues);
+      break;
+    case 'example':
+      validateExampleKnowledgeUnit(value, path, issues);
+      break;
+    case 'diagnostic':
+      validateDiagnosticKnowledgeUnit(value, path, issues);
+      break;
+    case 'recipe':
+      validateRecipeKnowledgeUnit(value, path, issues);
+      break;
+  }
+
+  return sourceId === null || typeof value.unitType !== 'string'
+    ? null
+    : {
+        sourceId,
+        unitType: value.unitType as KnowledgeUnitType
+      };
+}
+
 function validateKnowledgePackPayload(
   payload: Record<string, unknown>,
   inputPath: string,
@@ -971,6 +1060,19 @@ function validateKnowledgePackPayload(
   const factCount = readNonNegativeInteger(payload.factCount, '$.factCount', issues);
   const includedFactCount = readNonNegativeInteger(payload.includedFactCount, '$.includedFactCount', issues);
   const omittedFactCount = readNonNegativeInteger(payload.omittedFactCount, '$.omittedFactCount', issues);
+  const hasUnitFields = payload.unitCount !== undefined
+    || payload.includedUnitCount !== undefined
+    || payload.omittedUnitCount !== undefined
+    || payload.units !== undefined;
+  const unitCount = hasUnitFields
+    ? readNonNegativeInteger(payload.unitCount, '$.unitCount', issues)
+    : null;
+  const includedUnitCount = hasUnitFields
+    ? readNonNegativeInteger(payload.includedUnitCount, '$.includedUnitCount', issues)
+    : null;
+  const omittedUnitCount = hasUnitFields
+    ? readNonNegativeInteger(payload.omittedUnitCount, '$.omittedUnitCount', issues)
+    : null;
   const staleSourceCount = readNonNegativeInteger(payload.staleSourceCount, '$.staleSourceCount', issues);
 
   const storagePolicySummary = validateKnowledgeStoragePolicySummary(payload.storagePolicy, '$.storagePolicy', issues);
@@ -1009,11 +1111,28 @@ function validateKnowledgePackPayload(
     });
   }
 
+  const units: Array<Pick<KnowledgePackUnit, 'sourceId' | 'unitType'>> = [];
+  if (hasUnitFields) {
+    if (!Array.isArray(payload.units)) {
+      issues.push(error('$.units', 'Knowledge pack units must be an array when unit counts are present.'));
+    } else {
+      payload.units.forEach((unit, index) => {
+        const validated = validateKnowledgePackUnit(unit, `$.units[${index}]`, sourceIds, issues);
+        if (validated) {
+          units.push(validated);
+        }
+      });
+    }
+  }
+
   const actualSourceCount = sources.length;
   const actualFactSetCount = sources.length;
   const actualFactCount = sources.reduce((total, source) => total + source.factCount, 0);
   const actualIncludedFactCount = facts.length;
   const actualOmittedFactCount = Math.max(0, actualFactCount - actualIncludedFactCount);
+  const actualUnitCount = hasUnitFields ? actualFactCount : 0;
+  const actualIncludedUnitCount = units.length;
+  const actualOmittedUnitCount = Math.max(0, actualUnitCount - actualIncludedUnitCount);
   const actualStaleSourceCount = sources.filter(source => source.stale).length;
   const actualStoragePolicy = {
     publicReference: sources.filter(source => source.storagePolicy.scope === 'public-reference').length,
@@ -1042,6 +1161,23 @@ function validateKnowledgePackPayload(
   }
   if (omittedFactCount !== null && omittedFactCount !== actualOmittedFactCount) {
     issues.push(error('$.omittedFactCount', 'Knowledge pack omittedFactCount must match factCount - includedFactCount.'));
+  }
+  if (hasUnitFields) {
+    if (unitCount !== null && unitCount !== actualUnitCount) {
+      issues.push(error('$.unitCount', 'Knowledge pack unitCount must match factCount while units are fact-backed.'));
+    }
+    if (includedUnitCount !== null && includedUnitCount !== actualIncludedUnitCount) {
+      issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must match units.length.'));
+    }
+    if (includedUnitCount !== null && unitCount !== null && includedUnitCount > unitCount) {
+      issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must not exceed unitCount.'));
+    }
+    if (includedUnitCount !== null && maxFacts !== null && includedUnitCount > maxFacts) {
+      issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must not exceed maxFacts.'));
+    }
+    if (omittedUnitCount !== null && omittedUnitCount !== actualOmittedUnitCount) {
+      issues.push(error('$.omittedUnitCount', 'Knowledge pack omittedUnitCount must match unitCount - includedUnitCount.'));
+    }
   }
   if (staleSourceCount !== null && staleSourceCount !== actualStaleSourceCount) {
     issues.push(error('$.staleSourceCount', 'Knowledge pack staleSourceCount must match stale sources.'));

@@ -64,7 +64,8 @@ function cloneRuntimeState(runtime: AgentRuntimeState): AgentRuntimeState {
       ? {
           ...runtime.knowledgeFacts,
           sources: [...runtime.knowledgeFacts.sources],
-          facts: [...runtime.knowledgeFacts.facts]
+          facts: [...runtime.knowledgeFacts.facts],
+          units: [...runtime.knowledgeFacts.units]
         }
       : null,
     observations: [...runtime.observations],

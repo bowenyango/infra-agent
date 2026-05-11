@@ -15,6 +15,9 @@ import type {
   KnowledgeSource,
   KnowledgeSourceFingerprint,
   KnowledgeSourceStaleReason,
+  KnowledgeUnitExtractionMethod,
+  KnowledgeUnitPrivacyScope,
+  KnowledgeUnitType,
   RetrievedContextConfidence
 } from '../types/knowledge.ts';
 
@@ -55,6 +58,68 @@ export interface KnowledgePackFact {
   relatedPaths?: string[];
 }
 
+export interface KnowledgePackUnitBase {
+  unitType: KnowledgeUnitType;
+  path: string;
+  summary: string;
+  confidence: RetrievedContextConfidence;
+  extractionMethod: KnowledgeUnitExtractionMethod;
+  sourceId: string;
+  sourceLocator: string;
+  privacyScope: KnowledgeUnitPrivacyScope;
+  tokenEstimate?: number;
+  relatedPaths?: string[];
+}
+
+export interface KnowledgePackFactUnit extends KnowledgePackUnitBase {
+  unitType: 'fact';
+  factKind: KnowledgeFactKind;
+  required?: boolean;
+  type?: string;
+  defaultValue?: string;
+  values?: string[];
+}
+
+export interface KnowledgePackGuidanceUnit extends KnowledgePackUnitBase {
+  unitType: 'guidance';
+  topic: string;
+  appliesWhen?: string[];
+  avoidWhen?: string[];
+  risk?: string;
+}
+
+export interface KnowledgePackExampleUnit extends KnowledgePackUnitBase {
+  unitType: 'example';
+  exampleType: string;
+  snippet: string;
+  language?: string;
+  appliesWhen?: string[];
+  avoidWhen?: string[];
+}
+
+export interface KnowledgePackDiagnosticUnit extends KnowledgePackUnitBase {
+  unitType: 'diagnostic';
+  engine: 'terraform' | 'pulumi' | 'helm' | 'provider' | 'runtime';
+  signature: string;
+  likelyCause: string;
+  recommendedReview: string[];
+}
+
+export interface KnowledgePackRecipeUnit extends KnowledgePackUnitBase {
+  unitType: 'recipe';
+  name: string;
+  steps: string[];
+  requiresApproval?: boolean;
+  mutationAllowed: false;
+}
+
+export type KnowledgePackUnit =
+  | KnowledgePackFactUnit
+  | KnowledgePackGuidanceUnit
+  | KnowledgePackExampleUnit
+  | KnowledgePackDiagnosticUnit
+  | KnowledgePackRecipeUnit;
+
 export interface KnowledgePack {
   kind: 'infra-agent.knowledge-pack';
   schemaVersion: 1;
@@ -70,11 +135,15 @@ export interface KnowledgePack {
   factCount: number;
   includedFactCount: number;
   omittedFactCount: number;
+  unitCount: number;
+  includedUnitCount: number;
+  omittedUnitCount: number;
   maxFacts: number;
   staleSourceCount: number;
   storagePolicy: KnowledgeStoragePolicySummary;
   sources: KnowledgePackSource[];
   facts: KnowledgePackFact[];
+  units: KnowledgePackUnit[];
 }
 
 export interface KnowledgePackOptions extends KnowledgeExtractionOptions {
@@ -92,6 +161,7 @@ function normalizeMaxFacts(maxFacts: number | undefined): number {
 function packHash(input: {
   sources: KnowledgePackSource[];
   facts: KnowledgePackFact[];
+  units: KnowledgePackUnit[];
 }): string {
   return createHash('sha256')
     .update(JSON.stringify({
@@ -112,6 +182,13 @@ function packHash(input: {
         summary: fact.summary,
         sourceId: fact.sourceId,
         sourceLocator: fact.sourceLocator
+      })),
+      units: input.units.map(unit => ({
+        unitType: unit.unitType,
+        path: unit.path,
+        summary: unit.summary,
+        sourceId: unit.sourceId,
+        sourceLocator: unit.sourceLocator
       }))
     }))
     .digest('hex')
@@ -195,6 +272,25 @@ function toPackFact(fact: KnowledgeFact): KnowledgePackFact {
   };
 }
 
+function toPackFactUnit(fact: KnowledgePackFact, source: KnowledgePackSource | undefined): KnowledgePackFactUnit {
+  return {
+    unitType: 'fact',
+    factKind: fact.kind,
+    path: fact.path,
+    summary: fact.summary,
+    confidence: fact.confidence,
+    extractionMethod: fact.extractionMethod,
+    sourceId: fact.sourceId,
+    sourceLocator: fact.sourceLocator,
+    privacyScope: source?.storagePolicy.scope ?? 'workspace-private',
+    ...(fact.required !== undefined ? { required: fact.required } : {}),
+    ...(fact.type !== undefined ? { type: fact.type } : {}),
+    ...(fact.defaultValue !== undefined ? { defaultValue: fact.defaultValue } : {}),
+    ...(fact.values !== undefined ? { values: [...fact.values] } : {}),
+    ...(fact.relatedPaths !== undefined ? { relatedPaths: [...fact.relatedPaths] } : {})
+  };
+}
+
 export async function buildKnowledgePack(
   inspection: WorkspaceInspection,
   options: KnowledgePackOptions = {}
@@ -217,12 +313,14 @@ export async function buildKnowledgePack(
     targetPaths: extraction.targetPaths
   });
   const facts = rankedFacts.slice(0, maxFacts);
+  const sourceById = new Map(sources.map(source => [source.id, source]));
+  const units = facts.map(fact => toPackFactUnit(fact, sourceById.get(fact.sourceId)));
 
   return {
     kind: 'infra-agent.knowledge-pack',
     schemaVersion: 1,
     mutationAllowed: false,
-    packId: packHash({ sources, facts }),
+    packId: packHash({ sources, facts, units }),
     workspaceRoot: extraction.workspaceRoot,
     cacheRoot: extraction.cacheRoot,
     requestedDomains: extraction.requestedDomains,
@@ -233,10 +331,14 @@ export async function buildKnowledgePack(
     factCount: extraction.factCount,
     includedFactCount: facts.length,
     omittedFactCount: Math.max(0, rankedFacts.length - facts.length),
+    unitCount: rankedFacts.length,
+    includedUnitCount: units.length,
+    omittedUnitCount: Math.max(0, rankedFacts.length - units.length),
     maxFacts,
     staleSourceCount: sources.filter(source => source.stale).length,
     storagePolicy,
     sources,
-    facts
+    facts,
+    units
   };
 }

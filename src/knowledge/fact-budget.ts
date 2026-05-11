@@ -1,4 +1,4 @@
-import type { KnowledgePack, KnowledgePackFact, KnowledgePackSource } from './pack.ts';
+import type { KnowledgePack, KnowledgePackFact, KnowledgePackSource, KnowledgePackUnit } from './pack.ts';
 
 export interface BudgetedKnowledgeFact {
   unitType?: 'fact';
@@ -30,6 +30,8 @@ export interface BudgetedKnowledgeFactSource {
   fingerprintFileCount?: number;
 }
 
+export type BudgetedKnowledgeUnit = KnowledgePackUnit;
+
 export interface KnowledgeFactBudgetSummary {
   kind: 'infra-agent.knowledge-facts-summary';
   schemaVersion: 1;
@@ -41,10 +43,14 @@ export interface KnowledgeFactBudgetSummary {
   totalFactCount: number;
   includedFactCount: number;
   omittedFactCount: number;
+  totalUnitCount: number;
+  includedUnitCount: number;
+  omittedUnitCount: number;
   staleSourceCount: number;
   uncheckedSourceCount: number;
   sources: BudgetedKnowledgeFactSource[];
   facts: BudgetedKnowledgeFact[];
+  units: BudgetedKnowledgeUnit[];
 }
 
 function normalizeMaxFacts(maxFacts: number | undefined, fallback: number): number {
@@ -91,6 +97,47 @@ function compactSource(source: KnowledgePackSource): BudgetedKnowledgeFactSource
   };
 }
 
+function compactUnit(unit: KnowledgePackUnit, source: KnowledgePackSource | undefined): BudgetedKnowledgeUnit {
+  const confidence = (source?.stale || source?.freshness === 'unchecked') && unit.confidence === 'high'
+    ? 'medium'
+    : unit.confidence;
+  const base = {
+    ...unit,
+    confidence,
+    ...(unit.relatedPaths !== undefined ? { relatedPaths: [...unit.relatedPaths] } : {})
+  };
+
+  switch (unit.unitType) {
+    case 'fact':
+      return {
+        ...base,
+        ...(unit.values !== undefined ? { values: [...unit.values] } : {})
+      };
+    case 'guidance':
+      return {
+        ...base,
+        ...(unit.appliesWhen !== undefined ? { appliesWhen: [...unit.appliesWhen] } : {}),
+        ...(unit.avoidWhen !== undefined ? { avoidWhen: [...unit.avoidWhen] } : {})
+      };
+    case 'example':
+      return {
+        ...base,
+        ...(unit.appliesWhen !== undefined ? { appliesWhen: [...unit.appliesWhen] } : {}),
+        ...(unit.avoidWhen !== undefined ? { avoidWhen: [...unit.avoidWhen] } : {})
+      };
+    case 'diagnostic':
+      return {
+        ...base,
+        recommendedReview: [...unit.recommendedReview]
+      };
+    case 'recipe':
+      return {
+        ...base,
+        steps: [...unit.steps]
+      };
+  }
+}
+
 export function budgetKnowledgePackFacts(
   pack: KnowledgePack | null | undefined,
   options: {
@@ -103,7 +150,11 @@ export function budgetKnowledgePackFacts(
   const facts = (pack?.facts ?? [])
     .slice(0, maxFacts)
     .map(fact => compactFact(fact, sourceById.get(fact.sourceId)));
+  const units = (pack?.units ?? [])
+    .slice(0, maxFacts)
+    .map(unit => compactUnit(unit, sourceById.get(unit.sourceId)));
   const totalFactCount = pack?.factCount ?? 0;
+  const totalUnitCount = pack?.unitCount ?? totalFactCount;
 
   return {
     kind: 'infra-agent.knowledge-facts-summary',
@@ -116,9 +167,13 @@ export function budgetKnowledgePackFacts(
     totalFactCount,
     includedFactCount: facts.length,
     omittedFactCount: Math.max(0, totalFactCount - facts.length),
+    totalUnitCount,
+    includedUnitCount: units.length,
+    omittedUnitCount: Math.max(0, totalUnitCount - units.length),
     staleSourceCount: pack?.staleSourceCount ?? 0,
     uncheckedSourceCount: (pack?.sources ?? []).filter(source => source.freshness === 'unchecked').length,
     sources: (pack?.sources ?? []).map(compactSource),
-    facts
+    facts,
+    units
   };
 }

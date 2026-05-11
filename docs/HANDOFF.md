@@ -6,6 +6,65 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Knowledge Pack Unit Projection
+
+Status:
+
+- Completed the second implementation slice for the five-unit infrastructure
+  RAG direction.
+- Scope is a compatibility-preserving projection only: `knowledge-pack` and
+  compact budget summaries now expose a parallel `units` view, but `facts` and
+  `knowledgeFacts` remain the stable compatibility surface.
+
+Implemented checkpoints:
+
+- `src/knowledge/pack.ts` now defines `KnowledgePackUnit` shapes for all five
+  unit types and emits fact-backed `units` from the existing ranked facts.
+- Generated packs now include `unitCount`, `includedUnitCount`,
+  `omittedUnitCount`, and `units`, with the current values matching the
+  fact-backed ranking result.
+- `src/knowledge/fact-budget.ts` now includes compact `units` and unit counts
+  alongside the existing `facts` summary. Stale or unchecked sources still
+  downgrade high confidence in both views.
+- `src/query.ts` clones runtime `knowledgeFacts.units` so runtime state remains
+  immutable across loop snapshots.
+- `src/knowledge/validate.ts` validates pack unit arrays when present and still
+  accepts legacy packs without unit fields.
+
+Design notes:
+
+- This intentionally does not switch the planner prompt from `facts` to
+  `units`. The change creates the stable data path needed for future
+  `diagnostic`, `recipe`, `guidance`, and `example` ranking without breaking
+  existing compact agent results.
+- The current pack `units` are fact-backed only, so `unitCount` equals
+  `factCount`. Future slices should relax this once non-fact unit extractors
+  are introduced.
+- `facts` remains the compatibility alias for downstream consumers that have
+  not moved to unit-aware retrieval.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-pack-unit-compatibility.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`
+- `npm run lint`
+- `npm run test:structure`
+- `npm run test:unit`
+- `npm run test:contract`
+- `npm run test:integration`
+
+Next recommended implementation steps:
+
+1. Add `rankKnowledgePackUnits` with explicit unit-type weights:
+   repo-local facts and validator diagnostics first, exact-version public schema
+   facts next, then recipes, guidance, and examples.
+2. Add initial `diagnostic` unit extraction from validation issue classifiers
+   and graph/impact conflict classifiers.
+3. Add `recipe` units for Terraform moved blocks, Pulumi aliases, Pulumi stack
+   config changes, Helm values migrations, and import/state review.
+4. Update planner prompt generation to include a compact selected-unit section
+   only after unit ranking can preserve deterministic fact precedence.
+
 ## 2026-05-11 Completed Knowledge Unit Contract Foundation
 
 Status:
