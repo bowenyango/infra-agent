@@ -185,6 +185,20 @@ const UPLOAD_EXECUTION_APPROVAL_RECORD_READINESS_NEXT_ACTIONS = ['request-separa
 const UPLOAD_EXECUTION_APPROVAL_RECORD_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
 const UPLOAD_EXECUTION_APPROVAL_RECORD_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
 const UPLOAD_EXECUTION_APPROVAL_RECORD_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_STATUSES = ['upload-execution-authorization-boundary-ready', 'blocked'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_NEXT_ACTIONS = ['await-plan-rules-update-for-upload-execution', 'resolve-blockers'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_SOURCE_STATUSES = ['upload-execution-approval-record-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_SOURCE_KINDS = ['human-upload-execution-approval-record-dry-run', 'unsupported'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_SOURCE_NEXT_ACTIONS = ['design-upload-execution-authorization-boundary', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REQUEST_STATUSES = ['upload-execution-approval-request-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REQUEST_KINDS = ['upload-execution-approval-request-dry-run', 'unsupported'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REQUEST_NEXT_ACTIONS = ['record-human-upload-execution-approval', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_READINESS_STATUSES = ['upload-execution-readiness-boundary-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_READINESS_KINDS = ['upload-execution-readiness-boundary-dry-run', 'unsupported'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_READINESS_NEXT_ACTIONS = ['request-separate-upload-execution-approval', 'resolve-blockers', 'invalid'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REVIEW_STATUSES = ['review-ready', 'blocked', 'invalid'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REVIEW_KINDS = ['human-fingerprint-dry-run', 'unsupported'] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_ADAPTER_BACKENDS = ['mock-s3-compatible', 's3-compatible', 'unsupported'] as const;
 const UPLOAD_INTENT_BLOCKERS = [
   'backend-reference-blocked',
   'credential-presence-check-enabled',
@@ -1075,6 +1089,59 @@ const UPLOAD_EXECUTION_APPROVAL_RECORD_BLOCKERS = [
   'upload-execution-enabled',
   'write-token-issued'
 ] as const;
+const UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_BLOCKERS = [
+  'adapter-dependency-leak',
+  'adapter-injected',
+  'artifact-bytes-provided',
+  'artifact-object-store-bound',
+  'audit-record-created',
+  'authorization-already-granted',
+  'authorization-material-leak',
+  'backend-detail-leak',
+  'client-created',
+  'client-dependency-leak',
+  'credential-dependency-leak',
+  'credential-presence-check-enabled',
+  'credential-presence-result-exposed',
+  'credential-values-exposed',
+  'credential-values-read',
+  'executable-state-enabled',
+  'execution-approval-record-next-action-invalid',
+  'execution-approval-record-not-ready',
+  'execution-lease-created',
+  'invalid-execution-approval-record-kind',
+  'invalid-record-kind',
+  'invalid-schema-version',
+  'live-check-enabled',
+  'live-check-result-exposed',
+  'metadata-index-bound',
+  'metadata-index-handle-leak',
+  'metadata-index-write-attempted',
+  'missing-required-field',
+  'mutation-approval-already-granted',
+  'mutation-enabled',
+  'object-store-handle-leak',
+  'object-write-attempted',
+  'remote-mutation-performed',
+  'remote-write-enabled',
+  'review-fingerprint-unverified',
+  'rollback-plan-created',
+  'scope-not-matched',
+  'unsafe-adapter-name',
+  'unsafe-artifact-reference',
+  'unsupported-adapter-backend',
+  'upload-approval-already-provided',
+  'upload-command-exposed',
+  'upload-command-generated',
+  'upload-command-present',
+  'upload-execution-approval-already-provided',
+  'upload-execution-authorization-already-provided',
+  'upload-execution-enabled',
+  'approval-record-fingerprint-missing',
+  'approval-record-fingerprint-unsupported',
+  'approval-record-fingerprint-unverified',
+  'write-token-issued'
+] as const;
 const FORBIDDEN_KEY_PATTERN = /(bucket|endpoint|url|credentialValue|secret|token|password|authorization|header|accessKey|sessionToken|clientConfig|signedUrl|liveCheckResult|liveCheckResponse|liveCheckProbe|liveBackendProbe|remoteProbeResult|healthCheckResult|uploadCommand(?:Value|Payload|Material|Data|Body|Line)|commandLine|shellCommand|signedUploadCommand)/i;
 const FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN = /(artifactBytesValue|artifactBytesBase64|artifactBytesContent|artifactBytesPayload|artifactContent|artifactPayload|rawArtifact|byteBuffer|bytesBase64|contentBase64|buffer|stream|arrayBuffer|blob|readPath|filePath|localPath|artifactPath|serializedPayload|stagedBytes)/i;
 const FORBIDDEN_ADAPTER_DEPENDENCY_KEY_PATTERN = /(adapterInstance|adapterObject|adapterValue|adapterDescriptorValue|adapterClient|clientInstance|clientObject|clientValue|clientFactory|clientConfig|sdkClient|objectStoreHandle|metadataIndexHandle|putObject|putEntry|fetch)/i;
@@ -1095,6 +1162,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'infra-agent.knowledge-team-upload-execution-readiness-boundary',
   'infra-agent.knowledge-team-upload-execution-approval-request',
   'infra-agent.knowledge-team-upload-execution-approval-record',
+  'infra-agent.knowledge-team-upload-execution-authorization-boundary',
   'upload-write-token-boundary',
   'upload-execution-lease-boundary',
   'upload-rollback-plan-boundary',
@@ -1110,6 +1178,7 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'upload-execution-readiness-boundary',
   'upload-execution-approval-request',
   'upload-execution-approval-record',
+  'upload-execution-authorization-boundary',
   'write-token-boundary-dry-run',
   'write-token-boundary-ready',
   'execution-lease-boundary-dry-run',
@@ -1140,6 +1209,8 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'upload-execution-approval-request-ready',
   'human-upload-execution-approval-record-dry-run',
   'upload-execution-approval-record-ready',
+  'upload-execution-authorization-boundary-dry-run',
+  'upload-execution-authorization-boundary-ready',
   'design-write-token-boundary',
   'design-execution-lease-boundary',
   'design-rollback-plan-boundary',
@@ -1154,10 +1225,12 @@ const SAFE_UPLOAD_CONTROL_VALUES = new Set([
   'design-object-index-binding-boundary',
   'design-upload-execution-readiness-boundary',
   'design-upload-execution-authorization-boundary',
+  'await-plan-rules-update-for-upload-execution',
   'request-separate-upload-execution-approval',
   'record-human-upload-execution-approval',
   'stage-knowledge-pack-upload-execution-approval-request-v1',
   'stage-knowledge-pack-upload-execution-approval-record-v1',
+  'stage-knowledge-pack-upload-execution-authorization-boundary-v1',
   'write-token-boundary-design',
   'write-token-issued',
   'write-token-not-required',
@@ -1417,7 +1490,15 @@ function validateNoUploadApprovalLeakage(
       || key === 'objectWriteAllowed'
       || key === 'metadataIndexWriteAllowed'
       || key === 'objectIndexBindingRequired'
-      || key === 'objectKeyRedacted';
+      || key === 'objectKeyRedacted'
+      || key === 'uploadExecutionAuthorizationRequired'
+      || key === 'authorizationBoundary'
+      || key === 'sourceApprovalRecord'
+      || key === 'sourceApprovalRecordFingerprint'
+      || key === 'authorizationBoundaryFingerprint'
+      || key === 'authorizationBoundaryDesigned'
+      || key === 'authorizationGranted'
+      || key === 'executionAuthorizationGranted';
     if (!safeControlField && FORBIDDEN_ARTIFACT_BYTE_KEY_PATTERN.test(key)) {
       issues.push(error(entryPath, 'Knowledge upload approval payloads must not include raw artifact bytes, byte buffers, streams, content payloads, or local artifact paths.'));
     }
@@ -2087,6 +2168,423 @@ export function validateKnowledgeTeamUploadExecutionApprovalRecordPayload(
       }
       if (payload.readiness.blockerCount !== 0) {
         issues.push(error('$.readiness.blockerCount', 'must be 0 for upload-execution-approval-record-ready payloads.'));
+      }
+    }
+    if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {
+      issues.push(error('$.readiness.nextAction', 'must resolve blockers for blocked payloads.'));
+    }
+  }
+
+  return createEmptyKnowledgeValidationReport({ inputPath, inputKind, issues });
+}
+
+export function validateKnowledgeTeamUploadExecutionAuthorizationBoundaryPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  validateNoUploadApprovalLeakage(payload, '$', issues);
+
+  if (payload.kind !== 'infra-agent.knowledge-team-upload-execution-authorization-boundary') {
+    issues.push(error('$.kind', 'must be infra-agent.knowledge-team-upload-execution-authorization-boundary.'));
+  }
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Knowledge team upload execution authorization boundary schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Knowledge team upload execution authorization boundary mutationAllowed must be false.'));
+  }
+  if (payload.executionMode !== 'dry-run') {
+    issues.push(error('$.executionMode', 'Knowledge team upload execution authorization boundary executionMode must be dry-run.'));
+  }
+  if (payload.boundaryKind !== 'upload-execution-authorization-boundary-dry-run') {
+    issues.push(error('$.boundaryKind', 'Knowledge team upload execution authorization boundary boundaryKind must be upload-execution-authorization-boundary-dry-run.'));
+  }
+  if (!isOneOf(payload.status, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_STATUSES)) {
+    issues.push(error('$.status', 'Knowledge team upload execution authorization boundary status is unsupported.'));
+  }
+  if (payload.plannedOperation !== 'stage-knowledge-pack') {
+    issues.push(error('$.plannedOperation', 'Knowledge team upload execution authorization boundary plannedOperation must be stage-knowledge-pack.'));
+  }
+
+  for (const key of [
+    'remoteWriteAllowed',
+    'liveCheckAllowed',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'uploadApproved',
+    'uploadExecutionApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ]) {
+    if (payload[key] !== false) {
+      issues.push(error(`$.${key}`, 'must be false for upload execution authorization boundary payloads.'));
+    }
+  }
+  if (payload.uploadCommand !== null) {
+    issues.push(error('$.uploadCommand', 'must be null for upload execution authorization boundary payloads.'));
+  }
+
+  if (!isRecord(payload.target)) {
+    issues.push(error('$.target', 'Knowledge team upload execution authorization boundary target must be an object.'));
+  } else {
+    for (const key of ['manifestId', 'artifactId']) {
+      if (payload.target[key] !== null && (typeof payload.target[key] !== 'string' || !/^[a-f0-9]{24}$/.test(payload.target[key]))) {
+        issues.push(error(`$.target.${key}`, 'must be a 24-character lowercase hex id or null.'));
+      }
+    }
+    if (payload.target.objectSha256 !== null && (typeof payload.target.objectSha256 !== 'string' || !SAFE_SHA256_PATTERN.test(payload.target.objectSha256))) {
+      issues.push(error('$.target.objectSha256', 'must be a SHA-256 hex string or null.'));
+    }
+    if (payload.target.objectKeyRedacted !== true) {
+      issues.push(error('$.target.objectKeyRedacted', 'must be true.'));
+    }
+    if (Object.hasOwn(payload.target, 'objectKey')) {
+      issues.push(error('$.target.objectKey', 'must not be present.'));
+    }
+    if (payload.status === 'upload-execution-authorization-boundary-ready') {
+      for (const key of ['manifestId', 'artifactId', 'objectSha256']) {
+        if (payload.target[key] === null) {
+          issues.push(error(`$.target.${key}`, 'must be set for upload-execution-authorization-boundary-ready payloads.'));
+        }
+      }
+    }
+  }
+
+  let sourceRequestFingerprint: string | null = null;
+  let sourceApprovalRecordFingerprint: string | null = null;
+  if (!isRecord(payload.sourceApprovalRecord)) {
+    issues.push(error('$.sourceApprovalRecord', 'Knowledge team upload execution authorization boundary sourceApprovalRecord must be an object.'));
+  } else {
+    if (payload.sourceApprovalRecord.source !== 'upload-execution-approval-record') {
+      issues.push(error('$.sourceApprovalRecord.source', 'must be upload-execution-approval-record.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.recordStatus, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_SOURCE_STATUSES)) {
+      issues.push(error('$.sourceApprovalRecord.recordStatus', 'unsupported source record status.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.recordKind, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_SOURCE_KINDS)) {
+      issues.push(error('$.sourceApprovalRecord.recordKind', 'unsupported source record kind.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.recordNextAction, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_SOURCE_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceApprovalRecord.recordNextAction', 'unsupported source record nextAction.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.sourceApprovalRequestStatus, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REQUEST_STATUSES)) {
+      issues.push(error('$.sourceApprovalRecord.sourceApprovalRequestStatus', 'unsupported source approval request status.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.sourceApprovalRequestKind, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REQUEST_KINDS)) {
+      issues.push(error('$.sourceApprovalRecord.sourceApprovalRequestKind', 'unsupported source approval request kind.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.sourceApprovalRequestNextAction, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REQUEST_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceApprovalRecord.sourceApprovalRequestNextAction', 'unsupported source approval request nextAction.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.sourceExecutionReadinessStatus, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_READINESS_STATUSES)) {
+      issues.push(error('$.sourceApprovalRecord.sourceExecutionReadinessStatus', 'unsupported source execution readiness status.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.sourceExecutionReadinessKind, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_READINESS_KINDS)) {
+      issues.push(error('$.sourceApprovalRecord.sourceExecutionReadinessKind', 'unsupported source execution readiness kind.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.sourceExecutionReadinessNextAction, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_READINESS_NEXT_ACTIONS)) {
+      issues.push(error('$.sourceApprovalRecord.sourceExecutionReadinessNextAction', 'unsupported source execution readiness nextAction.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.reviewStatus, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REVIEW_STATUSES)) {
+      issues.push(error('$.sourceApprovalRecord.reviewStatus', 'unsupported source review status.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.reviewKind, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_REVIEW_KINDS)) {
+      issues.push(error('$.sourceApprovalRecord.reviewKind', 'unsupported source review kind.'));
+    }
+    if (!isOneOf(payload.sourceApprovalRecord.adapterBackendKind, UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_ADAPTER_BACKENDS)) {
+      issues.push(error('$.sourceApprovalRecord.adapterBackendKind', 'unsupported source adapter backend kind.'));
+    }
+    if (payload.sourceApprovalRecord.adapterName !== null) {
+      if (typeof payload.sourceApprovalRecord.adapterName !== 'string' || !isSafeKnowledgeTeamBackendAdapterName(payload.sourceApprovalRecord.adapterName)) {
+        issues.push(error('$.sourceApprovalRecord.adapterName', 'must be null or a safe adapter name.'));
+      }
+    }
+    for (const key of [
+      'scopeMatched',
+      'humanReviewRecorded',
+      'sourceFingerprintVerified',
+      'sourceArtifactFingerprintVerified',
+      'requestIssued',
+      'requestHumanApprovalRecorded',
+      'requestApprovalGranted',
+      'requestFingerprintVerified',
+      'humanApprovalRecorded',
+      'approvalFingerprintVerified',
+      'approvalGranted',
+      'uploadApproved',
+      'uploadExecutionApproved',
+      'uploadExecutionAllowed',
+      'mutationApprovalGranted'
+    ]) {
+      if (typeof payload.sourceApprovalRecord[key] !== 'boolean') {
+        issues.push(error(`$.sourceApprovalRecord.${key}`, 'must be a boolean.'));
+      }
+    }
+    if (payload.status === 'upload-execution-authorization-boundary-ready') {
+      if (payload.sourceApprovalRecord.recordStatus !== 'upload-execution-approval-record-ready') {
+        issues.push(error('$.sourceApprovalRecord.recordStatus', 'must be upload-execution-approval-record-ready for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.recordKind !== 'human-upload-execution-approval-record-dry-run') {
+        issues.push(error('$.sourceApprovalRecord.recordKind', 'must be human-upload-execution-approval-record-dry-run for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.recordNextAction !== 'design-upload-execution-authorization-boundary') {
+        issues.push(error('$.sourceApprovalRecord.recordNextAction', 'must design upload execution authorization boundary for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.sourceApprovalRequestStatus !== 'upload-execution-approval-request-ready') {
+        issues.push(error('$.sourceApprovalRecord.sourceApprovalRequestStatus', 'must be upload-execution-approval-request-ready for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.sourceApprovalRequestKind !== 'upload-execution-approval-request-dry-run') {
+        issues.push(error('$.sourceApprovalRecord.sourceApprovalRequestKind', 'must be upload-execution-approval-request-dry-run for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.sourceApprovalRequestNextAction !== 'record-human-upload-execution-approval') {
+        issues.push(error('$.sourceApprovalRecord.sourceApprovalRequestNextAction', 'must record human upload execution approval for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.sourceExecutionReadinessStatus !== 'upload-execution-readiness-boundary-ready') {
+        issues.push(error('$.sourceApprovalRecord.sourceExecutionReadinessStatus', 'must be upload-execution-readiness-boundary-ready for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.sourceExecutionReadinessKind !== 'upload-execution-readiness-boundary-dry-run') {
+        issues.push(error('$.sourceApprovalRecord.sourceExecutionReadinessKind', 'must be upload-execution-readiness-boundary-dry-run for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.sourceExecutionReadinessNextAction !== 'request-separate-upload-execution-approval') {
+        issues.push(error('$.sourceApprovalRecord.sourceExecutionReadinessNextAction', 'must request separate upload execution approval for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.reviewStatus !== 'review-ready') {
+        issues.push(error('$.sourceApprovalRecord.reviewStatus', 'must be review-ready for ready authorization boundaries.'));
+      }
+      if (payload.sourceApprovalRecord.reviewKind !== 'human-fingerprint-dry-run') {
+        issues.push(error('$.sourceApprovalRecord.reviewKind', 'must be human-fingerprint-dry-run for ready authorization boundaries.'));
+      }
+      for (const key of [
+        'scopeMatched',
+        'humanReviewRecorded',
+        'sourceFingerprintVerified',
+        'sourceArtifactFingerprintVerified',
+        'requestIssued',
+        'humanApprovalRecorded',
+        'approvalFingerprintVerified'
+      ]) {
+        if (payload.sourceApprovalRecord[key] !== true) {
+          issues.push(error(`$.sourceApprovalRecord.${key}`, 'must be true for upload-execution-authorization-boundary-ready payloads.'));
+        }
+      }
+      for (const key of [
+        'requestHumanApprovalRecorded',
+        'requestApprovalGranted',
+        'requestFingerprintVerified',
+        'approvalGranted',
+        'uploadApproved',
+        'uploadExecutionApproved',
+        'uploadExecutionAllowed',
+        'mutationApprovalGranted'
+      ]) {
+        if (payload.sourceApprovalRecord[key] !== false) {
+          issues.push(error(`$.sourceApprovalRecord.${key}`, 'must be false for upload-execution-authorization-boundary-ready payloads.'));
+        }
+      }
+      if (payload.sourceApprovalRecord.adapterName === null) {
+        issues.push(error('$.sourceApprovalRecord.adapterName', 'must be set for upload-execution-authorization-boundary-ready payloads.'));
+      }
+      if (payload.sourceApprovalRecord.adapterBackendKind !== 'mock-s3-compatible') {
+        issues.push(error('$.sourceApprovalRecord.adapterBackendKind', 'must be mock-s3-compatible for ready authorization boundaries.'));
+      }
+      for (const key of ['suppliedFingerprint', 'expectedFingerprint']) {
+        if (typeof payload.sourceApprovalRecord[key] !== 'string' || !SAFE_SHA256_PATTERN.test(payload.sourceApprovalRecord[key])) {
+          issues.push(error(`$.sourceApprovalRecord.${key}`, 'must be a SHA-256 hex string for ready authorization boundaries.'));
+        }
+      }
+      if (typeof payload.sourceApprovalRecord.suppliedFingerprint === 'string'
+        && typeof payload.sourceApprovalRecord.expectedFingerprint === 'string'
+        && payload.sourceApprovalRecord.suppliedFingerprint !== payload.sourceApprovalRecord.expectedFingerprint) {
+        issues.push(error('$.sourceApprovalRecord.suppliedFingerprint', 'must match expectedFingerprint for ready authorization boundaries.'));
+      }
+    } else {
+      for (const key of ['suppliedFingerprint', 'expectedFingerprint']) {
+        if (payload.sourceApprovalRecord[key] !== null && (typeof payload.sourceApprovalRecord[key] !== 'string' || !SAFE_SHA256_PATTERN.test(payload.sourceApprovalRecord[key]))) {
+          issues.push(error(`$.sourceApprovalRecord.${key}`, 'must be null or a SHA-256 hex string.'));
+        }
+      }
+    }
+
+    sourceRequestFingerprint = validateScopedSha256FingerprintObject(
+      payload.sourceApprovalRecord.requestFingerprint,
+      '$.sourceApprovalRecord.requestFingerprint',
+      issues,
+      {
+        expectedScope: 'stage-knowledge-pack-upload-execution-approval-request-v1',
+        expectedCanonicalFieldCount: 16,
+        allowNullValue: payload.status !== 'upload-execution-authorization-boundary-ready'
+      }
+    );
+    const approvalRecordSourceRequestFingerprint = validateScopedSha256FingerprintObject(
+      payload.sourceApprovalRecord.sourceRequestFingerprint,
+      '$.sourceApprovalRecord.sourceRequestFingerprint',
+      issues,
+      {
+        expectedScope: 'stage-knowledge-pack-upload-execution-approval-request-v1',
+        expectedCanonicalFieldCount: 16,
+        allowNullValue: payload.status !== 'upload-execution-authorization-boundary-ready'
+      }
+    );
+    if (sourceRequestFingerprint !== null
+      && approvalRecordSourceRequestFingerprint !== null
+      && sourceRequestFingerprint !== approvalRecordSourceRequestFingerprint) {
+      issues.push(error('$.sourceApprovalRecord.sourceRequestFingerprint.value', 'must match sourceApprovalRecord.requestFingerprint.value.'));
+    }
+    sourceApprovalRecordFingerprint = validateScopedSha256FingerprintObject(
+      payload.sourceApprovalRecord.recordFingerprint,
+      '$.sourceApprovalRecord.recordFingerprint',
+      issues,
+      {
+        expectedScope: 'stage-knowledge-pack-upload-execution-approval-record-v1',
+        expectedCanonicalFieldCount: 14,
+        allowNullValue: payload.status !== 'upload-execution-authorization-boundary-ready'
+      }
+    );
+  }
+
+  if (!isRecord(payload.authorizationBoundary)) {
+    issues.push(error('$.authorizationBoundary', 'Knowledge team upload execution authorization boundary authorizationBoundary must be an object.'));
+  } else {
+    if (payload.authorizationBoundary.dryRunOnly !== true) {
+      issues.push(error('$.authorizationBoundary.dryRunOnly', 'must be true.'));
+    }
+    if (payload.authorizationBoundary.uploadExecutionAuthorizationRequired !== true) {
+      issues.push(error('$.authorizationBoundary.uploadExecutionAuthorizationRequired', 'must be true.'));
+    }
+    for (const key of [
+      'authorizationGranted',
+      'executionAuthorizationGranted',
+      'approvalGranted',
+      'uploadApproved',
+      'uploadExecutionApproved',
+      'uploadExecutionAllowed',
+      'mutationApprovalGranted',
+      'executable',
+      'objectWriteAllowed',
+      'metadataIndexWriteAllowed',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'remoteMutationPerformed'
+    ]) {
+      if (payload.authorizationBoundary[key] !== false) {
+        issues.push(error(`$.authorizationBoundary.${key}`, 'must be false for authorization boundary payloads.'));
+      }
+    }
+    for (const key of [
+      'humanApprovalRecorded',
+      'approvalFingerprintVerified',
+      'authorizationBoundaryDesigned'
+    ]) {
+      if (typeof payload.authorizationBoundary[key] !== 'boolean') {
+        issues.push(error(`$.authorizationBoundary.${key}`, 'must be a boolean.'));
+      }
+      if (payload.status === 'upload-execution-authorization-boundary-ready' && payload.authorizationBoundary[key] !== true) {
+        issues.push(error(`$.authorizationBoundary.${key}`, 'must be true for upload-execution-authorization-boundary-ready payloads.'));
+      }
+      if (payload.status === 'blocked' && payload.authorizationBoundary[key] !== false) {
+        issues.push(error(`$.authorizationBoundary.${key}`, 'must be false for blocked authorization boundaries.'));
+      }
+    }
+    const authorizationSourceFingerprint = validateScopedSha256FingerprintObject(
+      payload.authorizationBoundary.sourceApprovalRecordFingerprint,
+      '$.authorizationBoundary.sourceApprovalRecordFingerprint',
+      issues,
+      {
+        expectedScope: 'stage-knowledge-pack-upload-execution-approval-record-v1',
+        expectedCanonicalFieldCount: 14,
+        allowNullValue: payload.status !== 'upload-execution-authorization-boundary-ready'
+      }
+    );
+    if (sourceApprovalRecordFingerprint !== null
+      && authorizationSourceFingerprint !== null
+      && authorizationSourceFingerprint !== sourceApprovalRecordFingerprint) {
+      issues.push(error('$.authorizationBoundary.sourceApprovalRecordFingerprint.value', 'must match sourceApprovalRecord.recordFingerprint.value.'));
+    }
+    validateScopedSha256FingerprintObject(
+      payload.authorizationBoundary.authorizationBoundaryFingerprint,
+      '$.authorizationBoundary.authorizationBoundaryFingerprint',
+      issues,
+      {
+        expectedScope: 'stage-knowledge-pack-upload-execution-authorization-boundary-v1',
+        expectedCanonicalFieldCount: 16,
+        allowNullValue: payload.status !== 'upload-execution-authorization-boundary-ready'
+      }
+    );
+  }
+
+  if (!isRecord(payload.executionBoundary)) {
+    issues.push(error('$.executionBoundary', 'Knowledge team upload execution authorization boundary executionBoundary must be an object.'));
+  } else {
+    if (payload.executionBoundary.dryRunOnly !== true) {
+      issues.push(error('$.executionBoundary.dryRunOnly', 'must be true.'));
+    }
+    for (const key of [
+      'executable',
+      'artifactBytesProvided',
+      'adapterInjected',
+      'clientCreated',
+      'credentialValuesRead',
+      'credentialValuesExposed',
+      'credentialPresenceChecked',
+      'credentialPresenceResultExposed',
+      'liveCheckAllowed',
+      'liveCheckPerformed',
+      'liveCheckResultExposed',
+      'uploadCommandGenerated',
+      'uploadCommandMaterialized',
+      'uploadCommandExposed',
+      'artifactObjectStoreBound',
+      'metadataIndexBound',
+      'objectStoreHandleExposed',
+      'metadataIndexHandleExposed',
+      'objectWriteAllowed',
+      'metadataIndexWriteAllowed',
+      'objectWriteAttempted',
+      'metadataIndexWriteAttempted',
+      'writeTokenIssued',
+      'executionLeaseCreated',
+      'rollbackPlanCreated',
+      'auditRecordCreated',
+      'remoteMutationPerformed'
+    ]) {
+      if (payload.executionBoundary[key] !== false) {
+        issues.push(error(`$.executionBoundary.${key}`, 'must be false.'));
+      }
+    }
+  }
+
+  if (!isRecord(payload.readiness)) {
+    issues.push(error('$.readiness', 'Knowledge team upload execution authorization boundary readiness must be an object.'));
+  } else {
+    validateBlockers({
+      readiness: payload.readiness,
+      supportedCodes: UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_BLOCKERS,
+      supportedStatuses: UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_STATUSES,
+      supportedNextActions: UPLOAD_EXECUTION_AUTHORIZATION_BOUNDARY_NEXT_ACTIONS,
+      path: '$.readiness',
+      issues
+    });
+    if (payload.status !== payload.readiness.status) {
+      issues.push(error('$.readiness.status', 'must match payload status.'));
+    }
+    if (payload.status === 'upload-execution-authorization-boundary-ready') {
+      if (payload.readiness.nextAction !== 'await-plan-rules-update-for-upload-execution') {
+        issues.push(error('$.readiness.nextAction', 'must await a plan/rules update after ready authorization boundary design.'));
+      }
+      if (payload.readiness.blockerCount !== 0) {
+        issues.push(error('$.readiness.blockerCount', 'must be 0 for upload-execution-authorization-boundary-ready payloads.'));
       }
     }
     if (payload.status === 'blocked' && payload.readiness.nextAction !== 'resolve-blockers') {

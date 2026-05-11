@@ -31,6 +31,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-execution-readiness-boundary.ts',
   'src/knowledge/team-upload-execution-approval-request.ts',
   'src/knowledge/team-upload-execution-approval-record.ts',
+  'src/knowledge/team-upload-execution-authorization-boundary.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -81,6 +82,10 @@ const EXECUTION_APPROVAL_REQUEST_MODULES = [
 
 const EXECUTION_APPROVAL_RECORD_MODULES = [
   'src/knowledge/team-upload-execution-approval-record.ts'
+];
+
+const EXECUTION_AUTHORIZATION_BOUNDARY_MODULES = [
+  'src/knowledge/team-upload-execution-authorization-boundary.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -482,6 +487,20 @@ const FORBIDDEN_EXECUTION_APPROVAL_RECORD_EXECUTION = [
   'executable: true'
 ];
 
+const FORBIDDEN_EXECUTION_AUTHORIZATION_BOUNDARY_EXECUTION = [
+  ...FORBIDDEN_EXECUTION_APPROVAL_RECORD_EXECUTION,
+  'authorizationGranted: true',
+  'executionAuthorizationGranted: true',
+  'executionAuthorizationMaterialized: true',
+  'uploadExecutionAuthorized: true',
+  'objectWriteAllowed: true',
+  'metadataIndexWriteAllowed: true',
+  'uploadCommand: {',
+  'uploadCommand: \'',
+  'uploadCommand: "',
+  'fetch('
+];
+
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
   const root = process.cwd();
 
@@ -672,6 +691,21 @@ test('upload execution approval record does not grant execution, instantiate cli
         source.includes(forbidden),
         false,
         `${relativePath} must not grant execution, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('upload execution authorization boundary does not grant authorization, instantiate clients, read credentials, generate commands, or write', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of EXECUTION_AUTHORIZATION_BOUNDARY_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_EXECUTION_AUTHORIZATION_BOUNDARY_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not grant authorization, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
       );
     }
   }
