@@ -75,6 +75,7 @@ import type { KnowledgeTeamUploadObjectIndexBindingBoundary } from '../knowledge
 import type { KnowledgeTeamUploadExecutionReadinessBoundary } from '../knowledge/team-upload-execution-readiness-boundary.ts';
 import type { KnowledgeTeamUploadExecutionApprovalRequest } from '../knowledge/team-upload-execution-approval-request.ts';
 import type { KnowledgeTeamUploadExecutionApprovalRecord } from '../knowledge/team-upload-execution-approval-record.ts';
+import type { KnowledgeTeamUploadExecutionAuthorizationBoundary } from '../knowledge/team-upload-execution-authorization-boundary.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -4974,6 +4975,80 @@ export function printKnowledgeTeamUploadExecutionApprovalRecord(
   printList(
     record.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload execution approval record blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadExecutionAuthorizationBoundary(
+  boundary: KnowledgeTeamUploadExecutionAuthorizationBoundary
+): void {
+  printHeader('Knowledge team upload execution authorization boundary');
+  process.stdout.write(`status: ${boundary.status}\n`);
+  process.stdout.write(`next action: ${boundary.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${boundary.plannedOperation}\n`);
+  process.stdout.write(`execution: ${boundary.executionMode}\n`);
+  process.stdout.write(`boundary: ${boundary.boundaryKind}\n`);
+  process.stdout.write(`target manifest: ${boundary.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object key redacted: ${boundary.target.objectKeyRedacted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`target object sha256: ${boundary.target.objectSha256 ?? 'invalid'}\n`);
+  process.stdout.write(`target artifact: ${boundary.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${boundary.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check allowed: ${boundary.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${boundary.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${boundary.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${boundary.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution approved: ${boundary.uploadExecutionApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${boundary.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${boundary.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${boundary.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${boundary.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${boundary.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${boundary.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${boundary.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${boundary.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${boundary.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${boundary.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${boundary.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${boundary.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${boundary.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source approval record: ${boundary.sourceApprovalRecord.recordStatus}\n`);
+  process.stdout.write(`source approval record action: ${boundary.sourceApprovalRecord.recordNextAction}\n`);
+  process.stdout.write(`source approval request: ${boundary.sourceApprovalRecord.sourceApprovalRequestStatus}\n`);
+  process.stdout.write(`source approval request action: ${boundary.sourceApprovalRecord.sourceApprovalRequestNextAction}\n`);
+  process.stdout.write(`source execution readiness boundary: ${boundary.sourceApprovalRecord.sourceExecutionReadinessStatus}\n`);
+  process.stdout.write(`source execution readiness action: ${boundary.sourceApprovalRecord.sourceExecutionReadinessNextAction}\n`);
+  process.stdout.write(`source review: ${boundary.sourceApprovalRecord.reviewStatus}\n`);
+  process.stdout.write(`scope matched: ${boundary.sourceApprovalRecord.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source human review recorded: ${boundary.sourceApprovalRecord.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${boundary.sourceApprovalRecord.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source artifact fingerprint verified: ${boundary.sourceApprovalRecord.sourceArtifactFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${boundary.sourceApprovalRecord.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${boundary.sourceApprovalRecord.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`source request issued: ${boundary.sourceApprovalRecord.requestIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source request human approval recorded: ${boundary.sourceApprovalRecord.requestHumanApprovalRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source request approval granted: ${boundary.sourceApprovalRecord.requestApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source request fingerprint verified: ${boundary.sourceApprovalRecord.requestFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source human approval recorded: ${boundary.sourceApprovalRecord.humanApprovalRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source approval granted: ${boundary.sourceApprovalRecord.approvalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source approval fingerprint verified: ${boundary.sourceApprovalRecord.approvalFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source approval record fingerprint scope: ${boundary.sourceApprovalRecord.recordFingerprint.scope}\n`);
+  process.stdout.write(`source approval record fingerprint: ${boundary.sourceApprovalRecord.recordFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`dry run only: ${boundary.authorizationBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`authorization modeled: ${boundary.authorizationBoundary.authorizationBoundaryDesigned ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution approval required: ${boundary.authorizationBoundary.uploadExecutionAuthorizationRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human approval recorded: ${boundary.authorizationBoundary.humanApprovalRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`approval fingerprint verified: ${boundary.authorizationBoundary.approvalFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`approval grants execution: ${boundary.authorizationBoundary.approvalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution authorization granted: ${boundary.authorizationBoundary.executionAuthorizationGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary executable: ${boundary.authorizationBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write allowed: ${boundary.authorizationBoundary.objectWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write allowed: ${boundary.authorizationBoundary.metadataIndexWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`authorization boundary fingerprint scope: ${boundary.authorizationBoundary.authorizationBoundaryFingerprint.scope}\n`);
+  process.stdout.write(`authorization boundary fingerprint: ${boundary.authorizationBoundary.authorizationBoundaryFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`summary: humanApprovalRecorded=${boundary.authorizationBoundary.humanApprovalRecorded ? 'yes' : 'no'}, fingerprintVerified=${boundary.authorizationBoundary.approvalFingerprintVerified ? 'yes' : 'no'}, authorizationGranted=${boundary.authorizationBoundary.authorizationGranted ? 'yes' : 'no'}, uploadExecutionAllowed=${boundary.uploadExecutionAllowed ? 'yes' : 'no'}, executable=${boundary.executionBoundary.executable ? 'yes' : 'no'}, blockers=${boundary.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload execution authorization boundary blockers.'
   );
 }
 
