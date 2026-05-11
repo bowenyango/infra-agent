@@ -614,6 +614,177 @@ test('object/index binding boundary blocks malformed command boundary metadata',
   assertNoPrivateValues(boundary);
 });
 
+test('object/index binding boundary blocks missing sections and top-level execution flags', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({
+    commandBoundary: {
+      ...commandBoundary,
+      target: null,
+      sourceLiveCheckBoundary: null,
+      uploadCommandBoundary: null,
+      remainingExecutionBoundaries: null,
+      uploadCommand: { argv: ['aws', 's3', 'cp'] },
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      remoteMutationPerformed: true,
+      liveCheckAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('upload-approval-already-provided'), true);
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('mutation-approval-already-granted'), true);
+  assert.equal(codes.has('client-created'), true);
+  assert.equal(codes.has('adapter-injected'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('write-token-issued'), true);
+  assert.equal(codes.has('execution-lease-created'), true);
+  assert.equal(codes.has('rollback-plan-created'), true);
+  assert.equal(codes.has('audit-record-created'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('credential-values-exposed'), true);
+  assert.equal(codes.has('credential-presence-check-enabled'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(boundary.sourceUploadCommandBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceUploadCommandBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceUploadCommandBoundary.adapterBackendKind, 'unsupported');
+  assertExecutionAndBindingDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('object/index binding boundary blocks source command requirement drift', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const uploadCommandBoundary = { ...commandBoundary.uploadCommandBoundary };
+  for (const key of [
+    'dryRunOnly',
+    'uploadCommandRequiredBeforeExecution',
+    'uploadCommandRequiredAfterLiveCheckBoundary',
+    'liveCheckBoundaryRequired',
+    'liveCheckPolicyRequired',
+    'liveCheckResultRedactionRequired',
+    'credentialPresenceBoundaryRequired',
+    'credentialReadBoundaryRequired',
+    'credentialSourceDescriptorRequired',
+    'credentialReferenceOnlyRequired',
+    'credentialValueRedactionRequired',
+    'credentialPresenceResultRedactionRequired',
+    'mockAdapterRequired',
+    'clientFactoryDescriptorRequired',
+    'uploadCommandDescriptorRequired',
+    'uploadCommandPayloadRedactionRequired',
+    'uploadCommandMaterialRedactionRequired',
+    'commandExecutionApprovalRequired',
+    'artifactObjectStoreDependencyRequired',
+    'metadataIndexDependencyRequired',
+    'contentAddressedObjectKeysRequired',
+    'contentAddressedIndexKeysRequired',
+    'idempotentWritesRequired',
+    'explicitUploadApprovalRequired'
+  ]) {
+    uploadCommandBoundary[key] = false;
+  }
+  for (const key of [
+    'credentialValuesRead',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'credentialPresenceResultExposed',
+    'clientCreated',
+    'sdkClientCreated',
+    'adapterInjected',
+    'artifactObjectStoreBound',
+    'metadataIndexBound',
+    'liveCheckAllowed',
+    'liveCheckPerformed',
+    'liveCheckResultExposed',
+    'uploadCommandGenerated',
+    'uploadCommandMaterialized',
+    'uploadCommandExposed',
+    'uploadExecutionAllowed',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed',
+    'executable'
+  ]) {
+    uploadCommandBoundary[key] = true;
+  }
+
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({
+    commandBoundary: {
+      ...commandBoundary,
+      sourceLiveCheckBoundary: {
+        ...commandBoundary.sourceLiveCheckBoundary,
+        reviewStatus: 'waiting',
+        reviewKind: 'manual',
+        adapterBackendKind: 'filesystem',
+        scopeMatched: false,
+        humanReviewRecorded: false,
+        fingerprintVerified: false,
+        sourceFingerprintVerified: false
+      },
+      uploadCommandBoundary,
+      remainingExecutionBoundaries: {
+        ...commandBoundary.remainingExecutionBoundaries,
+        uploadCommandRequired: false,
+        uploadCommandGenerated: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true,
+        remoteMutationAllowed: true
+      }
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('artifact-object-store-bound'), true);
+  assert.equal(codes.has('metadata-index-bound'), true);
+  assert.equal(codes.has('credential-values-read'), true);
+  assert.equal(codes.has('credential-values-exposed'), true);
+  assert.equal(codes.has('credential-presence-check-enabled'), true);
+  assert.equal(codes.has('credential-presence-result-exposed'), true);
+  assert.equal(codes.has('client-created'), true);
+  assert.equal(codes.has('adapter-injected'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('live-check-result-exposed'), true);
+  assert.equal(codes.has('upload-command-generated'), true);
+  assert.equal(codes.has('upload-command-exposed'), true);
+  assert.equal(codes.has('upload-execution-enabled'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assert.equal(codes.has('remote-mutation-performed'), true);
+  assert.equal(codes.has('executable-state-enabled'), true);
+  assert.equal(codes.has('upload-command-not-required'), true);
+  assert.equal(codes.has('remote-write-enabled'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(boundary.sourceUploadCommandBoundary.reviewStatus, 'invalid');
+  assert.equal(boundary.sourceUploadCommandBoundary.reviewKind, 'unsupported');
+  assert.equal(boundary.sourceUploadCommandBoundary.adapterBackendKind, 'unsupported');
+  assertExecutionAndBindingDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
 test('object/index binding boundary reports binding, command, backend, and credential leaks with safe blockers', async () => {
   const commandBoundary = await validCommandBoundary();
   const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({

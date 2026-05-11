@@ -248,6 +248,60 @@ test('upload mock harness blocks backend detail and store leakage', async () => 
   assertNoPrivateValues(harness);
 });
 
+test('upload mock harness blocks primitive private preflight inputs without copying values', () => {
+  const harness = buildKnowledgeTeamUploadMockHarness({
+    preflight: ['https://should-not-copy.example.test/private-key']
+  });
+
+  assert.equal(harness.status, 'blocked');
+  assert.equal(harness.preflight.status, 'invalid');
+  assert.equal(harness.mockAdapterInstantiated, false);
+  assert.equal(harness.readiness.nextAction, 'resolve-blockers');
+  assert.equal(harness.readiness.blockerCodes.includes('invalid-preflight-kind'), true);
+  assert.equal(harness.readiness.blockerCodes.includes('backend-detail-leak'), true);
+  assertNoPrivateValues(harness);
+});
+
+test('upload mock harness blocks missing and unsafe continuation references', async () => {
+  const basePreflight = await validPreflight();
+  const missingReferenceHarness = buildKnowledgeTeamUploadMockHarness({
+    preflight: {
+      ...basePreflight,
+      continuation: {
+        ...basePreflight.continuation,
+        manifestId: '',
+        objectKey: '',
+        objectSha256: '',
+        artifactId: ''
+      }
+    }
+  });
+  const unsafeReferenceHarness = buildKnowledgeTeamUploadMockHarness({
+    preflight: {
+      ...basePreflight,
+      continuation: {
+        ...basePreflight.continuation,
+        manifestId: 'unsafe-id',
+        objectKey: '../private-key',
+        objectSha256: 'not-a-sha',
+        artifactId: 'unsafe-artifact'
+      }
+    }
+  });
+
+  for (const harness of [missingReferenceHarness, unsafeReferenceHarness]) {
+    assert.equal(harness.status, 'blocked');
+    assert.equal(harness.preflight.manifestId, null);
+    assert.equal(harness.preflight.objectKey, null);
+    assert.equal(harness.preflight.objectSha256, null);
+    assert.equal(harness.preflight.artifactId, null);
+    assert.equal(harness.mockAdapterInstantiated, false);
+    assert.equal(harness.readiness.nextAction, 'resolve-blockers');
+    assert.equal(harness.readiness.blockerCodes.includes('missing-required-field') || harness.readiness.blockerCodes.includes('unsafe-artifact-reference'), true);
+    assertNoPrivateValues(harness);
+  }
+});
+
 test('knowledge validation accepts and rejects upload mock harness artifacts', async () => {
   const harness = buildKnowledgeTeamUploadMockHarness({ preflight: await validPreflight() });
   const validReport = validateKnowledgePayload(harness, 'upload-mock-harness.json');
