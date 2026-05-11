@@ -50,6 +50,7 @@ import {
   validateKnowledgeTeamUploadExecutionAuthorizationBoundaryPayload,
   validateKnowledgeTeamUploadExecutionApprovalRecordPayload,
   validateKnowledgeTeamUploadExecutionApprovalRequestPayload,
+  validateKnowledgeTeamUploadExecutionImplementationBoundaryPayload,
   validateKnowledgeTeamUploadExecutionPlanRulesReviewPayload,
   validateKnowledgeTeamUploadExecutionPlanRulesUpdateRecordPayload,
   validateKnowledgeTeamUploadExecutionReadinessBoundaryPayload,
@@ -1190,6 +1191,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-execution-plan-rules-update-record') {
     return validateKnowledgeTeamUploadExecutionPlanRulesUpdateRecordPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-execution-implementation-boundary') {
+    return validateKnowledgeTeamUploadExecutionImplementationBoundaryPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {

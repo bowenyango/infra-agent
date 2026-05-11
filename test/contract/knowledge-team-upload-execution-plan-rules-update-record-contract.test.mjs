@@ -7,6 +7,9 @@ import {
   buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord
 } from '../../src/knowledge/team-upload-execution-plan-rules-update-record.ts';
 import {
+  buildKnowledgeTeamUploadExecutionImplementationBoundary
+} from '../../src/knowledge/team-upload-execution-implementation-boundary.ts';
+import {
   validateKnowledgePayload
 } from '../../src/knowledge/validate.ts';
 import {
@@ -231,6 +234,105 @@ test('upload execution Plan/Rules update record contract keeps stable ready shap
 
   assertPlanRulesUpdateRecordShape(record);
   assert.equal(validateKnowledgePayload(record, 'knowledge-pack.upload-execution-plan-rules-update-record.json').valid, true);
+});
+
+test('upload execution implementation boundary contract accepts ready dry-run shape', () => {
+  const updateRecord = validUpdateRecord();
+  const boundary = buildKnowledgeTeamUploadExecutionImplementationBoundary({
+    planRulesUpdateRecord: updateRecord
+  });
+  const report = validateKnowledgePayload(boundary, 'knowledge-pack.upload-execution-implementation-boundary.json');
+
+  assert.equal(boundary.kind, 'infra-agent.knowledge-team-upload-execution-implementation-boundary');
+  assert.equal(boundary.boundaryKind, 'upload-execution-implementation-boundary-dry-run');
+  assert.equal(boundary.status, 'upload-execution-implementation-boundary-ready');
+  assert.equal(boundary.readiness.nextAction, 'design-upload-execution-runtime-boundaries');
+  assert.equal(boundary.implementationBoundary.implementationBoundaryDesigned, true);
+  assert.equal(boundary.implementationBoundary.sourceUpdateRecordFingerprintVerified, true);
+  assert.equal(boundary.implementationBoundary.implementationAllowed, false);
+  assert.equal(boundary.implementationBoundary.uploadExecutionAllowed, false);
+  assert.equal(boundary.implementationBoundary.sourceUpdateRecordFingerprint.value, updateRecord.planRulesUpdateRecord.recordFingerprint.value);
+  assert.equal(boundary.implementationBoundary.implementationBoundaryFingerprint.scope, 'stage-knowledge-pack-upload-execution-implementation-boundary-v1');
+  assert.equal(boundary.implementationBoundary.implementationBoundaryFingerprint.canonicalFieldCount, 18);
+  assert.equal(report.valid, true, JSON.stringify(report.issues));
+});
+
+test('upload execution implementation boundary contract rejects drifted payloads', () => {
+  const boundary = buildKnowledgeTeamUploadExecutionImplementationBoundary({
+    planRulesUpdateRecord: validUpdateRecord()
+  });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    uploadExecutionAllowed: true,
+    uploadCommand: 'aws s3 cp file s3://private-bucket/key',
+    target: {
+      ...boundary.target,
+      objectKeyRedacted: false,
+      objectKey: 'team-artifacts/public-reference/aa/bb/drift.json'
+    },
+    sourcePlanRulesUpdateRecord: {
+      ...boundary.sourcePlanRulesUpdateRecord,
+      recordStatus: 'blocked',
+      recordNextAction: 'resolve-blockers',
+      planRulesUpdateRecorded: false,
+      policyUpdateAuthorized: true,
+      uploadExecutionAllowed: true,
+      updateRecordFingerprint: {
+        ...boundary.sourcePlanRulesUpdateRecord.updateRecordFingerprint,
+        value: null
+      }
+    },
+    implementationBoundary: {
+      ...boundary.implementationBoundary,
+      implementationBoundaryDesigned: false,
+      sourceUpdateRecordFingerprintVerified: false,
+      implementationAllowed: true,
+      uploadExecutionAllowed: true,
+      sourceUpdateRecordFingerprint: {
+        ...boundary.implementationBoundary.sourceUpdateRecordFingerprint,
+        value: 'd'.repeat(64)
+      },
+      implementationBoundaryFingerprint: {
+        ...boundary.implementationBoundary.implementationBoundaryFingerprint,
+        value: null
+      }
+    },
+    executionBoundary: {
+      ...boundary.executionBoundary,
+      executable: true,
+      uploadCommandGenerated: true,
+      objectWriteAllowed: true
+    },
+    readiness: {
+      ...boundary.readiness,
+      nextAction: 'resolve-blockers',
+      blockerCount: 1
+    }
+  }, 'knowledge-pack.upload-execution-implementation-boundary.json');
+
+  assert.equal(report.valid, false);
+  assertIssuePaths(report, [
+    '$.uploadExecutionAllowed',
+    '$.uploadCommand',
+    '$.target.objectKeyRedacted',
+    '$.target.objectKey',
+    '$.sourcePlanRulesUpdateRecord.recordStatus',
+    '$.sourcePlanRulesUpdateRecord.recordNextAction',
+    '$.sourcePlanRulesUpdateRecord.planRulesUpdateRecorded',
+    '$.sourcePlanRulesUpdateRecord.policyUpdateAuthorized',
+    '$.sourcePlanRulesUpdateRecord.uploadExecutionAllowed',
+    '$.sourcePlanRulesUpdateRecord.updateRecordFingerprint.value',
+    '$.implementationBoundary.implementationBoundaryDesigned',
+    '$.implementationBoundary.sourceUpdateRecordFingerprintVerified',
+    '$.implementationBoundary.implementationAllowed',
+    '$.implementationBoundary.uploadExecutionAllowed',
+    '$.implementationBoundary.implementationBoundaryFingerprint.value',
+    '$.executionBoundary.executable',
+    '$.executionBoundary.uploadCommandGenerated',
+    '$.executionBoundary.objectWriteAllowed',
+    '$.readiness.nextAction',
+    '$.readiness.blockerCount'
+  ]);
 });
 
 test('upload execution Plan/Rules update record contract accepts safe blocked records', () => {
