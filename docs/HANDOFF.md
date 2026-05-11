@@ -6,6 +6,53 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Knowledge Unit Ranking Budget
+
+Status:
+
+- Completed the next small implementation slice for the five-unit RAG path.
+- Scope is budget-time ranking only. It does not change fact extraction,
+  knowledge pack construction, or the legacy `facts` compatibility ordering.
+
+Implemented checkpoints:
+
+- Added `src/knowledge/unit-ranking.ts` with deterministic ranking for mixed
+  `fact`, `guidance`, `example`, `diagnostic`, and `recipe` units.
+- Ranking includes source kind, requested domain, target path, stale source
+  penalty, confidence, unit type, unit payload detail, token estimate, and
+  stable path/source tie-breakers.
+- `src/knowledge/fact-budget.ts` now ranks `knowledgeFacts.units` before
+  applying the shared compact `maxFacts` budget. Legacy `facts` are still
+  sliced in their existing order.
+- Added tests that prove mixed units are ranked before slicing, unit-specific
+  payload fields survive compaction, stale/unchecked confidence behavior still
+  applies, and direct unit ranking is deterministic.
+
+Design notes:
+
+- `buildKnowledgePack` still emits fact-backed units from already-ranked facts.
+  This is intentional: ranking at pack construction would be behaviorally inert
+  until non-fact unit extractors exist.
+- The runtime now has a deterministic place to merge future `diagnostic` and
+  `recipe` units with facts, guidance, and examples without introducing vector
+  retrieval or raw source payloads.
+- `maxFacts` remains the shared compatibility budget name for this slice.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-pack-unit-compatibility.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-fact-budget-freshness.test.mjs`
+
+Next recommended implementation steps:
+
+1. Add first real `diagnostic` unit extraction from validation issue
+   classifiers and identity conflict classifiers.
+2. Add `recipe` units for Terraform moved blocks, Pulumi aliases, Pulumi stack
+   config changes, Helm values migrations, and import/state review.
+3. Relax pack validation once `unitCount` intentionally diverges from
+   `factCount` for true unit-native packs.
+
 ## 2026-05-11 Completed Unit-Aware Runtime Handoff
 
 Status:

@@ -18,6 +18,7 @@ import { buildKnowledgeArtifactManifest } from '../../src/knowledge/artifact-man
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
 import { rankKnowledgePackFacts } from '../../src/knowledge/fact-ranking.ts';
+import { rankKnowledgePackUnits } from '../../src/knowledge/unit-ranking.ts';
 import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 test('knowledge pack builds bounded planner-safe fact packs', async () => {
@@ -778,6 +779,160 @@ test('knowledge fact ranking places Helm dependency facts before chart docs exam
 
   assert.equal(ranked[0]?.path, 'chart.api.dependencies.redis');
   assert.equal(ranked[1]?.path, 'chart.api.example');
+});
+
+test('knowledge unit ranking prioritizes required facts and diagnostics before examples', () => {
+  const sources = [
+    {
+      id: 'chart-schema-source',
+      domain: 'helm',
+      targetPath: 'charts/api',
+      kind: 'chart-schema',
+      name: 'api:values.schema.json',
+      factCount: 2,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'chart-docs-source',
+      domain: 'helm',
+      targetPath: 'charts/api',
+      kind: 'chart-docs',
+      name: 'api:docs',
+      factCount: 2,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      stale: false
+    }
+  ];
+  const base = {
+    path: 'charts/api',
+    summary: 'Helm unit ranking input.',
+    confidence: 'high',
+    sourceId: 'chart-docs-source',
+    sourceLocator: 'chart docs',
+    privacyScope: 'public-reference'
+  };
+  const ranked = rankKnowledgePackUnits([
+    {
+      ...base,
+      unitType: 'example',
+      exampleType: 'helm-values',
+      snippet: 'replicaCount: 2',
+      extractionMethod: 'official-example',
+      language: 'yaml'
+    },
+    {
+      ...base,
+      unitType: 'guidance',
+      topic: 'Helm values updates',
+      extractionMethod: 'official-guidance',
+      appliesWhen: ['values.yaml changes']
+    },
+    {
+      ...base,
+      unitType: 'diagnostic',
+      engine: 'helm',
+      signature: 'template render failure',
+      likelyCause: 'Values do not match template assumptions.',
+      recommendedReview: ['Run helm template for the selected chart.'],
+      extractionMethod: 'validation-diagnostic'
+    },
+    {
+      ...base,
+      unitType: 'fact',
+      factKind: 'chart-value',
+      path: 'values.service.port',
+      summary: 'values.service.port is required by chart templates.',
+      confidence: 'medium',
+      extractionMethod: 'helm-values-schema',
+      sourceId: 'chart-schema-source',
+      sourceLocator: 'values.schema.json: service.port',
+      privacyScope: 'workspace-private',
+      required: true,
+      type: 'number',
+      values: ['8080']
+    }
+  ], {
+    sources,
+    requestedDomains: ['helm'],
+    targetPaths: ['charts/api']
+  });
+
+  assert.deepEqual(ranked.map(unit => unit.unitType), ['fact', 'diagnostic', 'guidance', 'example']);
+  assert.equal(ranked[0]?.path, 'values.service.port');
+  assert.deepEqual(ranked[1]?.recommendedReview, ['Run helm template for the selected chart.']);
+  assert.ok(ranked.every(unit => !('rank' in unit)));
+});
+
+test('knowledge unit ranking applies target and stale priorities deterministically', () => {
+  const sources = [
+    {
+      id: 'target-a',
+      domain: 'terraform',
+      targetPath: 'terraform/a',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/a',
+      factCount: 1,
+      contentHash: 'a'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'target-b',
+      domain: 'terraform',
+      targetPath: 'terraform/b',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/b',
+      factCount: 1,
+      contentHash: 'b'.repeat(64),
+      fetchedAt: null,
+      stale: false
+    },
+    {
+      id: 'target-a-stale',
+      domain: 'terraform',
+      targetPath: 'terraform/a',
+      kind: 'provider-schema',
+      name: 'terraform-provider-schema:terraform/a-stale',
+      factCount: 1,
+      contentHash: 'c'.repeat(64),
+      fetchedAt: '2026-04-01T00:00:00.000Z',
+      stale: true
+    }
+  ];
+  const base = {
+    unitType: 'guidance',
+    topic: 'Terraform argument review',
+    path: 'resource.aws_lb_listener_rule.priority',
+    summary: 'Review listener rule priority before applying changes.',
+    confidence: 'high',
+    extractionMethod: 'official-guidance',
+    sourceLocator: 'provider docs',
+    privacyScope: 'public-reference',
+    appliesWhen: ['listener rule priority changes']
+  };
+  const ranked = rankKnowledgePackUnits([
+    {
+      ...base,
+      sourceId: 'target-a-stale'
+    },
+    {
+      ...base,
+      sourceId: 'target-b'
+    },
+    {
+      ...base,
+      sourceId: 'target-a'
+    }
+  ], {
+    sources,
+    requestedDomains: ['terraform'],
+    targetPaths: ['terraform/a']
+  });
+
+  assert.deepEqual(ranked.map(unit => unit.sourceId), ['target-a', 'target-b', 'target-a-stale']);
 });
 
 test('knowledge pack includes focused Terraform provider schema facts under small budgets', async () => {

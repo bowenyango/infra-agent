@@ -5,6 +5,7 @@ import type {
   KnowledgePackSource,
   KnowledgePackUnit
 } from './pack.ts';
+import { rankKnowledgePackUnits } from './unit-ranking.ts';
 
 export interface BudgetedKnowledgeFact {
   unitType?: 'fact';
@@ -176,7 +177,11 @@ export function budgetKnowledgePackFacts(
     .slice(0, maxFacts)
     .map(fact => compactFact(fact, sourceById.get(fact.sourceId)));
   const rawUnits = pack?.units ?? (pack?.facts ?? []).map(fact => factToUnit(fact, sourceById.get(fact.sourceId)));
-  const units = rawUnits
+  const units = rankKnowledgePackUnits(rawUnits, {
+    sources: pack?.sources ?? [],
+    requestedDomains: pack?.requestedDomains ?? [],
+    targetPaths: pack?.targetPaths ?? []
+  })
     .slice(0, maxFacts)
     .map(unit => compactUnit(unit, sourceById.get(unit.sourceId)));
   const totalFactCount = pack?.factCount ?? 0;
