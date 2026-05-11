@@ -6,6 +6,90 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 In Progress Upload Execution Readiness Boundary
+
+Status:
+
+- Planned and in implementation. This slice continues the private dry-run upload
+  boundary chain after `upload-object-index-binding-boundary`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-object-index-binding-boundary` and emit a
+  private upload execution readiness boundary artifact that records final
+  upload execution readiness requirements.
+- This slice must not approve upload execution, grant mutation approval, issue
+  write tokens, create execution leases, create rollback plans, create audit
+  records, stage artifact bytes, inject adapters, create clients, read
+  credentials, check credential presence, perform live backend checks, generate
+  or materialize upload commands, bind concrete object stores or metadata
+  indexes, expose handles, write objects, write metadata index entries, or
+  perform remote mutations.
+
+Planned checkpoints:
+
+1. Add the upload execution readiness boundary contract and builder from the
+   saved object/index binding boundary.
+2. Add focused unit coverage for ready, blocked, malformed, forged, and leaky
+   inputs.
+3. Add validator dispatch and contract coverage for ready, blocked, and drifted
+   payloads.
+4. Add CLI parsing, JSON/text output, help text, and integration coverage.
+5. Add no-SDK/no-execution guard coverage and update rules, roadmap, skill, and
+   handoff docs after verification.
+
+Expected artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-execution-readiness-boundary`.
+- CLI:
+  `infra-agent knowledge upload-execution-readiness-boundary <object-index-binding-boundary.json> [--out <execution-readiness-boundary.json>] [--json]`.
+- Ready status should be `upload-execution-readiness-boundary-ready`, meaning
+  only that final upload execution readiness requirements are modeled. It is
+  not upload approval, mutation approval, token issuance, lease creation,
+  rollback creation, audit creation, byte staging, adapter injection, client
+  creation, credential access, live checking, command generation, store/index
+  binding, object/index writing, or remote mutation readiness.
+- Ready next action should remain non-executing; currently expected:
+  `request-separate-upload-execution-approval`. Blocked next action remains
+  `resolve-blockers`.
+
+Initial acceptance criteria:
+
+1. `upload-execution-readiness-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-object-index-binding-boundary` with
+   `object-index-binding-boundary-ready`,
+   `nextAction=design-upload-execution-readiness-boundary`, safe redacted
+   target references, verified prior review state, matched scope, mock backend
+   posture, modeled command and object/index binding requirements, and no
+   blockers.
+2. The boundary preserves safe target identifiers and hash references while
+   retaining `target.objectKeyRedacted=true`; it does not copy
+   `target.objectKey` to output.
+3. The output explicitly records final execution-readiness requirements:
+   artifact bytes, adapter injection, client creation, credential read,
+   credential presence, live check, upload command, object/index binding,
+   write token, execution lease, rollback plan, audit record, object write,
+   metadata-index write, explicit upload approval, mutation approval, and
+   command execution approval.
+4. Top-level and nested execution state remains disabled:
+   `uploadCommand=null`, `uploadApproved=false`,
+   `uploadExecutionAllowed=false`, `mutationApprovalGranted=false`,
+   `writeTokenIssued=false`, `executionLeaseCreated=false`,
+   `rollbackPlanCreated=false`, `auditRecordCreated=false`,
+   `artifactBytesProvided=false`, `adapterInjected=false`,
+   `clientCreated=false`, `credentialValuesExposed=false`,
+   `credentialPresenceChecked=false`, `liveCheckAllowed=false`,
+   `liveCheckPerformed=false`, `uploadCommandGenerated=false`,
+   `artifactObjectStoreBound=false`, `metadataIndexBound=false`,
+   `objectWriteAllowed=false`, `metadataIndexWriteAllowed=false`,
+   `objectWriteAttempted=false`, `metadataIndexWriteAttempted=false`,
+   `executable=false`, and `remoteMutationPerformed=false`.
+5. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
+   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, object-key-copying, object-store-handle,
+   metadata-index-handle, token/lease/rollback/audit material, or object/index
+   mutation inputs produce blocked or invalid results with safe blocker codes
+   and without copying private values.
+
 ## 2026-05-10 Completed Object/Index Binding Boundary
 
 Status:
