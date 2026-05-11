@@ -400,7 +400,7 @@ function emptyFingerprint(
   canonicalFieldCount: number | null;
 } {
   return {
-    algorithm: 'unsupported',
+    algorithm: 'sha256',
     scope,
     value: null,
     canonicalFieldCount
@@ -491,7 +491,7 @@ function readFingerprint(
   if (!isRecord(value)) {
     addBlocker(blockers, 'implementation-boundary-fingerprint-missing', path, 'Required source fingerprint object is missing.');
     return {
-      algorithm: 'unsupported',
+      algorithm: 'sha256',
       scope: expectedScope as 'stage-knowledge-pack-upload-execution-plan-rules-update-record-v1',
       value: null,
       canonicalFieldCount: expectedCanonicalFieldCount

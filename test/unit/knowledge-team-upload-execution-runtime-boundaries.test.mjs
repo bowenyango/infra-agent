@@ -397,3 +397,230 @@ test('upload execution runtime boundaries block forged execution and leaky mater
   assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
 });
+
+test('upload execution runtime boundaries map every runtime execution flag to blockers', () => {
+  const implementationBoundary = validImplementationBoundary();
+  const topLevelExecutionFlags = [
+    'remoteWriteAllowed',
+    'liveCheckAllowed',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'uploadApproved',
+    'uploadExecutionApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ];
+  const executionBoundaryFlags = [
+    'executable',
+    'artifactBytesProvided',
+    'adapterInjected',
+    'clientCreated',
+    'credentialValuesRead',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'credentialPresenceResultExposed',
+    'liveCheckAllowed',
+    'liveCheckPerformed',
+    'liveCheckResultExposed',
+    'uploadCommandGenerated',
+    'uploadCommandMaterialized',
+    'uploadCommandExposed',
+    'artifactObjectStoreBound',
+    'metadataIndexBound',
+    'objectStoreHandleExposed',
+    'metadataIndexHandleExposed',
+    'objectWriteAllowed',
+    'metadataIndexWriteAllowed',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'remoteMutationPerformed'
+  ];
+  const forgedTopLevel = Object.fromEntries(topLevelExecutionFlags.map((field) => [field, true]));
+  const forgedExecutionBoundary = {
+    ...implementationBoundary.executionBoundary,
+    dryRunOnly: false,
+    ...Object.fromEntries(executionBoundaryFlags.map((field) => [field, true]))
+  };
+
+  const boundary = buildKnowledgeTeamUploadExecutionRuntimeBoundaries({
+    implementationBoundary: {
+      ...implementationBoundary,
+      ...forgedTopLevel,
+      executionBoundary: forgedExecutionBoundary
+    }
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  for (const code of [
+    'remote-write-enabled',
+    'live-check-enabled',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'upload-approval-already-provided',
+    'upload-execution-approval-already-provided',
+    'upload-execution-enabled',
+    'mutation-approval-already-granted',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'rollback-plan-created',
+    'audit-record-created',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'remote-mutation-performed',
+    'executable-state-enabled',
+    'credential-values-read',
+    'credential-presence-result-exposed',
+    'live-check-result-exposed',
+    'upload-command-generated',
+    'upload-command-exposed',
+    'artifact-object-store-bound',
+    'metadata-index-bound',
+    'object-store-handle-leak',
+    'metadata-index-handle-leak'
+  ]) {
+    assert.ok(boundary.readiness.blockerCodes.includes(code), code);
+  }
+  assert.equal(
+    boundary.readiness.blockers.some((blocker) => blocker.path === '$.implementationBoundary.executionBoundary.dryRunOnly'),
+    true
+  );
+  assertExecutionDisabled(boundary);
+});
+
+test('upload execution runtime boundaries block incomplete source summaries and fingerprints', () => {
+  const implementationBoundary = validImplementationBoundary();
+  const boundary = buildKnowledgeTeamUploadExecutionRuntimeBoundaries({
+    implementationBoundary: {
+      ...implementationBoundary,
+      target: {
+        manifestId: 'unsafe-manifest',
+        objectKeyRedacted: false,
+        objectSha256: 'not-a-sha',
+        artifactId: 'unsafe-artifact'
+      },
+      sourcePlanRulesUpdateRecord: {
+        recordStatus: 'blocked',
+        recordNextAction: 'resolve-blockers',
+        adapterBackendKind: 'unknown-backend',
+        executionStillDisabled: false
+      },
+      implementationBoundary: {
+        implementationBoundaryDesigned: false,
+        sourceUpdateRecordFingerprintVerified: false,
+        runtimeBoundaryDesignRequired: false,
+        implementationAllowed: true,
+        authorizationGranted: true,
+        executionAuthorizationGranted: true,
+        uploadApproved: true,
+        uploadExecutionApproved: true,
+        uploadExecutionAllowed: true,
+        mutationApprovalGranted: true,
+        sourceUpdateRecordFingerprint: {
+          algorithm: 'sha256',
+          scope: 'stage-knowledge-pack-upload-execution-plan-rules-update-record-v1',
+          value: null,
+          canonicalFieldCount: 18
+        },
+        implementationBoundaryFingerprint: {
+          algorithm: 'md5',
+          scope: 'wrong-scope',
+          value: 'not-a-sha',
+          canonicalFieldCount: 0
+        }
+      }
+    }
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  for (const code of [
+    'unsafe-artifact-reference',
+    'unsafe-adapter-name',
+    'unsupported-adapter-backend',
+    'implementation-boundary-not-ready',
+    'implementation-enabled-execution',
+    'authorization-already-granted',
+    'upload-execution-authorization-already-provided',
+    'upload-approval-already-provided',
+    'upload-execution-approval-already-provided',
+    'upload-execution-enabled',
+    'mutation-approval-already-granted',
+    'implementation-boundary-fingerprint-missing',
+    'implementation-boundary-fingerprint-unsupported',
+    'implementation-boundary-fingerprint-unverified'
+  ]) {
+    assert.ok(boundary.readiness.blockerCodes.includes(code), code);
+  }
+  assert.equal(boundary.sourceImplementationBoundary.adapterName, null);
+  assert.equal(boundary.sourceImplementationBoundary.adapterBackendKind, 'unsupported');
+  assert.equal(boundary.sourceImplementationBoundary.sourceUpdateRecordStatus, 'blocked');
+  assert.equal(boundary.sourceImplementationBoundary.sourceUpdateRecordNextAction, 'resolve-blockers');
+  assert.equal(boundary.sourceImplementationBoundary.sourceUpdateRecordFingerprint.value, null);
+  assert.equal(boundary.sourceImplementationBoundary.implementationBoundaryFingerprint.algorithm, 'unsupported');
+  assert.equal(boundary.runtimeBoundaries.runtimeBoundariesFingerprint.value, null);
+  assertExecutionDisabled(boundary);
+});
+
+test('upload execution runtime boundaries block missing structural sections before runtime design', () => {
+  const boundary = buildKnowledgeTeamUploadExecutionRuntimeBoundaries({
+    implementationBoundary: {
+      kind: 'infra-agent.knowledge-team-upload-execution-runtime-boundaries',
+      schemaVersion: 2,
+      mutationAllowed: true,
+      executionMode: 'execute',
+      boundaryKind: 'unsupported-boundary-kind',
+      status: 'unknown-status',
+      readiness: {
+        nextAction: 'execute-upload'
+      },
+      uploadCommand: 'uploadCommandValue',
+      uploadCommandValue: 'command-placeholder',
+      adapterInstance: {
+        name: 'must-not-copy'
+      }
+    }
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  for (const code of [
+    'invalid-implementation-boundary-kind',
+    'invalid-schema-version',
+    'mutation-enabled',
+    'missing-required-field',
+    'upload-command-present',
+    'upload-command-exposed',
+    'adapter-dependency-leak',
+    'implementation-boundary-not-ready',
+    'implementation-boundary-next-action-invalid',
+    'unsafe-adapter-name',
+    'unsupported-adapter-backend',
+    'implementation-boundary-fingerprint-missing',
+    'implementation-boundary-fingerprint-unverified'
+  ]) {
+    assert.ok(boundary.readiness.blockerCodes.includes(code), code);
+  }
+  assert.equal(boundary.sourceImplementationBoundary.boundaryStatus, 'invalid');
+  assert.equal(boundary.sourceImplementationBoundary.boundaryKind, 'unsupported');
+  assert.equal(boundary.sourceImplementationBoundary.boundaryNextAction, 'invalid');
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.runtimeBoundaries.runtimeBoundariesDesigned, false);
+  assert.equal(boundary.runtimeBoundaries.runtimeBoundariesFingerprint.value, null);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});

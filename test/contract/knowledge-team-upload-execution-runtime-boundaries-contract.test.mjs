@@ -167,6 +167,22 @@ test('runtime boundaries payload validates ready contract', () => {
   assert.equal(report.inputKind, 'infra-agent.knowledge-team-upload-execution-runtime-boundaries');
 });
 
+test('runtime boundaries payload validates blocked non-execution contract', () => {
+  const payload = buildKnowledgeTeamUploadExecutionRuntimeBoundaries({
+    implementationBoundary: 'invalid implementation boundary'
+  });
+  const report = validateKnowledgePayload(
+    payload,
+    'knowledge-pack.upload-execution-runtime-boundaries.blocked.json'
+  );
+
+  assert.equal(payload.status, 'blocked');
+  assert.equal(payload.readiness.nextAction, 'resolve-blockers');
+  assert.equal(payload.runtimeBoundaries.runtimeBoundariesDesigned, false);
+  assert.equal(payload.runtimeBoundaries.runtimeBoundariesFingerprint.value, null);
+  assert.equal(report.valid, true, JSON.stringify(report.issues));
+});
+
 test('runtime boundaries validator rejects ready execution and source drift', () => {
   const payload = validRuntimeBoundaries();
   const drifted = {
@@ -297,5 +313,43 @@ test('runtime boundaries validator rejects ready execution and source drift', ()
     '$.executionBoundary.metadataIndexWriteAllowed',
     '$.readiness.nextAction',
     '$.readiness.blockerCount'
+  ]);
+});
+
+test('runtime boundaries validator rejects missing required sections', () => {
+  const payload = validRuntimeBoundaries();
+  const malformed = {
+    ...payload,
+    schemaVersion: 2,
+    mutationAllowed: true,
+    executionMode: 'execute',
+    boundaryKind: 'runtime-boundary',
+    status: 'unknown',
+    plannedOperation: 'upload',
+    target: null,
+    sourceImplementationBoundary: null,
+    runtimeBoundaries: null,
+    executionBoundary: null,
+    readiness: null
+  };
+
+  const report = validateKnowledgePayload(
+    malformed,
+    'knowledge-pack.upload-execution-runtime-boundaries.missing-sections.json'
+  );
+
+  assert.equal(report.valid, false);
+  assertIssuePaths(report, [
+    '$.schemaVersion',
+    '$.mutationAllowed',
+    '$.executionMode',
+    '$.boundaryKind',
+    '$.status',
+    '$.plannedOperation',
+    '$.target',
+    '$.sourceImplementationBoundary',
+    '$.runtimeBoundaries',
+    '$.executionBoundary',
+    '$.readiness'
   ]);
 });
