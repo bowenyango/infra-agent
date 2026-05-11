@@ -6,12 +6,12 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 In Progress Upload Execution Approval Request
+## 2026-05-10 Completed Upload Execution Approval Request
 
 Status:
 
-- Planned and in implementation. This slice continues the private dry-run
-  upload boundary chain after `upload-execution-readiness-boundary`.
+- Completed. This slice continues the private dry-run upload boundary chain
+  after `upload-execution-readiness-boundary`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-readiness-boundary` and emit a
   private human upload execution approval request artifact with a deterministic
@@ -24,16 +24,21 @@ Status:
   or metadata indexes, expose handles, write objects, write metadata index
   entries, or perform remote mutations.
 
-Planned checkpoints:
+Implemented checkpoints:
 
-1. Add the upload execution approval request contract and builder from the
-   saved execution readiness boundary.
-2. Add focused unit coverage for ready, blocked, malformed, forged, and leaky
-   inputs.
-3. Add validator dispatch and contract coverage for ready and drifted payloads.
-4. Add CLI parsing, JSON/text output, help text, and integration coverage.
-5. Add no-SDK/no-execution guard coverage and update handoff/rules/roadmap
-   after verification.
+1. Added `buildKnowledgeTeamUploadExecutionApprovalRequest` and its contract
+   types. It consumes the saved execution readiness boundary and emits only a
+   dry-run approval request artifact.
+2. Added focused unit coverage for ready, blocked, malformed, missing,
+   forged, primitive private, and leaky inputs.
+3. Added validator dispatch for
+   `infra-agent.knowledge-team-upload-execution-approval-request`, including
+   ready/drift contract coverage.
+4. Added CLI parsing, help text, JSON/text output, and integration coverage
+   for `knowledge request-separate-upload-execution-approval`.
+5. Extended no-SDK/no-execution guards so this request cannot grant approval,
+   instantiate clients, read credentials, generate commands, perform checks,
+   or write object/index data.
 
 Expected artifact and CLI:
 
@@ -81,6 +86,37 @@ Initial acceptance criteria:
    metadata-index-handle, token/lease/rollback/audit material, or object/index
    mutation inputs produce blocked or invalid results with safe blocker codes
    and without copying private values.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-approval-request.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-approval-request-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-request-separate-upload-execution-approval-main.test.mjs`
+
+Core files changed:
+
+- `src/knowledge/team-upload-execution-approval-request.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-approval-request.test.mjs`
+- `test/contract/knowledge-team-upload-execution-approval-request-contract.test.mjs`
+- `test/integration/cli-knowledge-request-separate-upload-execution-approval-main.test.mjs`
+
+Next recommended slice:
+
+- `record-human-upload-execution-approval`. It should consume the saved
+  `infra-agent.knowledge-team-upload-execution-approval-request` plus an
+  explicit operator-supplied approval fingerprint, verify exact fingerprint
+  match, and emit a private dry-run human approval record. It still must not
+  allow upload execution, write tokens, leases, rollback plans, audit records,
+  adapter injection, client creation, credential reads/checks, live checks,
+  command generation, object writes, metadata index writes, or remote
+  mutation.
 
 ## 2026-05-10 Completed Upload Execution Readiness Boundary
 

@@ -588,6 +588,61 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   probes/results, backend endpoints, object keys in output, object-store
   handles, metadata-index handles, upload command payloads/material, signed
   URLs, metadata index entry payloads, or object/index mutation.
+- `infra-agent knowledge upload-execution-readiness-boundary` is a dry-run
+  private upload execution readiness boundary command. It may read one saved
+  upload object/index binding boundary and record final execution-readiness
+  requirements for artifact bytes, adapter injection, client creation,
+  credential read, credential presence, live check, upload command,
+  object/index binding, write token, execution lease, rollback plan, audit
+  record, explicit upload approval, and separate upload execution approval. An
+  `upload-execution-readiness-boundary-ready` result is not upload approval,
+  upload execution approval, upload execution, token issuance, lease creation,
+  rollback creation, audit creation, byte staging, adapter injection, SDK
+  client creation, credential access, live checking, command generation,
+  object-store binding, metadata-index binding, object/index writing, or
+  remote mutation. It must keep `uploadCommand=null`,
+  `objectKeyRedacted=true`, `uploadApproved=false`,
+  `uploadExecutionAllowed=false`, `mutationApprovalGranted=false`,
+  `writeTokenIssued=false`, `executionLeaseCreated=false`,
+  `rollbackPlanCreated=false`, `auditRecordCreated=false`,
+  `artifactBytesProvided=false`, `adapterInjected=false`,
+  `clientCreated=false`, `credentialValuesExposed=false`,
+  `credentialPresenceChecked=false`, `liveCheckAllowed=false`,
+  `liveCheckPerformed=false`, `uploadCommandGenerated=false`,
+  `artifactObjectStoreBound=false`, `metadataIndexBound=false`,
+  `objectStoreHandleExposed=false`, `metadataIndexHandleExposed=false`,
+  `objectWriteAllowed=false`, `metadataIndexWriteAllowed=false`,
+  `objectWriteAttempted=false`, `metadataIndexWriteAttempted=false`,
+  `executable=false`, and `remoteMutationPerformed=false`.
+- `infra-agent knowledge request-separate-upload-execution-approval` is a
+  dry-run private human upload execution approval request command. It may read
+  one saved upload execution readiness boundary and emit a deterministic
+  approval request fingerprint for later human review. A
+  `upload-execution-approval-request-ready` result is not approval granted and
+  is not upload execution authorization. It must keep `uploadApproved=false`,
+  `uploadExecutionApproved=false`, `uploadExecutionAllowed=false`,
+  `mutationApprovalGranted=false`, `fingerprintVerified=false`,
+  `humanApprovalRecorded=false`, `approvalGranted=false`,
+  `approvalSource=null`, `suppliedFingerprint=null`, `uploadCommand=null`,
+  `objectKeyRedacted=true`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+  `auditRecordCreated=false`, `artifactBytesProvided=false`,
+  `adapterInjected=false`, `clientCreated=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+  `liveCheckAllowed=false`, `liveCheckPerformed=false`,
+  `uploadCommandGenerated=false`, `artifactObjectStoreBound=false`,
+  `metadataIndexBound=false`, `objectStoreHandleExposed=false`,
+  `metadataIndexHandleExposed=false`, `objectWriteAllowed=false`,
+  `metadataIndexWriteAllowed=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `executable=false`, and
+  `remoteMutationPerformed=false`. It must not accept or output backend
+  configs, registries, mock harnesses, mutation plans, raw bytes, local
+  artifact paths, concrete adapters, SDK clients, client configs, credential
+  values, credential files, credential presence results, live-check
+  probes/results, backend endpoints, object keys in output, object-store
+  handles, metadata-index handles, upload command payloads/material,
+  token/lease/rollback/audit material, supplied approval fingerprints, or
+  object/index mutation.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

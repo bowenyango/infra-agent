@@ -428,6 +428,30 @@ Target artifact families:
   credential reads, credential presence checks, SDK client creation, adapter
   injection, live checks, byte staging, object writes, metadata index writes,
   and remote mutations stay disabled.
+- `infra-agent.knowledge-team-upload-execution-readiness-boundary`: a private
+  dry-run execution readiness boundary derived from a saved object/index
+  binding boundary. It can report `upload-execution-readiness-boundary-ready`
+  only when the object/index boundary is ready, the prior review signal remains
+  verified, the target remains safe and object-key-redacted, and the adapter
+  backend remains the mock S3-compatible boundary. It records final future
+  execution requirements plus separate upload execution approval, while upload
+  approval, upload execution approval, upload execution, command generation,
+  token issuance, lease creation, rollback creation, audit creation, byte
+  staging, adapter injection, SDK client creation, credential reads,
+  credential presence checks, live checks, store/index binding, object writes,
+  metadata index writes, and remote mutations stay disabled.
+- `infra-agent.knowledge-team-upload-execution-approval-request`: a private
+  dry-run human upload execution approval request derived from a saved
+  execution readiness boundary. It can report
+  `upload-execution-approval-request-ready` only when the readiness boundary is
+  ready, reviewed, scope-matched, and still fully non-executing. It emits a
+  deterministic SHA-256 approval request fingerprint for later human review
+  while keeping human approval recorded, approval granted, upload execution
+  approval, upload execution, command generation, token issuance, leases,
+  rollback, audit records, byte staging, adapter injection, SDK client
+  creation, credential reads, credential presence checks, live checks,
+  store/index binding, object writes, metadata index writes, and remote
+  mutations disabled.
 
 Team artifact public contracts:
 
@@ -674,6 +698,26 @@ Implemented initial CLI surfaces:
     values, check credential presence, instantiate SDK clients, inject
     adapters, read/hash/stage bytes, allow object/index writes, or write
     object/index entries.
+- `infra-agent knowledge upload-execution-readiness-boundary
+  <object-index-binding-boundary.json> [--out <execution-readiness-boundary.json>] --json`
+  - reads one saved private upload object/index binding boundary, then records
+    final future upload execution readiness requirements. A
+    `upload-execution-readiness-boundary-ready` result does not approve upload
+    execution, grant mutation approval, issue tokens, create leases, create
+    rollback plans, create audit records, stage bytes, inject adapters, create
+    clients, read or check credentials, probe live backends, generate commands,
+    bind stores or indexes, allow object/index writes, or write object/index
+    entries.
+- `infra-agent knowledge request-separate-upload-execution-approval
+  <execution-readiness-boundary.json> [--out <execution-approval-request.json>] --json`
+  - reads one saved private upload execution readiness boundary, then records a
+    deterministic approval request fingerprint for later human review. A
+    `upload-execution-approval-request-ready` result does not record human
+    approval, grant approval, allow upload execution, issue tokens, create
+    leases, create rollback plans, create audit records, stage bytes, inject
+    adapters, create clients, read or check credentials, probe live backends,
+    generate commands, bind stores or indexes, allow object/index writes, or
+    write object/index entries.
 
 Recommended storage layers:
 
