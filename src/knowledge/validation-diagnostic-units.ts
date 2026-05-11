@@ -4,6 +4,20 @@ import type { KnowledgePackDiagnosticUnit, KnowledgePackSource, KnowledgePackUni
 
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const MAX_DIAGNOSTIC_UNITS = 8;
+const IDENTITY_METADATA_KEYS: Array<keyof NonNullable<ValidationIssue['metadata']>> = [
+  'duplicateIdentity',
+  'dnsNames',
+  'kubernetesNames',
+  'kubernetesNamespaces',
+  'listenerArns',
+  'listenerRulePriorities',
+  'oidcProviderUrls',
+  'recordTypes',
+  'routeDestinations',
+  'routeTableIds',
+  'securityGroupIds',
+  'securityGroupRulePeers'
+];
 
 function isValidationDiagnosticUnit(unit: KnowledgePackUnit): boolean {
   return unit.unitType === 'diagnostic' && unit.extractionMethod === 'validation-diagnostic';
@@ -28,13 +42,17 @@ function diagnosticEngine(issue: ValidationIssue): KnowledgePackDiagnosticUnit['
   return domain ?? 'runtime';
 }
 
-function compactText(value: string | undefined, fallback: string): string {
+function compactOptionalText(value: string | undefined): string | null {
   const text = value?.replace(/\s+/g, ' ').trim();
   if (!text || SECRET_VALUE_PATTERN.test(text)) {
-    return fallback;
+    return null;
   }
 
   return text.length > 240 ? `${text.slice(0, 237)}...` : text;
+}
+
+function compactText(value: string | undefined, fallback: string): string {
+  return compactOptionalText(value) ?? fallback;
 }
 
 function metadataIdentity(issue: ValidationIssue): string | null {
@@ -49,6 +67,39 @@ function metadataIdentity(issue: ValidationIssue): string | null {
   ];
 
   return candidates.find(candidate => candidate && !SECRET_VALUE_PATTERN.test(candidate)) ?? null;
+}
+
+function safeMetadataValue(
+  key: keyof NonNullable<ValidationIssue['metadata']>,
+  value: string | undefined
+): string | null {
+  if (SECRET_VALUE_PATTERN.test(key)) {
+    return null;
+  }
+
+  return compactOptionalText(value);
+}
+
+function collectIdentityMetadata(issue: ValidationIssue): Record<string, string> {
+  const identity: Record<string, string> = {};
+
+  for (const key of IDENTITY_METADATA_KEYS) {
+    const value = safeMetadataValue(key, issue.metadata?.[key]);
+    if (value) {
+      identity[key] = value;
+    }
+  }
+
+  return identity;
+}
+
+function formatIdentityMetadata(identity: Record<string, string>): string {
+  const entries = Object.entries(identity);
+  if (entries.length === 0) {
+    return 'matched provider identity';
+  }
+
+  return entries.map(([key, value]) => `${key}=${value}`).join(', ');
 }
 
 function sourceForIssue(issue: ValidationIssue, runtime: AgentRuntimeState): KnowledgePackSource | null {
@@ -71,17 +122,85 @@ function sourceForIssue(issue: ValidationIssue, runtime: AgentRuntimeState): Kno
     ?? null;
 }
 
+function pushReview(reviews: string[], value: string | undefined): void {
+  const text = compactOptionalText(value);
+  if (text && !reviews.includes(text)) {
+    reviews.push(text);
+  }
+}
+
+function identityConflictSpecificReview(issue: ValidationIssue): string {
+  switch (issue.metadata?.conflictFamily) {
+    case 'aws-route':
+      return 'Confirm route table ID, destination, and old/new route target before choosing moved/import/state repair or delete-before-create sequencing.';
+    case 'aws-lb-listener-rule':
+      return 'Confirm listener ARN and priority ownership; choose a free priority when old and new listener rules must coexist.';
+    case 'aws-security-group-rule':
+    case 'aws-vpc-security-group-rule':
+      return 'Confirm direction, protocol, ports, security group ID, and peer because duplicate security permissions cannot coexist.';
+    case 'aws-cloudfront-alias':
+      return 'Confirm CloudFront alias ownership, certificate coverage, distribution ownership, and DNS cutover before transfer or import.';
+    case 'aws-api-gateway-domain-name':
+      return 'Confirm API Gateway custom domain ownership, certificate mapping, and base path mappings before import or replacement.';
+    case 'aws-route53-record':
+      return 'Confirm DNS record name, type, hosted zone ownership, and whether overwrite/import or DNS cutover is intended.';
+    case 'aws-iam-oidc-provider':
+      return 'Confirm IAM OIDC provider URL, account ownership, and downstream role trust policies before import or replacement.';
+    case 'aws-s3-bucket':
+      return 'Confirm physical bucket name, account ownership, region, retention, and data policies before import or replacement.';
+    case 'aws-named-resource':
+      return 'Confirm physical name, owning account or region, and service ownership before import, delete, or recreate sequencing.';
+    case 'kubernetes-namespaced-object':
+      return 'Confirm Kubernetes kind, metadata.name, metadata.namespace, and owning stack or release before alias/import/delete sequencing.';
+    case 'kubernetes-namespace':
+      return 'Confirm namespace name and cluster ownership before import, delete, or recreate sequencing.';
+    default:
+      return 'Confirm the matched provider-exclusive identity belongs to the intended resource, module, stack, and environment.';
+  }
+}
+
+function identityConflictReview(issue: ValidationIssue): string[] {
+  if (issue.kind !== 'terraform-create-before-delete-conflict'
+    && issue.kind !== 'pulumi-create-before-delete-conflict') {
+    return [];
+  }
+
+  const reviews: string[] = [];
+  const label = compactOptionalText(issue.metadata?.conflictLabel)
+    ?? compactOptionalText(issue.metadata?.conflictFamily)
+    ?? 'provider-exclusive identity';
+  const locator = issue.kind === 'terraform-create-before-delete-conflict'
+    ? compactOptionalText(issue.metadata?.resourceAddress)
+    : compactOptionalText(issue.metadata?.resourceName);
+  const identity = formatIdentityMetadata(collectIdentityMetadata(issue));
+
+  reviews.push(locator
+    ? `Review ${label} conflict at ${locator}: ${identity}.`
+    : `Review ${label} conflict: ${identity}.`);
+  reviews.push(identityConflictSpecificReview(issue));
+  pushReview(reviews, issue.metadata?.conflictSuggestedAction);
+  reviews.push(issue.kind === 'terraform-create-before-delete-conflict'
+    ? 'For logical Terraform renames, prefer reviewed moved blocks, import/state review, or address-preserving edits before retrying plan.'
+    : 'For logical Pulumi renames, prefer reviewed aliases, import/state review, or bounded stack config changes before retrying preview.');
+
+  return reviews;
+}
+
 function recommendedReview(issue: ValidationIssue): string[] {
   const guidance = compactText(issue.guidance, 'Review the validation issue and the selected target before applying changes.');
   const command = compactText(
     issue.sourceCommand,
     'Rerun the selected validator after reviewing the diagnostic.'
   );
+  const reviews: string[] = [];
 
-  return [
-    guidance,
-    `Rerun validator: ${command}`
-  ];
+  pushReview(reviews, guidance);
+  for (const review of identityConflictReview(issue)) {
+    pushReview(reviews, review);
+  }
+  reviews.push(`Rerun validator: ${command}`);
+
+  return reviews.slice(0, 7);
 }
 
 function diagnosticPath(issue: ValidationIssue, source: KnowledgePackSource): string {

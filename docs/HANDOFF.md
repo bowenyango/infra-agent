@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Identity Conflict Diagnostic Review Steps
+
+Status:
+
+- Completed the next `diagnostic` Knowledge Unit refinement.
+- Runtime validation diagnostics now preserve compact, conflict-family-specific
+  review steps for Terraform and Pulumi provider-exclusive identity conflicts.
+
+Implemented checkpoints:
+
+- Enhanced `src/knowledge/validation-diagnostic-units.ts` so
+  `terraform-create-before-delete-conflict` and
+  `pulumi-create-before-delete-conflict` issues project identity metadata into
+  bounded `recommendedReview` entries.
+- Covered high-value infra identity fields including DNS names, listener rule
+  priorities, route identities, security group rule peers, Kubernetes object
+  names/namespaces, and physical resource names.
+- Preserved secret-like redaction and avoided raw validator output in
+  `diagnostic` units.
+- Added tests for Terraform load balancer listener rule priority conflicts and
+  Pulumi CloudFront alias ownership conflicts.
+
+Design notes:
+
+- This keeps identity-conflict intelligence in the compact RAG surface instead
+  of forcing the planner to scan raw `terraform plan` or `pulumi preview`
+  output.
+- The output stays deterministic and token-bounded: current `ValidationIssue`
+  metadata becomes short review guidance, while mutation remains blocked until
+  the normal approval and validation flow allows it.
+- The slice reinforces the project direction that infra-specific RAG should
+  encode rename/state/import/alias/identity semantics directly, not rely on
+  generic vector retrieval.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-validation-diagnostic-units.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add public/internal knowledge pack publishing support for non-fact units once
+   extractor output can include `guidance`, `example`, `diagnostic`, and
+   `recipe` sets directly.
+2. Add a `maxUnits` option or alias after compact result consumers have fully
+   migrated to unit-first terminology.
+3. Promote provider/Helm/public-doc extractor outputs into stored unit-native
+   packs that can be downloaded and reused across agents.
+
 ## 2026-05-11 Completed Infra Workflow Recipe Units
 
 Status:

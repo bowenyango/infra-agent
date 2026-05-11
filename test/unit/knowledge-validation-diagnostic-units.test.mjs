@@ -122,6 +122,79 @@ test('validation diagnostic units are synchronized from current validation issue
   assert.equal(cleared.knowledgeFacts.omittedUnitCount, 4);
 });
 
+test('validation diagnostic units add Terraform identity conflict review steps', () => {
+  const runtime = buildRuntime({
+    validationIssues: [
+      {
+        kind: 'terraform-create-before-delete-conflict',
+        repairable: false,
+        sourceCommand: 'terraform -chdir=terraform/edge plan',
+        message: 'Priority 100 is already in use on the target listener.',
+        guidance: 'Terraform attempted to create a listener rule before the existing provider identity was released.',
+        metadata: {
+          conflictCode: 'PriorityInUse',
+          conflictFamily: 'aws-lb-listener-rule',
+          conflictLabel: 'AWS Load Balancer Listener Rule',
+          conflictSuggestedAction: 'Use a reviewed moved block or state mapping for logical renames, or choose a free listener priority.',
+          resourceAddress: 'aws_lb_listener_rule.api',
+          resourceType: 'aws_lb_listener_rule',
+          listenerArns: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/api/50dc6c495c0c9188/f2f7dc8efc522ab2',
+          listenerRulePriorities: '100'
+        }
+      }
+    ]
+  });
+
+  const synced = syncValidationDiagnosticKnowledgeUnits(runtime);
+  const diagnostic = synced.knowledgeFacts.units.find(unit => unit.unitType === 'diagnostic');
+
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.engine, 'terraform');
+  assert.equal(diagnostic.path, 'aws_lb_listener_rule.api');
+  assert.ok(diagnostic.recommendedReview.some(review =>
+    /AWS Load Balancer Listener Rule conflict at aws_lb_listener_rule\.api/i.test(review)
+    && /listenerRulePriorities=100/.test(review)
+  ));
+  assert.ok(diagnostic.recommendedReview.some(review => /listener ARN and priority ownership/i.test(review)));
+  assert.ok(diagnostic.recommendedReview.some(review => /reviewed moved block or state mapping/i.test(review)));
+  assert.ok(diagnostic.recommendedReview.some(review => /logical Terraform renames/i.test(review)));
+});
+
+test('validation diagnostic units add Pulumi DNS ownership review steps', () => {
+  const runtime = buildRuntime({
+    validationIssues: [
+      {
+        kind: 'pulumi-create-before-delete-conflict',
+        repairable: false,
+        sourceCommand: 'pulumi preview --cwd infra/edge --stack prod',
+        message: 'CloudFront alias api.example.com is already associated with another distribution.',
+        guidance: 'Pulumi attempted to create a provider-exclusive DNS alias before ownership was resolved.',
+        metadata: {
+          conflictCode: 'CNAMEAlreadyExists',
+          conflictFamily: 'aws-cloudfront-alias',
+          conflictLabel: 'AWS CloudFront Alias',
+          conflictSuggestedAction: 'Use alias/import/state review or sequence the DNS cutover explicitly.',
+          resourceName: 'edge',
+          dnsNames: 'api.example.com'
+        }
+      }
+    ]
+  });
+
+  const synced = syncValidationDiagnosticKnowledgeUnits(runtime);
+  const diagnostic = synced.knowledgeFacts.units.find(unit => unit.unitType === 'diagnostic');
+
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.engine, 'pulumi');
+  assert.ok(diagnostic.recommendedReview.some(review =>
+    /AWS CloudFront Alias conflict at edge/i.test(review)
+    && /dnsNames=api\.example\.com/.test(review)
+  ));
+  assert.ok(diagnostic.recommendedReview.some(review => /CloudFront alias ownership/i.test(review)));
+  assert.ok(diagnostic.recommendedReview.some(review => /alias\/import\/state review/i.test(review)));
+  assert.ok(diagnostic.recommendedReview.some(review => /logical Pulumi renames/i.test(review)));
+});
+
 test('validation diagnostic units avoid secret-like issue fields', () => {
   const runtime = buildRuntime({
     validationIssues: [
