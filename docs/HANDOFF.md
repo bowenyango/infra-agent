@@ -6,6 +6,81 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Planned Upload Execution Runtime Boundary Policy Review
+
+Status:
+
+- Planned as the next slice after the completed
+  `upload-execution-runtime-boundaries` artifact.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-execution-runtime-boundaries` whose ready
+  next action is
+  `await-explicit-upload-execution-runtime-boundary-policy-review`, then emit a
+  private runtime-boundary policy-review artifact.
+- This slice may record that the runtime boundary policy families were reviewed
+  as a local, compact, non-executing checkpoint. It must not update Plan/Rules,
+  approve upload execution, grant upload execution authorization, allow upload
+  execution, generate or materialize upload commands, issue write tokens, create
+  execution leases, create rollback plans, create audit records, stage artifact
+  bytes, inject adapters, create clients, read credentials, check credential
+  presence, perform live backend checks, bind concrete object stores or metadata
+  indexes, expose handles, write objects, write metadata index entries, or
+  perform remote mutations.
+
+Expected artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-execution-runtime-boundary-policy-review`.
+- CLI:
+  `infra-agent knowledge upload-execution-runtime-boundary-policy-review <runtime-boundaries.json> [--out <policy-review.json>] [--json]`.
+- Ready status:
+  `upload-execution-runtime-boundary-policy-review-ready`, meaning only that a
+  saved runtime-boundaries artifact was ready, non-executing, fingerprinted, and
+  accepted as the source for local runtime-boundary policy review.
+- Ready next action:
+  `await-explicit-upload-execution-runtime-boundary-policy-update`. This is
+  still a non-executing policy-update record step and must not become upload
+  execution.
+
+Acceptance criteria:
+
+1. Ready output requires a valid
+   `infra-agent.knowledge-team-upload-execution-runtime-boundaries` with
+   `upload-execution-runtime-boundaries-ready`,
+   `nextAction=await-explicit-upload-execution-runtime-boundary-policy-review`,
+   safe redacted target references, verified source implementation and runtime
+   boundary fingerprints, `runtimeBoundariesDesigned=true`,
+   `sourceImplementationBoundaryFingerprintVerified=true`, no upload execution
+   allowance, and no blockers.
+2. The artifact preserves safe target identifiers and hash references while
+   retaining `target.objectKeyRedacted=true`; it does not copy
+   `target.objectKey` to output.
+3. The policy-review record may set `runtimeBoundaryPolicyReviewed=true` and
+   individual policy-family review booleans only as local review-record state.
+   It must keep `runtimeBoundaryPolicyUpdated=false`,
+   `policyUpdateAuthorized=false`, command, adapter, client, credential,
+   live-check, object/index binding, write, token, lease, rollback, audit, byte,
+   executable, and remote mutation state disabled.
+4. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
+   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, object-key-copying, object-store-handle,
+   metadata-index-handle, token/lease/rollback/audit material,
+   authorization-material, runtime secrets, policy-update material, or
+   object/index mutation inputs produce blocked or invalid results with safe
+   blocker codes and without copying private values.
+
+Next recommended implementation steps:
+
+1. Add the `team-upload-execution-runtime-boundary-policy-review` builder and
+   focused unit tests.
+2. Add validator dispatch and contract tests for ready, blocked, drifted, and
+   missing-section policy-review payloads.
+3. Add CLI parse/help/output/integration tests.
+4. Extend no-SDK/no-execution guards for the new policy-review source and CLI
+   action.
+5. Run focused tests first, then `npm run lint`, `npm run test:contract`,
+   `npm run test:integration`, `npm run test:coverage`, and `npm run verify`.
+
 ## 2026-05-11 Completed Upload Execution Runtime Boundaries
 
 Status:

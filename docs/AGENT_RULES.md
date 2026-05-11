@@ -838,8 +838,48 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   values, credential files, credential presence results, live-check
   probes/results, backend endpoints, object keys in output, object-store
   handles, metadata-index handles, upload command payloads/material,
-  authorization material, token/lease/rollback/audit material,
-  runtime secrets, object/index mutation, or any execution grant token.
+  authorization material, token/lease/rollback/audit material, runtime secrets,
+  object/index mutation, or any execution grant token.
+- `infra-agent knowledge upload-execution-runtime-boundary-policy-review` is a
+  dry-run private upload execution runtime-boundary policy-review command. It
+  may read one saved runtime-boundaries artifact whose ready next action is
+  `await-explicit-upload-execution-runtime-boundary-policy-review`, then record
+  only that the artifact-byte, adapter-injection, client-creation,
+  credential-read, credential-presence, live-check, upload-command,
+  object/index-binding, write-token, execution-lease, rollback-plan,
+  audit-record, and remote-mutation policy families were reviewed as a compact
+  local checkpoint. A
+  `upload-execution-runtime-boundary-policy-review-ready` result is not
+  Plan/Rules update, upload execution approval, upload execution authorization,
+  upload execution readiness, mutation approval, command generation, adapter
+  injection, client creation, credential access, live checking, object/index
+  binding, object or index writes, token/lease issuance, rollback/audit
+  creation, byte staging, or remote mutation permission. It may report
+  `runtimeBoundaryPolicyReviewed=true` only as local review-record state, while
+  it must keep `runtimeBoundaryPolicyUpdated=false`,
+  `policyUpdateAuthorized=false`, `authorizationGranted=false`,
+  `executionAuthorizationGranted=false`, `uploadApproved=false`,
+  `uploadExecutionApproved=false`, `uploadExecutionAllowed=false`,
+  `mutationApprovalGranted=false`, `uploadCommand=null`,
+  `objectKeyRedacted=true`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+  `auditRecordCreated=false`, `artifactBytesProvided=false`,
+  `adapterInjected=false`, `clientCreated=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+  `liveCheckAllowed=false`, `liveCheckPerformed=false`,
+  `uploadCommandGenerated=false`, `artifactObjectStoreBound=false`,
+  `metadataIndexBound=false`, `objectStoreHandleExposed=false`,
+  `metadataIndexHandleExposed=false`, `objectWriteAllowed=false`,
+  `metadataIndexWriteAllowed=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `executable=false`, and
+  `remoteMutationPerformed=false`. It must not accept or output backend
+  configs, registries, mock harnesses, mutation plans, raw bytes, local
+  artifact paths, concrete adapters, SDK clients, client configs, credential
+  values, credential files, credential presence results, live-check
+  probes/results, backend endpoints, object keys in output, object-store
+  handles, metadata-index handles, upload command payloads/material,
+  authorization material, token/lease/rollback/audit material, runtime secrets,
+  policy-update material, object/index mutation, or any execution grant token.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
