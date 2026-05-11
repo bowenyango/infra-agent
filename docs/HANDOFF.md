@@ -102,6 +102,7 @@ Validation completed:
 - `npm run test:contract`
 - `npm run test:integration`
 - `npm run test:coverage`
+- `npm run verify`
 
 Next recommended implementation steps:
 
