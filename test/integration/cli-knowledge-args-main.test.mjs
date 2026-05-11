@@ -674,3 +674,24 @@ test('knowledge request-separate-upload-execution-approval CLI args accept readi
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-approval-request.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge record-human-upload-execution-approval CLI args accept request fingerprint and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'record-human-upload-execution-approval',
+    'artifacts/knowledge-pack.upload-execution-approval-request.json',
+    '--approval-fingerprint',
+    'a'.repeat(64),
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-approval-record.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'record-human-upload-execution-approval');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-execution-approval-request.json');
+  assert.equal(parsed.approvalFingerprint, 'a'.repeat(64));
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-approval-record.json');
+  assert.equal(parsed.json, true);
+});

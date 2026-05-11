@@ -74,6 +74,7 @@ import type { KnowledgeTeamUploadCommandBoundary } from '../knowledge/team-uploa
 import type { KnowledgeTeamUploadObjectIndexBindingBoundary } from '../knowledge/team-upload-object-index-binding-boundary.ts';
 import type { KnowledgeTeamUploadExecutionReadinessBoundary } from '../knowledge/team-upload-execution-readiness-boundary.ts';
 import type { KnowledgeTeamUploadExecutionApprovalRequest } from '../knowledge/team-upload-execution-approval-request.ts';
+import type { KnowledgeTeamUploadExecutionApprovalRecord } from '../knowledge/team-upload-execution-approval-record.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -4903,6 +4904,76 @@ export function printKnowledgeTeamUploadExecutionApprovalRequest(
   printList(
     request.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload execution approval request blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadExecutionApprovalRecord(
+  record: KnowledgeTeamUploadExecutionApprovalRecord
+): void {
+  printHeader('Knowledge team upload execution approval record');
+  process.stdout.write(`status: ${record.status}\n`);
+  process.stdout.write(`next action: ${record.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${record.plannedOperation}\n`);
+  process.stdout.write(`execution: ${record.executionMode}\n`);
+  process.stdout.write(`record: ${record.recordKind}\n`);
+  process.stdout.write(`target manifest: ${record.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object key redacted: ${record.target.objectKeyRedacted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`target object sha256: ${record.target.objectSha256 ?? 'invalid'}\n`);
+  process.stdout.write(`target artifact: ${record.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${record.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check allowed: ${record.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${record.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${record.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${record.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution approved: ${record.uploadExecutionApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${record.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${record.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${record.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${record.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${record.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${record.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${record.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${record.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${record.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${record.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${record.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${record.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${record.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source approval request: ${record.sourceApprovalRequest.requestStatus}\n`);
+  process.stdout.write(`source approval request action: ${record.sourceApprovalRequest.requestNextAction}\n`);
+  process.stdout.write(`source execution readiness boundary: ${record.sourceApprovalRequest.sourceExecutionReadinessStatus}\n`);
+  process.stdout.write(`source execution readiness action: ${record.sourceApprovalRequest.sourceExecutionReadinessNextAction}\n`);
+  process.stdout.write(`source review: ${record.sourceApprovalRequest.reviewStatus}\n`);
+  process.stdout.write(`scope matched: ${record.sourceApprovalRequest.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source human review recorded: ${record.sourceApprovalRequest.humanReviewRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source fingerprint verified: ${record.sourceApprovalRequest.sourceFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source artifact fingerprint verified: ${record.sourceApprovalRequest.sourceArtifactFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${record.sourceApprovalRequest.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${record.sourceApprovalRequest.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`source request issued: ${record.sourceApprovalRequest.requestIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source request human approval recorded: ${record.sourceApprovalRequest.requestHumanApprovalRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source request approval granted: ${record.sourceApprovalRequest.requestApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source request fingerprint verified: ${record.sourceApprovalRequest.requestFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source request fingerprint scope: ${record.sourceApprovalRequest.requestFingerprint.scope}\n`);
+  process.stdout.write(`source request fingerprint: ${record.sourceApprovalRequest.requestFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`human approval required: ${record.approvalRecord.humanApprovalRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human approval recorded: ${record.approvalRecord.humanApprovalRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`approval granted: ${record.approvalRecord.approvalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`approval source: ${record.approvalRecord.source ?? 'none'}\n`);
+  process.stdout.write(`expected fingerprint: ${record.approvalRecord.expectedFingerprint ?? 'unavailable'}\n`);
+  process.stdout.write(`supplied fingerprint: ${record.approvalRecord.suppliedFingerprint ?? 'unavailable'}\n`);
+  process.stdout.write(`approval fingerprint verified: ${record.approvalRecord.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`record fingerprint scope: ${record.approvalRecord.recordFingerprint.scope}\n`);
+  process.stdout.write(`record fingerprint: ${record.approvalRecord.recordFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`dry run only: ${record.executionBoundary.dryRunOnly ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary executable: ${record.executionBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary object write allowed: ${record.executionBoundary.objectWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary metadata index write allowed: ${record.executionBoundary.metadataIndexWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: humanApprovalRecorded=${record.approvalRecord.humanApprovalRecorded ? 'yes' : 'no'}, approvalGranted=${record.approvalRecord.approvalGranted ? 'yes' : 'no'}, uploadExecutionAllowed=${record.uploadExecutionAllowed ? 'yes' : 'no'}, executable=${record.executionBoundary.executable ? 'yes' : 'no'}, blockers=${record.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    record.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload execution approval record blockers.'
   );
 }
 

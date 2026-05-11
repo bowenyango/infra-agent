@@ -369,6 +369,12 @@ test('help output includes upload execution approval request command', async () 
   assert.match(output, /infra-agent knowledge request-separate-upload-execution-approval <execution-readiness-boundary\.json>/);
 });
 
+test('help output includes human upload execution approval record command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge record-human-upload-execution-approval <execution-approval-request\.json> --approval-fingerprint <sha256>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
