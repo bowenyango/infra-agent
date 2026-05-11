@@ -323,6 +323,17 @@ credentials must still come from environment variables.
    presence, expose live-check results, instantiate SDK clients, inject
    adapters, bind stores or indexes, read/hash/stage bytes, or write
    object/index entries.
+   Use `knowledge upload-object-index-binding-boundary` only as a dry-run
+   private object/index binding boundary from a saved upload command boundary.
+   An `object-index-binding-boundary-ready` result means object-store and
+   metadata-index binding requirements were modeled, not satisfied:
+   descriptors, object-key and index-entry redaction, content-addressed keys,
+   idempotent writes, execution-boundary requirements, and explicit approval
+   still need separate design or execution approval. It does not bind concrete
+   stores or indexes, expose handles, generate or materialize command payloads,
+   become executable, expose target object keys, read credential values, check
+   credential presence, expose live-check results, instantiate SDK clients,
+   inject adapters, read/hash/stage bytes, or write object/index entries.
    Treat descriptor, publication-plan, index-entry, and readiness JSON as
    contract-gated handoff payloads: validate them before reuse and do not add
    raw facts, raw source arrays, workspace/cache paths, backend details, or

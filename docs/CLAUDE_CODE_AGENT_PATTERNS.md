@@ -155,7 +155,13 @@ durable design reference for infra-agent development.
   metadata-index dependencies, content-addressed keys, idempotent writes, and
   explicit approval. It still does not materialize command payloads, expose
   command material, become executable, bind object stores or indexes, or write
-  remote state. All nineteen remain
+  remote state. `upload-object-index-binding-boundary` can consume that upload
+  command boundary and model future object-store and metadata-index binding
+  requirements: safe descriptors, object-key and index-entry redaction,
+  content-addressed keys, idempotent writes, execution-boundary requirements,
+  and explicit approval. It still does not bind concrete stores or indexes,
+  expose handles, generate commands, stage bytes, allow writes, or mutate
+  remote state. All twenty remain
   dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter

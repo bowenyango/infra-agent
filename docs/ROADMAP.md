@@ -170,6 +170,18 @@ injection, byte staging, object/index writes, and remote mutation disabled; the
 target object key is redacted from the output. Its validator is also wired into
 the `knowledge validate` dispatcher.
 
+2026-05-10 addendum: `knowledge upload-object-index-binding-boundary` now
+consumes a saved private upload-command boundary and emits a validated dry-run
+object/index binding boundary with object-store descriptor, metadata-index
+descriptor, object-key redaction, metadata-index entry redaction,
+content-addressed key, idempotent write, execution-boundary, and explicit
+approval requirements. It keeps concrete store/index binding, handle exposure,
+command generation/materialization/exposure, executable state, credential
+reads, credential presence checks, live checks, SDK client creation, adapter
+injection, byte staging, object/index writes, and remote mutation disabled;
+the target object key remains redacted from the output. Its validator is also
+wired into the `knowledge validate` dispatcher.
+
 Target artifact families:
 
 - `infra-agent.knowledge-source`: selected source metadata for official docs,
@@ -403,6 +415,19 @@ Target artifact families:
   store/index binding, byte staging, object writes, metadata index writes, and
   remote mutations stay disabled. The target object key is intentionally
   redacted from this boundary output.
+- `infra-agent.knowledge-team-upload-object-index-binding-boundary`: a private
+  dry-run object/index binding boundary derived from a saved upload-command
+  boundary. It can report `object-index-binding-boundary-ready` only when the
+  upload-command boundary is ready, the prior review signal remains verified,
+  the target remains safe and object-key-redacted, and the adapter backend
+  remains the mock S3-compatible boundary. It records future object-store and
+  metadata-index descriptors, object-key and index-entry redaction,
+  content-addressed key, idempotent write, execution-boundary, and explicit
+  approval requirements, while concrete store/index binding, handle exposure,
+  command generation/materialization/exposure, executable command state,
+  credential reads, credential presence checks, SDK client creation, adapter
+  injection, live checks, byte staging, object writes, metadata index writes,
+  and remote mutations stay disabled.
 
 Team artifact public contracts:
 
@@ -639,6 +664,16 @@ Implemented initial CLI surfaces:
     values, check credential presence, expose live-check results, instantiate
     SDK clients, inject adapters, bind object stores or metadata indexes,
     read/hash/stage bytes, or write object/index entries.
+- `infra-agent knowledge upload-object-index-binding-boundary
+  <command-boundary.json> [--out <object-index-binding-boundary.json>] --json`
+  - reads one saved private upload command boundary, then records future
+    object-store and metadata-index binding requirements. An
+    `object-index-binding-boundary-ready` result does not bind concrete stores
+    or indexes, expose handles, generate/materialize/expose command material,
+    expose target object keys, probe backend reachability, read credential
+    values, check credential presence, instantiate SDK clients, inject
+    adapters, read/hash/stage bytes, allow object/index writes, or write
+    object/index entries.
 
 Recommended storage layers:
 
