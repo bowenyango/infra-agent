@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 In Progress Human Upload Execution Approval Record
+## 2026-05-10 Completed Human Upload Execution Approval Record
 
 Status:
 
-- Planned and in implementation. This slice continues the private dry-run
+- Completed. This slice continues the private dry-run
   upload boundary chain after `request-separate-upload-execution-approval`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-approval-request` and one
@@ -26,16 +26,17 @@ Status:
   expose handles, write objects, write metadata index entries, or perform
   remote mutations.
 
-Planned checkpoints:
+Implemented checkpoints:
 
-1. Add the human upload execution approval record contract and builder from
+1. Added the human upload execution approval record contract and builder from
    the saved approval request plus supplied fingerprint.
-2. Add focused unit coverage for ready, mismatch, blocked source, malformed,
+2. Added focused unit coverage for ready, mismatch, blocked source, malformed,
    forged, missing fingerprint, primitive private, and leaky inputs.
-3. Add validator dispatch and contract coverage for ready and drifted payloads.
-4. Add CLI parsing, JSON/text output, help text, and integration coverage for
+3. Added validator dispatch and contract coverage for ready and drifted
+   payloads.
+4. Added CLI parsing, JSON/text output, help text, and integration coverage for
    `knowledge record-human-upload-execution-approval`.
-5. Add no-SDK/no-execution guard coverage and update handoff/rules/roadmap
+5. Added no-SDK/no-execution guard coverage and updated handoff/rules/roadmap
    after verification.
 
 Expected artifact and CLI:
@@ -86,6 +87,39 @@ Initial acceptance criteria:
    metadata-index-handle, token/lease/rollback/audit material, or object/index
    mutation inputs produce blocked or invalid results with safe blocker codes
    and without copying private values.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-approval-record.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-approval-record-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-record-human-upload-execution-approval-main.test.mjs`
+
+Core files changed:
+
+- `src/knowledge/team-upload-execution-approval-record.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-approval-record.test.mjs`
+- `test/contract/knowledge-team-upload-execution-approval-record-contract.test.mjs`
+- `test/integration/cli-knowledge-record-human-upload-execution-approval-main.test.mjs`
+
+Next recommended slice:
+
+- `design-upload-execution-authorization-boundary`. It should consume the
+  saved `infra-agent.knowledge-team-upload-execution-approval-record` and
+  design a final explicit upload execution authorization boundary. The next
+  slice still should not perform uploads, issue write tokens, create leases,
+  create rollback plans, create audit records, stage artifact bytes, inject
+  adapters, create clients, read credentials, check credential presence,
+  perform live checks, generate commands, bind object stores or metadata
+  indexes, expose handles, write objects, write metadata index entries, or
+  perform remote mutations unless a later Plan/Rules update explicitly narrows
+  and approves that boundary.
 
 ## 2026-05-10 Completed Upload Execution Approval Request
 
@@ -190,14 +224,8 @@ Core files changed:
 
 Next recommended slice:
 
-- `record-human-upload-execution-approval`. It should consume the saved
-  `infra-agent.knowledge-team-upload-execution-approval-request` plus an
-  explicit operator-supplied approval fingerprint, verify exact fingerprint
-  match, and emit a private dry-run human approval record. It still must not
-  allow upload execution, write tokens, leases, rollback plans, audit records,
-  adapter injection, client creation, credential reads/checks, live checks,
-  command generation, object writes, metadata index writes, or remote
-  mutation.
+- Completed by the 2026-05-10 human upload execution approval record slice
+  above.
 
 ## 2026-05-10 Completed Upload Execution Readiness Boundary
 

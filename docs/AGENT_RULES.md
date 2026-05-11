@@ -643,6 +643,36 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   handles, metadata-index handles, upload command payloads/material,
   token/lease/rollback/audit material, supplied approval fingerprints, or
   object/index mutation.
+- `infra-agent knowledge record-human-upload-execution-approval` is a dry-run
+  private human upload execution approval record command. It may read one saved
+  upload execution approval request and one explicit operator-supplied
+  fingerprint. A `upload-execution-approval-record-ready` result means only
+  that the supplied fingerprint exactly matched the deterministic approval
+  request fingerprint. It is not approval granted and is not upload execution
+  authorization. It may set `humanApprovalRecorded=true` and
+  `fingerprintVerified=true` only inside the approval record, while it must keep
+  `approvalGranted=false`, `uploadApproved=false`,
+  `uploadExecutionApproved=false`, `uploadExecutionAllowed=false`,
+  `mutationApprovalGranted=false`, `uploadCommand=null`,
+  `objectKeyRedacted=true`, `writeTokenIssued=false`,
+  `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+  `auditRecordCreated=false`, `artifactBytesProvided=false`,
+  `adapterInjected=false`, `clientCreated=false`,
+  `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+  `liveCheckAllowed=false`, `liveCheckPerformed=false`,
+  `uploadCommandGenerated=false`, `artifactObjectStoreBound=false`,
+  `metadataIndexBound=false`, `objectStoreHandleExposed=false`,
+  `metadataIndexHandleExposed=false`, `objectWriteAllowed=false`,
+  `metadataIndexWriteAllowed=false`, `objectWriteAttempted=false`,
+  `metadataIndexWriteAttempted=false`, `executable=false`, and
+  `remoteMutationPerformed=false`. It must not accept or output backend
+  configs, registries, mock harnesses, mutation plans, raw bytes, local
+  artifact paths, concrete adapters, SDK clients, client configs, credential
+  values, credential files, credential presence results, live-check
+  probes/results, backend endpoints, object keys in output, object-store
+  handles, metadata-index handles, upload command payloads/material,
+  token/lease/rollback/audit material, object/index mutation, or any execution
+  grant token.
 - Treat the team backend adapter interface as an internal injected dependency
   boundary. The current resolver is mock-only and must keep
   `mutationAllowed=false`, `remoteWriteAllowed=false`, `liveCheckAllowed=false`,

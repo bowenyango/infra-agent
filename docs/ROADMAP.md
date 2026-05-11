@@ -452,6 +452,18 @@ Target artifact families:
   creation, credential reads, credential presence checks, live checks,
   store/index binding, object writes, metadata index writes, and remote
   mutations disabled.
+- `infra-agent.knowledge-team-upload-execution-approval-record`: a private
+  dry-run human upload execution approval record derived from a saved approval
+  request plus an explicit operator-supplied fingerprint. It can report
+  `upload-execution-approval-record-ready` only when the approval request is
+  ready, still non-executing, and the supplied SHA-256 fingerprint exactly
+  matches the approval request fingerprint. It records human approval
+  fingerprint verification for the local plan chain, while keeping approval
+  granted, upload execution approval, upload execution, command generation,
+  token issuance, leases, rollback, audit records, byte staging, adapter
+  injection, SDK client creation, credential reads, credential presence checks,
+  live checks, store/index binding, object writes, metadata index writes, and
+  remote mutations disabled.
 
 Team artifact public contracts:
 
@@ -718,6 +730,17 @@ Implemented initial CLI surfaces:
     adapters, create clients, read or check credentials, probe live backends,
     generate commands, bind stores or indexes, allow object/index writes, or
     write object/index entries.
+- `infra-agent knowledge record-human-upload-execution-approval
+  <execution-approval-request.json> --approval-fingerprint <sha256>
+  [--out <execution-approval-record.json>] --json`
+  - reads one saved private upload execution approval request and one explicit
+    operator-supplied fingerprint, then records only that the fingerprint
+    matched. A `upload-execution-approval-record-ready` result does not grant
+    approval, allow upload execution, issue tokens, create leases, create
+    rollback plans, create audit records, stage bytes, inject adapters, create
+    clients, read or check credentials, probe live backends, generate commands,
+    bind stores or indexes, allow object/index writes, or write object/index
+    entries.
 
 Recommended storage layers:
 
