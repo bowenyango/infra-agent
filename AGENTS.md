@@ -40,6 +40,37 @@ durable project state.
 - The web topology viewer is lower priority than reliable graph JSON, impact
   analysis, validation, and compact machine-readable handoff.
 
+## Core Knowledge Direction
+
+Infrastructure RAG is a core product differentiator for `infra-agent`, not a
+generic vector-search add-on. Future development must optimize for accurate,
+token-efficient infrastructure changes by extracting, validating, storing, and
+retrieving compact knowledge units.
+
+The long-term retrieval contract is `infra-agent.knowledge-unit` with five unit
+types:
+
+- `fact`: machine-readable constraints, defaults, enum-like values, identity
+  fields, replacement-sensitive fields, and dependency relationships.
+- `guidance`: short JSON-carried explanations with applicability, risk, and
+  avoid conditions.
+- `example`: bounded code or configuration samples, included only when concrete
+  edit shape is needed.
+- `diagnostic`: validation, plan, preview, provider, or runtime failure
+  signatures with likely causes and review-only remediation guidance.
+- `recipe`: safe infrastructure workflows such as Terraform moved blocks,
+  Pulumi aliases, stack config changes, Helm values migration, and import/state
+  repair review.
+
+Do not make Vector DB retrieval a required v0 path. Prefer deterministic
+metadata retrieval and ranking by domain, provider/package/chart, version,
+resource/module/component, field, target path, validation issue, planned
+action, risk type, freshness, and privacy scope. Public-reference provider,
+chart, Helm metadata, and official-doc units may be shared through a registry or
+team cache; internal module, component, chart, policy, incident, and example
+units must remain local, repo-curated, or explicitly opted into private team
+storage according to privacy scope.
+
 ## Non-Negotiable Safety Rules
 
 - Never run destructive commands such as `git reset --hard`, broad `rm`, state
