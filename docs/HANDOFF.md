@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-11 Planned Upload Execution Runtime Boundaries
+## 2026-05-11 Completed Upload Execution Runtime Boundaries
 
 Status:
 
-- Planned as the next slice after the completed
+- Completed as the next slice after the completed
   `upload-execution-implementation-boundary` artifact.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-implementation-boundary` whose
@@ -42,6 +42,27 @@ Expected artifact and CLI:
   still a non-executing policy-review step and must not become upload
   execution.
 
+Implemented checkpoints:
+
+1. Added `buildKnowledgeTeamUploadExecutionRuntimeBoundaries`, which consumes
+   one saved implementation-boundary artifact and emits a private dry-run
+   runtime-boundaries checkpoint.
+2. Added focused unit coverage for ready inputs, blocked/non-ready inputs,
+   primitive and malformed inputs, forged execution state, leaky backend and
+   credential material, every runtime execution flag mapping, incomplete source
+   summaries, and missing structural sections.
+3. Added validator dispatch and contract coverage for ready, blocked, drifted,
+   and missing-section runtime-boundaries payloads.
+4. Added CLI parse/help/output/integration coverage for
+   `knowledge upload-execution-runtime-boundaries`.
+5. Extended no-SDK/no-execution guards so this boundary cannot instantiate
+   adapters or clients, read credentials, probe live backends, generate upload
+   commands, bind object stores/indexes, expose handles, write object/index
+   data, or perform remote mutation.
+6. Normalized builder-generated blocked fingerprints to expected sha256 scopes
+   with null values so generated blocked artifacts validate while forged
+   unsupported fingerprint metadata remains rejected.
+
 Acceptance criteria:
 
 1. Ready output requires a valid
@@ -69,17 +90,32 @@ Acceptance criteria:
    produce blocked or invalid results with safe blocker codes and without
    copying private values.
 
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-runtime-boundaries.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-runtime-boundaries-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-runtime-boundaries-main.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `npm run lint`
+- `npm run test:contract`
+- `npm run test:integration`
+- `npm run test:coverage`
+
 Next recommended implementation steps:
 
-1. Add the `team-upload-execution-runtime-boundaries` builder and focused unit
-   tests.
-2. Add validator dispatch and contract tests for ready and drifted runtime
-   boundary payloads.
-3. Add CLI parse/help/output/integration tests.
-4. Extend no-SDK/no-execution guards for the new runtime-boundaries source and
-   CLI action.
-5. Run focused tests first, then `npm run lint`, `npm run test:integration`,
-   `npm run test:coverage`, and `npm run verify`.
+1. Do not treat `upload-execution-runtime-boundaries-ready` as approval to
+   upload, execute, mutate remote state, create commands, or touch credentials.
+2. Keep the next slice as an explicit runtime-boundary policy review:
+   `await-explicit-upload-execution-runtime-boundary-policy-review`.
+3. That review must remain non-executing until it narrows and documents the
+   artifact-byte, adapter-injection, client-creation, credential-read,
+   credential-presence, live-check, command-generation, object/index binding,
+   write-token, lease, rollback, audit, and remote-mutation policies.
+4. Before any later execution-adjacent artifact is introduced, keep the
+   no-SDK/no-execution static guard updated and require focused unit, contract,
+   CLI integration, lint, integration, coverage, and full verify checks.
 
 ## 2026-05-11 Completed Upload Execution Implementation Boundary
 
