@@ -36,6 +36,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-execution-plan-rules-update-record.ts',
   'src/knowledge/team-upload-execution-implementation-boundary.ts',
   'src/knowledge/team-upload-execution-runtime-boundaries.ts',
+  'src/knowledge/team-upload-execution-runtime-boundary-policy-review.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -106,6 +107,10 @@ const EXECUTION_IMPLEMENTATION_BOUNDARY_MODULES = [
 
 const EXECUTION_RUNTIME_BOUNDARIES_MODULES = [
   'src/knowledge/team-upload-execution-runtime-boundaries.ts'
+];
+
+const EXECUTION_RUNTIME_BOUNDARY_POLICY_REVIEW_MODULES = [
+  'src/knowledge/team-upload-execution-runtime-boundary-policy-review.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -650,6 +655,30 @@ const FORBIDDEN_EXECUTION_RUNTIME_BOUNDARIES_EXECUTION = [
   'putEntry('
 ];
 
+const FORBIDDEN_EXECUTION_RUNTIME_BOUNDARY_POLICY_REVIEW_EXECUTION = [
+  ...FORBIDDEN_EXECUTION_RUNTIME_BOUNDARIES_EXECUTION,
+  'runtimeBoundaryPolicyUpdated: true',
+  'policyUpdateAuthorized: true',
+  'uploadExecutionAllowed: true',
+  'runtimeExecutionAllowed: true',
+  'objectWriteAllowed: true',
+  'metadataIndexWriteAllowed: true',
+  'remoteMutationPerformed: true',
+  'executable: true',
+  'uploadCommand: {',
+  'uploadCommand: \'',
+  'uploadCommand: "',
+  'process.env[',
+  'process.env.',
+  'readFile(',
+  'createReadStream(',
+  'fetch(',
+  'node:http',
+  'node:https',
+  'putObject(',
+  'putEntry('
+];
+
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
   const root = process.cwd();
 
@@ -915,6 +944,21 @@ test('upload execution runtime boundaries do not grant runtime execution, instan
         source.includes(forbidden),
         false,
         `${relativePath} must not grant runtime execution, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('upload execution runtime-boundary policy review does not update policy, grant execution, instantiate clients, read credentials, generate commands, or write', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of EXECUTION_RUNTIME_BOUNDARY_POLICY_REVIEW_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_EXECUTION_RUNTIME_BOUNDARY_POLICY_REVIEW_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not update policy, grant runtime execution, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
       );
     }
   }

@@ -60,6 +60,7 @@ import { buildKnowledgeTeamUploadExecutionPlanRulesReview } from '../knowledge/t
 import { buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord } from '../knowledge/team-upload-execution-plan-rules-update-record.ts';
 import { buildKnowledgeTeamUploadExecutionImplementationBoundary } from '../knowledge/team-upload-execution-implementation-boundary.ts';
 import { buildKnowledgeTeamUploadExecutionRuntimeBoundaries } from '../knowledge/team-upload-execution-runtime-boundaries.ts';
+import { buildKnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReview } from '../knowledge/team-upload-execution-runtime-boundary-policy-review.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -107,6 +108,7 @@ import {
   printKnowledgeTeamUploadExecutionPlanRulesUpdateRecord,
   printKnowledgeTeamUploadExecutionImplementationBoundary,
   printKnowledgeTeamUploadExecutionRuntimeBoundaries,
+  printKnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReview,
   printKnowledgeExtractionReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
@@ -124,7 +126,7 @@ export { readPackageVersion } from './package-metadata.ts';
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | 'upload-mock-harness' | 'upload-execution-gate' | 'upload-mutation-plan' | 'upload-mutation-approval-review' | 'upload-execution-prerequisite-plan' | 'upload-write-token-boundary' | 'upload-execution-lease-boundary' | 'upload-rollback-plan-boundary' | 'upload-audit-record-boundary' | 'upload-artifact-bytes-boundary' | 'upload-adapter-injection-boundary' | 'upload-client-creation-boundary' | 'upload-credential-read-boundary' | 'upload-credential-presence-boundary' | 'upload-live-check-boundary' | 'upload-command-boundary' | 'upload-object-index-binding-boundary' | 'upload-execution-readiness-boundary' | 'request-separate-upload-execution-approval' | 'record-human-upload-execution-approval' | 'upload-execution-authorization-boundary' | 'upload-execution-plan-rules-review' | 'record-upload-execution-plan-rules-update' | 'upload-execution-implementation-boundary' | 'upload-execution-runtime-boundaries' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | 'upload-mock-harness' | 'upload-execution-gate' | 'upload-mutation-plan' | 'upload-mutation-approval-review' | 'upload-execution-prerequisite-plan' | 'upload-write-token-boundary' | 'upload-execution-lease-boundary' | 'upload-rollback-plan-boundary' | 'upload-audit-record-boundary' | 'upload-artifact-bytes-boundary' | 'upload-adapter-injection-boundary' | 'upload-client-creation-boundary' | 'upload-credential-read-boundary' | 'upload-credential-presence-boundary' | 'upload-live-check-boundary' | 'upload-command-boundary' | 'upload-object-index-binding-boundary' | 'upload-execution-readiness-boundary' | 'request-separate-upload-execution-approval' | 'record-human-upload-execution-approval' | 'upload-execution-authorization-boundary' | 'upload-execution-plan-rules-review' | 'record-upload-execution-plan-rules-update' | 'upload-execution-implementation-boundary' | 'upload-execution-runtime-boundaries' | 'upload-execution-runtime-boundary-policy-review' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -214,6 +216,7 @@ function printUsage(): void {
       '  infra-agent knowledge record-upload-execution-plan-rules-update <plan-rules-review.json> --review-fingerprint <sha256> [--out <plan-rules-update-record.json>] [--json]',
       '  infra-agent knowledge upload-execution-implementation-boundary <plan-rules-update-record.json> [--out <implementation-boundary.json>] [--json]',
       '  infra-agent knowledge upload-execution-runtime-boundaries <implementation-boundary.json> [--out <runtime-boundaries.json>] [--json]',
+      '  infra-agent knowledge upload-execution-runtime-boundary-policy-review <runtime-boundaries.json> [--out <policy-review.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -722,12 +725,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'record-human-upload-execution-approval'
       && knowledgeAction !== 'upload-execution-authorization-boundary'
       && knowledgeAction !== 'upload-execution-plan-rules-review'
-      && knowledgeAction !== 'record-upload-execution-plan-rules-update'
-      && knowledgeAction !== 'upload-execution-implementation-boundary'
-      && knowledgeAction !== 'upload-execution-runtime-boundaries'
-    ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation, upload-adapter-preflight, upload-mock-harness, upload-execution-gate, upload-mutation-plan, upload-mutation-approval-review, upload-execution-prerequisite-plan, upload-write-token-boundary, upload-execution-lease-boundary, upload-rollback-plan-boundary, upload-audit-record-boundary, upload-artifact-bytes-boundary, upload-adapter-injection-boundary, upload-client-creation-boundary, upload-credential-read-boundary, upload-credential-presence-boundary, upload-live-check-boundary, upload-command-boundary, upload-object-index-binding-boundary, upload-execution-readiness-boundary, request-separate-upload-execution-approval, record-human-upload-execution-approval, upload-execution-authorization-boundary, upload-execution-plan-rules-review, record-upload-execution-plan-rules-update, upload-execution-implementation-boundary, upload-execution-runtime-boundaries.');
-    }
+        && knowledgeAction !== 'record-upload-execution-plan-rules-update'
+        && knowledgeAction !== 'upload-execution-implementation-boundary'
+        && knowledgeAction !== 'upload-execution-runtime-boundaries'
+        && knowledgeAction !== 'upload-execution-runtime-boundary-policy-review'
+      ) {
+        fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, publish-plan, publish-readiness, backend-readiness, backend-reference-readiness, upload-approval-intent, upload-approval-continuation, upload-adapter-preflight, upload-mock-harness, upload-execution-gate, upload-mutation-plan, upload-mutation-approval-review, upload-execution-prerequisite-plan, upload-write-token-boundary, upload-execution-lease-boundary, upload-rollback-plan-boundary, upload-audit-record-boundary, upload-artifact-bytes-boundary, upload-adapter-injection-boundary, upload-client-creation-boundary, upload-credential-read-boundary, upload-credential-presence-boundary, upload-live-check-boundary, upload-command-boundary, upload-object-index-binding-boundary, upload-execution-readiness-boundary, request-separate-upload-execution-approval, record-human-upload-execution-approval, upload-execution-authorization-boundary, upload-execution-plan-rules-review, record-upload-execution-plan-rules-update, upload-execution-implementation-boundary, upload-execution-runtime-boundaries, upload-execution-runtime-boundary-policy-review.');
+      }
 
     let workspace = cwd();
     const domains: InfraDomainId[] = [];
@@ -753,7 +757,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries' || knowledgeAction === 'upload-execution-runtime-boundary-policy-review') {
           fail(`--domain is not supported for knowledge ${knowledgeAction}.`);
         }
         const domainValue = actionArgs[index + 1];
@@ -767,7 +771,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries') {
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries' || knowledgeAction === 'upload-execution-runtime-boundary-policy-review') {
           fail(`--target is not supported for knowledge ${knowledgeAction}.`);
         }
         const targetValue = actionArgs[index + 1];
@@ -846,12 +850,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'record-human-upload-execution-approval'
           && knowledgeAction !== 'upload-execution-authorization-boundary'
           && knowledgeAction !== 'upload-execution-plan-rules-review'
-          && knowledgeAction !== 'record-upload-execution-plan-rules-update'
-          && knowledgeAction !== 'upload-execution-implementation-boundary'
-          && knowledgeAction !== 'upload-execution-runtime-boundaries'
-        ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, knowledge upload-approval-continuation, knowledge upload-adapter-preflight, knowledge upload-mock-harness, knowledge upload-execution-gate, knowledge upload-mutation-plan, knowledge upload-mutation-approval-review, knowledge upload-execution-prerequisite-plan, knowledge upload-write-token-boundary, knowledge upload-execution-lease-boundary, knowledge upload-rollback-plan-boundary, knowledge upload-audit-record-boundary, knowledge upload-artifact-bytes-boundary, knowledge upload-adapter-injection-boundary, knowledge upload-client-creation-boundary, knowledge upload-credential-read-boundary, knowledge upload-credential-presence-boundary, knowledge upload-live-check-boundary, knowledge upload-command-boundary, knowledge upload-object-index-binding-boundary, knowledge upload-execution-readiness-boundary, knowledge request-separate-upload-execution-approval, knowledge record-human-upload-execution-approval, knowledge upload-execution-authorization-boundary, knowledge upload-execution-plan-rules-review, knowledge record-upload-execution-plan-rules-update, knowledge upload-execution-implementation-boundary, or knowledge upload-execution-runtime-boundaries.');
-        }
+            && knowledgeAction !== 'record-upload-execution-plan-rules-update'
+            && knowledgeAction !== 'upload-execution-implementation-boundary'
+            && knowledgeAction !== 'upload-execution-runtime-boundaries'
+            && knowledgeAction !== 'upload-execution-runtime-boundary-policy-review'
+          ) {
+            fail('--out is only supported for knowledge extract, knowledge pack, knowledge publish-plan, knowledge publish-readiness, knowledge backend-readiness, knowledge backend-reference-readiness, knowledge upload-approval-intent, knowledge upload-approval-continuation, knowledge upload-adapter-preflight, knowledge upload-mock-harness, knowledge upload-execution-gate, knowledge upload-mutation-plan, knowledge upload-mutation-approval-review, knowledge upload-execution-prerequisite-plan, knowledge upload-write-token-boundary, knowledge upload-execution-lease-boundary, knowledge upload-rollback-plan-boundary, knowledge upload-audit-record-boundary, knowledge upload-artifact-bytes-boundary, knowledge upload-adapter-injection-boundary, knowledge upload-client-creation-boundary, knowledge upload-credential-read-boundary, knowledge upload-credential-presence-boundary, knowledge upload-live-check-boundary, knowledge upload-command-boundary, knowledge upload-object-index-binding-boundary, knowledge upload-execution-readiness-boundary, knowledge request-separate-upload-execution-approval, knowledge record-human-upload-execution-approval, knowledge upload-execution-authorization-boundary, knowledge upload-execution-plan-rules-review, knowledge record-upload-execution-plan-rules-update, knowledge upload-execution-implementation-boundary, knowledge upload-execution-runtime-boundaries, or knowledge upload-execution-runtime-boundary-policy-review.');
+          }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
         }
@@ -1150,9 +1155,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'upload-execution-implementation-boundary' && positionalArgs.length !== 1) {
       fail('knowledge upload-execution-implementation-boundary requires exactly one upload execution Plan/Rules update record path.');
     }
-    if (knowledgeAction === 'upload-execution-runtime-boundaries' && positionalArgs.length !== 1) {
-      fail('knowledge upload-execution-runtime-boundaries requires exactly one upload execution implementation boundary path.');
-    }
+      if (knowledgeAction === 'upload-execution-runtime-boundaries' && positionalArgs.length !== 1) {
+        fail('knowledge upload-execution-runtime-boundaries requires exactly one upload execution implementation boundary path.');
+      }
+      if (knowledgeAction === 'upload-execution-runtime-boundary-policy-review' && positionalArgs.length !== 1) {
+        fail('knowledge upload-execution-runtime-boundary-policy-review requires exactly one upload execution runtime-boundaries path.');
+      }
     if (knowledgeAction === 'backend-reference-readiness' && registryInputPath === null) {
       fail('knowledge backend-reference-readiness requires --registry <reference-registry.json>.');
     }
@@ -1187,8 +1195,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'knowledge',
       knowledgeAction,
       task: null,
-      workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries' ? positionalArgs[0] : null,
+        workspace: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries' || knowledgeAction === 'upload-execution-runtime-boundary-policy-review' ? cwd() : workspace,
+        inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish-plan' || knowledgeAction === 'publish-readiness' || knowledgeAction === 'backend-readiness' || knowledgeAction === 'backend-reference-readiness' || knowledgeAction === 'upload-approval-intent' || knowledgeAction === 'upload-approval-continuation' || knowledgeAction === 'upload-adapter-preflight' || knowledgeAction === 'upload-mock-harness' || knowledgeAction === 'upload-execution-gate' || knowledgeAction === 'upload-mutation-plan' || knowledgeAction === 'upload-mutation-approval-review' || knowledgeAction === 'upload-execution-prerequisite-plan' || knowledgeAction === 'upload-write-token-boundary' || knowledgeAction === 'upload-execution-lease-boundary' || knowledgeAction === 'upload-rollback-plan-boundary' || knowledgeAction === 'upload-audit-record-boundary' || knowledgeAction === 'upload-artifact-bytes-boundary' || knowledgeAction === 'upload-adapter-injection-boundary' || knowledgeAction === 'upload-client-creation-boundary' || knowledgeAction === 'upload-credential-read-boundary' || knowledgeAction === 'upload-credential-presence-boundary' || knowledgeAction === 'upload-live-check-boundary' || knowledgeAction === 'upload-command-boundary' || knowledgeAction === 'upload-object-index-binding-boundary' || knowledgeAction === 'upload-execution-readiness-boundary' || knowledgeAction === 'request-separate-upload-execution-approval' || knowledgeAction === 'record-human-upload-execution-approval' || knowledgeAction === 'upload-execution-authorization-boundary' || knowledgeAction === 'upload-execution-plan-rules-review' || knowledgeAction === 'record-upload-execution-plan-rules-update' || knowledgeAction === 'upload-execution-implementation-boundary' || knowledgeAction === 'upload-execution-runtime-boundaries' || knowledgeAction === 'upload-execution-runtime-boundary-policy-review' ? positionalArgs[0] : null,
       adapterPlanInputPath,
       mockHarnessInputPath,
       approvalFingerprint,
@@ -2692,10 +2700,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-execution-runtime-boundaries') {
-    if (!parsed.inputPath) {
-      fail('knowledge upload-execution-runtime-boundaries requires exactly one upload execution implementation boundary path.');
-    }
+    if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-execution-runtime-boundaries') {
+      if (!parsed.inputPath) {
+        fail('knowledge upload-execution-runtime-boundaries requires exactly one upload execution implementation boundary path.');
+      }
 
     const implementationBoundaryPath = resolveFromCwd(parsed.inputPath);
     const implementationBoundary = await readJsonObject(implementationBoundaryPath);
@@ -2719,11 +2727,42 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     printKnowledgeTeamUploadExecutionRuntimeBoundaries(boundary);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
+      }
+      return;
     }
-    return;
-  }
 
-  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'pack') {
+    if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'upload-execution-runtime-boundary-policy-review') {
+      if (!parsed.inputPath) {
+        fail('knowledge upload-execution-runtime-boundary-policy-review requires exactly one upload execution runtime-boundaries path.');
+      }
+
+      const runtimeBoundariesPath = resolveFromCwd(parsed.inputPath);
+      const runtimeBoundaries = await readJsonObject(runtimeBoundariesPath);
+      const review = buildKnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReview({
+        runtimeBoundaries
+      });
+      const writtenPath = parsed.outputPath
+        ? await writeJsonArtifact(parsed.outputPath, cwd(), review)
+        : null;
+
+      if (parsed.json) {
+        process.stdout.write(`${JSON.stringify(writtenPath
+          ? {
+              ...review,
+              outputPath: writtenPath
+            }
+          : review, null, 2)}\n`);
+        return;
+      }
+
+      printKnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReview(review);
+      if (writtenPath) {
+        process.stdout.write(`\nwritten: ${writtenPath}\n`);
+      }
+      return;
+    }
+
+    if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'pack') {
     const inspection = await inspectWorkspace(parsed.workspace);
     const pack = await buildKnowledgePack(inspection, {
       domains: parsed.domains,

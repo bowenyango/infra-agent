@@ -80,6 +80,7 @@ import type { KnowledgeTeamUploadExecutionPlanRulesReview } from '../knowledge/t
 import type { KnowledgeTeamUploadExecutionPlanRulesUpdateRecord } from '../knowledge/team-upload-execution-plan-rules-update-record.ts';
 import type { KnowledgeTeamUploadExecutionImplementationBoundary } from '../knowledge/team-upload-execution-implementation-boundary.ts';
 import type { KnowledgeTeamUploadExecutionRuntimeBoundaries } from '../knowledge/team-upload-execution-runtime-boundaries.ts';
+import type { KnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReview } from '../knowledge/team-upload-execution-runtime-boundary-policy-review.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -5378,6 +5379,80 @@ export function printKnowledgeTeamUploadExecutionRuntimeBoundaries(
   printList(
     boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload execution runtime boundaries blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReview(
+  review: KnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReview
+): void {
+  printHeader('Knowledge team upload execution runtime-boundary policy review');
+  process.stdout.write(`status: ${review.status}\n`);
+  process.stdout.write(`next action: ${review.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${review.plannedOperation}\n`);
+  process.stdout.write(`execution: ${review.executionMode}\n`);
+  process.stdout.write(`review: ${review.reviewKind}\n`);
+  process.stdout.write(`target manifest: ${review.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object key redacted: ${review.target.objectKeyRedacted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`target object sha256: ${review.target.objectSha256 ?? 'invalid'}\n`);
+  process.stdout.write(`target artifact: ${review.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${review.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check allowed: ${review.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${review.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${review.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${review.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution approved: ${review.uploadExecutionApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${review.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${review.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${review.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${review.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${review.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${review.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${review.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${review.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${review.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${review.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${review.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${review.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${review.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source runtime boundaries: ${review.sourceRuntimeBoundaries.boundaryStatus}\n`);
+  process.stdout.write(`source runtime boundaries action: ${review.sourceRuntimeBoundaries.boundaryNextAction}\n`);
+  process.stdout.write(`source runtime boundaries kind: ${review.sourceRuntimeBoundaries.boundaryKind}\n`);
+  process.stdout.write(`source runtime boundaries designed: ${review.sourceRuntimeBoundaries.runtimeBoundariesDesigned ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source implementation boundary fingerprint verified: ${review.sourceRuntimeBoundaries.sourceImplementationBoundaryFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source runtime execution allowed: ${review.sourceRuntimeBoundaries.runtimeExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source execution still disabled: ${review.sourceRuntimeBoundaries.executionStillDisabled ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${review.sourceRuntimeBoundaries.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${review.sourceRuntimeBoundaries.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`source implementation boundary fingerprint scope: ${review.sourceRuntimeBoundaries.sourceImplementationBoundaryFingerprint.scope}\n`);
+  process.stdout.write(`source implementation boundary fingerprint: ${review.sourceRuntimeBoundaries.sourceImplementationBoundaryFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`source runtime boundaries fingerprint scope: ${review.sourceRuntimeBoundaries.runtimeBoundariesFingerprint.scope}\n`);
+  process.stdout.write(`source runtime boundaries fingerprint: ${review.sourceRuntimeBoundaries.runtimeBoundariesFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`policy review required: ${review.runtimeBoundaryPolicyReview.runtimeBoundaryPolicyReviewRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`policy reviewed: ${review.runtimeBoundaryPolicyReview.runtimeBoundaryPolicyReviewed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`policy updated: ${review.runtimeBoundaryPolicyReview.runtimeBoundaryPolicyUpdated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`policy update authorized: ${review.runtimeBoundaryPolicyReview.policyUpdateAuthorized ? 'yes' : 'no'}\n`);
+  process.stdout.write(`runtime execution prohibited: ${review.runtimeBoundaryPolicyReview.runtimeExecutionStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution prohibited: ${review.runtimeBoundaryPolicyReview.uploadExecutionStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`command generation prohibited: ${review.runtimeBoundaryPolicyReview.commandGenerationStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write prohibited: ${review.runtimeBoundaryPolicyReview.objectWriteStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write prohibited: ${review.runtimeBoundaryPolicyReview.metadataIndexWriteStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`reviewed capability families: ${review.runtimeBoundaryPolicyReview.reviewedCapabilityFamilies.join(', ')}\n`);
+  process.stdout.write(`allowed tool capabilities: ${review.toolCapabilityPolicy.allowedCapabilityFamilies.join(', ')}\n`);
+  process.stdout.write(`disallowed tool capabilities: ${review.toolCapabilityPolicy.disallowedCapabilityFamilies.join(', ')}\n`);
+  process.stdout.write(`handoff compact: ${review.handoffPolicy.compact ? 'yes' : 'no'}\n`);
+  process.stdout.write(`raw runtime included: ${review.handoffPolicy.rawRuntimeIncluded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`command material included: ${review.handoffPolicy.commandMaterialIncluded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`review fingerprint scope: ${review.runtimeBoundaryPolicyReview.reviewFingerprint.scope}\n`);
+  process.stdout.write(`review fingerprint: ${review.runtimeBoundaryPolicyReview.reviewFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`execution boundary executable: ${review.executionBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary upload command generated: ${review.executionBoundary.uploadCommandGenerated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary object write allowed: ${review.executionBoundary.objectWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary metadata index write allowed: ${review.executionBoundary.metadataIndexWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: policyReviewed=${review.runtimeBoundaryPolicyReview.runtimeBoundaryPolicyReviewed ? 'yes' : 'no'}, policyUpdated=${review.runtimeBoundaryPolicyReview.runtimeBoundaryPolicyUpdated ? 'yes' : 'no'}, runtimeExecutionAllowed=${review.sourceRuntimeBoundaries.runtimeExecutionAllowed ? 'yes' : 'no'}, uploadExecutionAllowed=${review.uploadExecutionAllowed ? 'yes' : 'no'}, executable=${review.executionBoundary.executable ? 'yes' : 'no'}, blockers=${review.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    review.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload execution runtime-boundary policy review blockers.'
   );
 }
 
