@@ -110,6 +110,8 @@ Validation completed:
 - `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-implementation-boundary-main.test.mjs`
 - `npm run lint`
 - `npm run test:integration`
+- `npm run test:coverage`
+- `npm run verify`
 
 Core files changed:
 
