@@ -6,12 +6,12 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-11 Planned Upload Execution Implementation Boundary
+## 2026-05-11 Completed Upload Execution Implementation Boundary
 
 Status:
 
-- Planned. This slice must follow the completed
-  `upload-execution-plan-rules-update-record` artifact and remain
+- Completed. This slice follows the completed
+  `upload-execution-plan-rules-update-record` artifact and remains
   non-executing.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-plan-rules-update-record` whose
@@ -27,22 +27,116 @@ Status:
   expose handles, write objects, write metadata index entries, or perform
   remote mutations.
 
-Planned checkpoints:
+Implemented checkpoints:
 
-1. Add a builder for
-   `infra-agent.knowledge-team-upload-execution-implementation-boundary`.
-2. Add unit and contract tests for ready, blocked, malformed, forged,
+1. Added a builder for
+   `infra-agent.knowledge-team-upload-execution-implementation-boundary`. It
+   consumes only a saved Plan/Rules update record and emits a dry-run
+   implementation boundary artifact.
+2. Added unit and contract tests for ready, blocked, malformed, forged,
    command-bearing, credential-leaking, backend-leaking, and handle-leaking
    inputs.
-3. Add validator dispatch and CLI wiring for
+3. Added validator dispatch and CLI wiring for
    `knowledge upload-execution-implementation-boundary`.
-4. Add integration coverage and update handoff after verification.
+4. Added JSON/text output and integration coverage for ready persisted JSON and
+   safe blocked text output.
+5. Extended no-SDK/no-execution guards so this boundary cannot instantiate
+   adapters or clients, read credentials, probe live backends, generate upload
+   commands, bind object stores/indexes, write object/index data, or perform
+   remote mutation.
 
-Expected ready next action:
+Expected artifact and CLI:
 
-- `design-upload-execution-runtime-boundaries` or an equivalent later
-  non-executing runtime-boundary design checkpoint. It must not become an
-  execute/upload action.
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-execution-implementation-boundary`.
+- CLI:
+  `infra-agent knowledge upload-execution-implementation-boundary <plan-rules-update-record.json> [--out <implementation-boundary.json>] [--json]`.
+- Ready status:
+  `upload-execution-implementation-boundary-ready`, meaning only that the saved
+  Plan/Rules update record was ready, non-executing, fingerprint-verified, and
+  accepted as the source for a local implementation-boundary checkpoint.
+- Ready next action:
+  `design-upload-execution-runtime-boundaries`. This is still a non-executing
+  design step and must not become an execute/upload action.
+
+Acceptance criteria:
+
+1. `upload-execution-implementation-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-execution-plan-rules-update-record` with
+   `upload-execution-plan-rules-update-record-ready`,
+   `nextAction=design-upload-execution-implementation-boundary`, safe redacted
+   target references, verified source review/update fingerprints,
+   `planRulesUpdateRecorded=true`, `rulesUpdateReviewed=true`,
+   `fingerprintVerified=true`, `policyUpdateAuthorized=false`,
+   `executionStillDisabled=true`, no upload execution allowance, and no
+   blockers.
+2. The artifact preserves safe target identifiers and hash references while
+   retaining `target.objectKeyRedacted=true`; it does not copy
+   `target.objectKey` to output.
+3. The boundary may set `implementationBoundaryDesigned=true` and
+   `sourceUpdateRecordFingerprintVerified=true` only as local modeling state.
+   It must still keep implementation, approval, authorization, upload
+   execution, command, adapter, client, credential, live-check, object/index
+   binding, write, token, lease, rollback, audit, byte, executable, and remote
+   mutation state disabled.
+4. Top-level and nested execution state remains disabled:
+   `uploadCommand=null`, `authorizationGranted=false`,
+   `executionAuthorizationGranted=false`, `uploadApproved=false`,
+   `uploadExecutionApproved=false`, `uploadExecutionAllowed=false`,
+   `mutationApprovalGranted=false`, `writeTokenIssued=false`,
+   `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+   `auditRecordCreated=false`, `artifactBytesProvided=false`,
+   `adapterInjected=false`, `clientCreated=false`,
+   `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+   `liveCheckAllowed=false`, `uploadCommandGenerated=false`,
+   `artifactObjectStoreBound=false`, `metadataIndexBound=false`,
+   `objectWriteAllowed=false`, `metadataIndexWriteAllowed=false`,
+   `objectWriteAttempted=false`, `metadataIndexWriteAttempted=false`,
+   `executable=false`, and `remoteMutationPerformed=false`.
+5. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
+   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, object-key-copying, object-store-handle,
+   metadata-index-handle, token/lease/rollback/audit material,
+   authorization-material, or object/index mutation inputs produce blocked or
+   invalid results with safe blocker codes and without copying private values.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-implementation-boundary.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-plan-rules-update-record-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-implementation-boundary-main.test.mjs`
+- `npm run lint`
+- `npm run test:integration`
+
+Core files changed:
+
+- `src/knowledge/team-upload-execution-implementation-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-implementation-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-execution-plan-rules-update-record-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-execution-implementation-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+
+Next recommended slice:
+
+- Do not execute upload and do not treat this implementation boundary as
+  approval. A ready boundary only proves the local, non-executing
+  implementation-boundary checkpoint was modeled from a ready Plan/Rules
+  update record.
+- The next slice should design runtime boundaries as separate non-executing
+  artifacts. It should continue to forbid command generation, adapter/client
+  creation, credential reads/checks, live checks, object-store/index binding,
+  object/index writes, write tokens, execution leases, rollback plans, audit
+  records, artifact-byte material, and remote mutations until a later,
+  explicitly reviewed policy slice narrows those rules.
 
 ## 2026-05-11 Completed Upload Execution Plan/Rules Update Record
 
