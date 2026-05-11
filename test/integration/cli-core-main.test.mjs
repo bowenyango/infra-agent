@@ -375,6 +375,18 @@ test('help output includes human upload execution approval record command', asyn
   assert.match(output, /infra-agent knowledge record-human-upload-execution-approval <execution-approval-request\.json> --approval-fingerprint <sha256>/);
 });
 
+test('help output includes upload execution authorization boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-execution-authorization-boundary <execution-approval-record\.json>/);
+});
+
+test('help output includes upload execution plan\/rules review command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-execution-plan-rules-review <execution-authorization-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);

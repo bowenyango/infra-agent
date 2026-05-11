@@ -713,3 +713,21 @@ test('knowledge upload-execution-authorization-boundary CLI args accept approval
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-authorization-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-execution-plan-rules-review CLI args accept authorization boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-execution-plan-rules-review',
+    'artifacts/knowledge-pack.upload-execution-authorization-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-plan-rules-review.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-execution-plan-rules-review');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-execution-authorization-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-plan-rules-review.json');
+  assert.equal(parsed.json, true);
+});

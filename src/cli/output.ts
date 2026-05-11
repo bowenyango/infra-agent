@@ -76,6 +76,7 @@ import type { KnowledgeTeamUploadExecutionReadinessBoundary } from '../knowledge
 import type { KnowledgeTeamUploadExecutionApprovalRequest } from '../knowledge/team-upload-execution-approval-request.ts';
 import type { KnowledgeTeamUploadExecutionApprovalRecord } from '../knowledge/team-upload-execution-approval-record.ts';
 import type { KnowledgeTeamUploadExecutionAuthorizationBoundary } from '../knowledge/team-upload-execution-authorization-boundary.ts';
+import type { KnowledgeTeamUploadExecutionPlanRulesReview } from '../knowledge/team-upload-execution-plan-rules-review.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -5049,6 +5050,77 @@ export function printKnowledgeTeamUploadExecutionAuthorizationBoundary(
   printList(
     boundary.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload execution authorization boundary blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadExecutionPlanRulesReview(
+  review: KnowledgeTeamUploadExecutionPlanRulesReview
+): void {
+  printHeader('Knowledge team upload execution plan/rules review');
+  process.stdout.write(`status: ${review.status}\n`);
+  process.stdout.write(`next action: ${review.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${review.plannedOperation}\n`);
+  process.stdout.write(`execution: ${review.executionMode}\n`);
+  process.stdout.write(`review: ${review.reviewKind}\n`);
+  process.stdout.write(`target manifest: ${review.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object key redacted: ${review.target.objectKeyRedacted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`target object sha256: ${review.target.objectSha256 ?? 'invalid'}\n`);
+  process.stdout.write(`target artifact: ${review.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${review.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check allowed: ${review.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${review.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${review.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${review.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution approved: ${review.uploadExecutionApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${review.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${review.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${review.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${review.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${review.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${review.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${review.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${review.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${review.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${review.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${review.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${review.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${review.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source authorization boundary: ${review.sourceAuthorizationBoundary.boundaryStatus}\n`);
+  process.stdout.write(`source authorization action: ${review.sourceAuthorizationBoundary.boundaryNextAction}\n`);
+  process.stdout.write(`source scope matched: ${review.sourceAuthorizationBoundary.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source human approval recorded: ${review.sourceAuthorizationBoundary.humanApprovalRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source approval fingerprint verified: ${review.sourceAuthorizationBoundary.approvalFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source authorization boundary designed: ${review.sourceAuthorizationBoundary.authorizationBoundaryDesigned ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source authorization granted: ${review.sourceAuthorizationBoundary.authorizationGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution authorization granted: ${review.sourceAuthorizationBoundary.executionAuthorizationGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source upload execution allowed: ${review.sourceAuthorizationBoundary.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${review.sourceAuthorizationBoundary.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${review.sourceAuthorizationBoundary.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`source approval record fingerprint scope: ${review.sourceAuthorizationBoundary.sourceApprovalRecordFingerprint.scope}\n`);
+  process.stdout.write(`source approval record fingerprint: ${review.sourceAuthorizationBoundary.sourceApprovalRecordFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`source authorization boundary fingerprint scope: ${review.sourceAuthorizationBoundary.authorizationBoundaryFingerprint.scope}\n`);
+  process.stdout.write(`source authorization boundary fingerprint: ${review.sourceAuthorizationBoundary.authorizationBoundaryFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`plan/rules review required: ${review.planRulesReview.planRulesUpdateReviewRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`plan/rules updated: ${review.planRulesReview.planRulesUpdated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rules update reviewed: ${review.planRulesReview.rulesUpdateReviewed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution still disabled: ${review.planRulesReview.executionStillDisabled ? 'yes' : 'no'}\n`);
+  process.stdout.write(`real upload execution still prohibited: ${review.planRulesReview.realUploadExecutionStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command generation still prohibited: ${review.planRulesReview.uploadCommandGenerationStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write still prohibited: ${review.planRulesReview.objectWriteStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write still prohibited: ${review.planRulesReview.metadataIndexWriteStillProhibited ? 'yes' : 'no'}\n`);
+  process.stdout.write(`next required policy update: ${review.planRulesReview.nextRequiredPolicyUpdate}\n`);
+  process.stdout.write(`required review documents: ${review.planRulesReview.requiredReviewDocuments.join(', ')}\n`);
+  process.stdout.write(`review fingerprint scope: ${review.planRulesReview.reviewFingerprint.scope}\n`);
+  process.stdout.write(`review fingerprint: ${review.planRulesReview.reviewFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`execution boundary executable: ${review.executionBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary upload command generated: ${review.executionBoundary.uploadCommandGenerated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary object write allowed: ${review.executionBoundary.objectWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary metadata index write allowed: ${review.executionBoundary.metadataIndexWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: sourceHumanApprovalRecorded=${review.sourceAuthorizationBoundary.humanApprovalRecorded ? 'yes' : 'no'}, sourceFingerprintVerified=${review.sourceAuthorizationBoundary.approvalFingerprintVerified ? 'yes' : 'no'}, authorizationGranted=${review.sourceAuthorizationBoundary.authorizationGranted ? 'yes' : 'no'}, planRulesUpdated=${review.planRulesReview.planRulesUpdated ? 'yes' : 'no'}, uploadExecutionAllowed=${review.uploadExecutionAllowed ? 'yes' : 'no'}, executable=${review.executionBoundary.executable ? 'yes' : 'no'}, blockers=${review.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    review.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload execution Plan/Rules review blockers.'
   );
 }
 
