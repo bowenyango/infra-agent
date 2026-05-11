@@ -351,6 +351,12 @@ test('help output includes upload command boundary command', async () => {
   assert.match(output, /infra-agent knowledge upload-command-boundary <live-check-boundary\.json>/);
 });
 
+test('help output includes upload object/index binding boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-object-index-binding-boundary <command-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
