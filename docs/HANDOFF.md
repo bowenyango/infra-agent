@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-11 In Progress Upload Execution Plan/Rules Review
+## 2026-05-11 Completed Upload Execution Plan/Rules Review
 
 Status:
 
-- In progress. This slice follows the completed
+- Completed. This slice follows the completed
   `upload-execution-authorization-boundary` artifact and remains non-executing.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-authorization-boundary` whose
@@ -26,18 +26,20 @@ Status:
   checks, bind concrete object stores or metadata indexes, expose handles,
   write objects, write metadata index entries, or perform remote mutations.
 
-Planned checkpoints:
+Implemented checkpoints:
 
-1. Add `buildKnowledgeTeamUploadExecutionPlanRulesReview` and contract types.
+1. Added `buildKnowledgeTeamUploadExecutionPlanRulesReview` and contract types.
    It consumes only a saved upload execution authorization boundary and emits a
    dry-run Plan/Rules review artifact.
-2. Add focused unit coverage for ready, blocked, malformed, forged, private,
-   command-bearing, and leaky inputs.
-3. Add validator dispatch and contract coverage for ready and drifted payloads.
-4. Extend no-SDK/no-execution guards so this review cannot materialize
+2. Added focused unit coverage for ready, blocked, malformed, forged, private,
+   command-bearing, execution-flag, backend-leaking, and leaky inputs.
+3. Added validator dispatch and contract coverage for ready and drifted
+   payloads, including source boundary, target redaction, review checklist,
+   readiness, and fingerprint drift.
+4. Extended no-SDK/no-execution guards so this review cannot materialize
    authorization, instantiate clients, read credentials, generate commands,
    perform checks, bind stores/indexes, or write object/index data.
-5. Add CLI parsing, help text, JSON/text output, and integration coverage for
+5. Added CLI parsing, help text, JSON/text output, and integration coverage for
    `knowledge upload-execution-plan-rules-review`.
 
 Expected artifact and CLI:
@@ -90,6 +92,47 @@ Initial acceptance criteria:
    metadata-index-handle, token/lease/rollback/audit material,
    authorization-material, or object/index mutation inputs produce blocked or
    invalid results with safe blocker codes and without copying private values.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-plan-rules-review.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-plan-rules-review-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-plan-rules-review-main.test.mjs`
+- `npm run lint`
+- `npm run test:structure`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `npm run package:check`
+
+Core files changed:
+
+- `src/knowledge/team-upload-execution-plan-rules-review.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-plan-rules-review.test.mjs`
+- `test/contract/knowledge-team-upload-execution-plan-rules-review-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-execution-plan-rules-review-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+
+Next recommended slice:
+
+- Do not proceed directly to upload execution. A ready
+  `upload-execution-plan-rules-review` artifact only records that a later
+  explicit Plan/Rules update must be reviewed.
+- The next slice should update and review the Plan/Rules explicitly, then lock
+  any newly narrowed authorization boundary in docs and tests. Until that
+  happens, command generation, authorization grants, write tokens, execution
+  leases, rollback plans, audit records, byte staging, adapter/client creation,
+  credential reads/checks, live checks, object-store/index binding, object
+  writes, metadata index writes, and remote mutation remain forbidden.
 
 ## 2026-05-11 Completed Upload Execution Authorization Boundary
 
