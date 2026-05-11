@@ -43,6 +43,9 @@ Implemented checkpoints:
    perform checks, bind stores/indexes, or write object/index data.
 5. Added CLI parsing, help text, JSON/text output, and integration coverage for
    `knowledge record-upload-execution-plan-rules-update`.
+6. Added validator branch coverage for forged upload execution boundary
+   envelopes and artifact-reference validation so the full project coverage
+   gate remains above threshold after this slice.
 
 Expected artifact and CLI:
 
@@ -107,6 +110,8 @@ Validation completed:
 
 - `node --experimental-strip-types test/unit/knowledge-team-upload-execution-plan-rules-update-record.test.mjs`
 - `node --experimental-strip-types test/contract/knowledge-team-upload-execution-plan-rules-update-record-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-upload-approval-validation-branch.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-validation-artifact-reference.test.mjs`
 - `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
 - `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
 - `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
@@ -116,7 +121,9 @@ Validation completed:
 - `npm run test:unit`
 - `npm run test:integration`
 - `npm run test:contract`
+- `npm run test:coverage`
 - `npm run package:check`
+- `npm run verify`
 
 Validation limitation:
 
@@ -132,6 +139,8 @@ Core files changed:
 - `src/cli/output.ts`
 - `test/unit/knowledge-team-upload-execution-plan-rules-update-record.test.mjs`
 - `test/contract/knowledge-team-upload-execution-plan-rules-update-record-contract.test.mjs`
+- `test/unit/knowledge-team-upload-approval-validation-branch.test.mjs`
+- `test/unit/knowledge-validation-artifact-reference.test.mjs`
 - `test/integration/cli-knowledge-record-upload-execution-plan-rules-update-main.test.mjs`
 - `test/integration/cli-knowledge-args-main.test.mjs`
 - `test/integration/cli-core-main.test.mjs`

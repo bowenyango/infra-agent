@@ -336,6 +336,216 @@ test('upload execution Plan/Rules update record blocks non-ready review source',
   assertExecutionDisabled(record);
 });
 
+test('upload execution Plan/Rules update record blocks primitive private review inputs', () => {
+  const record = buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord({
+    planRulesReview: 's3://private-bucket/team-artifacts/private-key.json',
+    reviewFingerprint: 42
+  });
+
+  assert.equal(record.status, 'blocked');
+  assert.equal(record.target.manifestId, null);
+  assert.equal(record.sourcePlanRulesReview.reviewStatus, 'invalid');
+  assert.equal(record.sourcePlanRulesReview.reviewKind, 'unsupported');
+  assert.equal(record.sourcePlanRulesReview.reviewNextAction, 'invalid');
+  assert.equal(record.planRulesUpdateRecord.planRulesUpdateRecorded, false);
+  assert.equal(record.planRulesUpdateRecord.rulesUpdateReviewed, false);
+  assert.equal(record.planRulesUpdateRecord.source, null);
+  assert.equal(record.planRulesUpdateRecord.suppliedFingerprint, null);
+  assert.equal(record.planRulesUpdateRecord.expectedFingerprint, null);
+  assert.equal(record.planRulesUpdateRecord.fingerprintVerified, false);
+  assert.equal(record.planRulesUpdateRecord.recordFingerprint.value, null);
+  assert.ok(record.readiness.blockerCodes.includes('backend-detail-leak'));
+  assert.ok(record.readiness.blockerCodes.includes('invalid-plan-rules-review-kind'));
+  assert.ok(record.readiness.blockerCodes.includes('review-fingerprint-missing'));
+  assert.ok(record.readiness.blockerCodes.includes('plan-rules-review-fingerprint-missing'));
+  assertExecutionDisabled(record);
+  assertNoPrivateValues(record);
+});
+
+test('upload execution Plan/Rules update record blocks malformed review metadata and every executable field family', async () => {
+  const planRulesReview = await validPlanRulesReview();
+  const trueTopLevelFields = Object.fromEntries([
+    'remoteWriteAllowed',
+    'liveCheckAllowed',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'uploadApproved',
+    'uploadExecutionApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted',
+    'clientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed'
+  ].map(key => [key, true]));
+  const trueSourceFields = Object.fromEntries([
+    'authorizationGranted',
+    'executionAuthorizationGranted',
+    'approvalGranted',
+    'uploadApproved',
+    'uploadExecutionApproved',
+    'uploadExecutionAllowed',
+    'mutationApprovalGranted'
+  ].map(key => [key, true]));
+  const trueExecutionFields = Object.fromEntries([
+    'executable',
+    'artifactBytesProvided',
+    'adapterInjected',
+    'clientCreated',
+    'credentialValuesRead',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'credentialPresenceResultExposed',
+    'liveCheckAllowed',
+    'liveCheckPerformed',
+    'liveCheckResultExposed',
+    'uploadCommandGenerated',
+    'uploadCommandMaterialized',
+    'uploadCommandExposed',
+    'artifactObjectStoreBound',
+    'metadataIndexBound',
+    'objectStoreHandleExposed',
+    'metadataIndexHandleExposed',
+    'objectWriteAllowed',
+    'metadataIndexWriteAllowed',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'remoteMutationPerformed'
+  ].map(key => [key, true]));
+
+  const record = buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord({
+    planRulesReview: {
+      ...planRulesReview,
+      ...trueTopLevelFields,
+      kind: 'wrong-kind',
+      schemaVersion: 2,
+      recordKind: 'wrong-record',
+      reviewKind: 'wrong-review-kind',
+      status: 'unexpected-status',
+      uploadCommand: 'aws s3 cp file s3://private-bucket/key',
+      readiness: {
+        status: 'blocked',
+        nextAction: 'execute-upload',
+        blockerCount: 2,
+        blockerCodes: ['drift'],
+        blockers: []
+      },
+      target: {
+        manifestId: 'not-a-safe-id',
+        objectKeyRedacted: false,
+        objectSha256: 'not-a-sha',
+        artifactId: 'also-unsafe'
+      },
+      sourceAuthorizationBoundary: {
+        ...trueSourceFields,
+        boundaryStatus: 'blocked',
+        boundaryKind: 'wrong-boundary-kind',
+        boundaryNextAction: 'resolve-blockers',
+        scopeMatched: false,
+        humanApprovalRecorded: false,
+        approvalFingerprintVerified: false,
+        authorizationBoundaryDesigned: false,
+        adapterName: '../unsafe-adapter',
+        adapterBackendKind: 's3-compatible',
+        sourceApprovalRecordFingerprint: null,
+        authorizationBoundaryFingerprint: {
+          algorithm: 'md5',
+          scope: 'wrong-scope',
+          value: 'not-a-safe-fingerprint',
+          canonicalFieldCount: 'not-a-number'
+        }
+      },
+      planRulesReview: {
+        planRulesUpdateReviewRequired: false,
+        planRulesUpdated: true,
+        rulesUpdateReviewed: true,
+        executionStillDisabled: false,
+        nextRequiredPolicyUpdate: 'wrong-update',
+        reviewFingerprint: {
+          algorithm: 'md5',
+          scope: 'wrong-scope',
+          value: 'not-a-safe-fingerprint',
+          canonicalFieldCount: 'not-a-number'
+        }
+      },
+      executionBoundary: trueExecutionFields
+    },
+    reviewFingerprint: 'ABC-not-safe'
+  });
+
+  assert.equal(record.status, 'blocked');
+  assert.equal(record.sourcePlanRulesReview.reviewStatus, 'invalid');
+  assert.equal(record.sourcePlanRulesReview.reviewKind, 'unsupported');
+  assert.equal(record.sourcePlanRulesReview.reviewNextAction, 'invalid');
+  assert.equal(record.sourcePlanRulesReview.sourceAuthorizationBoundaryStatus, 'blocked');
+  assert.equal(record.sourcePlanRulesReview.sourceAuthorizationBoundaryKind, 'unsupported');
+  assert.equal(record.sourcePlanRulesReview.sourceAuthorizationBoundaryNextAction, 'resolve-blockers');
+  assert.equal(record.sourcePlanRulesReview.adapterName, null);
+  assert.equal(record.sourcePlanRulesReview.adapterBackendKind, 's3-compatible');
+  assert.equal(record.sourcePlanRulesReview.sourceApprovalRecordFingerprint.algorithm, 'unsupported');
+  assert.equal(record.sourcePlanRulesReview.sourceAuthorizationBoundaryFingerprint.algorithm, 'unsupported');
+  assert.equal(record.sourcePlanRulesReview.reviewFingerprint.algorithm, 'unsupported');
+  assert.equal(record.planRulesUpdateRecord.recordFingerprint.value, null);
+  for (const code of [
+    'invalid-plan-rules-review-kind',
+    'invalid-schema-version',
+    'invalid-record-kind',
+    'plan-rules-review-not-ready',
+    'plan-rules-review-next-action-invalid',
+    'upload-command-present',
+    'remote-write-enabled',
+    'live-check-enabled',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'upload-approval-already-provided',
+    'upload-execution-approval-already-provided',
+    'upload-execution-enabled',
+    'mutation-approval-already-granted',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'rollback-plan-created',
+    'audit-record-created',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'remote-mutation-performed',
+    'unsafe-artifact-reference',
+    'scope-not-matched',
+    'review-fingerprint-unverified',
+    'unsafe-adapter-name',
+    'unsupported-adapter-backend',
+    'authorization-already-granted',
+    'credential-values-read',
+    'credential-presence-result-exposed',
+    'live-check-result-exposed',
+    'upload-command-generated',
+    'upload-command-exposed',
+    'artifact-object-store-bound',
+    'metadata-index-bound',
+    'object-store-handle-leak',
+    'metadata-index-handle-leak',
+    'plan-rules-review-fingerprint-unsupported',
+    'unsafe-review-fingerprint',
+    'plan-rules-review-fingerprint-missing'
+  ]) {
+    assert.ok(record.readiness.blockerCodes.includes(code), code);
+  }
+  assertExecutionDisabled(record);
+  assertNoPrivateValues(record);
+});
+
 test('upload execution Plan/Rules update record blocks forged execution and leaky material without copying private values', async () => {
   const planRulesReview = await validPlanRulesReview();
   const record = buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord({

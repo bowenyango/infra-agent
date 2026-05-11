@@ -9,6 +9,9 @@ import {
 import {
   validateKnowledgePayload
 } from '../../src/knowledge/validate.ts';
+import {
+  validateKnowledgeTeamUploadExecutionPlanRulesUpdateRecordPayload
+} from '../../src/knowledge/team-upload-approval-validation.ts';
 
 const SAFE_ID = '0123456789abcdef01234567';
 const SAFE_ARTIFACT_ID = 'abcdef0123456789abcdef01';
@@ -128,14 +131,32 @@ function validAuthorizationBoundary() {
   };
 }
 
-function validUpdateRecord() {
-  const review = buildKnowledgeTeamUploadExecutionPlanRulesReview({
+function validPlanRulesReview() {
+  return buildKnowledgeTeamUploadExecutionPlanRulesReview({
     executionAuthorizationBoundary: validAuthorizationBoundary()
   });
+}
+
+function validUpdateRecord() {
+  const review = validPlanRulesReview();
   return buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord({
     planRulesReview: review,
     reviewFingerprint: review.planRulesReview.reviewFingerprint.value
   });
+}
+
+function validateUpdateRecordDirect(payload) {
+  return validateKnowledgeTeamUploadExecutionPlanRulesUpdateRecordPayload(
+    payload,
+    'knowledge-pack.upload-execution-plan-rules-update-record.json',
+    'infra-agent.knowledge-team-upload-execution-plan-rules-update-record'
+  );
+}
+
+function assertIssuePaths(report, paths) {
+  for (const path of paths) {
+    assert.equal(report.issues.some(issue => issue.path === path), true, path);
+  }
 }
 
 function assertPlanRulesUpdateRecordShape(record) {
@@ -210,6 +231,83 @@ test('upload execution Plan/Rules update record contract keeps stable ready shap
 
   assertPlanRulesUpdateRecordShape(record);
   assert.equal(validateKnowledgePayload(record, 'knowledge-pack.upload-execution-plan-rules-update-record.json').valid, true);
+});
+
+test('upload execution Plan/Rules update record contract accepts safe blocked records', () => {
+  const review = validPlanRulesReview();
+  const record = buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord({
+    planRulesReview: review,
+    reviewFingerprint: null
+  });
+  const report = validateKnowledgePayload(record, 'knowledge-pack.upload-execution-plan-rules-update-record.json');
+
+  assert.equal(record.status, 'blocked');
+  assert.equal(record.readiness.nextAction, 'resolve-blockers');
+  assert.equal(record.planRulesUpdateRecord.planRulesUpdateRecorded, false);
+  assert.equal(record.planRulesUpdateRecord.rulesUpdateReviewed, false);
+  assert.equal(record.planRulesUpdateRecord.fingerprintVerified, false);
+  assert.equal(record.planRulesUpdateRecord.recordFingerprint.value, null);
+  assert.equal(report.valid, true, JSON.stringify(report.issues));
+});
+
+test('upload execution Plan/Rules update record contract rejects malformed envelopes', () => {
+  const trueFields = {
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    uploadApproved: true,
+    uploadExecutionApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    clientCreated: true,
+    adapterInjected: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    auditRecordCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true
+  };
+  const report = validateKnowledgePayload({
+    kind: 'infra-agent.knowledge-team-upload-execution-plan-rules-update-record',
+    schemaVersion: 2,
+    mutationAllowed: true,
+    executionMode: 'live',
+    recordKind: 'wrong-record-kind',
+    status: 'unexpected-status',
+    plannedOperation: 'wrong-operation',
+    ...trueFields,
+    uploadCommand: 'aws s3 cp file s3://private-bucket/key',
+    target: null,
+    sourcePlanRulesReview: null,
+    planRulesUpdateRecord: null,
+    executionBoundary: null,
+    readiness: null,
+    backendEndpointUrl: 'https://should-not-copy.example.test'
+  }, 'knowledge-pack.upload-execution-plan-rules-update-record.json');
+
+  assert.equal(report.valid, false);
+  for (const path of [
+    '$.schemaVersion',
+    '$.mutationAllowed',
+    '$.executionMode',
+    '$.recordKind',
+    '$.status',
+    '$.plannedOperation',
+    '$.remoteWriteAllowed',
+    '$.uploadCommand',
+    '$.target',
+    '$.sourcePlanRulesReview',
+    '$.planRulesUpdateRecord',
+    '$.executionBoundary',
+    '$.readiness',
+    '$.backendEndpointUrl'
+  ]) {
+    assert.equal(report.issues.some(issue => issue.path === path), true, path);
+  }
 });
 
 test('upload execution Plan/Rules update record contract rejects drifted payloads', () => {
@@ -310,4 +408,253 @@ test('upload execution Plan/Rules update record contract rejects drifted payload
   assert.equal(report.issues.some(issue => issue.path === '$.executionBoundary.objectWriteAllowed'), true);
   assert.equal(report.issues.some(issue => issue.path === '$.executionBoundary.executable'), true);
   assert.equal(report.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+});
+
+test('upload execution Plan/Rules update record validator rejects forged ready field families', () => {
+  const record = validUpdateRecord();
+  const trueExecutionFields = Object.fromEntries([
+    'executable',
+    'artifactBytesProvided',
+    'adapterInjected',
+    'clientCreated',
+    'credentialValuesRead',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'credentialPresenceResultExposed',
+    'liveCheckAllowed',
+    'liveCheckPerformed',
+    'liveCheckResultExposed',
+    'uploadCommandGenerated',
+    'uploadCommandMaterialized',
+    'uploadCommandExposed',
+    'artifactObjectStoreBound',
+    'metadataIndexBound',
+    'objectStoreHandleExposed',
+    'metadataIndexHandleExposed',
+    'objectWriteAllowed',
+    'metadataIndexWriteAllowed',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'remoteMutationPerformed'
+  ].map(key => [key, true]));
+  const report = validateUpdateRecordDirect({
+    ...record,
+    kind: 'wrong-kind',
+    target: {
+      ...record.target,
+      manifestId: 'not-a-safe-id',
+      artifactId: 'also-not-safe',
+      objectSha256: 'not-a-sha',
+      objectKeyRedacted: false,
+      objectKey: 'team-artifacts/public-reference/aa/bb/private-key.json'
+    },
+    sourcePlanRulesReview: {
+      ...record.sourcePlanRulesReview,
+      source: 'wrong-source',
+      reviewStatus: 'unsupported',
+      reviewKind: 'not-supported',
+      reviewNextAction: 'unsupported',
+      sourceAuthorizationBoundaryStatus: 'unsupported',
+      sourceAuthorizationBoundaryKind: 'not-supported',
+      sourceAuthorizationBoundaryNextAction: 'unsupported',
+      adapterBackendKind: 'not-supported',
+      adapterName: '../unsafe-adapter',
+      scopeMatched: 'yes',
+      humanApprovalRecorded: 'yes',
+      approvalFingerprintVerified: 'yes',
+      authorizationBoundaryDesigned: 'yes',
+      planRulesUpdateReviewRequired: 'yes',
+      planRulesUpdated: 'no',
+      rulesUpdateReviewed: 'no',
+      executionStillDisabled: 'yes',
+      authorizationGranted: 'no',
+      executionAuthorizationGranted: 'no',
+      approvalGranted: 'no',
+      uploadApproved: 'no',
+      uploadExecutionApproved: 'no',
+      uploadExecutionAllowed: 'no',
+      mutationApprovalGranted: 'no'
+    },
+    planRulesUpdateRecord: {
+      ...record.planRulesUpdateRecord,
+      explicitPlanRulesUpdateRequired: false,
+      humanReviewRequired: false,
+      policyUpdateAuthorized: true,
+      executionStillDisabled: false,
+      planRulesUpdateRecorded: 'yes',
+      rulesUpdateReviewed: 'yes',
+      fingerprintVerified: 'yes',
+      authorizationGranted: true,
+      executionAuthorizationGranted: true,
+      uploadApproved: true,
+      uploadExecutionApproved: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true,
+      source: 'manual',
+      suppliedFingerprint: 'not-a-sha',
+      expectedFingerprint: 'also-not-a-sha'
+    },
+    executionBoundary: {
+      ...record.executionBoundary,
+      dryRunOnly: false,
+      ...trueExecutionFields
+    },
+    readiness: {
+      ...record.readiness,
+      status: 'blocked',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['unsupported-code'],
+      blockers: [{ code: 'unsupported-code', message: 'unsupported', remediation: 'fix' }]
+    }
+  });
+
+  assert.equal(report.valid, false);
+  assertIssuePaths(report, [
+    '$.kind',
+    '$.target.manifestId',
+    '$.target.artifactId',
+    '$.target.objectSha256',
+    '$.target.objectKeyRedacted',
+    '$.target.objectKey',
+    '$.sourcePlanRulesReview.source',
+    '$.sourcePlanRulesReview.reviewStatus',
+    '$.sourcePlanRulesReview.reviewKind',
+    '$.sourcePlanRulesReview.reviewNextAction',
+    '$.sourcePlanRulesReview.sourceAuthorizationBoundaryStatus',
+    '$.sourcePlanRulesReview.sourceAuthorizationBoundaryKind',
+    '$.sourcePlanRulesReview.sourceAuthorizationBoundaryNextAction',
+    '$.sourcePlanRulesReview.adapterBackendKind',
+    '$.sourcePlanRulesReview.adapterName',
+    '$.sourcePlanRulesReview.scopeMatched',
+    '$.sourcePlanRulesReview.planRulesUpdated',
+    '$.sourcePlanRulesReview.authorizationGranted',
+    '$.planRulesUpdateRecord.explicitPlanRulesUpdateRequired',
+    '$.planRulesUpdateRecord.humanReviewRequired',
+    '$.planRulesUpdateRecord.policyUpdateAuthorized',
+    '$.planRulesUpdateRecord.executionStillDisabled',
+    '$.planRulesUpdateRecord.planRulesUpdateRecorded',
+    '$.planRulesUpdateRecord.source',
+    '$.planRulesUpdateRecord.suppliedFingerprint',
+    '$.planRulesUpdateRecord.expectedFingerprint',
+    '$.planRulesUpdateRecord.authorizationGranted',
+    '$.executionBoundary.dryRunOnly',
+    '$.executionBoundary.credentialValuesRead',
+    '$.executionBoundary.remoteMutationPerformed',
+    '$.readiness.status',
+    '$.readiness.nextAction',
+    '$.readiness.blockerCount'
+  ]);
+});
+
+test('upload execution Plan/Rules update record validator rejects incomplete ready fingerprints', () => {
+  const record = validUpdateRecord();
+  const report = validateUpdateRecordDirect({
+    ...record,
+    target: {
+      ...record.target,
+      manifestId: null,
+      artifactId: null,
+      objectSha256: null
+    },
+    sourcePlanRulesReview: {
+      ...record.sourcePlanRulesReview,
+      adapterName: null,
+      sourceApprovalRecordFingerprint: {
+        ...record.sourcePlanRulesReview.sourceApprovalRecordFingerprint,
+        value: null
+      },
+      sourceAuthorizationBoundaryFingerprint: {
+        ...record.sourcePlanRulesReview.sourceAuthorizationBoundaryFingerprint,
+        value: null
+      },
+      reviewFingerprint: {
+        ...record.sourcePlanRulesReview.reviewFingerprint,
+        value: null
+      }
+    },
+    planRulesUpdateRecord: {
+      ...record.planRulesUpdateRecord,
+      source: null,
+      suppliedFingerprint: null,
+      expectedFingerprint: null,
+      sourceReviewFingerprint: {
+        ...record.planRulesUpdateRecord.sourceReviewFingerprint,
+        value: null
+      },
+      recordFingerprint: {
+        ...record.planRulesUpdateRecord.recordFingerprint,
+        value: null
+      }
+    }
+  });
+
+  assert.equal(report.valid, false);
+  assertIssuePaths(report, [
+    '$.target.manifestId',
+    '$.target.artifactId',
+    '$.target.objectSha256',
+    '$.sourcePlanRulesReview.adapterName',
+    '$.sourcePlanRulesReview.sourceApprovalRecordFingerprint.value',
+    '$.sourcePlanRulesReview.sourceAuthorizationBoundaryFingerprint.value',
+    '$.sourcePlanRulesReview.reviewFingerprint.value',
+    '$.planRulesUpdateRecord.source',
+    '$.planRulesUpdateRecord.suppliedFingerprint',
+    '$.planRulesUpdateRecord.expectedFingerprint',
+    '$.planRulesUpdateRecord.sourceReviewFingerprint.value',
+    '$.planRulesUpdateRecord.recordFingerprint.value'
+  ]);
+});
+
+test('upload execution Plan/Rules update record validator rejects mismatched review fingerprints', () => {
+  const record = validUpdateRecord();
+  const report = validateUpdateRecordDirect({
+    ...record,
+    planRulesUpdateRecord: {
+      ...record.planRulesUpdateRecord,
+      sourceReviewFingerprint: {
+        ...record.planRulesUpdateRecord.sourceReviewFingerprint,
+        value: 'd'.repeat(64)
+      },
+      suppliedFingerprint: 'e'.repeat(64),
+      expectedFingerprint: 'e'.repeat(64)
+    }
+  });
+
+  assert.equal(report.valid, false);
+  assertIssuePaths(report, [
+    '$.planRulesUpdateRecord.sourceReviewFingerprint.value',
+    '$.planRulesUpdateRecord.expectedFingerprint'
+  ]);
+});
+
+test('upload execution Plan/Rules update record validator rejects blocked records that claim completion', () => {
+  const review = validPlanRulesReview();
+  const blocked = buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord({
+    planRulesReview: review,
+    reviewFingerprint: null
+  });
+  const report = validateUpdateRecordDirect({
+    ...blocked,
+    planRulesUpdateRecord: {
+      ...blocked.planRulesUpdateRecord,
+      planRulesUpdateRecorded: true,
+      rulesUpdateReviewed: true
+    },
+    readiness: {
+      ...blocked.readiness,
+      nextAction: 'design-upload-execution-implementation-boundary'
+    }
+  });
+
+  assert.equal(report.valid, false);
+  assertIssuePaths(report, [
+    '$.planRulesUpdateRecord.planRulesUpdateRecorded',
+    '$.planRulesUpdateRecord.rulesUpdateReviewed',
+    '$.readiness.nextAction'
+  ]);
 });
