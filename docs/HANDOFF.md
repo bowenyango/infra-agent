@@ -6,6 +6,47 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-10 Planned Object/Index Binding Boundary
+
+Status:
+
+- In progress. This slice continues the private dry-run upload boundary chain
+  after `upload-command-boundary`.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-command-boundary` and emit a private
+  object/index binding boundary artifact that records future object-store and
+  metadata-index binding requirements.
+- This slice must not bind concrete object stores or metadata indexes, expose
+  target object keys, generate or materialize upload commands, create SDK
+  clients, inject adapters, read credentials, check credential presence,
+  perform live backend checks, read or stage artifact bytes, write objects,
+  write metadata index entries, or perform remote mutations.
+
+Planned checkpoints:
+
+1. Add the object/index binding boundary contract and builder from the saved
+   upload-command boundary.
+2. Add focused unit coverage for ready, blocked, malformed, forged, and leaky
+   inputs.
+3. Add validator dispatch and contract coverage for ready, blocked, and drifted
+   payloads.
+4. Add CLI parsing, JSON/text output, help text, and integration coverage.
+5. Add no-SDK/no-binding/no-command-generation guard coverage and update rules,
+   roadmap, skill, and handoff docs after verification.
+
+Expected artifact and CLI:
+
+- Artifact kind: `infra-agent.knowledge-team-upload-object-index-binding-boundary`.
+- CLI:
+  `infra-agent knowledge upload-object-index-binding-boundary <command-boundary.json> [--out <object-index-binding-boundary.json>] [--json]`.
+- Ready status should be `object-index-binding-boundary-ready`, meaning only
+  that future object-store and metadata-index binding requirements are modeled.
+  It is not store/index binding, command generation, command execution, byte
+  staging, upload readiness, or remote mutation readiness.
+- Ready next action should remain design-only; currently expected:
+  `design-upload-execution-readiness-boundary`. Blocked next action remains
+  `resolve-blockers`.
+
 ## 2026-05-10 Completed Upload Command Boundary
 
 Status:
