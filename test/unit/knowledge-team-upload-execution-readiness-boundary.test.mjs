@@ -77,6 +77,9 @@ import {
 import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
 
 function validBackendReferenceSummary() {
   return validateKnowledgeTeamS3CompatibleBackendReferences(
@@ -258,7 +261,158 @@ test('upload execution readiness boundary records final dry-run execution prereq
   assert.equal(boundary.readiness.nextAction, 'request-separate-upload-execution-approval');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assert.equal(validateKnowledgePayload(boundary, 'knowledge-pack.upload-execution-readiness-boundary.json').valid, true);
   assertNoPrivateValues(boundary);
+});
+
+test('upload execution readiness boundary validation rejects forged execution state', async () => {
+  const objectIndexBindingBoundary = await validObjectIndexBindingBoundary();
+  const boundary = buildKnowledgeTeamUploadExecutionReadinessBoundary({ objectIndexBindingBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    uploadCommand: { argv: ['aws', 's3', 'cp'] },
+    target: {
+      ...boundary.target,
+      objectKey: 'team-artifacts/public-reference/aa/bb/private-key.json'
+    },
+    uploadExecutionReadinessBoundary: {
+      ...boundary.uploadExecutionReadinessBoundary,
+      uploadApproved: true,
+      uploadExecutionAllowed: true,
+      mutationApprovalGranted: true,
+      artifactBytesProvided: true,
+      adapterInjected: true,
+      clientCreated: true,
+      credentialValuesRead: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      credentialPresenceResultExposed: true,
+      liveCheckAllowed: true,
+      liveCheckPerformed: true,
+      liveCheckResultExposed: true,
+      uploadCommandGenerated: true,
+      uploadCommandMaterialized: true,
+      uploadCommandExposed: true,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      objectStoreHandleExposed: true,
+      metadataIndexHandleExposed: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      remoteMutationPerformed: true,
+      executable: true
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      uploadExecutionApproved: true,
+      mutationApprovalGranted: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true
+    }
+  }, 'knowledge-pack.upload-execution-readiness-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommand'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.target.objectKey'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.uploadApproved'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.uploadExecutionAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.mutationApprovalGranted'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.objectStoreHandleExposed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.metadataIndexHandleExposed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.objectWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.metadataIndexWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.executable'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.uploadExecutionApproved'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.mutationApprovalGranted'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.objectWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexWriteAllowed'), true);
+});
+
+test('upload execution readiness boundary validation rejects missing ready prerequisites', async () => {
+  const objectIndexBindingBoundary = await validObjectIndexBindingBoundary();
+  const boundary = buildKnowledgeTeamUploadExecutionReadinessBoundary({ objectIndexBindingBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    status: 'upload-execution-readiness-boundary-ready',
+    sourceObjectIndexBindingBoundary: {
+      ...boundary.sourceObjectIndexBindingBoundary,
+      boundaryStatus: 'blocked',
+      boundaryNextAction: 'resolve-blockers',
+      adapterBackendKind: 's3-compatible',
+      objectStoreBindingRequired: false,
+      metadataIndexBindingRequired: false,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true
+    },
+    uploadExecutionReadinessBoundary: {
+      ...boundary.uploadExecutionReadinessBoundary,
+      separateExecutionApprovalRequired: false,
+      objectWriteRequiresExecutionApproval: false
+    },
+    readiness: {
+      ...boundary.readiness,
+      status: 'upload-execution-readiness-boundary-ready',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['object-index-binding-boundary-not-ready'],
+      blockers: [{
+        code: 'object-index-binding-boundary-not-ready',
+        path: '$.sourceObjectIndexBindingBoundary.boundaryStatus',
+        message: 'not ready'
+      }]
+    }
+  }, 'knowledge-pack.upload-execution-readiness-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary.boundaryStatus'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary.boundaryNextAction'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary.adapterBackendKind'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary.objectStoreBindingRequired'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary.metadataIndexBindingRequired'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary.objectWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary.metadataIndexWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.separateExecutionApprovalRequired'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary.objectWriteRequiresExecutionApproval'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
+});
+
+test('upload execution readiness boundary validation rejects malformed section shapes', async () => {
+  const objectIndexBindingBoundary = await validObjectIndexBindingBoundary();
+  const boundary = buildKnowledgeTeamUploadExecutionReadinessBoundary({ objectIndexBindingBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    status: 'blocked',
+    target: null,
+    sourceObjectIndexBindingBoundary: null,
+    uploadExecutionReadinessBoundary: null,
+    remainingExecutionBoundaries: null,
+    readiness: {
+      ...boundary.readiness,
+      status: 'blocked',
+      nextAction: 'request-separate-upload-execution-approval',
+      blockerCount: 1,
+      blockerCodes: ['missing-required-field'],
+      blockers: [{
+        code: 'missing-required-field',
+        path: '$.target',
+        message: 'target missing'
+      }]
+    }
+  }, 'knowledge-pack.upload-execution-readiness-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.target'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceObjectIndexBindingBoundary'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadExecutionReadinessBoundary'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
 });
 
 test('upload execution readiness boundary blocks non-ready object/index boundaries', async () => {
