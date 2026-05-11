@@ -6,6 +6,91 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 In Progress Upload Execution Plan/Rules Review
+
+Status:
+
+- In progress. This slice follows the completed
+  `upload-execution-authorization-boundary` artifact and remains non-executing.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-execution-authorization-boundary` whose
+  ready next action is `await-plan-rules-update-for-upload-execution`, then
+  emit a private Plan/Rules update review artifact.
+- This slice may summarize what must be reviewed before the Plan and Rules are
+  narrowed for any future upload execution design. It must not update the Plan
+  or Rules as approved policy, grant upload execution authorization, grant
+  mutation approval, allow upload execution, generate or materialize upload
+  commands, issue write tokens, create execution leases, create rollback
+  plans, create audit records, stage artifact bytes, inject adapters, create
+  clients, read credentials, check credential presence, perform live backend
+  checks, bind concrete object stores or metadata indexes, expose handles,
+  write objects, write metadata index entries, or perform remote mutations.
+
+Planned checkpoints:
+
+1. Add `buildKnowledgeTeamUploadExecutionPlanRulesReview` and contract types.
+   It consumes only a saved upload execution authorization boundary and emits a
+   dry-run Plan/Rules review artifact.
+2. Add focused unit coverage for ready, blocked, malformed, forged, private,
+   command-bearing, and leaky inputs.
+3. Add validator dispatch and contract coverage for ready and drifted payloads.
+4. Extend no-SDK/no-execution guards so this review cannot materialize
+   authorization, instantiate clients, read credentials, generate commands,
+   perform checks, bind stores/indexes, or write object/index data.
+5. Add CLI parsing, help text, JSON/text output, and integration coverage for
+   `knowledge upload-execution-plan-rules-review`.
+
+Expected artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-execution-plan-rules-review`.
+- CLI:
+  `infra-agent knowledge upload-execution-plan-rules-review <execution-authorization-boundary.json> [--out <plan-rules-review.json>] [--json]`.
+- Ready status should be `upload-execution-plan-rules-review-ready`, meaning
+  only that the prior authorization boundary was safely converted into a
+  Plan/Rules update review gate.
+- Ready next action should remain non-executing; currently expected:
+  `await-explicit-plan-rules-update`. Blocked next action remains
+  `resolve-blockers`.
+
+Initial acceptance criteria:
+
+1. `upload-execution-plan-rules-review-ready` requires a valid
+   `infra-agent.knowledge-team-upload-execution-authorization-boundary` with
+   `upload-execution-authorization-boundary-ready`,
+   `nextAction=await-plan-rules-update-for-upload-execution`, safe redacted
+   target references, verified source human approval record metadata,
+   `authorizationBoundaryDesigned=true`, no authorization grant, no upload
+   execution approval, no upload execution allowance, and no blockers.
+2. The review preserves safe target identifiers and hash references while
+   retaining `target.objectKeyRedacted=true`; it does not copy
+   `target.objectKey` to output.
+3. The output may emit a deterministic review fingerprint over non-secret
+   source, target, and review checklist fields, but it must not include backend
+   coordinates, credential state, object keys, local paths, command material,
+   byte payloads, handles, authorization material, or mutation results.
+4. Top-level and nested execution state remains disabled:
+   `uploadCommand=null`, `authorizationGranted=false`,
+   `executionAuthorizationGranted=false`, `uploadApproved=false`,
+   `uploadExecutionApproved=false`, `uploadExecutionAllowed=false`,
+   `mutationApprovalGranted=false`, `writeTokenIssued=false`,
+   `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+   `auditRecordCreated=false`, `artifactBytesProvided=false`,
+   `adapterInjected=false`, `clientCreated=false`,
+   `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+   `liveCheckAllowed=false`, `liveCheckPerformed=false`,
+   `uploadCommandGenerated=false`, `artifactObjectStoreBound=false`,
+   `metadataIndexBound=false`, `objectWriteAllowed=false`,
+   `metadataIndexWriteAllowed=false`, `objectWriteAttempted=false`,
+   `metadataIndexWriteAttempted=false`, `executable=false`, and
+   `remoteMutationPerformed=false`.
+5. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
+   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, object-key-copying, object-store-handle,
+   metadata-index-handle, token/lease/rollback/audit material,
+   authorization-material, or object/index mutation inputs produce blocked or
+   invalid results with safe blocker codes and without copying private values.
+
 ## 2026-05-11 Completed Upload Execution Authorization Boundary
 
 Status:

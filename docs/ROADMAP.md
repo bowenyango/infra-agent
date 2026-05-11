@@ -464,6 +464,27 @@ Target artifact families:
   injection, SDK client creation, credential reads, credential presence checks,
   live checks, store/index binding, object writes, metadata index writes, and
   remote mutations disabled.
+- `infra-agent.knowledge-team-upload-execution-authorization-boundary`: a
+  private dry-run upload execution authorization boundary derived from a saved
+  human upload execution approval record. It can report
+  `upload-execution-authorization-boundary-ready` only when the approval record
+  is ready, still non-executing, and its human approval fingerprint remains
+  verified. It records only that a later Plan/Rules update must explicitly
+  review the upload execution boundary, while approval grants, upload execution
+  authorization, upload execution, command generation, token issuance, leases,
+  rollback, audit records, byte staging, adapter injection, SDK client
+  creation, credential reads, credential presence checks, live checks,
+  store/index binding, object writes, metadata index writes, and remote
+  mutations stay disabled.
+- `infra-agent.knowledge-team-upload-execution-plan-rules-review`: a private
+  dry-run Plan/Rules update review artifact derived from a saved upload
+  execution authorization boundary. It can report
+  `upload-execution-plan-rules-review-ready` only when the authorization
+  boundary is ready, still non-executing, and its next action is
+  `await-plan-rules-update-for-upload-execution`. It records only the safe
+  review checklist for a future explicit Plan/Rules update; it is not Plan/Rules
+  approval, upload execution approval, upload execution authorization, command
+  generation, object/index binding, or remote write permission.
 
 Team artifact public contracts:
 
@@ -752,6 +773,18 @@ Implemented initial CLI surfaces:
     audit records, stage bytes, inject adapters, create clients, read or check
     credentials, probe live backends, generate commands, bind stores or
     indexes, allow object/index writes, or write object/index entries.
+- `infra-agent knowledge upload-execution-plan-rules-review
+  <execution-authorization-boundary.json> [--out <plan-rules-review.json>] --json`
+  - reads one saved private upload execution authorization boundary, then
+    records only the dry-run Plan/Rules update review gate that a later
+    policy update must inspect before any upload execution design can advance.
+    A `upload-execution-plan-rules-review-ready` result does not approve
+    Plan/Rules changes, grant upload execution approval, authorize upload
+    execution, allow upload execution, issue tokens, create leases, create
+    rollback plans, create audit records, stage bytes, inject adapters, create
+    clients, read or check credentials, probe live backends, generate commands,
+    bind stores or indexes, allow object/index writes, or write object/index
+    entries.
 
 Recommended storage layers:
 

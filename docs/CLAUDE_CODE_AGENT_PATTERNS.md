@@ -161,7 +161,13 @@ durable design reference for infra-agent development.
   content-addressed keys, idempotent writes, execution-boundary requirements,
   and explicit approval. It still does not bind concrete stores or indexes,
   expose handles, generate commands, stage bytes, allow writes, or mutate
-  remote state. All twenty remain
+  remote state. `upload-execution-authorization-boundary` can consume the
+  saved human upload execution approval record and model only the final
+  explicit authorization boundary that must be reviewed before Plan/Rules are
+  narrowed. `upload-execution-plan-rules-review` can consume that saved
+  authorization boundary and record only the review checklist for a later
+  explicit Plan/Rules update. It does not mean the rules have been updated and
+  it cannot unlock execution. All upload boundary artifacts remain
   dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter
