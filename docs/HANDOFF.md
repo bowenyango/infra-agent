@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-11 In Progress Upload Execution Authorization Boundary
+## 2026-05-11 Completed Upload Execution Authorization Boundary
 
 Status:
 
-- In progress. This slice continues the private dry-run upload boundary chain
+- Completed. This slice continues the private dry-run upload boundary chain
   after `record-human-upload-execution-approval`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-approval-record` and emit a
@@ -25,21 +25,22 @@ Status:
   expose handles, write objects, write metadata index entries, or perform
   remote mutations.
 
-Planned checkpoints:
+Implemented checkpoints:
 
-1. Add `buildKnowledgeTeamUploadExecutionAuthorizationBoundary` and its
-   contract types. It consumes only a saved approval record and emits a dry-run
-   authorization boundary artifact.
-2. Add focused unit coverage for ready, blocked, malformed, forged, unsafe,
-   private, and leaky inputs.
-3. Add validator dispatch and contract coverage for ready and drifted payloads.
-4. Add CLI parsing, help text, JSON/text output, and integration coverage for
+1. Added `buildKnowledgeTeamUploadExecutionAuthorizationBoundary` and its
+   contract types. It consumes only a saved approval record and emits a
+   dry-run authorization boundary artifact.
+2. Added focused unit coverage for ready, blocked, primitive private,
+   malformed, forged grant, execution-flag, and leaky materialized inputs.
+3. Added validator dispatch and contract coverage for ready and drifted
+   payloads, including authorization fingerprint drift and source record drift.
+4. Added no-SDK/no-execution guard coverage for the new authorization boundary
+   module.
+5. Added CLI parsing, JSON/text output, help surface, and integration coverage
+   for
    `knowledge upload-execution-authorization-boundary`.
-5. Extend no-SDK/no-execution guards so this boundary cannot materialize an
-   authorization, instantiate clients, read credentials, generate commands,
-   perform checks, or write object/index data.
 
-Expected artifact and CLI:
+Artifact and CLI:
 
 - Artifact kind:
   `infra-agent.knowledge-team-upload-execution-authorization-boundary`.
@@ -91,6 +92,47 @@ Initial acceptance criteria:
    metadata-index-handle, token/lease/rollback/audit material,
    authorization-material, or object/index mutation inputs produce blocked or
    invalid results with safe blocker codes and without copying private values.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-authorization-boundary.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-authorization-boundary-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-upload-execution-authorization-boundary-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-record-human-upload-execution-approval-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-approval-record-contract.test.mjs`
+- `npm run lint`
+- `npm run test:structure`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `npm run package:check`
+
+Core files changed:
+
+- `src/knowledge/team-upload-execution-authorization-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-authorization-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-execution-authorization-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-execution-authorization-boundary-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+
+Next recommended slice:
+
+- Do not proceed directly to upload execution. The ready next action is
+  `await-plan-rules-update-for-upload-execution`; before any future execution
+  design, the Plan and Rules need an explicit update that narrows what is now
+  allowed. Until that happens, the chain must continue to treat command
+  generation, authorization grants, write tokens, execution leases, rollback
+  plans, audit records, byte staging, adapter/client creation, credential
+  reads/checks, live checks, object-store/index binding, object writes,
+  metadata index writes, and remote mutation as forbidden.
 
 ## 2026-05-10 Completed Human Upload Execution Approval Record
 
