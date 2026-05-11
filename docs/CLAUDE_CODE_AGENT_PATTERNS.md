@@ -147,7 +147,15 @@ durable design reference for infra-agent development.
   dependencies, content-addressed keys, idempotent writes, and explicit
   approval. It still does not read credentials, check credential presence,
   create clients, inject adapters, perform live checks, expose live-check
-  results, generate commands, or bind stores/indexes. All eighteen remain
+  results, generate commands, or bind stores/indexes.
+  `upload-command-boundary` can consume that live-check boundary and model
+  future upload-command requirements: command descriptor before execution,
+  command generation only after live-check boundary design, command
+  payload/material redaction, command execution approval, object-store and
+  metadata-index dependencies, content-addressed keys, idempotent writes, and
+  explicit approval. It still does not materialize command payloads, expose
+  command material, become executable, bind object stores or indexes, or write
+  remote state. All nineteen remain
   dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter

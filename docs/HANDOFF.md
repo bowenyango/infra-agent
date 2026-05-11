@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 Active Upload Command Boundary Plan
+## 2026-05-10 Completed Upload Command Boundary
 
 Status:
 
-- Active. This slice continues the private dry-run upload boundary chain after
+- Completed. This slice continues the private dry-run upload boundary chain after
   `upload-live-check-boundary`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-live-check-boundary` and emit a private
@@ -22,7 +22,7 @@ Status:
   indexes, read or stage artifact bytes, write object storage, write metadata
   indexes, or perform remote mutations.
 
-Planned implementation checkpoints:
+Implemented checkpoints:
 
 1. Add the upload-command boundary contract and builder from the saved live
    check boundary.
@@ -34,7 +34,7 @@ Planned implementation checkpoints:
 5. Add no-SDK/no-command-generation guard coverage and update rules, roadmap,
    skill, and handoff docs after verification.
 
-Planned commit sequence:
+Completed commits for this slice:
 
 1. `docs: plan upload command boundary`
 2. `feat: add upload command boundary contract`
@@ -48,6 +48,77 @@ Planned commit sequence:
 10. `test: cover upload command cli`
 11. `test: guard upload command boundary no sdk`
 12. `docs: document upload command boundary`
+
+Implemented artifact and CLI:
+
+- Artifact kind: `infra-agent.knowledge-team-upload-command-boundary`.
+- CLI:
+  `infra-agent knowledge upload-command-boundary <live-check-boundary.json> [--out <command-boundary.json>] [--json]`.
+- Ready status is `upload-command-boundary-ready`, meaning only that the saved
+  live-check boundary is safe and future upload-command requirements are
+  modeled. It is not command generation, command materialization, command
+  execution, backend reachability, credential access, or upload readiness.
+- Ready next action is `design-object-index-binding-boundary`; blocked next
+  action remains `resolve-blockers`.
+
+Implemented acceptance criteria:
+
+1. `upload-command-boundary-ready` requires a valid
+   `infra-agent.knowledge-team-upload-live-check-boundary` with
+   `live-check-boundary-ready`, `nextAction=design-upload-command-boundary`,
+   safe target references, verified prior review state, matched scope, mock
+   backend posture, modeled live-check requirements, upload command still
+   required, and no blockers.
+2. The boundary preserves safe target identifiers and hash references while
+   redacting the source object key as `target.objectKeyRedacted=true`; it does
+   not copy `target.objectKey` to output.
+3. The output explicitly records future command requirements: command
+   descriptor, command generation after live-check boundary design, command
+   payload/material redaction, command execution approval, object/index
+   dependencies, content-addressed keys, idempotent writes, and explicit
+   approval.
+4. Top-level and nested execution state remains disabled:
+   `uploadCommand=null`, `uploadCommandGenerated=false`,
+   `uploadCommandMaterialized=false`, `uploadCommandExposed=false`,
+   `executable=false`, `liveCheckPerformed=false`, `clientCreated=false`,
+   `adapterInjected=false`, `artifactBytesProvided=false`,
+   `objectWriteAttempted=false`, `metadataIndexWriteAttempted=false`, and
+   `remoteMutationPerformed=false`.
+5. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
+   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, or object-key-copying inputs produce blocked
+   or invalid results with safe blocker codes and without copying private
+   values.
+
+Validation run during this slice:
+
+- `npm run lint`
+- `node --experimental-strip-types ./test/unit/knowledge-team-upload-command-boundary.test.mjs`
+- `node --experimental-strip-types ./test/contract/knowledge-team-upload-command-boundary-contract.test.mjs`
+- `node --experimental-strip-types ./test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types ./test/integration/cli-knowledge-upload-command-boundary-main.test.mjs`
+- `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+
+Core files:
+
+- `src/knowledge/team-upload-command-boundary.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-command-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-command-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-command-boundary-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+
+Next recommended slice:
+
+- `design-object-index-binding-boundary`. It should consume the saved upload
+  command boundary and model object-store/metadata-index binding requirements
+  only. It must not create SDK clients, bind concrete stores/indexes, read
+  credentials, generate commands, stage bytes, write objects, write index
+  entries, or perform remote mutation.
 
 ## 2026-05-10 Completed Upload Live Check Boundary
 
