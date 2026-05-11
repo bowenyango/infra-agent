@@ -362,3 +362,218 @@ test('upload execution implementation boundary blocks forged execution and leaky
   assertExecutionDisabled(boundary);
   assertNoPrivateValues(boundary);
 });
+
+test('upload execution implementation boundary blocks malformed source summaries and fingerprints', () => {
+  const updateRecord = validPlanRulesUpdateRecord();
+  const boundary = buildKnowledgeTeamUploadExecutionImplementationBoundary({
+    planRulesUpdateRecord: {
+      ...updateRecord,
+      kind: 'infra-agent.knowledge-team-upload-execution-authorization-boundary',
+      schemaVersion: 2,
+      mutationAllowed: true,
+      executionMode: 'live',
+      recordKind: 'live-upload',
+      readiness: {
+        ...updateRecord.readiness,
+        nextAction: 'execute-upload'
+      },
+      target: {
+        manifestId: 'not-safe',
+        artifactId: 'also-not-safe',
+        objectSha256: 'not-a-sha',
+        objectKeyRedacted: false,
+        objectKey: 'team-artifacts/public-reference/aa/bb/private-key.json'
+      },
+      sourcePlanRulesReview: {
+        ...updateRecord.sourcePlanRulesReview,
+        reviewStatus: 'blocked',
+        reviewKind: 'live-review',
+        reviewNextAction: 'execute-upload',
+        scopeMatched: false,
+        humanApprovalRecorded: false,
+        approvalFingerprintVerified: false,
+        authorizationBoundaryDesigned: false,
+        planRulesUpdateReviewRequired: false,
+        planRulesUpdated: true,
+        approvalGranted: true,
+        adapterName: '../private-adapter',
+        adapterBackendKind: 's3-compatible',
+        sourceApprovalRecordFingerprint: {
+          algorithm: 'md5',
+          scope: 'wrong-scope',
+          value: 'not-a-fingerprint',
+          canonicalFieldCount: 0
+        },
+        sourceAuthorizationBoundaryFingerprint: null,
+        reviewFingerprint: {
+          algorithm: 'sha256',
+          scope: 'stage-knowledge-pack-upload-execution-plan-rules-review-v1',
+          value: 'z'.repeat(64),
+          canonicalFieldCount: 0
+        }
+      },
+      planRulesUpdateRecord: {
+        ...updateRecord.planRulesUpdateRecord,
+        planRulesUpdateRecorded: false,
+        rulesUpdateReviewed: false,
+        executionStillDisabled: false,
+        fingerprintVerified: false,
+        recordFingerprint: {
+          algorithm: 'sha256',
+          scope: 'wrong-scope',
+          value: null,
+          canonicalFieldCount: 18
+        }
+      }
+    }
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  for (const code of [
+    'invalid-plan-rules-update-record-kind',
+    'invalid-schema-version',
+    'mutation-enabled',
+    'plan-rules-update-record-next-action-invalid',
+    'plan-rules-update-record-not-ready',
+    'unsafe-artifact-reference',
+    'unsafe-adapter-name',
+    'unsupported-adapter-backend',
+    'scope-not-matched',
+    'authorization-already-granted',
+    'executable-state-enabled',
+    'review-fingerprint-unverified',
+    'plan-rules-update-record-fingerprint-missing',
+    'plan-rules-update-record-fingerprint-unsupported'
+  ]) {
+    assert.ok(boundary.readiness.blockerCodes.includes(code), code);
+  }
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.artifactId, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.sourcePlanRulesUpdateRecord.adapterName, null);
+  assert.equal(boundary.sourcePlanRulesUpdateRecord.adapterBackendKind, 's3-compatible');
+  assert.equal(boundary.sourcePlanRulesUpdateRecord.updateRecordFingerprint.value, null);
+  assert.equal(boundary.implementationBoundary.implementationBoundaryFingerprint.value, null);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload execution implementation boundary blocks missing sections and every disabled execution family', () => {
+  const updateRecord = validPlanRulesUpdateRecord();
+  const boundary = buildKnowledgeTeamUploadExecutionImplementationBoundary({
+    planRulesUpdateRecord: {
+      ...updateRecord,
+      remoteWriteAllowed: true,
+      credentialValuesExposed: true,
+      credentialPresenceChecked: true,
+      uploadApproved: true,
+      uploadExecutionApproved: true,
+      mutationApprovalGranted: true,
+      clientCreated: true,
+      adapterInjected: true,
+      artifactBytesProvided: true,
+      writeTokenIssued: true,
+      executionLeaseCreated: true,
+      rollbackPlanCreated: true,
+      auditRecordCreated: true,
+      remoteMutationPerformed: true,
+      sourcePlanRulesReview: null,
+      planRulesUpdateRecord: null,
+      executionBoundary: {
+        dryRunOnly: false,
+        executable: true,
+        credentialValuesRead: true,
+        credentialPresenceResultExposed: true,
+        liveCheckResultExposed: true,
+        uploadCommandMaterialized: true,
+        uploadCommandExposed: true,
+        artifactObjectStoreBound: true,
+        metadataIndexBound: true,
+        objectStoreHandleExposed: true,
+        metadataIndexHandleExposed: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true
+      },
+      nestedLeaks: [
+        {
+          adapterInstance: 'private-adapter',
+          artifactPath: '/tmp/private-artifact',
+          credentialPresenceResult: 'credential-secret-value',
+          signedUrl: 'https://should-not-copy.example.test/signed'
+        }
+      ]
+    }
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  for (const code of [
+    'missing-required-field',
+    'remote-write-enabled',
+    'credential-values-exposed',
+    'credential-presence-check-enabled',
+    'upload-approval-already-provided',
+    'upload-execution-approval-already-provided',
+    'mutation-approval-already-granted',
+    'client-created',
+    'adapter-injected',
+    'artifact-bytes-provided',
+    'write-token-issued',
+    'execution-lease-created',
+    'rollback-plan-created',
+    'audit-record-created',
+    'remote-mutation-performed',
+    'executable-state-enabled',
+    'credential-values-read',
+    'credential-presence-result-exposed',
+    'live-check-result-exposed',
+    'upload-command-generated',
+    'upload-command-exposed',
+    'artifact-object-store-bound',
+    'metadata-index-bound',
+    'object-store-handle-leak',
+    'metadata-index-handle-leak',
+    'object-write-attempted',
+    'metadata-index-write-attempted',
+    'adapter-dependency-leak',
+    'client-dependency-leak',
+    'credential-dependency-leak'
+  ]) {
+    assert.ok(boundary.readiness.blockerCodes.includes(code), code);
+  }
+  assert.equal(boundary.sourcePlanRulesUpdateRecord.sourceReviewStatus, 'invalid');
+  assert.equal(boundary.sourcePlanRulesUpdateRecord.updateRecordFingerprint.value, null);
+  assertExecutionDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('upload execution implementation boundary blocks missing target and source approval drift', () => {
+  const updateRecord = validPlanRulesUpdateRecord();
+  const boundary = buildKnowledgeTeamUploadExecutionImplementationBoundary({
+    planRulesUpdateRecord: {
+      ...updateRecord,
+      target: null,
+      executionBoundary: null,
+      planRulesUpdateRecord: {
+        ...updateRecord.planRulesUpdateRecord,
+        uploadApproved: true,
+        uploadExecutionApproved: true,
+        mutationApprovalGranted: true
+      }
+    }
+  });
+
+  assert.equal(boundary.status, 'blocked');
+  for (const code of [
+    'missing-required-field',
+    'upload-approval-already-provided',
+    'upload-execution-approval-already-provided',
+    'mutation-approval-already-granted'
+  ]) {
+    assert.ok(boundary.readiness.blockerCodes.includes(code), code);
+  }
+  assert.equal(boundary.target.manifestId, null);
+  assert.equal(boundary.target.objectSha256, null);
+  assert.equal(boundary.target.artifactId, null);
+  assert.equal(boundary.implementationBoundary.implementationBoundaryFingerprint.value, null);
+  assertExecutionDisabled(boundary);
+});
