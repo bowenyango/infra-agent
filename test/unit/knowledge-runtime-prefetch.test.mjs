@@ -403,6 +403,11 @@ test('agent runtime loads Pulumi config knowledge facts', async () => {
         && fact.type === 'string'
         && fact.values?.includes('latest')
       ));
+      assert.ok(runtime.knowledgeFacts.units.some(unit =>
+        unit.unitType === 'recipe'
+        && unit.extractionMethod === 'workflow-recipe'
+        && unit.name === 'Review Pulumi rename and stack config changes'
+      ));
       assert.doesNotMatch(JSON.stringify(runtime.knowledgeFacts), /"content"\s*:|runtime:\s*yaml|imageTag:\s*latest/);
       return {
         confidence: 'high',
@@ -438,6 +443,11 @@ test('agent runtime loads knowledge facts for generic tasks with selected target
       assert.deepEqual(runtime.knowledgeFacts.requestedDomains, ['helm']);
       assert.equal(runtime.knowledgeFacts.targetPaths.includes('charts/payments-api'), true);
       assert.ok(runtime.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.image.repository'));
+      assert.ok(runtime.knowledgeFacts.units.some(unit =>
+        unit.unitType === 'recipe'
+        && unit.extractionMethod === 'workflow-recipe'
+        && unit.name === 'Review Helm values migration and rendered output'
+      ));
       return {
         confidence: 'high',
         action: {

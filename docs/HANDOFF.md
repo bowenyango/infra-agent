@@ -6,6 +6,54 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Infra Workflow Recipe Units
+
+Status:
+
+- Completed the first `recipe` Knowledge Unit implementation.
+- Initial runtime knowledge now includes deterministic infra workflow recipes
+  for Terraform, Pulumi, and Helm when the selected knowledge sources cover
+  those domains.
+
+Implemented checkpoints:
+
+- Added `src/knowledge/infra-workflow-recipe-units.ts` to project domain
+  workflow recipes into `knowledgeFacts.units`.
+- Terraform recipe covers logical rename review, moved blocks, import/state
+  review, and exclusive identity checks.
+- Pulumi recipe covers preview replacement review, aliases for logical renames,
+  and native `pulumi_config_set` stack config changes.
+- Helm recipe covers values schema, values-first edits, and rendered manifest
+  validation through `helm template` or selected validators.
+- `src/query.ts` now syncs workflow recipes into the initial runtime after
+  loading the knowledge pack.
+
+Design notes:
+
+- Recipes are `workflow-recipe` units with `mutationAllowed: false`; they guide
+  planner behavior but do not authorize edits.
+- Recipes are synchronized without duplication and are linked to existing
+  domain/target knowledge sources, preserving compact source-reference
+  validation.
+- This keeps the RAG path deterministic and token-bounded: no vector store, no
+  raw docs, no raw validator output.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-infra-workflow-recipe-units.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-runtime-prefetch.test.mjs`
+- `node --experimental-strip-types --test test/unit/planner-provider-model.test.mjs`
+
+Next recommended implementation steps:
+
+1. Promote selected identity conflict summaries into richer diagnostic units
+   with conflict-family-specific `recommendedReview`.
+2. Add public/internal knowledge pack publishing support for non-fact units once
+   extractor output can include `guidance`, `example`, `diagnostic`, and
+   `recipe` sets directly.
+3. Add a `maxUnits` option or alias after compact result consumers have fully
+   migrated to unit-first terminology.
+
 ## 2026-05-11 Completed Validation Diagnostic Units
 
 Status:

@@ -25,6 +25,7 @@ import { retrieveTerraformProviderSchemaContextPackets } from './domain/terrafor
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
 import { retrieveHelmChartContextPackets } from './domain/helm-chart-context.ts';
 import { buildKnowledgePack } from './knowledge/pack.ts';
+import { syncInfraWorkflowRecipeKnowledgeUnits } from './knowledge/infra-workflow-recipe-units.ts';
 import { syncValidationDiagnosticKnowledgeUnits } from './knowledge/validation-diagnostic-units.ts';
 import { classifyToolPermission } from './agent/tool-permissions.ts';
 import {
@@ -420,7 +421,7 @@ async function buildInitialRuntime(
   preflight: RunPreflightState,
   config: QueryLoopConfig
 ): Promise<AgentRuntimeState> {
-  return {
+  const runtime: AgentRuntimeState = {
     task,
     preflight,
     configSemantics: [...preflight.inspection.configSemantics],
@@ -437,6 +438,8 @@ async function buildInitialRuntime(
     maxRepairAttempts: config.maxRepairAttempts,
     lastEditPlan: null
   };
+
+  return syncInfraWorkflowRecipeKnowledgeUnits(runtime);
 }
 
 function executionHasValidationFailure(execution: AgentDecisionExecution | null): boolean {
