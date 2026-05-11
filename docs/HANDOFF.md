@@ -6,6 +6,65 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Knowledge Unit Core Direction Review
+
+Status:
+
+- Reviewed the current plan, architecture, rules, and implementation progress
+  against the clarified product requirement that infrastructure RAG should be
+  a core differentiator of `infra-agent`.
+- No feature code changed in this review. The change is a product and
+  architecture direction update for future implementation slices.
+
+Decision:
+
+- Treat reusable infrastructure knowledge as a first-class core product layer,
+  not an incidental cache.
+- Make the long-term retrieval unit `infra-agent.knowledge-unit` with five
+  unit types:
+  `fact`, `guidance`, `example`, `diagnostic`, and `recipe`.
+- Keep retrieval deterministic by default. Select knowledge by domain,
+  provider/package/chart, version, resource/module/component, field, target
+  path, validation issue, planned action, risk type, freshness, and privacy
+  scope before considering any vector-style discovery.
+- Do not add a Vector DB as a required v0 RAG path. Structured facts,
+  validator output, repo-local semantics, plan/preview diagnostics, and
+  metadata ranking should drive accuracy and token reduction first.
+- Public-reference provider, package, chart, Helm metadata, and official-doc
+  units should be reusable through a shared registry/cache after extraction and
+  validation.
+- Internal module, component, chart, repo convention, policy, incident, and
+  example units should use the same extraction and validation workflow, but
+  source from local, repo-curated, or explicit opt-in team storage according to
+  privacy scope.
+
+Documentation updated:
+
+- `docs/ARCHITECTURE.md` now defines the knowledge retrieval core, five unit
+  types, deterministic retrieval posture, public/internal privacy split, and
+  compact planner context boundary.
+- `docs/ROADMAP.md` now makes public/internal knowledge registries and the
+  five-unit RAG model part of the product target, architecture target,
+  knowledge strategy, current gap analysis, and target artifact families.
+- `docs/AGENT_RULES.md` now requires future knowledge work to preserve the
+  `fact` / `guidance` / `example` / `diagnostic` / `recipe` taxonomy, avoid a
+  required Vector DB path for v0, and keep planner prompts compact.
+
+Next recommended implementation steps:
+
+1. Add a focused `KnowledgeUnit` type and parser contract beside the current
+   `KnowledgeFact` contracts.
+2. Map existing `KnowledgeFact` outputs into `unitType="fact"` without
+   breaking current `knowledgeFacts` planner summaries.
+3. Add initial `diagnostic` units from existing validation issue and
+   graph/impact conflict classifiers.
+4. Add `guidance` and `recipe` units for Terraform moved blocks, Pulumi
+   aliases, stack config changes, Helm values migration, and import/state
+   repair review.
+5. Extend pack ranking so compact planner context prefers repo-local facts,
+   validator-derived diagnostics, exact-version schema/provider units, recipes,
+   guidance, then examples.
+
 ## 2026-05-11 Completed Upload Execution Runtime Boundary Policy Review
 
 Status:

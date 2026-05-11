@@ -150,6 +150,22 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   must be schema-versioned, source-linked, versioned or commit-linked,
   confidence-labeled, stale-aware, and parser-validated before a planner uses
   them.
+- Treat `knowledge-unit` as the long-term core RAG contract. The supported unit
+  types are `fact`, `guidance`, `example`, `diagnostic`, and `recipe`.
+  `fact` units are compact machine constraints; `guidance` units are short
+  JSON-carried explanations with apply/avoid conditions; `example` units are
+  bounded snippets included only when an edit needs concrete shape guidance;
+  `diagnostic` units describe validation, plan, preview, or provider failure
+  signatures; `recipe` units describe safe multi-step infrastructure workflows.
+- Keep infrastructure RAG deterministic by default. Retrieve and rank knowledge
+  by domain, provider/package/chart, version, resource/module/component, field,
+  target path, validation issue, planned action, risk type, freshness, and
+  privacy scope before considering any vector-style discovery. Do not add a
+  Vector DB as a required path for v0 planner accuracy.
+- Planner prompts must receive compact selected unit summaries and omission
+  counts, not raw docs, full provider schemas, full examples, complete cached
+  content, or unbounded prose. Structured facts, validator output, repo-local
+  semantics, and plan/preview diagnostics outrank generic official-doc prose.
 - Repo-derived knowledge fact sets must carry safe workspace-relative local
   source fingerprints instead of raw file content. Recheck those fingerprints
   with `infra-agent knowledge validate <knowledge.json> --workspace <workspace>`
@@ -175,6 +191,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `staleSourceCount`, `uncheckedSourceCount`, and `--context-fact-limit`, and
   never treat omitted samples as exhaustive. Stale or unchecked source facts
   must not be treated as high-confidence planner evidence.
+- Public-reference provider, package, chart, Helm metadata, and official-doc
+  knowledge should be reusable through a shared registry or cache once
+  extracted and validated. Internal module, component, chart, repository rule,
+  incident, policy, and example knowledge may use the same extraction and pack
+  workflow, but its source must remain local, repo-curated, or explicitly
+  configured for an opt-in team backend according to privacy scope.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

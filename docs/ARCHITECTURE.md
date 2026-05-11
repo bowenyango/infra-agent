@@ -49,6 +49,44 @@ cache content, or full schemas. `--context-fact-limit` belongs to the immutable
 query config beside packet/token context budgets so approval resume commands can
 preserve the same planner context shape.
 
+## Knowledge Retrieval Core
+
+The knowledge system is a core product layer, not a secondary cache. Its job is
+to make infrastructure edits more accurate and less token-heavy than a generic
+coding harness that rereads repositories and official docs on every run.
+
+Knowledge retrieval should be deterministic before it is semantic. The runtime
+should select knowledge by domain, provider/package/chart, version, resource or
+module/component identity, target path, validation issue, planned action, risk
+type, freshness, and privacy scope. Vector search may be added later for broad
+discovery, but it is not the default retrieval mechanism for hard
+infrastructure facts.
+
+Reusable knowledge should be normalized into five unit types:
+
+- `fact`: machine-consumable constraints such as required fields, types,
+  defaults, enum-like values, replacement-sensitive fields, identity fields,
+  companion fields, and mutual exclusions.
+- `guidance`: short JSON-carried explanations that help the planner understand
+  when a fact, pattern, or risk applies.
+- `example`: bounded code or configuration samples, included only when a
+  concrete edit needs them and ranked behind repo-local and team-curated
+  examples.
+- `diagnostic`: validation, plan, preview, or provider failure signatures such
+  as duplicate identity, missing config, replacement cascades, and
+  rename/import/alias review hints.
+- `recipe`: safe multi-step infrastructure workflows such as Terraform moved
+  blocks, Pulumi aliases, stack config changes, Helm values migration, and
+  import/state repair review.
+
+Public-reference knowledge and internal knowledge use the same extraction and
+validation workflow but different storage and privacy policies. Public provider,
+package, chart, and official-doc units may be shared through a team registry.
+Repo-local and organization-private module, component, chart, policy, example,
+and incident-derived units remain private unless explicitly opted into a safe
+team cache. Planner prompts receive compact context packets derived from these
+units, never raw caches, full docs, full schemas, or unbounded examples.
+
 ## Runtime Shape
 
 The CLI runtime should be organized into five layers.
