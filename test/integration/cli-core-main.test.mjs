@@ -393,6 +393,12 @@ test('help output includes upload execution plan\/rules update record command', 
   assert.match(output, /infra-agent knowledge record-upload-execution-plan-rules-update <plan-rules-review\.json> --review-fingerprint <sha256>/);
 });
 
+test('help output includes upload execution implementation boundary command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-execution-implementation-boundary <plan-rules-update-record\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
