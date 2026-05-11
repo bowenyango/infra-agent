@@ -602,3 +602,21 @@ test('knowledge upload-live-check-boundary CLI args accept credential presence b
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-live-check-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-command-boundary CLI args accept live check boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-command-boundary',
+    'artifacts/knowledge-pack.upload-live-check-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-command-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-command-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-live-check-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-command-boundary.json');
+  assert.equal(parsed.json, true);
+});
