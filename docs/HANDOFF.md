@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-11 Planned Upload Execution Runtime Boundary Policy Review
+## 2026-05-11 Completed Upload Execution Runtime Boundary Policy Review
 
 Status:
 
-- Planned as the next slice after the completed
+- Completed as the next slice after the completed
   `upload-execution-runtime-boundaries` artifact.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-runtime-boundaries` whose ready
@@ -42,44 +42,76 @@ Expected artifact and CLI:
   still a non-executing policy-update record step and must not become upload
   execution.
 
-Acceptance criteria:
+Implemented checkpoints:
 
-1. Ready output requires a valid
-   `infra-agent.knowledge-team-upload-execution-runtime-boundaries` with
-   `upload-execution-runtime-boundaries-ready`,
-   `nextAction=await-explicit-upload-execution-runtime-boundary-policy-review`,
-   safe redacted target references, verified source implementation and runtime
-   boundary fingerprints, `runtimeBoundariesDesigned=true`,
-   `sourceImplementationBoundaryFingerprintVerified=true`, no upload execution
-   allowance, and no blockers.
-2. The artifact preserves safe target identifiers and hash references while
-   retaining `target.objectKeyRedacted=true`; it does not copy
-   `target.objectKey` to output.
-3. The policy-review record may set `runtimeBoundaryPolicyReviewed=true` and
-   individual policy-family review booleans only as local review-record state.
-   It must keep `runtimeBoundaryPolicyUpdated=false`,
-   `policyUpdateAuthorized=false`, command, adapter, client, credential,
-   live-check, object/index binding, write, token, lease, rollback, audit, byte,
-   executable, and remote mutation state disabled.
-4. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
-   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
-   byte-leaking, backend-leaking, object-key-copying, object-store-handle,
-   metadata-index-handle, token/lease/rollback/audit material,
-   authorization-material, runtime secrets, policy-update material, or
-   object/index mutation inputs produce blocked or invalid results with safe
-   blocker codes and without copying private values.
+- `docs/AGENT_RULES.md` and `docs/ROADMAP.md` now define the
+  runtime-boundary policy-review artifact and CLI as an explicit non-executing
+  checkpoint.
+- `src/knowledge/team-upload-execution-runtime-boundary-policy-review.ts`
+  builds ready or blocked policy-review artifacts from saved
+  runtime-boundaries artifacts. It records reviewed policy families and safe
+  source fingerprints, but it keeps policy update, upload execution,
+  command/client/credential/live-check/object-index binding/write/token/lease/
+  rollback/audit/byte/remote mutation state disabled.
+- `src/knowledge/team-upload-approval-validation.ts` and
+  `src/knowledge/validate.ts` validate the new artifact family, including ready
+  source status, next action, safe target references, fingerprint scopes,
+  reviewed family booleans, tool capability policy, compact handoff policy,
+  disabled execution boundary, and blocker summaries.
+- `src/cli/main.ts` and `src/cli/output.ts` expose
+  `infra-agent knowledge upload-execution-runtime-boundary-policy-review
+  <runtime-boundaries.json> [--out <policy-review.json>] [--json]`.
+- Tests added:
+  `test/unit/knowledge-team-upload-execution-runtime-boundary-policy-review.test.mjs`,
+  `test/contract/knowledge-team-upload-execution-runtime-boundary-policy-review-contract.test.mjs`,
+  and
+  `test/integration/cli-knowledge-upload-execution-runtime-boundary-policy-review-main.test.mjs`.
+- The no-SDK/no-execution guard now covers
+  `team-upload-execution-runtime-boundary-policy-review.ts`.
+
+Design notes:
+
+- This follows the existing Agent artifact chain pattern: a source artifact is
+  consumed as compact JSON, summarized through safe identifiers and
+  fingerprints, and advanced to exactly one next non-executing action.
+- The policy review artifact intentionally does not update Plan/Rules or grant
+  execution. Its ready next action is
+  `await-explicit-upload-execution-runtime-boundary-policy-update`, which must
+  be implemented as a separate record if development continues.
+- Tool capability policy is recorded explicitly: allowed local capabilities are
+  `read-saved-json`, `validate-contract`, and `write-local-artifact`; SDK,
+  credential, live backend, shell command generation, object/index write, and
+  remote mutation capabilities remain disallowed.
+
+Validation completed:
+
+- `node --test test/unit/knowledge-team-upload-execution-runtime-boundary-policy-review.test.mjs`
+- `node --test test/contract/knowledge-team-upload-execution-runtime-boundary-policy-review-contract.test.mjs`
+- `node --test test/integration/cli-knowledge-upload-execution-runtime-boundary-policy-review-main.test.mjs`
+- `node --test test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `npm run lint`
+- `npm run test:contract`
+- `npm run test:integration`
+- `npm run test:coverage`
+- `npm run verify`
+
+Commits in this slice:
+
+- `e065b7c docs: plan upload execution runtime boundary policy review`
+- `37bfa03 feat: add upload execution runtime boundary policy review builder`
+- `43f1dc1 test: validate upload execution runtime boundary policy review contract`
+- `ee645ce feat: wire upload execution runtime boundary policy review CLI`
 
 Next recommended implementation steps:
 
-1. Add the `team-upload-execution-runtime-boundary-policy-review` builder and
-   focused unit tests.
-2. Add validator dispatch and contract tests for ready, blocked, drifted, and
-   missing-section policy-review payloads.
-3. Add CLI parse/help/output/integration tests.
-4. Extend no-SDK/no-execution guards for the new policy-review source and CLI
-   action.
-5. Run focused tests first, then `npm run lint`, `npm run test:contract`,
-   `npm run test:integration`, `npm run test:coverage`, and `npm run verify`.
+1. Implement `upload-execution-runtime-boundary-policy-update` as another
+   explicit non-executing record that consumes this policy-review artifact.
+2. Keep that next artifact separate from upload execution approval,
+   authorization, runtime command generation, object/index writes, and remote
+   mutation.
+3. Reuse the same checks: safe target references, source fingerprint matching,
+   no SDK/credential/live-check access, blocked safe output, focused contract
+   tests, CLI integration, no-SDK guard, and full verification.
 
 ## 2026-05-11 Completed Upload Execution Runtime Boundaries
 
