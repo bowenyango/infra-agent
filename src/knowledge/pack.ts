@@ -40,6 +40,7 @@ export interface KnowledgePackSource {
 }
 
 export interface KnowledgePackFact {
+  unitType?: 'fact';
   kind: KnowledgeFactKind;
   path: string;
   summary: string;
@@ -178,6 +179,7 @@ function toPackSource(factSet: {
 function toPackFact(fact: KnowledgeFact): KnowledgePackFact {
   const values = fact.kind === 'example' ? undefined : fact.values;
   return {
+    unitType: 'fact',
     kind: fact.kind,
     path: fact.path,
     summary: fact.summary,

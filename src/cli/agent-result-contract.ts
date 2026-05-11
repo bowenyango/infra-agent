@@ -4328,6 +4328,10 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error(`compact result input ${factPath} must be an object.`);
     }
 
+    if ('unitType' in fact && fact.unitType !== 'fact') {
+      throw new Error(`compact result input ${factPath}.unitType must be fact when present.`);
+    }
+
     if (!isKnownKnowledgeFactKind(fact.kind)) {
       throw new Error(`compact result input ${factPath}.kind must be supported.`);
     }

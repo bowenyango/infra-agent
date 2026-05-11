@@ -6,6 +6,87 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Knowledge Unit Contract Foundation
+
+Status:
+
+- Completed the first implementation slice for the five-unit infrastructure RAG
+  direction. This is a compatibility-preserving foundation beside the existing
+  `KnowledgeFact` contracts.
+- Scope is local parsing, validation, typing, and compact fact mapping only.
+  It does not yet replace `knowledgeFacts`, add a Vector DB, change retrieval
+  ranking, or introduce remote registry writes.
+
+Implemented checkpoints:
+
+- `src/types/knowledge.ts` now defines `KnowledgeUnit`, `KnowledgeUnitSet`,
+  supported unit types (`fact`, `guidance`, `example`, `diagnostic`, `recipe`),
+  and the privacy scopes used to separate public-reference, repo-local,
+  internal-team, and private-run knowledge.
+- `src/knowledge/knowledge-unit-contract.ts` validates
+  `infra-agent.knowledge-units` artifacts. The parser checks schema version,
+  source id/hash, source freshness fields, unit count, supported source kinds,
+  supported unit types, source references, token estimates, privacy scope,
+  and secret-like content drift.
+- Existing `KnowledgeFact` outputs can now be mapped into
+  `unitType="fact"` units without changing the current extraction pipeline.
+- `src/knowledge/pack.ts` and `src/knowledge/fact-budget.ts` now emit
+  `unitType: "fact"` in generated compact fact packets so downstream ranking
+  can start distinguishing fact units from future guidance, examples,
+  diagnostics, and recipes.
+- `src/knowledge/validate.ts` and `src/cli/agent-result-contract.ts` accept
+  legacy compact facts without `unitType`, but reject forged non-fact unit
+  labels inside the existing `knowledgeFacts` shape.
+- The `knowledge validate` dispatcher now recognizes
+  `infra-agent.knowledge-units` and reports unit contract drift through the
+  same validation report shape used by other knowledge artifacts.
+- Tests now cover the five-unit taxonomy, full knowledge-unit artifact parsing,
+  rejection of mutation-enabled units, unit-count drift, unsupported unit
+  types, source id/hash drift, unsafe URL query/fragment drift, secret-like
+  content, fact-to-unit mapping, generated pack facts, legacy pack facts
+  without `unitType`, and forged compact fact unit labels.
+
+Design notes:
+
+- This slice intentionally keeps `KnowledgeFact` stable. Existing planner
+  summaries, CLI contract tests, saved fixtures, and publication artifacts keep
+  working while new code can reason about the normalized unit taxonomy.
+- The parser is fail-closed and local-only. A `recipe` may describe safe
+  workflow steps, but the artifact itself must keep `mutationAllowed: false`.
+- `guidance` may carry short explanation text inside JSON fields, but raw docs,
+  full examples, provider schemas, and unbounded prose remain outside planner
+  context.
+- The five-unit model remains deterministic metadata retrieval first. Vector
+  search is not a required v0 path.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-unit-contract.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-pack-unit-compatibility.test.mjs`
+- `npm run lint`
+- `npm run test:structure`
+- `npm run test:unit`
+- `npm run test:contract`
+- `npm run test:integration`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Promote selected `KnowledgeUnit` arrays into pack artifacts as a parallel
+   `units` section while keeping current `facts` compatibility.
+2. Extend deterministic ranking and budget selection by `unitType`, with
+   repo-local facts and validator diagnostics first, then exact-version public
+   schema facts, recipes, guidance, and examples.
+3. Add initial `diagnostic` units from existing validation issue and
+   graph/impact classifiers.
+4. Add `guidance` and `recipe` units for Terraform moved blocks, Pulumi
+   aliases, Pulumi stack config changes, Helm values migration, and
+   import/state review.
+5. Add public-reference and internal-registry index metadata for knowledge
+   units so agents can download already-extracted provider, package, chart,
+   official-doc, repo, or team knowledge by deterministic keys.
+
 ## 2026-05-11 Knowledge Unit Core Direction Review
 
 Status:

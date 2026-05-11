@@ -1,6 +1,7 @@
 import type { KnowledgePack, KnowledgePackFact, KnowledgePackSource } from './pack.ts';
 
 export interface BudgetedKnowledgeFact {
+  unitType?: 'fact';
   kind: KnowledgePackFact['kind'];
   path: string;
   summary: string;
@@ -58,6 +59,7 @@ function compactFact(fact: KnowledgePackFact, source: KnowledgePackSource | unde
     ? 'medium'
     : fact.confidence;
   return {
+    unitType: 'fact',
     kind: fact.kind,
     path: fact.path,
     summary: fact.summary,

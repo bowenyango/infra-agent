@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { buildKnowledgeCacheId } from './cache.ts';
 import { parseKnowledgeFactSet } from './facts-contract.ts';
 import { checkKnowledgeSourceFingerprint } from './local-source-fingerprint.ts';
 import type { KnowledgePackFact, KnowledgePackSource } from './pack.ts';
@@ -13,11 +14,17 @@ import {
 import {
   KNOWLEDGE_FACT_EXTRACTION_METHODS,
   KNOWLEDGE_FACT_KINDS,
+  KNOWLEDGE_UNIT_EXTRACTION_METHODS,
+  KNOWLEDGE_UNIT_TYPES,
   type KnowledgeFactExtractionMethod,
   type KnowledgeFactKind,
   type KnowledgeFactSet,
+  type KnowledgeSource,
   type KnowledgeSourceKind,
   type KnowledgeSourceStaleReason,
+  type KnowledgeUnitExtractionMethod,
+  type KnowledgeUnitPrivacyScope,
+  type KnowledgeUnitType,
   type RetrievedContextConfidence
 } from '../types/knowledge.ts';
 import { validateKnowledgeArtifactReference } from './validation-artifact-reference.ts';
@@ -163,6 +170,13 @@ const KNOWLEDGE_ARTIFACT_BLOCK_REASONS = [
 ] as const;
 const INFRA_DOMAINS = ['helm', 'pulumi', 'terraform'] as const;
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];
+const KNOWLEDGE_UNIT_PRIVACY_SCOPES = [
+  'public-reference',
+  'workspace-private',
+  'internal-team',
+  'private-run'
+] as const satisfies readonly KnowledgeUnitPrivacyScope[];
+const KNOWLEDGE_DIAGNOSTIC_ENGINES = ['terraform', 'pulumi', 'helm', 'provider', 'runtime'] as const;
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
@@ -401,6 +415,284 @@ function validateNoSecretLikeValue(value: string, path: string, issues: Knowledg
   }
 }
 
+function validateOptionalString(value: unknown, path: string, issues: KnowledgeValidationIssue[]): void {
+  if (value === undefined) {
+    return;
+  }
+
+  const stringValue = readString(value, path, issues);
+  if (stringValue !== null) {
+    validateNoSecretLikeValue(stringValue, path, issues);
+  }
+}
+
+function validateSecretSafeUrl(value: string, path: string, issues: KnowledgeValidationIssue[]): void {
+  try {
+    const url = new URL(value);
+    if (url.username || url.password || url.search || url.hash) {
+      issues.push(error(path, 'must be a secret-safe URL without credentials, query, or fragment.'));
+    }
+  } catch {
+    issues.push(error(path, 'must be a valid URL.'));
+  }
+}
+
+function validateKnowledgeUnitSource(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): KnowledgeSource | null {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge unit source must be an object.'));
+    return null;
+  }
+
+  if (typeof value.kind !== 'string' || !KNOWLEDGE_SOURCE_KINDS.includes(value.kind as KnowledgeSourceKind)) {
+    issues.push(error(`${path}.kind`, 'Knowledge unit source kind must be supported.'));
+  }
+  const name = readNonEmptyString(value.name, `${path}.name`, issues);
+  if (name !== null) {
+    validateNoSecretLikeValue(name, `${path}.name`, issues);
+  }
+
+  for (const field of ['version', 'url', 'localPath', 'provider', 'module', 'chart', 'packageName'] as const) {
+    validateOptionalString(value[field], `${path}.${field}`, issues);
+  }
+  if (typeof value.url === 'string') {
+    validateSecretSafeUrl(value.url, `${path}.url`, issues);
+  }
+
+  if (
+    typeof value.kind !== 'string'
+    || !KNOWLEDGE_SOURCE_KINDS.includes(value.kind as KnowledgeSourceKind)
+    || name === null
+  ) {
+    return null;
+  }
+
+  return value as unknown as KnowledgeSource;
+}
+
+function validateKnowledgeUnitSourceRef(
+  value: unknown,
+  path: string,
+  sourceId: string | null,
+  sourceContentHash: string | null,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge unit source reference must be an object.'));
+    return;
+  }
+
+  const refId = readNonEmptyString(value.id, `${path}.id`, issues);
+  if (refId !== null && sourceId !== null && refId !== sourceId) {
+    issues.push(error(`${path}.id`, 'Knowledge unit source reference id must match sourceId.'));
+  }
+
+  const contentHash = readNonEmptyString(value.contentHash, `${path}.contentHash`, issues);
+  if (contentHash !== null) {
+    if (!SHA256_HEX_PATTERN.test(contentHash)) {
+      issues.push(error(`${path}.contentHash`, 'Knowledge unit source reference contentHash must be a SHA-256 hex string.'));
+    }
+    if (sourceContentHash !== null && contentHash !== sourceContentHash) {
+      issues.push(error(`${path}.contentHash`, 'Knowledge unit source reference contentHash must match sourceContentHash.'));
+    }
+  }
+
+  validateKnowledgeUnitSource(value.source, `${path}.source`, issues);
+  const locator = readNonEmptyString(value.locator, `${path}.locator`, issues);
+  if (locator !== null) {
+    validateNoSecretLikeValue(locator, `${path}.locator`, issues);
+  }
+}
+
+function validateKnowledgeUnitBase(
+  unit: Record<string, unknown>,
+  path: string,
+  sourceId: string | null,
+  sourceContentHash: string | null,
+  issues: KnowledgeValidationIssue[]
+): void {
+  const unitPath = readNonEmptyString(unit.path, `${path}.path`, issues);
+  if (unitPath !== null) {
+    validateNoSecretLikeValue(unitPath, `${path}.path`, issues);
+  }
+  const summary = readNonEmptyString(unit.summary, `${path}.summary`, issues);
+  if (summary !== null) {
+    validateNoSecretLikeValue(summary, `${path}.summary`, issues);
+  }
+
+  if (
+    typeof unit.confidence !== 'string'
+    || !RETRIEVED_CONTEXT_CONFIDENCES.includes(unit.confidence as RetrievedContextConfidence)
+  ) {
+    issues.push(error(`${path}.confidence`, 'Knowledge unit confidence must be supported.'));
+  }
+  if (
+    typeof unit.extractionMethod !== 'string'
+    || !KNOWLEDGE_UNIT_EXTRACTION_METHODS.includes(unit.extractionMethod as KnowledgeUnitExtractionMethod)
+  ) {
+    issues.push(error(`${path}.extractionMethod`, 'Knowledge unit extractionMethod must be supported.'));
+  }
+  if (
+    typeof unit.privacyScope !== 'string'
+    || !KNOWLEDGE_UNIT_PRIVACY_SCOPES.includes(unit.privacyScope as KnowledgeUnitPrivacyScope)
+  ) {
+    issues.push(error(`${path}.privacyScope`, 'Knowledge unit privacyScope must be supported.'));
+  }
+  if (unit.tokenEstimate !== undefined) {
+    readNonNegativeInteger(unit.tokenEstimate, `${path}.tokenEstimate`, issues);
+  }
+  validateOptionalStringArray(unit.relatedPaths, `${path}.relatedPaths`, issues);
+  validateKnowledgeUnitSourceRef(unit.source, `${path}.source`, sourceId, sourceContentHash, issues);
+}
+
+function validateFactKnowledgeUnit(unit: Record<string, unknown>, path: string, issues: KnowledgeValidationIssue[]): void {
+  if (typeof unit.factKind !== 'string' || !KNOWLEDGE_FACT_KINDS.includes(unit.factKind as KnowledgeFactKind)) {
+    issues.push(error(`${path}.factKind`, 'Knowledge fact unit factKind must be supported.'));
+  }
+  validateOptionalStringArray(unit.values, `${path}.values`, issues);
+  if (unit.required !== undefined) {
+    readBoolean(unit.required, `${path}.required`, issues);
+  }
+  validateOptionalString(unit.type, `${path}.type`, issues);
+  validateOptionalString(unit.defaultValue, `${path}.defaultValue`, issues);
+}
+
+function validateGuidanceKnowledgeUnit(unit: Record<string, unknown>, path: string, issues: KnowledgeValidationIssue[]): void {
+  const topic = readNonEmptyString(unit.topic, `${path}.topic`, issues);
+  if (topic !== null) {
+    validateNoSecretLikeValue(topic, `${path}.topic`, issues);
+  }
+  validateOptionalStringArray(unit.appliesWhen, `${path}.appliesWhen`, issues);
+  validateOptionalStringArray(unit.avoidWhen, `${path}.avoidWhen`, issues);
+  validateOptionalString(unit.risk, `${path}.risk`, issues);
+}
+
+function validateExampleKnowledgeUnit(unit: Record<string, unknown>, path: string, issues: KnowledgeValidationIssue[]): void {
+  const exampleType = readNonEmptyString(unit.exampleType, `${path}.exampleType`, issues);
+  if (exampleType !== null) {
+    validateNoSecretLikeValue(exampleType, `${path}.exampleType`, issues);
+  }
+  const snippet = readNonEmptyString(unit.snippet, `${path}.snippet`, issues);
+  if (snippet !== null) {
+    validateNoSecretLikeValue(snippet, `${path}.snippet`, issues);
+  }
+  validateOptionalString(unit.language, `${path}.language`, issues);
+  validateOptionalStringArray(unit.appliesWhen, `${path}.appliesWhen`, issues);
+  validateOptionalStringArray(unit.avoidWhen, `${path}.avoidWhen`, issues);
+}
+
+function validateDiagnosticKnowledgeUnit(unit: Record<string, unknown>, path: string, issues: KnowledgeValidationIssue[]): void {
+  if (typeof unit.engine !== 'string' || !KNOWLEDGE_DIAGNOSTIC_ENGINES.includes(unit.engine as typeof KNOWLEDGE_DIAGNOSTIC_ENGINES[number])) {
+    issues.push(error(`${path}.engine`, 'Knowledge diagnostic unit engine must be supported.'));
+  }
+  for (const field of ['signature', 'likelyCause'] as const) {
+    const value = readNonEmptyString(unit[field], `${path}.${field}`, issues);
+    if (value !== null) {
+      validateNoSecretLikeValue(value, `${path}.${field}`, issues);
+    }
+  }
+  const recommendedReview = readStringArray(unit.recommendedReview, `${path}.recommendedReview`, issues);
+  recommendedReview?.forEach((entry, index) => validateNoSecretLikeValue(entry, `${path}.recommendedReview[${index}]`, issues));
+}
+
+function validateRecipeKnowledgeUnit(unit: Record<string, unknown>, path: string, issues: KnowledgeValidationIssue[]): void {
+  const name = readNonEmptyString(unit.name, `${path}.name`, issues);
+  if (name !== null) {
+    validateNoSecretLikeValue(name, `${path}.name`, issues);
+  }
+  const steps = readStringArray(unit.steps, `${path}.steps`, issues);
+  steps?.forEach((entry, index) => validateNoSecretLikeValue(entry, `${path}.steps[${index}]`, issues));
+  if (unit.requiresApproval !== undefined) {
+    readBoolean(unit.requiresApproval, `${path}.requiresApproval`, issues);
+  }
+  if (unit.mutationAllowed !== false) {
+    issues.push(error(`${path}.mutationAllowed`, 'Knowledge recipe unit mutationAllowed must be false.'));
+  }
+}
+
+function validateKnowledgeUnit(
+  value: unknown,
+  path: string,
+  sourceId: string | null,
+  sourceContentHash: string | null,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge unit must be an object.'));
+    return;
+  }
+
+  if (typeof value.unitType !== 'string' || !KNOWLEDGE_UNIT_TYPES.includes(value.unitType as KnowledgeUnitType)) {
+    issues.push(error(`${path}.unitType`, 'Knowledge unit unitType must be supported.'));
+    validateKnowledgeUnitBase(value, path, sourceId, sourceContentHash, issues);
+    return;
+  }
+
+  validateKnowledgeUnitBase(value, path, sourceId, sourceContentHash, issues);
+  switch (value.unitType) {
+    case 'fact':
+      validateFactKnowledgeUnit(value, path, issues);
+      break;
+    case 'guidance':
+      validateGuidanceKnowledgeUnit(value, path, issues);
+      break;
+    case 'example':
+      validateExampleKnowledgeUnit(value, path, issues);
+      break;
+    case 'diagnostic':
+      validateDiagnosticKnowledgeUnit(value, path, issues);
+      break;
+    case 'recipe':
+      validateRecipeKnowledgeUnit(value, path, issues);
+      break;
+  }
+}
+
+function validateKnowledgeUnitSetPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  const factSets: KnowledgeFactSet[] = [];
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Knowledge units schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Knowledge units mutationAllowed must be false.'));
+  }
+
+  const sourceId = readNonEmptyString(payload.sourceId, '$.sourceId', issues);
+  const source = validateKnowledgeUnitSource(payload.source, '$.source', issues);
+  if (sourceId !== null && source !== null && sourceId !== buildKnowledgeCacheId(source)) {
+    issues.push(error('$.sourceId', 'Knowledge units sourceId must match source.'));
+  }
+
+  const sourceContentHash = readNonEmptyString(payload.sourceContentHash, '$.sourceContentHash', issues);
+  if (sourceContentHash !== null && !SHA256_HEX_PATTERN.test(sourceContentHash)) {
+    issues.push(error('$.sourceContentHash', 'Knowledge units sourceContentHash must be a SHA-256 hex string.'));
+  }
+  validateIsoDateString(payload.extractedAt, '$.extractedAt', issues);
+
+  const unitCount = readNonNegativeInteger(payload.unitCount, '$.unitCount', issues);
+  if (!Array.isArray(payload.units)) {
+    issues.push(error('$.units', 'Knowledge units units must be an array.'));
+  } else {
+    if (unitCount !== null && unitCount !== payload.units.length) {
+      issues.push(error('$.unitCount', 'Knowledge units unitCount must match units.length.'));
+    }
+    payload.units.forEach((unit, index) => {
+      validateKnowledgeUnit(unit, `$.units[${index}]`, sourceId, sourceContentHash, issues);
+    });
+  }
+
+  return createReport(inputPath, inputKind, issues, factSets);
+}
+
 function validateFactSet(value: unknown, path: string, issues: KnowledgeValidationIssue[]): KnowledgeFactSet | null {
   try {
     return parseKnowledgeFactSet(value);
@@ -582,6 +874,10 @@ function validateKnowledgePackFact(
   if (!isRecord(value)) {
     issues.push(error(path, 'Knowledge pack fact must be an object.'));
     return null;
+  }
+
+  if (value.unitType !== undefined && value.unitType !== 'fact') {
+    issues.push(error(`${path}.unitType`, 'Knowledge pack fact unitType must be fact when present.'));
   }
 
   if (typeof value.kind !== 'string' || !KNOWLEDGE_FACT_KINDS.includes(value.kind as KnowledgeFactKind)) {
@@ -1061,6 +1357,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
       factSets.push(factSet);
     }
     return createReport(inputPath, inputKind, issues, factSets);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-units') {
+    return validateKnowledgeUnitSetPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind === 'infra-agent.knowledge-pack') {

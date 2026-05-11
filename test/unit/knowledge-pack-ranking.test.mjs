@@ -54,7 +54,10 @@ test('knowledge pack builds bounded planner-safe fact packs', async () => {
   assert.match(localSource?.fingerprintDigest ?? '', /^[a-f0-9]{64}$/);
   assert.equal(localSource?.fingerprintFileCount, 1);
   assert.ok(localSource && !('sourceFingerprint' in localSource));
-  assert.ok(pack.facts.every(fact => typeof fact.sourceId === 'string' && !('source' in fact)));
+  assert.ok(pack.facts.every(fact =>
+    typeof fact.sourceId === 'string'
+    && !('source' in fact)
+  ));
   assert.doesNotMatch(JSON.stringify(pack), /"content"\s*:|replicaCount":\s*\{|"\$schema"|resource "aws_/);
 });
 
