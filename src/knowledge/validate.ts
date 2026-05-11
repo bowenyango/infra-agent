@@ -53,6 +53,7 @@ import {
   validateKnowledgeTeamUploadExecutionImplementationBoundaryPayload,
   validateKnowledgeTeamUploadExecutionPlanRulesReviewPayload,
   validateKnowledgeTeamUploadExecutionPlanRulesUpdateRecordPayload,
+  validateKnowledgeTeamUploadExecutionRuntimeBoundariesPayload,
   validateKnowledgeTeamUploadExecutionReadinessBoundaryPayload,
   validateKnowledgeTeamUploadLiveCheckBoundaryPayload,
   validateKnowledgeTeamUploadObjectIndexBindingBoundaryPayload,
@@ -1195,6 +1196,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-team-upload-execution-implementation-boundary') {
     return validateKnowledgeTeamUploadExecutionImplementationBoundaryPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-team-upload-execution-runtime-boundaries') {
+    return validateKnowledgeTeamUploadExecutionRuntimeBoundariesPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {
