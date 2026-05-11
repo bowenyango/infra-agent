@@ -74,6 +74,9 @@ import {
 import {
   buildKnowledgeTeamArtifactContractFixture
 } from '../support/knowledge-team-artifact-fixtures.mjs';
+import {
+  validateKnowledgePayload
+} from '../../src/knowledge/validate.ts';
 
 function validBackendReferenceSummary() {
   return validateKnowledgeTeamS3CompatibleBackendReferences(
@@ -258,6 +261,7 @@ test('object/index binding boundary records binding requirements without binding
   assert.equal(boundary.readiness.nextAction, 'design-upload-execution-readiness-boundary');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assert.equal(validateKnowledgePayload(boundary, 'knowledge-pack.upload-object-index-binding-boundary.json').valid, true);
   assertNoPrivateValues(boundary);
 });
 
