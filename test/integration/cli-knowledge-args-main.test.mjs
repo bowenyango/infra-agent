@@ -638,3 +638,21 @@ test('knowledge upload-object-index-binding-boundary CLI args accept command bou
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-object-index-binding-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-execution-readiness-boundary CLI args accept object/index boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-execution-readiness-boundary',
+    'artifacts/knowledge-pack.upload-object-index-binding-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-readiness-boundary.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-execution-readiness-boundary');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-object-index-binding-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-readiness-boundary.json');
+  assert.equal(parsed.json, true);
+});
