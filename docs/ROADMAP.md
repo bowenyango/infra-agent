@@ -494,6 +494,17 @@ Target artifact families:
   verification for the policy-update chain; it is not upload execution
   approval, upload execution authorization, upload execution allowance, command
   generation, object/index binding, or remote write permission.
+- `infra-agent.knowledge-team-upload-execution-implementation-boundary`: a
+  private dry-run upload execution implementation boundary derived from a saved
+  Plan/Rules update record. It can report
+  `upload-execution-implementation-boundary-ready` only when the update record
+  is ready, still non-executing, and its next action is
+  `design-upload-execution-implementation-boundary`. It records only that a
+  later implementation design boundary has been modeled; it is not upload
+  execution approval, upload execution authorization, upload execution
+  allowance, command generation, adapter injection, client creation,
+  credential access, live checking, object/index binding, object/index writes,
+  or remote mutation permission.
 
 Team artifact public contracts:
 
@@ -806,6 +817,16 @@ Implemented initial CLI surfaces:
     clients, read or check credentials, probe live backends, generate commands,
     bind stores or indexes, allow object/index writes, or write object/index
     entries.
+- `infra-agent knowledge upload-execution-implementation-boundary
+  <plan-rules-update-record.json> [--out <implementation-boundary.json>] --json`
+  - reads one saved private upload execution Plan/Rules update record, then
+    records only a dry-run implementation boundary design checkpoint. A
+    `upload-execution-implementation-boundary-ready` result does not approve
+    upload execution, grant upload execution authorization, allow upload
+    execution, issue tokens, create leases, create rollback plans, create audit
+    records, stage bytes, inject adapters, create clients, read or check
+    credentials, probe live backends, generate commands, bind stores or
+    indexes, allow object/index writes, or write object/index entries.
 
 Recommended storage layers:
 

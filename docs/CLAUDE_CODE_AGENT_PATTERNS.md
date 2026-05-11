@@ -172,7 +172,14 @@ durable design reference for infra-agent development.
   fingerprint and record only that the exact review fingerprint matched. It is
   still local dry-run routing state; it does not approve upload execution,
   authorize upload execution, generate commands, create clients, read
-  credentials, bind stores/indexes, or perform writes. All upload boundary
+  credentials, bind stores/indexes, or perform writes.
+  `upload-execution-implementation-boundary` can consume that saved update
+  record and model only the next dry-run implementation boundary checkpoint.
+  It can preserve safe fingerprints and target ids, but it still must not
+  generate commands, instantiate adapters or SDK clients, read/check
+  credentials, run live checks, bind object stores/indexes, issue tokens or
+  leases, create rollback/audit material, write object/index data, or perform
+  remote mutations. All upload boundary
   artifacts remain
   dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease

@@ -6,6 +6,44 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Planned Upload Execution Implementation Boundary
+
+Status:
+
+- Planned. This slice must follow the completed
+  `upload-execution-plan-rules-update-record` artifact and remain
+  non-executing.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-execution-plan-rules-update-record` whose
+  ready next action is `design-upload-execution-implementation-boundary`, then
+  emit a private implementation boundary artifact.
+- This slice may record that an implementation boundary design checkpoint was
+  modeled. It must not approve upload execution, grant upload execution
+  authorization, grant mutation approval, allow upload execution, generate or
+  materialize upload commands, issue write tokens, create execution leases,
+  create rollback plans, create audit records, stage artifact bytes, inject
+  adapters, create clients, read credentials, check credential presence,
+  perform live backend checks, bind concrete object stores or metadata indexes,
+  expose handles, write objects, write metadata index entries, or perform
+  remote mutations.
+
+Planned checkpoints:
+
+1. Add a builder for
+   `infra-agent.knowledge-team-upload-execution-implementation-boundary`.
+2. Add unit and contract tests for ready, blocked, malformed, forged,
+   command-bearing, credential-leaking, backend-leaking, and handle-leaking
+   inputs.
+3. Add validator dispatch and CLI wiring for
+   `knowledge upload-execution-implementation-boundary`.
+4. Add integration coverage and update handoff after verification.
+
+Expected ready next action:
+
+- `design-upload-execution-runtime-boundaries` or an equivalent later
+  non-executing runtime-boundary design checkpoint. It must not become an
+  execute/upload action.
+
 ## 2026-05-11 Completed Upload Execution Plan/Rules Update Record
 
 Status:
