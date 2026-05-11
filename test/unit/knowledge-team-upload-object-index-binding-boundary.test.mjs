@@ -296,6 +296,247 @@ test('object/index binding boundary blocks non-ready command boundaries', async 
   assertNoPrivateValues(boundary);
 });
 
+test('object/index binding boundary validation rejects forged binding state', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({ commandBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    uploadCommand: { argv: ['aws', 's3', 'cp'] },
+    target: {
+      ...boundary.target,
+      objectKey: 'team-artifacts/public-reference/aa/bb/private-key.json'
+    },
+    objectIndexBindingBoundary: {
+      ...boundary.objectIndexBindingBoundary,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      objectStoreHandleExposed: true,
+      metadataIndexHandleExposed: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true,
+      objectWriteAttempted: true,
+      metadataIndexWriteAttempted: true,
+      executable: true
+    },
+    remainingExecutionBoundaries: {
+      ...boundary.remainingExecutionBoundaries,
+      artifactObjectStoreBound: true,
+      metadataIndexBound: true,
+      objectWriteAllowed: true,
+      metadataIndexWriteAllowed: true
+    }
+  }, 'knowledge-pack.upload-object-index-binding-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommand'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.target.objectKey'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.artifactObjectStoreBound'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.metadataIndexBound'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.objectStoreHandleExposed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.metadataIndexHandleExposed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.objectWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.metadataIndexWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.objectWriteAttempted'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.metadataIndexWriteAttempted'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.executable'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.artifactObjectStoreBound'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexBound'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.objectWriteAllowed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.metadataIndexWriteAllowed'), true);
+});
+
+test('object/index binding boundary validation rejects missing ready prerequisites', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({ commandBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    status: 'object-index-binding-boundary-ready',
+    sourceUploadCommandBoundary: {
+      ...boundary.sourceUploadCommandBoundary,
+      boundaryStatus: 'blocked',
+      boundaryNextAction: 'resolve-blockers',
+      adapterBackendKind: 's3-compatible',
+      uploadCommandGenerated: true,
+      uploadCommandExposed: true
+    },
+    objectIndexBindingBoundary: {
+      ...boundary.objectIndexBindingBoundary,
+      objectStoreBindingRequired: false,
+      metadataIndexBindingRequired: false
+    },
+    readiness: {
+      ...boundary.readiness,
+      status: 'object-index-binding-boundary-ready',
+      nextAction: 'resolve-blockers',
+      blockerCount: 1,
+      blockerCodes: ['upload-command-boundary-not-ready'],
+      blockers: [{
+        code: 'upload-command-boundary-not-ready',
+        path: '$.sourceUploadCommandBoundary.boundaryStatus',
+        message: 'not ready'
+      }]
+    }
+  }, 'knowledge-pack.upload-object-index-binding-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceUploadCommandBoundary.boundaryStatus'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceUploadCommandBoundary.boundaryNextAction'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceUploadCommandBoundary.adapterBackendKind'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceUploadCommandBoundary.uploadCommandGenerated'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceUploadCommandBoundary.uploadCommandExposed'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.objectStoreBindingRequired'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary.metadataIndexBindingRequired'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
+});
+
+test('object/index binding boundary validation rejects malformed section shapes', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({ commandBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    status: 'blocked',
+    target: null,
+    sourceUploadCommandBoundary: null,
+    objectIndexBindingBoundary: null,
+    remainingExecutionBoundaries: null,
+    readiness: {
+      ...boundary.readiness,
+      status: 'blocked',
+      nextAction: 'design-upload-execution-readiness-boundary',
+      blockerCount: 1,
+      blockerCodes: ['missing-required-field'],
+      blockers: [{
+        code: 'missing-required-field',
+        path: '$.target',
+        message: 'target missing'
+      }]
+    }
+  }, 'knowledge-pack.upload-object-index-binding-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.target'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceUploadCommandBoundary'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.objectIndexBindingBoundary'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+});
+
+test('object/index binding boundary validation rejects nested boundary drift', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({ commandBoundary });
+  const requiredBindingFields = [
+    'dryRunOnly',
+    'bindingRequiredAfterUploadCommandBoundary',
+    'uploadCommandBoundaryRequired',
+    'uploadCommandRequiredBeforeExecution',
+    'uploadCommandDescriptorRequired',
+    'uploadCommandPayloadRedactionRequired',
+    'uploadCommandMaterialRedactionRequired',
+    'commandExecutionApprovalRequired',
+    'objectStoreBindingRequired',
+    'metadataIndexBindingRequired',
+    'objectStoreDescriptorRequired',
+    'metadataIndexDescriptorRequired',
+    'objectKeyRedactionRequired',
+    'metadataIndexEntryRedactionRequired',
+    'contentAddressedObjectKeysRequired',
+    'contentAddressedIndexKeysRequired',
+    'idempotentObjectWriteRequired',
+    'idempotentMetadataIndexWriteRequired',
+    'objectWriteRequiresExecutionBoundary',
+    'metadataIndexWriteRequiresExecutionBoundary',
+    'explicitUploadApprovalRequired'
+  ];
+  const disabledBindingFields = [
+    'credentialValuesRead',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'credentialPresenceResultExposed',
+    'clientCreated',
+    'sdkClientCreated',
+    'adapterInjected',
+    'artifactBytesProvided',
+    'artifactObjectStoreBound',
+    'metadataIndexBound',
+    'objectStoreHandleExposed',
+    'metadataIndexHandleExposed',
+    'liveCheckAllowed',
+    'liveCheckPerformed',
+    'liveCheckResultExposed',
+    'uploadCommandGenerated',
+    'uploadCommandMaterialized',
+    'uploadCommandExposed',
+    'uploadExecutionAllowed',
+    'objectWriteAllowed',
+    'metadataIndexWriteAllowed',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed',
+    'executable'
+  ];
+  const requiredRemainingFields = [
+    'artifactBytesRequired',
+    'adapterInjectionRequired',
+    'clientCreationRequired',
+    'credentialReadRequired',
+    'credentialPresenceCheckRequired',
+    'liveCheckRequired',
+    'uploadCommandRequired',
+    'objectIndexBindingRequired',
+    'writeTokenRequired',
+    'executionLeaseRequired',
+    'rollbackPlanRequired',
+    'auditRecordRequired'
+  ];
+  const disabledRemainingFields = [
+    'artifactBytesProvided',
+    'adapterInjected',
+    'clientCreated',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'liveCheckPerformed',
+    'uploadCommandGenerated',
+    'artifactObjectStoreBound',
+    'metadataIndexBound',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAllowed',
+    'metadataIndexWriteAllowed',
+    'remoteMutationAllowed'
+  ];
+  const objectIndexBindingBoundary = { ...boundary.objectIndexBindingBoundary };
+  const remainingExecutionBoundaries = { ...boundary.remainingExecutionBoundaries };
+  for (const key of requiredBindingFields) {
+    objectIndexBindingBoundary[key] = false;
+  }
+  for (const key of disabledBindingFields) {
+    objectIndexBindingBoundary[key] = true;
+  }
+  for (const key of requiredRemainingFields) {
+    remainingExecutionBoundaries[key] = false;
+  }
+  for (const key of disabledRemainingFields) {
+    remainingExecutionBoundaries[key] = true;
+  }
+
+  const report = validateKnowledgePayload({
+    ...boundary,
+    objectIndexBindingBoundary,
+    remainingExecutionBoundaries
+  }, 'knowledge-pack.upload-object-index-binding-boundary.json');
+
+  assert.equal(report.valid, false);
+  for (const key of [...requiredBindingFields, ...disabledBindingFields]) {
+    assert.equal(report.issues.some(issue => issue.path === `$.objectIndexBindingBoundary.${key}`), true, key);
+  }
+  for (const key of [...requiredRemainingFields, ...disabledRemainingFields]) {
+    assert.equal(report.issues.some(issue => issue.path === `$.remainingExecutionBoundaries.${key}`), true, key);
+  }
+});
+
 test('object/index binding boundary blocks primitive private command inputs without copying values', () => {
   const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({
     commandBoundary: 'https://should-not-copy.example.test/private-key'
