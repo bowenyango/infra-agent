@@ -3,6 +3,60 @@ import assert from 'node:assert/strict';
 import { parseCompactAgentRunResult } from '../../src/cli/agent-result-contract.ts';
 import { buildAgentResultContractFixtures } from '../support/agent-result-contract-fixtures.mjs';
 
+function projectFactUnits(knowledgeFacts, privacyScope = 'public-reference') {
+  return {
+    ...knowledgeFacts,
+    totalUnitCount: knowledgeFacts.totalFactCount,
+    includedUnitCount: knowledgeFacts.includedFactCount,
+    omittedUnitCount: knowledgeFacts.omittedFactCount,
+    units: knowledgeFacts.facts.map(fact => ({
+      unitType: 'fact',
+      factKind: fact.kind,
+      path: fact.path,
+      summary: fact.summary,
+      confidence: fact.confidence,
+      extractionMethod: fact.extractionMethod,
+      sourceId: fact.sourceId,
+      sourceLocator: fact.sourceLocator,
+      privacyScope,
+      ...(fact.required !== undefined ? { required: fact.required } : {}),
+      ...(fact.type !== undefined ? { type: fact.type } : {}),
+      ...(fact.defaultValue !== undefined ? { defaultValue: fact.defaultValue } : {}),
+      ...(fact.values !== undefined ? { values: [...fact.values] } : {}),
+      ...(fact.relatedPaths !== undefined ? { relatedPaths: [...fact.relatedPaths] } : {})
+    }))
+  };
+}
+
+function resultWithKnowledgeFacts(validResult, knowledgeFacts) {
+  return {
+    ...validResult,
+    knowledgeFacts,
+    handoffCheckpoint: {
+      ...validResult.handoffCheckpoint,
+      budgets: {
+        ...validResult.handoffCheckpoint.budgets,
+        knowledgeFacts: {
+          includedCount: knowledgeFacts.includedFactCount,
+          omittedCount: knowledgeFacts.omittedFactCount
+        },
+        knowledgeUnits: {
+          includedCount: knowledgeFacts.includedUnitCount,
+          omittedCount: knowledgeFacts.omittedUnitCount
+        }
+      }
+    },
+    harness: {
+      ...validResult.harness,
+      stateSummary: {
+        ...validResult.harness.stateSummary,
+        knowledgeFactCount: knowledgeFacts.totalFactCount,
+        knowledgeUnitCount: knowledgeFacts.totalUnitCount
+      }
+    }
+  };
+}
+
 test('compact agent result contract rejects knowledge context and cache drift', () => {
   const {
     validResult,
@@ -216,6 +270,16 @@ test('compact agent result contract rejects knowledge context and cache drift', 
       ...validResult,
       knowledgeFacts: {
         ...validResult.knowledgeFacts,
+        totalUnitCount: 3
+      }
+    }),
+    /knowledgeFacts unit counts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
         includedFactCount: 9,
         omittedFactCount: 0,
         totalFactCount: 9,
@@ -284,6 +348,10 @@ test('compact agent result contract rejects knowledge context and cache drift', 
       facts: validResult.knowledgeFacts.facts.map(fact => ({
         ...fact,
         confidence: fact.confidence === 'high' ? 'medium' : fact.confidence
+      })),
+      units: validResult.knowledgeFacts.units.map(unit => ({
+        ...unit,
+        confidence: unit.confidence === 'high' ? 'medium' : unit.confidence
       }))
     }
   }).knowledgeFacts.uncheckedSourceCount, 1);
@@ -400,6 +468,38 @@ test('compact agent result contract rejects knowledge context and cache drift', 
   assert.throws(
     () => parseCompactAgentRunResult({
       ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        units: [
+          {
+            ...validResult.knowledgeFacts.units[0],
+            sourceId: 'missing-source'
+          },
+          validResult.knowledgeFacts.units[1]
+        ]
+      }
+    }),
+    /knowledgeFacts\.units\[0\]\.sourceId/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      knowledgeFacts: {
+        ...validResult.knowledgeFacts,
+        units: [
+          {
+            ...validResult.knowledgeFacts.units[0],
+            privacyScope: 'internet'
+          },
+          validResult.knowledgeFacts.units[1]
+        ]
+      }
+    }),
+    /knowledgeFacts\.units\[0\]\.privacyScope/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
       handoffCheckpoint: {
         ...validResult.handoffCheckpoint,
         budgets: {
@@ -412,6 +512,22 @@ test('compact agent result contract rejects knowledge context and cache drift', 
       }
     }),
     /handoffCheckpoint\.budgets\.knowledgeFacts/
+  );
+  assert.throws(
+    () => parseCompactAgentRunResult({
+      ...validResult,
+      handoffCheckpoint: {
+        ...validResult.handoffCheckpoint,
+        budgets: {
+          ...validResult.handoffCheckpoint.budgets,
+          knowledgeUnits: {
+            includedCount: 1,
+            omittedCount: 0
+          }
+        }
+      }
+    }),
+    /handoffCheckpoint\.budgets\.knowledgeUnits/
   );
   assert.throws(
     () => parseCompactAgentRunResult({
@@ -457,7 +573,7 @@ test('compact agent result contract rejects knowledge context and cache drift', 
 
 test('compact agent result contract accepts Pulumi resource docs facts without raw source fields', () => {
   const { validResult } = buildAgentResultContractFixtures();
-  const resourceKnowledgeFacts = {
+  const resourceKnowledgeFacts = projectFactUnits({
     ...validResult.knowledgeFacts,
     packId: 'abcdefabcdefabcdefabcdef',
     sourceCount: 1,
@@ -500,28 +616,8 @@ test('compact agent result contract accepts Pulumi resource docs facts without r
         type: 'string'
       }
     ]
-  };
-  const result = {
-    ...validResult,
-    knowledgeFacts: resourceKnowledgeFacts,
-    handoffCheckpoint: {
-      ...validResult.handoffCheckpoint,
-      budgets: {
-        ...validResult.handoffCheckpoint.budgets,
-        knowledgeFacts: {
-          includedCount: 2,
-          omittedCount: 0
-        }
-      }
-    },
-    harness: {
-      ...validResult.harness,
-      stateSummary: {
-        ...validResult.harness.stateSummary,
-        knowledgeFactCount: 2
-      }
-    }
-  };
+  });
+  const result = resultWithKnowledgeFacts(validResult, resourceKnowledgeFacts);
 
   assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
   assert.throws(
@@ -543,7 +639,7 @@ test('compact agent result contract accepts Pulumi resource docs facts without r
 
 test('compact agent result contract accepts Pulumi package docs facts without raw source fields', () => {
   const { validResult } = buildAgentResultContractFixtures();
-  const packageKnowledgeFacts = {
+  const packageKnowledgeFacts = projectFactUnits({
     ...validResult.knowledgeFacts,
     packId: '1234567890abcdef12345678',
     sourceCount: 1,
@@ -586,28 +682,8 @@ test('compact agent result contract accepts Pulumi package docs facts without ra
         values: ['lambda']
       }
     ]
-  };
-  const result = {
-    ...validResult,
-    knowledgeFacts: packageKnowledgeFacts,
-    handoffCheckpoint: {
-      ...validResult.handoffCheckpoint,
-      budgets: {
-        ...validResult.handoffCheckpoint.budgets,
-        knowledgeFacts: {
-          includedCount: 2,
-          omittedCount: 0
-        }
-      }
-    },
-    harness: {
-      ...validResult.harness,
-      stateSummary: {
-        ...validResult.harness.stateSummary,
-        knowledgeFactCount: 2
-      }
-    }
-  };
+  });
+  const result = resultWithKnowledgeFacts(validResult, packageKnowledgeFacts);
 
   assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
   assert.throws(
@@ -629,7 +705,7 @@ test('compact agent result contract accepts Pulumi package docs facts without ra
 
 test('compact agent result contract accepts Pulumi component facts without raw source fields', () => {
   const { validResult } = buildAgentResultContractFixtures();
-  const componentKnowledgeFacts = {
+  const componentKnowledgeFacts = projectFactUnits({
     ...validResult.knowledgeFacts,
     packId: '0123456789abcdef01234567',
     sourceCount: 1,
@@ -691,28 +767,8 @@ test('compact agent result contract accepts Pulumi component facts without raw s
         relatedPaths: ['infra/api/components.ts']
       }
     ]
-  };
-  const result = {
-    ...validResult,
-    knowledgeFacts: componentKnowledgeFacts,
-    handoffCheckpoint: {
-      ...validResult.handoffCheckpoint,
-      budgets: {
-        ...validResult.handoffCheckpoint.budgets,
-        knowledgeFacts: {
-          includedCount: 3,
-          omittedCount: 0
-        }
-      }
-    },
-    harness: {
-      ...validResult.harness,
-      stateSummary: {
-      ...validResult.harness.stateSummary,
-        knowledgeFactCount: 3
-      }
-    }
-  };
+  }, 'workspace-private');
+  const result = resultWithKnowledgeFacts(validResult, componentKnowledgeFacts);
 
   assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
   assert.throws(
@@ -734,7 +790,7 @@ test('compact agent result contract accepts Pulumi component facts without raw s
 
 test('compact agent result contract accepts Helm chart docs facts without raw source fields', () => {
   const { validResult } = buildAgentResultContractFixtures();
-  const chartDocsKnowledgeFacts = {
+  const chartDocsKnowledgeFacts = projectFactUnits({
     ...validResult.knowledgeFacts,
     packId: 'fedcba9876543210fedcba98',
     sourceCount: 1,
@@ -780,28 +836,8 @@ test('compact agent result contract accepts Helm chart docs facts without raw so
         values: ['service.port']
       }
     ]
-  };
-  const result = {
-    ...validResult,
-    knowledgeFacts: chartDocsKnowledgeFacts,
-    handoffCheckpoint: {
-      ...validResult.handoffCheckpoint,
-      budgets: {
-        ...validResult.handoffCheckpoint.budgets,
-        knowledgeFacts: {
-          includedCount: 2,
-          omittedCount: 0
-        }
-      }
-    },
-    harness: {
-      ...validResult.harness,
-      stateSummary: {
-        ...validResult.harness.stateSummary,
-        knowledgeFactCount: 2
-      }
-    }
-  };
+  });
+  const result = resultWithKnowledgeFacts(validResult, chartDocsKnowledgeFacts);
 
   assert.equal(parseCompactAgentRunResult(result).kind, 'infra-agent.agent-result');
   assert.throws(

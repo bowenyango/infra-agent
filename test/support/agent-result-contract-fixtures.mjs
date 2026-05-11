@@ -70,6 +70,10 @@ export function buildAgentResultContractFixtures() {
         knowledgeFacts: {
           includedCount: 2,
           omittedCount: 0
+        },
+        knowledgeUnits: {
+          includedCount: 2,
+          omittedCount: 0
         }
       }),
       continuation: {
@@ -268,6 +272,7 @@ export function buildAgentResultContractFixtures() {
         approvalSignalCount: 0,
         retrievedContextCount: 2,
         knowledgeFactCount: 2,
+        knowledgeUnitCount: 2,
         semanticFactCount: 0
       },
       targeting: {
@@ -594,6 +599,9 @@ export function buildAgentResultContractFixtures() {
       totalFactCount: 2,
       includedFactCount: 2,
       omittedFactCount: 0,
+      totalUnitCount: 2,
+      includedUnitCount: 2,
+      omittedUnitCount: 0,
       staleSourceCount: 0,
       uncheckedSourceCount: 0,
       sources: [
@@ -629,6 +637,33 @@ export function buildAgentResultContractFixtures() {
           extractionMethod: 'terraform-registry-markdown',
           sourceId: 'terraform-registry/aws-lb-listener-rule',
           sourceLocator: 'terraform-registry/aws-lb-listener-rule#arn'
+        }
+      ],
+      units: [
+        {
+          unitType: 'fact',
+          factKind: 'argument',
+          path: 'resource.aws_lb_listener_rule.priority',
+          summary: 'Listener rule priority must be unique per listener.',
+          confidence: 'high',
+          extractionMethod: 'terraform-registry-markdown',
+          sourceId: 'terraform-registry/aws-lb-listener-rule',
+          sourceLocator: 'terraform-registry/aws-lb-listener-rule#priority',
+          privacyScope: 'public-reference',
+          required: true,
+          type: 'number',
+          relatedPaths: ['resource.aws_lb_listener_rule.listener_arn']
+        },
+        {
+          unitType: 'fact',
+          factKind: 'attribute',
+          path: 'resource.aws_lb_listener_rule.arn',
+          summary: 'ARN is assigned by AWS after creation.',
+          confidence: 'medium',
+          extractionMethod: 'terraform-registry-markdown',
+          sourceId: 'terraform-registry/aws-lb-listener-rule',
+          sourceLocator: 'terraform-registry/aws-lb-listener-rule#arn',
+          privacyScope: 'public-reference'
         }
       ]
     }
@@ -678,6 +713,10 @@ export function buildAgentResultContractFixtures() {
         knowledgeFacts: {
           includedCount: validResult.knowledgeFacts.includedFactCount,
           omittedCount: validResult.knowledgeFacts.omittedFactCount
+        },
+        knowledgeUnits: {
+          includedCount: validResult.knowledgeFacts.includedUnitCount,
+          omittedCount: validResult.knowledgeFacts.omittedUnitCount
         }
       })
     },

@@ -761,6 +761,10 @@ test('runSingleStep respects the configured maximum turn count', async () => {
         knowledgeFacts: {
           includedCount: compact.knowledgeFacts.includedFactCount,
           omittedCount: compact.knowledgeFacts.omittedFactCount
+        },
+        knowledgeUnits: {
+          includedCount: compact.knowledgeFacts.includedUnitCount,
+          omittedCount: compact.knowledgeFacts.omittedUnitCount
         }
       },
       continuation: {

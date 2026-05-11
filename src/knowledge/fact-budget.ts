@@ -1,4 +1,10 @@
-import type { KnowledgePack, KnowledgePackFact, KnowledgePackSource, KnowledgePackUnit } from './pack.ts';
+import type {
+  KnowledgePack,
+  KnowledgePackFact,
+  KnowledgePackFactUnit,
+  KnowledgePackSource,
+  KnowledgePackUnit
+} from './pack.ts';
 
 export interface BudgetedKnowledgeFact {
   unitType?: 'fact';
@@ -97,6 +103,25 @@ function compactSource(source: KnowledgePackSource): BudgetedKnowledgeFactSource
   };
 }
 
+function factToUnit(fact: KnowledgePackFact, source: KnowledgePackSource | undefined): KnowledgePackFactUnit {
+  return {
+    unitType: 'fact',
+    factKind: fact.kind,
+    path: fact.path,
+    summary: fact.summary,
+    confidence: fact.confidence,
+    extractionMethod: fact.extractionMethod,
+    sourceId: fact.sourceId,
+    sourceLocator: fact.sourceLocator,
+    privacyScope: source?.storagePolicy.scope ?? 'workspace-private',
+    ...(fact.required !== undefined ? { required: fact.required } : {}),
+    ...(fact.type !== undefined ? { type: fact.type } : {}),
+    ...(fact.defaultValue !== undefined ? { defaultValue: fact.defaultValue } : {}),
+    ...(fact.values !== undefined ? { values: [...fact.values] } : {}),
+    ...(fact.relatedPaths !== undefined ? { relatedPaths: [...fact.relatedPaths] } : {})
+  };
+}
+
 function compactUnit(unit: KnowledgePackUnit, source: KnowledgePackSource | undefined): BudgetedKnowledgeUnit {
   const confidence = (source?.stale || source?.freshness === 'unchecked') && unit.confidence === 'high'
     ? 'medium'
@@ -150,7 +175,8 @@ export function budgetKnowledgePackFacts(
   const facts = (pack?.facts ?? [])
     .slice(0, maxFacts)
     .map(fact => compactFact(fact, sourceById.get(fact.sourceId)));
-  const units = (pack?.units ?? [])
+  const rawUnits = pack?.units ?? (pack?.facts ?? []).map(fact => factToUnit(fact, sourceById.get(fact.sourceId)));
+  const units = rawUnits
     .slice(0, maxFacts)
     .map(unit => compactUnit(unit, sourceById.get(unit.sourceId)));
   const totalFactCount = pack?.factCount ?? 0;

@@ -12,6 +12,7 @@ export function buildCompactHandoffBudgetsFixture(overrides = {}) {
     identityConflicts: { includedCount: 1, omittedCount: 0 },
     approvalSignals: { includedCount: 0, omittedCount: 0 },
     knowledgeFacts: { includedCount: 0, omittedCount: 0 },
+    knowledgeUnits: { includedCount: 0, omittedCount: 0 },
     knowledgePackets: {
       includedCount: 0,
       omittedCount: 0,
@@ -43,10 +44,14 @@ export function buildEmptyKnowledgeFactsFixture(overrides = {}) {
     totalFactCount: 0,
     includedFactCount: 0,
     omittedFactCount: 0,
+    totalUnitCount: 0,
+    includedUnitCount: 0,
+    omittedUnitCount: 0,
     staleSourceCount: 0,
     uncheckedSourceCount: 0,
     sources: [],
     facts: [],
+    units: [],
     ...overrides
   };
 }

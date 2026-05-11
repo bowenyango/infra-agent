@@ -744,6 +744,11 @@ test('planner user prompt includes budgeted knowledge facts without raw docs', a
   assert.equal(parsed.knowledgeFacts.maxFacts, 2);
   assert.equal(parsed.knowledgeFacts.includedFactCount, 2);
   assert.equal(parsed.knowledgeFacts.omittedFactCount, pack.factCount - 2);
+  assert.equal(parsed.knowledgeFacts.includedUnitCount, 2);
+  assert.equal(parsed.knowledgeFacts.omittedUnitCount, pack.unitCount - 2);
+  assert.equal(parsed.knowledgeFacts.units.length, 2);
+  assert.ok(parsed.knowledgeFacts.units.every(unit => unit.unitType === 'fact'));
+  assert.ok(parsed.knowledgeFacts.units.every(unit => typeof unit.privacyScope === 'string'));
   assert.ok(parsed.knowledgeFacts.facts.some(fact => fact.path === 'chart.payments-api.image.repository'));
   assert.ok(parsed.knowledgeFacts.facts.every(fact => fact.required === true));
   assert.ok(parsed.knowledgeFacts.facts.every(fact => typeof fact.sourceLocator === 'string' && !('source' in fact)));

@@ -373,10 +373,16 @@ test('planner user prompt includes budgeted Pulumi package docs facts without ra
   assert.equal(parsed.knowledgeFacts.maxFacts, 1);
   assert.equal(parsed.knowledgeFacts.includedFactCount, 1);
   assert.equal(parsed.knowledgeFacts.omittedFactCount, 1);
+  assert.equal(parsed.knowledgeFacts.totalUnitCount, 2);
+  assert.equal(parsed.knowledgeFacts.includedUnitCount, 1);
+  assert.equal(parsed.knowledgeFacts.omittedUnitCount, 1);
   assert.equal(parsed.knowledgeFacts.sources[0]?.kind, 'pulumi-docs');
   assert.equal(parsed.knowledgeFacts.sources[0]?.name, 'pulumi-docs:package:aws');
   assert.equal(parsed.knowledgeFacts.facts[0]?.path, 'pulumi.package.aws.s3');
   assert.equal(parsed.knowledgeFacts.facts[0]?.sourceLocator, 'Pulumi package docs: s3');
+  assert.equal(parsed.knowledgeFacts.units[0]?.unitType, 'fact');
+  assert.equal(parsed.knowledgeFacts.units[0]?.factKind, 'pulumi-docs-guidance');
+  assert.equal(parsed.knowledgeFacts.units[0]?.privacyScope, 'public-reference');
   assert.doesNotMatch(prompt, /"content"\s*:|contentHash|fetchedAt|staleAfter|url|# AWS|api-docs/);
 });
 

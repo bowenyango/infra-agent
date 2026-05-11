@@ -6,6 +6,69 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Unit-Aware Runtime Handoff
+
+Status:
+
+- Completed the third implementation slice for the five-unit RAG direction.
+- Scope is still compatibility-preserving: the public compact result field remains
+  `knowledgeFacts`, but the runtime prompt, result card, handoff budgets, and
+  compact result contract now treat `units` as the preferred RAG view.
+
+Implemented checkpoints:
+
+- `src/knowledge/fact-budget.ts` now projects legacy packs without `units` into
+  fact-backed units at budget time, so old pack fixtures still produce a
+  unit-aware planner payload.
+- `src/model/prompt.ts` now explicitly instructs the planner to prefer
+  `knowledgeFacts.units` and to treat `knowledgeFacts.facts` as the legacy
+  fact-only compatibility view.
+- `src/cli/output.ts` now reports unit counts in the result card, exposes
+  `knowledgeUnitCount` in the compact harness state summary, and records
+  `handoffCheckpoint.budgets.knowledgeUnits` beside the existing
+  `knowledgeFacts` budget.
+- `src/cli/agent-result-contract.ts` now validates unit counts, unit arrays,
+  supported unit types, unit extraction methods, privacy scopes, source
+  references, stale/unchecked confidence downgrades, and the five unit payload
+  shapes (`fact`, `guidance`, `example`, `diagnostic`, `recipe`).
+
+Design notes:
+
+- The compact root name remains `knowledgeFacts` to avoid breaking saved
+  artifacts and downstream consumers. The semantic direction is now
+  unit-first inside that envelope.
+- `facts` remains a deterministic compatibility view; `units` is the RAG view
+  that later non-fact extractors should populate.
+- The current generated packs are still fact-backed, but the result contract now
+  accepts and validates mixed unit payloads when they appear.
+- `maxFacts` still acts as the shared compact budget for facts and units. A
+  future `maxUnits` rename or alias can be introduced after the planner and
+  extractors are fully unit-first.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/planner-provider-model.test.mjs`
+- `node --experimental-strip-types --test test/unit/planner-knowledge-facts-prompt.test.mjs`
+- `node --experimental-strip-types --test test/unit/agent-output-result-card.test.mjs`
+- `node --experimental-strip-types --test test/contract/agent-result-knowledge-contract.test.mjs`
+- `node --experimental-strip-types test/integration/agent-runtime-handoff.test.mjs`
+- `node --experimental-strip-types --test test/integration/agent-runtime-execution.test.mjs`
+- `npm run lint`
+- `npm run test:contract`
+- `npm run test:integration`
+
+Next recommended implementation steps:
+
+1. Add `rankKnowledgePackUnits` with explicit unit-type weights:
+   repo-local facts and validator diagnostics first, exact-version public schema
+   facts next, then recipes, guidance, and examples.
+2. Add initial `diagnostic` unit extraction from validation issue classifiers
+   and graph/impact conflict classifiers.
+3. Add `recipe` units for Terraform moved blocks, Pulumi aliases, Pulumi stack
+   config changes, Helm values migrations, and import/state review.
+4. Introduce a `maxUnits` budget alias once downstream compatibility with
+   `maxFacts` is fully preserved.
+
 ## 2026-05-11 Completed Knowledge Pack Unit Projection
 
 Status:
@@ -33,10 +96,9 @@ Implemented checkpoints:
 
 Design notes:
 
-- This intentionally does not switch the planner prompt from `facts` to
-  `units`. The change creates the stable data path needed for future
-  `diagnostic`, `recipe`, `guidance`, and `example` ranking without breaking
-  existing compact agent results.
+- This slice intentionally did not switch the planner prompt from `facts` to
+  `units`; that follow-up is now covered by the "Unit-Aware Runtime Handoff"
+  slice above.
 - The current pack `units` are fact-backed only, so `unitCount` equals
   `factCount`. Future slices should relax this once non-fact unit extractors
   are introduced.

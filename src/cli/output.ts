@@ -302,6 +302,7 @@ interface CompactHandoffCheckpoint {
       omittedTokenEstimate: number;
     };
     knowledgeFacts: CompactHandoffBudgetSample;
+    knowledgeUnits: CompactHandoffBudgetSample;
   };
   continuation: {
     required: boolean;
@@ -465,6 +466,7 @@ export interface CompactAgentRunResult {
       approvalSignalCount: number;
       retrievedContextCount: number;
       knowledgeFactCount: number;
+      knowledgeUnitCount: number;
       semanticFactCount: number;
     };
     targeting: CompactTargetingSummary;
@@ -1204,6 +1206,7 @@ function collectRuntimeStateSummary(state: AgentRunState): CompactAgentRunResult
     approvalSignalCount: state.runtime.approvalSignals?.length ?? 0,
     retrievedContextCount: state.runtime.retrievedContext?.length ?? 0,
     knowledgeFactCount: state.runtime.knowledgeFacts?.factCount ?? 0,
+    knowledgeUnitCount: state.runtime.knowledgeFacts?.unitCount ?? state.runtime.knowledgeFacts?.factCount ?? 0,
     semanticFactCount: getRuntimeConfigSemantics(state.runtime).reduce((count, summary) => count + summary.facts.length, 0)
   };
 }
@@ -2633,10 +2636,13 @@ function summarizeKnowledgeContext(state: AgentRunState): string {
 function summarizeKnowledgeFacts(state: AgentRunState): string {
   const summary = collectKnowledgeFactsSummary(state);
   const omittedSummary = summary.omittedFactCount === 0 ? 'none' : String(summary.omittedFactCount);
+  const omittedUnitSummary = summary.omittedUnitCount === 0 ? 'none' : String(summary.omittedUnitCount);
   return [
     `${summary.includedFactCount}/${summary.totalFactCount} fact(s) included`,
+    `${summary.includedUnitCount}/${summary.totalUnitCount} unit(s) included`,
     `max ${summary.maxFacts}`,
     `omitted ${omittedSummary}`,
+    `omitted units ${omittedUnitSummary}`,
     `sources ${summary.sourceCount}`,
     `stale sources ${summary.staleSourceCount}`,
     `unchecked sources ${summary.uncheckedSourceCount}`
@@ -2887,6 +2893,10 @@ function collectHandoffCheckpoint(state: AgentRunState): CompactHandoffCheckpoin
       knowledgeFacts: {
         includedCount: knowledgeFacts.includedFactCount,
         omittedCount: knowledgeFacts.omittedFactCount
+      },
+      knowledgeUnits: {
+        includedCount: knowledgeFacts.includedUnitCount,
+        omittedCount: knowledgeFacts.omittedUnitCount
       }
     },
     continuation: {

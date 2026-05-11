@@ -231,7 +231,10 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
     assert.equal(compact.knowledgeFacts.kind, 'infra-agent.knowledge-facts-summary');
     assert.equal(compact.knowledgeFacts.maxFacts, 2);
     assert.ok(compact.knowledgeFacts.totalFactCount > 0);
+    assert.ok(compact.knowledgeFacts.totalUnitCount > 0);
     assert.ok(compact.knowledgeFacts.includedFactCount <= 2);
+    assert.ok(compact.knowledgeFacts.includedUnitCount <= 2);
+    assert.equal(compact.knowledgeFacts.units.length, compact.knowledgeFacts.includedUnitCount);
     assert.equal(
       compact.knowledgeFacts.uncheckedSourceCount,
       compact.knowledgeFacts.sources.filter(source => source.freshness === 'unchecked').length
@@ -240,7 +243,11 @@ test('agent CLI compact JSON includes work plan handoff', async () => {
       includedCount: compact.knowledgeFacts.includedFactCount,
       omittedCount: compact.knowledgeFacts.omittedFactCount
     });
-    assert.ok(compact.resultCard.some(line => /Knowledge facts: \d+\/\d+ fact\(s\) included; max 2/i.test(line)));
+    assert.deepEqual(compact.handoffCheckpoint.budgets.knowledgeUnits, {
+      includedCount: compact.knowledgeFacts.includedUnitCount,
+      omittedCount: compact.knowledgeFacts.omittedUnitCount
+    });
+    assert.ok(compact.resultCard.some(line => /Knowledge facts: \d+\/\d+ fact\(s\) included; \d+\/\d+ unit\(s\) included; max 2/i.test(line)));
     assert.doesNotMatch(JSON.stringify(compact.knowledgeFacts), /"content"\s*:|contentHash|fetchedAt|"\$schema"/);
     assert.equal(compact.harness.workPlan.schemaVersion, 1);
     assert.equal(compact.harness.workPlan.blockerKind, compact.harness.plannerHandoff.activeBlocker.kind);

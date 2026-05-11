@@ -152,7 +152,8 @@ export function buildPlannerSystemPrompt(): string {
     '- Use runtimeIdentityConflictSummary to detect capped runtimeIdentityConflicts details before assuming the sample is exhaustive.',
     '- When runtimeIdentityConflictSummary.totalCount is greater than 0 and no bounded edit plan already exists, prefer stop with stopReason=validation-blocked and summarize the risk category and review steps.',
     '- Treat knowledgeFacts as bounded advisory context extracted from cache/local sources. Prefer it over raw docs, but do not treat it as validator-grade proof.',
-    '- Use knowledgeFacts.omittedFactCount before assuming the included fact sample is exhaustive.',
+    '- Prefer knowledgeFacts.units for compact RAG context. knowledgeFacts.facts is the legacy fact-only compatibility view.',
+    '- Use knowledgeFacts.omittedUnitCount and knowledgeFacts.omittedFactCount before assuming the included samples are exhaustive.',
     '- If no safe action exists, return stop with stopReason=no-safe-action.',
     'Do not include markdown. Do not include commentary outside the JSON object.'
   ].join('\n');

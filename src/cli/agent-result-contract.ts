@@ -133,6 +133,26 @@ const KNOWLEDGE_FACT_EXTRACTION_METHODS = [
   'helm-values-schema',
   'repo-local-static'
 ] as const;
+const KNOWLEDGE_UNIT_TYPES = ['fact', 'guidance', 'example', 'diagnostic', 'recipe'] as const;
+const KNOWLEDGE_UNIT_EXTRACTION_METHODS = [
+  ...KNOWLEDGE_FACT_EXTRACTION_METHODS,
+  'official-guidance',
+  'repo-local-guidance',
+  'official-example',
+  'repo-local-example',
+  'validation-diagnostic',
+  'terraform-plan-diagnostic',
+  'pulumi-preview-diagnostic',
+  'provider-diagnostic',
+  'workflow-recipe'
+] as const;
+const KNOWLEDGE_UNIT_PRIVACY_SCOPES = [
+  'public-reference',
+  'workspace-private',
+  'internal-team',
+  'private-run'
+] as const;
+const KNOWLEDGE_DIAGNOSTIC_ENGINES = ['terraform', 'pulumi', 'helm', 'provider', 'runtime'] as const;
 const KNOWLEDGE_SOURCE_FRESHNESS = ['fresh', 'stale', 'unchecked'] as const;
 const KNOWLEDGE_SOURCE_STALE_REASONS = [
   'time-expired',
@@ -375,6 +395,26 @@ function isKnownKnowledgeFactKind(value: unknown): boolean {
 function isKnownKnowledgeFactExtractionMethod(value: unknown): boolean {
   return typeof value === 'string'
     && KNOWLEDGE_FACT_EXTRACTION_METHODS.includes(value as typeof KNOWLEDGE_FACT_EXTRACTION_METHODS[number]);
+}
+
+function isKnownKnowledgeUnitType(value: unknown): boolean {
+  return typeof value === 'string'
+    && KNOWLEDGE_UNIT_TYPES.includes(value as typeof KNOWLEDGE_UNIT_TYPES[number]);
+}
+
+function isKnownKnowledgeUnitExtractionMethod(value: unknown): boolean {
+  return typeof value === 'string'
+    && KNOWLEDGE_UNIT_EXTRACTION_METHODS.includes(value as typeof KNOWLEDGE_UNIT_EXTRACTION_METHODS[number]);
+}
+
+function isKnownKnowledgeUnitPrivacyScope(value: unknown): boolean {
+  return typeof value === 'string'
+    && KNOWLEDGE_UNIT_PRIVACY_SCOPES.includes(value as typeof KNOWLEDGE_UNIT_PRIVACY_SCOPES[number]);
+}
+
+function isKnownKnowledgeDiagnosticEngine(value: unknown): boolean {
+  return typeof value === 'string'
+    && KNOWLEDGE_DIAGNOSTIC_ENGINES.includes(value as typeof KNOWLEDGE_DIAGNOSTIC_ENGINES[number]);
 }
 
 function isKnownKnowledgeSourceFreshness(value: unknown): boolean {
@@ -626,6 +666,88 @@ function findRawKnowledgeFactField(value: unknown, fieldPath: string): string | 
   }
 
   return null;
+}
+
+function assertOptionalStringArrayField(record: Record<string, unknown>, field: string, fieldPath: string): void {
+  if (field in record && !isStringArray(record[field])) {
+    throw new Error(`compact result input ${fieldPath}.${field} must be a string array when present.`);
+  }
+}
+
+function assertOptionalStringField(record: Record<string, unknown>, field: string, fieldPath: string): void {
+  if (field in record && typeof record[field] !== 'string') {
+    throw new Error(`compact result input ${fieldPath}.${field} must be a string when present.`);
+  }
+}
+
+function assertKnowledgeFactOptionalFields(fact: Record<string, unknown>, factPath: string): void {
+  if ('required' in fact && typeof fact.required !== 'boolean') {
+    throw new Error(`compact result input ${factPath}.required must be a boolean when present.`);
+  }
+
+  for (const field of ['type', 'defaultValue']) {
+    assertOptionalStringField(fact, field, factPath);
+  }
+
+  for (const field of ['values', 'relatedPaths']) {
+    assertOptionalStringArrayField(fact, field, factPath);
+  }
+}
+
+function assertKnowledgeUnitPayload(unit: Record<string, unknown>, unitPath: string): void {
+  switch (unit.unitType) {
+    case 'fact':
+      if (!isKnownKnowledgeFactKind(unit.factKind)) {
+        throw new Error(`compact result input ${unitPath}.factKind must be supported.`);
+      }
+      assertKnowledgeFactOptionalFields(unit, unitPath);
+      break;
+    case 'guidance':
+      if (typeof unit.topic !== 'string' || unit.topic.length === 0) {
+        throw new Error(`compact result input ${unitPath}.topic must be a non-empty string.`);
+      }
+      assertOptionalStringArrayField(unit, 'appliesWhen', unitPath);
+      assertOptionalStringArrayField(unit, 'avoidWhen', unitPath);
+      assertOptionalStringField(unit, 'risk', unitPath);
+      break;
+    case 'example':
+      for (const field of ['exampleType', 'snippet']) {
+        if (typeof unit[field] !== 'string' || (unit[field] as string).length === 0) {
+          throw new Error(`compact result input ${unitPath}.${field} must be a non-empty string.`);
+        }
+      }
+      assertOptionalStringField(unit, 'language', unitPath);
+      assertOptionalStringArrayField(unit, 'appliesWhen', unitPath);
+      assertOptionalStringArrayField(unit, 'avoidWhen', unitPath);
+      break;
+    case 'diagnostic':
+      if (!isKnownKnowledgeDiagnosticEngine(unit.engine)) {
+        throw new Error(`compact result input ${unitPath}.engine must be supported.`);
+      }
+      for (const field of ['signature', 'likelyCause']) {
+        if (typeof unit[field] !== 'string' || (unit[field] as string).length === 0) {
+          throw new Error(`compact result input ${unitPath}.${field} must be a non-empty string.`);
+        }
+      }
+      if (!isStringArray(unit.recommendedReview)) {
+        throw new Error(`compact result input ${unitPath}.recommendedReview must be a string array.`);
+      }
+      break;
+    case 'recipe':
+      if (typeof unit.name !== 'string' || unit.name.length === 0) {
+        throw new Error(`compact result input ${unitPath}.name must be a non-empty string.`);
+      }
+      if (!isStringArray(unit.steps)) {
+        throw new Error(`compact result input ${unitPath}.steps must be a string array.`);
+      }
+      if ('requiresApproval' in unit && typeof unit.requiresApproval !== 'boolean') {
+        throw new Error(`compact result input ${unitPath}.requiresApproval must be a boolean when present.`);
+      }
+      if (unit.mutationAllowed !== false) {
+        throw new Error(`compact result input ${unitPath}.mutationAllowed must be false.`);
+      }
+      break;
+  }
 }
 
 function escapeRegExp(value: string): string {
@@ -1442,7 +1564,8 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     'validationSafetyBlockers',
     'identityConflicts',
     'approvalSignals',
-    'knowledgeFacts'
+    'knowledgeFacts',
+    'knowledgeUnits'
   ]) {
     assertHandoffBudgetSample(value.handoffCheckpoint.budgets[field], `handoffCheckpoint.budgets.${field}`);
   }
@@ -2031,6 +2154,7 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       'approvalSignalCount',
       'retrievedContextCount',
       'knowledgeFactCount',
+      'knowledgeUnitCount',
       'semanticFactCount'
     ];
     for (const key of stateSummaryCountKeys) {
@@ -4162,6 +4286,9 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     'totalFactCount',
     'includedFactCount',
     'omittedFactCount',
+    'totalUnitCount',
+    'includedUnitCount',
+    'omittedUnitCount',
     'staleSourceCount',
     'uncheckedSourceCount'
   ]) {
@@ -4179,19 +4306,30 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   const knowledgeFactTotalCount = value.knowledgeFacts.totalFactCount as number;
   const knowledgeFactIncludedCount = value.knowledgeFacts.includedFactCount as number;
   const knowledgeFactOmittedCount = value.knowledgeFacts.omittedFactCount as number;
+  const knowledgeUnitTotalCount = value.knowledgeFacts.totalUnitCount as number;
+  const knowledgeUnitIncludedCount = value.knowledgeFacts.includedUnitCount as number;
+  const knowledgeUnitOmittedCount = value.knowledgeFacts.omittedUnitCount as number;
   const knowledgeFactStaleSourceCount = value.knowledgeFacts.staleSourceCount as number;
   const knowledgeFactUncheckedSourceCount = value.knowledgeFacts.uncheckedSourceCount as number;
 
-  if (knowledgeFactTotalCount > 0 && value.knowledgeFacts.packId === null) {
-    throw new Error('compact result input knowledgeFacts.packId is required when facts are present.');
+  if ((knowledgeFactTotalCount > 0 || knowledgeUnitTotalCount > 0) && value.knowledgeFacts.packId === null) {
+    throw new Error('compact result input knowledgeFacts.packId is required when knowledge facts or units are present.');
   }
 
   if (knowledgeFactIncludedCount + knowledgeFactOmittedCount !== knowledgeFactTotalCount) {
     throw new Error('compact result input knowledgeFacts fact counts must be consistent.');
   }
 
+  if (knowledgeUnitIncludedCount + knowledgeUnitOmittedCount !== knowledgeUnitTotalCount) {
+    throw new Error('compact result input knowledgeFacts unit counts must be consistent.');
+  }
+
   if (knowledgeFactIncludedCount > knowledgeFactMaxFacts) {
     throw new Error('compact result input knowledgeFacts.includedFactCount must not exceed maxFacts.');
+  }
+
+  if (knowledgeUnitIncludedCount > knowledgeFactMaxFacts) {
+    throw new Error('compact result input knowledgeFacts.includedUnitCount must not exceed maxFacts.');
   }
 
   if (
@@ -4211,12 +4349,20 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input knowledgeFacts.facts must be an array.');
   }
 
+  if (!Array.isArray(value.knowledgeFacts.units)) {
+    throw new Error('compact result input knowledgeFacts.units must be an array.');
+  }
+
   if (value.knowledgeFacts.sources.length !== knowledgeFactSourceCount) {
     throw new Error('compact result input knowledgeFacts.sources length must match sourceCount.');
   }
 
   if (value.knowledgeFacts.facts.length !== knowledgeFactIncludedCount) {
     throw new Error('compact result input knowledgeFacts.facts length must match includedFactCount.');
+  }
+
+  if (value.knowledgeFacts.units.length !== knowledgeUnitIncludedCount) {
+    throw new Error('compact result input knowledgeFacts.units length must match includedUnitCount.');
   }
 
   const knowledgeFactSourceIds = new Set<string>();
@@ -4366,21 +4512,58 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       throw new Error(`compact result input ${factPath}.confidence must not be high when source is unchecked.`);
     }
 
-    if ('required' in fact && typeof fact.required !== 'boolean') {
-      throw new Error(`compact result input ${factPath}.required must be a boolean when present.`);
+    assertKnowledgeFactOptionalFields(fact, factPath);
+  }
+
+  for (let index = 0; index < value.knowledgeFacts.units.length; index += 1) {
+    const unit = value.knowledgeFacts.units[index];
+    const unitPath = `knowledgeFacts.units[${index}]`;
+
+    if (!isRecord(unit)) {
+      throw new Error(`compact result input ${unitPath} must be an object.`);
     }
 
-    for (const field of ['type', 'defaultValue']) {
-      if (field in fact && typeof fact[field] !== 'string') {
-        throw new Error(`compact result input ${factPath}.${field} must be a string when present.`);
+    if (!isKnownKnowledgeUnitType(unit.unitType)) {
+      throw new Error(`compact result input ${unitPath}.unitType must be supported.`);
+    }
+
+    for (const field of ['path', 'summary', 'sourceId', 'sourceLocator']) {
+      if (typeof unit[field] !== 'string' || (unit[field] as string).length === 0) {
+        throw new Error(`compact result input ${unitPath}.${field} must be a non-empty string.`);
       }
     }
 
-    for (const field of ['values', 'relatedPaths']) {
-      if (field in fact && !isStringArray(fact[field])) {
-        throw new Error(`compact result input ${factPath}.${field} must be a string array when present.`);
-      }
+    if (!isKnownAgentConfidence(unit.confidence)) {
+      throw new Error(`compact result input ${unitPath}.confidence must be supported.`);
     }
+
+    if (!isKnownKnowledgeUnitExtractionMethod(unit.extractionMethod)) {
+      throw new Error(`compact result input ${unitPath}.extractionMethod must be supported.`);
+    }
+
+    if (!isKnownKnowledgeUnitPrivacyScope(unit.privacyScope)) {
+      throw new Error(`compact result input ${unitPath}.privacyScope must be supported.`);
+    }
+
+    if ('tokenEstimate' in unit) {
+      assertIntegerField(unit, 'tokenEstimate', unitPath, isNonNegativeInteger, 'a non-negative integer');
+    }
+
+    assertOptionalStringArrayField(unit, 'relatedPaths', unitPath);
+
+    if (!knowledgeFactSourceIds.has(unit.sourceId as string)) {
+      throw new Error(`compact result input ${unitPath}.sourceId must reference knowledgeFacts.sources.`);
+    }
+
+    if (staleKnowledgeFactSourceIds.has(unit.sourceId as string) && unit.confidence === 'high') {
+      throw new Error(`compact result input ${unitPath}.confidence must not be high when source is stale.`);
+    }
+
+    if (uncheckedKnowledgeFactSourceIds.has(unit.sourceId as string) && unit.confidence === 'high') {
+      throw new Error(`compact result input ${unitPath}.confidence must not be high when source is unchecked.`);
+    }
+
+    assertKnowledgeUnitPayload(unit, unitPath);
   }
 
   assertHandoffBudgetMatches(
@@ -4391,12 +4574,28 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     'knowledgeFacts'
   );
 
+  assertHandoffBudgetMatches(
+    value.handoffCheckpoint.budgets.knowledgeUnits,
+    'handoffCheckpoint.budgets.knowledgeUnits',
+    knowledgeUnitIncludedCount,
+    knowledgeUnitOmittedCount,
+    'knowledgeFacts units'
+  );
+
   if (
     isRecord(value.harness)
     && isRecord(value.harness.stateSummary)
     && value.harness.stateSummary.knowledgeFactCount !== knowledgeFactTotalCount
   ) {
     throw new Error('compact result input harness.stateSummary.knowledgeFactCount must match knowledgeFacts.totalFactCount.');
+  }
+
+  if (
+    isRecord(value.harness)
+    && isRecord(value.harness.stateSummary)
+    && value.harness.stateSummary.knowledgeUnitCount !== knowledgeUnitTotalCount
+  ) {
+    throw new Error('compact result input harness.stateSummary.knowledgeUnitCount must match knowledgeFacts.totalUnitCount.');
   }
 
   if (!isRecord(value.knowledgeCache)) {
