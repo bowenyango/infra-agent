@@ -202,6 +202,10 @@ function assertExecutionAndBindingDisabled(boundary) {
   assert.equal(boundary.remainingExecutionBoundaries.remoteMutationAllowed, false);
 }
 
+function blockerCodes(boundary) {
+  return new Set(boundary.readiness.blockerCodes);
+}
+
 test('object/index binding boundary records binding requirements without binding stores or indexes', async () => {
   const commandBoundary = await validCommandBoundary();
   const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({ commandBoundary });
@@ -254,5 +258,160 @@ test('object/index binding boundary records binding requirements without binding
   assert.equal(boundary.readiness.nextAction, 'design-upload-execution-readiness-boundary');
   assert.equal(boundary.readiness.blockerCount, 0);
   assert.deepEqual(boundary.readiness.blockerCodes, []);
+  assertNoPrivateValues(boundary);
+});
+
+test('object/index binding boundary blocks non-ready command boundaries', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({
+    commandBoundary: {
+      ...commandBoundary,
+      status: 'blocked',
+      readiness: {
+        ...commandBoundary.readiness,
+        status: 'blocked',
+        nextAction: 'resolve-blockers',
+        blockerCount: 1,
+        blockerCodes: ['upload-command-generated'],
+        blockers: [{
+          code: 'upload-command-generated',
+          path: '$.uploadCommandBoundary.uploadCommandGenerated',
+          message: 'upload command generated'
+        }]
+      }
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(boundary.readiness.nextAction, 'resolve-blockers');
+  assert.equal(codes.has('upload-command-boundary-not-ready'), true);
+  assert.equal(codes.has('upload-command-boundary-next-action-invalid'), true);
+  assert.equal(boundary.sourceUploadCommandBoundary.boundaryStatus, 'blocked');
+  assertExecutionAndBindingDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('object/index binding boundary blocks primitive private command inputs without copying values', () => {
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({
+    commandBoundary: 'https://should-not-copy.example.test/private-key'
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('invalid-upload-command-boundary-kind'), true);
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assertExecutionAndBindingDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('object/index binding boundary blocks malformed command boundary metadata', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({
+    commandBoundary: {
+      ...commandBoundary,
+      kind: 'wrong-kind',
+      schemaVersion: 2,
+      boundaryKind: 'wrong-boundary',
+      status: 'waiting-for-binding',
+      target: {
+        manifestId: 'unsafe-id',
+        objectKey: 'team-artifacts/public-reference/aa/bb/private-key.json',
+        objectKeyRedacted: false,
+        objectSha256: 'not-a-sha',
+        artifactId: 'unsafe-artifact-id'
+      },
+      sourceLiveCheckBoundary: {
+        ...commandBoundary.sourceLiveCheckBoundary,
+        adapterName: 'unsafe adapter name',
+        adapterBackendKind: 's3-compatible',
+        reviewStatus: 'blocked',
+        scopeMatched: false
+      },
+      uploadCommandBoundary: {
+        ...commandBoundary.uploadCommandBoundary,
+        artifactObjectStoreDependencyRequired: false,
+        metadataIndexDependencyRequired: false,
+        uploadCommandGenerated: true,
+        uploadCommandMaterialized: true,
+        uploadCommandExposed: true
+      },
+      remainingExecutionBoundaries: {
+        ...commandBoundary.remainingExecutionBoundaries,
+        uploadCommandGenerated: true,
+        objectWriteAllowed: true,
+        metadataIndexWriteAllowed: true
+      },
+      readiness: {
+        ...commandBoundary.readiness,
+        nextAction: 'execute-upload'
+      }
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('invalid-upload-command-boundary-kind'), true);
+  assert.equal(codes.has('invalid-schema-version'), true);
+  assert.equal(codes.has('invalid-boundary-kind'), true);
+  assert.equal(codes.has('upload-command-boundary-not-ready'), true);
+  assert.equal(codes.has('upload-command-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
+  assert.equal(codes.has('unsafe-adapter-name'), true);
+  assert.equal(codes.has('unsupported-adapter-backend'), true);
+  assert.equal(codes.has('review-fingerprint-unverified'), true);
+  assert.equal(codes.has('artifact-object-store-bound'), true);
+  assert.equal(codes.has('metadata-index-bound'), true);
+  assert.equal(codes.has('upload-command-generated'), true);
+  assert.equal(codes.has('upload-command-exposed'), true);
+  assert.equal(codes.has('remote-write-enabled'), true);
+  assertExecutionAndBindingDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
+test('object/index binding boundary reports binding, command, backend, and credential leaks with safe blockers', async () => {
+  const commandBoundary = await validCommandBoundary();
+  const boundary = buildKnowledgeTeamUploadObjectIndexBindingBoundary({
+    commandBoundary: {
+      ...commandBoundary,
+      endpointUrl: 'https://should-not-copy.example.test',
+      objectStoreHandle: {
+        bucket: 'should-not-copy-bucket'
+      },
+      metadataIndexHandle: {
+        putEntry: 'metadataIndex.put'
+      },
+      adapterInstance: {
+        endpoint: 'https://should-not-copy.example.test'
+      },
+      clientConfig: {
+        secret: 'client-secret-value'
+      },
+      credentialValue: 'credential-secret-value',
+      uploadCommandPayload: 'aws s3 cp private.json s3://private-bucket/private-key',
+      artifactBytesBase64: 'raw-artifact-bytes',
+      uploadCommandBoundary: {
+        ...commandBoundary.uploadCommandBoundary,
+        liveCheckResultPayload: 'private-live-check-output',
+        objectWriteAttempted: true,
+        metadataIndexWriteAttempted: true
+      }
+    }
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assert.equal(codes.has('object-store-handle-leak'), true);
+  assert.equal(codes.has('metadata-index-handle-leak'), true);
+  assert.equal(codes.has('adapter-dependency-leak'), true);
+  assert.equal(codes.has('client-dependency-leak'), true);
+  assert.equal(codes.has('credential-dependency-leak'), true);
+  assert.equal(codes.has('upload-command-present'), true);
+  assert.equal(codes.has('artifact-bytes-provided'), true);
+  assert.equal(codes.has('live-check-enabled'), true);
+  assert.equal(codes.has('object-write-attempted'), true);
+  assert.equal(codes.has('metadata-index-write-attempted'), true);
+  assertExecutionAndBindingDisabled(boundary);
   assertNoPrivateValues(boundary);
 });
