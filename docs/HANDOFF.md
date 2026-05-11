@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-10 In Progress Upload Execution Readiness Boundary
+## 2026-05-10 Completed Upload Execution Readiness Boundary
 
 Status:
 
-- Planned and in implementation. This slice continues the private dry-run upload
+- Completed. This slice continues the private dry-run upload
   boundary chain after `upload-object-index-binding-boundary`.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-object-index-binding-boundary` and emit a
@@ -24,17 +24,21 @@ Status:
   indexes, expose handles, write objects, write metadata index entries, or
   perform remote mutations.
 
-Planned checkpoints:
+Implemented checkpoints:
 
-1. Add the upload execution readiness boundary contract and builder from the
-   saved object/index binding boundary.
-2. Add focused unit coverage for ready, blocked, malformed, forged, and leaky
-   inputs.
-3. Add validator dispatch and contract coverage for ready, blocked, and drifted
-   payloads.
-4. Add CLI parsing, JSON/text output, help text, and integration coverage.
-5. Add no-SDK/no-execution guard coverage and update rules, roadmap, skill, and
-   handoff docs after verification.
+1. Added `buildKnowledgeTeamUploadExecutionReadinessBoundary` and its contract
+   types. It consumes the saved object/index binding boundary and emits only a
+   dry-run readiness artifact.
+2. Added focused unit coverage for ready, non-ready, malformed, missing,
+   forged, primitive private, and leaky inputs.
+3. Added validator dispatch for
+   `infra-agent.knowledge-team-upload-execution-readiness-boundary`, including
+   ready/drift contract coverage.
+4. Added CLI parsing, help text, JSON/text output, and integration coverage for
+   `knowledge upload-execution-readiness-boundary`.
+5. Extended no-SDK/no-execution guards so this boundary cannot approve
+   execution, instantiate clients, read credentials, generate commands, perform
+   checks, or write object/index data.
 
 Expected artifact and CLI:
 
@@ -183,35 +187,32 @@ Implemented acceptance criteria:
 
 Validation run during this slice:
 
-- `node --experimental-strip-types ./test/unit/knowledge-team-upload-object-index-binding-boundary.test.mjs`
-- `node --experimental-strip-types ./test/contract/knowledge-team-upload-object-index-binding-boundary-contract.test.mjs`
+- `node --experimental-strip-types ./test/unit/knowledge-team-upload-execution-readiness-boundary.test.mjs`
+- `node --experimental-strip-types ./test/contract/knowledge-team-upload-execution-readiness-boundary-contract.test.mjs`
+- `node --experimental-strip-types ./test/integration/cli-knowledge-upload-execution-readiness-boundary-main.test.mjs`
 - `node --experimental-strip-types ./test/integration/cli-knowledge-args-main.test.mjs`
 - `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
-- `node --experimental-strip-types ./test/integration/cli-knowledge-upload-object-index-binding-boundary-main.test.mjs`
 - `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
-- `node --experimental-strip-types ./test/unit/knowledge-team-upload-mock-harness.test.mjs`
-- `npm run test:coverage`
-- `npm run verify`
 
 Core files:
 
-- `src/knowledge/team-upload-object-index-binding-boundary.ts`
+- `src/knowledge/team-upload-execution-readiness-boundary.ts`
 - `src/knowledge/team-upload-approval-validation.ts`
 - `src/knowledge/validate.ts`
 - `src/cli/main.ts`
 - `src/cli/output.ts`
-- `test/unit/knowledge-team-upload-object-index-binding-boundary.test.mjs`
-- `test/contract/knowledge-team-upload-object-index-binding-boundary-contract.test.mjs`
-- `test/integration/cli-knowledge-upload-object-index-binding-boundary-main.test.mjs`
+- `test/unit/knowledge-team-upload-execution-readiness-boundary.test.mjs`
+- `test/contract/knowledge-team-upload-execution-readiness-boundary-contract.test.mjs`
+- `test/integration/cli-knowledge-upload-execution-readiness-boundary-main.test.mjs`
 - `test/unit/knowledge-team-backend-no-sdk.test.mjs`
 
 Next recommended slice:
 
-- `design-upload-execution-readiness-boundary`. It should consume the saved
-  object/index binding boundary and model final execution-readiness
-  requirements only. It must not generate commands, bind stores/indexes, expose
-  handles, read credentials, stage bytes, write objects, write metadata index
-  entries, or perform remote mutation.
+- `request-separate-upload-execution-approval`. It should consume the saved
+  execution readiness boundary and model the human approval request separately
+  from any upload execution. It must not grant approval by default, generate
+  commands, bind stores/indexes, expose handles, read credentials, stage bytes,
+  write objects, write metadata index entries, or perform remote mutation.
 
 ## 2026-05-10 Completed Upload Command Boundary
 
