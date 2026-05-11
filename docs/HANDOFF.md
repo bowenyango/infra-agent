@@ -61,6 +61,7 @@ Completed commits for this slice:
 10. `test: cover object index binding cli`
 11. `test: guard object index binding no sdk`
 12. `docs: document object index binding boundary`
+13. `test: strengthen upload boundary edge guards`
 
 Implemented acceptance criteria:
 
@@ -91,6 +92,10 @@ Implemented acceptance criteria:
    byte-leaking, backend-leaking, object-key-copying, object-store-handle, or
    metadata-index-handle inputs produce blocked or invalid results with safe
    blocker codes and without copying private values.
+6. Coverage hardening now also exercises missing source sections, top-level
+   forged execution flags, source upload-command requirement drift, primitive
+   private inputs, and missing or unsafe continuation references in the upload
+   boundary chain.
 
 Validation run during this slice:
 
@@ -100,6 +105,9 @@ Validation run during this slice:
 - `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
 - `node --experimental-strip-types ./test/integration/cli-knowledge-upload-object-index-binding-boundary-main.test.mjs`
 - `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types ./test/unit/knowledge-team-upload-mock-harness.test.mjs`
+- `npm run test:coverage`
+- `npm run verify`
 
 Core files:
 
