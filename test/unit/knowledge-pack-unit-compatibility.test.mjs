@@ -15,6 +15,7 @@ test('knowledge pack and budget summaries label generated facts as fact units', 
   });
 
   assert.ok(pack.facts.length > 0);
+  assert.equal(pack.maxUnits, 3);
   assert.ok(pack.facts.every(fact => fact.unitType === 'fact'));
   assert.equal(pack.unitCount, pack.factCount);
   assert.equal(pack.includedUnitCount, pack.includedFactCount);
@@ -28,11 +29,46 @@ test('knowledge pack and budget summaries label generated facts as fact units', 
   ));
 
   const summary = budgetKnowledgePackFacts(pack, { maxFacts: 2 });
+  assert.equal(summary.maxUnits, 2);
   assert.ok(summary.facts.length > 0);
   assert.ok(summary.facts.every(fact => fact.unitType === 'fact'));
   assert.equal(summary.totalUnitCount, pack.unitCount);
   assert.equal(summary.includedUnitCount, summary.units.length);
   assert.ok(summary.units.every(unit => unit.unitType === 'fact'));
+});
+
+test('knowledge pack and budget summaries accept maxUnits as the unit-first budget alias', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 8,
+    maxUnits: 2,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+
+  assert.equal(pack.maxFacts, 2);
+  assert.equal(pack.maxUnits, 2);
+  assert.equal(pack.includedFactCount, 2);
+  assert.equal(pack.includedUnitCount, 2);
+
+  const summary = budgetKnowledgePackFacts(pack, {
+    maxFacts: 8,
+    maxUnits: 1
+  });
+
+  assert.equal(summary.maxFacts, 1);
+  assert.equal(summary.maxUnits, 1);
+  assert.equal(summary.includedFactCount, 1);
+  assert.equal(summary.includedUnitCount, 1);
+
+  const report = validateKnowledgePayload({
+    ...pack,
+    maxUnits: pack.maxFacts + 1
+  }, 'inline');
+
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some(issue => issue.path === '$.maxUnits'));
 });
 
 test('knowledge pack validation rejects non-fact unit labels in legacy facts', async () => {

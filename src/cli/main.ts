@@ -160,6 +160,7 @@ export interface ParsedArgs {
   sourceIds?: string[];
   maxSources: number | null;
   maxFacts?: number | null;
+  maxUnits?: number | null;
   terraformPlanPaths: string[];
   pulumiPreviewPaths: string[];
 }
@@ -183,7 +184,7 @@ function printUsage(): void {
       '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
-      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
+      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]',
       '  infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]',
       '  infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]',
@@ -739,6 +740,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const sourceIds: string[] = [];
     let maxSources: number | null = null;
     let maxFacts: number | null = null;
+    let maxUnits: number | null = null;
     let adapterPlanInputPath: string | null = null;
     let mockHarnessInputPath: string | null = null;
     let outputPath: string | null = null;
@@ -1034,6 +1036,21 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--max-units') {
+        const rawMaxUnits = actionArgs[index + 1];
+        const parsedMaxUnits = Number.parseInt(rawMaxUnits ?? '', 10);
+        if (!Number.isInteger(parsedMaxUnits) || parsedMaxUnits < 1) {
+          fail('Missing or invalid value for --max-units. Expected a positive integer.');
+        }
+        if (knowledgeAction !== 'pack') {
+          fail('--max-units is only supported for knowledge pack.');
+        }
+
+        maxUnits = parsedMaxUnits;
+        index += 1;
+        continue;
+      }
+
       if (arg === '--workspace') {
         if (knowledgeAction !== 'validate') {
           fail('--workspace is only supported for knowledge validate.');
@@ -1222,6 +1239,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       sourceIds,
       maxSources,
       maxFacts,
+      maxUnits,
       terraformPlanPaths: [],
       pulumiPreviewPaths: []
     };
@@ -2768,7 +2786,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       domains: parsed.domains,
       targetPaths: parsed.targetPaths,
       sourceIds: parsed.sourceIds,
-      maxFacts: parsed.maxFacts ?? undefined
+      maxFacts: parsed.maxFacts ?? undefined,
+      maxUnits: parsed.maxUnits ?? undefined
     });
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), pack)

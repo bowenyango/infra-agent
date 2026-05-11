@@ -1055,6 +1055,9 @@ function validateKnowledgePackPayload(
   const declaredSourceIds = readStringArray(payload.sourceIds, '$.sourceIds', issues);
 
   const maxFacts = readPositiveInteger(payload.maxFacts, '$.maxFacts', issues);
+  const maxUnits = payload.maxUnits === undefined
+    ? maxFacts
+    : readPositiveInteger(payload.maxUnits, '$.maxUnits', issues);
   const sourceCount = readNonNegativeInteger(payload.sourceCount, '$.sourceCount', issues);
   const factSetCount = readNonNegativeInteger(payload.factSetCount, '$.factSetCount', issues);
   const factCount = readNonNegativeInteger(payload.factCount, '$.factCount', issues);
@@ -1160,6 +1163,9 @@ function validateKnowledgePackPayload(
   if (includedFactCount !== null && maxFacts !== null && includedFactCount > maxFacts) {
     issues.push(error('$.includedFactCount', 'Knowledge pack includedFactCount must not exceed maxFacts.'));
   }
+  if (payload.maxUnits !== undefined && maxFacts !== null && maxUnits !== null && maxUnits !== maxFacts) {
+    issues.push(error('$.maxUnits', 'Knowledge pack maxUnits must match maxFacts while maxFacts remains the compatibility budget field.'));
+  }
   if (omittedFactCount !== null && omittedFactCount !== actualOmittedFactCount) {
     issues.push(error('$.omittedFactCount', 'Knowledge pack omittedFactCount must match factCount - includedFactCount.'));
   }
@@ -1173,8 +1179,8 @@ function validateKnowledgePackPayload(
     if (includedUnitCount !== null && unitCount !== null && includedUnitCount > unitCount) {
       issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must not exceed unitCount.'));
     }
-    if (includedUnitCount !== null && maxFacts !== null && includedUnitCount > maxFacts) {
-      issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must not exceed maxFacts.'));
+    if (includedUnitCount !== null && maxUnits !== null && includedUnitCount > maxUnits) {
+      issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must not exceed maxUnits.'));
     }
     if (omittedUnitCount !== null && unitCount !== null && omittedUnitCount !== actualOmittedUnitCount) {
       issues.push(error('$.omittedUnitCount', 'Knowledge pack omittedUnitCount must match unitCount - includedUnitCount.'));

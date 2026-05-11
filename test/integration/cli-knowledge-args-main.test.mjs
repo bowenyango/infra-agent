@@ -183,6 +183,29 @@ test('knowledge pack CLI args accept bounded fact pack flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge pack CLI args accept unit-first budget alias', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'pack',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--max-facts',
+    '9',
+    '--max-units',
+    '4',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'pack');
+  assert.equal(parsed.maxFacts, 9);
+  assert.equal(parsed.maxUnits, 4);
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge publish-plan CLI args accept manifest descriptor and output paths', () => {
   const parsed = parseArgs([
     'knowledge',

@@ -6,6 +6,58 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Unit-First Knowledge Budget Alias
+
+Status:
+
+- Completed the first compatibility step from fact-first budgets toward
+  unit-first Knowledge Unit budgets.
+- New pack and compact summary generation can use `maxUnits`, while `maxFacts`
+  remains serialized as the compatibility budget field for existing consumers.
+
+Implemented checkpoints:
+
+- Added `maxUnits` to generated knowledge packs and compact
+  `knowledgeFacts` summaries.
+- `buildKnowledgePack` and `budgetKnowledgePackFacts` now accept `maxUnits`;
+  when both `maxFacts` and `maxUnits` are provided, `maxUnits` is the
+  unit-first budget and `maxFacts` is kept aligned for compatibility.
+- Knowledge pack validation and compact result contract validation accept
+  optional `maxUnits`, require it to be positive, and reject drift from
+  `maxFacts`.
+- `infra-agent knowledge pack` now accepts `--max-units <n>` while preserving
+  `--max-facts <n>`.
+- `docs/AGENT_RULES.md` now tells future agents to prefer `--max-units` for
+  new unit-first packs.
+
+Design notes:
+
+- This avoids a breaking schema migration. Existing artifacts without
+  `maxUnits` still validate, while new artifacts advertise the unit-first
+  budget explicitly.
+- The compact RAG budget remains deterministic and shared across `facts` and
+  `units` until downstream consumers can split those limits intentionally.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-pack-unit-compatibility.test.mjs`
+- `node --experimental-strip-types --test test/integration/cli-knowledge-args-main.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `node --experimental-strip-types --test test/contract/agent-result-knowledge-contract.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`
+- `npm run test:integration`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Promote provider/Helm/public-doc extractor outputs into stored unit-native
+   packs that can be downloaded and reused across agents.
+2. Add internal-knowledge pack inputs for repo-local or S3-backed curated
+   guidance, examples, diagnostics, and recipes.
+3. Keep `maxFacts` as a compatibility field until compact-result consumers and
+   persisted fixtures can safely rely on `maxUnits`.
+
 ## 2026-05-11 Completed Identity Conflict Diagnostic Review Steps
 
 Status:

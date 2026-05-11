@@ -180,15 +180,18 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `prefetch` to deliberately refresh bounded official-doc cache entries,
   `extract` to create fact sets from cache or local schema/code sources,
   `validate` to check facts before use, and `knowledge pack` to build bounded
-  planner-safe fact bundles. Read `knowledge sources` cache status before
+  planner-safe unit bundles. Prefer `--max-units` for new unit-first packs;
+  `--max-facts` remains a compatibility alias while legacy consumers migrate.
+  Read `knowledge sources` cache status before
   prefetching: `fresh` means the local cache entry is currently usable,
   `stale` or `missing` means a bounded deliberate prefetch may be useful, and
   `local` means no official-doc fetch applies. Packs are advisory context, not
   validator-grade proof.
 - Treat compact `knowledgeFacts` as the validated handoff surface for extracted
   provider/resource/chart/module/Pulumi-config/Pulumi-component facts. Read it
-  before asking for raw docs, honor `includedFactCount`, `omittedFactCount`,
-  `staleSourceCount`, `uncheckedSourceCount`, and `--context-fact-limit`, and
+  before asking for raw docs, honor `includedUnitCount`, `omittedUnitCount`,
+  `includedFactCount`, `omittedFactCount`, `staleSourceCount`,
+  `uncheckedSourceCount`, and the configured compact unit budget, and
   never treat omitted samples as exhaustive. Stale or unchecked source facts
   must not be treated as high-confidence planner evidence.
 - Public-reference provider, package, chart, Helm metadata, and official-doc

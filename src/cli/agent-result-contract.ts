@@ -4279,6 +4279,15 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
       'a positive integer'
     );
   }
+  if (value.knowledgeFacts.maxUnits !== undefined) {
+    assertIntegerField(
+      value.knowledgeFacts,
+      'maxUnits',
+      'knowledgeFacts',
+      isPositiveInteger,
+      'a positive integer'
+    );
+  }
 
   for (const field of [
     'sourceCount',
@@ -4302,6 +4311,9 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
   }
 
   const knowledgeFactMaxFacts = value.knowledgeFacts.maxFacts as number;
+  const knowledgeUnitMaxUnits = value.knowledgeFacts.maxUnits === undefined
+    ? knowledgeFactMaxFacts
+    : value.knowledgeFacts.maxUnits as number;
   const knowledgeFactSourceCount = value.knowledgeFacts.sourceCount as number;
   const knowledgeFactTotalCount = value.knowledgeFacts.totalFactCount as number;
   const knowledgeFactIncludedCount = value.knowledgeFacts.includedFactCount as number;
@@ -4328,8 +4340,12 @@ export function parseCompactAgentRunResult(value: unknown): CompactAgentRunResul
     throw new Error('compact result input knowledgeFacts.includedFactCount must not exceed maxFacts.');
   }
 
-  if (knowledgeUnitIncludedCount > knowledgeFactMaxFacts) {
-    throw new Error('compact result input knowledgeFacts.includedUnitCount must not exceed maxFacts.');
+  if (value.knowledgeFacts.maxUnits !== undefined && knowledgeUnitMaxUnits !== knowledgeFactMaxFacts) {
+    throw new Error('compact result input knowledgeFacts.maxUnits must match maxFacts while maxFacts remains the compatibility budget field.');
+  }
+
+  if (knowledgeUnitIncludedCount > knowledgeUnitMaxUnits) {
+    throw new Error('compact result input knowledgeFacts.includedUnitCount must not exceed maxUnits.');
   }
 
   if (

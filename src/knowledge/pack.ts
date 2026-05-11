@@ -139,6 +139,7 @@ export interface KnowledgePack {
   includedUnitCount: number;
   omittedUnitCount: number;
   maxFacts: number;
+  maxUnits?: number;
   staleSourceCount: number;
   storagePolicy: KnowledgeStoragePolicySummary;
   sources: KnowledgePackSource[];
@@ -148,14 +149,16 @@ export interface KnowledgePack {
 
 export interface KnowledgePackOptions extends KnowledgeExtractionOptions {
   maxFacts?: number;
+  maxUnits?: number;
 }
 
-function normalizeMaxFacts(maxFacts: number | undefined): number {
-  if (!Number.isInteger(maxFacts) || maxFacts === undefined) {
+function normalizeMaxUnitBudget(input: { maxFacts?: number; maxUnits?: number }): number {
+  const selectedBudget = input.maxUnits ?? input.maxFacts;
+  if (!Number.isInteger(selectedBudget) || selectedBudget === undefined) {
     return 80;
   }
 
-  return Math.max(1, maxFacts);
+  return Math.max(1, selectedBudget);
 }
 
 function packHash(input: {
@@ -295,7 +298,8 @@ export async function buildKnowledgePack(
   inspection: WorkspaceInspection,
   options: KnowledgePackOptions = {}
 ): Promise<KnowledgePack> {
-  const maxFacts = normalizeMaxFacts(options.maxFacts);
+  const maxUnits = normalizeMaxUnitBudget(options);
+  const maxFacts = maxUnits;
   const extraction = await extractWorkspaceKnowledgeFacts(inspection, options);
   const sourceIndex = new Map(extraction.sources.map(source => [
     source.id,
@@ -335,6 +339,7 @@ export async function buildKnowledgePack(
     includedUnitCount: units.length,
     omittedUnitCount: Math.max(0, rankedFacts.length - units.length),
     maxFacts,
+    maxUnits,
     staleSourceCount: sources.filter(source => source.stale).length,
     storagePolicy,
     sources,

@@ -3565,7 +3565,7 @@ export function printKnowledgePack(pack: KnowledgePack): void {
   process.stdout.write(`knowledge cache: ${pack.cacheRoot}\n`);
   process.stdout.write(`domains: ${pack.requestedDomains.length > 0 ? pack.requestedDomains.join(', ') : 'none'}\n`);
   process.stdout.write(`targets: ${pack.targetPaths.length > 0 ? pack.targetPaths.join(', ') : 'all'}\n`);
-  process.stdout.write(`summary: sources=${pack.sourceCount}, factSets=${pack.factSetCount}, facts=${pack.includedFactCount}/${pack.factCount}, omitted=${pack.omittedFactCount}, staleSources=${pack.staleSourceCount}, uncheckedSources=${uncheckedSourceCount}\n`);
+  process.stdout.write(`summary: sources=${pack.sourceCount}, factSets=${pack.factSetCount}, facts=${pack.includedFactCount}/${pack.factCount}, units=${pack.includedUnitCount}/${pack.unitCount}, maxUnits=${pack.maxUnits ?? pack.maxFacts}, omitted=${pack.omittedFactCount}, omittedUnits=${pack.omittedUnitCount}, staleSources=${pack.staleSourceCount}, uncheckedSources=${uncheckedSourceCount}\n`);
   process.stdout.write(`storage: public-reference=${pack.storagePolicy.publicReference}, workspace-private=${pack.storagePolicy.workspacePrivate}, shareable=${pack.storagePolicy.shareableByDefault}, opt-in=${pack.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Facts');
   printList(pack.facts.map(fact => `${fact.confidence} ${fact.kind} ${fact.path}: ${fact.summary}`), 'No knowledge facts included.');

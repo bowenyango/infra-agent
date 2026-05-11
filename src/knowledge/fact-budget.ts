@@ -45,6 +45,7 @@ export interface KnowledgeFactBudgetSummary {
   mutationAllowed: false;
   packId: string | null;
   maxFacts: number;
+  maxUnits?: number;
   sourceCount: number;
   factSetCount: number;
   totalFactCount: number;
@@ -65,6 +66,16 @@ function normalizeMaxFacts(maxFacts: number | undefined, fallback: number): numb
     ? Math.trunc(maxFacts ?? fallback)
     : fallback;
   return Math.max(1, value);
+}
+
+function normalizeMaxUnitBudget(
+  options: {
+    maxFacts?: number;
+    maxUnits?: number;
+  },
+  fallback: number
+): number {
+  return normalizeMaxFacts(options.maxUnits ?? options.maxFacts, fallback);
 }
 
 function compactFact(fact: KnowledgePackFact, source: KnowledgePackSource | undefined): BudgetedKnowledgeFact {
@@ -168,10 +179,12 @@ export function budgetKnowledgePackFacts(
   pack: KnowledgePack | null | undefined,
   options: {
     maxFacts?: number;
+    maxUnits?: number;
   } = {}
 ): KnowledgeFactBudgetSummary {
-  const fallbackMaxFacts = pack?.maxFacts ?? 1;
-  const maxFacts = normalizeMaxFacts(options.maxFacts, fallbackMaxFacts);
+  const fallbackMaxUnits = pack?.maxUnits ?? pack?.maxFacts ?? 1;
+  const maxUnits = normalizeMaxUnitBudget(options, fallbackMaxUnits);
+  const maxFacts = maxUnits;
   const sourceById = new Map((pack?.sources ?? []).map(source => [source.id, source]));
   const facts = (pack?.facts ?? [])
     .slice(0, maxFacts)
@@ -193,6 +206,7 @@ export function budgetKnowledgePackFacts(
     mutationAllowed: false,
     packId: pack?.packId ?? null,
     maxFacts,
+    maxUnits,
     sourceCount: pack?.sourceCount ?? 0,
     factSetCount: pack?.factSetCount ?? 0,
     totalFactCount,
