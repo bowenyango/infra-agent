@@ -316,6 +316,58 @@ test('upload command boundary validation rejects forged command state', async ()
   assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries.uploadCommandGenerated'), true);
 });
 
+test('upload command boundary validation rejects top-level execution flags', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({ liveCheckBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    mutationAllowed: true,
+    executionMode: 'execute',
+    remoteWriteAllowed: true,
+    liveCheckAllowed: true,
+    credentialValuesExposed: true,
+    credentialPresenceChecked: true,
+    uploadApproved: true,
+    uploadExecutionAllowed: true,
+    mutationApprovalGranted: true,
+    clientCreated: true,
+    adapterInjected: true,
+    artifactBytesProvided: true,
+    writeTokenIssued: true,
+    executionLeaseCreated: true,
+    rollbackPlanCreated: true,
+    auditRecordCreated: true,
+    objectWriteAttempted: true,
+    metadataIndexWriteAttempted: true,
+    remoteMutationPerformed: true
+  }, 'knowledge-pack.upload-command-boundary.json');
+
+  assert.equal(report.valid, false);
+  for (const path of [
+    '$.mutationAllowed',
+    '$.executionMode',
+    '$.remoteWriteAllowed',
+    '$.liveCheckAllowed',
+    '$.credentialValuesExposed',
+    '$.credentialPresenceChecked',
+    '$.uploadApproved',
+    '$.uploadExecutionAllowed',
+    '$.mutationApprovalGranted',
+    '$.clientCreated',
+    '$.adapterInjected',
+    '$.artifactBytesProvided',
+    '$.writeTokenIssued',
+    '$.executionLeaseCreated',
+    '$.rollbackPlanCreated',
+    '$.auditRecordCreated',
+    '$.objectWriteAttempted',
+    '$.metadataIndexWriteAttempted',
+    '$.remoteMutationPerformed'
+  ]) {
+    assert.equal(report.issues.some(issue => issue.path === path), true, path);
+  }
+});
+
 test('upload command boundary validation rejects missing ready prerequisites', async () => {
   const liveCheckBoundary = await validLiveCheckBoundary();
   const boundary = buildKnowledgeTeamUploadCommandBoundary({ liveCheckBoundary });
@@ -361,6 +413,148 @@ test('upload command boundary validation rejects missing ready prerequisites', a
   assert.equal(report.issues.some(issue => issue.path === '$.readiness.blockerCount'), true);
 });
 
+test('upload command boundary validation rejects malformed section shapes', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({ liveCheckBoundary });
+  const report = validateKnowledgePayload({
+    ...boundary,
+    status: 'blocked',
+    target: null,
+    sourceLiveCheckBoundary: null,
+    uploadCommandBoundary: null,
+    remainingExecutionBoundaries: null,
+    readiness: {
+      ...boundary.readiness,
+      status: 'blocked',
+      nextAction: 'design-object-index-binding-boundary',
+      blockerCount: 1,
+      blockerCodes: ['missing-required-field'],
+      blockers: [{
+        code: 'missing-required-field',
+        path: '$.target',
+        message: 'target missing'
+      }]
+    }
+  }, 'knowledge-pack.upload-command-boundary.json');
+
+  assert.equal(report.valid, false);
+  assert.equal(report.issues.some(issue => issue.path === '$.target'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.sourceLiveCheckBoundary'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.uploadCommandBoundary'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.remainingExecutionBoundaries'), true);
+  assert.equal(report.issues.some(issue => issue.path === '$.readiness.nextAction'), true);
+});
+
+test('upload command boundary validation rejects nested boundary drift', async () => {
+  const liveCheckBoundary = await validLiveCheckBoundary();
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({ liveCheckBoundary });
+  const requiredCommandFields = [
+    'dryRunOnly',
+    'uploadCommandRequiredBeforeExecution',
+    'uploadCommandRequiredAfterLiveCheckBoundary',
+    'liveCheckBoundaryRequired',
+    'liveCheckPolicyRequired',
+    'liveCheckResultRedactionRequired',
+    'credentialPresenceBoundaryRequired',
+    'credentialReadBoundaryRequired',
+    'credentialSourceDescriptorRequired',
+    'credentialReferenceOnlyRequired',
+    'credentialValueRedactionRequired',
+    'credentialPresenceResultRedactionRequired',
+    'mockAdapterRequired',
+    'clientFactoryDescriptorRequired',
+    'uploadCommandDescriptorRequired',
+    'uploadCommandPayloadRedactionRequired',
+    'uploadCommandMaterialRedactionRequired',
+    'commandExecutionApprovalRequired',
+    'artifactObjectStoreDependencyRequired',
+    'metadataIndexDependencyRequired',
+    'contentAddressedObjectKeysRequired',
+    'contentAddressedIndexKeysRequired',
+    'idempotentWritesRequired',
+    'explicitUploadApprovalRequired'
+  ];
+  const disabledCommandFields = [
+    'credentialValuesRead',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'credentialPresenceResultExposed',
+    'clientCreated',
+    'sdkClientCreated',
+    'adapterInjected',
+    'artifactObjectStoreBound',
+    'metadataIndexBound',
+    'liveCheckAllowed',
+    'liveCheckPerformed',
+    'liveCheckResultExposed',
+    'uploadCommandGenerated',
+    'uploadCommandMaterialized',
+    'uploadCommandExposed',
+    'uploadExecutionAllowed',
+    'objectWriteAttempted',
+    'metadataIndexWriteAttempted',
+    'remoteMutationPerformed',
+    'executable'
+  ];
+  const requiredRemainingFields = [
+    'artifactBytesRequired',
+    'adapterInjectionRequired',
+    'clientCreationRequired',
+    'credentialReadRequired',
+    'credentialPresenceCheckRequired',
+    'liveCheckRequired',
+    'uploadCommandRequired',
+    'writeTokenRequired',
+    'executionLeaseRequired',
+    'rollbackPlanRequired',
+    'auditRecordRequired'
+  ];
+  const disabledRemainingFields = [
+    'artifactBytesProvided',
+    'adapterInjected',
+    'clientCreated',
+    'credentialValuesExposed',
+    'credentialPresenceChecked',
+    'liveCheckPerformed',
+    'uploadCommandGenerated',
+    'writeTokenIssued',
+    'executionLeaseCreated',
+    'rollbackPlanCreated',
+    'auditRecordCreated',
+    'objectWriteAllowed',
+    'metadataIndexWriteAllowed',
+    'remoteMutationAllowed'
+  ];
+  const uploadCommandBoundary = { ...boundary.uploadCommandBoundary };
+  const remainingExecutionBoundaries = { ...boundary.remainingExecutionBoundaries };
+  for (const key of requiredCommandFields) {
+    uploadCommandBoundary[key] = false;
+  }
+  for (const key of disabledCommandFields) {
+    uploadCommandBoundary[key] = true;
+  }
+  for (const key of requiredRemainingFields) {
+    remainingExecutionBoundaries[key] = false;
+  }
+  for (const key of disabledRemainingFields) {
+    remainingExecutionBoundaries[key] = true;
+  }
+
+  const report = validateKnowledgePayload({
+    ...boundary,
+    uploadCommandBoundary,
+    remainingExecutionBoundaries
+  }, 'knowledge-pack.upload-command-boundary.json');
+
+  assert.equal(report.valid, false);
+  for (const key of [...requiredCommandFields, ...disabledCommandFields]) {
+    assert.equal(report.issues.some(issue => issue.path === `$.uploadCommandBoundary.${key}`), true, key);
+  }
+  for (const key of [...requiredRemainingFields, ...disabledRemainingFields]) {
+    assert.equal(report.issues.some(issue => issue.path === `$.remainingExecutionBoundaries.${key}`), true, key);
+  }
+});
+
 test('upload command boundary blocks invalid live check inputs', () => {
   const boundary = buildKnowledgeTeamUploadCommandBoundary({
     liveCheckBoundary: 'not-json'
@@ -374,14 +568,34 @@ test('upload command boundary blocks invalid live check inputs', () => {
   assertNoPrivateValues(boundary);
 });
 
+test('upload command boundary blocks primitive private live check inputs without copying values', () => {
+  const boundary = buildKnowledgeTeamUploadCommandBoundary({
+    liveCheckBoundary: 'https://should-not-copy.example.test/private-key'
+  });
+
+  const codes = blockerCodes(boundary);
+  assert.equal(boundary.status, 'blocked');
+  assert.equal(codes.has('invalid-live-check-boundary-kind'), true);
+  assert.equal(codes.has('backend-detail-leak'), true);
+  assertExecutionAndCommandDisabled(boundary);
+  assertNoPrivateValues(boundary);
+});
+
 test('upload command boundary blocks malformed live check metadata', async () => {
   const liveCheckBoundary = await validLiveCheckBoundary();
   const boundary = buildKnowledgeTeamUploadCommandBoundary({
     liveCheckBoundary: {
       ...liveCheckBoundary,
       kind: 'wrong-kind',
+      status: 'waiting-for-command',
       schemaVersion: 2,
       boundaryKind: 'wrong-boundary',
+      target: {
+        manifestId: 'unsafe-id',
+        objectKey: 'not a safe object key',
+        objectSha256: 'not-a-sha',
+        artifactId: 'unsafe-artifact-id'
+      },
       readiness: {
         ...liveCheckBoundary.readiness,
         nextAction: 'execute-upload'
@@ -401,6 +615,8 @@ test('upload command boundary blocks malformed live check metadata', async () =>
   assert.equal(codes.has('invalid-schema-version'), true);
   assert.equal(codes.has('invalid-boundary-kind'), true);
   assert.equal(codes.has('live-check-boundary-next-action-invalid'), true);
+  assert.equal(codes.has('live-check-boundary-not-ready'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
   assert.equal(codes.has('unsafe-adapter-name'), true);
   assert.equal(codes.has('unsupported-adapter-backend'), true);
   assert.equal(codes.has('review-fingerprint-unverified'), true);
@@ -414,11 +630,13 @@ test('upload command boundary blocks missing live check sections', async () => {
     sourceCredentialPresenceBoundary,
     liveCheckBoundary: liveCheckBoundarySection,
     remainingExecutionBoundaries,
+    target,
     ...missingSections
   } = liveCheckBoundary;
   assert.equal(sourceCredentialPresenceBoundary.source, 'upload-credential-presence-boundary');
   assert.equal(liveCheckBoundarySection.dryRunOnly, true);
   assert.equal(remainingExecutionBoundaries.uploadCommandRequired, true);
+  assert.equal(typeof target.objectKey, 'string');
 
   const boundary = buildKnowledgeTeamUploadCommandBoundary({
     liveCheckBoundary: missingSections
@@ -427,6 +645,7 @@ test('upload command boundary blocks missing live check sections', async () => {
   const codes = blockerCodes(boundary);
   assert.equal(boundary.status, 'blocked');
   assert.equal(codes.has('missing-required-field'), true);
+  assert.equal(codes.has('unsafe-artifact-reference'), true);
   assert.equal(codes.has('upload-command-not-required'), true);
   assert.equal(codes.has('live-check-not-required'), true);
   assertExecutionAndCommandDisabled(boundary);
@@ -488,6 +707,9 @@ test('upload command boundary reports command, backend, and credential details w
       clientConfig: {
         secret: 'client-secret-value'
       },
+      adapterInstance: {
+        endpoint: 'https://should-not-copy.example.test'
+      },
       artifactBytesBase64: 'raw-artifact-bytes'
     }
   });
@@ -499,6 +721,7 @@ test('upload command boundary reports command, backend, and credential details w
   assert.equal(codes.has('credential-dependency-leak'), true);
   assert.equal(codes.has('live-check-enabled'), true);
   assert.equal(codes.has('client-dependency-leak'), true);
+  assert.equal(codes.has('adapter-dependency-leak'), true);
   assert.equal(codes.has('artifact-bytes-provided'), true);
   assertExecutionAndCommandDisabled(boundary);
   assertNoPrivateValues(boundary);

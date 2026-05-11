@@ -48,6 +48,7 @@ Completed commits for this slice:
 10. `test: cover upload command cli`
 11. `test: guard upload command boundary no sdk`
 12. `docs: document upload command boundary`
+13. `test: cover upload command boundary edge cases`
 
 Implemented artifact and CLI:
 
@@ -99,6 +100,8 @@ Validation run during this slice:
 - `node --experimental-strip-types ./test/integration/cli-core-main.test.mjs`
 - `node --experimental-strip-types ./test/integration/cli-knowledge-upload-command-boundary-main.test.mjs`
 - `node --experimental-strip-types ./test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `npm run test:coverage`
+- `npm run verify`
 
 Core files:
 
