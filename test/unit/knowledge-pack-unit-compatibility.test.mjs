@@ -58,7 +58,7 @@ test('knowledge pack validation rejects non-fact unit labels in legacy facts', a
   assert.ok(report.issues.some(issue => issue.path === '$.facts[0].unitType'));
 });
 
-test('knowledge pack validation rejects forged unit count and source drift', async () => {
+test('knowledge pack validation rejects forged unit budget and source drift', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const pack = await buildKnowledgePack(inspection, {
     domains: ['helm'],
@@ -71,7 +71,7 @@ test('knowledge pack validation rejects forged unit count and source drift', asy
     ...pack,
     unitCount: pack.unitCount + 1,
     includedUnitCount: 1,
-    omittedUnitCount: pack.unitCount,
+    omittedUnitCount: pack.unitCount - 1,
     units: [{
       ...pack.units[0],
       sourceId: 'missing-source'
@@ -79,7 +79,7 @@ test('knowledge pack validation rejects forged unit count and source drift', asy
   }, 'inline');
 
   assert.equal(report.valid, false);
-  for (const path of ['$.unitCount', '$.omittedUnitCount', '$.units[0].sourceId']) {
+  for (const path of ['$.omittedUnitCount', '$.units[0].sourceId']) {
     assert.ok(report.issues.some(issue => issue.path === path), path);
   }
 });
@@ -174,13 +174,48 @@ test('knowledge pack budget and validation accept mixed knowledge unit projectio
 
   const validationReport = validateKnowledgePayload({
     ...pack,
-    unitCount: pack.factCount,
+    unitCount: units.length,
     includedUnitCount: units.length,
-    omittedUnitCount: pack.factCount - units.length,
+    omittedUnitCount: 0,
     units
   }, 'inline');
 
   assert.equal(validationReport.valid, true);
+});
+
+test('knowledge pack validation accepts unit-native packs whose unit totals diverge from facts', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const pack = await buildKnowledgePack(inspection, {
+    domains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    maxFacts: 4,
+    extractedAt: '2026-05-05T00:00:00.000Z'
+  });
+  const source = pack.sources[0];
+  const diagnosticUnit = {
+    unitType: 'diagnostic',
+    path: 'charts/payments-api',
+    summary: 'Helm render failures usually need values and template review.',
+    confidence: 'medium',
+    extractionMethod: 'validation-diagnostic',
+    sourceId: source.id,
+    sourceLocator: `${source.kind}:${source.name}`,
+    privacyScope: source.storagePolicy.scope,
+    engine: 'helm',
+    signature: 'render failure',
+    likelyCause: 'Template assumptions do not match values.',
+    recommendedReview: ['Run helm template for the selected chart.']
+  };
+
+  const report = validateKnowledgePayload({
+    ...pack,
+    unitCount: 1,
+    includedUnitCount: 1,
+    omittedUnitCount: 0,
+    units: [diagnosticUnit]
+  }, 'inline');
+
+  assert.equal(report.valid, true);
 });
 
 test('knowledge pack budget ranks mixed units before slicing without reordering legacy facts', async () => {

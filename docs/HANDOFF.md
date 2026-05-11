@@ -6,6 +6,48 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Unit-Native Pack Validation
+
+Status:
+
+- Completed the validation slice needed before true non-fact unit extraction.
+- Knowledge pack validation no longer assumes `unitCount === factCount`.
+
+Implemented checkpoints:
+
+- `src/knowledge/validate.ts` now validates unit totals as their own compact
+  budget: `unitCount` must be at least `units.length`,
+  `includedUnitCount` must match `units.length`, and `omittedUnitCount` must
+  match `unitCount - includedUnitCount`.
+- Unit source references and all five unit payload shapes remain validated.
+- Existing fact-backed packs still validate, and legacy packs without unit
+  fields remain accepted.
+- Added tests for unit-native packs whose unit totals intentionally diverge
+  from fact totals.
+
+Design notes:
+
+- This is the compatibility gate for future `diagnostic`, `guidance`,
+  `example`, and `recipe` extraction. Without it, real unit-native packs would
+  be rejected even when their unit payloads were valid.
+- Fact count validation is unchanged. `facts` remains the legacy compatibility
+  view, while `units` can now evolve independently.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-pack-unit-compatibility.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-pack-ranking.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-validation-artifact-reference.test.mjs`
+
+Next recommended implementation steps:
+
+1. Add first real `diagnostic` unit extraction from validation issue
+   classifiers and identity conflict classifiers.
+2. Add `recipe` units for Terraform moved blocks, Pulumi aliases, Pulumi stack
+   config changes, Helm values migrations, and import/state review.
+3. Add a `maxUnits` option or alias after compact result consumers have fully
+   migrated to unit-first terminology.
+
 ## 2026-05-11 Completed Knowledge Unit Ranking Budget
 
 Status:
@@ -50,8 +92,8 @@ Next recommended implementation steps:
    classifiers and identity conflict classifiers.
 2. Add `recipe` units for Terraform moved blocks, Pulumi aliases, Pulumi stack
    config changes, Helm values migrations, and import/state review.
-3. Relax pack validation once `unitCount` intentionally diverges from
-   `factCount` for true unit-native packs.
+3. Add a `maxUnits` option or alias after compact result consumers have fully
+   migrated to unit-first terminology.
 
 ## 2026-05-11 Completed Unit-Aware Runtime Handoff
 

@@ -1130,9 +1130,10 @@ function validateKnowledgePackPayload(
   const actualFactCount = sources.reduce((total, source) => total + source.factCount, 0);
   const actualIncludedFactCount = facts.length;
   const actualOmittedFactCount = Math.max(0, actualFactCount - actualIncludedFactCount);
-  const actualUnitCount = hasUnitFields ? actualFactCount : 0;
   const actualIncludedUnitCount = units.length;
-  const actualOmittedUnitCount = Math.max(0, actualUnitCount - actualIncludedUnitCount);
+  const actualOmittedUnitCount = unitCount !== null
+    ? unitCount - actualIncludedUnitCount
+    : 0;
   const actualStaleSourceCount = sources.filter(source => source.stale).length;
   const actualStoragePolicy = {
     publicReference: sources.filter(source => source.storagePolicy.scope === 'public-reference').length,
@@ -1163,8 +1164,8 @@ function validateKnowledgePackPayload(
     issues.push(error('$.omittedFactCount', 'Knowledge pack omittedFactCount must match factCount - includedFactCount.'));
   }
   if (hasUnitFields) {
-    if (unitCount !== null && unitCount !== actualUnitCount) {
-      issues.push(error('$.unitCount', 'Knowledge pack unitCount must match factCount while units are fact-backed.'));
+    if (unitCount !== null && unitCount < actualIncludedUnitCount) {
+      issues.push(error('$.unitCount', 'Knowledge pack unitCount must not be less than units.length.'));
     }
     if (includedUnitCount !== null && includedUnitCount !== actualIncludedUnitCount) {
       issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must match units.length.'));
@@ -1175,7 +1176,7 @@ function validateKnowledgePackPayload(
     if (includedUnitCount !== null && maxFacts !== null && includedUnitCount > maxFacts) {
       issues.push(error('$.includedUnitCount', 'Knowledge pack includedUnitCount must not exceed maxFacts.'));
     }
-    if (omittedUnitCount !== null && omittedUnitCount !== actualOmittedUnitCount) {
+    if (omittedUnitCount !== null && unitCount !== null && omittedUnitCount !== actualOmittedUnitCount) {
       issues.push(error('$.omittedUnitCount', 'Knowledge pack omittedUnitCount must match unitCount - includedUnitCount.'));
     }
   }
