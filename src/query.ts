@@ -25,6 +25,7 @@ import { retrieveTerraformProviderSchemaContextPackets } from './domain/terrafor
 import { retrieveTerraformRegistryContextPackets } from './domain/terraform-registry-context.ts';
 import { retrieveHelmChartContextPackets } from './domain/helm-chart-context.ts';
 import { buildKnowledgePack } from './knowledge/pack.ts';
+import { syncValidationDiagnosticKnowledgeUnits } from './knowledge/validation-diagnostic-units.ts';
 import { classifyToolPermission } from './agent/tool-permissions.ts';
 import {
   isApprovalRequiredForToolCategory,
@@ -203,6 +204,13 @@ function applyExecutionToRuntime(
 ): AgentRuntimeState {
   const nextRuntime = cloneRuntimeState(runtime);
 
+  function refreshValidationDerivedState(): void {
+    nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
+    nextRuntime.configSemantics = refreshRuntimeConfigSemantics(nextRuntime);
+    const syncedRuntime = syncValidationDiagnosticKnowledgeUnits(nextRuntime);
+    nextRuntime.knowledgeFacts = syncedRuntime.knowledgeFacts;
+  }
+
   for (const toolResult of execution.executedTools) {
     nextRuntime.observations.push(toolResult);
     nextRuntime.toolSummaries.push(summarizeExecutedTool({
@@ -251,15 +259,13 @@ function applyExecutionToRuntime(
     if (toolResult.toolName === 'validate_targets') {
       const output = toolResult.output as ValidationRunOutput;
       nextRuntime.validationResults.push(...output.results);
-      nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
-      nextRuntime.configSemantics = refreshRuntimeConfigSemantics(nextRuntime);
+      refreshValidationDerivedState();
     }
 
     if (toolResult.toolName === 'validate_yaml_syntax') {
       const output = toolResult.output as YamlSyntaxValidationOutput;
       nextRuntime.validationResults.push(output.result);
-      nextRuntime.validationIssues = classifyValidationIssues(nextRuntime.validationResults);
-      nextRuntime.configSemantics = refreshRuntimeConfigSemantics(nextRuntime);
+      refreshValidationDerivedState();
     }
 
     if (toolResult.toolName === 'terraform_fmt') {
@@ -602,6 +608,7 @@ export async function runQueryLoop(
         validationResults: [],
         validationIssues: []
       };
+      runtime = syncValidationDiagnosticKnowledgeUnits(runtime);
     }
 
     if (!approvalGate) {

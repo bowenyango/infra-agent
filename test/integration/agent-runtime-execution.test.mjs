@@ -102,6 +102,10 @@ test('rule-based agent repairs missing service.port after validation failure', a
     assert.ok(result.runtime.repairAttempts >= 1);
     assert.ok(result.runtime.validationResults.every(entry => entry.exitCode === 0));
     assert.equal(result.runtime.validationIssues.length, 0);
+    assert.equal(
+      result.runtime.knowledgeFacts?.units.some(unit => unit.extractionMethod === 'validation-diagnostic'),
+      false
+    );
     assert.equal(result.outcome, 'completed');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -466,7 +470,16 @@ test('runSingleStep respects configured zero repair attempts', async () => {
     assert.equal(result.runtime.maxRepairAttempts, 0);
     assert.equal(result.runtime.repairAttempts, 0);
     assert.equal(result.outcome, 'repair-budget-exhausted');
+    assert.ok(result.runtime.knowledgeFacts?.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.extractionMethod === 'validation-diagnostic'
+      && unit.privacyScope === 'private-run'
+    ));
     const compact = buildCompactAgentRunResult(result);
+    assert.ok(compact.knowledgeFacts.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.extractionMethod === 'validation-diagnostic'
+    ));
     assert.equal(compact.harness.queryConfig.maxRepairAttempts, 0);
     assert.deepEqual(compact.harness.repairBudget, {
       attemptsUsed: 0,

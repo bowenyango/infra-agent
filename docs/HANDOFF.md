@@ -6,6 +6,54 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Completed Validation Diagnostic Units
+
+Status:
+
+- Completed the first real non-fact Knowledge Unit implementation.
+- Runtime validation issues now generate compact `diagnostic` units for planner
+  handoff and compact result output.
+
+Implemented checkpoints:
+
+- Added `src/knowledge/validation-diagnostic-units.ts` to convert current
+  `ValidationIssue` entries into private-run diagnostic units.
+- Diagnostic units are synchronized, not blindly appended: old
+  `validation-diagnostic` units are removed before current issues are
+  projected, and they are cleared once validation issues are cleared after a
+  successful repair.
+- `src/query.ts` now syncs validation diagnostic units whenever validation
+  results are classified and after repair flows clear validation state.
+- Diagnostic units reuse existing knowledge pack sources by domain/target,
+  avoid raw validator output, redact secret-like issue fields, and preserve the
+  reusable fact pack as the compatibility view.
+
+Design notes:
+
+- This intentionally keeps validator diagnostics as `privacyScope:
+  private-run`. They are runtime observations, not public/provider knowledge.
+- The implementation does not create a new validation source kind yet. It
+  links diagnostics to the closest existing knowledge source so compact result
+  source references remain valid without expanding the source contract.
+- Unit-native validation from the previous slice allows these diagnostics to
+  make `unitCount` diverge from `factCount` safely.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-validation-diagnostic-units.test.mjs`
+- `node --experimental-strip-types --test test/integration/agent-runtime-execution.test.mjs`
+- `node --experimental-strip-types --test test/contract/agent-result-knowledge-contract.test.mjs`
+
+Next recommended implementation steps:
+
+1. Add `recipe` units for high-value infra workflows: Terraform moved blocks,
+   Pulumi aliases, Pulumi stack config writes, Helm values migrations, and
+   import/state review.
+2. Promote selected identity conflict summaries into richer diagnostic units
+   with conflict-family-specific `recommendedReview`.
+3. Add a `maxUnits` option or alias after compact result consumers have fully
+   migrated to unit-first terminology.
+
 ## 2026-05-11 Completed Unit-Native Pack Validation
 
 Status:
