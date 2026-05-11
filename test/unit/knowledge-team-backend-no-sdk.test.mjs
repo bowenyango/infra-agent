@@ -30,6 +30,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-object-index-binding-boundary.ts',
   'src/knowledge/team-upload-execution-readiness-boundary.ts',
   'src/knowledge/team-upload-execution-approval-request.ts',
+  'src/knowledge/team-upload-execution-approval-record.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -76,6 +77,10 @@ const EXECUTION_READINESS_BOUNDARY_MODULES = [
 
 const EXECUTION_APPROVAL_REQUEST_MODULES = [
   'src/knowledge/team-upload-execution-approval-request.ts'
+];
+
+const EXECUTION_APPROVAL_RECORD_MODULES = [
+  'src/knowledge/team-upload-execution-approval-record.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -421,6 +426,62 @@ const FORBIDDEN_EXECUTION_APPROVAL_REQUEST_EXECUTION = [
   'executable: true'
 ];
 
+const FORBIDDEN_EXECUTION_APPROVAL_RECORD_EXECUTION = [
+  'createMockKnowledgeTeamBackendAdapter(',
+  'createClient(',
+  'new S3',
+  'new Client',
+  'putObject(',
+  'putEntry(',
+  'artifactStore.put',
+  'metadataIndex.put',
+  'readFile(',
+  'createReadStream(',
+  'process.env[',
+  'process.env.',
+  'fetch(',
+  'node:http',
+  'node:https',
+  'node:net',
+  'node:tls',
+  'clientCreated: true',
+  'sdkClientCreated: true',
+  'adapterInjected: true',
+  'credentialValuesRead: true',
+  'credentialValuesExposed: true',
+  'credentialPresenceChecked: true',
+  'credentialPresenceResultExposed: true',
+  'liveCheckAllowed: true',
+  'liveCheckPerformed: true',
+  'liveCheckResultExposed: true',
+  'uploadCommandGenerated: true',
+  'uploadCommandMaterialized: true',
+  'uploadCommandExposed: true',
+  'uploadCommand: {',
+  'uploadCommand: \'',
+  'uploadCommand: "',
+  'uploadApproved: true',
+  'uploadExecutionApproved: true',
+  'uploadExecutionAllowed: true',
+  'mutationApprovalGranted: true',
+  'approvalGranted: true',
+  'artifactBytesProvided: true',
+  'artifactObjectStoreBound: true',
+  'metadataIndexBound: true',
+  'objectStoreHandleExposed: true',
+  'metadataIndexHandleExposed: true',
+  'objectWriteAllowed: true',
+  'metadataIndexWriteAllowed: true',
+  'objectWriteAttempted: true',
+  'metadataIndexWriteAttempted: true',
+  'writeTokenIssued: true',
+  'executionLeaseCreated: true',
+  'rollbackPlanCreated: true',
+  'auditRecordCreated: true',
+  'remoteMutationPerformed: true',
+  'executable: true'
+];
+
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
   const root = process.cwd();
 
@@ -596,6 +657,21 @@ test('upload execution approval request does not grant approval, instantiate cli
         source.includes(forbidden),
         false,
         `${relativePath} must not grant approval, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('upload execution approval record does not grant execution, instantiate clients, read credentials, generate commands, or write', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of EXECUTION_APPROVAL_RECORD_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_EXECUTION_APPROVAL_RECORD_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not grant execution, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
       );
     }
   }
