@@ -731,3 +731,25 @@ test('knowledge upload-execution-plan-rules-review CLI args accept authorization
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-plan-rules-review.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge record-upload-execution-plan-rules-update CLI args accept review fingerprint and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'record-upload-execution-plan-rules-update',
+    'artifacts/knowledge-pack.upload-execution-plan-rules-review.json',
+    '--review-fingerprint',
+    'a'.repeat(64),
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-plan-rules-update-record.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'record-upload-execution-plan-rules-update');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-execution-plan-rules-review.json');
+  assert.equal(parsed.reviewFingerprint, 'a'.repeat(64));
+  assert.equal(parsed.approvalFingerprint, null);
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-plan-rules-update-record.json');
+  assert.equal(parsed.json, true);
+});

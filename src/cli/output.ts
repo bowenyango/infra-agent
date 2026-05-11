@@ -77,6 +77,7 @@ import type { KnowledgeTeamUploadExecutionApprovalRequest } from '../knowledge/t
 import type { KnowledgeTeamUploadExecutionApprovalRecord } from '../knowledge/team-upload-execution-approval-record.ts';
 import type { KnowledgeTeamUploadExecutionAuthorizationBoundary } from '../knowledge/team-upload-execution-authorization-boundary.ts';
 import type { KnowledgeTeamUploadExecutionPlanRulesReview } from '../knowledge/team-upload-execution-plan-rules-review.ts';
+import type { KnowledgeTeamUploadExecutionPlanRulesUpdateRecord } from '../knowledge/team-upload-execution-plan-rules-update-record.ts';
 import { budgetRetrievedContext, type RetrievedContextBudgetSummary } from '../knowledge/context-budget.ts';
 import {
   budgetKnowledgePackFacts,
@@ -5121,6 +5122,81 @@ export function printKnowledgeTeamUploadExecutionPlanRulesReview(
   printList(
     review.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
     'No upload execution Plan/Rules review blockers.'
+  );
+}
+
+export function printKnowledgeTeamUploadExecutionPlanRulesUpdateRecord(
+  record: KnowledgeTeamUploadExecutionPlanRulesUpdateRecord
+): void {
+  printHeader('Knowledge team upload execution plan/rules update record');
+  process.stdout.write(`status: ${record.status}\n`);
+  process.stdout.write(`next action: ${record.readiness.nextAction}\n`);
+  process.stdout.write(`operation: ${record.plannedOperation}\n`);
+  process.stdout.write(`execution: ${record.executionMode}\n`);
+  process.stdout.write(`record: ${record.recordKind}\n`);
+  process.stdout.write(`target manifest: ${record.target.manifestId ?? 'invalid'}\n`);
+  process.stdout.write(`target object key redacted: ${record.target.objectKeyRedacted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`target object sha256: ${record.target.objectSha256 ?? 'invalid'}\n`);
+  process.stdout.write(`target artifact: ${record.target.artifactId ?? 'invalid'}\n`);
+  process.stdout.write(`remote write: ${record.remoteWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`live check allowed: ${record.liveCheckAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential values exposed: ${record.credentialValuesExposed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`credential presence checked: ${record.credentialPresenceChecked ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload approved: ${record.uploadApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution approved: ${record.uploadExecutionApproved ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload execution allowed: ${record.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mutation approval granted: ${record.mutationApprovalGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`client created: ${record.clientCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter injected: ${record.adapterInjected ? 'yes' : 'no'}\n`);
+  process.stdout.write(`artifact bytes provided: ${record.artifactBytesProvided ? 'yes' : 'no'}\n`);
+  process.stdout.write(`write token issued: ${record.writeTokenIssued ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution lease created: ${record.executionLeaseCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rollback plan created: ${record.rollbackPlanCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`audit record created: ${record.auditRecordCreated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`object write attempted: ${record.objectWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`metadata index write attempted: ${record.metadataIndexWriteAttempted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`remote mutation performed: ${record.remoteMutationPerformed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`upload command: ${record.uploadCommand ?? 'none'}\n`);
+  process.stdout.write(`source plan/rules review: ${record.sourcePlanRulesReview.reviewStatus}\n`);
+  process.stdout.write(`source plan/rules review action: ${record.sourcePlanRulesReview.reviewNextAction}\n`);
+  process.stdout.write(`source authorization boundary: ${record.sourcePlanRulesReview.sourceAuthorizationBoundaryStatus}\n`);
+  process.stdout.write(`source authorization action: ${record.sourcePlanRulesReview.sourceAuthorizationBoundaryNextAction}\n`);
+  process.stdout.write(`source scope matched: ${record.sourcePlanRulesReview.scopeMatched ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source human approval recorded: ${record.sourcePlanRulesReview.humanApprovalRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source approval fingerprint verified: ${record.sourcePlanRulesReview.approvalFingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source authorization boundary designed: ${record.sourcePlanRulesReview.authorizationBoundaryDesigned ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source plan/rules update required: ${record.sourcePlanRulesReview.planRulesUpdateReviewRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source plan/rules updated: ${record.sourcePlanRulesReview.planRulesUpdated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source rules update reviewed: ${record.sourcePlanRulesReview.rulesUpdateReviewed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source execution still disabled: ${record.sourcePlanRulesReview.executionStillDisabled ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source authorization granted: ${record.sourcePlanRulesReview.authorizationGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source execution authorization granted: ${record.sourcePlanRulesReview.executionAuthorizationGranted ? 'yes' : 'no'}\n`);
+  process.stdout.write(`source upload execution allowed: ${record.sourcePlanRulesReview.uploadExecutionAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`adapter backend: ${record.sourcePlanRulesReview.adapterBackendKind}\n`);
+  process.stdout.write(`adapter name: ${record.sourcePlanRulesReview.adapterName ?? 'invalid'}\n`);
+  process.stdout.write(`source review fingerprint scope: ${record.sourcePlanRulesReview.reviewFingerprint.scope}\n`);
+  process.stdout.write(`source review fingerprint: ${record.sourcePlanRulesReview.reviewFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`explicit plan/rules update required: ${record.planRulesUpdateRecord.explicitPlanRulesUpdateRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`human review required: ${record.planRulesUpdateRecord.humanReviewRequired ? 'yes' : 'no'}\n`);
+  process.stdout.write(`plan/rules update recorded: ${record.planRulesUpdateRecord.planRulesUpdateRecorded ? 'yes' : 'no'}\n`);
+  process.stdout.write(`rules update reviewed: ${record.planRulesUpdateRecord.rulesUpdateReviewed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`policy update authorized: ${record.planRulesUpdateRecord.policyUpdateAuthorized ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution still disabled: ${record.planRulesUpdateRecord.executionStillDisabled ? 'yes' : 'no'}\n`);
+  process.stdout.write(`record source: ${record.planRulesUpdateRecord.source ?? 'none'}\n`);
+  process.stdout.write(`expected fingerprint: ${record.planRulesUpdateRecord.expectedFingerprint ?? 'unavailable'}\n`);
+  process.stdout.write(`supplied fingerprint: ${record.planRulesUpdateRecord.suppliedFingerprint ?? 'unavailable'}\n`);
+  process.stdout.write(`review fingerprint verified: ${record.planRulesUpdateRecord.fingerprintVerified ? 'yes' : 'no'}\n`);
+  process.stdout.write(`record fingerprint scope: ${record.planRulesUpdateRecord.recordFingerprint.scope}\n`);
+  process.stdout.write(`record fingerprint: ${record.planRulesUpdateRecord.recordFingerprint.value ?? 'unavailable'}\n`);
+  process.stdout.write(`execution boundary executable: ${record.executionBoundary.executable ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary upload command generated: ${record.executionBoundary.uploadCommandGenerated ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary object write allowed: ${record.executionBoundary.objectWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`execution boundary metadata index write allowed: ${record.executionBoundary.metadataIndexWriteAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`summary: planRulesUpdateRecorded=${record.planRulesUpdateRecord.planRulesUpdateRecorded ? 'yes' : 'no'}, fingerprintVerified=${record.planRulesUpdateRecord.fingerprintVerified ? 'yes' : 'no'}, policyUpdateAuthorized=${record.planRulesUpdateRecord.policyUpdateAuthorized ? 'yes' : 'no'}, uploadExecutionAllowed=${record.uploadExecutionAllowed ? 'yes' : 'no'}, executable=${record.executionBoundary.executable ? 'yes' : 'no'}, blockers=${record.readiness.blockerCount}\n\n`);
+  printHeader('Blockers');
+  printList(
+    record.readiness.blockers.map(blocker => `${blocker.code} ${blocker.path}: ${blocker.message}`),
+    'No upload execution Plan/Rules update record blockers.'
   );
 }
 
