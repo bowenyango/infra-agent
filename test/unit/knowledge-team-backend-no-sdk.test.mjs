@@ -35,6 +35,7 @@ const TEAM_BACKEND_MODULES = [
   'src/knowledge/team-upload-execution-plan-rules-review.ts',
   'src/knowledge/team-upload-execution-plan-rules-update-record.ts',
   'src/knowledge/team-upload-execution-implementation-boundary.ts',
+  'src/knowledge/team-upload-execution-runtime-boundaries.ts',
   'src/knowledge/team-upload-mutation-plan.ts',
   'src/knowledge/team-upload-mutation-approval-review.ts',
   'src/knowledge/team-upload-approval-validation.ts'
@@ -101,6 +102,10 @@ const EXECUTION_PLAN_RULES_UPDATE_RECORD_MODULES = [
 
 const EXECUTION_IMPLEMENTATION_BOUNDARY_MODULES = [
   'src/knowledge/team-upload-execution-implementation-boundary.ts'
+];
+
+const EXECUTION_RUNTIME_BOUNDARIES_MODULES = [
+  'src/knowledge/team-upload-execution-runtime-boundaries.ts'
 ];
 
 const FORBIDDEN_SDK_IMPORTS = [
@@ -625,6 +630,26 @@ const FORBIDDEN_EXECUTION_IMPLEMENTATION_BOUNDARY_EXECUTION = [
   'putEntry('
 ];
 
+const FORBIDDEN_EXECUTION_RUNTIME_BOUNDARIES_EXECUTION = [
+  ...FORBIDDEN_EXECUTION_IMPLEMENTATION_BOUNDARY_EXECUTION,
+  'runtimeExecutionAllowed: true',
+  'runtimeBoundariesDesigned: true',
+  'sourceImplementationBoundaryFingerprintVerified: true',
+  'createMockKnowledgeTeamBackendAdapter(',
+  'createClient(',
+  'new S3',
+  'new Client',
+  'process.env[',
+  'process.env.',
+  'readFile(',
+  'createReadStream(',
+  'fetch(',
+  'node:http',
+  'node:https',
+  'putObject(',
+  'putEntry('
+];
+
 test('team backend contract modules do not import cloud SDK or network clients', async () => {
   const root = process.cwd();
 
@@ -875,6 +900,21 @@ test('upload execution implementation boundary does not grant implementation or 
         source.includes(forbidden),
         false,
         `${relativePath} must not grant implementation or execution, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
+      );
+    }
+  }
+});
+
+test('upload execution runtime boundaries do not grant runtime execution, instantiate clients, read credentials, generate commands, or write', async () => {
+  const root = process.cwd();
+
+  for (const relativePath of EXECUTION_RUNTIME_BOUNDARIES_MODULES) {
+    const source = await readFile(join(root, relativePath), 'utf8');
+    for (const forbidden of FORBIDDEN_EXECUTION_RUNTIME_BOUNDARIES_EXECUTION) {
+      assert.equal(
+        source.includes(forbidden),
+        false,
+        `${relativePath} must not grant runtime execution, instantiate clients, read credentials, generate commands, perform checks, or write via ${forbidden}`
       );
     }
   }

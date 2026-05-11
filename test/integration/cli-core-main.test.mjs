@@ -399,6 +399,12 @@ test('help output includes upload execution implementation boundary command', as
   assert.match(output, /infra-agent knowledge upload-execution-implementation-boundary <plan-rules-update-record\.json>/);
 });
 
+test('help output includes upload execution runtime boundaries command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge upload-execution-runtime-boundaries <implementation-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);

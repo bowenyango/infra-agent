@@ -773,3 +773,23 @@ test('knowledge upload-execution-implementation-boundary CLI args accept update 
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-implementation-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge upload-execution-runtime-boundaries CLI args accept implementation boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'upload-execution-runtime-boundaries',
+    'artifacts/knowledge-pack.upload-execution-implementation-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-runtime-boundaries.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'upload-execution-runtime-boundaries');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-execution-implementation-boundary.json');
+  assert.equal(parsed.reviewFingerprint, null);
+  assert.equal(parsed.approvalFingerprint, null);
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-runtime-boundaries.json');
+  assert.equal(parsed.json, true);
+});
