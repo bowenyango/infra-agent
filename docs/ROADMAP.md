@@ -741,6 +741,17 @@ Implemented initial CLI surfaces:
     clients, read or check credentials, probe live backends, generate commands,
     bind stores or indexes, allow object/index writes, or write object/index
     entries.
+- `infra-agent knowledge upload-execution-authorization-boundary
+  <execution-approval-record.json> [--out <execution-authorization-boundary.json>] --json`
+  - reads one saved private human upload execution approval record, then
+    records only the dry-run explicit authorization boundary that a later
+    plan/rules update must review before any upload execution design can
+    advance. A `upload-execution-authorization-boundary-ready` result does not
+    grant upload execution approval, authorize upload execution, allow upload
+    execution, issue tokens, create leases, create rollback plans, create
+    audit records, stage bytes, inject adapters, create clients, read or check
+    credentials, probe live backends, generate commands, bind stores or
+    indexes, allow object/index writes, or write object/index entries.
 
 Recommended storage layers:
 
