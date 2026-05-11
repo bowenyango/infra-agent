@@ -6,11 +6,11 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
-## 2026-05-11 In Progress Upload Execution Plan/Rules Update Record
+## 2026-05-11 Completed Upload Execution Plan/Rules Update Record
 
 Status:
 
-- In progress. This slice follows the completed
+- Completed. This slice follows the completed
   `upload-execution-plan-rules-review` artifact and remains non-executing.
 - Scope is local JSON planning only: consume one saved
   `infra-agent.knowledge-team-upload-execution-plan-rules-review` whose ready
@@ -27,21 +27,21 @@ Status:
   stores or metadata indexes, expose handles, write objects, write metadata
   index entries, or perform remote mutations.
 
-Planned checkpoints:
+Implemented checkpoints:
 
-1. Add `buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord` and contract
+1. Added `buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord` and contract
    types. It consumes only a saved Plan/Rules review artifact plus an explicit
    review fingerprint and emits a dry-run update record artifact.
-2. Add focused unit coverage for ready, missing fingerprint, mismatch, blocked
+2. Added focused unit coverage for ready, missing fingerprint, mismatch, blocked
    source, malformed source, forged execution flags, command-bearing inputs,
    authorization-material leakage, and private/leaky inputs.
-3. Add validator dispatch and contract coverage for ready and drifted payloads,
+3. Added validator dispatch and contract coverage for ready and drifted payloads,
    including source review, fingerprint matching, target redaction, update
    record fields, execution boundary, and readiness drift.
-4. Extend no-SDK/no-execution guards so this record cannot materialize
+4. Extended no-SDK/no-execution guards so this record cannot materialize
    authorization, instantiate clients, read credentials, generate commands,
    perform checks, bind stores/indexes, or write object/index data.
-5. Add CLI parsing, help text, JSON/text output, and integration coverage for
+5. Added CLI parsing, help text, JSON/text output, and integration coverage for
    `knowledge record-upload-execution-plan-rules-update`.
 
 Expected artifact and CLI:
@@ -58,7 +58,7 @@ Expected artifact and CLI:
   `design-upload-execution-implementation-boundary`. Blocked next action
   remains `resolve-blockers`.
 
-Initial acceptance criteria:
+Acceptance criteria:
 
 1. `upload-execution-plan-rules-update-record-ready` requires a valid
    `infra-agent.knowledge-team-upload-execution-plan-rules-review` with
@@ -102,6 +102,52 @@ Initial acceptance criteria:
    metadata-index-handle, token/lease/rollback/audit material,
    authorization-material, or object/index mutation inputs produce blocked or
    invalid results with safe blocker codes and without copying private values.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-upload-execution-plan-rules-update-record.test.mjs`
+- `node --experimental-strip-types test/contract/knowledge-team-upload-execution-plan-rules-update-record-contract.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-team-backend-no-sdk.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-core-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-record-upload-execution-plan-rules-update-main.test.mjs`
+- `npm run lint`
+- `npm run test:structure`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `npm run package:check`
+
+Validation limitation:
+
+- `npm run build` was attempted but this package has no `build` script. This
+  is not a failing build; validation uses the existing project scripts above.
+
+Core files changed:
+
+- `src/knowledge/team-upload-execution-plan-rules-update-record.ts`
+- `src/knowledge/team-upload-approval-validation.ts`
+- `src/knowledge/validate.ts`
+- `src/cli/main.ts`
+- `src/cli/output.ts`
+- `test/unit/knowledge-team-upload-execution-plan-rules-update-record.test.mjs`
+- `test/contract/knowledge-team-upload-execution-plan-rules-update-record-contract.test.mjs`
+- `test/integration/cli-knowledge-record-upload-execution-plan-rules-update-main.test.mjs`
+- `test/integration/cli-knowledge-args-main.test.mjs`
+- `test/integration/cli-core-main.test.mjs`
+- `test/unit/knowledge-team-backend-no-sdk.test.mjs`
+
+Next recommended slice:
+
+- Do not execute upload and do not treat this record as approval. A ready
+  `upload-execution-plan-rules-update-record` only proves that the operator
+  acknowledged the exact Plan/Rules review fingerprint.
+- The next slice should design a separate upload execution implementation
+  boundary as another non-executing artifact. It should continue to forbid
+  command generation, SDK clients, credential reads/checks, live checks,
+  object-store/index binding, object/index writes, write tokens, execution
+  leases, rollback plans, audit records, and remote mutations until a later,
+  explicitly reviewed policy slice narrows those rules.
 
 ## 2026-05-11 Completed Upload Execution Plan/Rules Review
 
