@@ -485,6 +485,15 @@ Target artifact families:
   review checklist for a future explicit Plan/Rules update; it is not Plan/Rules
   approval, upload execution approval, upload execution authorization, command
   generation, object/index binding, or remote write permission.
+- `infra-agent.knowledge-team-upload-execution-plan-rules-update-record`: a
+  private dry-run Plan/Rules update record derived from a saved Plan/Rules
+  review artifact plus an explicit operator-supplied review fingerprint. It can
+  report `upload-execution-plan-rules-update-record-ready` only when the review
+  artifact is ready, still non-executing, and the supplied SHA-256 fingerprint
+  exactly matches the review fingerprint. It records only local fingerprint
+  verification for the policy-update chain; it is not upload execution
+  approval, upload execution authorization, upload execution allowance, command
+  generation, object/index binding, or remote write permission.
 
 Team artifact public contracts:
 
@@ -781,6 +790,18 @@ Implemented initial CLI surfaces:
     A `upload-execution-plan-rules-review-ready` result does not approve
     Plan/Rules changes, grant upload execution approval, authorize upload
     execution, allow upload execution, issue tokens, create leases, create
+    rollback plans, create audit records, stage bytes, inject adapters, create
+    clients, read or check credentials, probe live backends, generate commands,
+    bind stores or indexes, allow object/index writes, or write object/index
+    entries.
+- `infra-agent knowledge record-upload-execution-plan-rules-update
+  <plan-rules-review.json> --review-fingerprint <sha256>
+  [--out <plan-rules-update-record.json>] --json`
+  - reads one saved private upload execution Plan/Rules review artifact and one
+    explicit operator-supplied review fingerprint, then records only that the
+    fingerprint matched. A `upload-execution-plan-rules-update-record-ready`
+    result does not approve upload execution, grant upload execution
+    authorization, allow upload execution, issue tokens, create leases, create
     rollback plans, create audit records, stage bytes, inject adapters, create
     clients, read or check credentials, probe live backends, generate commands,
     bind stores or indexes, allow object/index writes, or write object/index

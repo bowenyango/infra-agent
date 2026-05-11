@@ -167,7 +167,13 @@ durable design reference for infra-agent development.
   narrowed. `upload-execution-plan-rules-review` can consume that saved
   authorization boundary and record only the review checklist for a later
   explicit Plan/Rules update. It does not mean the rules have been updated and
-  it cannot unlock execution. All upload boundary artifacts remain
+  it cannot unlock execution. `record-upload-execution-plan-rules-update` can
+  consume that saved review plus one explicit operator-supplied review
+  fingerprint and record only that the exact review fingerprint matched. It is
+  still local dry-run routing state; it does not approve upload execution,
+  authorize upload execution, generate commands, create clients, read
+  credentials, bind stores/indexes, or perform writes. All upload boundary
+  artifacts remain
   dry-run routing state with
   upload approval, upload execution, write token issuance, execution lease
   creation, rollback creation, audit creation, artifact bytes, adapter

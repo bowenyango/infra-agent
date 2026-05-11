@@ -6,6 +6,103 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 In Progress Upload Execution Plan/Rules Update Record
+
+Status:
+
+- In progress. This slice follows the completed
+  `upload-execution-plan-rules-review` artifact and remains non-executing.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-execution-plan-rules-review` whose ready
+  next action is `await-explicit-plan-rules-update`, plus one explicit
+  operator-supplied review fingerprint, then emit a private Plan/Rules update
+  record artifact.
+- This slice may record that the exact Plan/Rules review fingerprint was
+  acknowledged for a future policy update. It must not approve upload
+  execution, grant upload execution authorization, grant mutation approval,
+  allow upload execution, generate or materialize upload commands, issue write
+  tokens, create execution leases, create rollback plans, create audit records,
+  stage artifact bytes, inject adapters, create clients, read credentials,
+  check credential presence, perform live backend checks, bind concrete object
+  stores or metadata indexes, expose handles, write objects, write metadata
+  index entries, or perform remote mutations.
+
+Planned checkpoints:
+
+1. Add `buildKnowledgeTeamUploadExecutionPlanRulesUpdateRecord` and contract
+   types. It consumes only a saved Plan/Rules review artifact plus an explicit
+   review fingerprint and emits a dry-run update record artifact.
+2. Add focused unit coverage for ready, missing fingerprint, mismatch, blocked
+   source, malformed source, forged execution flags, command-bearing inputs,
+   authorization-material leakage, and private/leaky inputs.
+3. Add validator dispatch and contract coverage for ready and drifted payloads,
+   including source review, fingerprint matching, target redaction, update
+   record fields, execution boundary, and readiness drift.
+4. Extend no-SDK/no-execution guards so this record cannot materialize
+   authorization, instantiate clients, read credentials, generate commands,
+   perform checks, bind stores/indexes, or write object/index data.
+5. Add CLI parsing, help text, JSON/text output, and integration coverage for
+   `knowledge record-upload-execution-plan-rules-update`.
+
+Expected artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-execution-plan-rules-update-record`.
+- CLI:
+  `infra-agent knowledge record-upload-execution-plan-rules-update <plan-rules-review.json> --review-fingerprint <sha256> [--out <plan-rules-update-record.json>] [--json]`.
+- Ready status should be
+  `upload-execution-plan-rules-update-record-ready`, meaning only that the
+  supplied review fingerprint matched the saved Plan/Rules review artifact and
+  that a policy-update record was modeled locally.
+- Ready next action should remain non-executing; currently expected:
+  `design-upload-execution-implementation-boundary`. Blocked next action
+  remains `resolve-blockers`.
+
+Initial acceptance criteria:
+
+1. `upload-execution-plan-rules-update-record-ready` requires a valid
+   `infra-agent.knowledge-team-upload-execution-plan-rules-review` with
+   `upload-execution-plan-rules-review-ready`,
+   `nextAction=await-explicit-plan-rules-update`, safe redacted target
+   references, verified source authorization boundary metadata,
+   `planRulesUpdateReviewRequired=true`, `planRulesUpdated=false`,
+   `rulesUpdateReviewed=false`, `executionStillDisabled=true`, no execution
+   authorization grant, no upload execution approval, no upload execution
+   allowance, and no blockers.
+2. The supplied review fingerprint must be a safe SHA-256 hex string and
+   exactly match `planRulesReview.reviewFingerprint.value`. Mismatch, missing,
+   malformed, unsupported, or null source fingerprints must block without
+   copying private values.
+3. The record preserves safe target identifiers and hash references while
+   retaining `target.objectKeyRedacted=true`; it does not copy
+   `target.objectKey` to output.
+4. The record may set `planRulesUpdateRecorded=true` and
+   `rulesUpdateReviewed=true` only as local review-record state. It must still
+   keep execution disabled and must not use those fields as approval,
+   authorization, command, write, credential, live-check, client, adapter, or
+   mutation permission.
+5. Top-level and nested execution state remains disabled:
+   `uploadCommand=null`, `authorizationGranted=false`,
+   `executionAuthorizationGranted=false`, `uploadApproved=false`,
+   `uploadExecutionApproved=false`, `uploadExecutionAllowed=false`,
+   `mutationApprovalGranted=false`, `writeTokenIssued=false`,
+   `executionLeaseCreated=false`, `rollbackPlanCreated=false`,
+   `auditRecordCreated=false`, `artifactBytesProvided=false`,
+   `adapterInjected=false`, `clientCreated=false`,
+   `credentialValuesExposed=false`, `credentialPresenceChecked=false`,
+   `liveCheckAllowed=false`, `liveCheckPerformed=false`,
+   `uploadCommandGenerated=false`, `artifactObjectStoreBound=false`,
+   `metadataIndexBound=false`, `objectWriteAllowed=false`,
+   `metadataIndexWriteAllowed=false`, `objectWriteAttempted=false`,
+   `metadataIndexWriteAttempted=false`, `executable=false`, and
+   `remoteMutationPerformed=false`.
+6. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
+   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, object-key-copying, object-store-handle,
+   metadata-index-handle, token/lease/rollback/audit material,
+   authorization-material, or object/index mutation inputs produce blocked or
+   invalid results with safe blocker codes and without copying private values.
+
 ## 2026-05-11 Completed Upload Execution Plan/Rules Review
 
 Status:
