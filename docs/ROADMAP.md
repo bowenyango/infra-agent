@@ -505,6 +505,20 @@ Target artifact families:
   allowance, command generation, adapter injection, client creation,
   credential access, live checking, object/index binding, object/index writes,
   or remote mutation permission.
+- `infra-agent.knowledge-team-upload-execution-runtime-boundaries`: a private
+  dry-run upload execution runtime-boundaries artifact derived from a saved
+  implementation boundary. It can report
+  `upload-execution-runtime-boundaries-ready` only when the implementation
+  boundary is ready, still non-executing, and its next action is
+  `design-upload-execution-runtime-boundaries`. It records only that command,
+  adapter, client, credential, live-check, object/index binding, write,
+  token/lease, rollback, audit, artifact-byte, and remote-mutation runtime
+  boundaries have been modeled. It is not upload execution approval, upload
+  execution authorization, upload execution allowance, command generation,
+  adapter injection, client creation, credential access, live checking,
+  object/index binding, object/index writes, token or lease issuance,
+  rollback/audit creation, artifact-byte staging, or remote mutation
+  permission.
 
 Team artifact public contracts:
 
@@ -827,6 +841,16 @@ Implemented initial CLI surfaces:
     records, stage bytes, inject adapters, create clients, read or check
     credentials, probe live backends, generate commands, bind stores or
     indexes, allow object/index writes, or write object/index entries.
+- `infra-agent knowledge upload-execution-runtime-boundaries
+  <implementation-boundary.json> [--out <runtime-boundaries.json>] --json`
+  - reads one saved private upload execution implementation boundary, then
+    records only dry-run runtime-boundary design checkpoints. A
+    `upload-execution-runtime-boundaries-ready` result does not approve upload
+    execution, grant upload execution authorization, allow upload execution,
+    issue tokens, create leases, create rollback plans, create audit records,
+    stage bytes, inject adapters, create clients, read or check credentials,
+    probe live backends, generate commands, bind stores or indexes, allow
+    object/index writes, or write object/index entries.
 
 Recommended storage layers:
 

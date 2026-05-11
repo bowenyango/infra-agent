@@ -6,6 +6,81 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-11 Planned Upload Execution Runtime Boundaries
+
+Status:
+
+- Planned as the next slice after the completed
+  `upload-execution-implementation-boundary` artifact.
+- Scope is local JSON planning only: consume one saved
+  `infra-agent.knowledge-team-upload-execution-implementation-boundary` whose
+  ready next action is `design-upload-execution-runtime-boundaries`, then emit
+  a private runtime-boundaries artifact.
+- This slice may record that runtime boundaries have been modeled for command,
+  adapter, client, credential, live-check, object/index binding, write,
+  token/lease, rollback, audit, artifact-byte, and remote-mutation families.
+  It must not approve upload execution, grant upload execution authorization,
+  allow upload execution, generate or materialize upload commands, issue write
+  tokens, create execution leases, create rollback plans, create audit records,
+  stage artifact bytes, inject adapters, create clients, read credentials,
+  check credential presence, perform live backend checks, bind concrete object
+  stores or metadata indexes, expose handles, write objects, write metadata
+  index entries, or perform remote mutations.
+
+Expected artifact and CLI:
+
+- Artifact kind:
+  `infra-agent.knowledge-team-upload-execution-runtime-boundaries`.
+- CLI:
+  `infra-agent knowledge upload-execution-runtime-boundaries <implementation-boundary.json> [--out <runtime-boundaries.json>] [--json]`.
+- Ready status:
+  `upload-execution-runtime-boundaries-ready`, meaning only that a saved
+  implementation-boundary artifact was ready, non-executing, fingerprinted, and
+  accepted as the source for local runtime-boundary modeling.
+- Ready next action:
+  `await-explicit-upload-execution-runtime-boundary-policy-review`. This is
+  still a non-executing policy-review step and must not become upload
+  execution.
+
+Acceptance criteria:
+
+1. Ready output requires a valid
+   `infra-agent.knowledge-team-upload-execution-implementation-boundary` with
+   `upload-execution-implementation-boundary-ready`,
+   `nextAction=design-upload-execution-runtime-boundaries`, safe redacted
+   target references, verified source update-record and implementation
+   boundary fingerprints, `implementationBoundaryDesigned=true`,
+   `sourceUpdateRecordFingerprintVerified=true`,
+   `runtimeBoundaryDesignRequired=true`, no upload execution allowance, and no
+   blockers.
+2. The artifact preserves safe target identifiers and hash references while
+   retaining `target.objectKeyRedacted=true`; it does not copy
+   `target.objectKey` to output.
+3. The runtime-boundaries record may set `runtimeBoundariesDesigned=true` and
+   `sourceImplementationBoundaryFingerprintVerified=true` only as local
+   modeling state. It must still keep command, adapter, client, credential,
+   live-check, object/index binding, write, token, lease, rollback, audit,
+   byte, executable, and remote mutation state disabled.
+4. Missing, malformed, blocked, forged, command-bearing, credential-leaking,
+   live-check-result-leaking, SDK-client-leaking, adapter-leaking,
+   byte-leaking, backend-leaking, object-key-copying, object-store-handle,
+   metadata-index-handle, token/lease/rollback/audit material,
+   authorization-material, runtime secrets, or object/index mutation inputs
+   produce blocked or invalid results with safe blocker codes and without
+   copying private values.
+
+Next recommended implementation steps:
+
+1. Add the `team-upload-execution-runtime-boundaries` builder and focused unit
+   tests.
+2. Add validator dispatch and contract tests for ready and drifted runtime
+   boundary payloads.
+3. Add CLI parse/help/output/integration tests.
+4. Extend no-SDK/no-execution guards for the new runtime-boundaries source and
+   CLI action.
+5. Run focused tests first, then `npm run lint`, `npm run test:integration`,
+   `npm run test:coverage`, and `npm run verify`.
+
 ## 2026-05-11 Completed Upload Execution Implementation Boundary
 
 Status:
