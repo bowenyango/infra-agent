@@ -656,3 +656,21 @@ test('knowledge upload-execution-readiness-boundary CLI args accept object/index
   assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-readiness-boundary.json');
   assert.equal(parsed.json, true);
 });
+
+test('knowledge request-separate-upload-execution-approval CLI args accept readiness boundary and output paths', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'request-separate-upload-execution-approval',
+    'artifacts/knowledge-pack.upload-execution-readiness-boundary.json',
+    '--out',
+    'artifacts/knowledge-pack.upload-execution-approval-request.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'request-separate-upload-execution-approval');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.inputPath, 'artifacts/knowledge-pack.upload-execution-readiness-boundary.json');
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-pack.upload-execution-approval-request.json');
+  assert.equal(parsed.json, true);
+});

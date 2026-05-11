@@ -363,6 +363,12 @@ test('help output includes upload execution readiness boundary command', async (
   assert.match(output, /infra-agent knowledge upload-execution-readiness-boundary <object-index-binding-boundary\.json>/);
 });
 
+test('help output includes upload execution approval request command', async () => {
+  const output = await captureStdout(() => main(['--help']));
+
+  assert.match(output, /infra-agent knowledge request-separate-upload-execution-approval <execution-readiness-boundary\.json>/);
+});
+
 test('CLI version command reads package metadata', async () => {
   const parsedLong = parseArgs(['--version']);
   const parsedCommand = parseArgs(['version']);
