@@ -84,7 +84,10 @@ validation workflow but different storage and privacy policies. Public provider,
 package, chart, and official-doc units may be shared through a team registry.
 Repo-local and organization-private module, component, chart, policy, example,
 and incident-derived units remain private unless explicitly opted into a safe
-team cache. Planner prompts receive compact context packets derived from these
+team cache. Local curated internal units are declared in
+`infra-agent.config.json` as safe workspace-relative
+`knowledgeSources.curatedUnits` files and enter packs as `internal-team`
+context. Planner prompts receive compact context packets derived from these
 units, never raw caches, full docs, full schemas, or unbounded examples.
 
 ## Runtime Shape

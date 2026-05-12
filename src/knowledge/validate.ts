@@ -158,7 +158,8 @@ const KNOWLEDGE_SOURCE_KINDS = [
   'pulumi-config',
   'pulumi-component',
   'terraform-module',
-  'module-readme'
+  'module-readme',
+  'internal-knowledge'
 ] as const satisfies readonly KnowledgeSourceKind[];
 const KNOWLEDGE_SOURCE_STALE_REASONS = [
   'time-expired',

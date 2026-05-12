@@ -222,7 +222,8 @@ Target artifact families:
   token-budget metadata. Existing `KnowledgeFact` payloads should evolve toward
   this unit contract instead of growing unrelated fact-only fields.
 - `infra-agent.knowledge-source`: selected source metadata for official docs,
-  local schemas, examples, module READMEs, and chart metadata.
+  local schemas, examples, module READMEs, chart metadata, and configured
+  internal curated unit files.
 - `infra-agent.knowledge-cache-entry`: raw or lightly normalized fetched/local
   content, stored by version-sensitive source id.
 - `infra-agent.knowledge-facts`: extracted facts such as provider/resource
@@ -612,8 +613,10 @@ Implemented initial CLI surfaces:
 - `infra-agent knowledge extract <workspace> [--domain ...] [--target ...]
   [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--json]`
   - extracts normalized `knowledge-facts` from cached docs, repo-local schemas,
-    examples, and module/component/chart code. `--out` explicitly persists the
-    generated artifact for later validation or handoff. `--units-out`
+    examples, and module/component/chart code, and extracts configured local
+    `infra-agent.curated-knowledge-units` JSON files into internal-team
+    knowledge units. `--out` explicitly persists the generated artifact for
+    later validation or handoff. `--units-out`
     additionally writes one standalone `infra-agent.knowledge-units` artifact
     per extracted source.
 - `infra-agent knowledge validate <facts.json|pack.json|manifest.json|descriptor.json> [--workspace <workspace>] --json`

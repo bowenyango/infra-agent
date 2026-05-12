@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
+import {
+  buildEmptyCuratedKnowledgeFactSet,
+  extractCuratedKnowledgeUnitSetFromCacheEntry
+} from './curated-units.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
 import { extractKnowledgeUnitSetFromFactSet } from './units.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
@@ -76,6 +80,7 @@ function localContentType(source: KnowledgeSource): KnowledgeContentType {
     || source.kind === 'pulumi-config'
     || source.kind === 'pulumi-component'
     || source.kind === 'terraform-module'
+    || source.kind === 'internal-knowledge'
   ) {
     return 'application/json';
   }
@@ -415,6 +420,37 @@ export async function extractWorkspaceKnowledgeFacts(
       sources.push(sourceResult(base, 'missing-cache', {
         message: 'External source is not present in the cache.'
       }));
+      continue;
+    }
+
+    if (entry.source.kind === 'internal-knowledge') {
+      try {
+        const unitSet = extractCuratedKnowledgeUnitSetFromCacheEntry(entry, {
+          now: options.now,
+          extractedAt: options.extractedAt
+        });
+        if (unitSet.unitCount === 0) {
+          sources.push(sourceResult(base, 'unsupported', {
+            message: 'Curated internal knowledge source did not contain any units.'
+          }));
+          continue;
+        }
+
+        const factSet = buildEmptyCuratedKnowledgeFactSet(entry, {
+          now: options.now,
+          extractedAt: options.extractedAt
+        });
+        factSets.push(factSet);
+        unitSets.push(unitSet);
+        sources.push(sourceResult(base, 'extracted', {
+          factCount: 0,
+          unitCount: unitSet.unitCount
+        }));
+      } catch {
+        sources.push(sourceResult(base, 'unreadable', {
+          message: 'Curated internal knowledge source could not be parsed.'
+        }));
+      }
       continue;
     }
 

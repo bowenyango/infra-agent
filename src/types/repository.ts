@@ -27,6 +27,14 @@ export interface WorkspaceValidationConfigEntry {
   commands: string[];
 }
 
+export interface WorkspaceCuratedKnowledgeUnitsSourceConfig {
+  domain: InfraDomainId;
+  targetPath?: string;
+  path: string;
+  name?: string;
+  version?: string;
+}
+
 export interface WorkspaceApprovalPathRule {
   path: string;
   requiredWriteRisks: FileWriteRisk[];
@@ -36,6 +44,9 @@ export interface WorkspaceAgentConfig {
   profileId?: RepoProfileId;
   knowledgeCache?: {
     root?: string;
+  };
+  knowledgeSources?: {
+    curatedUnits?: WorkspaceCuratedKnowledgeUnitsSourceConfig[];
   };
   writePolicy?: {
     allowedPaths?: string[];

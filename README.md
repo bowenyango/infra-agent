@@ -177,7 +177,12 @@ Current behavior is intentionally runtime-foundation oriented:
   `extract` turns cached docs, local schemas, local modules, local Helm chart
   metadata, cached Helm chart-doc markdown, local Pulumi config summaries, and
   conservative local Pulumi component summaries into
-  `infra-agent.knowledge-facts`, `validate` checks facts, extraction reports,
+  `infra-agent.knowledge-facts`; it also accepts configured local curated
+  `infra-agent.curated-knowledge-units` JSON sources from
+  `infra-agent.config.json` under `knowledgeSources.curatedUnits` and converts
+  them into internal-team `fact`, `guidance`, `example`, `diagnostic`, and
+  `recipe` units without raw content in packs. `validate` checks facts,
+  extraction reports,
   and compact packs before use, and `pack` ranks and emits a bounded
   planner-safe `infra-agent.knowledge-pack` without raw source content. Packs
   carry the same

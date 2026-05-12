@@ -6,6 +6,76 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Local Internal Curated Knowledge Units
+
+Status:
+
+- Added a local-only internal curated knowledge source path for deterministic
+  infrastructure RAG.
+- Workspace config can now declare safe workspace-relative curated unit JSON
+  files under `knowledgeSources.curatedUnits`; those files are discovered by
+  `knowledge sources`, extracted by `knowledge extract`, and ranked into
+  `knowledge pack` as `internal-team` unit context.
+
+Implemented checkpoints:
+
+- Added `internal-knowledge` as a supported knowledge source kind across
+  source contracts, validation, compact result contracts, and ranking tables.
+- Extended `WorkspaceAgentConfig` with
+  `knowledgeSources.curatedUnits[]` entries containing `domain`, optional
+  `targetPath`, safe local `path`, optional `name`, and optional `version`.
+- Added safe source discovery for configured local curated unit files without
+  fetching or remote backend access.
+- Added `src/knowledge/curated-units.ts` to parse
+  `infra-agent.curated-knowledge-units` authoring files into validated
+  `infra-agent.knowledge-units`.
+- Local curated units default to `privacyScope: internal-team`; generated
+  fact sets remain empty, source-linked, fingerprinted, and local-only so pack
+  validation can recheck the backing file.
+- Knowledge packs now include these unit-only sources through the existing
+  source/fingerprint/storage-policy machinery without adding raw curated file
+  content to the pack.
+- Updated README, Architecture, Roadmap, Agent Rules, and this handoff so
+  future agents treat local curated units as part of the core RAG workflow.
+
+Design notes:
+
+- This implements the agreed local/internal side of the RAG model before S3.
+  S3-compatible references remain a later transport concern; the unit contract
+  and validation path are shared.
+- The authoring format is intentionally compact JSON, not vector-indexed text.
+  It supports `fact`, `guidance`, `example`, `diagnostic`, and `recipe` units
+  while preserving source hash, locator, confidence, extraction method, privacy
+  scope, and token-budget metadata.
+- Configured paths are accepted only when they are safe workspace-relative
+  paths. Secret-like paths, absolute paths, path escapes, and malformed entries
+  are ignored during source discovery.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-curated-units.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `git diff --check`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Add CLI integration coverage for curated source listing/extraction text and
+   JSON output if this path becomes user-facing in demos.
+2. Add S3-compatible read-only reference discovery for prebuilt public/internal
+   unit artifacts, keeping upload execution behind the existing approval
+   boundary.
+3. Add planner behavior tests proving internal curated rename/replacement
+   guidance changes plan review decisions under small `--max-units` budgets.
+
 ## 2026-05-12 Completed Unit Count Metadata in Knowledge Manifests
 
 Status:

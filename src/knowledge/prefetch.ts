@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path';
 import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from './retrieve.ts';
 import type { KnowledgeFetcher } from './retrieve.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
@@ -98,6 +99,71 @@ function targetAllowed(targetPath: string, targetPaths: Set<string>): boolean {
   return targetPaths.size === 0 || targetPaths.has(targetPath);
 }
 
+const INFRA_DOMAINS: InfraDomainId[] = ['helm', 'pulumi', 'terraform'];
+const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+
+function isInfraDomain(value: unknown): value is InfraDomainId {
+  return typeof value === 'string' && INFRA_DOMAINS.includes(value as InfraDomainId);
+}
+
+function isSafeWorkspaceRelativePath(value: string): boolean {
+  const normalized = value.split('\\').join('/');
+  const segments = normalized.split('/');
+
+  return normalized.length > 0
+    && normalized !== '.'
+    && !isAbsolute(value)
+    && !/^[A-Za-z]:\//.test(normalized)
+    && !normalized.startsWith('/')
+    && !segments.some(segment => segment.length === 0 || segment === '.' || segment === '..')
+    && !SECRET_PATH_PATTERN.test(normalized);
+}
+
+function collectConfiguredCuratedUnitSources(
+  inspection: WorkspaceInspection,
+  requestedDomains: Set<InfraDomainId>,
+  targetPaths: Set<string>
+): KnowledgePrefetchCandidate[] {
+  const configuredSources = inspection.config?.knowledgeSources?.curatedUnits;
+  if (!Array.isArray(configuredSources)) {
+    return [];
+  }
+
+  const candidates: KnowledgePrefetchCandidate[] = [];
+  for (const configuredSource of configuredSources) {
+    if (!isInfraDomain(configuredSource.domain) || !requestedDomains.has(configuredSource.domain)) {
+      continue;
+    }
+    if (typeof configuredSource.path !== 'string' || !isSafeWorkspaceRelativePath(configuredSource.path)) {
+      continue;
+    }
+
+    const targetPath = typeof configuredSource.targetPath === 'string'
+      ? configuredSource.targetPath
+      : '';
+    if (!targetAllowed(targetPath, targetPaths)) {
+      continue;
+    }
+
+    candidates.push({
+      domain: configuredSource.domain,
+      targetPath,
+      source: {
+        kind: 'internal-knowledge',
+        name: typeof configuredSource.name === 'string' && configuredSource.name.length > 0
+          ? configuredSource.name
+          : `curated:${configuredSource.path}`,
+        localPath: configuredSource.path,
+        ...(typeof configuredSource.version === 'string' && configuredSource.version.length > 0
+          ? { version: configuredSource.version }
+          : {})
+      }
+    });
+  }
+
+  return candidates;
+}
+
 export async function collectWorkspaceKnowledgeSources(
   inspection: WorkspaceInspection,
   options: Pick<KnowledgePrefetchOptions, 'domains' | 'targetPaths'> = {}
@@ -179,6 +245,8 @@ export async function collectWorkspaceKnowledgeSources(
       })));
     }
   }
+
+  candidates.push(...collectConfiguredCuratedUnitSources(inspection, requestedDomains, targetPaths));
 
   return candidates;
 }

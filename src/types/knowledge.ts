@@ -13,7 +13,8 @@ export type KnowledgeSourceKind =
   | 'pulumi-config'
   | 'pulumi-component'
   | 'terraform-module'
-  | 'module-readme';
+  | 'module-readme'
+  | 'internal-knowledge';
 
 export type KnowledgeContentType =
   | 'text/markdown'

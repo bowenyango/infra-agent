@@ -23,7 +23,8 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'pulumi-config',
   'pulumi-component',
   'terraform-module',
-  'module-readme'
+  'module-readme',
+  'internal-knowledge'
 ];
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const;
 const KNOWLEDGE_SOURCE_STALE_REASONS = [

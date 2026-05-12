@@ -201,6 +201,14 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   incident, policy, and example knowledge may use the same extraction and pack
   workflow, but its source must remain local, repo-curated, or explicitly
   configured for an opt-in team backend according to privacy scope.
+- Local internal curated knowledge belongs under
+  `infra-agent.config.json` -> `knowledgeSources.curatedUnits`. Each entry must
+  use a safe workspace-relative JSON path plus `domain` and optional
+  `targetPath`, and the file must use
+  `infra-agent.curated-knowledge-units` with compact `fact`, `guidance`,
+  `example`, `diagnostic`, or `recipe` units. Treat these units as
+  `internal-team` planner context and keep the source local-only unless a later
+  explicit team-backend approval path is completed.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants
