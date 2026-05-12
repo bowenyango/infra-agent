@@ -6,6 +6,38 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed CLI Coverage for Prebuilt Unit Artifacts
+
+Status:
+
+- Added integration coverage proving `knowledgeSources.unitArtifacts` works
+  through the user-facing `knowledge sources`, `knowledge extract`, and
+  `knowledge pack` commands.
+
+Implemented checkpoints:
+
+- The test workspace declares a safe local `infra-agent.knowledge-units`
+  artifact for a Terraform target.
+- `knowledge sources --json` reports the artifact as a local
+  `knowledge-unit-artifact` source with workspace-private storage posture.
+- `knowledge extract --json` reports zero facts and two compact units from the
+  artifact source.
+- `knowledge pack --max-units 1 --json` ranks the high-confidence Terraform
+  rename guidance ahead of the example and omits the raw moved-block snippet.
+
+Validation completed:
+
+- `node --experimental-strip-types test/integration/cli-knowledge-unit-artifacts-main.test.mjs`
+- `npm run lint`
+- `npm run test:integration`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add S3-compatible read-only artifact reference discovery over the same
+   `infra-agent.knowledge-units` shape.
+2. Add planner behavior coverage for prebuilt rename units.
+
 ## 2026-05-12 Completed Unit Counts in Team Artifact Metadata
 
 Status:
