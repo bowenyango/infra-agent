@@ -12,6 +12,8 @@ const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 export interface KnowledgeValidationCountOverrides {
   factSetCount?: number;
   factCount?: number;
+  unitSetCount?: number;
+  unitCount?: number;
   staleSourceCount?: number;
   uncheckedLocalSourceCount?: number;
 }
@@ -28,6 +30,7 @@ interface ArtifactReferenceStats {
   sourceIds: string[];
   sourceCount: number | null;
   factCount: number | null;
+  unitCount: number | null;
   staleSourceCount: number | null;
 }
 
@@ -81,6 +84,7 @@ function readArtifactReferenceStats(payload: unknown, artifactHash: string): Art
         : artifactSourceIdsFromSources(payload.sources),
       sourceCount: numberFromRecord(payload, 'sourceCount'),
       factCount: numberFromRecord(payload, 'factCount'),
+      unitCount: numberFromRecord(payload, 'unitCount'),
       staleSourceCount: numberFromRecord(payload, 'staleSourceCount')
     };
   }
@@ -102,6 +106,7 @@ function readArtifactReferenceStats(payload: unknown, artifactHash: string): Art
       sourceIds,
       sourceCount: numberFromRecord(payload, 'sourceCount'),
       factCount: numberFromRecord(payload, 'factCount'),
+      unitCount: numberFromRecord(payload, 'unitCount'),
       staleSourceCount: staleSourceIds.size
     };
   }
@@ -125,6 +130,13 @@ function prefixArtifactIssue(issue: KnowledgeValidationIssue): KnowledgeValidati
       ? '$.artifact.payload'
       : `$.artifact.payload${issue.path.slice(1)}`,
     message: `Referenced artifact: ${issue.message}`
+  };
+}
+
+function unitCountOverrides(report: KnowledgeValidationReport): Pick<KnowledgeValidationCountOverrides, 'unitSetCount' | 'unitCount'> {
+  return {
+    ...(report.unitSetCount !== undefined ? { unitSetCount: report.unitSetCount } : {}),
+    ...(report.unitCount !== undefined ? { unitCount: report.unitCount } : {})
   };
 }
 
@@ -191,6 +203,7 @@ export async function validateKnowledgeArtifactReference(
     return {
       factSetCount: artifactReport.factSetCount,
       factCount: artifactReport.factCount,
+      ...unitCountOverrides(artifactReport),
       staleSourceCount: artifactReport.staleSourceCount,
       uncheckedLocalSourceCount: artifactReport.uncheckedLocalSourceCount
     };
@@ -211,6 +224,9 @@ export async function validateKnowledgeArtifactReference(
   if (typeof manifest.artifact.factCount === 'number' && stats.factCount !== null && manifest.artifact.factCount !== stats.factCount) {
     issues.push(error('$.artifact.factCount', 'Knowledge artifact manifest factCount must match referenced artifact.'));
   }
+  if (typeof manifest.artifact.unitCount === 'number' && stats.unitCount !== null && manifest.artifact.unitCount !== stats.unitCount) {
+    issues.push(error('$.artifact.unitCount', 'Knowledge artifact manifest unitCount must match referenced artifact.'));
+  }
   if (
     typeof manifest.artifact.staleSourceCount === 'number'
     && stats.staleSourceCount !== null
@@ -222,6 +238,7 @@ export async function validateKnowledgeArtifactReference(
   return {
     factSetCount: artifactReport.factSetCount,
     factCount: artifactReport.factCount,
+    ...unitCountOverrides(artifactReport),
     staleSourceCount: artifactReport.staleSourceCount,
     uncheckedLocalSourceCount: artifactReport.uncheckedLocalSourceCount
   };

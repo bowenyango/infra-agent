@@ -1278,6 +1278,7 @@ function validateKnowledgeArtifactManifestPayload(
 
   let sourceCount: number | null = null;
   let factCount: number | null = null;
+  let unitCount: number | null = null;
   let staleSourceCount: number | null = null;
   let storagePolicySummary: KnowledgeStoragePolicySummary | null = null;
   let sourceIds: string[] | null = null;
@@ -1307,6 +1308,9 @@ function validateKnowledgeArtifactManifestPayload(
     readNonEmptyString(payload.artifact.cacheRoot, '$.artifact.cacheRoot', issues);
     sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
     factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    if (payload.artifact.unitCount !== undefined) {
+      unitCount = readNonNegativeInteger(payload.artifact.unitCount, '$.artifact.unitCount', issues);
+    }
     staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
     storagePolicySummary = validateKnowledgeStoragePolicySummary(
       payload.artifact.storagePolicy,
@@ -1434,6 +1438,7 @@ function validateKnowledgeArtifactManifestPayload(
     {
       factSetCount: 0,
       factCount: factCount ?? 0,
+      ...(unitCount !== null ? { unitCount } : {}),
       staleSourceCount: staleSourceCount ?? 0
     }
   );
@@ -1813,6 +1818,8 @@ export async function validateKnowledgePayloadWithLocalSources(
       {
         factSetCount: countOverrides.factSetCount ?? report.factSetCount,
         factCount: countOverrides.factCount ?? report.factCount,
+        unitSetCount: countOverrides.unitSetCount ?? report.unitSetCount,
+        unitCount: countOverrides.unitCount ?? report.unitCount,
         staleSourceCount: countOverrides.staleSourceCount ?? report.staleSourceCount
       }
     );

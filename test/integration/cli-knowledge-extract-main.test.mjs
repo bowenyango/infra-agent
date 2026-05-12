@@ -660,6 +660,7 @@ test('knowledge extract command writes a reusable validation artifact with --out
     assert.equal(manifest.artifact.kind, 'infra-agent.knowledge-extraction');
     assert.equal(manifest.artifact.path, outputPath);
     assert.equal(manifest.artifact.factCount, artifact.factCount);
+    assert.equal(manifest.artifact.unitCount, artifact.unitCount);
     assert.equal(manifest.publication.remoteWriteAllowed, false);
     assert.equal(validation.valid, true);
     assert.equal(validation.factSetCount, artifact.factSetCount);

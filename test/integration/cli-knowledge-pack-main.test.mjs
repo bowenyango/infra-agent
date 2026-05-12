@@ -712,6 +712,7 @@ test('knowledge pack command writes an artifact manifest for publication plannin
     assert.equal(manifest.artifact.path, outputPath);
     assert.match(manifest.artifact.sha256, /^[a-f0-9]{64}$/);
     assert.deepEqual(manifest.artifact.sourceIds, artifact.sources.map(source => source.id));
+    assert.equal(manifest.artifact.unitCount, artifact.unitCount);
     assert.equal(manifest.artifact.storagePolicy.workspacePrivate, artifact.storagePolicy.workspacePrivate);
     assert.equal(manifest.publication.executionMode, 'plan-only');
     assert.equal(manifest.publication.remoteWriteAllowed, false);
@@ -725,6 +726,7 @@ test('knowledge pack command writes an artifact manifest for publication plannin
     assert.equal(validation.inputKind, 'infra-agent.knowledge-artifact-manifest');
     assert.equal(validation.valid, true);
     assert.equal(validation.factCount, artifact.factCount);
+    assert.equal(validation.unitCount, artifact.unitCount);
     assert.doesNotMatch(JSON.stringify(manifest), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

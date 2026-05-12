@@ -78,7 +78,8 @@ test('knowledge artifact manifest validation rejects metadata drift from the ref
       artifact: {
         ...manifest.artifact,
         sourceIds: ['forged-source'],
-        sourceCount: manifest.artifact.sourceCount + 1
+        sourceCount: manifest.artifact.sourceCount + 1,
+        unitCount: (manifest.artifact.unitCount ?? 0) + 1
       }
     }, null, 2)}\n`, 'utf8');
 
@@ -87,6 +88,7 @@ test('knowledge artifact manifest validation rejects metadata drift from the ref
     assert.equal(report.valid, false);
     assert.ok(report.issues.some(issue => issue.path === '$.artifact.sourceIds'));
     assert.ok(report.issues.some(issue => issue.path === '$.artifact.sourceCount'));
+    assert.ok(report.issues.some(issue => issue.path === '$.artifact.unitCount'));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

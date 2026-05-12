@@ -6,6 +6,66 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Unit Count Metadata in Knowledge Manifests
+
+Status:
+
+- Knowledge artifact manifests now carry optional `unitCount` metadata for
+  extraction and pack artifacts that contain unit-native knowledge.
+- Manifest validation follows the referenced local artifact and reports the
+  same unit totals, so future publication/download workflows can audit compact
+  RAG unit volume without reading unbounded source material.
+
+Implemented checkpoints:
+
+- Added optional `artifact.unitCount` to generated knowledge artifact
+  manifests when the referenced artifact exposes a top-level `unitCount`.
+- Extended local artifact-reference validation to read referenced extraction
+  and pack unit counts.
+- Manifest validation now rejects forged or stale `artifact.unitCount` values
+  when they drift from the referenced local artifact.
+- Validation reports for manifests now surface referenced `unitCount` alongside
+  existing fact counts.
+- Added integration and unit coverage for extraction manifests, pack manifests,
+  manifest validation output, and metadata drift detection.
+
+Design notes:
+
+- This preserves the existing local-only publication boundary. The manifest
+  remains a descriptor/check artifact; it does not upload or mutate remote
+  storage.
+- Unit counts are optional for backward compatibility, but generated artifacts
+  now expose them whenever available. This keeps the five-unit RAG model
+  auditable across later public/internal registry work.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-artifact-integrity.test.mjs`
+- `node --experimental-strip-types test/unit/knowledge-validation-artifact-reference.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `git diff --check`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Evaluate manifest support for standalone `infra-agent.knowledge-units`
+   artifacts without weakening the local-only upload/publication gates.
+2. Add internal-team curated unit sources from local files or S3-compatible
+   references.
+3. Add planner-facing behavior tests proving guidance, examples, diagnostics,
+   and recipes improve Terraform/Pulumi rename, replacement, and stack-config
+   decisions while preserving compact token budgets.
+
 ## 2026-05-12 Completed Unit-Aware Knowledge Validation Reports
 
 Status:

@@ -41,6 +41,7 @@ export interface KnowledgeArtifactManifest {
     cacheRoot: string;
     sourceCount: number;
     factCount: number;
+    unitCount?: number;
     staleSourceCount: number;
     storagePolicy: KnowledgeStoragePolicySummary;
   };
@@ -130,6 +131,10 @@ function artifactId(payload: KnowledgeArtifactPayload, artifactHash: string): st
     : artifactHash.slice(0, 24);
 }
 
+function artifactUnitCount(payload: KnowledgeArtifactPayload): number | undefined {
+  return payload.unitCount;
+}
+
 function publicationDefaultStore(summary: KnowledgeStoragePolicySummary): KnowledgeStorageDefault {
   return summary.explicitOptInRequired > 0
     ? 'local-only'
@@ -206,6 +211,7 @@ export function buildKnowledgeArtifactManifest(
       cacheRoot: payload.cacheRoot,
       sourceCount: payload.sourceCount,
       factCount: payload.factCount,
+      ...(artifactUnitCount(payload) !== undefined ? { unitCount: artifactUnitCount(payload) } : {}),
       staleSourceCount: artifactStaleSourceCount(payload),
       storagePolicy
     },
