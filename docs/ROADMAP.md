@@ -4,6 +4,34 @@ This document is the durable product and engineering plan for future sessions.
 It refines the earlier phase plan with the current implementation state and with
 runtime patterns learned from `learning-claude-code`.
 
+## Active Development Priority
+
+The next development phase is feature-first RAG, not additional upload-boundary
+modeling. Keep Claude Code style safety principles, but do not add more
+fine-grained `knowledge team-upload-*` dry-run boundaries unless a concrete
+product requirement depends on them.
+
+Prioritize work that makes infrastructure edits more accurate and token
+efficient:
+
+1. Extract compact JSON units from public provider/package/chart/official-doc
+   sources and internal local or repo-curated sources.
+2. Analyze those units into the five core contracts: `fact`, `guidance`,
+   `example`, `diagnostic`, and `recipe`.
+3. Retrieve units deterministically by domain, version, resource/module/chart/
+   component identity, target path, validation issue, planned action, risk,
+   freshness, and privacy scope.
+4. Feed selected units into planner prompts and edit-plan builders so they
+   change real Terraform, Pulumi, and Helm behavior under tight token budgets.
+5. Prove the value with workflows such as Terraform moved blocks, Pulumi
+   aliases and stack config, Helm values migration, provider replacement risk,
+   and validation-derived repair diagnostics.
+
+Existing team-upload boundary code should be treated as a maintained but
+non-expanding safety scaffold. The near-term registry path should be read-only
+artifact discovery and download of reviewed `infra-agent.knowledge-units`
+payloads, not remote write/upload execution.
+
 ## Current Baseline
 
 The repository already has a working TypeScript CLI skeleton with:

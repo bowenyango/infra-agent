@@ -6,6 +6,40 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Priority Reset: Feature-First RAG
+
+Status:
+
+- The product direction has been reset toward functional infrastructure RAG
+  behavior. Future development should stop expanding the fine-grained
+  `knowledge team-upload-*` dry-run boundary chain unless a concrete team-upload
+  product requirement needs it.
+- Keep Claude Code style safety principles, but keep them lightweight:
+  permission state, dry-run/execution separation, explicit approval before
+  mutation, compact handoff, and secret redaction.
+
+Active implementation focus:
+
+- Extract and analyze the five compact JSON knowledge unit types: `fact`,
+  `guidance`, `example`, `diagnostic`, and `recipe`.
+- Improve deterministic retrieval and ranking by domain, version, provider or
+  package, resource/module/chart/component identity, target path, validation
+  issue, planned action, risk, freshness, and privacy scope.
+- Feed selected units into planner prompts and edit-plan builders so RAG changes
+  real Terraform, Pulumi, and Helm behavior under tight token budgets.
+- Prioritize read-only artifact discovery/download for reviewed
+  `infra-agent.knowledge-units` payloads over any remote upload execution.
+
+Recommended next slices:
+
+1. Add planner/edit-plan behavior coverage proving Terraform rename guidance
+   selects moved-block review or blocks unsafe replacement under tight unit
+   budgets.
+2. Add Pulumi alias/stack-config recipe units and prove they affect planner
+   handoff or edit-plan selection without exposing raw examples.
+3. Add read-only registry artifact discovery for prebuilt unit artifacts,
+   leaving real upload/write execution out of scope.
+
 ## 2026-05-12 Completed CLI Coverage for Prebuilt Unit Artifacts
 
 Status:

@@ -8,6 +8,26 @@ The current optimized roadmap lives in [Roadmap](./ROADMAP.md). Treat that
 document as the active next-step plan when it conflicts with this older phase
 breakdown.
 
+## Current Priority Override
+
+The active priority is functional RAG capability for infrastructure changes.
+Future development should focus on extracting, validating, analyzing,
+retrieving, and applying the five compact JSON knowledge unit types:
+
+- `fact`
+- `guidance`
+- `example`
+- `diagnostic`
+- `recipe`
+
+Safety remains required, but it should stay at Claude Code harness weight:
+permission classification, dry-run separation, explicit approval before
+mutation, compact handoff, and secret redaction. Do not continue expanding the
+fine-grained `knowledge team-upload-*` dry-run boundary chain unless a concrete
+product requirement needs it. Existing boundary contracts may be maintained,
+but new work should prioritize user-visible RAG behavior and infra edit
+accuracy.
+
 The initial infrastructure domains are:
 
 - `Pulumi`

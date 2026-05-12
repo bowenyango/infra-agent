@@ -47,6 +47,15 @@ generic vector-search add-on. Future development must optimize for accurate,
 token-efficient infrastructure changes by extracting, validating, storing, and
 retrieving compact knowledge units.
 
+Active priority: build functional RAG behavior before adding more remote-upload
+safety scaffolding. Keep safety at Claude Code harness weight: structured
+permission state, dry-run versus execution separation, explicit approval before
+mutation, compact handoff, and secret redaction. Do not add new
+`knowledge team-upload-*` boundary stages unless the user explicitly asks for a
+real team-upload feature or a concrete product requirement depends on it.
+Prefer read-only artifact discovery/download and planner/edit-plan integration
+for reviewed knowledge units.
+
 The long-term retrieval contract is `infra-agent.knowledge-unit` with five unit
 types:
 
