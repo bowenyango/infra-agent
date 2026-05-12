@@ -6,6 +6,58 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Standalone Knowledge Unit Artifact Output
+
+Status:
+
+- Added a local persistence path for extracted `infra-agent.knowledge-units`
+  artifacts.
+- `knowledge extract` still writes the full extraction report with `--out`, but
+  can now also write one standalone unit artifact per extracted source with
+  `--units-out <dir>`.
+
+Implemented checkpoints:
+
+- Added `--units-out <dir>` parsing for `infra-agent knowledge extract`.
+- Unit artifacts are written as
+  `<sourceId>.knowledge-units.json` under the requested directory.
+- JSON stdout includes `unitOutputPaths` when `--units-out` is used.
+- Text stdout reports the written unit artifact count and paths.
+- Updated CLI usage, README, Roadmap, and Agent Rules so future agents treat
+  standalone unit artifacts as part of the core knowledge workflow.
+
+Design notes:
+
+- This is a local-only artifact write path. It does not upload, publish, read
+  credentials, or imply remote registry mutation.
+- Keeping unit artifacts separate from the full extraction report lets future
+  public/internal registries download compact RAG units directly while the
+  legacy extraction report remains compatible.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/integration/cli-knowledge-args-main.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`
+- `npm run test:integration`
+- `npm run lint`
+- `git diff --check`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Extend team artifact manifests or descriptor planning to support
+   standalone `infra-agent.knowledge-units` artifacts when the publication
+   surface is ready.
+2. Add internal-team curated unit sources from local files or S3-compatible
+   references.
+3. Add planner-facing checks that prove `guidance` and `example` units are used
+   for Terraform/Pulumi rename, replacement, and stack-config decisions.
+
 ## 2026-05-12 Completed Unit-Native Extraction Projections
 
 Status:

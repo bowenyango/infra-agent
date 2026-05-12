@@ -607,6 +607,7 @@ test('knowledge extract command writes a reusable validation artifact with --out
 
   try {
     const outputPath = join(tempRoot, 'artifacts/knowledge-extraction.json');
+    const unitOutputDir = join(tempRoot, 'artifacts/units');
     const manifestPath = join(tempRoot, 'artifacts/knowledge-extraction.manifest.json');
     const output = await captureStdout(() => main([
       'knowledge',
@@ -618,12 +619,15 @@ test('knowledge extract command writes a reusable validation artifact with --out
       'charts/payments-api',
       '--out',
       outputPath,
+      '--units-out',
+      unitOutputDir,
       '--manifest-out',
       manifestPath,
       '--json'
     ]));
     const stdoutReport = JSON.parse(output.slice(output.indexOf('{')));
     const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+    const unitArtifact = JSON.parse(await readFile(stdoutReport.unitOutputPaths[0], 'utf8'));
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
     const validationOutput = await captureStdout(() => main([
       'knowledge',
@@ -634,13 +638,24 @@ test('knowledge extract command writes a reusable validation artifact with --out
       '--json'
     ]));
     const validation = JSON.parse(validationOutput.slice(validationOutput.indexOf('{')));
+    const unitValidationOutput = await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      stdoutReport.unitOutputPaths[0],
+      '--json'
+    ]));
+    const unitValidation = JSON.parse(unitValidationOutput.slice(unitValidationOutput.indexOf('{')));
 
     assert.equal(stdoutReport.kind, 'infra-agent.knowledge-extraction');
     assert.equal(stdoutReport.outputPath, outputPath);
     assert.equal(stdoutReport.manifestPath, manifestPath);
+    assert.equal(stdoutReport.unitOutputPaths.length, stdoutReport.unitSetCount);
     assert.equal(artifact.kind, 'infra-agent.knowledge-extraction');
     assert.equal(artifact.outputPath, undefined);
     assert.equal(artifact.factSetCount, stdoutReport.factSetCount);
+    assert.equal(unitArtifact.kind, 'infra-agent.knowledge-units');
+    assert.equal(unitArtifact.sourceId, artifact.unitSets[0].sourceId);
+    assert.equal(unitArtifact.unitCount, artifact.unitSets[0].unitCount);
     assert.equal(manifest.kind, 'infra-agent.knowledge-artifact-manifest');
     assert.equal(manifest.artifact.kind, 'infra-agent.knowledge-extraction');
     assert.equal(manifest.artifact.path, outputPath);
@@ -648,6 +663,7 @@ test('knowledge extract command writes a reusable validation artifact with --out
     assert.equal(manifest.publication.remoteWriteAllowed, false);
     assert.equal(validation.valid, true);
     assert.equal(validation.factSetCount, artifact.factSetCount);
+    assert.equal(unitValidation.valid, true);
     assert.doesNotMatch(JSON.stringify(artifact), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

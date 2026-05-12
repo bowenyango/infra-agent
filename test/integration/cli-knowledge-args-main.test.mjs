@@ -117,6 +117,8 @@ test('knowledge extract CLI args accept source filters and bounded targets', () 
     'chart-schema:example',
     '--out',
     'artifacts/knowledge-extraction.json',
+    '--units-out',
+    'artifacts/units',
     '--manifest-out',
     'artifacts/knowledge-extraction.manifest.json',
     '--json'
@@ -129,6 +131,7 @@ test('knowledge extract CLI args accept source filters and bounded targets', () 
   assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
   assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
   assert.equal(parsed.outputPath, 'artifacts/knowledge-extraction.json');
+  assert.equal(parsed.unitOutputDir, 'artifacts/units');
   assert.equal(parsed.manifestOutputPath, 'artifacts/knowledge-extraction.manifest.json');
   assert.equal(parsed.json, true);
 });

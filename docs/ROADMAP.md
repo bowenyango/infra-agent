@@ -610,10 +610,12 @@ Implemented initial CLI surfaces:
 - `infra-agent knowledge prefetch <workspace> ...`
   - aliases the current top-level `prefetch` command.
 - `infra-agent knowledge extract <workspace> [--domain ...] [--target ...]
-  [--source <id>] [--out <knowledge.json>] [--json]`
+  [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--json]`
   - extracts normalized `knowledge-facts` from cached docs, repo-local schemas,
     examples, and module/component/chart code. `--out` explicitly persists the
-    generated artifact for later validation or handoff.
+    generated artifact for later validation or handoff. `--units-out`
+    additionally writes one standalone `infra-agent.knowledge-units` artifact
+    per extracted source.
 - `infra-agent knowledge validate <facts.json|pack.json|manifest.json|descriptor.json> [--workspace <workspace>] --json`
   - validates schema, source links, count consistency, stale policy, confidence
     labels, compact pack freshness metadata, artifact manifest publication

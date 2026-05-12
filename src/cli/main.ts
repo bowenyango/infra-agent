@@ -139,6 +139,7 @@ export interface ParsedArgs {
   indexEntryInputPath?: string | null;
   registryInputPath?: string | null;
   outputPath?: string | null;
+  unitOutputDir?: string | null;
   manifestOutputPath?: string | null;
   validationWorkspace?: string | null;
   json: boolean;
@@ -182,7 +183,7 @@ function printUsage(): void {
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
       '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--manifest-out <manifest.json>] [--json]',
+      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]',
@@ -247,6 +248,24 @@ function resolveFromCwd(inputPath: string): string {
   return isAbsolute(inputPath)
     ? inputPath
     : resolve(cwd(), inputPath);
+}
+
+async function writeKnowledgeUnitArtifacts(
+  unitOutputDir: string,
+  unitSets: Array<{ sourceId: string }>
+): Promise<string[]> {
+  const resolvedDir = resolveFromCwd(unitOutputDir);
+  const outputPaths: string[] = [];
+
+  for (const unitSet of unitSets) {
+    outputPaths.push(await writeJsonArtifact(
+      resolve(resolvedDir, `${unitSet.sourceId}.knowledge-units.json`),
+      cwd(),
+      unitSet
+    ));
+  }
+
+  return outputPaths;
 }
 
 function isToolPermissionCategory(value: string | undefined): value is ToolPermissionCategory {
@@ -744,6 +763,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let adapterPlanInputPath: string | null = null;
     let mockHarnessInputPath: string | null = null;
     let outputPath: string | null = null;
+    let unitOutputDir: string | null = null;
     let manifestOutputPath: string | null = null;
     let approvalFingerprint: string | null = null;
     let reviewFingerprint: string | null = null;
@@ -864,6 +884,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         outputPath = outputValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--units-out') {
+        const unitOutputValue = actionArgs[index + 1]?.trim();
+        if (!unitOutputValue) {
+          fail('Missing value for --units-out.');
+        }
+        if (knowledgeAction !== 'extract') {
+          fail('--units-out is only supported for knowledge extract.');
+        }
+        if (unitOutputDir !== null) {
+          fail('Unit output directory can be provided at most once.');
+        }
+
+        unitOutputDir = unitOutputValue;
         index += 1;
         continue;
       }
@@ -1223,6 +1260,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       indexEntryInputPath,
       registryInputPath,
       outputPath,
+      unitOutputDir,
       manifestOutputPath,
       validationWorkspace,
       json,
@@ -1649,6 +1687,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
       : null;
+    const unitOutputPaths = parsed.unitOutputDir
+      ? await writeKnowledgeUnitArtifacts(parsed.unitOutputDir, report.unitSets)
+      : [];
     const manifestPath = writtenPath && parsed.manifestOutputPath
       ? await writeJsonArtifact(parsed.manifestOutputPath, cwd(), buildKnowledgeArtifactManifest(report, {
           artifactPath: writtenPath,
@@ -1661,15 +1702,25 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         ? {
             ...report,
             outputPath: writtenPath,
+            ...(parsed.unitOutputDir ? { unitOutputPaths } : {}),
             ...(manifestPath ? { manifestPath } : {})
           }
-        : report, null, 2)}\n`);
+        : {
+            ...report,
+            ...(parsed.unitOutputDir ? { unitOutputPaths } : {})
+          }, null, 2)}\n`);
       return;
     }
 
     printKnowledgeExtractionReport(report);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    if (parsed.unitOutputDir) {
+      process.stdout.write(`unit artifacts: ${unitOutputPaths.length}\n`);
+      for (const unitOutputPath of unitOutputPaths) {
+        process.stdout.write(`unit: ${unitOutputPath}\n`);
+      }
     }
     if (manifestPath) {
       process.stdout.write(`manifest: ${manifestPath}\n`);

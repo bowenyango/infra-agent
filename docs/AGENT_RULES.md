@@ -178,9 +178,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Use the `infra-agent knowledge` namespace for reusable knowledge workflows:
   `sources` to inspect selected sources and public official-doc cache posture,
   `prefetch` to deliberately refresh bounded official-doc cache entries,
-  `extract` to create fact sets from cache or local schema/code sources,
-  `validate` to check facts before use, and `knowledge pack` to build bounded
-  planner-safe unit bundles. Prefer `--max-units` for new unit-first packs;
+  `extract` to create fact sets and optional standalone unit artifacts from
+  cache or local schema/code sources, `validate` to check facts or units before
+  use, and `knowledge pack` to build bounded planner-safe unit bundles.
+  Prefer `--max-units` for new unit-first packs;
   `--max-facts` remains a compatibility alias while legacy consumers migrate.
   Read `knowledge sources` cache status before
   prefetching: `fresh` means the local cache entry is currently usable,
