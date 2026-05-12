@@ -6,6 +6,60 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed CLI Coverage for Internal Curated Units
+
+Status:
+
+- Added integration coverage for the user-facing `knowledge sources`,
+  `knowledge extract`, and `knowledge pack` CLI flow when a workspace declares
+  local internal curated unit sources.
+- The coverage proves curated unit sources are visible as local
+  `internal-knowledge` sources, extract to zero-fact unit sets, and pack into
+  compact bounded unit context without leaking raw local example snippets.
+
+Implemented checkpoints:
+
+- Added a temporary Terraform workspace fixture with
+  `knowledgeSources.curatedUnits[]` pointing at a safe workspace-relative
+  curated unit file.
+- Verified `knowledge sources --json` reports the configured source as
+  `requiresFetch=false`, `cacheStatus=local`, and
+  `storagePolicy.scope=workspace-private`.
+- Verified `knowledge extract --json` reports `factCount=0`, `unitCount=3`,
+  and `privacyScope=internal-team` for guidance, example, and recipe units.
+- Verified `knowledge pack --max-units 1 --json` preserves the
+  high-confidence Terraform rename guidance, reports omitted unit counts, and
+  excludes raw moved-block snippets from CLI output.
+
+Design notes:
+
+- This closes the first user-facing slice of the agreed RAG model: local
+  internal knowledge can be authored as compact units, discovered by config,
+  extracted deterministically, and budgeted into planner-ready packs.
+- The CLI tests intentionally cover the public command boundary rather than
+  only unit-level helpers, because curated units are meant to become a stable
+  operating path for demos and team workflows.
+
+Validation completed:
+
+- `node --experimental-strip-types test/integration/cli-knowledge-curated-units-main.test.mjs`
+- `npm run test:integration`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Add read-only reference discovery for prebuilt public/internal unit
+   artifacts from S3-compatible locations, reusing the same unit contracts.
+2. Add planner behavior coverage proving curated Terraform/Pulumi rename
+   guidance changes edit-plan review choices under tight unit budgets.
+3. Add a compact CLI command or report section that makes included/omitted
+   units easy to inspect without exposing raw internal snippets.
+
 ## 2026-05-12 Completed Planner Prompt Coverage for Internal Curated Units
 
 Status:
