@@ -97,6 +97,24 @@ function buildHelmPreflightFixture() {
   return fixture;
 }
 
+function buildTerraformPreflightFixture() {
+  const fixture = buildPreflightFixture();
+  fixture.task = 'rename terraform api bucket resource safely';
+  fixture.requestedDomains = ['terraform'];
+  fixture.targetCandidates = [
+    {
+      kind: 'terraform-root',
+      name: 'app',
+      path: 'terraform/app',
+      score: 10,
+      reasons: ['matched task'],
+      matchedEnvironmentHints: [],
+      details: []
+    }
+  ];
+  return fixture;
+}
+
 function buildPackageDocsKnowledgePack() {
   return {
     kind: 'infra-agent.knowledge-pack',
@@ -345,6 +363,106 @@ function buildPulumiComponentKnowledgePack() {
   };
 }
 
+function buildInternalCuratedKnowledgePack() {
+  return {
+    kind: 'infra-agent.knowledge-pack',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    packId: '111111111111111111111111',
+    workspaceRoot: '/workspace',
+    cacheRoot: '/workspace/.infra-agent/knowledge-cache',
+    requestedDomains: ['terraform'],
+    targetPaths: ['terraform/app'],
+    sourceIds: ['internal/terraform-rename'],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: 0,
+    includedFactCount: 0,
+    omittedFactCount: 0,
+    unitCount: 3,
+    includedUnitCount: 3,
+    omittedUnitCount: 0,
+    maxFacts: 3,
+    maxUnits: 3,
+    staleSourceCount: 0,
+    storagePolicy: {
+      publicReference: 0,
+      workspacePrivate: 1,
+      explicitOptInRequired: 1,
+      shareableByDefault: 0,
+      defaultStores: {
+        'local-only': 1,
+        'local-or-explicit-team-cache': 0
+      }
+    },
+    sources: [
+      {
+        id: 'internal/terraform-rename',
+        domain: 'terraform',
+        targetPath: 'terraform/app',
+        kind: 'internal-knowledge',
+        name: 'terraform-rename-internal',
+        factCount: 0,
+        contentHash: 'd'.repeat(64),
+        fetchedAt: '1970-01-01T00:00:00.000Z',
+        stale: false,
+        freshness: 'fresh',
+        fingerprintDigest: 'e'.repeat(64),
+        fingerprintFileCount: 1,
+        storagePolicy: {
+          scope: 'workspace-private',
+          defaultStore: 'local-only',
+          shareableByDefault: false,
+          requiresExplicitOptIn: true,
+          reason: 'Internal curated units are workspace-local.'
+        }
+      }
+    ],
+    facts: [],
+    units: [
+      {
+        unitType: 'guidance',
+        path: 'guidance.terraform.logical-rename',
+        summary: 'Use Terraform moved blocks when a resource logical name changes but the remote object should be retained.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-guidance',
+        sourceId: 'internal/terraform-rename',
+        sourceLocator: 'guidance:guidance.terraform.logical-rename',
+        privacyScope: 'internal-team',
+        topic: 'terraform-logical-rename',
+        appliesWhen: ['Terraform resource address rename'],
+        risk: 'Without a moved block, a rename can look like destroy and create.'
+      },
+      {
+        unitType: 'example',
+        path: 'example.terraform.moved-block',
+        summary: 'Minimal moved block for a Terraform resource rename.',
+        confidence: 'medium',
+        extractionMethod: 'repo-local-example',
+        sourceId: 'internal/terraform-rename',
+        sourceLocator: 'example:example.terraform.moved-block',
+        privacyScope: 'internal-team',
+        exampleType: 'terraform-moved-block',
+        language: 'hcl',
+        snippet: 'moved { from = aws_s3_bucket.old to = aws_s3_bucket.api }'
+      },
+      {
+        unitType: 'recipe',
+        path: 'recipe.terraform.safe-rename',
+        summary: 'Review a Terraform logical rename before editing infrastructure.',
+        confidence: 'medium',
+        extractionMethod: 'workflow-recipe',
+        sourceId: 'internal/terraform-rename',
+        sourceLocator: 'recipe:recipe.terraform.safe-rename',
+        privacyScope: 'internal-team',
+        name: 'Terraform safe logical rename',
+        steps: ['Add or verify a moved block.', 'Run a plan before apply.'],
+        mutationAllowed: false
+      }
+    ]
+  };
+}
+
 test('planner user prompt includes budgeted Pulumi package docs facts without raw docs', () => {
   const prompt = buildPlannerUserPrompt({
     task: 'update pulumi api bucket configuration',
@@ -464,4 +582,40 @@ test('planner user prompt includes budgeted Pulumi component facts without raw s
   assert.equal(parsed.knowledgeFacts.facts[1]?.path, 'component.ApiService.childResources.assets');
   assert.equal(parsed.knowledgeFacts.facts[1]?.type, 'aws:s3/bucket:Bucket');
   assert.doesNotMatch(prompt, /"content"\s*:|contentHash|fetchedAt|class ApiService|super\(|@pulumi\/pulumi|@pulumi\/aws|bucket:\s*args\.image/);
+});
+
+test('planner user prompt prioritizes internal curated guidance units without raw examples', () => {
+  const prompt = buildPlannerUserPrompt({
+    task: 'rename terraform api bucket resource safely',
+    preflight: buildTerraformPreflightFixture(),
+    knowledgeFacts: buildInternalCuratedKnowledgePack(),
+    retrievedContextBudget: {
+      maxPackets: 5,
+      maxTokens: 1000,
+      maxExcerptChars: 1200,
+      maxFacts: 1
+    },
+    retrievedContext: [],
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  });
+  const parsed = JSON.parse(prompt);
+
+  assert.equal(parsed.knowledgeFacts.totalFactCount, 0);
+  assert.equal(parsed.knowledgeFacts.includedFactCount, 0);
+  assert.equal(parsed.knowledgeFacts.totalUnitCount, 3);
+  assert.equal(parsed.knowledgeFacts.includedUnitCount, 1);
+  assert.equal(parsed.knowledgeFacts.omittedUnitCount, 2);
+  assert.equal(parsed.knowledgeFacts.sources[0]?.kind, 'internal-knowledge');
+  assert.equal(parsed.knowledgeFacts.sources[0]?.fingerprintFileCount, 1);
+  assert.equal(parsed.knowledgeFacts.units[0]?.unitType, 'guidance');
+  assert.equal(parsed.knowledgeFacts.units[0]?.topic, 'terraform-logical-rename');
+  assert.equal(parsed.knowledgeFacts.units[0]?.privacyScope, 'internal-team');
+  assert.doesNotMatch(prompt, /"content"\s*:|contentHash|fetchedAt|moved \{ from = aws_s3_bucket\.old/);
 });

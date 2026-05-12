@@ -6,6 +6,51 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Planner Prompt Coverage for Internal Curated Units
+
+Status:
+
+- Added planner-prompt coverage proving internal curated units reach the
+  compact LLM handoff as bounded `knowledgeFacts.units` context.
+- The new coverage uses a zero-fact internal source with guidance, example,
+  and recipe units, then verifies a small unit budget keeps the high-confidence
+  rename guidance while omitting raw examples.
+
+Implemented checkpoints:
+
+- Added a Terraform-focused fixture with an `internal-knowledge` source and
+  `internal-team` units.
+- Verified prompt summaries report `totalFactCount=0`,
+  `totalUnitCount=3`, `includedUnitCount=1`, and `omittedUnitCount=2`.
+- Verified the selected unit is the curated guidance topic and that raw
+  curated example snippets, content hashes, and fetched timestamps do not leak
+  into the planner prompt.
+
+Design notes:
+
+- This locks the intended behavior: curated internal knowledge is useful to
+  the planner through compact units, not through raw local files or broad text
+  retrieval.
+- The test reinforces the token-saving RAG path for Terraform rename handling
+  under a very small budget.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/planner-knowledge-facts-prompt.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add CLI integration coverage for curated source listing/extraction text and
+   JSON output if this path becomes user-facing in demos.
+2. Add S3-compatible read-only reference discovery for prebuilt public/internal
+   unit artifacts, keeping upload execution behind the existing approval
+   boundary.
+3. Add end-to-end planner decision tests that assert rename/replacement review
+   choices change when curated units are present.
+
 ## 2026-05-12 Completed Local Internal Curated Knowledge Units
 
 Status:
