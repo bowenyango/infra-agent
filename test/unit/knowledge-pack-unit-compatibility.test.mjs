@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
+import { buildKnowledgeCacheId } from '../../src/knowledge/cache.ts';
 import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
@@ -69,6 +73,101 @@ test('knowledge pack and budget summaries accept maxUnits as the unit-first budg
 
   assert.equal(report.valid, false);
   assert.ok(report.issues.some(issue => issue.path === '$.maxUnits'));
+});
+
+test('knowledge pack consumes unit-native extraction projections', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-units-'));
+
+  try {
+    const terraformRoot = join(tempRoot, 'terraform/app');
+    await mkdir(terraformRoot, { recursive: true });
+    await writeFile(
+      join(terraformRoot, 'main.tf'),
+      [
+        'terraform {',
+        '  required_providers {',
+        '    aws = {',
+        '      source = "hashicorp/aws"',
+        '      version = "5.37.0"',
+        '    }',
+        '  }',
+        '}',
+        '',
+        'resource "aws_s3_bucket" "logs" {}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(terraformRoot, '.terraform.lock.hcl'),
+      [
+        'provider "registry.terraform.io/hashicorp/aws" {',
+        '  version = "5.37.0"',
+        '}',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const store = {
+      root: join(tempRoot, '.infra-agent/knowledge-cache'),
+      buildId: buildKnowledgeCacheId,
+      read: async source => ({
+        id: buildKnowledgeCacheId(source),
+        source,
+        contentType: 'text/markdown',
+        content: [
+          '# aws_s3_bucket',
+          '',
+          '## Example Usage',
+          '',
+          '```hcl',
+          'resource "aws_s3_bucket" "example" {',
+          '  bucket = "example-bucket"',
+          '}',
+          '```',
+          '',
+          '## Argument Reference',
+          '',
+          '* `bucket` - (Optional) Bucket name. Forces replacement.',
+          ''
+        ].join('\n'),
+        contentHash: 'd'.repeat(64),
+        fetchedAt: '2026-05-05T00:00:00.000Z',
+        staleAfter: '2026-06-05T00:00:00.000Z'
+      }),
+      write: async () => {
+        throw new Error('pack extraction should not write in this test');
+      },
+      isStale: () => false
+    };
+    const inspection = await inspectWorkspace(tempRoot);
+    const pack = await buildKnowledgePack(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxUnits: 8,
+      store,
+      extractedAt: '2026-05-05T00:00:00.000Z'
+    });
+
+    assert.ok(pack.unitCount > pack.factCount);
+    assert.ok(pack.units.some(unit =>
+      unit.unitType === 'example'
+      && unit.extractionMethod === 'official-example'
+      && /aws_s3_bucket/.test(unit.snippet)
+    ));
+    assert.ok(pack.units.some(unit =>
+      unit.unitType === 'guidance'
+      && unit.topic === 'provider-identity-field'
+    ));
+    assert.ok(pack.units.some(unit =>
+      unit.unitType === 'guidance'
+      && unit.topic === 'replacement-sensitive-field'
+    ));
+    assert.equal(validateKnowledgePayload(pack, 'inline').valid, true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('knowledge pack validation rejects non-fact unit labels in legacy facts', async () => {

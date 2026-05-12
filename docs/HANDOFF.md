@@ -6,6 +6,79 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Unit-Native Extraction Projections
+
+Status:
+
+- Completed the first extractor-to-pack implementation slice for unit-native
+  infrastructure RAG.
+- Extraction still preserves the legacy `factSets` surface, but now also emits
+  validated `unitSets` with `fact`, `guidance`, and `example` projections.
+- Knowledge packs now prefer extracted units when available, so provider,
+  Helm, Pulumi docs, and repo-local sources can carry compact explanations and
+  examples without relying on raw docs or vector retrieval.
+
+Implemented checkpoints:
+
+- Added `src/knowledge/units.ts` to convert `KnowledgeFactSet` artifacts into
+  `infra-agent.knowledge-units` artifacts.
+- Every fact is projected to a `fact` unit, and selected facts also produce
+  bounded non-fact units:
+  - `example` units from extracted examples.
+  - `guidance` units from Pulumi docs guidance.
+  - `guidance` units for provider identity fields and replacement-sensitive
+    fields, including rename, import, state, alias, plan, and preview review
+    context.
+- `extractWorkspaceKnowledgeFacts` now records `unitSets`, `unitSetCount`,
+  `unitCount`, and per-source `unitCount`.
+- `buildKnowledgePack` now ranks and budgets extracted unit projections first,
+  while keeping the fact-backed unit fallback for legacy extraction outputs.
+- `knowledge validate` now validates extraction-embedded unit sets, unit count
+  arithmetic, and unit-set source references.
+- CLI extraction summaries now report unit totals beside fact totals.
+
+Design notes:
+
+- This keeps the five-unit RAG model at the center of the product:
+  `fact`, `guidance`, `example`, `diagnostic`, and `recipe`.
+- The implementation is deterministic and cache-first. Selection remains based
+  on source kind, domain, target path, versioned source metadata, confidence,
+  freshness, and privacy scope; no Vector DB is required for this path.
+- Public-reference sources produce public guidance/examples, while repo-local
+  sources produce workspace-private guidance/examples using the same workflow.
+- The non-fact units intentionally stay compact and JSON-carried. They help the
+  planner understand infrastructure-specific rename/replacement behavior
+  without passing full provider docs, full schemas, or unbounded examples.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-unit-extraction.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-extraction-content.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-pack-unit-compatibility.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `git diff --check`
+
+Validation note:
+
+- `npm run test:structure` currently fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file; split that test file in a
+  dedicated cleanup commit before treating `npm run test` as fully green.
+
+Next recommended implementation steps:
+
+1. Persist standalone `infra-agent.knowledge-units` artifacts through the
+   existing `knowledge extract --out` and validation flow when a caller wants
+   unit artifacts separately from the full extraction report.
+2. Extend unit-native projections for internal-team sources, including
+   S3/local curated guidance, examples, diagnostics, and recipes.
+3. Add planner-facing tests that prove guidance/example units improve
+   Terraform/Pulumi rename and replacement review decisions while preserving
+   compact token budgets.
+
 ## 2026-05-11 Completed Unit-First Knowledge Budget Alias
 
 Status:

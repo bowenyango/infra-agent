@@ -22,6 +22,7 @@ import {
   type KnowledgeSource,
   type KnowledgeSourceKind,
   type KnowledgeSourceStaleReason,
+  type KnowledgeUnitSet,
   type KnowledgeUnitExtractionMethod,
   type KnowledgeUnitPrivacyScope,
   type KnowledgeUnitType,
@@ -691,6 +692,16 @@ function validateKnowledgeUnitSetPayload(
   }
 
   return createReport(inputPath, inputKind, issues, factSets);
+}
+
+function prefixValidationIssues(
+  issues: KnowledgeValidationIssue[],
+  prefix: string
+): KnowledgeValidationIssue[] {
+  return issues.map(issue => ({
+    ...issue,
+    path: issue.path === '$' ? prefix : `${prefix}${issue.path.slice(1)}`
+  }));
 }
 
 function validateFactSet(value: unknown, path: string, issues: KnowledgeValidationIssue[]): KnowledgeFactSet | null {
@@ -1683,6 +1694,40 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
   const actualFactCount = factSets.reduce((total, factSet) => total + factSet.factCount, 0);
   if (declaredFactCount !== actualFactCount) {
     issues.push(error('$.factCount', 'Knowledge extraction factCount must match the sum of fact set fact counts.'));
+  }
+
+  const factSetSourceIds = new Set(factSets.map(factSet => factSet.sourceId));
+  const unitSets: KnowledgeUnitSet[] = [];
+  if (payload.unitSets !== undefined) {
+    if (!Array.isArray(payload.unitSets)) {
+      issues.push(error('$.unitSets', 'Knowledge extraction unitSets must be an array when present.'));
+    } else {
+      payload.unitSets.forEach((unitSetPayload, index) => {
+        const report = isRecord(unitSetPayload)
+          ? validateKnowledgeUnitSetPayload(unitSetPayload, `$.unitSets[${index}]`, 'infra-agent.knowledge-units')
+          : createReport(`$.unitSets[${index}]`, null, [error('$', 'Knowledge unit set must be an object.')], []);
+        issues.push(...prefixValidationIssues(report.issues, `$.unitSets[${index}]`));
+
+        if (report.valid && isRecord(unitSetPayload)) {
+          unitSets.push(unitSetPayload as unknown as KnowledgeUnitSet);
+          if (typeof unitSetPayload.sourceId === 'string' && !factSetSourceIds.has(unitSetPayload.sourceId)) {
+            issues.push(error(`$.unitSets[${index}].sourceId`, 'Knowledge extraction unit set sourceId must reference an extracted fact set source.'));
+          }
+        }
+      });
+
+      if (payload.unitSetCount !== payload.unitSets.length) {
+        issues.push(error('$.unitSetCount', 'Knowledge extraction unitSetCount must match unitSets.length.'));
+      }
+    }
+  }
+
+  if (payload.unitCount !== undefined) {
+    const declaredUnitCount = readNonNegativeInteger(payload.unitCount, '$.unitCount', issues);
+    const actualUnitCount = unitSets.reduce((total, unitSet) => total + unitSet.unitCount, 0);
+    if (declaredUnitCount !== null && declaredUnitCount !== actualUnitCount) {
+      issues.push(error('$.unitCount', 'Knowledge extraction unitCount must match the sum of unit set unit counts.'));
+    }
   }
 
   return createReport(inputPath, inputKind, issues, factSets);

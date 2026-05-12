@@ -668,8 +668,9 @@ function formatKnowledgeSourceReportEntry(entry: KnowledgeSourceReportEntry): st
 function formatKnowledgeExtractionSourceResult(result: KnowledgeExtractionSourceResult): string {
   const location = result.source.url ?? result.source.localPath ?? 'no source location';
   const factLabel = result.factCount > 0 ? `, facts=${result.factCount}` : '';
+  const unitLabel = result.unitCount > 0 ? `, units=${result.unitCount}` : '';
   const message = result.message ? ` (${result.message})` : '';
-  return `${result.status} ${result.domain} ${result.targetPath}: ${result.source.kind} ${result.source.name} (id=${result.id}${factLabel}, ${location})${message}`;
+  return `${result.status} ${result.domain} ${result.targetPath}: ${result.source.kind} ${result.source.name} (id=${result.id}${factLabel}${unitLabel}, ${location})${message}`;
 }
 
 function formatKnowledgeStaleSource(source: KnowledgeValidationReport['freshness']['staleSources'][number]): string {
@@ -3531,7 +3532,7 @@ export function printKnowledgeExtractionReport(report: KnowledgeExtractionReport
   process.stdout.write(`knowledge cache: ${report.cacheRoot}\n`);
   process.stdout.write(`domains: ${report.requestedDomains.length > 0 ? report.requestedDomains.join(', ') : 'none'}\n`);
   process.stdout.write(`targets: ${report.targetPaths.length > 0 ? report.targetPaths.join(', ') : 'all'}\n`);
-  process.stdout.write(`summary: sources=${report.sourceCount}, factSets=${report.factSetCount}, facts=${report.factCount}, skipped=${report.skippedSourceCount}\n\n`);
+  process.stdout.write(`summary: sources=${report.sourceCount}, factSets=${report.factSetCount}, facts=${report.factCount}, unitSets=${report.unitSetCount}, units=${report.unitCount}, skipped=${report.skippedSourceCount}\n\n`);
   printHeader('Sources');
   printList(report.sources.map(formatKnowledgeExtractionSourceResult), 'No knowledge sources selected.');
 }

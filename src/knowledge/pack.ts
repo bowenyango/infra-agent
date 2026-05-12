@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { extractWorkspaceKnowledgeFacts, type KnowledgeExtractionOptions } from './extract.ts';
 import { rankKnowledgePackFacts } from './fact-ranking.ts';
+import { rankKnowledgePackUnits } from './unit-ranking.ts';
 import {
   resolveKnowledgeStoragePolicy,
   summarizeKnowledgeStoragePolicies,
@@ -12,6 +13,7 @@ import type {
   KnowledgeFact,
   KnowledgeFactExtractionMethod,
   KnowledgeFactKind,
+  KnowledgeUnit,
   KnowledgeSource,
   KnowledgeSourceFingerprint,
   KnowledgeSourceStaleReason,
@@ -294,6 +296,70 @@ function toPackFactUnit(fact: KnowledgePackFact, source: KnowledgePackSource | u
   };
 }
 
+function toPackUnit(unit: KnowledgeUnit): KnowledgePackUnit {
+  const base = {
+    path: unit.path,
+    summary: unit.summary,
+    confidence: unit.confidence,
+    extractionMethod: unit.extractionMethod,
+    sourceId: unit.source.id,
+    sourceLocator: unit.source.locator,
+    privacyScope: unit.privacyScope,
+    ...(unit.tokenEstimate !== undefined ? { tokenEstimate: unit.tokenEstimate } : {}),
+    ...(unit.relatedPaths !== undefined ? { relatedPaths: [...unit.relatedPaths] } : {})
+  };
+
+  switch (unit.unitType) {
+    case 'fact':
+      return {
+        ...base,
+        unitType: 'fact',
+        factKind: unit.factKind,
+        ...(unit.required !== undefined ? { required: unit.required } : {}),
+        ...(unit.type !== undefined ? { type: unit.type } : {}),
+        ...(unit.defaultValue !== undefined ? { defaultValue: unit.defaultValue } : {}),
+        ...(unit.values !== undefined ? { values: [...unit.values] } : {})
+      };
+    case 'guidance':
+      return {
+        ...base,
+        unitType: 'guidance',
+        topic: unit.topic,
+        ...(unit.appliesWhen !== undefined ? { appliesWhen: [...unit.appliesWhen] } : {}),
+        ...(unit.avoidWhen !== undefined ? { avoidWhen: [...unit.avoidWhen] } : {}),
+        ...(unit.risk !== undefined ? { risk: unit.risk } : {})
+      };
+    case 'example':
+      return {
+        ...base,
+        unitType: 'example',
+        exampleType: unit.exampleType,
+        snippet: unit.snippet,
+        ...(unit.language !== undefined ? { language: unit.language } : {}),
+        ...(unit.appliesWhen !== undefined ? { appliesWhen: [...unit.appliesWhen] } : {}),
+        ...(unit.avoidWhen !== undefined ? { avoidWhen: [...unit.avoidWhen] } : {})
+      };
+    case 'diagnostic':
+      return {
+        ...base,
+        unitType: 'diagnostic',
+        engine: unit.engine,
+        signature: unit.signature,
+        likelyCause: unit.likelyCause,
+        recommendedReview: [...unit.recommendedReview]
+      };
+    case 'recipe':
+      return {
+        ...base,
+        unitType: 'recipe',
+        name: unit.name,
+        steps: [...unit.steps],
+        ...(unit.requiresApproval !== undefined ? { requiresApproval: unit.requiresApproval } : {}),
+        mutationAllowed: false
+      };
+  }
+}
+
 export async function buildKnowledgePack(
   inspection: WorkspaceInspection,
   options: KnowledgePackOptions = {}
@@ -318,7 +384,15 @@ export async function buildKnowledgePack(
   });
   const facts = rankedFacts.slice(0, maxFacts);
   const sourceById = new Map(sources.map(source => [source.id, source]));
-  const units = facts.map(fact => toPackFactUnit(fact, sourceById.get(fact.sourceId)));
+  const extractedUnits = extraction.unitSets.flatMap(unitSet => unitSet.units.map(toPackUnit));
+  const rankedUnits = extractedUnits.length > 0
+    ? rankKnowledgePackUnits(extractedUnits, {
+        sources,
+        requestedDomains: extraction.requestedDomains,
+        targetPaths: extraction.targetPaths
+      })
+    : facts.map(fact => toPackFactUnit(fact, sourceById.get(fact.sourceId)));
+  const units = rankedUnits.slice(0, maxUnits);
 
   return {
     kind: 'infra-agent.knowledge-pack',
@@ -335,9 +409,9 @@ export async function buildKnowledgePack(
     factCount: extraction.factCount,
     includedFactCount: facts.length,
     omittedFactCount: Math.max(0, rankedFacts.length - facts.length),
-    unitCount: rankedFacts.length,
+    unitCount: rankedUnits.length,
     includedUnitCount: units.length,
-    omittedUnitCount: Math.max(0, rankedFacts.length - units.length),
+    omittedUnitCount: Math.max(0, rankedUnits.length - units.length),
     maxFacts,
     maxUnits,
     staleSourceCount: sources.filter(source => source.stale).length,

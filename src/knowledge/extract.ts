@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { extractKnowledgeUnitSetFromFactSet } from './units.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 import {
   checkKnowledgeSourceFingerprint,
@@ -14,7 +15,7 @@ import { buildPulumiConfigKnowledgeContent } from '../domain/pulumi-config-knowl
 import { buildTerraformLocalModuleKnowledgeContent } from '../domain/terraform-local-modules.ts';
 import { buildTerraformProviderSchemaKnowledgeContent } from '../domain/terraform-provider-schema.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
-import type { KnowledgeCacheEntry, KnowledgeContentType, KnowledgeFactSet, KnowledgeSource } from '../types/knowledge.ts';
+import type { KnowledgeCacheEntry, KnowledgeContentType, KnowledgeFactSet, KnowledgeSource, KnowledgeUnitSet } from '../types/knowledge.ts';
 
 export type KnowledgeExtractionSourceStatus =
   | 'extracted'
@@ -29,6 +30,7 @@ export interface KnowledgeExtractionSourceResult {
   targetPath: string;
   status: KnowledgeExtractionSourceStatus;
   factCount: number;
+  unitCount: number;
   message?: string;
   source: KnowledgeSource;
 }
@@ -45,9 +47,12 @@ export interface KnowledgeExtractionReport {
   sourceCount: number;
   factSetCount: number;
   factCount: number;
+  unitSetCount: number;
+  unitCount: number;
   skippedSourceCount: number;
   sources: KnowledgeExtractionSourceResult[];
   factSets: KnowledgeFactSet[];
+  unitSets: KnowledgeUnitSet[];
 }
 
 export interface KnowledgeExtractionOptions {
@@ -355,12 +360,13 @@ function sourceResult(
     source: KnowledgeSource;
   },
   status: KnowledgeExtractionSourceStatus,
-  extra: Partial<Pick<KnowledgeExtractionSourceResult, 'factCount' | 'message'>> = {}
+  extra: Partial<Pick<KnowledgeExtractionSourceResult, 'factCount' | 'unitCount' | 'message'>> = {}
 ): KnowledgeExtractionSourceResult {
   return {
     ...input,
     status,
     factCount: extra.factCount ?? 0,
+    unitCount: extra.unitCount ?? 0,
     ...(extra.message !== undefined ? { message: extra.message } : {})
   };
 }
@@ -376,6 +382,7 @@ export async function extractWorkspaceKnowledgeFacts(
   });
   const requestedSourceIds = new Set(options.sourceIds ?? []);
   const factSets: KnowledgeFactSet[] = [];
+  const unitSets: KnowledgeUnitSet[] = [];
   const sources: KnowledgeExtractionSourceResult[] = [];
 
   for (const candidate of candidates) {
@@ -423,13 +430,18 @@ export async function extractWorkspaceKnowledgeFacts(
       continue;
     }
 
+    const unitSet = extractKnowledgeUnitSetFromFactSet(factSet);
+
     factSets.push(factSet);
+    unitSets.push(unitSet);
     sources.push(sourceResult(base, 'extracted', {
-      factCount: factSet.factCount
+      factCount: factSet.factCount,
+      unitCount: unitSet.unitCount
     }));
   }
 
   const factCount = factSets.reduce((total, factSet) => total + factSet.factCount, 0);
+  const unitCount = unitSets.reduce((total, unitSet) => total + unitSet.unitCount, 0);
 
   return {
     kind: 'infra-agent.knowledge-extraction',
@@ -443,8 +455,11 @@ export async function extractWorkspaceKnowledgeFacts(
     sourceCount: sources.length,
     factSetCount: factSets.length,
     factCount,
+    unitSetCount: unitSets.length,
+    unitCount,
     skippedSourceCount: sources.filter(source => source.status !== 'extracted').length,
     sources,
-    factSets
+    factSets,
+    unitSets
   };
 }

@@ -535,6 +535,9 @@ test('workspace knowledge facts extract local Helm schema sources without fetchi
   assert.deepEqual(report.targetPaths, ['charts/payments-api']);
   assert.equal(report.sourceCount, report.sources.length);
   assert.equal(report.factSetCount, report.factSets.length);
+  assert.equal(report.unitSetCount, report.unitSets.length);
+  assert.equal(report.unitSetCount, report.factSetCount);
+  assert.equal(report.unitCount, report.unitSets.reduce((total, unitSet) => total + unitSet.unitCount, 0));
   assert.ok(report.factSetCount >= 1);
   assert.ok(report.factCount >= 5);
 
@@ -543,7 +546,14 @@ test('workspace knowledge facts extract local Helm schema sources without fetchi
   const chartMetadataSource = report.sources.find(source => source.source.kind === 'chart-metadata');
   assert.equal(chartMetadataSource?.status, 'extracted');
   const chartSchemaFactSet = report.factSets.find(factSet => factSet.source.kind === 'chart-schema');
+  const chartSchemaUnitSet = report.unitSets.find(unitSet => unitSet.source.kind === 'chart-schema');
   assert.equal(chartSchemaFactSet?.sourceFingerprint?.fileCount, 1);
+  assert.equal(chartSchemaUnitSet?.sourceId, chartSchemaFactSet?.sourceId);
+  assert.ok(chartSchemaUnitSet?.units.some(unit =>
+    unit.unitType === 'fact'
+    && unit.factKind === 'chart-value'
+    && unit.path === 'chart.payments-api.image.repository'
+  ));
   assert.equal(chartSchemaFactSet?.sourceFingerprint?.files[0]?.path, 'charts/payments-api/values.schema.json');
   assert.equal(chartSchemaFactSet?.sourceFingerprint?.files[0]?.stale, false);
   const chartMetadataFactSet = report.factSets.find(factSet => factSet.source.kind === 'chart-metadata');
@@ -604,6 +614,16 @@ test('knowledge validation accepts extraction reports and rejects count drift', 
   assert.ok(invalidReport.issues.some(issue =>
     issue.severity === 'error'
     && issue.path === '$.factCount'
+  ));
+
+  const invalidUnitReport = validateKnowledgePayload({
+    ...extraction,
+    unitCount: extraction.unitCount + 1
+  }, 'inline');
+  assert.equal(invalidUnitReport.valid, false);
+  assert.ok(invalidUnitReport.issues.some(issue =>
+    issue.severity === 'error'
+    && issue.path === '$.unitCount'
   ));
 });
 
