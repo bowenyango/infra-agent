@@ -27,7 +27,8 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'pulumi-component',
   'terraform-module',
   'module-readme',
-  'internal-knowledge'
+  'internal-knowledge',
+  'knowledge-unit-artifact'
 ];
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];
 const KNOWLEDGE_UNIT_PRIVACY_SCOPES = [

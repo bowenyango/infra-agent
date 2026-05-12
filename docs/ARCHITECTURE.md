@@ -87,8 +87,12 @@ and incident-derived units remain private unless explicitly opted into a safe
 team cache. Local curated internal units are declared in
 `infra-agent.config.json` as safe workspace-relative
 `knowledgeSources.curatedUnits` files and enter packs as `internal-team`
-context. Planner prompts receive compact context packets derived from these
-units, never raw caches, full docs, full schemas, or unbounded examples.
+context. Prebuilt `infra-agent.knowledge-units` artifacts are declared under
+`knowledgeSources.unitArtifacts`; they preserve reviewed unit payloads while
+rebasing planner source accounting to the artifact file for fingerprinting,
+budgeting, and future S3-compatible read-only reference discovery. Planner
+prompts receive compact context packets derived from these units, never raw
+caches, full docs, full schemas, or unbounded examples.
 
 ## Runtime Shape
 

@@ -33,6 +33,7 @@ const SOURCE_KIND_SCORE: Record<KnowledgePackSource['kind'], number> = {
   'terraform-module': 30,
   'module-readme': 28,
   'internal-knowledge': 33,
+  'knowledge-unit-artifact': 34,
   'repo-example': 24,
   'terraform-registry': 20,
   'helm-docs': 18,

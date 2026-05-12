@@ -6,6 +6,65 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Prebuilt Knowledge Unit Artifact Sources
+
+Status:
+
+- Added a local read-only path for prebuilt `infra-agent.knowledge-units`
+  artifacts through `infra-agent.config.json` under
+  `knowledgeSources.unitArtifacts`.
+- These artifacts now appear in `knowledge sources`, extract to zero-fact unit
+  sets, and enter `knowledge pack` through the same deterministic ranking and
+  budget path as curated and generated units.
+
+Implemented checkpoints:
+
+- Added source kind `knowledge-unit-artifact` across knowledge source
+  contracts, validation, planner result contracts, and fact/unit ranking.
+- Added `WorkspaceKnowledgeUnitArtifactSourceConfig` with `domain`,
+  optional `targetPath`, safe local `path`, optional `name`, and optional
+  `version`.
+- Source discovery now ignores unsafe artifact paths and registers safe local
+  artifact files as local `knowledge-unit-artifact` candidates.
+- Added `src/knowledge/prebuilt-units.ts` to validate an
+  `infra-agent.knowledge-units` payload, then rebase unit source references to
+  the configured artifact file so pack source accounting, fingerprints, and
+  storage policy stay tied to the local read-only artifact.
+- Updated README, Architecture, Roadmap, Agent Rules, and this handoff so
+  future agents treat prebuilt unit artifacts as a core bridge toward
+  S3-compatible read-only reference discovery.
+
+Design notes:
+
+- `curatedUnits` is the authoring format for local/internal knowledge.
+  `unitArtifacts` is the reviewed generated artifact format for already
+  extracted compact units.
+- This is intentionally local-only for now. It establishes the artifact shape
+  and planner behavior before real S3-compatible download/client work, keeping
+  upload and remote mutation behind the existing approval boundary.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-unit-artifact-sources.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `git diff --check`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Add CLI integration coverage for `knowledgeSources.unitArtifacts`.
+2. Add S3-compatible read-only reference metadata that resolves to the same
+   `infra-agent.knowledge-units` artifact shape without reading credentials in
+   planning commands.
+3. Add planner behavior coverage proving prebuilt Terraform/Pulumi rename units
+   change review choices under tight budgets.
+
 ## 2026-05-12 Completed CLI Coverage for Internal Curated Units
 
 Status:

@@ -181,7 +181,11 @@ Current behavior is intentionally runtime-foundation oriented:
   `infra-agent.curated-knowledge-units` JSON sources from
   `infra-agent.config.json` under `knowledgeSources.curatedUnits` and converts
   them into internal-team `fact`, `guidance`, `example`, `diagnostic`, and
-  `recipe` units without raw content in packs. `validate` checks facts,
+  `recipe` units without raw content in packs. It also accepts configured
+  prebuilt `infra-agent.knowledge-units` artifacts under
+  `knowledgeSources.unitArtifacts`, which lets reviewed public or internal unit
+  sets enter the same extraction, validation, ranking, and compact pack path
+  without rerunning source extraction. `validate` checks facts,
   extraction reports,
   and compact packs before use, and `pack` ranks and emits a bounded
   planner-safe `infra-agent.knowledge-pack` without raw source content. Packs

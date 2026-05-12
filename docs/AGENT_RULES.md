@@ -209,6 +209,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `example`, `diagnostic`, or `recipe` units. Treat these units as
   `internal-team` planner context and keep the source local-only unless a later
   explicit team-backend approval path is completed.
+- Prebuilt unit artifacts belong under
+  `infra-agent.config.json` -> `knowledgeSources.unitArtifacts`. Each entry
+  must use a safe workspace-relative JSON path to an
+  `infra-agent.knowledge-units` payload plus `domain` and optional
+  `targetPath`. Treat this as the local read-only shape that future
+  S3-compatible references will mirror; do not mutate or upload the artifact
+  while extracting or packing it.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

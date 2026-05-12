@@ -164,6 +164,51 @@ function collectConfiguredCuratedUnitSources(
   return candidates;
 }
 
+function collectConfiguredUnitArtifactSources(
+  inspection: WorkspaceInspection,
+  requestedDomains: Set<InfraDomainId>,
+  targetPaths: Set<string>
+): KnowledgePrefetchCandidate[] {
+  const configuredSources = inspection.config?.knowledgeSources?.unitArtifacts;
+  if (!Array.isArray(configuredSources)) {
+    return [];
+  }
+
+  const candidates: KnowledgePrefetchCandidate[] = [];
+  for (const configuredSource of configuredSources) {
+    if (!isInfraDomain(configuredSource.domain) || !requestedDomains.has(configuredSource.domain)) {
+      continue;
+    }
+    if (typeof configuredSource.path !== 'string' || !isSafeWorkspaceRelativePath(configuredSource.path)) {
+      continue;
+    }
+
+    const targetPath = typeof configuredSource.targetPath === 'string'
+      ? configuredSource.targetPath
+      : '';
+    if (!targetAllowed(targetPath, targetPaths)) {
+      continue;
+    }
+
+    candidates.push({
+      domain: configuredSource.domain,
+      targetPath,
+      source: {
+        kind: 'knowledge-unit-artifact',
+        name: typeof configuredSource.name === 'string' && configuredSource.name.length > 0
+          ? configuredSource.name
+          : `unit-artifact:${configuredSource.path}`,
+        localPath: configuredSource.path,
+        ...(typeof configuredSource.version === 'string' && configuredSource.version.length > 0
+          ? { version: configuredSource.version }
+          : {})
+      }
+    });
+  }
+
+  return candidates;
+}
+
 export async function collectWorkspaceKnowledgeSources(
   inspection: WorkspaceInspection,
   options: Pick<KnowledgePrefetchOptions, 'domains' | 'targetPaths'> = {}
@@ -247,6 +292,7 @@ export async function collectWorkspaceKnowledgeSources(
   }
 
   candidates.push(...collectConfiguredCuratedUnitSources(inspection, requestedDomains, targetPaths));
+  candidates.push(...collectConfiguredUnitArtifactSources(inspection, requestedDomains, targetPaths));
 
   return candidates;
 }

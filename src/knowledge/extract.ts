@@ -6,6 +6,7 @@ import {
   buildEmptyCuratedKnowledgeFactSet,
   extractCuratedKnowledgeUnitSetFromCacheEntry
 } from './curated-units.ts';
+import { extractPrebuiltKnowledgeUnitSetFromCacheEntry } from './prebuilt-units.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
 import { extractKnowledgeUnitSetFromFactSet } from './units.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
@@ -81,6 +82,7 @@ function localContentType(source: KnowledgeSource): KnowledgeContentType {
     || source.kind === 'pulumi-component'
     || source.kind === 'terraform-module'
     || source.kind === 'internal-knowledge'
+    || source.kind === 'knowledge-unit-artifact'
   ) {
     return 'application/json';
   }
@@ -449,6 +451,36 @@ export async function extractWorkspaceKnowledgeFacts(
       } catch {
         sources.push(sourceResult(base, 'unreadable', {
           message: 'Curated internal knowledge source could not be parsed.'
+        }));
+      }
+      continue;
+    }
+
+    if (entry.source.kind === 'knowledge-unit-artifact') {
+      try {
+        const unitSet = extractPrebuiltKnowledgeUnitSetFromCacheEntry(entry, {
+          extractedAt: options.extractedAt
+        });
+        if (unitSet.unitCount === 0) {
+          sources.push(sourceResult(base, 'unsupported', {
+            message: 'Prebuilt knowledge unit artifact did not contain any units.'
+          }));
+          continue;
+        }
+
+        const factSet = buildEmptyCuratedKnowledgeFactSet(entry, {
+          now: options.now,
+          extractedAt: options.extractedAt
+        });
+        factSets.push(factSet);
+        unitSets.push(unitSet);
+        sources.push(sourceResult(base, 'extracted', {
+          factCount: 0,
+          unitCount: unitSet.unitCount
+        }));
+      } catch {
+        sources.push(sourceResult(base, 'unreadable', {
+          message: 'Prebuilt knowledge unit artifact could not be parsed.'
         }));
       }
       continue;

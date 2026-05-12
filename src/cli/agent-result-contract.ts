@@ -106,7 +106,8 @@ const KNOWLEDGE_FACT_SOURCE_KINDS = [
   'pulumi-component',
   'terraform-module',
   'module-readme',
-  'internal-knowledge'
+  'internal-knowledge',
+  'knowledge-unit-artifact'
 ] as const;
 const KNOWLEDGE_FACT_KINDS = [
   'argument',
