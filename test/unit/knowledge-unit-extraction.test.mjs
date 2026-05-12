@@ -7,6 +7,7 @@ import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../../src/knowledge/facts.ts';
 import { extractKnowledgeUnitSetFromFactSet } from '../../src/knowledge/units.ts';
 import { parseKnowledgeUnitSet } from '../../src/knowledge/knowledge-unit-contract.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 test('knowledge unit extraction promotes examples and infra guidance from fact sets', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-unit-extract-'));
@@ -77,6 +78,10 @@ test('knowledge unit extraction promotes examples and infra guidance from fact s
       && unit.topic === 'replacement-sensitive-field'
       && /replacement-sensitive/i.test(unit.summary)
     ));
+    const validationReport = validateKnowledgePayload(parsed, 'inline');
+    assert.equal(validationReport.valid, true);
+    assert.equal(validationReport.unitSetCount, 1);
+    assert.equal(validationReport.unitCount, parsed.unitCount);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

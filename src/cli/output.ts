@@ -3545,7 +3545,10 @@ export function printKnowledgeValidationReport(report: KnowledgeValidationReport
   }
   process.stdout.write(`kind: ${report.inputKind ?? 'unknown'}\n`);
   process.stdout.write(`valid: ${report.valid ? 'yes' : 'no'}\n`);
-  process.stdout.write(`summary: factSets=${report.factSetCount}, facts=${report.factCount}, issues=${report.issueCount}, staleSources=${report.staleSourceCount}, uncheckedLocalSources=${report.uncheckedLocalSourceCount}\n\n`);
+  const unitSummary = report.unitCount !== undefined
+    ? `, units=${report.unitCount}${report.unitSetCount !== undefined ? `, unitSets=${report.unitSetCount}` : ''}`
+    : '';
+  process.stdout.write(`summary: factSets=${report.factSetCount}, facts=${report.factCount}${unitSummary}, issues=${report.issueCount}, staleSources=${report.staleSourceCount}, uncheckedLocalSources=${report.uncheckedLocalSourceCount}\n\n`);
   printHeader('Source freshness');
   printList([
     ...report.freshness.staleSources.map(formatKnowledgeStaleSource),

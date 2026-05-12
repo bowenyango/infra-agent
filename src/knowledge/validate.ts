@@ -92,6 +92,8 @@ export interface KnowledgeValidationReport {
   valid: boolean;
   factSetCount: number;
   factCount: number;
+  unitSetCount?: number;
+  unitCount?: number;
   staleSourceCount: number;
   uncheckedLocalSourceCount: number;
   freshness: KnowledgeValidationFreshnessSummary;
@@ -137,6 +139,8 @@ interface ValidatedKnowledgeFactSet {
 interface KnowledgeValidationCountOverrides {
   factSetCount?: number;
   factCount?: number;
+  unitSetCount?: number;
+  unitCount?: number;
   staleSourceCount?: number;
   uncheckedLocalSourceCount?: number;
 }
@@ -221,6 +225,8 @@ function createReport(
     valid: issues.every(issue => issue.severity !== 'error'),
     factSetCount: countOverrides.factSetCount ?? factSets.length,
     factCount,
+    ...(countOverrides.unitSetCount !== undefined ? { unitSetCount: countOverrides.unitSetCount } : {}),
+    ...(countOverrides.unitCount !== undefined ? { unitCount: countOverrides.unitCount } : {}),
     staleSourceCount: countOverrides.staleSourceCount ?? staleSourceIds.size,
     uncheckedLocalSourceCount: localSourceStats.uncheckedLocalSourceCount,
     freshness,
@@ -691,7 +697,23 @@ function validateKnowledgeUnitSetPayload(
     });
   }
 
-  return createReport(inputPath, inputKind, issues, factSets);
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    factSets,
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
+    },
+    {
+      unitSetCount: 1,
+      unitCount: unitCount ?? (Array.isArray(payload.units) ? payload.units.length : 0)
+    }
+  );
 }
 
 function prefixValidationIssues(
@@ -1230,6 +1252,7 @@ function validateKnowledgePackPayload(
     {
       factSetCount: factSetCount ?? actualFactSetCount,
       factCount: factCount ?? actualFactCount,
+      ...(unitCount !== null ? { unitCount } : {}),
       staleSourceCount: staleSourceCount ?? actualStaleSourceCount
     }
   );
@@ -1722,15 +1745,32 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
     }
   }
 
+  const actualUnitSetCount = Array.isArray(payload.unitSets) ? payload.unitSets.length : unitSets.length;
+  const actualUnitCount = unitSets.reduce((total, unitSet) => total + unitSet.unitCount, 0);
   if (payload.unitCount !== undefined) {
     const declaredUnitCount = readNonNegativeInteger(payload.unitCount, '$.unitCount', issues);
-    const actualUnitCount = unitSets.reduce((total, unitSet) => total + unitSet.unitCount, 0);
     if (declaredUnitCount !== null && declaredUnitCount !== actualUnitCount) {
       issues.push(error('$.unitCount', 'Knowledge extraction unitCount must match the sum of unit set unit counts.'));
     }
   }
 
-  return createReport(inputPath, inputKind, issues, factSets);
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    factSets,
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
+    },
+    {
+      unitSetCount: payload.unitSets !== undefined ? actualUnitSetCount : undefined,
+      unitCount: payload.unitCount !== undefined || payload.unitSets !== undefined ? actualUnitCount : undefined
+    }
+  );
 }
 
 export async function validateKnowledgePayloadWithLocalSources(

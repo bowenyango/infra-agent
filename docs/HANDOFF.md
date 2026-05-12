@@ -6,6 +6,61 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Unit-Aware Knowledge Validation Reports
+
+Status:
+
+- `knowledge validate` now reports unit counts for unit-native artifacts.
+- Standalone `infra-agent.knowledge-units` validation is no longer just a
+  pass/fail check; it reports `unitSetCount` and `unitCount` in JSON output,
+  and text output includes unit totals when present.
+
+Implemented checkpoints:
+
+- Added optional `unitSetCount` and `unitCount` to
+  `KnowledgeValidationReport`.
+- Standalone `infra-agent.knowledge-units` validation returns
+  `unitSetCount=1` and its validated `unitCount`.
+- Extraction report validation now reflects embedded `unitSets` and aggregate
+  `unitCount`.
+- Knowledge pack validation now surfaces `unitCount` when pack unit fields are
+  present.
+- CLI validation text output includes unit totals without changing legacy fact
+  totals.
+
+Design notes:
+
+- Existing fact-only validation consumers remain compatible because unit counts
+  are optional.
+- This makes unit artifacts easier to audit before future team-cache or
+  registry publication work, while preserving local-only validation semantics.
+
+Validation completed:
+
+- `node --experimental-strip-types --test test/unit/knowledge-unit-extraction.test.mjs`
+- `node --experimental-strip-types --test test/unit/knowledge-extraction-content.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `git diff --check`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Teach artifact manifests to carry optional `unitCount` metadata for
+   extraction and pack artifacts, then evaluate standalone unit manifest support
+   without weakening the existing local-only publication boundary.
+2. Add internal-team curated unit sources from local files or S3-compatible
+   references.
+3. Add planner-facing behavior tests for rename/replacement guidance usage.
+
 ## 2026-05-12 Completed Standalone Knowledge Unit Artifact Output
 
 Status:

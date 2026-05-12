@@ -664,6 +664,8 @@ test('knowledge extract command writes a reusable validation artifact with --out
     assert.equal(validation.valid, true);
     assert.equal(validation.factSetCount, artifact.factSetCount);
     assert.equal(unitValidation.valid, true);
+    assert.equal(unitValidation.unitSetCount, 1);
+    assert.equal(unitValidation.unitCount, unitArtifact.unitCount);
     assert.doesNotMatch(JSON.stringify(artifact), /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
