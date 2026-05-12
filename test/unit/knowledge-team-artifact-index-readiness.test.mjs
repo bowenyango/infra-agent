@@ -67,7 +67,11 @@ function buildPack(sourceOverrides = {}) {
     factCount: 1,
     includedFactCount: 1,
     omittedFactCount: 0,
+    unitCount: 1,
+    includedUnitCount: 1,
+    omittedUnitCount: 0,
     maxFacts: 1,
+    maxUnits: 1,
     staleSourceCount: source.stale ? 1 : 0,
     storagePolicy: {
       publicReference: source.storagePolicy.scope === 'public-reference' ? 1 : 0,
@@ -84,6 +88,17 @@ function buildPack(sourceOverrides = {}) {
       extractionMethod: 'helm-chart-docs-markdown',
       sourceId: source.id,
       sourceLocator: 'values.image.repository'
+    }],
+    units: [{
+      unitType: 'fact',
+      factKind: 'chart-value',
+      path: 'values.image.repository',
+      summary: 'Container image repository.',
+      confidence: 'medium',
+      extractionMethod: 'helm-chart-docs-markdown',
+      sourceId: source.id,
+      sourceLocator: 'values.image.repository',
+      privacyScope: 'public-reference'
     }]
   };
 }
@@ -148,6 +163,7 @@ test('team artifact index entries are deterministic compact descriptor metadata'
   assert.equal(firstEntry.object.byteLength, staged.descriptor.object.byteLength);
   assert.equal(firstEntry.object.contentType, 'application/json');
   assert.equal(firstEntry.artifact.id, staged.descriptor.artifact.id);
+  assert.equal(firstEntry.artifact.unitCount, 1);
   assert.equal(firstEntry.publication.blockedSourceCount, 0);
   assertNoLeakedIndexDetails(firstEntry);
 });
@@ -171,6 +187,7 @@ test('team publication readiness reports upload-required and already-published s
   assert.equal(uploadRequired.credentialRequired, false);
   assert.equal(uploadRequired.uploadCommand, null);
   assert.equal(uploadRequired.readiness.status, 'upload-required');
+  assert.equal(uploadRequired.artifact.unitCount, 1);
   assert.equal(uploadRequired.readiness.nextAction, 'prepare-explicit-upload');
   assert.equal(uploadRequired.readiness.blockerCount, 0);
   assert.equal(uploadRequired.indexEntry.provided, false);
@@ -254,6 +271,19 @@ test('team publication readiness reports compact index conflicts', async () => {
   });
   assert.equal(artifactConflict.readiness.status, 'conflict');
   assert.ok(artifactConflict.readiness.blockerCodes.includes('index-artifact-mismatch'));
+
+  const unitCountConflict = buildKnowledgeTeamPublicationReadinessReport({
+    plan,
+    indexEntry: {
+      ...indexEntry,
+      artifact: {
+        ...indexEntry.artifact,
+        unitCount: (indexEntry.artifact.unitCount ?? 0) + 1
+      }
+    }
+  });
+  assert.equal(unitCountConflict.readiness.status, 'conflict');
+  assert.ok(unitCountConflict.readiness.blockerCodes.includes('index-artifact-mismatch'));
 
   const publicationConflict = buildKnowledgeTeamPublicationReadinessReport({
     plan,
@@ -347,9 +377,11 @@ test('knowledge validation accepts team index entries and readiness reports', as
   assert.equal(entryReport.inputKind, 'infra-agent.knowledge-team-artifact-index-entry');
   assert.equal(entryReport.valid, true);
   assert.equal(entryReport.factCount, 1);
+  assert.equal(entryReport.unitCount, 1);
   assert.equal(readinessReport.inputKind, 'infra-agent.knowledge-team-publication-readiness');
   assert.equal(readinessReport.valid, true);
   assert.equal(readinessReport.factCount, 1);
+  assert.equal(readinessReport.unitCount, 1);
 });
 
 test('knowledge validation rejects forged or leaky team index readiness payloads', async () => {

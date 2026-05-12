@@ -3583,7 +3583,7 @@ export function printKnowledgeTeamPublicationPlan(plan: KnowledgeTeamPublication
   process.stdout.write(`backend: ${plan.plannedBackendKind}\n`);
   process.stdout.write(`object: ${plan.object.key}\n`);
   process.stdout.write(`artifact: ${plan.artifact.id}\n`);
-  process.stdout.write(`summary: sources=${plan.artifact.sourceCount}, facts=${plan.artifact.factCount}, staleSources=${plan.artifact.staleSourceCount}, blockers=${plan.publication.blockerCount}\n`);
+  process.stdout.write(`summary: sources=${plan.artifact.sourceCount}, facts=${plan.artifact.factCount}, units=${plan.artifact.unitCount ?? 0}, staleSources=${plan.artifact.staleSourceCount}, blockers=${plan.publication.blockerCount}\n`);
   process.stdout.write(`storage: public-reference=${plan.artifact.storagePolicy.publicReference}, workspace-private=${plan.artifact.storagePolicy.workspacePrivate}, shareable=${plan.artifact.storagePolicy.shareableByDefault}, opt-in=${plan.artifact.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Blockers');
   printList(
@@ -3603,7 +3603,7 @@ export function printKnowledgeTeamPublicationReadinessReport(report: KnowledgeTe
   process.stdout.write(`object: ${report.object.key}\n`);
   process.stdout.write(`artifact: ${report.artifact.id}\n`);
   process.stdout.write(`index entry: ${report.indexEntry.provided ? report.indexEntry.key : 'none'}\n`);
-  process.stdout.write(`summary: sources=${report.artifact.sourceCount}, facts=${report.artifact.factCount}, staleSources=${report.artifact.staleSourceCount}, blockers=${report.readiness.blockerCount}\n`);
+  process.stdout.write(`summary: sources=${report.artifact.sourceCount}, facts=${report.artifact.factCount}, units=${report.artifact.unitCount ?? 0}, staleSources=${report.artifact.staleSourceCount}, blockers=${report.readiness.blockerCount}\n`);
   process.stdout.write(`storage: public-reference=${report.artifact.storagePolicy.publicReference}, workspace-private=${report.artifact.storagePolicy.workspacePrivate}, shareable=${report.artifact.storagePolicy.shareableByDefault}, opt-in=${report.artifact.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Blockers');
   printList(

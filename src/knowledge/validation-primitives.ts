@@ -45,6 +45,8 @@ export interface KnowledgeValidationReport {
   valid: boolean;
   factSetCount: number;
   factCount: number;
+  unitSetCount?: number;
+  unitCount?: number;
   staleSourceCount: number;
   uncheckedLocalSourceCount: number;
   freshness: KnowledgeValidationFreshnessSummary;
@@ -197,6 +199,8 @@ export function createEmptyKnowledgeValidationReport(input: {
   inputKind: string | null;
   issues: KnowledgeValidationIssue[];
   factCount?: number;
+  unitSetCount?: number;
+  unitCount?: number;
   staleSourceCount?: number;
 }): KnowledgeValidationReport {
   return {
@@ -208,6 +212,8 @@ export function createEmptyKnowledgeValidationReport(input: {
     valid: input.issues.every(issue => issue.severity !== 'error'),
     factSetCount: 0,
     factCount: input.factCount ?? 0,
+    ...(input.unitSetCount !== undefined ? { unitSetCount: input.unitSetCount } : {}),
+    ...(input.unitCount !== undefined ? { unitCount: input.unitCount } : {}),
     staleSourceCount: input.staleSourceCount ?? 0,
     uncheckedLocalSourceCount: 0,
     freshness: buildEmptyFreshnessSummary({

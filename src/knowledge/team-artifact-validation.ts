@@ -158,6 +158,7 @@ export function validateKnowledgeTeamArtifactDescriptorPayload(
 ): KnowledgeValidationReport {
   const issues: KnowledgeValidationIssue[] = [];
   let factCount: number | null = null;
+  let unitCount: number | null = null;
   let staleSourceCount: number | null = null;
   let sourceCount: number | null = null;
   let storagePolicySummary: KnowledgeStoragePolicySummary | null = null;
@@ -203,6 +204,9 @@ export function validateKnowledgeTeamArtifactDescriptorPayload(
     }
     sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
     factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    if (payload.artifact.unitCount !== undefined) {
+      unitCount = readNonNegativeInteger(payload.artifact.unitCount, '$.artifact.unitCount', issues);
+    }
     staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
     storagePolicySummary = validateKnowledgeStoragePolicySummary(
       payload.artifact.storagePolicy,
@@ -272,6 +276,7 @@ export function validateKnowledgeTeamArtifactDescriptorPayload(
     inputKind,
     issues,
     factCount: factCount ?? 0,
+    ...(unitCount !== null ? { unitCount } : {}),
     staleSourceCount: staleSourceCount ?? 0
   });
 }
@@ -283,6 +288,7 @@ export function validateKnowledgeTeamArtifactIndexEntryPayload(
 ): KnowledgeValidationReport {
   const issues: KnowledgeValidationIssue[] = [];
   let factCount: number | null = null;
+  let unitCount: number | null = null;
   let staleSourceCount: number | null = null;
   let sourceCount: number | null = null;
   let storagePolicySummary: KnowledgeStoragePolicySummary | null = null;
@@ -343,6 +349,9 @@ export function validateKnowledgeTeamArtifactIndexEntryPayload(
     }
     sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
     factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    if (payload.artifact.unitCount !== undefined) {
+      unitCount = readNonNegativeInteger(payload.artifact.unitCount, '$.artifact.unitCount', issues);
+    }
     staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
     storagePolicySummary = validateKnowledgeStoragePolicySummary(
       payload.artifact.storagePolicy,
@@ -412,6 +421,7 @@ export function validateKnowledgeTeamArtifactIndexEntryPayload(
     inputKind,
     issues,
     factCount: factCount ?? 0,
+    ...(unitCount !== null ? { unitCount } : {}),
     staleSourceCount: staleSourceCount ?? 0
   });
 }
@@ -423,6 +433,7 @@ export function validateKnowledgeTeamPublicationPlanPayload(
 ): KnowledgeValidationReport {
   const issues: KnowledgeValidationIssue[] = [];
   let factCount: number | null = null;
+  let unitCount: number | null = null;
   let staleSourceCount: number | null = null;
   let sourceCount: number | null = null;
 
@@ -479,6 +490,9 @@ export function validateKnowledgeTeamPublicationPlanPayload(
     }
     sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
     factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    if (payload.artifact.unitCount !== undefined) {
+      unitCount = readNonNegativeInteger(payload.artifact.unitCount, '$.artifact.unitCount', issues);
+    }
     staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
     validateKnowledgeStoragePolicySummary(
       payload.artifact.storagePolicy,
@@ -608,6 +622,7 @@ export function validateKnowledgeTeamPublicationPlanPayload(
     inputKind,
     issues,
     factCount: factCount ?? 0,
+    ...(unitCount !== null ? { unitCount } : {}),
     staleSourceCount: staleSourceCount ?? 0
   });
 }
@@ -619,6 +634,7 @@ export function validateKnowledgeTeamPublicationReadinessPayload(
 ): KnowledgeValidationReport {
   const issues: KnowledgeValidationIssue[] = [];
   let factCount: number | null = null;
+  let unitCount: number | null = null;
   let staleSourceCount: number | null = null;
   let sourceCount: number | null = null;
 
@@ -675,6 +691,9 @@ export function validateKnowledgeTeamPublicationReadinessPayload(
     }
     sourceCount = readNonNegativeInteger(payload.artifact.sourceCount, '$.artifact.sourceCount', issues);
     factCount = readNonNegativeInteger(payload.artifact.factCount, '$.artifact.factCount', issues);
+    if (payload.artifact.unitCount !== undefined) {
+      unitCount = readNonNegativeInteger(payload.artifact.unitCount, '$.artifact.unitCount', issues);
+    }
     staleSourceCount = readNonNegativeInteger(payload.artifact.staleSourceCount, '$.artifact.staleSourceCount', issues);
     validateKnowledgeStoragePolicySummary(
       payload.artifact.storagePolicy,
@@ -860,6 +879,7 @@ export function validateKnowledgeTeamPublicationReadinessPayload(
     inputKind,
     issues,
     factCount: factCount ?? 0,
+    ...(unitCount !== null ? { unitCount } : {}),
     staleSourceCount: staleSourceCount ?? 0
   });
 }

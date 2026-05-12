@@ -79,6 +79,7 @@ export interface KnowledgeTeamArtifactDescriptor {
     id: string;
     sourceCount: number;
     factCount: number;
+    unitCount?: number;
     staleSourceCount: number;
     storagePolicy: KnowledgeStoragePolicySummary;
   };
@@ -119,6 +120,7 @@ export interface KnowledgeTeamPublicationPlan {
     id: string;
     sourceCount: number;
     factCount: number;
+    unitCount?: number;
     staleSourceCount: number;
     storagePolicy: KnowledgeStoragePolicySummary;
   };
@@ -168,6 +170,7 @@ export interface KnowledgeTeamArtifactIndexEntry {
     id: string;
     sourceCount: number;
     factCount: number;
+    unitCount?: number;
     staleSourceCount: number;
     storagePolicy: KnowledgeStoragePolicySummary;
   };
@@ -208,6 +211,7 @@ export interface KnowledgeTeamPublicationReadinessReport {
     id: string;
     sourceCount: number;
     factCount: number;
+    unitCount?: number;
     staleSourceCount: number;
     storagePolicy: KnowledgeStoragePolicySummary;
   };
@@ -414,6 +418,10 @@ function sameStoragePolicySummary(
     && left.explicitOptInRequired === right.explicitOptInRequired;
 }
 
+function optionalUnitCount(input: { unitCount?: number }): { unitCount?: number } {
+  return input.unitCount !== undefined ? { unitCount: input.unitCount } : {};
+}
+
 export function serializeKnowledgeArtifactPayload(payload: KnowledgeArtifactPayload): string {
   return `${JSON.stringify(canonicalizeJsonValue(payload), null, 2)}\n`;
 }
@@ -571,6 +579,7 @@ function assertManifestMatchesPack(manifest: KnowledgeArtifactManifest, pack: Kn
     || manifest.artifact.id !== pack.packId
     || manifest.artifact.sourceCount !== pack.sourceCount
     || manifest.artifact.factCount !== pack.factCount
+    || (manifest.artifact.unitCount !== undefined && manifest.artifact.unitCount !== pack.unitCount)
     || manifest.artifact.staleSourceCount !== pack.staleSourceCount
     || !sameStringSet(manifest.artifact.sourceIds, pack.sourceIds)
   ) {
@@ -587,6 +596,7 @@ function assertDescriptorMatchesPack(descriptor: KnowledgeTeamArtifactDescriptor
     || descriptor.artifact.id !== pack.packId
     || descriptor.artifact.sourceCount !== pack.sourceCount
     || descriptor.artifact.factCount !== pack.factCount
+    || (descriptor.artifact.unitCount !== undefined && descriptor.artifact.unitCount !== pack.unitCount)
     || descriptor.artifact.staleSourceCount !== pack.staleSourceCount
   ) {
     throw new KnowledgeTeamArtifactStoreError(
@@ -612,6 +622,7 @@ function descriptorMatchesPlan(input: {
     && input.descriptor.artifact.id === input.manifest.artifact.id
     && input.descriptor.artifact.sourceCount === input.manifest.artifact.sourceCount
     && input.descriptor.artifact.factCount === input.manifest.artifact.factCount
+    && input.descriptor.artifact.unitCount === input.manifest.artifact.unitCount
     && input.descriptor.artifact.staleSourceCount === input.manifest.artifact.staleSourceCount;
 }
 
@@ -655,6 +666,7 @@ function buildDescriptor(input: {
       id: input.manifest.artifact.id,
       sourceCount: input.manifest.artifact.sourceCount,
       factCount: input.manifest.artifact.factCount,
+      ...optionalUnitCount(input.manifest.artifact),
       staleSourceCount: input.manifest.artifact.staleSourceCount,
       storagePolicy: input.manifest.artifact.storagePolicy
     },
@@ -718,6 +730,7 @@ export function buildKnowledgeTeamPublicationPlan(input: {
       && input.manifest.artifact.id === pack.packId
       && input.manifest.artifact.sourceCount === pack.sourceCount
       && input.manifest.artifact.factCount === pack.factCount
+      && (input.manifest.artifact.unitCount === undefined || input.manifest.artifact.unitCount === pack.unitCount)
       && input.manifest.artifact.staleSourceCount === pack.staleSourceCount
       && sameStringSet(input.manifest.artifact.sourceIds, pack.sourceIds);
   if (!artifactMetadataMatches) {
@@ -774,6 +787,7 @@ export function buildKnowledgeTeamPublicationPlan(input: {
       id: input.manifest.artifact.id,
       sourceCount: input.manifest.artifact.sourceCount,
       factCount: input.manifest.artifact.factCount,
+      ...optionalUnitCount(input.manifest.artifact),
       staleSourceCount: input.manifest.artifact.staleSourceCount,
       storagePolicy: input.manifest.artifact.storagePolicy
     },
@@ -832,6 +846,7 @@ export function buildKnowledgeTeamArtifactIndexEntry(
       id: descriptor.artifact.id,
       sourceCount: descriptor.artifact.sourceCount,
       factCount: descriptor.artifact.factCount,
+      ...optionalUnitCount(descriptor.artifact),
       staleSourceCount: descriptor.artifact.staleSourceCount,
       storagePolicy: descriptor.artifact.storagePolicy
     },
@@ -878,6 +893,7 @@ function collectReadinessIndexBlockers(
     || indexEntry.artifact.id !== plan.artifact.id
     || indexEntry.artifact.sourceCount !== plan.artifact.sourceCount
     || indexEntry.artifact.factCount !== plan.artifact.factCount
+    || indexEntry.artifact.unitCount !== plan.artifact.unitCount
     || indexEntry.artifact.staleSourceCount !== plan.artifact.staleSourceCount
     || !sameStoragePolicySummary(indexEntry.artifact.storagePolicy, plan.artifact.storagePolicy)
   ) {
@@ -965,6 +981,7 @@ export function buildKnowledgeTeamPublicationReadinessReport(input: {
       id: input.plan.artifact.id,
       sourceCount: input.plan.artifact.sourceCount,
       factCount: input.plan.artifact.factCount,
+      ...optionalUnitCount(input.plan.artifact),
       staleSourceCount: input.plan.artifact.staleSourceCount,
       storagePolicy: input.plan.artifact.storagePolicy
     },

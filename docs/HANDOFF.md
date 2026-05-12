@@ -6,6 +6,61 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-12 Completed Unit Counts in Team Artifact Metadata
+
+Status:
+
+- Team artifact descriptors, index entries, publication plans, and publication
+  readiness reports now carry optional `artifact.unitCount` metadata when the
+  source knowledge pack exposes unit totals.
+- Validation reports for those compact team artifacts now preserve optional
+  `unitCount`, so future registry/S3 discovery can audit unit volume without
+  reading full artifact payloads.
+
+Implemented checkpoints:
+
+- Added optional `unitCount` to compact artifact metadata in
+  `src/knowledge/team-artifact-store.ts`.
+- Generated descriptors, index entries, publication plans, and readiness
+  reports propagate `manifest.artifact.unitCount`.
+- Descriptor, manifest, index, and stored-pack matching now detect unit-count
+  drift when unit metadata is present.
+- Team artifact validation accepts optional unit counts and reports them in
+  `KnowledgeValidationReport`.
+- CLI text summaries for publication plan/readiness now show unit totals beside
+  fact totals.
+
+Design notes:
+
+- `unitCount` remains optional for compatibility with older fact-only artifacts,
+  but newly generated unit-aware artifacts propagate it consistently.
+- This prepares the next read-only discovery slice: an index entry can summarize
+  whether an artifact is relevant and appropriately sized before downloading or
+  unpacking the full JSON payload.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-team-artifact-index-readiness.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `git diff --check`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Add a read-only artifact reference discovery report over safe
+   S3-compatible registry references.
+2. Extend reference-registry validation with artifact references while keeping
+   endpoint, bucket, and credential values out of reports.
+3. Add CLI integration for prebuilt `knowledgeSources.unitArtifacts`.
+
 ## 2026-05-12 Completed Prebuilt Knowledge Unit Artifact Sources
 
 Status:
