@@ -12,6 +12,7 @@ import {
   isSha256Hex,
   targetAllowed
 } from './source-config.ts';
+import { CANONICAL_PUBLIC_EXTRACTION_TARGETS } from './public-extraction-targets.ts';
 import {
   collectConfiguredUnitArtifactRegistrySources,
   configuredRegistrySources,
@@ -212,6 +213,26 @@ function collectConfiguredUnitArtifactSources(
   return candidates;
 }
 
+function collectCanonicalPublicExtractionTargetSources(
+  requestedDomains: Set<InfraDomainId>,
+  targetPaths: Set<string>
+): KnowledgePrefetchCandidate[] {
+  if (targetPaths.size === 0) {
+    return [];
+  }
+
+  return CANONICAL_PUBLIC_EXTRACTION_TARGETS
+    .filter(target =>
+      requestedDomains.has(target.domain)
+      && targetAllowed(target.targetPath, targetPaths)
+    )
+    .map(target => ({
+      domain: target.domain,
+      targetPath: target.targetPath,
+      source: target.source
+    }));
+}
+
 export async function collectWorkspaceKnowledgeSources(
   inspection: WorkspaceInspection,
   options: CollectWorkspaceKnowledgeSourcesOptions = {}
@@ -297,6 +318,7 @@ export async function collectWorkspaceKnowledgeSources(
 
   candidates.push(...collectConfiguredCuratedUnitSources(inspection, requestedDomains, targetPaths));
   candidates.push(...collectConfiguredUnitArtifactSources(inspection, requestedDomains, targetPaths));
+  candidates.push(...collectCanonicalPublicExtractionTargetSources(requestedDomains, targetPaths));
   candidates.push(...await collectConfiguredUnitArtifactRegistrySources(
     inspection,
     requestedDomains,
