@@ -116,6 +116,29 @@ Next recommended implementation steps:
 3. Use diagnostic/recipe units in edit-plan routing where they can reduce
    speculative infra changes.
 
+## 2026-05-12 Completed CLI Extraction Coverage For Markdown Units
+
+Status:
+
+- `knowledge extract --json` now has integration coverage proving a cached Helm
+  chart docs markdown source emits `fact`, `guidance`, `example`,
+  `diagnostic`, and `recipe` units through the normal CLI path.
+- The same test keeps the raw-content boundary intact by asserting extracted
+  output does not include the source markdown body or a `content` field.
+
+Validation completed:
+
+- `node --experimental-strip-types test/integration/cli-knowledge-extract-main.test.mjs`
+- `npm run lint`
+
+Next recommended implementation steps:
+
+1. Add `knowledge pack` coverage under a tight `maxUnits` budget for
+   markdown-derived units.
+2. Add Pulumi docs markdown fixtures for explicit examples and troubleshooting.
+3. Use markdown-derived diagnostics/recipes in planner routing or edit-plan
+   confidence checks.
+
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 
 Status:
