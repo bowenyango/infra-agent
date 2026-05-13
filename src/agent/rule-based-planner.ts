@@ -480,6 +480,28 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       };
     }
 
+    if (
+      editPlan?.kind.startsWith('pulumi-')
+      && taskMentionsPulumi
+      && taskRequestsPulumiRenameReview(runtime.task)
+      && hasPulumiRenameKnowledge(input)
+      && !hasAppliedWrites
+    ) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'ask-for-clarification',
+          summary: 'Review Pulumi rename, alias, or stack-config requirements before editing resources.',
+          rationale: 'The selected knowledge units indicate that Pulumi logical renames need alias, import/state, or stack-config review before applying bounded stack config edits.',
+          payload: {
+            questions: pulumiRenameKnowledgeQuestions(input),
+            clarificationKind: 'general',
+            actionFamily: 'pulumi-clarification'
+          }
+        }
+      };
+    }
+
     if (!hasAppliedWrites && editPlan && editPlan.writes.length > 0) {
       if (hasApprovalSignals) {
         return {

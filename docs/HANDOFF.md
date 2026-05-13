@@ -240,12 +240,44 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Use Pulumi diagnostic/recipe units to steer alias/import/state review and
-   stack config edit-plan routing.
-2. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
+1. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
    before adding more knowledge publication surfaces.
-3. Add pack/agent integration coverage for concrete example and recipe units
+2. Add pack/agent integration coverage for concrete example and recipe units
    changing planner or edit-plan behavior.
+3. Extend Pulumi alias/import review from clarification into explicit reviewed
+   alias/import plan artifacts when that product surface is ready.
+
+## 2026-05-12 Completed Pulumi Recipe Gate For Stack Config Edits
+
+Status:
+
+- Pulumi rename/alias knowledge now gates bounded Pulumi stack-config edits
+  before execution. If a task asks for a Pulumi rename-like change and compact
+  knowledge units mention aliases, logical names, import/state, or stack config
+  review, the rule-based planner asks for clarification before applying a
+  `pulumi-stack-config` edit plan.
+- This makes recipe/diagnostic RAG behavior functional, not just present in the
+  prompt. Recipe-only curated knowledge can now stop a speculative stack config
+  write when the task may actually be a logical resource rename.
+
+Modified core files:
+
+- `src/agent/rule-based-planner.ts`
+- `test/unit/planner-rag-units.test.mjs`
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/planner-rag-units.test.mjs`
+- `npm run lint`
+
+Next recommended implementation steps:
+
+1. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
+   before adding more knowledge publication surfaces.
+2. Add pack/agent integration coverage for concrete example and recipe units
+   changing planner or edit-plan behavior.
+3. Extend Pulumi alias/import review from clarification into explicit reviewed
+   alias/import plan artifacts when that product surface is ready.
 
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 

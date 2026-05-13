@@ -88,9 +88,33 @@ async function writeTerraformRenameKnowledgeWorkspace(root) {
   );
 }
 
-async function writePulumiAliasKnowledgeWorkspace(root) {
+async function writePulumiAliasKnowledgeWorkspace(root, units = null) {
   await mkdir(join(root, 'infra/api'), { recursive: true });
   await mkdir(join(root, 'knowledge'), { recursive: true });
+  const defaultUnits = [
+    {
+      unitType: 'guidance',
+      path: 'guidance.pulumi.logical-rename',
+      summary: 'Use Pulumi aliases when a resource logical name changes but the physical resource should be retained.',
+      confidence: 'high',
+      topic: 'pulumi-logical-rename',
+      appliesWhen: ['Pulumi resource logical name rename'],
+      risk: 'Without an alias, a rename can be planned as a replacement.'
+    },
+    {
+      unitType: 'recipe',
+      path: 'recipe.pulumi.alias-stack-config',
+      summary: 'Review Pulumi aliases and stack config before editing resources.',
+      name: 'Pulumi alias and stack config review',
+      steps: [
+        'Collect old and new Pulumi resource type and logical name.',
+        'Review aliases for logical renames that retain the physical resource.',
+        'Use native stack config writes only after approval.'
+      ],
+      requiresApproval: true
+    }
+  ];
+
   await writeFile(
     join(root, 'infra-agent.config.json'),
     `${JSON.stringify({
@@ -126,29 +150,7 @@ async function writePulumiAliasKnowledgeWorkspace(root) {
       kind: 'infra-agent.curated-knowledge-units',
       schemaVersion: 1,
       mutationAllowed: false,
-      units: [
-        {
-          unitType: 'guidance',
-          path: 'guidance.pulumi.logical-rename',
-          summary: 'Use Pulumi aliases when a resource logical name changes but the physical resource should be retained.',
-          confidence: 'high',
-          topic: 'pulumi-logical-rename',
-          appliesWhen: ['Pulumi resource logical name rename'],
-          risk: 'Without an alias, a rename can be planned as a replacement.'
-        },
-        {
-          unitType: 'recipe',
-          path: 'recipe.pulumi.alias-stack-config',
-          summary: 'Review Pulumi aliases and stack config before editing resources.',
-          name: 'Pulumi alias and stack config review',
-          steps: [
-            'Collect old and new Pulumi resource type and logical name.',
-            'Review aliases for logical renames that retain the physical resource.',
-            'Use native stack config writes only after approval.'
-          ],
-          requiresApproval: true
-        }
-      ]
+      units: units ?? defaultUnits
     }, null, 2)}\n`,
     'utf8'
   );
@@ -234,6 +236,53 @@ test('rule-based planner uses Pulumi alias units to ask for resource identity re
     ));
     assert.ok(lastTurn?.decision.action.payload?.questions?.some(question =>
       /pulumi_config_set/i.test(question)
+    ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rule-based planner gates Pulumi stack config edits behind alias knowledge review', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-alias-stack-config-rag-'));
+
+  try {
+    await writePulumiAliasKnowledgeWorkspace(tempRoot, [
+      {
+        unitType: 'recipe',
+        path: 'recipe.pulumi.alias-stack-config',
+        summary: 'Review Pulumi aliases and stack config before editing resources.',
+        name: 'Pulumi alias and stack config review',
+        steps: [
+          'Collect old and new Pulumi resource type and logical name.',
+          'Review aliases for logical renames that retain the physical resource.',
+          'Use native stack config writes only after approval.'
+        ],
+        requiresApproval: true
+      }
+    ]);
+    const result = await runSingleStep(
+      'rename pulumi api dev image tag to 2.3.4 while retaining the existing resource',
+      tempRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      {
+        maxTurns: 3,
+        retrievedContextBudget: {
+          maxFacts: 4
+        }
+      }
+    );
+    const lastTurn = result.turns[result.turns.length - 1];
+
+    assert.equal(result.outcome, 'clarification-required');
+    assert.equal(result.runtime.appliedWrites.length, 0);
+    assert.equal(lastTurn?.decision.action.kind, 'ask-for-clarification');
+    assert.equal(lastTurn?.decision.action.payload?.actionFamily, 'pulumi-clarification');
+    assert.match(lastTurn?.decision.action.rationale ?? '', /before applying bounded stack config edits/i);
+    assert.ok(result.runtime.knowledgeFacts?.units.some(unit =>
+      unit.unitType === 'recipe'
+      && /aliases/i.test(JSON.stringify(unit))
     ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
