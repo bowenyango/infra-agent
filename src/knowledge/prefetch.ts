@@ -119,6 +119,20 @@ function isSafeWorkspaceRelativePath(value: string): boolean {
     && !SECRET_PATH_PATTERN.test(normalized);
 }
 
+function isSecretSafeKnowledgeUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'https:' || url.protocol === 'http:')
+      && !url.username
+      && !url.password
+      && !url.search
+      && !url.hash
+      && !SECRET_PATH_PATTERN.test(value);
+  } catch {
+    return false;
+  }
+}
+
 function collectConfiguredCuratedUnitSources(
   inspection: WorkspaceInspection,
   requestedDomains: Set<InfraDomainId>,
@@ -179,7 +193,13 @@ function collectConfiguredUnitArtifactSources(
     if (!isInfraDomain(configuredSource.domain) || !requestedDomains.has(configuredSource.domain)) {
       continue;
     }
-    if (typeof configuredSource.path !== 'string' || !isSafeWorkspaceRelativePath(configuredSource.path)) {
+    const localPath = typeof configuredSource.path === 'string' && isSafeWorkspaceRelativePath(configuredSource.path)
+      ? configuredSource.path
+      : null;
+    const url = typeof configuredSource.url === 'string' && isSecretSafeKnowledgeUrl(configuredSource.url)
+      ? configuredSource.url
+      : null;
+    if ((localPath === null && url === null) || (localPath !== null && url !== null)) {
       continue;
     }
 
@@ -197,8 +217,9 @@ function collectConfiguredUnitArtifactSources(
         kind: 'knowledge-unit-artifact',
         name: typeof configuredSource.name === 'string' && configuredSource.name.length > 0
           ? configuredSource.name
-          : `unit-artifact:${configuredSource.path}`,
-        localPath: configuredSource.path,
+          : `unit-artifact:${localPath ?? url}`,
+        ...(localPath !== null ? { localPath } : {}),
+        ...(url !== null ? { url } : {}),
         ...(typeof configuredSource.version === 'string' && configuredSource.version.length > 0
           ? { version: configuredSource.version }
           : {})

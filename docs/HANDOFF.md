@@ -170,12 +170,51 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Wire `infra-agent.knowledge-units` into the public `knowledge validate`
-   dispatcher so unit artifacts have first-class validation.
+1. Add Pulumi alias review/edit-plan behavior once old/new Pulumi resource
+   identity is known.
+2. Add read-only registry artifact discovery for prebuilt public/internal unit
+   artifacts.
+3. Use URL-backed prebuilt unit artifacts in agent-loop tests for public
+   provider and Helm metadata knowledge.
+
+## 2026-05-12 Completed URL-Backed Unit Artifact Read Path
+
+Status:
+
+- `knowledgeSources.unitArtifacts` can now point at either a safe
+  workspace-relative `path` or a secret-free `url`. URL artifacts use the
+  existing read-only `knowledge prefetch` cache path before extraction and
+  packing consume them.
+
+Implemented checkpoints:
+
+- Extended the workspace config type for unit artifacts with optional `url`.
+- Updated knowledge source discovery to accept exactly one of `path` or `url`
+  for each unit artifact.
+- Added URL safety checks: only `http`/`https`, no credentials, no query, no
+  fragment, and no secret-like path terms.
+- Reused the existing cache/prefetch/extract/pack path; no upload or remote
+  write behavior was added.
+- Added unit coverage proving URL artifacts report `requiresFetch=true`, fetch
+  into the cache with an injected fetcher, then extract and pack as compact
+  units.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-unit-artifact-sources.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:contract`
+- `npm run test:integration`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add CLI integration coverage for URL-backed unit artifacts.
 2. Add Pulumi alias review/edit-plan behavior once old/new Pulumi resource
    identity is known.
-3. Add read-only registry artifact discovery for prebuilt public/internal unit
-   artifacts.
+3. Add read-only registry artifact discovery for S3-compatible references
+   without expanding upload execution boundaries.
 
 ## 2026-05-12 Completed CLI Coverage for Prebuilt Unit Artifacts
 

@@ -217,11 +217,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   explicit team-backend approval path is completed.
 - Prebuilt unit artifacts belong under
   `infra-agent.config.json` -> `knowledgeSources.unitArtifacts`. Each entry
-  must use a safe workspace-relative JSON path to an
-  `infra-agent.knowledge-units` payload plus `domain` and optional
-  `targetPath`. Treat this as the local read-only shape that future
-  S3-compatible references will mirror; do not mutate or upload the artifact
-  while extracting or packing it.
+  must use either a safe workspace-relative JSON `path` or a secret-free
+  `url` to an `infra-agent.knowledge-units` payload plus `domain` and optional
+  `targetPath`. URL artifacts must be downloaded by the read-only
+  `knowledge prefetch` path before extraction. Do not mutate or upload the
+  artifact while extracting or packing it.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

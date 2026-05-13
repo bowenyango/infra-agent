@@ -38,7 +38,8 @@ export interface WorkspaceCuratedKnowledgeUnitsSourceConfig {
 export interface WorkspaceKnowledgeUnitArtifactSourceConfig {
   domain: InfraDomainId;
   targetPath?: string;
-  path: string;
+  path?: string;
+  url?: string;
   name?: string;
   version?: string;
 }

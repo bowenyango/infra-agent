@@ -185,7 +185,10 @@ Current behavior is intentionally runtime-foundation oriented:
   prebuilt `infra-agent.knowledge-units` artifacts under
   `knowledgeSources.unitArtifacts`, which lets reviewed public or internal unit
   sets enter the same extraction, validation, ranking, and compact pack path
-  without rerunning source extraction. `validate` checks facts,
+  without rerunning source extraction. `unitArtifacts` may point at a safe
+  workspace-relative `path` or a secret-free `url`; URL artifacts are fetched by
+  `knowledge prefetch` into the local cache before `extract` or `pack` consumes
+  them. `validate` checks facts,
   extraction reports,
   and compact packs before use, and `pack` ranks and emits a bounded
   planner-safe `infra-agent.knowledge-pack` without raw source content. Packs
