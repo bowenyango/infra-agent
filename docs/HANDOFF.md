@@ -204,12 +204,48 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Tune tight-budget ranking so task-relevant examples can survive small
-   `maxUnits` values when concrete edit shape is needed.
-2. Use Pulumi diagnostic/recipe units to steer alias/import/state review and
+1. Use Pulumi diagnostic/recipe units to steer alias/import/state review and
    stack config edit-plan routing.
-3. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
+2. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
    before adding more knowledge publication surfaces.
+3. Add pack/agent integration coverage for concrete example and recipe units
+   changing planner or edit-plan behavior.
+
+## 2026-05-12 Completed Tight-Budget Unit Selection
+
+Status:
+
+- Knowledge pack and compact budget summaries now use a budget-aware unit
+  selector instead of raw rank-and-slice behavior.
+- The selector still ranks local required facts and diagnostics first. When
+  `maxUnits >= 4`, it preserves one non-stale `recipe` and one non-stale
+  `example` by replacing only lower-priority, non-protected guidance or optional
+  fact units.
+- This makes the five-unit RAG model more useful under tight token budgets:
+  planners can keep concrete edit shape (`example`) and workflow sequence
+  (`recipe`) without sacrificing required inputs or validation diagnostics.
+
+Modified core files:
+
+- `src/knowledge/unit-ranking.ts`
+- `src/knowledge/pack.ts`
+- `src/knowledge/fact-budget.ts`
+- `test/unit/knowledge-unit-budget-selection.test.mjs`
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-unit-budget-selection.test.mjs`
+- `npm run lint`
+- `npm run test:unit -- knowledge-pack-unit-compatibility`
+
+Next recommended implementation steps:
+
+1. Use Pulumi diagnostic/recipe units to steer alias/import/state review and
+   stack config edit-plan routing.
+2. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
+   before adding more knowledge publication surfaces.
+3. Add pack/agent integration coverage for concrete example and recipe units
+   changing planner or edit-plan behavior.
 
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { extractWorkspaceKnowledgeFacts, type KnowledgeExtractionOptions } from './extract.ts';
 import { rankKnowledgePackFacts } from './fact-ranking.ts';
-import { rankKnowledgePackUnits } from './unit-ranking.ts';
+import { selectKnowledgePackUnitsForBudget } from './unit-ranking.ts';
 import {
   resolveKnowledgeStoragePolicy,
   summarizeKnowledgeStoragePolicies,
@@ -385,14 +385,16 @@ export async function buildKnowledgePack(
   const facts = rankedFacts.slice(0, maxFacts);
   const sourceById = new Map(sources.map(source => [source.id, source]));
   const extractedUnits = extraction.unitSets.flatMap(unitSet => unitSet.units.map(toPackUnit));
-  const rankedUnits = extractedUnits.length > 0
-    ? rankKnowledgePackUnits(extractedUnits, {
+  const selectedUnits = extractedUnits.length > 0
+    ? selectKnowledgePackUnitsForBudget(extractedUnits, {
         sources,
         requestedDomains: extraction.requestedDomains,
-        targetPaths: extraction.targetPaths
+        targetPaths: extraction.targetPaths,
+        maxUnits
       })
     : facts.map(fact => toPackFactUnit(fact, sourceById.get(fact.sourceId)));
-  const units = rankedUnits.slice(0, maxUnits);
+  const units = selectedUnits.slice(0, maxUnits);
+  const totalUnitCount = extractedUnits.length > 0 ? extractedUnits.length : selectedUnits.length;
 
   return {
     kind: 'infra-agent.knowledge-pack',
@@ -409,9 +411,9 @@ export async function buildKnowledgePack(
     factCount: extraction.factCount,
     includedFactCount: facts.length,
     omittedFactCount: Math.max(0, rankedFacts.length - facts.length),
-    unitCount: rankedUnits.length,
+    unitCount: totalUnitCount,
     includedUnitCount: units.length,
-    omittedUnitCount: Math.max(0, rankedUnits.length - units.length),
+    omittedUnitCount: Math.max(0, totalUnitCount - units.length),
     maxFacts,
     maxUnits,
     staleSourceCount: sources.filter(source => source.stale).length,

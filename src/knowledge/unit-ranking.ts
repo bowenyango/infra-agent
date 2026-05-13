@@ -7,6 +7,10 @@ export interface KnowledgeUnitRankingOptions {
   targetPaths?: string[];
 }
 
+interface UnitBudgetSelectionOptions extends KnowledgeUnitRankingOptions {
+  maxUnits: number;
+}
+
 interface ScoredKnowledgeUnit {
   unit: KnowledgePackUnit;
   index: number;
@@ -222,6 +226,59 @@ function pathSpecificity(path: string): number {
   return path.split('.').length;
 }
 
+function isProtectedBudgetUnit(unit: KnowledgePackUnit): boolean {
+  return unit.unitType === 'diagnostic'
+    || (unit.unitType === 'fact' && unit.required === true);
+}
+
+function findBudgetReplacementIndex(selected: KnowledgePackUnit[]): number {
+  for (let index = selected.length - 1; index >= 0; index -= 1) {
+    const unit = selected[index];
+    if (
+      !isProtectedBudgetUnit(unit)
+      && unit.unitType !== 'example'
+      && unit.unitType !== 'recipe'
+    ) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function selectPreferredBudgetUnit(
+  ranked: KnowledgePackUnit[],
+  selected: KnowledgePackUnit[],
+  sourceById: Map<string, KnowledgePackSource>,
+  unitType: 'example' | 'recipe'
+): KnowledgePackUnit | null {
+  const selectedIds = new Set(selected.map(unit => `${unit.sourceId}:${unit.unitType}:${unit.path}:${unit.sourceLocator}`));
+
+  return ranked.find(unit => {
+    if (unit.unitType !== unitType) {
+      return false;
+    }
+
+    if (selectedIds.has(`${unit.sourceId}:${unit.unitType}:${unit.path}:${unit.sourceLocator}`)) {
+      return false;
+    }
+
+    const source = sourceById.get(unit.sourceId);
+    return source?.stale !== true;
+  }) ?? null;
+}
+
+function hasFreshSelectedUnitType(
+  selected: KnowledgePackUnit[],
+  sourceById: Map<string, KnowledgePackSource>,
+  unitType: 'example' | 'recipe'
+): boolean {
+  return selected.some(unit =>
+    unit.unitType === unitType
+    && sourceById.get(unit.sourceId)?.stale !== true
+  );
+}
+
 export function rankKnowledgePackUnits(
   units: KnowledgePackUnit[],
   options: KnowledgeUnitRankingOptions = {}
@@ -268,4 +325,41 @@ export function rankKnowledgePackUnits(
   );
 
   return scored.map(entry => entry.unit);
+}
+
+export function selectKnowledgePackUnitsForBudget(
+  units: KnowledgePackUnit[],
+  options: UnitBudgetSelectionOptions
+): KnowledgePackUnit[] {
+  const maxUnits = Math.max(1, options.maxUnits);
+  const ranked = rankKnowledgePackUnits(units, options);
+  if (ranked.length <= maxUnits) {
+    return ranked;
+  }
+
+  const selected = ranked.slice(0, maxUnits);
+  if (maxUnits < 4) {
+    return selected;
+  }
+
+  const sourceById = new Map((options.sources ?? []).map(source => [source.id, source]));
+  for (const unitType of ['recipe', 'example'] as const) {
+    if (hasFreshSelectedUnitType(selected, sourceById, unitType)) {
+      continue;
+    }
+
+    const candidate = selectPreferredBudgetUnit(ranked, selected, sourceById, unitType);
+    if (!candidate) {
+      continue;
+    }
+
+    const replacementIndex = findBudgetReplacementIndex(selected);
+    if (replacementIndex === -1) {
+      continue;
+    }
+
+    selected[replacementIndex] = candidate;
+  }
+
+  return selected;
 }
