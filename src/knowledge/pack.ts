@@ -31,6 +31,13 @@ export interface KnowledgePackSource {
   targetPath: string;
   kind: KnowledgeSource['kind'];
   name: string;
+  version?: string;
+  url?: string;
+  provider?: string;
+  module?: string;
+  chart?: string;
+  packageName?: string;
+  artifactContentHash?: string;
   factCount: number;
   contentHash: string;
   fetchedAt: string | null;
@@ -240,6 +247,13 @@ function toPackSource(factSet: {
     targetPath: sourceContext?.targetPath ?? '',
     kind: factSet.source.kind,
     name: factSet.source.name,
+    ...(factSet.source.version !== undefined ? { version: factSet.source.version } : {}),
+    ...(factSet.source.url !== undefined ? { url: factSet.source.url } : {}),
+    ...(factSet.source.provider !== undefined ? { provider: factSet.source.provider } : {}),
+    ...(factSet.source.module !== undefined ? { module: factSet.source.module } : {}),
+    ...(factSet.source.chart !== undefined ? { chart: factSet.source.chart } : {}),
+    ...(factSet.source.packageName !== undefined ? { packageName: factSet.source.packageName } : {}),
+    ...(factSet.source.artifactContentHash !== undefined ? { artifactContentHash: factSet.source.artifactContentHash } : {}),
     factCount: factSet.factCount,
     contentHash: factSet.sourceContentHash,
     fetchedAt: factSet.sourceFetchedAt,
