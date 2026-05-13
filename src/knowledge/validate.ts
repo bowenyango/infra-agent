@@ -186,7 +186,9 @@ const KNOWLEDGE_UNIT_PRIVACY_SCOPES = [
 ] as const satisfies readonly KnowledgeUnitPrivacyScope[];
 const KNOWLEDGE_DIAGNOSTIC_ENGINES = ['terraform', 'pulumi', 'helm', 'provider', 'runtime'] as const;
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+const FULL_URL_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/\S+/i;
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
+const SHORT_HEX_PATTERN = /^[a-f0-9]{8,32}$/;
 const PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
 const MANIFEST_ID_PATTERN = PACK_ID_PATTERN;
 
@@ -624,6 +626,160 @@ function validateRecipeKnowledgeUnit(unit: Record<string, unknown>, path: string
   if (unit.mutationAllowed !== false) {
     issues.push(error(`${path}.mutationAllowed`, 'Knowledge recipe unit mutationAllowed must be false.'));
   }
+}
+
+function validateKnowledgeUnitIndexRetrievalKey(
+  value: string,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  validateNoSecretLikeValue(value, path, issues);
+  if (FULL_URL_PATTERN.test(value)) {
+    issues.push(error(path, 'Knowledge unit index retrievalKeys must not include URLs.'));
+  }
+}
+
+function validateKnowledgeUnitIndexEntry(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): number {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge unit index entry must be an object.'));
+    return 0;
+  }
+
+  if (typeof value.domain !== 'string' || !INFRA_DOMAINS.includes(value.domain as typeof INFRA_DOMAINS[number])) {
+    issues.push(error(`${path}.domain`, 'Knowledge unit index entry domain must be supported.'));
+  }
+  if (typeof value.sourceKind !== 'string' || !KNOWLEDGE_SOURCE_KINDS.includes(value.sourceKind as KnowledgeSourceKind)) {
+    issues.push(error(`${path}.sourceKind`, 'Knowledge unit index entry sourceKind must be supported.'));
+  }
+  if (typeof value.storageScope !== 'string' || !KNOWLEDGE_STORAGE_SCOPES.includes(value.storageScope as KnowledgeStorageScope)) {
+    issues.push(error(`${path}.storageScope`, 'Knowledge unit index entry storageScope must be supported.'));
+  }
+  if (typeof value.freshness !== 'string' || !KNOWLEDGE_PACK_SOURCE_FRESHNESS.includes(value.freshness as typeof KNOWLEDGE_PACK_SOURCE_FRESHNESS[number])) {
+    issues.push(error(`${path}.freshness`, 'Knowledge unit index entry freshness must be supported.'));
+  }
+
+  for (const field of ['targetPath', 'sourceId', 'sourceName'] as const) {
+    const stringValue = readNonEmptyString(value[field], `${path}.${field}`, issues);
+    if (stringValue !== null) {
+      validateNoSecretLikeValue(stringValue, `${path}.${field}`, issues);
+    }
+  }
+
+  for (const field of ['provider', 'packageName', 'chart', 'module', 'version'] as const) {
+    validateOptionalString(value[field], `${path}.${field}`, issues);
+  }
+
+  if (!Array.isArray(value.privacyScopes)) {
+    issues.push(error(`${path}.privacyScopes`, 'Knowledge unit index entry privacyScopes must be an array.'));
+  } else {
+    value.privacyScopes.forEach((scope, index) => {
+      if (typeof scope !== 'string' || !KNOWLEDGE_UNIT_PRIVACY_SCOPES.includes(scope as KnowledgeUnitPrivacyScope)) {
+        issues.push(error(`${path}.privacyScopes[${index}]`, 'Knowledge unit index entry privacyScope must be supported.'));
+      }
+    });
+  }
+
+  let unitCountSum = 0;
+  if (!isRecord(value.unitCounts)) {
+    issues.push(error(`${path}.unitCounts`, 'Knowledge unit index entry unitCounts must be an object.'));
+  } else {
+    const unitCountKeys = new Set(Object.keys(value.unitCounts));
+    for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+      unitCountKeys.delete(unitType);
+      const unitCount = readNonNegativeInteger(value.unitCounts[unitType], `${path}.unitCounts.${unitType}`, issues);
+      if (unitCount !== null) {
+        unitCountSum += unitCount;
+      }
+    }
+    for (const extraKey of unitCountKeys) {
+      issues.push(error(`${path}.unitCounts.${extraKey}`, 'Knowledge unit index entry unitCounts must only include supported unit types.'));
+    }
+  }
+
+  const includedUnitCount = readNonNegativeInteger(value.includedUnitCount, `${path}.includedUnitCount`, issues);
+  if (includedUnitCount !== null && includedUnitCount !== unitCountSum) {
+    issues.push(error(`${path}.includedUnitCount`, 'Knowledge unit index entry includedUnitCount must match the sum of unitCounts.'));
+  }
+  if (value.omittedUnitCount !== undefined) {
+    readNonNegativeInteger(value.omittedUnitCount, `${path}.omittedUnitCount`, issues);
+  }
+  readNonNegativeInteger(value.sourceUnitCountEstimate, `${path}.sourceUnitCountEstimate`, issues);
+
+  const retrievalKeys = readStringArray(value.retrievalKeys, `${path}.retrievalKeys`, issues);
+  retrievalKeys?.forEach((key, index) => validateKnowledgeUnitIndexRetrievalKey(key, `${path}.retrievalKeys[${index}]`, issues));
+
+  if (value.sourceContentHash !== undefined) {
+    const sourceContentHash = readNonEmptyString(value.sourceContentHash, `${path}.sourceContentHash`, issues);
+    if (sourceContentHash !== null) {
+      if (SHA256_HEX_PATTERN.test(sourceContentHash)) {
+        issues.push(error(`${path}.sourceContentHash`, 'Knowledge unit index entry sourceContentHash must be a short hex digest, not a full SHA-256 hash.'));
+      } else if (!SHORT_HEX_PATTERN.test(sourceContentHash)) {
+        issues.push(error(`${path}.sourceContentHash`, 'Knowledge unit index entry sourceContentHash must be a short lowercase hex digest.'));
+      }
+    }
+  }
+
+  return unitCountSum;
+}
+
+function validateKnowledgeUnitIndexPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Knowledge unit index schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Knowledge unit index mutationAllowed must be false.'));
+  }
+  readString(payload.packId, '$.packId', issues);
+
+  const sourceCount = readNonNegativeInteger(payload.sourceCount, '$.sourceCount', issues);
+  const includedUnitCount = readNonNegativeInteger(payload.includedUnitCount, '$.includedUnitCount', issues);
+  readNonNegativeInteger(payload.omittedUnitCount, '$.omittedUnitCount', issues);
+
+  let actualIncludedUnitCount = 0;
+  if (!Array.isArray(payload.entries)) {
+    issues.push(error('$.entries', 'Knowledge unit index entries must be an array.'));
+  } else {
+    if (sourceCount !== null && sourceCount !== payload.entries.length) {
+      issues.push(error('$.sourceCount', 'Knowledge unit index sourceCount must match entries.length.'));
+    }
+    payload.entries.forEach((entry, index) => {
+      actualIncludedUnitCount += validateKnowledgeUnitIndexEntry(entry, `$.entries[${index}]`, issues);
+    });
+  }
+
+  if (includedUnitCount !== null && includedUnitCount !== actualIncludedUnitCount) {
+    issues.push(error('$.includedUnitCount', 'Knowledge unit index includedUnitCount must match the sum of entry includedUnitCount values.'));
+  }
+
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    [],
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
+    },
+    {
+      factSetCount: 0,
+      factCount: 0,
+      unitSetCount: 0,
+      unitCount: includedUnitCount ?? actualIncludedUnitCount
+    }
+  );
 }
 
 function validateKnowledgeUnit(
@@ -1549,6 +1705,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-units') {
     return validateKnowledgeUnitSetPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.knowledge-unit-index') {
+    return validateKnowledgeUnitIndexPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind === 'infra-agent.knowledge-pack') {
