@@ -84,6 +84,41 @@ Next recommended implementation steps:
    tight pack budgets.
 3. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
 
+## 2026-05-12 Completed Registry-Backed Runtime RAG Execution Coverage
+
+Status:
+
+- Agent runtime now has integration coverage proving registry-backed prebuilt
+  units are not just visible to `knowledge` CLI commands. The rule-based agent
+  can load a registry-discovered `knowledge-unit-artifact`, select the compact
+  Terraform rename guidance, and apply a Terraform `moved` block from explicit
+  old/new resource addresses.
+
+Implemented checkpoints:
+
+- Added a fixture workspace that declares only
+  `knowledgeSources.unitArtifactRegistries`, not direct `unitArtifacts`.
+- Added a registry JSON pointing at a local prebuilt
+  `infra-agent.knowledge-units` artifact.
+- Verified the runtime pack reports zero facts, selected compact units, and a
+  `knowledge-unit-artifact` source.
+- Verified `terraform/app/moved.tf` is written through the existing bounded
+  edit-plan execution path.
+
+Validation completed:
+
+- `node --experimental-strip-types test/integration/agent-runtime-execution.test.mjs`
+- `npm run lint`
+- `npm run test:integration`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add optional artifact content hash checking in registry entries.
+2. Add provider/Helm fixture registries that include all five unit types under
+   tight pack budgets.
+3. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
+
 ## 2026-05-12 Completed Terraform Rename Unit Planner Behavior
 
 Status:
