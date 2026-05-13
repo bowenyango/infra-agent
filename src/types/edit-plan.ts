@@ -2,6 +2,7 @@ export type EditPlanKind =
   | 'helm-ingress'
   | 'pulumi-missing-config-repair'
   | 'pulumi-stack-config'
+  | 'terraform-moved-block'
   | 'terraform-missing-required-argument-repair'
   | 'terraform-tfvars-config'
   | 'helm-probes'

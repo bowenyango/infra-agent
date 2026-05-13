@@ -55,11 +55,13 @@ const DOMAIN_DEFINITIONS: DomainDefinition[] = [
     label: 'Terraform',
     supportedTaskKinds: [
       'inspect roots and tfvars',
+      'add moved blocks for explicit resource-address renames',
       'update bounded tfvars values',
       'repair missing required Terraform variables',
       'repair formatting before revalidation'
     ],
     boundedEditKinds: [
+      'terraform-moved-block',
       'terraform-missing-required-argument-repair',
       'terraform-tfvars-config'
     ],

@@ -120,6 +120,7 @@ export function resolveEffectiveEditPolicy(
   ) {
     return {
       allowedEditPlanKinds: [
+        'terraform-moved-block',
         'terraform-missing-required-argument-repair',
         'terraform-tfvars-config'
       ],

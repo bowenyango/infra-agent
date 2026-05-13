@@ -25,6 +25,44 @@ import { RuleBasedPlanningModel } from '../../src/agent/rule-based-planner.ts';
 import { buildEditPlan } from '../../src/agent/build-edit-plan.ts';
 import { main } from '../../src/cli/main.ts';
 
+function terraformMovedBlockKnowledgePack(targetPath = 'terraform/payments-api') {
+  return {
+    units: [
+      {
+        unitType: 'guidance',
+        path: 'guidance.terraform.logical-rename',
+        summary: 'Use Terraform moved blocks when a resource logical name changes but the remote object should be retained.',
+        confidence: 'high',
+        extractionMethod: 'repo-local-guidance',
+        sourceId: 'terraform-rename-internal',
+        sourceLocator: 'knowledge/terraform-rename-units.json',
+        privacyScope: 'workspace-private',
+        topic: 'terraform-logical-rename',
+        appliesWhen: ['Terraform resource address rename'],
+        risk: 'Without a moved block, a rename can look like destroy and create.'
+      }
+    ],
+    targetPaths: [targetPath],
+    requestedDomains: ['terraform']
+  };
+}
+
+function terraformEditRuntime(preflight, overrides = {}) {
+  return {
+    task: preflight.task,
+    preflight,
+    knowledgeFacts: null,
+    observations: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null,
+    ...overrides
+  };
+}
+
 test('inspectWorkspace detects Terraform roots and tfvars files', async () => {
   const inspection = await inspectWorkspace('fixtures/terraform-workspace');
 
@@ -139,6 +177,129 @@ test('buildEditPlan creates a bounded Terraform tfvars config plan', async () =>
   assert.match(editPlan?.rationale ?? '', /Terraform validation allows environment values: dev, stage, prod/);
   assert.match(editPlan?.writes[0]?.content ?? '', /image_tag = "2.3.4"/);
   assert.match(editPlan?.writes[0]?.content ?? '', /environment = "dev"/);
+});
+
+test('buildEditPlan creates a Terraform moved block from explicit RAG-backed rename addresses', async () => {
+  const preflight = await buildRunPreflight(
+    'rename terraform payments-api dev from aws_s3_bucket.old to aws_s3_bucket.api',
+    'fixtures/terraform-workspace'
+  );
+  const mainTfPath = resolve('fixtures/terraform-workspace/terraform/payments-api/main.tf');
+
+  const editPlan = buildEditPlan(terraformEditRuntime(preflight, {
+    knowledgeFacts: terraformMovedBlockKnowledgePack(),
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ]
+  }));
+
+  assert.ok(editPlan);
+  assert.equal(editPlan?.kind, 'terraform-moved-block');
+  assert.equal(editPlan?.writes[0]?.path, 'terraform/payments-api/moved.tf');
+  assert.equal(editPlan?.writes[0]?.mode, 'create');
+  assert.match(editPlan?.rationale ?? '', /compact RAG units/i);
+  assert.match(editPlan?.writes[0]?.content ?? '', /moved \{/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /from = aws_s3_bucket\.old/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /to   = aws_s3_bucket\.api/);
+});
+
+test('buildEditPlan does not create Terraform moved blocks without explicit old and new addresses', async () => {
+  const preflight = await buildRunPreflight(
+    'rename terraform payments-api dev bucket resource safely',
+    'fixtures/terraform-workspace'
+  );
+
+  const editPlan = buildEditPlan(terraformEditRuntime(preflight, {
+    knowledgeFacts: terraformMovedBlockKnowledgePack()
+  }));
+
+  assert.equal(editPlan, null);
+});
+
+test('buildEditPlan keeps Terraform moved block generation tied to RAG units', async () => {
+  const preflight = await buildRunPreflight(
+    'rename terraform payments-api dev from aws_s3_bucket.old to aws_s3_bucket.api',
+    'fixtures/terraform-workspace'
+  );
+
+  const editPlan = buildEditPlan(terraformEditRuntime(preflight));
+
+  assert.equal(editPlan, null);
+});
+
+test('buildEditPlan appends Terraform moved blocks to an observed moved.tf file', async () => {
+  const preflight = await buildRunPreflight(
+    'rename terraform payments-api dev from aws_s3_bucket.old to aws_s3_bucket.api',
+    'fixtures/terraform-workspace'
+  );
+  const movedTfPath = resolve('fixtures/terraform-workspace/terraform/payments-api/moved.tf');
+  const existingMovedContent = [
+    'moved {',
+    '  from = aws_s3_bucket.legacy',
+    '  to   = aws_s3_bucket.current',
+    '}',
+    ''
+  ].join('\n');
+
+  const editPlan = buildEditPlan(terraformEditRuntime(preflight, {
+    knowledgeFacts: terraformMovedBlockKnowledgePack(),
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: movedTfPath,
+          content: existingMovedContent,
+          truncated: false
+        }
+      }
+    ]
+  }));
+
+  assert.equal(editPlan?.kind, 'terraform-moved-block');
+  assert.equal(editPlan?.writes[0]?.mode, 'append');
+  assert.match(editPlan?.writes[0]?.content ?? '', /from = aws_s3_bucket\.legacy/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /from = aws_s3_bucket\.old/);
+});
+
+test('buildEditPlan avoids duplicating an existing Terraform moved block', async () => {
+  const preflight = await buildRunPreflight(
+    'rename terraform payments-api dev from aws_s3_bucket.old to aws_s3_bucket.api',
+    'fixtures/terraform-workspace'
+  );
+  const movedTfPath = resolve('fixtures/terraform-workspace/terraform/payments-api/moved.tf');
+  const existingMovedContent = [
+    'moved {',
+    '  from = aws_s3_bucket.old',
+    '  to   = aws_s3_bucket.api',
+    '}',
+    ''
+  ].join('\n');
+
+  const editPlan = buildEditPlan(terraformEditRuntime(preflight, {
+    knowledgeFacts: terraformMovedBlockKnowledgePack(),
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: movedTfPath,
+          content: existingMovedContent,
+          truncated: false
+        }
+      }
+    ]
+  }));
+
+  assert.equal(editPlan, null);
 });
 
 test('buildEditPlan respects Terraform string type when formatting numeric-looking tfvars values', async () => {

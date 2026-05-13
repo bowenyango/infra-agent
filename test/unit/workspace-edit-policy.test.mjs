@@ -99,6 +99,7 @@ test('buildRunPreflight constrains generic terraform-only workspaces to tfvars e
 
   assert.equal(preflight.profile.id, 'generic');
   assert.deepEqual(preflight.effectiveEditPolicy.allowedEditPlanKinds, [
+    'terraform-moved-block',
     'terraform-missing-required-argument-repair',
     'terraform-tfvars-config'
   ]);
@@ -156,6 +157,7 @@ test('resolveEffectiveEditPolicy derives terraform root prefixes for generic ter
   const effectivePolicy = resolveEffectiveEditPolicy(null, 'generic', inspection);
 
   assert.deepEqual(effectivePolicy.allowedEditPlanKinds, [
+    'terraform-moved-block',
     'terraform-missing-required-argument-repair',
     'terraform-tfvars-config'
   ]);

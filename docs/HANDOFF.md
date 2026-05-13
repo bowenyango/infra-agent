@@ -32,9 +32,9 @@ Active implementation focus:
 
 Recommended next slices:
 
-1. Add planner/edit-plan behavior coverage proving Terraform rename guidance
-   selects moved-block review or blocks unsafe replacement under tight unit
-   budgets.
+1. Add more edit-plan behavior coverage proving Terraform rename guidance
+   creates moved blocks only from explicit old/new resource addresses and
+   selected compact units under tight unit budgets.
 2. Add Pulumi alias/stack-config recipe units and prove they affect planner
    handoff or edit-plan selection without exposing raw examples.
 3. Add read-only registry artifact discovery for prebuilt unit artifacts,
@@ -118,11 +118,60 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Add an edit-plan level review artifact for Terraform moved-block candidates
-   once old/new resource addresses are known.
-2. Add a Pulumi alias review artifact once old/new Pulumi resource identity is
+1. Add a Pulumi alias review artifact once old/new Pulumi resource identity is
    known.
-3. Add read-only registry artifact discovery for prebuilt unit artifacts.
+2. Add read-only registry artifact discovery for prebuilt unit artifacts.
+3. Wire `infra-agent.knowledge-units` into the public `knowledge validate`
+   dispatcher.
+
+## 2026-05-12 Completed Terraform Moved-Block Edit Plan
+
+Status:
+
+- Terraform rename/moved-block RAG units now affect implementation, not just
+  clarification. When a task includes explicit old/new Terraform resource
+  addresses and compact knowledge units indicate moved-block guidance, the
+  edit-plan builder creates or appends a bounded `moved.tf` plan.
+
+Implemented checkpoints:
+
+- Added `terraform-moved-block` as an edit-plan kind.
+- Added a Terraform moved-block builder that requires selected RAG unit
+  evidence and explicit address pairs such as
+  `from aws_s3_bucket.old to aws_s3_bucket.api`.
+- The builder targets `<terraform-root>/moved.tf`, appends to observed existing
+  content, and skips duplicate moved blocks.
+- Updated Terraform edit-plan priority so explicit moved-block rename work is
+  evaluated before generic tfvars plans.
+- Updated generic Terraform-only edit policy and domain capability output to
+  include the new bounded edit kind.
+
+Design notes:
+
+- The builder treats examples as detection evidence only. It does not copy raw
+  example snippets into planner output or write content.
+- No extra upload or boundary machinery was added. This is a direct functional
+  RAG-to-edit-plan slice.
+- Address parsing is deliberately strict enough to avoid inventing state moves:
+  no explicit old/new Terraform resource addresses means no moved-block plan.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/terraform-edit-plan-routing.test.mjs`
+- `node --experimental-strip-types test/unit/workspace-edit-policy.test.mjs`
+- `node --experimental-strip-types test/unit/workspace-profile-targeting.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Wire `infra-agent.knowledge-units` into the public `knowledge validate`
+   dispatcher so unit artifacts have first-class validation.
+2. Add Pulumi alias review/edit-plan behavior once old/new Pulumi resource
+   identity is known.
+3. Add read-only registry artifact discovery for prebuilt public/internal unit
+   artifacts.
 
 ## 2026-05-12 Completed CLI Coverage for Prebuilt Unit Artifacts
 

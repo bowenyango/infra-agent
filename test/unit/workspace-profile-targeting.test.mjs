@@ -288,6 +288,7 @@ test('prioritizeEditPlanKinds prefers requested Terraform domain before Helm and
   assert.deepEqual(
     prioritizeEditPlanKinds(['terraform']),
     [
+      'terraform-moved-block',
       'terraform-missing-required-argument-repair',
       'terraform-tfvars-config',
       'helm-service-port-repair',
@@ -310,6 +311,7 @@ test('prioritizeEditPlanKinds preserves requested domain order for mixed-domain 
       'helm-ingress-values-repair',
       'helm-ingress',
       'helm-probes',
+      'terraform-moved-block',
       'terraform-missing-required-argument-repair',
       'terraform-tfvars-config'
     ]

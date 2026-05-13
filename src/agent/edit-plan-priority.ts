@@ -13,6 +13,7 @@ const DOMAIN_EDIT_PLAN_ORDER: Record<InfraDomainId, EditPlanKind[]> = {
     'pulumi-stack-config'
   ],
   terraform: [
+    'terraform-moved-block',
     'terraform-missing-required-argument-repair',
     'terraform-tfvars-config'
   ]
