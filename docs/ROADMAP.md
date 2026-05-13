@@ -21,9 +21,13 @@ efficient:
 3. Retrieve units deterministically by domain, version, resource/module/chart/
    component identity, target path, validation issue, planned action, risk,
    freshness, and privacy scope.
-4. Feed selected units into planner prompts and edit-plan builders so they
+4. Build a metadata `knowledge index` over extracted/packed units, including
+   compact budget `unitIndex` summaries, before planner handoff.
+5. Validate facts, packs, units, and index artifacts through `knowledge
+   validate` before reuse.
+6. Feed selected units into planner prompts and edit-plan builders so they
    change real Terraform, Pulumi, and Helm behavior under tight token budgets.
-5. Prove the value with workflows such as Terraform moved blocks, Pulumi
+7. Prove the value with workflows such as Terraform moved blocks, Pulumi
    aliases and stack config, Helm values migration, provider replacement risk,
    and validation-derived repair diagnostics.
 
@@ -33,11 +37,12 @@ discovery and download of reviewed `infra-agent.knowledge-units` payloads, not
 remote write/upload execution.
 
 The canonical public extraction target API and first target regressions now
-exist for the agreed public examples:
+exist for the agreed public examples, and current work should keep using the
+canonical public target resolver plus compact target summaries:
 
 - Terraform: HashiCorp AWS provider docs at
   `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`.
-- Pulumi: Pulumi AWS package/provider docs.
+- Pulumi: `@pulumi/aws` / Pulumi AWS package/provider docs.
 - Helm: `kube-prometheus-stack`.
 
 These examples are the canonical v0 targets for proving public provider,
@@ -47,6 +52,18 @@ regression tests use cached fixtures generated from these same targets and
 verify source identity, compact five-unit JSON shape, redaction, and
 target-specific signals instead of brittle full-document golden output from
 public `latest` pages.
+
+The recommended knowledge workflow is now:
+
+1. `knowledge sources`
+2. `knowledge prefetch`
+3. `knowledge extract` and/or `knowledge pack`
+4. `knowledge index`
+5. `knowledge validate`
+
+This is the v0 RAG path for public and internal Terraform/Pulumi/Helm
+knowledge. Do not make a Vector DB required for planner accuracy, and do not
+write provider-specific parsers for the canonical examples.
 
 ## Current Baseline
 
@@ -183,6 +200,9 @@ large install, and can mismatch provider versions. Instead:
   URL-backed sources, and expand read-only registry JSON into matching artifact
   sources for the requested domain and target with optional SHA-256 artifact
   hash checks
+- build deterministic `infra-agent.knowledge-index` metadata artifacts from
+  extracted or packed units so retrieval can use source-linked unit metadata
+  without a Vector DB or raw source replay
 - dynamically fetch or refresh official sources when the cache is missing, stale,
   or for a different provider/chart/package version
 - reuse repo-local cached facts only after path/hash fingerprints still match
@@ -231,6 +251,10 @@ Vector search is not a core requirement for v0 RAG; exact metadata retrieval,
 schema facts, validators, plan/preview diagnostics, and deterministic ranking
 are the default path for accuracy and token efficiency.
 
+Budget summaries should expose `unitIndex` posture when available. Treat
+multi-source source-level omitted distribution as an estimate until a later
+slice makes per-source omission accounting exact.
+
 ## Knowledge Extraction And Storage Plan
 
 This is a core product area. Infrastructure agents become materially better
@@ -238,7 +262,7 @@ when they can reuse source-linked, versioned, validated facts about providers,
 resources, modules, components, and charts instead of relearning the same public
 or repository-local material on every run.
 
-Current progress as of 2026-05-12:
+Current progress as of 2026-05-13:
 
 | Area | Status | Current capability | Main gap |
 | --- | --- | --- | --- |
@@ -246,7 +270,7 @@ Current progress as of 2026-05-12:
 | Official docs source selection | Partial | Terraform Registry source selection for used resources/data sources; Helm source selection from `values.schema.json`, `Chart.yaml`, and `Chart.lock`; Pulumi source selection for project config, YAML runtime official docs, package-level Pulumi Registry docs from project manifests, and resource-level Pulumi Registry docs from deterministic Pulumi YAML resource tokens plus conservative Node.js/TypeScript import/require constructor evidence | Pulumi resource-level docs source selection is not yet component, dynamic alias/dataflow, generated-code, or non-Node-language coverage |
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy; HTML official-doc responses are normalized into compact Markdown cache entries in the explicit fetch path; `knowledge sources` reports fresh/stale/missing cache posture without fetching; prefetch results report previous cache posture for each source | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
-| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts, explicit `KnowledgeUnit` / `KnowledgeUnitSet` contracts for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`, cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact/unit ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, fact-derived required-input guidance, provider/Helm diagnostics, Terraform/Helm/Pulumi workflow recipes, conservative markdown section extraction for explicit examples, best practices, troubleshooting/errors, and upgrade/migration workflows, local curated internal units, prebuilt unit artifact sources, and structured local freshness summaries for stale or unchecked repo-derived facts | Runtime/edit-plan use of markdown-derived diagnostic and recipe units, Non-Node Pulumi language discovery, dynamic/deeper component internals, public-registry indexing, and real team storage backends are pending |
+| Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts, explicit `KnowledgeUnit` / `KnowledgeUnitSet` contracts for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`, cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact/unit ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, fact-derived required-input guidance, provider/Helm diagnostics, Terraform/Helm/Pulumi workflow recipes, conservative markdown section extraction for explicit examples, best practices, troubleshooting/errors, and upgrade/migration workflows, local curated internal units, prebuilt unit artifact sources, canonical public target resolver/summaries, knowledge unit metadata index, budget summary `unitIndex`, `knowledge index` CLI, index validation through `knowledge validate`, and structured local freshness summaries for stale or unchecked repo-derived facts | Runtime/edit-plan use of markdown-derived diagnostic and recipe units, Non-Node Pulumi language discovery, dynamic/deeper component internals, exact multi-source pack source-level omitted distribution, and real team storage backends are pending |
 | Team storage | Partial | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints; public-reference knowledge packs can be staged through an injected mocked S3-compatible content-addressed store and compact descriptor validation; `knowledge publish-plan` emits a non-mutating dry-run publication plan for persisted pack manifests; `knowledge publish-readiness` emits a local readiness report from a saved plan and optional compact index entry; contract tests lock descriptor, publication-plan, index-entry, and readiness JSON shapes; `knowledge backend-readiness` emits compact dry-run readiness for local private backend configs without live checks or credential values; `knowledge backend-reference-readiness` emits private dry-run validation for S3-compatible config refs against an offline reference registry without reading env values; `knowledge upload-approval-intent` emits private dry-run approval-boundary state and a safe scope fingerprint from saved publication readiness plus saved backend-reference readiness without granting approval or checking credentials; `knowledge upload-approval-continuation` records a matching explicit fingerprint as private dry-run continuation state while keeping upload/client execution disabled; `knowledge upload-adapter-preflight` reviews a saved continuation plus saved mock adapter resolution plan for future dependency injection while keeping upload/client/adapter execution disabled; `knowledge upload-mock-harness` reads a saved preflight and builds an in-memory mock adapter harness contract while keeping adapter injection, object writes, index writes, clients, credentials, live checks, and upload commands disabled; `knowledge upload-execution-gate` reads saved continuation plus saved mock harness artifacts, verifies matching artifact scope, and emits dry-run permission/audit state while keeping upload approval, execution, write tokens, execution leases, adapter injection, clients, credentials, live checks, artifact bytes, commands, and object/index writes disabled; `knowledge upload-mutation-plan` reads a saved execution gate and emits a private approval-audit dry-run plan for a later human mutation review while keeping approval, execution, tokens, leases, artifact bytes, adapters, clients, credentials, commands, and object/index writes disabled; `knowledge upload-mutation-approval-review` reads a saved mutation plan plus an explicit approval fingerprint and records only that the exact plan fingerprint was reviewed while keeping mutation approval, execution, tokens, leases, artifact bytes, adapters, clients, credentials, commands, and object/index writes disabled; `knowledge upload-execution-prerequisite-plan` reads a saved mutation approval review and records the remaining execution prerequisites while keeping every upload/mutation path disabled; `knowledge upload-write-token-boundary` reads a saved prerequisite plan and records scoped, single-use, expiring, audit-bound write-token requirements while keeping token issuance, leases, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-execution-lease-boundary` reads a saved write-token boundary and records scoped, single-use, expiring, audit-bound execution lease requirements while keeping lease creation, token issuance, rollback plans, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-rollback-plan-boundary` reads a saved execution lease boundary and records scoped rollback-plan requirements while keeping rollback creation, lease creation, token issuance, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-audit-record-boundary` reads a saved rollback plan boundary and records scoped audit-record requirements while keeping audit creation, rollback creation, lease creation, token issuance, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-artifact-bytes-boundary` reads a saved audit record boundary and records local artifact-byte staging requirements while keeping byte reads/staging/provision, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-adapter-injection-boundary` reads a saved artifact bytes boundary and records adapter dependency-injection requirements while keeping adapter instantiation/injection, client creation, byte reads/staging/provision, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-client-creation-boundary` reads a saved adapter injection boundary and records client creation requirements while keeping SDK client creation, adapter injection, credential reads/presence checks, live checks, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; `knowledge upload-credential-read-boundary` reads a saved client creation boundary and records credential-read requirements while keeping credential value reads, credential presence checks, SDK client creation, adapter injection, live checks, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; `knowledge upload-credential-presence-boundary` reads a saved credential read boundary and records credential-presence requirements while keeping credential value reads, credential presence checks, SDK client creation, adapter injection, live checks, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; `knowledge upload-live-check-boundary` reads a saved credential presence boundary and records live-check requirements while keeping credential value reads, credential presence checks, live checks, live-check result exposure, SDK client creation, adapter injection, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; team artifact, backend-readiness, upload-intent, upload-continuation, upload-adapter-preflight, upload-mock-harness, upload-execution-gate, upload-mutation-plan, upload-mutation-approval-review, upload-execution-prerequisite-plan, upload-write-token-boundary, upload-execution-lease-boundary, upload-rollback-plan-boundary, upload-audit-record-boundary, upload-artifact-bytes-boundary, upload-adapter-injection-boundary, upload-client-creation-boundary, upload-credential-read-boundary, upload-credential-presence-boundary, and upload-live-check-boundary validators are split into focused modules behind the `knowledge validate` dispatcher; an internal team backend adapter interface now exposes mock-only capability descriptors, object-store/index dependencies, and a resolver that rejects credential, backend-detail, live-check, and remote-write leakage; the first S3-compatible backend family has a private contract parser, offline reference registry for storage/auth refs and required environment variable names, sanitized descriptor, readiness-input projection, fail-closed resolution plan, and mock-backed adapter conformance tests | No real S3/GCS/Azure/Postgres backend implementation, no remote metadata index service, no SDK client, no credential read, no credential presence check, no live backend check, and no CLI upload/publication command |
 
 2026-05-10 addendum: `knowledge upload-command-boundary` now consumes a saved
@@ -296,6 +320,12 @@ Target artifact families:
   reuse can be rejected when local files change. This should become a bounded
   bundle of knowledge units while preserving backward-compatible fact summaries
   for current planner prompts.
+- `infra-agent.knowledge-index`: a deterministic metadata index over extracted
+  or packed `infra-agent.knowledge-units`. It records source-linked unit
+  selectors, target summaries, counts, freshness, privacy scope, budget
+  `unitIndex` posture, and validation metadata without raw docs or
+  provider-specific parser state. This is the current core retrieval bridge for
+  public/internal RAG.
 - `infra-agent.knowledge-artifact-manifest`: a plan-only publication manifest
   for persisted extraction or pack artifacts. It records byte-level artifact
   hash, storage-policy summary, publishable-by-default source ids, blocked
@@ -691,6 +721,11 @@ Implemented initial CLI surfaces:
     `--out` explicitly persists the bounded artifact without changing the
     default stdout-only behavior. `--manifest-out` writes a plan-only manifest
     that still contains no backend URL, bucket, credential, or upload command.
+- `infra-agent knowledge index ...`
+  - builds a deterministic metadata index from extracted units or bounded packs
+    after `knowledge extract` / `knowledge pack` and before planner reuse. The
+    index is the preferred lookup surface for public/internal five-unit RAG and
+    must remain source-linked, compact, raw-content-free, and parser-neutral.
 - `infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>]
   [--out <plan.json>] --json`
   - reads a persisted artifact manifest and its referenced knowledge-pack

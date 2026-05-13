@@ -156,11 +156,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   generic provider/package/chart behavior, not special-case parser branches:
   HashiCorp AWS provider docs at
   `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`, Pulumi
-  AWS package/provider docs at
+  `@pulumi/aws` package/provider docs at
   `https://www.pulumi.com/registry/packages/aws/api-docs/`, and Helm
   `kube-prometheus-stack` public chart docs. Keep extraction code reusable and
   do not add AWS-specific or chart-specific parsing just to satisfy these
   samples.
+- Treat the canonical public target resolver and target summaries as the
+  durable public-reference entrypoint. Future public Terraform/Pulumi/Helm
+  targets should reuse that resolver model instead of introducing standalone
+  target constants or provider-specific parser branches.
 - Live public extraction tests must stay opt-in behind
   `INFRA_AGENT_LIVE_KNOWLEDGE_TESTS=1` and normal CI must not require external
   network access. When enabled, live tests should assert source identity,
@@ -183,6 +187,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   target path, validation issue, planned action, risk type, freshness, and
   privacy scope before considering any vector-style discovery. Do not add a
   Vector DB as a required path for v0 planner accuracy.
+- Treat `knowledge index` and compact `unitIndex` metadata as the current core
+  retrieval bridge after extraction/packing. Indexes must be source-linked,
+  parser-neutral, raw-content-free, and validated before planner reuse.
 - Planner prompts must receive compact selected unit summaries and omission
   counts, not raw docs, full provider schemas, full examples, complete cached
   content, or unbounded prose. Structured facts, validator output, repo-local
@@ -200,8 +207,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `sources` to inspect selected sources and public official-doc cache posture,
   `prefetch` to deliberately refresh bounded official-doc cache entries,
   `extract` to create fact sets and optional standalone unit artifacts from
-  cache or local schema/code sources, `validate` to check facts or units before
-  use, and `knowledge pack` to build bounded planner-safe unit bundles.
+  cache or local schema/code sources, `pack` to build bounded planner-safe unit
+  bundles, `index` to build deterministic unit metadata indexes, and `validate`
+  to check facts, packs, units, and indexes before use.
+  Recommended order: `knowledge sources` -> `knowledge prefetch` ->
+  `knowledge extract` / `knowledge pack` -> `knowledge index` ->
+  `knowledge validate`.
   Prefer `--max-units` for new unit-first packs;
   `--max-facts` remains a compatibility alias while legacy consumers migrate.
   Read `knowledge sources` cache status before
@@ -216,6 +227,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `uncheckedSourceCount`, and the configured compact unit budget, and
   never treat omitted samples as exhaustive. Stale or unchecked source facts
   must not be treated as high-confidence planner evidence.
+- Treat multi-source pack source-level omitted distribution as estimate-only
+  until exact per-source omission accounting exists. Do not infer exhaustive
+  source coverage from `unitIndex` omitted counts.
 - Public-reference provider, package, chart, Helm metadata, and official-doc
   knowledge should be reusable through a shared registry or cache once
   extracted and validated. Internal module, component, chart, repository rule,

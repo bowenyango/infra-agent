@@ -51,6 +51,33 @@ identity, cache write/read shape, normalization metadata or content type,
 redaction/no raw HTML, stable target identity signals, and schema-valid
 five-unit payloads when extraction emits units.
 
+## Knowledge Index Validation
+
+The durable knowledge regression path is:
+
+```sh
+infra-agent knowledge sources <workspace> --json
+infra-agent knowledge prefetch <workspace> --json
+infra-agent knowledge extract <workspace> --json
+infra-agent knowledge pack <workspace> --json
+infra-agent knowledge index ... --json
+infra-agent knowledge validate <artifact.json> --json
+```
+
+Focused tests should prove the canonical public target resolver, target
+summaries, `infra-agent.knowledge-units`, metadata index output, budget
+`unitIndex`, and index validator stay generic for Terraform, Pulumi, and Helm.
+Use HashiCorp AWS provider docs, `@pulumi/aws`, and
+`kube-prometheus-stack` only as regression anchors; do not add
+provider-specific parser assertions for those examples.
+
+Index tests should assert deterministic metadata, count consistency, source
+identity, privacy scope, redaction, stale/unchecked source posture, and
+validation failure on forged or drifted metadata. They should not require a
+Vector DB, raw cached docs, full examples, live network access, or public-doc
+goldens. Multi-source pack source-level omitted distribution remains an
+estimate, so tests should not require exact per-source omitted allocation yet.
+
 ## Layout
 
 - Put unit shards directly under `test/unit/`.
@@ -88,6 +115,9 @@ new direct shard files do not need manual runner imports.
 
 When a shard approaches the size cap, split it by behavior before adding more
 coverage.
+
+Existing structure risk: some legacy shards are already oversized. Do not add
+new coverage to those shards; prefer focused new shards or smaller splits.
 
 ## CI
 

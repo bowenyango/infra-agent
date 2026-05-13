@@ -40,6 +40,71 @@ Recommended next slices:
 3. Add read-only registry artifact discovery for prebuilt unit artifacts,
    leaving real upload/write execution out of scope.
 
+## 2026-05-13 Current Core Path: Metadata Knowledge Index
+
+Status:
+
+- The current core path is feature-first, deterministic metadata RAG for
+  Terraform, Pulumi, and Helm public/internal knowledge. Future work should
+  route through the canonical public target resolver, knowledge unit metadata
+  index, compact `unitIndex` summaries, and `knowledge index` /
+  `knowledge validate` checks before adding any new retrieval surface.
+- This path is explicitly not Vector DB work and not provider-specific parser
+  work. Public and internal units should be found and ranked by structured
+  metadata: domain, provider/package/chart, version, resource/module/component,
+  target path, validation issue, planned action, risk, freshness, privacy scope,
+  and source identity.
+- Do not expand the `knowledge team-upload-*` boundary chain for this feature
+  work. Team-upload remains a maintained dry-run safety scaffold, while the
+  active RAG path is read-only source discovery, extraction/packing, indexing,
+  validation, and planner/edit-plan consumption.
+
+Completed slice notes:
+
+- Added a canonical public target resolver and target summaries so Terraform,
+  Pulumi, and Helm public examples resolve through one reusable public-reference
+  source model instead of ad hoc target constants or parser branches.
+- Added knowledge unit metadata index support for compact
+  `infra-agent.knowledge-units` artifacts. The index carries source-linked unit
+  metadata for deterministic lookup without raw docs, raw examples, or a Vector
+  DB.
+- Added budget summary `unitIndex` output so compact pack/result summaries can
+  expose selected and omitted unit posture under tight unit budgets.
+- Added the `knowledge index` CLI surface to build the metadata index after
+  extraction/packing and before validation or planner handoff.
+- Added index validation through the `knowledge validate` dispatcher so saved
+  index artifacts are contract-checked before reuse.
+
+Recommended workflow:
+
+1. `infra-agent knowledge sources <workspace> ...`
+2. `infra-agent knowledge prefetch <workspace> ...`
+3. `infra-agent knowledge extract <workspace> ...` and/or
+   `infra-agent knowledge pack <workspace> ...`
+4. `infra-agent knowledge index ...`
+5. `infra-agent knowledge validate <artifact.json> [--workspace <workspace>]`
+
+Canonical regression anchors:
+
+- Terraform: HashiCorp AWS provider docs,
+  `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`.
+- Pulumi: `@pulumi/aws` / Pulumi AWS Registry docs.
+- Helm: `kube-prometheus-stack` public chart docs.
+
+These examples remain generic regression anchors only. Keep the resolver and
+extractors provider/package/chart neutral; do not add AWS-specific,
+`@pulumi/aws`-specific, or `kube-prometheus-stack`-specific parsing.
+
+Remaining risks:
+
+- Multi-source pack source-level omitted distribution is still an estimate.
+  Treat `unitIndex` omitted counts as budget posture, not exhaustive proof of
+  every omitted source/unit relationship.
+- Live network smoke remains opt-in and must stay behind
+  `INFRA_AGENT_LIVE_KNOWLEDGE_TESTS=1`.
+- `npm run test:structure` still has existing oversized shard risk in the
+  legacy shards already noted below; avoid making those shards larger.
+
 ## 2026-05-13 Canonical Public Extraction Targets
 
 Status:

@@ -101,11 +101,16 @@ credentials must still come from environment variables.
    human result card mirrors packet, token, fact, stale-source,
    unchecked-source, and omission posture without exposing raw excerpts or cache
    payloads. Use `infra-agent knowledge
-   sources/prefetch/extract/validate/pack/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary/upload-rollback-plan-boundary/upload-audit-record-boundary/upload-artifact-bytes-boundary/upload-adapter-injection-boundary/upload-client-creation-boundary/upload-credential-read-boundary/upload-credential-presence-boundary/upload-live-check-boundary/upload-command-boundary` when
+   sources/prefetch/extract/pack/index/validate/publish-plan/publish-readiness/backend-readiness/backend-reference-readiness/upload-approval-intent/upload-approval-continuation/upload-adapter-preflight/upload-mock-harness/upload-execution-gate/upload-mutation-plan/upload-mutation-approval-review/upload-execution-prerequisite-plan/upload-write-token-boundary/upload-execution-lease-boundary/upload-rollback-plan-boundary/upload-audit-record-boundary/upload-artifact-bytes-boundary/upload-adapter-injection-boundary/upload-client-creation-boundary/upload-credential-read-boundary/upload-credential-presence-boundary/upload-live-check-boundary/upload-command-boundary` when
    you need reusable provider, resource, chart, module, or Pulumi component
    facts; validate extracted data before planner use and use
    `knowledge validate --workspace <workspace>` before reusing saved
    repo-derived facts after local files may have changed.
+   For public/internal five-unit RAG, prefer the current deterministic metadata
+   path: `knowledge sources` -> `knowledge prefetch` ->
+   `knowledge extract` / `knowledge pack` -> `knowledge index` ->
+   `knowledge validate`. Treat the resulting metadata index and budget
+   `unitIndex` summaries as the lookup bridge, not as raw-doc content.
    Read the validation report's freshness summary for stale or unchecked local
    source posture before treating saved facts as current.
    Use `knowledge sources` before `knowledge prefetch` to inspect public
@@ -406,12 +411,22 @@ credentials must still come from environment variables.
   domain, target, and source limits. HTML normalization is a cache-boundary
   helper for explicit fetches; do not introduce agent-loop live refreshes or
   pass raw normalized docs to the planner.
+- Use the canonical public target resolver for public Terraform/Pulumi/Helm
+  examples. HashiCorp AWS provider docs, `@pulumi/aws`, and
+  `kube-prometheus-stack` are generic regression anchors only; do not introduce
+  provider-specific or chart-specific parser behavior for them.
 - Treat `knowledgeFacts` as a ranked compact summary: local schemas and required
   fields should appear before examples under small budgets, but facts remain
   advisory and do not replace native validation, plan, preview, or provider
   schema context. Source freshness and fingerprint digest fields are handoff
   signals; stale or unchecked source facts should be revalidated or
   re-extracted and should not be used as high-confidence guidance.
+- Treat `knowledge index` output and compact `unitIndex` metadata as
+  deterministic retrieval metadata for `fact`, `guidance`, `example`,
+  `diagnostic`, and `recipe` units. It must remain source-linked,
+  raw-content-free, parser-neutral, and validated before planner use. A
+  multi-source pack's source-level omitted distribution is estimate-only until
+  exact per-source accounting exists.
 - Treat team artifact descriptors as compact validation artifacts only. They
   may summarize a fresh public-reference pack staged through the mocked store,
   but they must not include buckets, endpoints, credentials, signed URLs,
