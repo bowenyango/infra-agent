@@ -161,6 +161,29 @@ Next recommended implementation steps:
 3. Use markdown-derived diagnostics/recipes in planner routing or edit-plan
    confidence checks.
 
+## 2026-05-12 Completed Pulumi Markdown Unit Coverage
+
+Status:
+
+- Pulumi resource docs now have unit coverage proving cached markdown can
+  produce the five-unit model when docs include inputs, example usage,
+  important notes, migration workflow steps, and troubleshooting signatures.
+- This locks the expected Pulumi-specific behavior for `typescript` examples,
+  Pulumi diagnostics, and migration recipes that require approval.
+
+Validation completed:
+
+- `npm run lint`
+- `npm run test:unit -- knowledge-unit-extraction knowledge-pulumi-docs-extraction`
+
+Next recommended implementation steps:
+
+1. Tune tight-budget ranking so task-relevant examples can survive small
+   `maxUnits` values when concrete edit shape is needed.
+2. Use Pulumi diagnostic/recipe units to steer alias/import/state review and
+   stack config edit-plan routing.
+3. Add secret-redaction regression tests for markdown-derived units.
+
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 
 Status:

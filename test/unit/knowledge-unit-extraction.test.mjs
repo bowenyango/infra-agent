@@ -198,3 +198,95 @@ test('markdown knowledge unit extraction promotes explicit docs sections into fi
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('markdown knowledge unit extraction handles Pulumi docs examples and diagnostics', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-markdown-unit-extract-'));
+
+  try {
+    const source = {
+      kind: 'pulumi-docs',
+      name: 'pulumi-docs:resource:aws:s3/bucket',
+      packageName: 'aws',
+      module: 'aws:s3/bucket:Bucket',
+      url: 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'text/markdown',
+      content: [
+        '# Bucket',
+        '',
+        '## Inputs',
+        '',
+        '| Name | Type | Description |',
+        '| --- | --- | --- |',
+        '| `bucket` | string | Name of the bucket to create. |',
+        '',
+        '## Example Usage',
+        '',
+        '```typescript',
+        'const bucket = new aws.s3.Bucket("site", {',
+        '  bucket: "site-bucket",',
+        '});',
+        '```',
+        '',
+        '## Important Notes',
+        '',
+        'Bucket names are globally unique and should be reviewed before replacement.',
+        '',
+        '## Migration Workflow',
+        '',
+        '1. Confirm whether the bucket name is changing or only the Pulumi logical name is changing.',
+        '2. Add aliases or import/state review when preserving the physical bucket.',
+        '3. Run pulumi preview and inspect replacements.',
+        '',
+        '## Troubleshooting',
+        '',
+        '`Error: BucketAlreadyExists` usually means another stack or account owns the requested bucket name.',
+        '',
+        '- Confirm the owning account and region.',
+        '- Use import or aliases when preserving an existing bucket.',
+        ''
+      ].join('\n'),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      extractedAt: '2026-05-05T00:00:00.000Z',
+      now: new Date('2026-05-06T00:00:00.000Z')
+    });
+    const markdownUnits = extractMarkdownKnowledgeUnitsFromCacheEntry(entry, factSet);
+    const unitSet = extractKnowledgeUnitSetFromFactSet(factSet, markdownUnits);
+
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'fact'
+      && unit.factKind === 'argument'
+      && unit.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+    ));
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'example'
+      && unit.exampleType === 'pulumi-docs-example'
+      && unit.language === 'typescript'
+      && /new aws\.s3\.Bucket/.test(unit.snippet)
+    ));
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'guidance'
+      && unit.topic === 'important-notes'
+      && /globally unique/i.test(unit.summary)
+    ));
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.engine === 'pulumi'
+      && unit.signature === 'Error: BucketAlreadyExists'
+    ));
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'recipe'
+      && unit.name === 'Migration Workflow'
+      && unit.requiresApproval === true
+      && unit.steps.length === 3
+    ));
+    assert.equal(validateKnowledgePayload(unitSet, 'inline').valid, true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
