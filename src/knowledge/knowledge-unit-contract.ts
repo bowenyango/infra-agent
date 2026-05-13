@@ -46,7 +46,8 @@ const OPTIONAL_STRING_SOURCE_FIELDS = [
   'provider',
   'module',
   'chart',
-  'packageName'
+  'packageName',
+  'artifactContentHash'
 ] as const;
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
@@ -117,6 +118,9 @@ function assertKnowledgeSource(value: unknown, fieldPath: string): asserts value
 
   for (const field of OPTIONAL_STRING_SOURCE_FIELDS) {
     assertOptionalString(value[field], `${fieldPath}.${field}`);
+  }
+  if (typeof value.artifactContentHash === 'string' && !SHA256_HEX_PATTERN.test(value.artifactContentHash)) {
+    throw new Error(`knowledge unit input ${fieldPath}.artifactContentHash must be a SHA-256 hex string.`);
   }
 
   if (typeof value.url === 'string') {

@@ -219,18 +219,22 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `infra-agent.config.json` -> `knowledgeSources.unitArtifacts`. Each entry
   must use either a safe workspace-relative JSON `path` or a secret-free
   `url` to an `infra-agent.knowledge-units` payload plus `domain` and optional
-  `targetPath`. URL artifacts must be downloaded by the read-only
-  `knowledge prefetch` path before extraction. Do not mutate or upload the
-  artifact while extracting or packing it.
+  `targetPath`. `artifactContentHash` may be supplied as a SHA-256 hex digest;
+  extraction must reject the artifact if cached or local bytes drift. URL
+  artifacts must be downloaded by the read-only `knowledge prefetch` path
+  before extraction. Do not mutate or upload the artifact while extracting or
+  packing it.
 - Prebuilt unit artifact registries belong under
   `infra-agent.config.json` -> `knowledgeSources.unitArtifactRegistries`.
   Each registry must use exactly one safe workspace-relative JSON `path` or
   secret-free `url`. A registry JSON uses
   `kind: "infra-agent.knowledge-unit-registry"`, `schemaVersion: 1`,
   `mutationAllowed: false`, and `entries` that point at safe
-  `infra-agent.knowledge-units` artifacts. Registry entries are discovery
-  metadata only; extraction and packing must still consume the expanded
-  artifacts through the same `knowledge-unit-artifact` path.
+  `infra-agent.knowledge-units` artifacts. Entries may include a SHA-256
+  `contentHash`, which is carried into the expanded artifact source as
+  `artifactContentHash` and checked before parsing. Registry entries are
+  discovery metadata only; extraction and packing must still consume the
+  expanded artifacts through the same `knowledge-unit-artifact` path.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

@@ -41,7 +41,8 @@ const OPTIONAL_STRING_SOURCE_FIELDS = [
   'provider',
   'module',
   'chart',
-  'packageName'
+  'packageName',
+  'artifactContentHash'
 ] as const;
 const FACT_OPTIONAL_STRING_FIELDS = ['type', 'defaultValue'] as const;
 const FACT_OPTIONAL_STRING_ARRAY_FIELDS = ['relatedPaths'] as const;
@@ -89,6 +90,9 @@ function assertKnowledgeSource(value: unknown, fieldPath: string): asserts value
 
   for (const field of OPTIONAL_STRING_SOURCE_FIELDS) {
     assertOptionalString(value[field], `${fieldPath}.${field}`);
+  }
+  if (typeof value.artifactContentHash === 'string' && !SHA256_HEX_PATTERN.test(value.artifactContentHash)) {
+    throw new Error(`knowledge fact input ${fieldPath}.artifactContentHash must be a SHA-256 hex string.`);
   }
 
   if (typeof value.url === 'string') {

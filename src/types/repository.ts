@@ -42,6 +42,7 @@ export interface WorkspaceKnowledgeUnitArtifactSourceConfig {
   url?: string;
   name?: string;
   version?: string;
+  artifactContentHash?: string;
 }
 
 export interface WorkspaceKnowledgeUnitArtifactRegistrySourceConfig {

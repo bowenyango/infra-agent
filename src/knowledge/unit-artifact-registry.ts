@@ -4,6 +4,7 @@ import {
   isInfraDomain,
   isSafeWorkspaceRelativePath,
   isSecretSafeKnowledgeUrl,
+  isSha256Hex,
   targetAllowed
 } from './source-config.ts';
 import type { KnowledgeStore } from './knowledge-store.ts';
@@ -27,6 +28,7 @@ interface UnitArtifactRegistryEntry {
   url?: string;
   name?: string;
   version?: string;
+  artifactContentHash?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -149,7 +151,10 @@ function parseRegistryArtifactEntries(
       path: typeof artifact.path === 'string' ? artifact.path : undefined,
       url: typeof artifact.url === 'string' ? artifact.url : undefined,
       name: typeof artifact.name === 'string' ? artifact.name : undefined,
-      version: typeof artifact.version === 'string' ? artifact.version : undefined
+      version: typeof artifact.version === 'string' ? artifact.version : undefined,
+      artifactContentHash: isSha256Hex(artifact.contentHash)
+        ? artifact.contentHash
+        : undefined
     });
   }
 
@@ -214,6 +219,9 @@ function unitArtifactCandidateFromRegistryEntry(
       ...(url !== null ? { url } : {}),
       ...(typeof entry.version === 'string' && entry.version.length > 0
         ? { version: entry.version }
+        : {}),
+      ...(isSha256Hex(entry.artifactContentHash)
+        ? { artifactContentHash: entry.artifactContentHash }
         : {})
     }
   }));

@@ -79,10 +79,49 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Add optional artifact content hash checking in registry entries.
-2. Add provider/Helm fixture registries that include all five unit types under
+1. Add provider/Helm fixture registries that include all five unit types under
    tight pack budgets.
-3. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
+2. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
+3. Add registry metadata filters for provider/package/chart/resource identity.
+
+## 2026-05-12 Completed Registry Artifact Hash Checks
+
+Status:
+
+- Direct `knowledgeSources.unitArtifacts` entries can carry
+  `artifactContentHash`, and registry entries can carry `contentHash`.
+- The hash is folded into knowledge cache identity and persisted on the
+  expanded `knowledge-unit-artifact` source.
+- Extraction rejects local or cached artifact bytes when the configured hash no
+  longer matches, preventing stale or drifted unit payloads from reaching the
+  planner.
+
+Implemented checkpoints:
+
+- Added `artifactContentHash` to the `KnowledgeSource` shape and direct unit
+  artifact config type.
+- Carried registry `contentHash` into expanded artifact sources.
+- Included artifact hash in normalized cache IDs.
+- Added extraction-time hash mismatch rejection before parsing
+  `infra-agent.knowledge-units`.
+- Extended unit coverage for registry hash drift rejection and cache ID
+  sensitivity.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-unit-artifact-sources.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:contract`
+- `npm run test:integration`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add provider/Helm fixture registries that include all five unit types under
+   tight pack budgets.
+2. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
+3. Add registry metadata filters for provider/package/chart/resource identity.
 
 ## 2026-05-12 Completed Registry-Backed Runtime RAG Execution Coverage
 
@@ -114,10 +153,10 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Add optional artifact content hash checking in registry entries.
-2. Add provider/Helm fixture registries that include all five unit types under
+1. Add provider/Helm fixture registries that include all five unit types under
    tight pack budgets.
-3. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
+2. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
+3. Add registry metadata filters for provider/package/chart/resource identity.
 
 ## 2026-05-12 Completed Terraform Rename Unit Planner Behavior
 

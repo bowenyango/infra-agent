@@ -94,7 +94,9 @@ budgeting, or to a secret-free URL that `knowledge prefetch` downloads into the
 local cache before extraction. Shared public or internal catalogs can be
 declared under `knowledgeSources.unitArtifactRegistries`; registry JSON is
 read-only discovery metadata that expands into the same artifact pipeline for
-the requested domain and target. Planner prompts receive compact context
+the requested domain and target. Direct artifact config and registry entries can
+pin artifact bytes with SHA-256 hashes so drifted unit payloads are rejected
+before parsing. Planner prompts receive compact context
 packets derived from these units, never raw caches, full docs, full schemas, or
 unbounded examples.
 

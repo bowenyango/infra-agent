@@ -165,7 +165,8 @@ large install, and can mismatch provider versions. Instead:
   according to privacy scope
 - accept prebuilt `infra-agent.knowledge-units` artifacts as read-only local or
   URL-backed sources, and expand read-only registry JSON into matching artifact
-  sources for the requested domain and target
+  sources for the requested domain and target with optional SHA-256 artifact
+  hash checks
 - dynamically fetch or refresh official sources when the cache is missing, stale,
   or for a different provider/chart/package version
 - reuse repo-local cached facts only after path/hash fingerprints still match

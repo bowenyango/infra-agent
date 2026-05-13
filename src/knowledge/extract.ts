@@ -457,6 +457,16 @@ export async function extractWorkspaceKnowledgeFacts(
     }
 
     if (entry.source.kind === 'knowledge-unit-artifact') {
+      if (
+        typeof entry.source.artifactContentHash === 'string'
+        && entry.contentHash !== entry.source.artifactContentHash
+      ) {
+        sources.push(sourceResult(base, 'unreadable', {
+          message: 'Prebuilt knowledge unit artifact content hash did not match the configured reference.'
+        }));
+        continue;
+      }
+
       try {
         const unitSet = extractPrebuiltKnowledgeUnitSetFromCacheEntry(entry, {
           extractedAt: options.extractedAt

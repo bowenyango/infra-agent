@@ -227,6 +227,7 @@ export interface KnowledgeSource {
   module?: string;
   chart?: string;
   packageName?: string;
+  artifactContentHash?: string;
 }
 
 export interface KnowledgeCacheEntry {

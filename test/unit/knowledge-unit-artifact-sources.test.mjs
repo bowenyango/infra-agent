@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
@@ -18,6 +19,10 @@ import { prefetchWorkspaceKnowledge } from '../../src/knowledge/prefetch.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { validateKnowledgePayloadWithLocalSources } from '../../src/knowledge/validate.ts';
+
+function sha256Hex(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
 
 function registrySourceFixture() {
   return {
@@ -90,7 +95,9 @@ function unitArtifactPayload() {
   };
 }
 
-function unitArtifactRegistryPayload() {
+function unitArtifactRegistryPayload(options = {}) {
+  const contentHash = options.contentHash ?? sha256Hex(JSON.stringify(unitArtifactPayload()));
+
   return {
     kind: 'infra-agent.knowledge-unit-registry',
     schemaVersion: 1,
@@ -101,7 +108,8 @@ function unitArtifactRegistryPayload() {
         artifact: {
           url: 'https://knowledge.example.com/public/aws-s3-bucket.units.json',
           name: 'aws-s3-bucket-prebuilt-units-from-registry',
-          version: '2026-05-12'
+          version: '2026-05-12',
+          contentHash
         }
       }
     ]
@@ -305,6 +313,57 @@ test('configured URL knowledge unit registries prefetch then discover matching a
 
     assert.equal(extractedSource?.status, 'extracted');
     assert.equal(extractedSource?.unitCount, 3);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('configured registry artifact hashes reject drifted unit payloads', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-unit-artifact-registry-hash-'));
+
+  try {
+    await writeRegistryWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+
+    await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxSources: 3,
+      fetcher: async fetchedSource => {
+        if (fetchedSource.kind === 'knowledge-unit-registry') {
+          return {
+            source: fetchedSource,
+            contentType: 'application/json',
+            content: JSON.stringify(unitArtifactRegistryPayload({ contentHash: 'e'.repeat(64) })),
+            fetchedAt: '2026-05-12T00:00:00.000Z',
+            staleAfter: '2026-06-12T00:00:00.000Z'
+          };
+        }
+
+        if (fetchedSource.kind === 'knowledge-unit-artifact') {
+          return {
+            source: fetchedSource,
+            contentType: 'application/json',
+            content: JSON.stringify(unitArtifactPayload()),
+            fetchedAt: '2026-05-12T00:00:00.000Z',
+            staleAfter: '2026-06-12T00:00:00.000Z'
+          };
+        }
+
+        return null;
+      }
+    });
+
+    const extraction = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      extractedAt: '2026-05-12T00:00:00.000Z'
+    });
+    const extractedSource = extraction.sources.find(entry => entry.source.kind === 'knowledge-unit-artifact');
+
+    assert.equal(extractedSource?.status, 'unreadable');
+    assert.match(extractedSource?.message ?? '', /content hash/);
+    assert.equal(extraction.unitCount, 0);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

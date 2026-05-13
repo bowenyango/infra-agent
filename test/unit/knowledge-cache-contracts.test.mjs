@@ -48,8 +48,19 @@ test('knowledge cache ids include version-sensitive source metadata', () => {
     version: '6.0.0',
     url: 'https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/instance'
   };
+  const artifactSourceV1 = {
+    kind: 'knowledge-unit-artifact',
+    name: 'aws-instance-units',
+    url: 'https://knowledge.example.com/aws-instance.units.json',
+    artifactContentHash: 'a'.repeat(64)
+  };
+  const artifactSourceV2 = {
+    ...artifactSourceV1,
+    artifactContentHash: 'b'.repeat(64)
+  };
 
   assert.notEqual(buildKnowledgeCacheId(sourceV1), buildKnowledgeCacheId(sourceV2));
+  assert.notEqual(buildKnowledgeCacheId(artifactSourceV1), buildKnowledgeCacheId(artifactSourceV2));
 });
 
 test('knowledge fact schema constants cover planned extraction surfaces', () => {

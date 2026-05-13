@@ -3,6 +3,7 @@ import type { InfraDomainId } from '../types/repository.ts';
 
 const INFRA_DOMAINS: InfraDomainId[] = ['helm', 'pulumi', 'terraform'];
 const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
 export function isInfraDomain(value: unknown): value is InfraDomainId {
   return typeof value === 'string' && INFRA_DOMAINS.includes(value as InfraDomainId);
@@ -37,4 +38,8 @@ export function isSecretSafeKnowledgeUrl(value: string): boolean {
 
 export function targetAllowed(targetPath: string, targetPaths: Set<string>): boolean {
   return targetPaths.size === 0 || targetPaths.has(targetPath);
+}
+
+export function isSha256Hex(value: unknown): value is string {
+  return typeof value === 'string' && SHA256_HEX_PATTERN.test(value);
 }

@@ -57,6 +57,10 @@ function normalizeKnowledgeSource(source: KnowledgeSource): KnowledgeSource {
     normalized.packageName = source.packageName;
   }
 
+  if (source.artifactContentHash !== undefined) {
+    normalized.artifactContentHash = source.artifactContentHash;
+  }
+
   return normalized;
 }
 

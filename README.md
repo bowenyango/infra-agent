@@ -191,6 +191,9 @@ Current behavior is intentionally runtime-foundation oriented:
   them. Larger shared catalogs can be configured through
   `knowledgeSources.unitArtifactRegistries`, whose read-only registry JSON
   expands into matching artifact entries for the requested domain and target.
+  Direct artifacts and registry entries can carry an optional SHA-256
+  `artifactContentHash` / `contentHash` so extraction rejects drifted unit
+  payloads before planner use.
   `validate` checks facts,
   extraction reports,
   and compact packs before use, and `pack` ranks and emits a bounded

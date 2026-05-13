@@ -465,8 +465,11 @@ function validateKnowledgeUnitSource(
     validateNoSecretLikeValue(name, `${path}.name`, issues);
   }
 
-  for (const field of ['version', 'url', 'localPath', 'provider', 'module', 'chart', 'packageName'] as const) {
+  for (const field of ['version', 'url', 'localPath', 'provider', 'module', 'chart', 'packageName', 'artifactContentHash'] as const) {
     validateOptionalString(value[field], `${path}.${field}`, issues);
+  }
+  if (typeof value.artifactContentHash === 'string' && !SHA256_HEX_PATTERN.test(value.artifactContentHash)) {
+    issues.push(error(`${path}.artifactContentHash`, 'Knowledge unit source artifactContentHash must be a SHA-256 hex string.'));
   }
   if (typeof value.url === 'string') {
     validateSecretSafeUrl(value.url, `${path}.url`, issues);

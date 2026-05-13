@@ -9,6 +9,7 @@ import {
   isInfraDomain,
   isSafeWorkspaceRelativePath,
   isSecretSafeKnowledgeUrl,
+  isSha256Hex,
   targetAllowed
 } from './source-config.ts';
 import {
@@ -200,6 +201,9 @@ function collectConfiguredUnitArtifactSources(
         ...(url !== null ? { url } : {}),
         ...(typeof configuredSource.version === 'string' && configuredSource.version.length > 0
           ? { version: configuredSource.version }
+          : {}),
+        ...(isSha256Hex(configuredSource.artifactContentHash)
+          ? { artifactContentHash: configuredSource.artifactContentHash }
           : {})
       }
     });
