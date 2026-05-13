@@ -211,6 +211,20 @@ function hasPulumiRenameKnowledge(input: AgentPlanningInput): boolean {
   );
 }
 
+function findPulumiValidationReviewDiagnostic(input: AgentPlanningInput): Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> | null {
+  const diagnosticPattern = /\b(alias|aliases|import\/state|import|state repair|cloudfront alias|cnamealreadyexists|dns cutover|dns ownership|logical pulumi rename|logical name)\b/i;
+  return (input.runtime.knowledgeFacts?.units ?? []).find((unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> =>
+    unit.unitType === 'diagnostic'
+    && unit.engine === 'pulumi'
+    && unitIncludesText(unit, diagnosticPattern)
+  ) ?? null;
+}
+
+function summarizePulumiDiagnosticReview(unit: Extract<KnowledgePackUnit, { unitType: 'diagnostic' }>): string {
+  const review = unit.recommendedReview.slice(0, 3).join(' ');
+  return review.length > 0 ? review : unit.likelyCause;
+}
+
 function taskRequestsTerraformRenameReview(task: string): boolean {
   return /\b(rename|renaming|moved block|moved blocks|state mv|move resource|resource address|refactor|adopt|import existing|retain existing)\b/i.test(task);
 }
@@ -601,6 +615,22 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     if (hasValidationFailures) {
       const unrepairableIssue = runtime.validationIssues.find(issue => !issue.repairable);
       const repairBudgetExhausted = hasRepairableValidationIssues && runtime.repairAttempts >= maxRepairAttempts;
+      const pulumiReviewDiagnostic = findPulumiValidationReviewDiagnostic(input);
+      if (!repairBudgetExhausted && pulumiReviewDiagnostic) {
+        return {
+          confidence: 'medium',
+          action: {
+            kind: 'stop',
+            summary: 'Pulumi validation failed and requires alias, import, or state review.',
+            rationale: `A selected Pulumi diagnostic unit matched the validation failure: ${summarizePulumiDiagnosticReview(pulumiReviewDiagnostic)}`,
+            payload: {
+              stopReason: 'validation-blocked',
+              actionFamily: 'pulumi-validation'
+            }
+          }
+        };
+      }
+
       return {
         confidence: 'medium',
         action: {

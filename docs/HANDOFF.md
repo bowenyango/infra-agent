@@ -272,8 +272,40 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
+1. Use Helm diagnostic/recipe units in edit-plan confidence checks
    before adding more knowledge publication surfaces.
+2. Add pack/agent integration coverage for concrete example and recipe units
+   changing planner or edit-plan behavior.
+3. Extend Pulumi alias/import review from clarification into explicit reviewed
+   alias/import plan artifacts when that product surface is ready.
+
+## 2026-05-12 Completed Pulumi Validation Diagnostic Review Stop
+
+Status:
+
+- Pulumi validation diagnostic units now affect the rule-based planner's
+  validation-blocked stop behavior. When validation fails and the selected
+  diagnostic unit identifies alias/import/state, CloudFront alias, DNS cutover,
+  or logical Pulumi rename review, the planner returns a Pulumi-specific
+  `validation-blocked` stop with `actionFamily: "pulumi-validation"`.
+- This remains review-only. It does not introduce Pulumi alias/import/state
+  mutation semantics, which should stay out of scope until a separate reviewed
+  product surface exists.
+
+Modified core files:
+
+- `src/agent/rule-based-planner.ts`
+- `test/unit/planner-rag-units.test.mjs`
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/planner-rag-units.test.mjs`
+- `npm run lint`
+
+Next recommended implementation steps:
+
+1. Use Helm diagnostic/recipe units in edit-plan confidence checks before adding
+   more knowledge publication surfaces.
 2. Add pack/agent integration coverage for concrete example and recipe units
    changing planner or edit-plan behavior.
 3. Extend Pulumi alias/import review from clarification into explicit reviewed

@@ -12,6 +12,7 @@ import {
   resolve
 } from 'node:path';
 import { runSingleStep } from '../../src/agent/run-single-step.ts';
+import { RuleBasedPlanningModel } from '../../src/agent/rule-based-planner.ts';
 
 async function writeTerraformRenameKnowledgeWorkspace(root) {
   await mkdir(join(root, 'terraform/app'), { recursive: true });
@@ -287,6 +288,147 @@ test('rule-based planner gates Pulumi stack config edits behind alias knowledge 
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('rule-based planner surfaces Pulumi validation diagnostics for alias review', async () => {
+  const model = new RuleBasedPlanningModel();
+  const decision = await model.decideNextAction({
+    runtime: {
+      task: 'review pulumi prod preview failure for CloudFront alias replacement',
+      preflight: {
+        requestedDomains: ['pulumi'],
+        requestedEnvironment: 'prod',
+        targetCandidates: [
+          {
+            kind: 'pulumi-project',
+            path: 'infra/edge',
+            score: 100,
+            reasons: [],
+            details: []
+          }
+        ],
+        assumptions: [],
+        blockers: [],
+        validation: {
+          validators: [{ name: 'pulumi', available: true }],
+          plan: [
+            {
+              kind: 'pulumi',
+              target: 'infra/edge',
+              commands: ['pulumi preview --cwd infra/edge --stack prod']
+            }
+          ]
+        }
+      },
+      retrievedContext: [],
+      knowledgeFacts: {
+        kind: 'infra-agent.knowledge-pack',
+        schemaVersion: 1,
+        mutationAllowed: false,
+        packId: 'pulumi-diagnostic-pack',
+        workspaceRoot: '/workspace',
+        cacheRoot: '/workspace/.infra-agent/knowledge-cache',
+        requestedDomains: ['pulumi'],
+        targetPaths: ['infra/edge'],
+        sourceIds: ['pulumi-config-source'],
+        sourceCount: 1,
+        factSetCount: 1,
+        factCount: 0,
+        includedFactCount: 0,
+        omittedFactCount: 0,
+        unitCount: 1,
+        includedUnitCount: 1,
+        omittedUnitCount: 0,
+        maxFacts: 4,
+        maxUnits: 4,
+        staleSourceCount: 0,
+        storagePolicy: {
+          publicReference: 0,
+          workspacePrivate: 1,
+          shareableByDefault: 0,
+          explicitOptInRequired: 1
+        },
+        sources: [
+          {
+            id: 'pulumi-config-source',
+            domain: 'pulumi',
+            targetPath: 'infra/edge',
+            kind: 'pulumi-config',
+            name: 'pulumi-config:infra/edge',
+            factCount: 0,
+            contentHash: 'a'.repeat(64),
+            fetchedAt: null,
+            stale: false,
+            freshness: 'fresh',
+            storagePolicy: {
+              scope: 'workspace-private',
+              defaultStore: 'local-only',
+              shareableByDefault: false,
+              requiresExplicitOptIn: true,
+              reason: 'Local Pulumi config source.'
+            }
+          }
+        ],
+        facts: [],
+        units: [
+          {
+            unitType: 'diagnostic',
+            path: 'diagnostic.pulumi.aws-cloudfront-alias.edge',
+            summary: 'Pulumi preview detected a CloudFront alias ownership conflict.',
+            confidence: 'high',
+            extractionMethod: 'validation-diagnostic',
+            sourceId: 'pulumi-config-source',
+            sourceLocator: 'pulumi preview --cwd infra/edge --stack prod',
+            privacyScope: 'private-run',
+            engine: 'pulumi',
+            signature: 'CNAMEAlreadyExists',
+            likelyCause: 'Pulumi attempted to create a CloudFront alias before ownership was resolved.',
+            recommendedReview: [
+              'Confirm CloudFront alias ownership, certificate coverage, distribution ownership, and DNS cutover before transfer or import.',
+              'For logical Pulumi renames, prefer reviewed aliases, import/state review, or bounded stack config changes before retrying preview.'
+            ]
+          }
+        ]
+      },
+      observations: [
+        {
+          toolName: 'pulumi_preview',
+          safety: 'read_only',
+          output: {}
+        }
+      ],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'pulumi preview --cwd infra/edge --stack prod',
+          cwd: '/workspace',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'CNAMEAlreadyExists: api.example.com is already associated with another distribution.'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'pulumi-create-before-delete-conflict',
+          repairable: false,
+          sourceCommand: 'pulumi preview --cwd infra/edge --stack prod',
+          message: 'CloudFront alias api.example.com is already associated with another distribution.',
+          guidance: 'Use alias/import/state review or sequence the DNS cutover explicitly.'
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'validation-blocked');
+  assert.equal(decision.action.payload?.actionFamily, 'pulumi-validation');
+  assert.match(decision.action.summary, /Pulumi validation failed/i);
+  assert.match(decision.action.rationale, /CloudFront alias ownership/i);
+  assert.match(decision.action.rationale, /aliases, import\/state review/i);
 });
 
 test('rule-based planner uses Terraform rename units to ask for moved-block review details', async () => {
