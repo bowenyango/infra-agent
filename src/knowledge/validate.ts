@@ -160,6 +160,7 @@ const KNOWLEDGE_SOURCE_KINDS = [
   'terraform-module',
   'module-readme',
   'internal-knowledge',
+  'knowledge-unit-registry',
   'knowledge-unit-artifact'
 ] as const satisfies readonly KnowledgeSourceKind[];
 const KNOWLEDGE_SOURCE_STALE_REASONS = [

@@ -90,6 +90,24 @@ function unitArtifactPayload() {
   };
 }
 
+function unitArtifactRegistryPayload() {
+  return {
+    kind: 'infra-agent.knowledge-unit-registry',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    entries: [
+      {
+        domain: 'terraform',
+        artifact: {
+          url: 'https://knowledge.example.com/public/aws-s3-bucket.units.json',
+          name: 'aws-s3-bucket-prebuilt-units-from-registry',
+          version: '2026-05-12'
+        }
+      }
+    ]
+  };
+}
+
 async function writeWorkspace(root) {
   await mkdir(join(root, 'terraform/app'), { recursive: true });
   await mkdir(join(root, 'knowledge'), { recursive: true });
@@ -164,6 +182,38 @@ async function writeUrlArtifactWorkspace(root) {
   );
 }
 
+async function writeRegistryWorkspace(root) {
+  await mkdir(join(root, 'terraform/app'), { recursive: true });
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      },
+      knowledgeSources: {
+        unitArtifactRegistries: [
+          {
+            url: 'https://knowledge.example.com/public/registry.json',
+            name: 'public-prebuilt-unit-registry',
+            version: '2026-05-12'
+          }
+        ]
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'terraform/app/main.tf'),
+    [
+      'resource "aws_s3_bucket" "api" {',
+      '  bucket = "example-api"',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+}
+
 test('configured prebuilt knowledge unit artifacts are listed as local sources', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-unit-artifact-source-'));
 
@@ -183,6 +233,78 @@ test('configured prebuilt knowledge unit artifacts are listed as local sources',
     assert.equal(source.requiresFetch, false);
     assert.equal(source.cacheStatus, 'local');
     assert.equal(source.storagePolicy.scope, 'workspace-private');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('configured URL knowledge unit registries prefetch then discover matching artifacts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-unit-artifact-registry-'));
+
+  try {
+    await writeRegistryWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+    const beforePrefetch = await buildKnowledgeSourcesReport(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app']
+    });
+
+    assert.ok(!beforePrefetch.sources.some(entry => entry.source.kind === 'knowledge-unit-artifact'));
+
+    const prefetch = await prefetchWorkspaceKnowledge(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      maxSources: 3,
+      fetcher: async fetchedSource => {
+        if (fetchedSource.kind === 'knowledge-unit-registry') {
+          return {
+            source: fetchedSource,
+            contentType: 'application/json',
+            content: JSON.stringify(unitArtifactRegistryPayload()),
+            fetchedAt: '2026-05-12T00:00:00.000Z',
+            staleAfter: '2026-06-12T00:00:00.000Z'
+          };
+        }
+
+        if (fetchedSource.kind === 'knowledge-unit-artifact') {
+          return {
+            source: fetchedSource,
+            contentType: 'application/json',
+            content: JSON.stringify(unitArtifactPayload()),
+            fetchedAt: '2026-05-12T00:00:00.000Z',
+            staleAfter: '2026-06-12T00:00:00.000Z'
+          };
+        }
+
+        return null;
+      }
+    });
+    const registry = prefetch.sources.find(entry => entry.source.kind === 'knowledge-unit-registry');
+    const artifact = prefetch.sources.find(entry => entry.source.kind === 'knowledge-unit-artifact');
+
+    assert.equal(registry?.status, 'fetched');
+    assert.equal(artifact?.status, 'fetched');
+    assert.equal(artifact?.targetPath, 'terraform/app');
+    assert.equal(artifact?.source.name, 'aws-s3-bucket-prebuilt-units-from-registry');
+
+    const afterPrefetch = await buildKnowledgeSourcesReport(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app']
+    });
+    const discoveredArtifact = afterPrefetch.sources.find(entry => entry.source.kind === 'knowledge-unit-artifact');
+
+    assert.equal(discoveredArtifact?.requiresFetch, true);
+    assert.equal(discoveredArtifact?.cacheStatus, 'fresh');
+
+    const extraction = await extractWorkspaceKnowledgeFacts(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/app'],
+      extractedAt: '2026-05-12T00:00:00.000Z'
+    });
+    const extractedSource = extraction.sources.find(entry => entry.source.kind === 'knowledge-unit-artifact');
+
+    assert.equal(extractedSource?.status, 'extracted');
+    assert.equal(extractedSource?.unitCount, 3);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

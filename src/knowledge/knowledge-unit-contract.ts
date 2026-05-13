@@ -28,6 +28,7 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'terraform-module',
   'module-readme',
   'internal-knowledge',
+  'knowledge-unit-registry',
   'knowledge-unit-artifact'
 ];
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const satisfies readonly RetrievedContextConfidence[];

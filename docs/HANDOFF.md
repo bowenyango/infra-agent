@@ -40,6 +40,50 @@ Recommended next slices:
 3. Add read-only registry artifact discovery for prebuilt unit artifacts,
    leaving real upload/write execution out of scope.
 
+## 2026-05-12 Completed Read-Only Unit Artifact Registries
+
+Status:
+
+- Workspaces can now configure read-only
+  `knowledgeSources.unitArtifactRegistries` entries. A registry can be a safe
+  workspace-relative JSON path or a secret-free URL.
+- Registry JSON uses `kind: "infra-agent.knowledge-unit-registry"`,
+  `schemaVersion: 1`, `mutationAllowed: false`, and entries that point at
+  prebuilt `infra-agent.knowledge-units` artifacts.
+- Discovery expands registry entries into ordinary `knowledge-unit-artifact`
+  sources for the requested domain and target. Extraction, ranking, and packing
+  then use the existing artifact path.
+
+Implemented checkpoints:
+
+- Added config types for unit artifact registries.
+- Added `knowledge-unit-registry` as a source kind for registry cache identity.
+- Added shared safe source config validators for domain, local path, URL, and
+  target matching.
+- Added a registry expansion module that reads local registries directly and
+  reads URL registries from the prefetch cache.
+- Added two-phase prefetch: fetch URL registry first, then fetch discovered URL
+  artifacts through the same cache path.
+- Added unit and CLI integration coverage for registry-backed artifact
+  discovery.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/knowledge-unit-artifact-sources.test.mjs`
+- `node --experimental-strip-types test/integration/cli-knowledge-unit-artifacts-main.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:contract`
+- `npm run test:integration`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add optional artifact content hash checking in registry entries.
+2. Add provider/Helm fixture registries that include all five unit types under
+   tight pack budgets.
+3. Continue Pulumi alias/stack-config edit-plan behavior from compact units.
+
 ## 2026-05-12 Completed Terraform Rename Unit Planner Behavior
 
 Status:

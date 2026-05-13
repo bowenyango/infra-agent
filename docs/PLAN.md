@@ -28,6 +28,13 @@ product requirement needs it. Existing boundary contracts may be maintained,
 but new work should prioritize user-visible RAG behavior and infra edit
 accuracy.
 
+Shared public and internal knowledge should flow through read-only
+`infra-agent.knowledge-units` artifacts. Single artifacts can be configured
+directly, and larger catalogs can be configured as
+`knowledgeSources.unitArtifactRegistries` so agents discover matching
+provider, Helm, Pulumi, or internal unit payloads without rerunning extraction
+or loading raw docs into prompts.
+
 The initial infrastructure domains are:
 
 - `Pulumi`

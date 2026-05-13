@@ -44,6 +44,15 @@ export interface WorkspaceKnowledgeUnitArtifactSourceConfig {
   version?: string;
 }
 
+export interface WorkspaceKnowledgeUnitArtifactRegistrySourceConfig {
+  domain?: InfraDomainId;
+  targetPath?: string;
+  path?: string;
+  url?: string;
+  name?: string;
+  version?: string;
+}
+
 export interface WorkspaceApprovalPathRule {
   path: string;
   requiredWriteRisks: FileWriteRisk[];
@@ -57,6 +66,7 @@ export interface WorkspaceAgentConfig {
   knowledgeSources?: {
     curatedUnits?: WorkspaceCuratedKnowledgeUnitsSourceConfig[];
     unitArtifacts?: WorkspaceKnowledgeUnitArtifactSourceConfig[];
+    unitArtifactRegistries?: WorkspaceKnowledgeUnitArtifactRegistrySourceConfig[];
   };
   writePolicy?: {
     allowedPaths?: string[];

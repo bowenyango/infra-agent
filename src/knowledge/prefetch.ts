@@ -1,4 +1,3 @@
-import { isAbsolute } from 'node:path';
 import { fetchOfficialKnowledgeSource, retrieveKnowledgeContextPacket } from './retrieve.ts';
 import type { KnowledgeFetcher } from './retrieve.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
@@ -6,6 +5,17 @@ import {
   resolveKnowledgeSourceCacheStatus,
   type KnowledgeSourceCacheStatus
 } from './cache-status.ts';
+import {
+  isInfraDomain,
+  isSafeWorkspaceRelativePath,
+  isSecretSafeKnowledgeUrl,
+  targetAllowed
+} from './source-config.ts';
+import {
+  collectConfiguredUnitArtifactRegistrySources,
+  configuredRegistrySources,
+  registryPrefetchCandidate
+} from './unit-artifact-registry.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
 import { buildPulumiComponentKnowledgeSources } from '../domain/pulumi-components.ts';
@@ -76,6 +86,12 @@ export interface KnowledgePrefetchOptions {
   now?: Date;
 }
 
+interface CollectWorkspaceKnowledgeSourcesOptions {
+  domains?: InfraDomainId[];
+  targetPaths?: string[];
+  store?: KnowledgeStore;
+}
+
 function normalizeMaxSources(maxSources: number | undefined): number {
   if (!Number.isInteger(maxSources) || maxSources === undefined) {
     return 10;
@@ -93,44 +109,6 @@ function resolveRequestedDomains(
   }
 
   return inspection.domainCapabilities.map(domain => domain.id);
-}
-
-function targetAllowed(targetPath: string, targetPaths: Set<string>): boolean {
-  return targetPaths.size === 0 || targetPaths.has(targetPath);
-}
-
-const INFRA_DOMAINS: InfraDomainId[] = ['helm', 'pulumi', 'terraform'];
-const SECRET_PATH_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
-
-function isInfraDomain(value: unknown): value is InfraDomainId {
-  return typeof value === 'string' && INFRA_DOMAINS.includes(value as InfraDomainId);
-}
-
-function isSafeWorkspaceRelativePath(value: string): boolean {
-  const normalized = value.split('\\').join('/');
-  const segments = normalized.split('/');
-
-  return normalized.length > 0
-    && normalized !== '.'
-    && !isAbsolute(value)
-    && !/^[A-Za-z]:\//.test(normalized)
-    && !normalized.startsWith('/')
-    && !segments.some(segment => segment.length === 0 || segment === '.' || segment === '..')
-    && !SECRET_PATH_PATTERN.test(normalized);
-}
-
-function isSecretSafeKnowledgeUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (url.protocol === 'https:' || url.protocol === 'http:')
-      && !url.username
-      && !url.password
-      && !url.search
-      && !url.hash
-      && !SECRET_PATH_PATTERN.test(value);
-  } catch {
-    return false;
-  }
 }
 
 function collectConfiguredCuratedUnitSources(
@@ -232,11 +210,12 @@ function collectConfiguredUnitArtifactSources(
 
 export async function collectWorkspaceKnowledgeSources(
   inspection: WorkspaceInspection,
-  options: Pick<KnowledgePrefetchOptions, 'domains' | 'targetPaths'> = {}
+  options: CollectWorkspaceKnowledgeSourcesOptions = {}
 ): Promise<KnowledgePrefetchCandidate[]> {
   const workspaceRoot = inspection.workspaceRoot;
   const requestedDomains = new Set(resolveRequestedDomains(inspection, options.domains));
   const targetPaths = new Set(options.targetPaths ?? []);
+  const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
   const candidates: KnowledgePrefetchCandidate[] = [];
 
   if (requestedDomains.has('terraform')) {
@@ -314,6 +293,12 @@ export async function collectWorkspaceKnowledgeSources(
 
   candidates.push(...collectConfiguredCuratedUnitSources(inspection, requestedDomains, targetPaths));
   candidates.push(...collectConfiguredUnitArtifactSources(inspection, requestedDomains, targetPaths));
+  candidates.push(...await collectConfiguredUnitArtifactRegistrySources(
+    inspection,
+    requestedDomains,
+    targetPaths,
+    store
+  ));
 
   return candidates;
 }
@@ -351,6 +336,74 @@ function sourceResult(
   };
 }
 
+async function prefetchConfiguredUnitArtifactRegistries(input: {
+  inspection: WorkspaceInspection;
+  requestedDomains: InfraDomainId[];
+  targetPaths: string[];
+  maxSources: number;
+  fetcher: KnowledgeFetcher;
+  store: KnowledgeStore;
+  now?: Date;
+  externalSourceCount: number;
+}): Promise<{
+  sources: KnowledgePrefetchSourceResult[];
+  externalSourceCount: number;
+}> {
+  const requestedDomainSet = new Set(input.requestedDomains);
+  const targetPathSet = new Set(input.targetPaths);
+  const storeBuildId = (source: KnowledgeSource) => input.store.buildId(source);
+  const sources: KnowledgePrefetchSourceResult[] = [];
+  let externalSourceCount = input.externalSourceCount;
+
+  for (const registry of configuredRegistrySources(input.inspection, requestedDomainSet, targetPathSet)) {
+    const candidate = registryPrefetchCandidate(registry, input.requestedDomains);
+    if (!candidate.source.url) {
+      sources.push(sourceResult(candidate, 'local', 'local', {
+        message: 'Local unit artifact registry does not require prefetch.'
+      }, storeBuildId));
+      continue;
+    }
+
+    const previousCacheStatus = await resolveKnowledgeSourceCacheStatus(candidate.source, input.store, input.now);
+    if (externalSourceCount >= input.maxSources) {
+      sources.push(sourceResult(candidate, 'skipped', previousCacheStatus, {
+        message: `Skipped because maxSources=${input.maxSources} was reached.`
+      }, storeBuildId));
+      continue;
+    }
+
+    externalSourceCount += 1;
+    const packet = await retrieveKnowledgeContextPacket({
+      store: input.store,
+      source: candidate.source,
+      reason: `Prefetch knowledge unit registry ${candidate.source.name}`,
+      fetcher: input.fetcher,
+      now: input.now
+    });
+
+    if (!packet) {
+      sources.push(sourceResult(candidate, 'failed', previousCacheStatus, {
+        message: 'No cached registry was available and fetch returned no content.'
+      }, storeBuildId));
+      continue;
+    }
+
+    sources.push(sourceResult(candidate, previousCacheStatus === 'fresh'
+      ? 'cached'
+      : packet.confidence === 'medium'
+        ? 'stale-cache'
+        : 'fetched', previousCacheStatus, {
+      confidence: packet.confidence,
+      contentType: packet.contentType
+    }, storeBuildId));
+  }
+
+  return {
+    sources,
+    externalSourceCount
+  };
+}
+
 export async function prefetchWorkspaceKnowledge(
   inspection: WorkspaceInspection,
   options: KnowledgePrefetchOptions = {}
@@ -361,12 +414,23 @@ export async function prefetchWorkspaceKnowledge(
   const fetcher = options.fetcher ?? fetchOfficialKnowledgeSource;
   const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
   const storeBuildId = (source: KnowledgeSource) => store.buildId(source);
+  const registryPrefetch = await prefetchConfiguredUnitArtifactRegistries({
+    inspection,
+    requestedDomains,
+    targetPaths,
+    maxSources,
+    fetcher,
+    store,
+    now: options.now,
+    externalSourceCount: 0
+  });
   const candidates = await collectWorkspaceKnowledgeSources(inspection, {
     domains: requestedDomains,
-    targetPaths
+    targetPaths,
+    store
   });
-  const sources: KnowledgePrefetchSourceResult[] = [];
-  let externalSourceCount = 0;
+  const sources: KnowledgePrefetchSourceResult[] = [...registryPrefetch.sources];
+  let externalSourceCount = registryPrefetch.externalSourceCount;
 
   for (const candidate of candidates) {
     if (!candidate.source.url) {

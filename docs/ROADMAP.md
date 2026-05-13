@@ -28,9 +28,9 @@ efficient:
    and validation-derived repair diagnostics.
 
 Existing team-upload boundary code should be treated as a maintained but
-non-expanding safety scaffold. The near-term registry path should be read-only
-artifact discovery and download of reviewed `infra-agent.knowledge-units`
-payloads, not remote write/upload execution.
+non-expanding safety scaffold. The registry path is read-only artifact
+discovery and download of reviewed `infra-agent.knowledge-units` payloads, not
+remote write/upload execution.
 
 ## Current Baseline
 
@@ -163,9 +163,9 @@ large install, and can mismatch provider versions. Instead:
 - let internal knowledge use the same extraction, validation, packing, and
   retrieval workflow while choosing local, repo-curated, or opt-in team storage
   according to privacy scope
-- accept prebuilt `infra-agent.knowledge-units` artifacts as read-only local
-  sources now, using the same artifact shape that future S3-compatible
-  references should expose
+- accept prebuilt `infra-agent.knowledge-units` artifacts as read-only local or
+  URL-backed sources, and expand read-only registry JSON into matching artifact
+  sources for the requested domain and target
 - dynamically fetch or refresh official sources when the cache is missing, stale,
   or for a different provider/chart/package version
 - reuse repo-local cached facts only after path/hash fingerprints still match

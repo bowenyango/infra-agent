@@ -91,9 +91,12 @@ context. Prebuilt `infra-agent.knowledge-units` artifacts are declared under
 `knowledgeSources.unitArtifacts`; they preserve reviewed unit payloads while
 rebasing planner source accounting to the artifact file for fingerprinting,
 budgeting, or to a secret-free URL that `knowledge prefetch` downloads into the
-local cache before extraction. Planner
-prompts receive compact context packets derived from these units, never raw
-caches, full docs, full schemas, or unbounded examples.
+local cache before extraction. Shared public or internal catalogs can be
+declared under `knowledgeSources.unitArtifactRegistries`; registry JSON is
+read-only discovery metadata that expands into the same artifact pipeline for
+the requested domain and target. Planner prompts receive compact context
+packets derived from these units, never raw caches, full docs, full schemas, or
+unbounded examples.
 
 ## Runtime Shape
 

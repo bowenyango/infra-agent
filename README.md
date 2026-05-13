@@ -188,7 +188,10 @@ Current behavior is intentionally runtime-foundation oriented:
   without rerunning source extraction. `unitArtifacts` may point at a safe
   workspace-relative `path` or a secret-free `url`; URL artifacts are fetched by
   `knowledge prefetch` into the local cache before `extract` or `pack` consumes
-  them. `validate` checks facts,
+  them. Larger shared catalogs can be configured through
+  `knowledgeSources.unitArtifactRegistries`, whose read-only registry JSON
+  expands into matching artifact entries for the requested domain and target.
+  `validate` checks facts,
   extraction reports,
   and compact packs before use, and `pack` ranks and emits a bounded
   planner-safe `infra-agent.knowledge-pack` without raw source content. Packs

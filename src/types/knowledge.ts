@@ -15,6 +15,7 @@ export type KnowledgeSourceKind =
   | 'terraform-module'
   | 'module-readme'
   | 'internal-knowledge'
+  | 'knowledge-unit-registry'
   | 'knowledge-unit-artifact';
 
 export type KnowledgeContentType =
