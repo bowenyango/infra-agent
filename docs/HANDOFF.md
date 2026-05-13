@@ -304,12 +304,44 @@ Validation completed:
 
 Next recommended implementation steps:
 
-1. Use Helm diagnostic/recipe units in edit-plan confidence checks before adding
-   more knowledge publication surfaces.
-2. Add pack/agent integration coverage for concrete example and recipe units
+1. Add pack/agent integration coverage for concrete example and recipe units
    changing planner or edit-plan behavior.
-3. Extend Pulumi alias/import review from clarification into explicit reviewed
+2. Extend Pulumi alias/import review from clarification into explicit reviewed
    alias/import plan artifacts when that product surface is ready.
+3. Add broader end-to-end fixtures proving public chart docs diagnostics steer
+   Helm validation-blocked output after real extraction and packing.
+
+## 2026-05-12 Completed Helm Validation Diagnostic Review Stop
+
+Status:
+
+- Helm validation diagnostic units now affect the rule-based planner's
+  validation-blocked stop behavior. When validation fails and a selected Helm
+  diagnostic unit mentions chart values, required values, `service.port`, render
+  or template failure, the planner returns a Helm-specific `validation-blocked`
+  stop with `actionFamily: "helm-validation"`.
+- Existing repair behavior is still preferred when a bounded Helm repair edit
+  plan is available. This slice improves the no-repair review path and does not
+  add new mutation behavior.
+
+Modified core files:
+
+- `src/agent/rule-based-planner.ts`
+- `test/unit/planner-rag-units.test.mjs`
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/planner-rag-units.test.mjs`
+- `npm run lint`
+
+Next recommended implementation steps:
+
+1. Add pack/agent integration coverage for concrete example and recipe units
+   changing planner or edit-plan behavior.
+2. Extend Pulumi alias/import review from clarification into explicit reviewed
+   alias/import plan artifacts when that product surface is ready.
+3. Add broader end-to-end fixtures proving public chart docs diagnostics steer
+   Helm validation-blocked output after real extraction and packing.
 
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 

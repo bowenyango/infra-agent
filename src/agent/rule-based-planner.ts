@@ -220,7 +220,21 @@ function findPulumiValidationReviewDiagnostic(input: AgentPlanningInput): Extrac
   ) ?? null;
 }
 
+function findHelmValidationReviewDiagnostic(input: AgentPlanningInput): Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> | null {
+  const diagnosticPattern = /\b(helm|chart|values|service\.port|required value|required chart value|template|render)\b/i;
+  return (input.runtime.knowledgeFacts?.units ?? []).find((unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> =>
+    unit.unitType === 'diagnostic'
+    && unit.engine === 'helm'
+    && unitIncludesText(unit, diagnosticPattern)
+  ) ?? null;
+}
+
 function summarizePulumiDiagnosticReview(unit: Extract<KnowledgePackUnit, { unitType: 'diagnostic' }>): string {
+  const review = unit.recommendedReview.slice(0, 3).join(' ');
+  return review.length > 0 ? review : unit.likelyCause;
+}
+
+function summarizeHelmDiagnosticReview(unit: Extract<KnowledgePackUnit, { unitType: 'diagnostic' }>): string {
   const review = unit.recommendedReview.slice(0, 3).join(' ');
   return review.length > 0 ? review : unit.likelyCause;
 }
@@ -626,6 +640,22 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             payload: {
               stopReason: 'validation-blocked',
               actionFamily: 'pulumi-validation'
+            }
+          }
+        };
+      }
+
+      const helmReviewDiagnostic = findHelmValidationReviewDiagnostic(input);
+      if (!repairBudgetExhausted && helmReviewDiagnostic) {
+        return {
+          confidence: 'medium',
+          action: {
+            kind: 'stop',
+            summary: 'Helm validation failed and requires chart values review.',
+            rationale: `A selected Helm diagnostic unit matched the validation failure: ${summarizeHelmDiagnosticReview(helmReviewDiagnostic)}`,
+            payload: {
+              stopReason: 'validation-blocked',
+              actionFamily: 'helm-validation'
             }
           }
         };
