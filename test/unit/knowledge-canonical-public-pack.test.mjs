@@ -1,0 +1,221 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+
+import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
+import {
+  CANONICAL_PUBLIC_EXTRACTION_TARGETS
+} from '../../src/knowledge/public-extraction-targets.ts';
+import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
+import { createFileKnowledgeStore } from '../../src/knowledge/knowledge-store.ts';
+import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
+import {
+  CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS,
+  writeCanonicalPublicKnowledgeCacheFixtures
+} from '../support/canonical-public-knowledge-fixtures.mjs';
+
+const EXTRACTED_AT = '2026-05-14T00:00:00.000Z';
+const NOW = new Date('2026-05-14T12:00:00.000Z');
+
+const EXPECTED_BY_KEY = {
+  terraformAwsProviderDocs: {
+    examplePattern: /provider "aws"/,
+    recipePattern: /terraform plan/i,
+    rawMarkers: ['# AWS Provider', '## Argument Reference']
+  },
+  pulumiAwsPackageDocs: {
+    examplePattern: /new aws\.sns\.Topic/,
+    recipePattern: /pulumi preview/i,
+    rawMarkers: ['# AWS', '| Module | Description |']
+  },
+  helmKubePrometheusStackChartDocs: {
+    examplePattern: /serviceMonitorSelectorNilUsesHelmValues/,
+    recipePattern: /helm template/i,
+    rawMarkers: ['# kube-prometheus-stack', '| Parameter | Type | Default | Description | Required |']
+  }
+};
+
+function targetByKey() {
+  return new Map(CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS.map((key, index) => [
+    key,
+    CANONICAL_PUBLIC_EXTRACTION_TARGETS[index]
+  ]));
+}
+
+async function buildCanonicalPacks() {
+  const workspaceRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-canonical-public-pack-workspace-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-canonical-public-pack-cache-'));
+
+  try {
+    const inspection = await inspectWorkspace(workspaceRoot);
+    const store = createFileKnowledgeStore(cacheRoot);
+    const fixtures = await writeCanonicalPublicKnowledgeCacheFixtures(cacheRoot);
+    const targets = targetByKey();
+    const packs = [];
+
+    for (const fixture of fixtures) {
+      const target = targets.get(fixture.key);
+      assert.ok(target, fixture.key);
+
+      const pack = await buildKnowledgePack(inspection, {
+        domains: [target.domain],
+        targetPaths: [target.targetPath],
+        sourceIds: [fixture.entry.id],
+        store,
+        now: NOW,
+        extractedAt: EXTRACTED_AT,
+        maxUnits: 5
+      });
+
+      packs.push({
+        key: fixture.key,
+        target,
+        pack
+      });
+    }
+
+    return packs;
+  } finally {
+    await rm(workspaceRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
+}
+
+function assertSourceIdentity(source, target) {
+  assert.equal(source.kind, target.expectedSourceIdentity.kind);
+  assert.equal(source.name, target.expectedSourceIdentity.name);
+  assert.equal(source.domain, target.domain);
+  assert.equal(source.targetPath, target.targetPath);
+  assert.equal(source.provider, target.expectedSourceIdentity.provider);
+  assert.equal(source.packageName, target.expectedSourceIdentity.packageName);
+  assert.equal(source.chart, target.expectedSourceIdentity.chart);
+  assert.equal(source.version, target.expectedSourceIdentity.version);
+  assert.equal(source.url, target.expectedSourceIdentity.url);
+  assert.equal(source.storagePolicy.scope, 'public-reference');
+  assert.equal(source.storagePolicy.defaultStore, 'local-or-explicit-team-cache');
+  assert.equal(source.storagePolicy.shareableByDefault, true);
+  assert.equal(source.storagePolicy.requiresExplicitOptIn, false);
+  assert.equal(source.stale, false);
+  assert.equal(source.freshness, 'fresh');
+}
+
+function assertCompactPublicPack({ key, target, pack }) {
+  const expected = EXPECTED_BY_KEY[key];
+  const source = pack.sources[0];
+
+  assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+  assert.equal(pack.mutationAllowed, false);
+  assert.equal(pack.maxFacts, 5);
+  assert.equal(pack.maxUnits, 5);
+  assert.deepEqual(pack.requestedDomains, [target.domain]);
+  assert.deepEqual(pack.targetPaths, [target.targetPath]);
+  assert.equal(pack.sourceCount, 1);
+  assert.equal(pack.factSetCount, 1);
+  assert.equal(pack.sources.length, 1);
+  assert.ok(pack.factCount > 0);
+  assert.ok(pack.unitCount > 5);
+  assert.equal(pack.includedUnitCount, 5);
+  assert.equal(pack.omittedUnitCount, pack.unitCount - 5);
+  assert.ok(pack.omittedUnitCount > 0);
+  assert.equal(pack.storagePolicy.publicReference, 1);
+  assert.equal(pack.storagePolicy.workspacePrivate, 0);
+  assert.equal(pack.storagePolicy.shareableByDefault, 1);
+  assert.equal(pack.storagePolicy.explicitOptInRequired, 0);
+
+  assertSourceIdentity(source, target);
+  assert.equal(source.factCount, pack.factCount);
+  assert.match(source.contentHash, /^[a-f0-9]{64}$/);
+
+  assert.ok(pack.facts.every(fact =>
+    fact.sourceId === source.id
+    && typeof fact.sourceLocator === 'string'
+    && !('source' in fact)
+  ));
+  assert.ok(pack.units.every(unit =>
+    unit.sourceId === source.id
+    && unit.privacyScope === 'public-reference'
+    && typeof unit.sourceLocator === 'string'
+    && !('source' in unit)
+  ));
+  assert.ok(pack.units.some(unit =>
+    unit.unitType === 'example'
+    && expected.examplePattern.test(unit.snippet)
+  ));
+  assert.ok(pack.units.some(unit =>
+    unit.unitType === 'recipe'
+    && expected.recipePattern.test(unit.steps.join('\n'))
+    && unit.mutationAllowed === false
+  ));
+
+  const serialized = JSON.stringify(pack);
+  assert.doesNotMatch(serialized, /"content"\s*:/);
+  for (const marker of expected.rawMarkers) {
+    assert.equal(serialized.includes(marker), false, marker);
+  }
+}
+
+function publicReferenceRagContext(pack) {
+  const sourceById = new Map(pack.sources.map(source => [source.id, source]));
+
+  return pack.units.map(unit => {
+    const source = sourceById.get(unit.sourceId);
+    assert.ok(source);
+
+    return {
+      sourceId: unit.sourceId,
+      sourceKind: source.kind,
+      sourceDomain: source.domain,
+      sourceIdentity: [source.provider, source.packageName, source.chart, source.name]
+        .filter(Boolean)
+        .join(' '),
+      storageScope: source.storagePolicy.scope,
+      unitType: unit.unitType,
+      sourceLocator: unit.sourceLocator,
+      summary: unit.summary,
+      tokenEstimate: unit.tokenEstimate ?? 0
+    };
+  });
+}
+
+test('canonical public targets pack as compact five-unit public-reference knowledge', async () => {
+  const packs = await buildCanonicalPacks();
+
+  assert.deepEqual(packs.map(pack => pack.key), CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS);
+
+  for (const packedTarget of packs) {
+    assertCompactPublicPack(packedTarget);
+
+    const budget = budgetKnowledgePackFacts(packedTarget.pack, { maxUnits: 5 });
+    assert.equal(budget.includedUnitCount, 5);
+    assert.equal(budget.omittedUnitCount, packedTarget.pack.unitCount - 5);
+    assert.equal(budget.sources[0]?.provider, packedTarget.target.expectedSourceIdentity.provider);
+    assert.equal(budget.sources[0]?.packageName, packedTarget.target.expectedSourceIdentity.packageName);
+    assert.equal(budget.sources[0]?.chart, packedTarget.target.expectedSourceIdentity.chart);
+    assert.ok(budget.units.every(unit => unit.privacyScope === 'public-reference'));
+    assert.doesNotMatch(JSON.stringify(budget), /"content"\s*:|contentHash|fetchedAt|staleAfter|url/);
+  }
+});
+
+test('canonical public-reference units can be consumed as generic RAG context', async () => {
+  const packs = await buildCanonicalPacks();
+  const contexts = packs.flatMap(({ pack }) => publicReferenceRagContext(pack));
+
+  assert.equal(contexts.length, 15);
+  assert.ok(contexts.every(context =>
+    context.storageScope === 'public-reference'
+    && typeof context.sourceLocator === 'string'
+    && context.sourceLocator.length > 0
+    && typeof context.summary === 'string'
+    && context.summary.length > 0
+  ));
+  assert.deepEqual(
+    Array.from(new Set(contexts.map(context => context.sourceKind))).sort(),
+    ['chart-docs', 'pulumi-docs', 'terraform-registry']
+  );
+  assert.ok(contexts.some(context => /hashicorp\/aws/.test(context.sourceIdentity)));
+  assert.ok(contexts.some(context => /@pulumi\/aws/.test(context.sourceIdentity)));
+  assert.ok(contexts.some(context => /kube-prometheus-stack/.test(context.sourceIdentity)));
+  assert.doesNotMatch(JSON.stringify(contexts), /"content"\s*:|# AWS Provider|# AWS|# kube-prometheus-stack/);
+});
