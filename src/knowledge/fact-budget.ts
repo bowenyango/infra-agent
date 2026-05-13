@@ -29,6 +29,11 @@ export interface BudgetedKnowledgeFactSource {
   targetPath: string;
   kind: KnowledgePackSource['kind'];
   name: string;
+  version?: string;
+  provider?: string;
+  module?: string;
+  chart?: string;
+  packageName?: string;
   factCount: number;
   stale: boolean;
   staleReason?: KnowledgePackSource['staleReason'];
@@ -106,6 +111,11 @@ function compactSource(source: KnowledgePackSource): BudgetedKnowledgeFactSource
     targetPath: source.targetPath,
     kind: source.kind,
     name: source.name,
+    ...(source.version !== undefined ? { version: source.version } : {}),
+    ...(source.provider !== undefined ? { provider: source.provider } : {}),
+    ...(source.module !== undefined ? { module: source.module } : {}),
+    ...(source.chart !== undefined ? { chart: source.chart } : {}),
+    ...(source.packageName !== undefined ? { packageName: source.packageName } : {}),
     factCount: source.factCount,
     stale: source.stale,
     ...(source.staleReason !== undefined ? { staleReason: source.staleReason } : {}),
