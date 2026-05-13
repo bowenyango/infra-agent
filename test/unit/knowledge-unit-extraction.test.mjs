@@ -290,3 +290,64 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('markdown knowledge unit extraction skips secret-like sections', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-secret-markdown-unit-extract-'));
+
+  try {
+    const source = {
+      kind: 'chart-docs',
+      name: 'chart-docs:redaction-safe-chart',
+      chart: 'redaction-safe-chart',
+      version: '0.1.0',
+      url: 'https://charts.example.test/redaction-safe-chart/README.md'
+    };
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source,
+      contentType: 'text/markdown',
+      content: [
+        '# redaction-safe-chart',
+        '',
+        '## Values',
+        '',
+        '- `service.port` - Required service port used by the Kubernetes Service.',
+        '',
+        '## Example Values',
+        '',
+        '```yaml',
+        'apiToken: example-token',
+        '```',
+        '',
+        '## Important Notes',
+        '',
+        'Never include Authorization headers in reusable chart examples.',
+        '',
+        '## Troubleshooting',
+        '',
+        '`Error: missing secret token` means a private credential was not provided.',
+        ''
+      ].join('\n'),
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      extractedAt: '2026-05-05T00:00:00.000Z',
+      now: new Date('2026-05-06T00:00:00.000Z')
+    });
+    const markdownUnits = extractMarkdownKnowledgeUnitsFromCacheEntry(entry, factSet);
+    const unitSet = extractKnowledgeUnitSetFromFactSet(factSet, markdownUnits);
+
+    assert.equal(markdownUnits.length, 0);
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'fact'
+      && unit.factKind === 'chart-value'
+      && unit.path === 'chart.redaction-safe-chart.service.port'
+    ));
+    assert.ok(unitSet.units.every(unit =>
+      !/apiToken|example-token|Authorization|secret token/i.test(JSON.stringify(unit))
+    ));
+    assert.equal(validateKnowledgePayload(unitSet, 'inline').valid, true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});

@@ -182,7 +182,34 @@ Next recommended implementation steps:
    `maxUnits` values when concrete edit shape is needed.
 2. Use Pulumi diagnostic/recipe units to steer alias/import/state review and
    stack config edit-plan routing.
-3. Add secret-redaction regression tests for markdown-derived units.
+3. Use markdown-derived diagnostics/recipes in planner routing or edit-plan
+   confidence checks.
+
+## 2026-05-12 Completed Secret-Safe Markdown Unit Regression
+
+Status:
+
+- Markdown-derived `guidance`, `example`, `diagnostic`, and `recipe` units now
+  have regression coverage for secret-like sections. The extractor skips
+  sensitive markdown-derived units instead of spending token budget on unsafe or
+  low-quality context.
+- Non-secret structured facts from the same source still survive extraction, so
+  the RAG path keeps useful chart/provider/module facts while dropping unsafe
+  prose and snippets.
+
+Validation completed:
+
+- `npm run lint`
+- `npm run test:unit -- knowledge-unit-extraction`
+
+Next recommended implementation steps:
+
+1. Tune tight-budget ranking so task-relevant examples can survive small
+   `maxUnits` values when concrete edit shape is needed.
+2. Use Pulumi diagnostic/recipe units to steer alias/import/state review and
+   stack config edit-plan routing.
+3. Use Helm and Terraform diagnostic/recipe units in edit-plan confidence checks
+   before adding more knowledge publication surfaces.
 
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 
