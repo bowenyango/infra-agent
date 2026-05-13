@@ -78,6 +78,44 @@ Next recommended implementation steps:
 3. Feed the new diagnostic/recipe units into planner and edit-plan heuristics
    where they improve Terraform, Pulumi, and Helm behavior.
 
+## 2026-05-12 Completed Markdown Section Unit Extraction
+
+Status:
+
+- Cached markdown/plain-text sources can now emit unit-native JSON directly
+  from explicit docs sections. Supported source kinds are Terraform registry
+  docs, Pulumi docs, Helm docs, chart docs, repo examples, and module README
+  sources.
+- Extraction is intentionally conservative: examples require code blocks,
+  recipes require explicit list steps, diagnostics require troubleshooting or
+  error headings plus error-like text, and guidance requires best-practice,
+  note, important, limitation, caveat, or constraint headings.
+
+Implemented checkpoints:
+
+- Added a `markdown-units` extractor for `example`, `guidance`, `recipe`, and
+  `diagnostic` units.
+- Wired markdown unit extraction into the ordinary knowledge extraction path
+  before `KnowledgeUnitSet` validation.
+- Kept raw source docs out of packs by compacting snippets, summaries, and
+  steps and skipping secret-like content.
+- Added unit coverage proving a Helm chart docs source can produce all five
+  unit types after combining fact-derived and markdown-derived units.
+
+Validation completed:
+
+- `npm run lint`
+- `npm run test:unit -- knowledge-unit-extraction knowledge-helm-chart-docs-extraction knowledge-pulumi-docs-extraction`
+
+Next recommended implementation steps:
+
+1. Add runtime or CLI integration coverage proving markdown-derived units enter
+   `knowledge pack` / agent context under tight unit budgets.
+2. Add focused Pulumi docs markdown fixtures for example and troubleshooting
+   sections.
+3. Use diagnostic/recipe units in edit-plan routing where they can reduce
+   speculative infra changes.
+
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 
 Status:

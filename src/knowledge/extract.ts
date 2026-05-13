@@ -8,6 +8,7 @@ import {
 } from './curated-units.ts';
 import { extractPrebuiltKnowledgeUnitSetFromCacheEntry } from './prebuilt-units.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
+import { extractMarkdownKnowledgeUnitsFromCacheEntry } from './markdown-units.ts';
 import { extractKnowledgeUnitSetFromFactSet } from './units.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 import {
@@ -508,7 +509,8 @@ export async function extractWorkspaceKnowledgeFacts(
       continue;
     }
 
-    const unitSet = extractKnowledgeUnitSetFromFactSet(factSet);
+    const markdownUnits = extractMarkdownKnowledgeUnitsFromCacheEntry(entry, factSet);
+    const unitSet = extractKnowledgeUnitSetFromFactSet(factSet, markdownUnits);
 
     factSets.push(factSet);
     unitSets.push(unitSet);

@@ -441,12 +441,16 @@ function dedupeUnits(units: KnowledgeUnit[]): KnowledgeUnit[] {
   return deduped;
 }
 
-export function extractKnowledgeUnitSetFromFactSet(factSet: KnowledgeFactSet): KnowledgeUnitSet {
+export function extractKnowledgeUnitSetFromFactSet(
+  factSet: KnowledgeFactSet,
+  extraUnits: KnowledgeUnit[] = []
+): KnowledgeUnitSet {
   const privacyScope = resolveKnowledgeStoragePolicy(factSet.source).scope;
   const units = dedupeUnits([
     ...factSet.facts.map(fact => knowledgeFactToFactUnit(fact, privacyScope)),
     ...factSet.facts.flatMap(fact => generatedUnitsForFact(fact, privacyScope)),
-    ...generatedUnitsForFactSet(factSet, privacyScope)
+    ...generatedUnitsForFactSet(factSet, privacyScope),
+    ...extraUnits
   ]);
   const unitSet = {
     kind: 'infra-agent.knowledge-units',
