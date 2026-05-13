@@ -40,6 +40,54 @@ Recommended next slices:
 3. Add read-only registry artifact discovery for prebuilt unit artifacts,
    leaving real upload/write execution out of scope.
 
+## 2026-05-12 Completed Terraform Rename Unit Planner Behavior
+
+Status:
+
+- Unit-only knowledge packs now enter the agent runtime. Previously,
+  `retrieveInitialKnowledgeFacts` returned `null` when a pack had zero facts
+  even if it contained useful `guidance`, `diagnostic`, or `recipe` units.
+- The rule-based planner now uses Terraform rename/moved-block units as real
+  planner input. For Terraform rename tasks with selected rename units and no
+  safe bounded edit plan, it asks for exact old/new resource addresses and
+  moved-block review details instead of falling through to generic
+  `no-safe-action`.
+
+Implemented checkpoints:
+
+- Changed runtime knowledge loading to accept packs with either facts or units.
+- Added Terraform rename unit detection over compact `guidance`, `diagnostic`,
+  and `recipe` units without relying on raw examples.
+- Added planner guidance for LLM mode so Terraform rename/moved-block units
+  steer the model away from speculative replacement edits.
+- Added focused tests for unit-only runtime loading and Terraform rename unit
+  planner behavior.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/planner-rag-units.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contract`
+- `npm run smoke`
+- `npm run e2e`
+- `git diff --check`
+
+Known validation note:
+
+- `npm run test:structure` still fails on pre-existing
+  `test/unit/knowledge-pack-ranking.test.mjs` length (`1147` lines, limit
+  `1000`). This slice did not modify that file.
+
+Next recommended implementation steps:
+
+1. Add Pulumi alias/stack-config recipe behavior so Pulumi rename units affect
+   planner handoff under tight budgets.
+2. Add an edit-plan level review artifact for Terraform moved-block candidates
+   once old/new resource addresses are known.
+3. Add read-only registry artifact discovery for prebuilt unit artifacts.
+
 ## 2026-05-12 Completed CLI Coverage for Prebuilt Unit Artifacts
 
 Status:

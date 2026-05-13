@@ -4,6 +4,7 @@ import { selectValidationCommands } from './select-validation-commands.ts';
 import type { AgentActionFamily, AgentClarificationKind, AgentStopReason } from '../types/agent.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
 import { DEFAULT_QUERY_LOOP_CONFIG } from '../query-config.ts';
+import type { KnowledgePackUnit } from '../knowledge/pack.ts';
 
 function toTopTargetPaths(input: AgentPlanningInput): string[] {
   return input.runtime.preflight.targetCandidates
@@ -158,6 +159,54 @@ function getPrimaryRequestedDomain(input: AgentPlanningInput): string | null {
   return input.runtime.preflight.requestedDomains[0] ?? null;
 }
 
+function unitIncludesText(unit: KnowledgePackUnit, pattern: RegExp): boolean {
+  const textParts = [
+    unit.path,
+    unit.summary,
+    unit.sourceLocator,
+    ...(unit.relatedPaths ?? [])
+  ];
+
+  if (unit.unitType === 'guidance') {
+    textParts.push(
+      unit.topic,
+      ...(unit.appliesWhen ?? []),
+      ...(unit.avoidWhen ?? []),
+      unit.risk ?? ''
+    );
+  }
+
+  if (unit.unitType === 'diagnostic') {
+    textParts.push(
+      unit.engine,
+      unit.signature,
+      unit.likelyCause,
+      ...unit.recommendedReview
+    );
+  }
+
+  if (unit.unitType === 'recipe') {
+    textParts.push(
+      unit.name,
+      ...unit.steps
+    );
+  }
+
+  return pattern.test(textParts.join(' '));
+}
+
+function hasTerraformRenameKnowledge(input: AgentPlanningInput): boolean {
+  const unitPattern = /\b(terraform|hcl)\b.*\b(rename|moved block|moved blocks|resource address|state mv|import\/state)\b|\b(rename|moved block|moved blocks|resource address|state mv|import\/state)\b.*\b(terraform|hcl)\b/i;
+  return (input.runtime.knowledgeFacts?.units ?? []).some(unit =>
+    (unit.unitType === 'guidance' || unit.unitType === 'diagnostic' || unit.unitType === 'recipe')
+    && unitIncludesText(unit, unitPattern)
+  );
+}
+
+function taskRequestsTerraformRenameReview(task: string): boolean {
+  return /\b(rename|renaming|moved block|moved blocks|state mv|move resource|resource address|refactor|adopt|import existing|retain existing)\b/i.test(task);
+}
+
 function isYamlSyntaxValidationCommand(command: string): boolean {
   return command.startsWith('infra-agent yaml-parse ');
 }
@@ -215,6 +264,17 @@ function actionFamilyForValidation(input: AgentPlanningInput): AgentActionFamily
   }
 
   return 'runtime-stop';
+}
+
+function terraformRenameKnowledgeQuestions(input: AgentPlanningInput): string[] {
+  const target = input.runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
+  const targetText = target ? ` in ${target.path}` : '';
+
+  return [
+    `Is this a Terraform logical resource-address rename${targetText} where the existing remote object should be retained?`,
+    'What are the exact old and new Terraform resource addresses for the moved block?',
+    'Should the agent add or review a Terraform moved block instead of creating replacement resources?'
+  ];
 }
 
 function actionFamilyForEditPlan(kind: EditPlanKind): AgentActionFamily {
@@ -511,6 +571,29 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
           payload: {
             stopReason: repairBudgetExhausted ? 'repair-budget-exhausted' : 'validation-blocked',
             actionFamily: actionFamilyForStopReason(repairBudgetExhausted ? 'repair-budget-exhausted' : 'validation-blocked')
+          }
+        }
+      };
+    }
+
+    if (
+      taskMentionsTerraform
+      && taskRequestsTerraformRenameReview(runtime.task)
+      && hasTerraformRenameKnowledge(input)
+      && hasObservations
+      && !hasAppliedWrites
+      && !editPlan
+    ) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'ask-for-clarification',
+          summary: 'Review Terraform logical rename requirements before editing resources.',
+          rationale: 'The selected knowledge units indicate that Terraform resource-address renames should use moved blocks or explicit state/import review instead of speculative replacement edits.',
+          payload: {
+            questions: terraformRenameKnowledgeQuestions(input),
+            clarificationKind: 'general',
+            actionFamily: 'terraform-clarification'
           }
         }
       };

@@ -154,6 +154,7 @@ export function buildPlannerSystemPrompt(): string {
     '- Treat knowledgeFacts as bounded advisory context extracted from cache/local sources. Prefer it over raw docs, but do not treat it as validator-grade proof.',
     '- Prefer knowledgeFacts.units for compact RAG context. knowledgeFacts.facts is the legacy fact-only compatibility view.',
     '- Use knowledgeFacts.omittedUnitCount and knowledgeFacts.omittedFactCount before assuming the included samples are exhaustive.',
+    '- If Terraform rename or moved-block guidance/recipe units are present and no bounded edit plan exists, ask for exact old/new resource addresses or stop for review instead of proposing speculative replacement edits.',
     '- If no safe action exists, return stop with stopReason=no-safe-action.',
     'Do not include markdown. Do not include commentary outside the JSON object.'
   ].join('\n');

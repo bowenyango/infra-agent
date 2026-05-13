@@ -413,7 +413,7 @@ async function retrieveInitialKnowledgeFacts(
     maxFacts: config.retrievedContextBudget.maxFacts
   });
 
-  return pack.factCount > 0 ? pack : null;
+  return pack.factCount > 0 || pack.unitCount > 0 ? pack : null;
 }
 
 async function buildInitialRuntime(
