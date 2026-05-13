@@ -40,6 +40,32 @@ Recommended next slices:
 3. Add read-only registry artifact discovery for prebuilt unit artifacts,
    leaving real upload/write execution out of scope.
 
+## 2026-05-13 Initial Network Extraction Test Targets
+
+Status:
+
+- The first live/network-backed extraction tests must use these public targets
+  unless the user explicitly changes the target set:
+  - Terraform: HashiCorp AWS provider docs at
+    `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`.
+  - Pulumi: Pulumi AWS package/provider docs.
+  - Helm: `kube-prometheus-stack`.
+- These targets are the canonical v0 network extraction examples for provider,
+  package, and chart knowledge. Future agents should not replace them with
+  smaller or unrelated examples just to make tests easier.
+
+Testing constraints:
+
+- Keep live network extraction tests opt-in or skipped by default when network
+  access is unavailable. Normal unit tests should continue to use cached
+  fixtures generated from these same targets.
+- Do not assert brittle full-document golden output from `latest` public docs.
+  Assert source identity, normalized cache/source metadata, five-unit JSON
+  schema shape, redaction, and stable target-specific signals instead.
+- Extracted data from these targets must still normalize into the core
+  `fact`, `guidance`, `example`, `diagnostic`, and `recipe` units and should
+  remain compact enough for deterministic RAG packing.
+
 ## 2026-05-12 Completed Fact-Derived Five-Type Unit Projection
 
 Status:
