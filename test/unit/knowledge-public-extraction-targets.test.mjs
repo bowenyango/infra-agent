@@ -8,8 +8,12 @@ import {
   buildTerraformProviderDocsSource,
   buildTerraformProviderDocsTarget,
   CANONICAL_PUBLIC_EXTRACTION_TARGETS,
+  findCanonicalPublicExtractionTarget,
+  findPublicExtractionTarget,
   HELM_KUBE_PROMETHEUS_STACK_DOCS_TARGET,
+  listCanonicalPublicExtractionTargetSummaries,
   PULUMI_AWS_PACKAGE_DOCS_TARGET,
+  summarizePublicExtractionTarget,
   TERRAFORM_HASHICORP_AWS_PROVIDER_DOCS_TARGET
 } from '../../src/knowledge/public-extraction-targets.ts';
 
@@ -114,6 +118,122 @@ test('Terraform provider docs builder is provider-address based and reusable', (
   });
 });
 
+test('public extraction target summaries expose compact metadata without source URLs', () => {
+  assert.deepEqual(listCanonicalPublicExtractionTargetSummaries(), [
+    {
+      id: 'public:terraform-provider-docs:hashicorp/aws:latest',
+      domain: 'terraform',
+      targetKind: 'terraform-provider-docs',
+      targetName: 'hashicorp/aws',
+      targetPath: 'public/terraform/providers/hashicorp/aws/latest',
+      sourceKind: 'terraform-registry',
+      sourceName: 'terraform-registry:provider:hashicorp/aws',
+      provider: 'hashicorp/aws',
+      version: 'latest'
+    },
+    {
+      id: 'public:pulumi-package-docs:aws',
+      domain: 'pulumi',
+      targetKind: 'pulumi-package-docs',
+      targetName: '@pulumi/aws',
+      targetPath: 'public/pulumi/packages/aws',
+      sourceKind: 'pulumi-docs',
+      sourceName: 'pulumi-docs:package:aws',
+      packageName: '@pulumi/aws'
+    },
+    {
+      id: 'public:helm-chart-docs:kube-prometheus-stack',
+      domain: 'helm',
+      targetKind: 'helm-chart-docs',
+      targetName: 'kube-prometheus-stack',
+      targetPath: 'public/helm/charts/kube-prometheus-stack',
+      sourceKind: 'chart-docs',
+      sourceName: 'chart-docs:kube-prometheus-stack',
+      chart: 'kube-prometheus-stack'
+    }
+  ]);
+
+  for (const summary of listCanonicalPublicExtractionTargetSummaries()) {
+    assert.equal(Object.hasOwn(summary, 'url'), false);
+    assert.equal(Object.hasOwn(summary, 'source'), false);
+    assert.equal(Object.hasOwn(summary, 'expectedSourceIdentity'), false);
+    assert.equal(JSON.stringify(summary).includes('https://'), false);
+  }
+});
+
+test('canonical public extraction resolver matches deterministic domain-scoped queries', () => {
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      domain: 'terraform',
+      provider: 'HashiCorp/AWS',
+      version: 'latest'
+    }),
+    TERRAFORM_HASHICORP_AWS_PROVIDER_DOCS_TARGET
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      domain: 'pulumi',
+      packageName: '@pulumi/aws'
+    }),
+    PULUMI_AWS_PACKAGE_DOCS_TARGET
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      domain: 'helm',
+      chart: 'kube-prometheus-stack'
+    }),
+    HELM_KUBE_PROMETHEUS_STACK_DOCS_TARGET
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      id: 'public:terraform-provider-docs:hashicorp/aws:latest'
+    }),
+    TERRAFORM_HASHICORP_AWS_PROVIDER_DOCS_TARGET
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      targetPath: 'public/pulumi/packages/aws'
+    }),
+    PULUMI_AWS_PACKAGE_DOCS_TARGET
+  );
+});
+
+test('public extraction resolver does not guess on mismatched or overly broad queries', () => {
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      domain: 'pulumi',
+      provider: 'hashicorp/aws'
+    }),
+    undefined
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      domain: 'terraform'
+    }),
+    undefined
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      version: 'latest'
+    }),
+    undefined
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      provider: 'hashicorp/aws'
+    }),
+    undefined
+  );
+  assert.equal(
+    findCanonicalPublicExtractionTarget({
+      domain: 'terraform',
+      provider: 'hashicorp/aws',
+      version: '6.12.0'
+    }),
+    undefined
+  );
+});
+
 test('Pulumi package docs builder is package and slug based and reusable', () => {
   const source = buildPulumiPackageDocsSource({
     packageName: '@pulumi/kubernetes',
@@ -172,6 +292,95 @@ test('Helm chart docs builder is chart and URL based and reusable', () => {
     version: '8.10.0',
     url: 'https://artifacthub.io/packages/helm/grafana/grafana/'
   });
+});
+
+test('public extraction resolver works with non-canonical target lists', () => {
+  const googleProvider = buildTerraformProviderDocsTarget({
+    providerAddress: 'hashicorp/google',
+    version: '6.12.0'
+  });
+  const pulumiKubernetes = buildPulumiPackageDocsTarget({
+    packageName: '@pulumi/kubernetes',
+    version: '4.20.1'
+  });
+  const grafanaChart = buildHelmChartDocsTarget({
+    chart: 'grafana',
+    url: 'https://artifacthub.io/packages/helm/grafana/grafana/',
+    version: '8.10.0'
+  });
+  const targets = [googleProvider, pulumiKubernetes, grafanaChart];
+
+  assert.deepEqual(summarizePublicExtractionTarget(googleProvider), {
+    id: 'public:terraform-provider-docs:hashicorp/google:6.12.0',
+    domain: 'terraform',
+    targetKind: 'terraform-provider-docs',
+    targetName: 'hashicorp/google',
+    targetPath: 'public/terraform/providers/hashicorp/google/6.12.0',
+    sourceKind: 'terraform-registry',
+    sourceName: 'terraform-registry:provider:hashicorp/google',
+    provider: 'hashicorp/google',
+    version: '6.12.0'
+  });
+  assert.equal(
+    findPublicExtractionTarget(targets, {
+      domain: 'terraform',
+      provider: 'hashicorp/google',
+      version: '6.12.0'
+    }),
+    googleProvider
+  );
+  assert.equal(
+    findPublicExtractionTarget(targets, {
+      domain: 'pulumi',
+      packageName: '@pulumi/kubernetes',
+      version: '4.20.1'
+    }),
+    pulumiKubernetes
+  );
+  assert.equal(
+    findPublicExtractionTarget(targets, {
+      domain: 'helm',
+      chart: 'grafana',
+      version: '8.10.0'
+    }),
+    grafanaChart
+  );
+  assert.equal(
+    findPublicExtractionTarget(targets, {
+      domain: 'helm',
+      packageName: '@pulumi/kubernetes'
+    }),
+    undefined
+  );
+});
+
+test('public extraction resolver returns undefined when target list has ambiguous matches', () => {
+  const firstGrafana = buildHelmChartDocsTarget({
+    chart: 'grafana',
+    url: 'https://artifacthub.io/packages/helm/grafana/grafana/',
+    version: '8.10.0'
+  });
+  const nextGrafana = buildHelmChartDocsTarget({
+    chart: 'grafana',
+    url: 'https://artifacthub.io/packages/helm/grafana/grafana/',
+    version: '8.11.0'
+  });
+
+  assert.equal(
+    findPublicExtractionTarget([firstGrafana, nextGrafana], {
+      domain: 'helm',
+      chart: 'grafana'
+    }),
+    undefined
+  );
+  assert.equal(
+    findPublicExtractionTarget([firstGrafana, nextGrafana], {
+      domain: 'helm',
+      chart: 'grafana',
+      version: '8.11.0'
+    }),
+    nextGrafana
+  );
 });
 
 test('public extraction builders reject unsafe target inputs', () => {

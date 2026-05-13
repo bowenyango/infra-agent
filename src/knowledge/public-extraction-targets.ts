@@ -30,6 +30,30 @@ export interface PublicExtractionTarget {
   expectedSourceIdentity: PublicExtractionSourceIdentity;
 }
 
+export interface PublicExtractionTargetSummary {
+  id: string;
+  domain: InfraDomainId;
+  targetKind: PublicExtractionTargetKind;
+  targetName: string;
+  targetPath: string;
+  sourceKind: KnowledgeSourceKind;
+  sourceName: string;
+  provider?: string;
+  packageName?: string;
+  chart?: string;
+  version?: string;
+}
+
+export interface PublicExtractionTargetQuery {
+  id?: string;
+  domain?: InfraDomainId;
+  targetPath?: string;
+  provider?: string;
+  packageName?: string;
+  chart?: string;
+  version?: string;
+}
+
 export interface TerraformProviderDocsSourceInput {
   providerAddress: string;
   version?: string;
@@ -266,6 +290,79 @@ export function buildHelmChartDocsTarget(input: HelmChartDocsSourceInput): Publi
   });
 }
 
+export function summarizePublicExtractionTarget(target: PublicExtractionTarget): PublicExtractionTargetSummary {
+  return {
+    id: target.id,
+    domain: target.domain,
+    targetKind: target.targetKind,
+    targetName: target.targetName,
+    targetPath: target.targetPath,
+    sourceKind: target.source.kind,
+    sourceName: target.source.name,
+    ...(target.source.provider !== undefined ? { provider: target.source.provider } : {}),
+    ...(target.source.packageName !== undefined ? { packageName: target.source.packageName } : {}),
+    ...(target.source.chart !== undefined ? { chart: target.source.chart } : {}),
+    ...(target.source.version !== undefined ? { version: target.source.version } : {})
+  };
+}
+
+function normalizePublicExtractionTargetQuery(
+  query: PublicExtractionTargetQuery
+): PublicExtractionTargetQuery {
+  return {
+    ...(query.id !== undefined ? { id: trimmed(query.id, 'id') } : {}),
+    ...(query.domain !== undefined ? { domain: query.domain } : {}),
+    ...(query.targetPath !== undefined ? { targetPath: validateTargetPath(trimmed(query.targetPath, 'targetPath')) } : {}),
+    ...(query.provider !== undefined ? { provider: normalizeTerraformProviderAddress(query.provider) } : {}),
+    ...(query.packageName !== undefined ? { packageName: normalizePulumiPackage({ packageName: query.packageName }).packageName } : {}),
+    ...(query.chart !== undefined ? { chart: normalizeHelmChart(query.chart) } : {}),
+    ...(query.version !== undefined ? { version: normalizeVersion(query.version) } : {})
+  };
+}
+
+function hasDeterministicLookupAnchor(query: PublicExtractionTargetQuery): boolean {
+  if (query.id !== undefined || query.targetPath !== undefined) {
+    return true;
+  }
+
+  return query.domain !== undefined
+    && (
+      query.provider !== undefined
+      || query.packageName !== undefined
+      || query.chart !== undefined
+    );
+}
+
+function targetMatchesQuery(
+  target: PublicExtractionTarget,
+  query: PublicExtractionTargetQuery
+): boolean {
+  return (query.id === undefined || target.id === query.id)
+    && (query.domain === undefined || target.domain === query.domain)
+    && (query.targetPath === undefined || target.targetPath === query.targetPath)
+    && (query.provider === undefined || target.source.provider === query.provider)
+    && (query.packageName === undefined || target.source.packageName === query.packageName)
+    && (query.chart === undefined || target.source.chart === query.chart)
+    && (query.version === undefined || target.source.version === query.version);
+}
+
+export function findPublicExtractionTarget(
+  targets: readonly PublicExtractionTarget[],
+  query: PublicExtractionTargetQuery
+): PublicExtractionTarget | undefined {
+  const normalizedQuery = normalizePublicExtractionTargetQuery(query);
+  if (!hasDeterministicLookupAnchor(normalizedQuery)) {
+    return undefined;
+  }
+
+  const matches = targets.filter(target => targetMatchesQuery(target, normalizedQuery));
+  if (matches.length !== 1) {
+    return undefined;
+  }
+
+  return matches[0];
+}
+
 export const TERRAFORM_HASHICORP_AWS_PROVIDER_DOCS_TARGET = buildTerraformProviderDocsTarget({
   providerAddress: 'hashicorp/aws'
 });
@@ -284,3 +381,13 @@ export const CANONICAL_PUBLIC_EXTRACTION_TARGETS = [
   PULUMI_AWS_PACKAGE_DOCS_TARGET,
   HELM_KUBE_PROMETHEUS_STACK_DOCS_TARGET
 ] as const;
+
+export function listCanonicalPublicExtractionTargetSummaries(): PublicExtractionTargetSummary[] {
+  return CANONICAL_PUBLIC_EXTRACTION_TARGETS.map(target => summarizePublicExtractionTarget(target));
+}
+
+export function findCanonicalPublicExtractionTarget(
+  query: PublicExtractionTargetQuery
+): PublicExtractionTarget | undefined {
+  return findPublicExtractionTarget(CANONICAL_PUBLIC_EXTRACTION_TARGETS, query);
+}
