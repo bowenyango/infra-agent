@@ -145,6 +145,9 @@ Implemented checkpoints:
   evaluated before generic tfvars plans.
 - Updated generic Terraform-only edit policy and domain capability output to
   include the new bounded edit kind.
+- Added agent-loop integration coverage proving compact rename units plus
+  explicit old/new addresses write `terraform/app/moved.tf` through the normal
+  rule-based planner path.
 
 Design notes:
 
@@ -162,6 +165,7 @@ Validation completed:
 - `node --experimental-strip-types test/unit/workspace-profile-targeting.test.mjs`
 - `npm run lint`
 - `npm run test:unit`
+- `npm run test:integration`
 - `git diff --check`
 
 Next recommended implementation steps:

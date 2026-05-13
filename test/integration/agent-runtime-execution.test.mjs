@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  mkdir,
   mkdtemp,
   cp,
   readFile,
-  rm
+  rm,
+  writeFile
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import {
@@ -25,6 +27,73 @@ import { buildPlannerProviderCatalogDiscovery } from '../../src/cli/planner-prov
 import { INFRA_AGENT_EXIT_CODES } from '../../src/cli/exit-codes.ts';
 import { parseCompactAgentRunResult } from '../../src/cli/agent-result-contract.ts';
 import { resolveQueryLoopConfig } from '../../src/query-config.ts';
+
+async function writeTerraformMovedBlockRagWorkspace(root) {
+  await mkdir(join(root, 'terraform/app'), { recursive: true });
+  await mkdir(join(root, 'knowledge'), { recursive: true });
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      },
+      knowledgeSources: {
+        curatedUnits: [
+          {
+            domain: 'terraform',
+            targetPath: 'terraform/app',
+            path: 'knowledge/terraform-rename-units.json',
+            name: 'terraform-rename-internal'
+          }
+        ]
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'terraform/app/main.tf'),
+    [
+      'resource "aws_s3_bucket" "api" {',
+      '  bucket = "example-api"',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'terraform/app/dev.auto.tfvars'),
+    'environment = "dev"\n',
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'knowledge/terraform-rename-units.json'),
+    `${JSON.stringify({
+      kind: 'infra-agent.curated-knowledge-units',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      units: [
+        {
+          unitType: 'guidance',
+          path: 'guidance.terraform.logical-rename',
+          summary: 'Use Terraform moved blocks when a resource logical name changes but the remote object should be retained.',
+          confidence: 'high',
+          topic: 'terraform-logical-rename',
+          appliesWhen: ['Terraform resource address rename'],
+          risk: 'Without a moved block, a rename can look like destroy and create.'
+        },
+        {
+          unitType: 'example',
+          path: 'example.terraform.moved-block',
+          summary: 'Minimal moved block for a Terraform resource rename.',
+          exampleType: 'terraform-moved-block',
+          language: 'hcl',
+          snippet: 'moved { from = aws_s3_bucket.old to = aws_s3_bucket.api }'
+        }
+      ]
+    }, null, 2)}\n`,
+    'utf8'
+  );
+}
 
 test('rule-based planner proceeds with apply-edit-plan after explicit approval covers a high-risk rewrite', async () => {
   const preflight = await buildRunPreflight('update payments-api chart deeply', 'fixtures/sample-workspace', {
@@ -83,6 +152,42 @@ test('rule-based planner proceeds with apply-edit-plan after explicit approval c
   });
 
   assert.equal(decision.action.kind, 'apply-edit-plan');
+});
+
+test('rule-based agent applies Terraform moved-block edit plans from compact RAG units', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-moved-rag-'));
+
+  try {
+    await writeTerraformMovedBlockRagWorkspace(tempRoot);
+    const result = await runSingleStep(
+      'rename terraform app dev from aws_s3_bucket.old to aws_s3_bucket.api',
+      tempRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      {
+        maxTurns: 2,
+        retrievedContextBudget: {
+          maxFacts: 1
+        }
+      }
+    );
+    const movedTf = await readFile(join(tempRoot, 'terraform/app/moved.tf'), 'utf8');
+
+    assert.ok(result.turns.some(turn =>
+      turn.decision.action.payload?.editPlan?.kind === 'terraform-moved-block'
+    ));
+    assert.ok(result.runtime.appliedWrites.some(write => write.path.endsWith('terraform/app/moved.tf')));
+    assert.match(movedTf, /from = aws_s3_bucket\.old/);
+    assert.match(movedTf, /to   = aws_s3_bucket\.api/);
+    assert.ok(result.runtime.knowledgeFacts?.units.some(unit =>
+      unit.unitType === 'guidance'
+      && unit.path === 'guidance.terraform.logical-rename'
+    ));
+    assert.equal(result.runtime.knowledgeFacts?.factCount, 0);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('rule-based agent repairs missing service.port after validation failure', async () => {
