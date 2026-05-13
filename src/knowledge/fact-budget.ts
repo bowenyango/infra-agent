@@ -5,7 +5,17 @@ import type {
   KnowledgePackSource,
   KnowledgePackUnit
 } from './pack.ts';
+import {
+  buildKnowledgeUnitMetadataIndex,
+  type KnowledgeUnitCountByType,
+  type KnowledgeUnitIndexEntry
+} from './unit-index.ts';
 import { selectKnowledgePackUnitsForBudget } from './unit-ranking.ts';
+import type { KnowledgeStorageScope } from './storage-policy.ts';
+import type {
+  KnowledgeSourceKind,
+  KnowledgeUnitPrivacyScope
+} from '../types/knowledge.ts';
 
 export interface BudgetedKnowledgeFact {
   unitType?: 'fact';
@@ -44,6 +54,38 @@ export interface BudgetedKnowledgeFactSource {
 
 export type BudgetedKnowledgeUnit = KnowledgePackUnit;
 
+export interface BudgetedKnowledgeUnitIndexEntry {
+  domain: KnowledgePackSource['domain'];
+  targetPath: string;
+  sourceId: string;
+  sourceKind: KnowledgeSourceKind;
+  sourceName: string;
+  provider?: string;
+  packageName?: string;
+  chart?: string;
+  module?: string;
+  version?: string;
+  storageScope: KnowledgeStorageScope;
+  privacyScopes: KnowledgeUnitPrivacyScope[];
+  freshness: KnowledgePackSource['freshness'];
+  unitCounts: KnowledgeUnitCountByType;
+  includedUnitCount: number;
+  omittedUnitCount: number;
+  sourceUnitCountEstimate: number;
+  retrievalKeys: string[];
+}
+
+export interface BudgetedKnowledgeUnitIndex {
+  kind: 'infra-agent.knowledge-unit-index';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  packId: string;
+  sourceCount: number;
+  includedUnitCount: number;
+  omittedUnitCount: number;
+  entries: BudgetedKnowledgeUnitIndexEntry[];
+}
+
 export interface KnowledgeFactBudgetSummary {
   kind: 'infra-agent.knowledge-facts-summary';
   schemaVersion: 1;
@@ -64,6 +106,7 @@ export interface KnowledgeFactBudgetSummary {
   sources: BudgetedKnowledgeFactSource[];
   facts: BudgetedKnowledgeFact[];
   units: BudgetedKnowledgeUnit[];
+  unitIndex?: BudgetedKnowledgeUnitIndex;
 }
 
 function normalizeMaxFacts(maxFacts: number | undefined, fallback: number): number {
@@ -185,6 +228,64 @@ function compactUnit(unit: KnowledgePackUnit, source: KnowledgePackSource | unde
   }
 }
 
+function compactRetrievalKeys(keys: string[]): string[] {
+  return keys.filter(key => (
+    !key.startsWith('sourceContentHash:')
+    && !key.includes('://')
+  ));
+}
+
+function compactUnitIndexEntry(entry: KnowledgeUnitIndexEntry): BudgetedKnowledgeUnitIndexEntry {
+  return {
+    domain: entry.domain,
+    targetPath: entry.targetPath,
+    sourceId: entry.sourceId,
+    sourceKind: entry.sourceKind,
+    sourceName: entry.sourceName,
+    ...(entry.provider !== undefined ? { provider: entry.provider } : {}),
+    ...(entry.packageName !== undefined ? { packageName: entry.packageName } : {}),
+    ...(entry.chart !== undefined ? { chart: entry.chart } : {}),
+    ...(entry.module !== undefined ? { module: entry.module } : {}),
+    ...(entry.version !== undefined ? { version: entry.version } : {}),
+    storageScope: entry.storageScope,
+    privacyScopes: [...entry.privacyScopes],
+    freshness: entry.freshness,
+    unitCounts: { ...entry.unitCounts },
+    includedUnitCount: entry.includedUnitCount,
+    omittedUnitCount: entry.omittedUnitCount ?? Math.max(0, entry.sourceUnitCountEstimate - entry.includedUnitCount),
+    sourceUnitCountEstimate: entry.sourceUnitCountEstimate,
+    retrievalKeys: compactRetrievalKeys(entry.retrievalKeys)
+  };
+}
+
+function buildBudgetedKnowledgeUnitIndex(input: {
+  pack: KnowledgePack;
+  selectedUnits: KnowledgePackUnit[];
+  totalUnitCount: number;
+  maxUnits: number;
+}): BudgetedKnowledgeUnitIndex {
+  const budgetedPack = {
+    ...input.pack,
+    unitCount: input.totalUnitCount,
+    includedUnitCount: input.selectedUnits.length,
+    omittedUnitCount: Math.max(0, input.totalUnitCount - input.selectedUnits.length),
+    maxUnits: input.maxUnits,
+    units: input.selectedUnits
+  } satisfies KnowledgePack;
+  const index = buildKnowledgeUnitMetadataIndex(budgetedPack);
+
+  return {
+    kind: index.kind,
+    schemaVersion: index.schemaVersion,
+    mutationAllowed: index.mutationAllowed,
+    packId: index.packId,
+    sourceCount: index.sourceCount,
+    includedUnitCount: index.includedUnitCount,
+    omittedUnitCount: index.omittedUnitCount,
+    entries: index.entries.map(compactUnitIndexEntry)
+  };
+}
+
 export function budgetKnowledgePackFacts(
   pack: KnowledgePack | null | undefined,
   options: {
@@ -200,16 +301,30 @@ export function budgetKnowledgePackFacts(
     .slice(0, maxFacts)
     .map(fact => compactFact(fact, sourceById.get(fact.sourceId)));
   const rawUnits = pack?.units ?? (pack?.facts ?? []).map(fact => factToUnit(fact, sourceById.get(fact.sourceId)));
-  const units = selectKnowledgePackUnitsForBudget(rawUnits, {
+  const selectedUnits = selectKnowledgePackUnitsForBudget(rawUnits, {
     sources: pack?.sources ?? [],
     requestedDomains: pack?.requestedDomains ?? [],
     targetPaths: pack?.targetPaths ?? [],
     maxUnits
   })
-    .slice(0, maxUnits)
-    .map(unit => compactUnit(unit, sourceById.get(unit.sourceId)));
+    .slice(0, maxUnits);
+  const units = selectedUnits.map(unit => compactUnit(unit, sourceById.get(unit.sourceId)));
   const totalFactCount = pack?.factCount ?? 0;
   const totalUnitCount = pack?.unitCount ?? totalFactCount;
+  const unitIndex = pack !== null && pack !== undefined
+    ? buildBudgetedKnowledgeUnitIndex({
+      pack: {
+        ...pack,
+        units: rawUnits,
+        unitCount: totalUnitCount,
+        includedUnitCount: rawUnits.length,
+        omittedUnitCount: Math.max(0, totalUnitCount - rawUnits.length)
+      },
+      selectedUnits,
+      totalUnitCount,
+      maxUnits
+    })
+    : undefined;
 
   return {
     kind: 'infra-agent.knowledge-facts-summary',
@@ -230,6 +345,7 @@ export function budgetKnowledgePackFacts(
     uncheckedSourceCount: (pack?.sources ?? []).filter(source => source.freshness === 'unchecked').length,
     sources: (pack?.sources ?? []).map(compactSource),
     facts,
-    units
+    units,
+    ...(unitIndex !== undefined ? { unitIndex } : {})
   };
 }
