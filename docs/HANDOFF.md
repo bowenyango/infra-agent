@@ -40,31 +40,104 @@ Recommended next slices:
 3. Add read-only registry artifact discovery for prebuilt unit artifacts,
    leaving real upload/write execution out of scope.
 
-## 2026-05-13 Initial Network Extraction Test Targets
+## 2026-05-13 Canonical Public Extraction Targets
 
 Status:
 
-- The first live/network-backed extraction tests must use these public targets
-  unless the user explicitly changes the target set:
+- The first canonical public extraction targets are now represented by a
+  reusable target API and regression coverage:
   - Terraform: HashiCorp AWS provider docs at
     `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`.
   - Pulumi: Pulumi AWS package/provider docs.
   - Helm: `kube-prometheus-stack`.
 - These targets are the canonical v0 network extraction examples for provider,
   package, and chart knowledge. Future agents should not replace them with
-  smaller or unrelated examples just to make tests easier.
+  smaller or unrelated examples just to make tests easier, and should not add
+  AWS-specific or `kube-prometheus-stack` parser branches. They are samples for
+  generic public-reference extraction behavior.
 
 Testing constraints:
 
-- Keep live network extraction tests opt-in or skipped by default when network
-  access is unavailable. Normal unit tests should continue to use cached
-  fixtures generated from these same targets.
+- Keep live network extraction tests opt-in by default when network access is
+  unavailable. Normal unit tests use cached fixtures generated from these same
+  targets.
 - Do not assert brittle full-document golden output from `latest` public docs.
   Assert source identity, normalized cache/source metadata, five-unit JSON
   schema shape, redaction, and stable target-specific signals instead.
 - Extracted data from these targets must still normalize into the core
   `fact`, `guidance`, `example`, `diagnostic`, and `recipe` units and should
   remain compact enough for deterministic RAG packing.
+
+Completed slice notes:
+
+- Added generic public extraction target builders in
+  `src/knowledge/public-extraction-targets.ts`, with canonical target constants
+  for Terraform provider docs, Pulumi package docs, and Helm chart docs. The
+  builders validate provider/package/chart identity, safe versions, target
+  paths, and secret-free public URLs, so future public targets can reuse the
+  same source model instead of adding provider- or chart-specific code.
+- Added cached canonical fixture regression coverage in
+  `test/support/canonical-public-knowledge-fixtures.mjs` and
+  `test/unit/knowledge-canonical-public-extraction.test.mjs`. The fixtures
+  prove the three canonical samples normalize through existing generic
+  markdown/fact/unit extraction into all five unit types: `fact`, `guidance`,
+  `example`, `diagnostic`, and `recipe`, while preserving public-reference
+  source links and avoiding raw content or secret-like output.
+- Added canonical public pack/RAG context regression coverage in
+  `test/unit/knowledge-canonical-public-pack.test.mjs`, supported by compact
+  source identity propagation in `src/knowledge/pack.ts` and
+  `src/knowledge/fact-budget.ts`. The pack checks prove public-reference units
+  stay bounded, source-identifiable, and usable as generic RAG context without
+  leaking raw canonical docs.
+- Added an offline-safe, opt-in live integration smoke in
+  `test/integration/cli-knowledge-network-extraction-main.test.mjs`. By
+  default it asserts canonical target identity only. With
+  `INFRA_AGENT_LIVE_KNOWLEDGE_TESTS=1`, it fetches the canonical targets into a
+  temp cache and validates fetch/cache shape, normalization metadata or content
+  type, redaction/no raw HTML, stable identity signals, and schema-valid unit
+  sets when extraction emits units. Normal CI remains no-network.
+- Wired canonical public targets into bounded explicit source discovery via
+  `src/knowledge/prefetch.ts` when a caller requests the canonical public
+  target paths. This keeps live refresh deliberate and out of the agent loop.
+
+Why the design is generic:
+
+- Target construction is provider/package/chart identity based, with reusable
+  URL/path/version validation. The canonical AWS and `kube-prometheus-stack`
+  samples are regression anchors only; extraction still flows through the same
+  markdown, fact, unit, pack, and budget paths used by other public or internal
+  sources.
+
+Remaining gaps:
+
+- The canonical target set is intentionally small. Broader provider, package,
+  and chart catalogs still need source-selection policy and fixture generation
+  before expansion.
+- Live smoke validates fetch/cache/extraction shape, not upstream document
+  completeness. It should remain non-brittle against public page drift.
+- Planner/edit-plan behavior still needs follow-up proving these canonical
+  public-reference units change real Terraform, Pulumi, and Helm decisions
+  under tight pack budgets.
+
+Validation so far:
+
+- Exact node tests for `knowledge-public-extraction-targets`,
+  `knowledge-canonical-public-extraction`,
+  `knowledge-canonical-public-pack`, and
+  `cli-knowledge-network-extraction-main` passed.
+- `npm run lint` passed.
+- `npm run test:unit` passed.
+- `npm run test:structure` has only pre-existing oversized shard risk in
+  `test/integration/agent-runtime-execution.test.mjs` and
+  `test/unit/knowledge-pack-ranking.test.mjs`.
+
+Next recommended step:
+
+- Add a planner or edit-plan regression that consumes a compact pack from one
+  canonical public target and proves the selected `fact`, `guidance`,
+  `example`, `diagnostic`, or `recipe` units alter a bounded infrastructure
+  decision without loading raw docs or expanding `knowledge team-upload-*`
+  boundaries.
 
 ## 2026-05-12 Completed Fact-Derived Five-Type Unit Projection
 

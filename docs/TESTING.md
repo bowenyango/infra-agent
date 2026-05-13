@@ -21,6 +21,36 @@ stable category entrypoints.
 - `npm run test:focused -- --test-name-pattern "<pattern>" <runner-or-shard>`:
   focused checks while developing.
 
+## Live Network Knowledge Extraction
+
+Normal CI and the default local test commands do not fetch public docs. The
+live network extraction smoke in
+`test/integration/cli-knowledge-network-extraction-main.test.mjs` is opt-in:
+
+```sh
+INFRA_AGENT_LIVE_KNOWLEDGE_TESTS=1 npm run test:integration -- cli-knowledge-network-extraction-main
+```
+
+Without `INFRA_AGENT_LIVE_KNOWLEDGE_TESTS=1`, the shard only verifies that the
+canonical public extraction targets are defined and then returns without using
+the network. With the env var set, it fetches the canonical targets into a temp
+cache, validates cache/source shape and normalized content, and validates any
+emitted `infra-agent.knowledge-units` payloads. If the machine cannot reach the
+network, the shard no-ops safely rather than requiring committed skips.
+
+The canonical v0 live targets are:
+
+- Terraform: HashiCorp AWS provider docs at
+  `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`.
+- Pulumi: Pulumi AWS package/provider docs at
+  `https://www.pulumi.com/registry/packages/aws/api-docs/`.
+- Helm: `kube-prometheus-stack` public chart docs.
+
+Do not turn live public docs into brittle full-content goldens. Assert source
+identity, cache write/read shape, normalization metadata or content type,
+redaction/no raw HTML, stable target identity signals, and schema-valid
+five-unit payloads when extraction emits units.
+
 ## Layout
 
 - Put unit shards directly under `test/unit/`.

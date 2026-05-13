@@ -152,6 +152,21 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   Markdown cache entries before extraction. This normalization belongs only in
   `prefetch` / `knowledge prefetch` or direct official fetch tests; do not add
   live fetchers to the agent loop.
+- The canonical v0 live public extraction targets are examples that exercise
+  generic provider/package/chart behavior, not special-case parser branches:
+  HashiCorp AWS provider docs at
+  `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`, Pulumi
+  AWS package/provider docs at
+  `https://www.pulumi.com/registry/packages/aws/api-docs/`, and Helm
+  `kube-prometheus-stack` public chart docs. Keep extraction code reusable and
+  do not add AWS-specific or chart-specific parsing just to satisfy these
+  samples.
+- Live public extraction tests must stay opt-in behind
+  `INFRA_AGENT_LIVE_KNOWLEDGE_TESTS=1` and normal CI must not require external
+  network access. When enabled, live tests should assert source identity,
+  cache/fetch shape, normalization metadata or content type, redaction/no raw
+  HTML, stable identity signals, and valid five-unit payloads when units are
+  emitted; they must not assert full public-doc golden content.
 - Treat knowledge extraction as a first-class contract surface. Extracted facts
   must be schema-versioned, source-linked, versioned or commit-linked,
   confidence-labeled, stale-aware, and parser-validated before a planner uses

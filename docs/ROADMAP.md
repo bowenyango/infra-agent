@@ -32,7 +32,8 @@ non-expanding safety scaffold. The registry path is read-only artifact
 discovery and download of reviewed `infra-agent.knowledge-units` payloads, not
 remote write/upload execution.
 
-Initial live/network extraction tests must use the agreed public examples:
+The canonical public extraction target API and first target regressions now
+exist for the agreed public examples:
 
 - Terraform: HashiCorp AWS provider docs at
   `https://registry.terraform.io/providers/hashicorp/aws/latest/docs`.
@@ -40,11 +41,12 @@ Initial live/network extraction tests must use the agreed public examples:
 - Helm: `kube-prometheus-stack`.
 
 These examples are the canonical v0 targets for proving public provider,
-package, and chart extraction. Live tests should be opt-in or skipped when
-network access is unavailable. Stable regression tests should use cached
-fixtures generated from these same targets and should verify source identity,
-compact five-unit JSON shape, redaction, and target-specific signals instead
-of brittle full-document golden output from public `latest` pages.
+package, and chart extraction through generic behavior, not special parser
+branches. Live tests remain opt-in when network access is unavailable. Stable
+regression tests use cached fixtures generated from these same targets and
+verify source identity, compact five-unit JSON shape, redaction, and
+target-specific signals instead of brittle full-document golden output from
+public `latest` pages.
 
 ## Current Baseline
 
@@ -195,8 +197,8 @@ Canonical v0 public extraction targets:
 - Pulumi package/provider docs: AWS.
 - Helm chart docs: `kube-prometheus-stack`.
 
-These targets should anchor the first network-backed extraction checks and the
-cached fixtures used by ordinary tests. They must be normalized into the same
+These targets now anchor the first network-backed extraction checks and cached
+fixtures used by ordinary tests. They must continue to normalize into the same
 five JSON unit families as every other public or internal source.
 
 The cache key should include at least:
