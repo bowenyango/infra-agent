@@ -8,8 +8,11 @@ import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
 import type { LLMClientConfigOverrides, LLMProvider, PlannerMode } from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
+import type { KnowledgeUnitPrivacyScope, KnowledgeUnitType } from '../types/knowledge.ts';
+import { KNOWLEDGE_UNIT_TYPES } from '../types/knowledge.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
+import type { KnowledgeStorageScope } from '../knowledge/storage-policy.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
@@ -18,7 +21,12 @@ import {
   validateKnowledgePayload
 } from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
-import { buildKnowledgeUnitMetadataIndex } from '../knowledge/unit-index.ts';
+import {
+  buildKnowledgeUnitMetadataIndex,
+  selectKnowledgeUnitIndexEntries,
+  type KnowledgeUnitIndexEntryFilter,
+  type KnowledgeUnitMetadataIndex
+} from '../knowledge/unit-index.ts';
 import {
   buildKnowledgeArtifactManifest,
   hashKnowledgeArtifactFile,
@@ -126,6 +134,18 @@ import { readPackageVersion } from './package-metadata.ts';
 
 export { readPackageVersion } from './package-metadata.ts';
 
+const KNOWLEDGE_UNIT_PRIVACY_SCOPES = [
+  'public-reference',
+  'workspace-private',
+  'internal-team',
+  'private-run'
+] as const satisfies readonly KnowledgeUnitPrivacyScope[];
+
+const KNOWLEDGE_STORAGE_SCOPES = [
+  'public-reference',
+  'workspace-private'
+] as const satisfies readonly KnowledgeStorageScope[];
+
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
   knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'publish-plan' | 'publish-readiness' | 'backend-readiness' | 'backend-reference-readiness' | 'upload-approval-intent' | 'upload-approval-continuation' | 'upload-adapter-preflight' | 'upload-mock-harness' | 'upload-execution-gate' | 'upload-mutation-plan' | 'upload-mutation-approval-review' | 'upload-execution-prerequisite-plan' | 'upload-write-token-boundary' | 'upload-execution-lease-boundary' | 'upload-rollback-plan-boundary' | 'upload-audit-record-boundary' | 'upload-artifact-bytes-boundary' | 'upload-adapter-injection-boundary' | 'upload-client-creation-boundary' | 'upload-credential-read-boundary' | 'upload-credential-presence-boundary' | 'upload-live-check-boundary' | 'upload-command-boundary' | 'upload-object-index-binding-boundary' | 'upload-execution-readiness-boundary' | 'request-separate-upload-execution-approval' | 'record-human-upload-execution-approval' | 'upload-execution-authorization-boundary' | 'upload-execution-plan-rules-review' | 'record-upload-execution-plan-rules-update' | 'upload-execution-implementation-boundary' | 'upload-execution-runtime-boundaries' | 'upload-execution-runtime-boundary-policy-review' | null;
@@ -161,6 +181,7 @@ export interface ParsedArgs {
   domains: InfraDomainId[];
   targetPaths: string[];
   sourceIds?: string[];
+  knowledgeIndexFilter?: KnowledgeUnitIndexEntryFilter;
   maxSources: number | null;
   maxFacts?: number | null;
   maxUnits?: number | null;
@@ -188,7 +209,7 @@ function printUsage(): void {
       '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
-      '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--out <index.json>] [--json]',
+      '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]',
       '  infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]',
       '  infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]',
       '  infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]',
@@ -236,6 +257,28 @@ function fail(message: string): never {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasKnowledgeIndexFilter(filter: KnowledgeUnitIndexEntryFilter): boolean {
+  return Object.keys(filter).length > 0;
+}
+
+function filterKnowledgeUnitMetadataIndex(
+  index: KnowledgeUnitMetadataIndex,
+  filter: KnowledgeUnitIndexEntryFilter
+): KnowledgeUnitMetadataIndex {
+  if (!hasKnowledgeIndexFilter(filter)) {
+    return index;
+  }
+
+  const entries = selectKnowledgeUnitIndexEntries(index, filter);
+
+  return {
+    ...index,
+    sourceCount: entries.length,
+    includedUnitCount: entries.reduce((sum, entry) => sum + entry.includedUnitCount, 0),
+    entries
+  };
 }
 
 async function readJsonObject(inputPath: string): Promise<Record<string, unknown>> {
@@ -776,6 +819,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let indexEntryInputPath: string | null = null;
     let registryInputPath: string | null = null;
     let validationWorkspace: string | null = null;
+    const knowledgeIndexFilter: KnowledgeUnitIndexEntryFilter = {};
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
 
@@ -835,6 +879,142 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         sourceIds.push(sourceId);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--unit-type') {
+        const unitType = actionArgs[index + 1]?.trim();
+        if (!KNOWLEDGE_UNIT_TYPES.includes(unitType as KnowledgeUnitType)) {
+          fail('Missing or invalid value for --unit-type. Expected fact, guidance, example, diagnostic, or recipe.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--unit-type is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.unitType !== undefined) {
+          fail('--unit-type can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.unitType = unitType as KnowledgeUnitType;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--provider') {
+        const provider = actionArgs[index + 1]?.trim();
+        if (!provider) {
+          fail('Missing value for --provider.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--provider is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.provider !== undefined) {
+          fail('--provider can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.provider = provider;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--package') {
+        const packageName = actionArgs[index + 1]?.trim();
+        if (!packageName) {
+          fail('Missing value for --package.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--package is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.packageName !== undefined) {
+          fail('--package can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.packageName = packageName;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--chart') {
+        const chart = actionArgs[index + 1]?.trim();
+        if (!chart) {
+          fail('Missing value for --chart.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--chart is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.chart !== undefined) {
+          fail('--chart can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.chart = chart;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--module') {
+        const moduleName = actionArgs[index + 1]?.trim();
+        if (!moduleName) {
+          fail('Missing value for --module.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--module is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.module !== undefined) {
+          fail('--module can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.module = moduleName;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--version') {
+        const version = actionArgs[index + 1]?.trim();
+        if (!version) {
+          fail('Missing value for --version.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--version is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.version !== undefined) {
+          fail('--version can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.version = version;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--privacy-scope') {
+        const privacyScope = actionArgs[index + 1]?.trim();
+        if (!KNOWLEDGE_UNIT_PRIVACY_SCOPES.includes(privacyScope as KnowledgeUnitPrivacyScope)) {
+          fail('Missing or invalid value for --privacy-scope. Expected public-reference, workspace-private, internal-team, or private-run.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--privacy-scope is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.privacyScope !== undefined) {
+          fail('--privacy-scope can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.privacyScope = privacyScope as KnowledgeUnitPrivacyScope;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--storage-scope') {
+        const storageScope = actionArgs[index + 1]?.trim();
+        if (!KNOWLEDGE_STORAGE_SCOPES.includes(storageScope as KnowledgeStorageScope)) {
+          fail('Missing or invalid value for --storage-scope. Expected public-reference or workspace-private.');
+        }
+        if (knowledgeAction !== 'index') {
+          fail('--storage-scope is only supported for knowledge index.');
+        }
+        if (knowledgeIndexFilter.storageScope !== undefined) {
+          fail('--storage-scope can be provided at most once.');
+        }
+
+        knowledgeIndexFilter.storageScope = storageScope as KnowledgeStorageScope;
         index += 1;
         continue;
       }
@@ -1280,6 +1460,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains,
       targetPaths,
       sourceIds,
+      knowledgeIndexFilter: hasKnowledgeIndexFilter(knowledgeIndexFilter) ? knowledgeIndexFilter : undefined,
       maxSources,
       maxFacts,
       maxUnits,
@@ -2844,7 +3025,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       sourceIds: parsed.sourceIds,
       maxUnits: parsed.maxUnits ?? undefined
     });
-    const unitIndex = buildKnowledgeUnitMetadataIndex(pack);
+    const unitIndex = filterKnowledgeUnitMetadataIndex(
+      buildKnowledgeUnitMetadataIndex(pack),
+      parsed.knowledgeIndexFilter ?? {}
+    );
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), unitIndex)
       : null;

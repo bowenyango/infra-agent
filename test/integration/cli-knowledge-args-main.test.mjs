@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   mkdtemp,
   cp,
@@ -222,6 +223,22 @@ test('knowledge index CLI args accept compact unit index flags', () => {
     'chart-schema:example',
     '--max-units',
     '4',
+    '--unit-type',
+    'fact',
+    '--provider',
+    'hashicorp/aws',
+    '--package',
+    'payments-api',
+    '--chart',
+    'payments-api',
+    '--module',
+    'charts/payments-api',
+    '--version',
+    '0.1.0',
+    '--privacy-scope',
+    'workspace-private',
+    '--storage-scope',
+    'workspace-private',
     '--out',
     'artifacts/knowledge-index.json',
     '--json'
@@ -234,8 +251,33 @@ test('knowledge index CLI args accept compact unit index flags', () => {
   assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
   assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
   assert.equal(parsed.maxUnits, 4);
+  assert.deepEqual(parsed.knowledgeIndexFilter, {
+    unitType: 'fact',
+    provider: 'hashicorp/aws',
+    packageName: 'payments-api',
+    chart: 'payments-api',
+    module: 'charts/payments-api',
+    version: '0.1.0',
+    privacyScope: 'workspace-private',
+    storageScope: 'workspace-private'
+  });
   assert.equal(parsed.outputPath, 'artifacts/knowledge-index.json');
   assert.equal(parsed.json, true);
+});
+
+test('knowledge index filters are rejected for other knowledge actions', () => {
+  const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'pack', 'fixtures/sample-workspace', '--unit-type', 'fact']);";
+  const result = spawnSync(process.execPath, [
+    '--experimental-strip-types',
+    '--input-type=module',
+    '-e',
+    script
+  ], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  });
+
+  assert.equal(result.status, 1);
 });
 
 test('knowledge publish-plan CLI args accept manifest descriptor and output paths', () => {

@@ -92,3 +92,60 @@ test('knowledge index command emits compact unit metadata JSON', async () => {
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('knowledge index filters entries by unit type and storage scope', async () => {
+  const baseArgs = [
+    'knowledge',
+    'index',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--max-units',
+    '10',
+    '--json'
+  ];
+  const unfilteredIndex = parseJsonOutput(await captureStdout(() => main(baseArgs)));
+  const filteredIndex = parseJsonOutput(await captureStdout(() => main([
+    ...baseArgs.slice(0, -1),
+    '--unit-type',
+    'fact',
+    '--storage-scope',
+    'workspace-private',
+    '--json'
+  ])));
+
+  assert.ok(filteredIndex.entries.length > 0);
+  assert.equal(filteredIndex.sourceCount, filteredIndex.entries.length);
+  assert.equal(
+    filteredIndex.includedUnitCount,
+    filteredIndex.entries.reduce((sum, entry) => sum + entry.includedUnitCount, 0)
+  );
+  assert.equal(filteredIndex.omittedUnitCount, unfilteredIndex.omittedUnitCount);
+  assert.ok(filteredIndex.entries.every(entry => entry.storageScope === 'workspace-private'));
+  assert.ok(filteredIndex.entries.every(entry => entry.unitCounts.fact > 0));
+});
+
+test('knowledge index mismatched filters return an empty entry set', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'index',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--unit-type',
+    'example',
+    '--storage-scope',
+    'workspace-private',
+    '--json'
+  ]));
+  const index = parseJsonOutput(output);
+
+  assert.deepEqual(index.entries, []);
+  assert.equal(index.sourceCount, 0);
+  assert.equal(index.includedUnitCount, 0);
+  assert.equal(index.omittedUnitCount, 0);
+});
