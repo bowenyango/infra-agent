@@ -111,6 +111,8 @@ credentials must still come from environment variables.
    `knowledge extract` / `knowledge pack` -> `knowledge index` ->
    `knowledge validate`. Treat the resulting metadata index and budget
    `unitIndex` summaries as the lookup bridge, not as raw-doc content.
+   Keep the compact installable command surface compatible as `knowledge
+   sources/prefetch/extract/validate/pack`.
    Read the validation report's freshness summary for stale or unchecked local
    source posture before treating saved facts as current.
    Use `knowledge sources` before `knowledge prefetch` to inspect public
