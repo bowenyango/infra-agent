@@ -37,6 +37,7 @@ test('knowledge unit extraction promotes examples and infra guidance from fact s
         '## Argument Reference',
         '',
         '- `bucket` - (Optional) Name of the bucket. Forces replacement.',
+        '- `force_destroy` - (Required) Whether objects should be deleted before bucket removal.',
         '',
         '## Attributes Reference',
         '',
@@ -77,6 +78,27 @@ test('knowledge unit extraction promotes examples and infra guidance from fact s
       unit.unitType === 'guidance'
       && unit.topic === 'replacement-sensitive-field'
       && /replacement-sensitive/i.test(unit.summary)
+    ));
+    assert.ok(parsed.units.some(unit =>
+      unit.unitType === 'guidance'
+      && unit.topic === 'required-provider-input'
+      && unit.path === 'guidance.required.resource.aws_s3_bucket.force_destroy'
+    ));
+    assert.ok(parsed.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.engine === 'provider'
+      && unit.signature === 'identity-field:resource.aws_s3_bucket.bucket'
+    ));
+    assert.ok(parsed.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.engine === 'provider'
+      && unit.signature === 'replacement-sensitive-field:resource.aws_s3_bucket.bucket'
+    ));
+    assert.ok(parsed.units.some(unit =>
+      unit.unitType === 'recipe'
+      && unit.extractionMethod === 'workflow-recipe'
+      && unit.name === 'Plan Terraform identity-sensitive edits'
+      && unit.mutationAllowed === false
     ));
     const validationReport = validateKnowledgePayload(parsed, 'inline');
     assert.equal(validationReport.valid, true);

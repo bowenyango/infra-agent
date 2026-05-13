@@ -40,6 +40,44 @@ Recommended next slices:
 3. Add read-only registry artifact discovery for prebuilt unit artifacts,
    leaving real upload/write execution out of scope.
 
+## 2026-05-12 Completed Fact-Derived Five-Type Unit Projection
+
+Status:
+
+- Ordinary extracted fact sets now project beyond `fact`, `guidance`, and
+  `example` units. Provider identity facts, replacement-sensitive facts,
+  required provider/module/chart/component inputs, and domain evidence now
+  generate compact `guidance`, `diagnostic`, and `recipe` units without loading
+  raw source documents into packs.
+- This keeps the five JSON unit model central for public and internal RAG while
+  preserving the existing cache/source architecture and avoiding any new
+  `knowledge team-upload-*` boundary expansion.
+
+Implemented checkpoints:
+
+- Added required-input guidance for provider arguments, Terraform module
+  inputs, Helm chart values, nested blocks, and Pulumi component inputs.
+- Added provider diagnostic units for identity and replacement-sensitive facts,
+  plus Helm diagnostics for required chart values.
+- Added domain recipe projection for Terraform identity-safe edits, Helm
+  values/render validation, and Pulumi stack/resource change review.
+- Updated pack compatibility tests to reflect that `unitCount` can now exceed
+  legacy `factCount` for ordinary sources.
+
+Validation completed:
+
+- `npm run lint`
+- `npm run test:unit -- knowledge-unit-extraction knowledge-pack-unit-compatibility knowledge-pack-ranking`
+
+Next recommended implementation steps:
+
+1. Add content-aware markdown unit extraction for explicit Examples,
+   Troubleshooting, Upgrade/Migration, and Best Practices sections.
+2. Add Helm and Pulumi source fixtures proving docs can emit all five unit
+   types under tight unit budgets.
+3. Feed the new diagnostic/recipe units into planner and edit-plan heuristics
+   where they improve Terraform, Pulumi, and Helm behavior.
+
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 
 Status:

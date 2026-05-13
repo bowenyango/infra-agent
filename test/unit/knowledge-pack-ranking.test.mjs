@@ -39,7 +39,7 @@ test('knowledge pack builds bounded planner-safe fact packs', async () => {
   assert.equal(pack.maxFacts, 3);
   assert.equal(pack.includedFactCount, Math.min(3, pack.factCount));
   assert.equal(pack.facts.length, pack.includedFactCount);
-  assert.equal(pack.unitCount, pack.factCount);
+  assert.ok(pack.unitCount > pack.factCount);
   assert.equal(pack.units.length, pack.includedUnitCount);
   assert.ok(pack.omittedFactCount >= 1);
   assert.ok(pack.sources.some(source =>

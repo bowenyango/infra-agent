@@ -9,7 +9,7 @@ import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
-test('knowledge pack and budget summaries label generated facts as fact units', async () => {
+test('knowledge pack and budget summaries include fact and generated knowledge units', async () => {
   const inspection = await inspectWorkspace('fixtures/sample-workspace');
   const pack = await buildKnowledgePack(inspection, {
     domains: ['helm'],
@@ -21,14 +21,17 @@ test('knowledge pack and budget summaries label generated facts as fact units', 
   assert.ok(pack.facts.length > 0);
   assert.equal(pack.maxUnits, 3);
   assert.ok(pack.facts.every(fact => fact.unitType === 'fact'));
-  assert.equal(pack.unitCount, pack.factCount);
-  assert.equal(pack.includedUnitCount, pack.includedFactCount);
-  assert.equal(pack.omittedUnitCount, pack.omittedFactCount);
+  assert.ok(pack.unitCount > pack.factCount);
+  assert.equal(pack.omittedUnitCount, pack.unitCount - pack.includedUnitCount);
   assert.equal(pack.units.length, pack.includedUnitCount);
-  assert.ok(pack.units.every(unit =>
+  assert.ok(pack.units.some(unit =>
     unit.unitType === 'fact'
     && typeof unit.factKind === 'string'
     && typeof unit.sourceId === 'string'
+    && typeof unit.privacyScope === 'string'
+  ));
+  assert.ok(pack.units.every(unit =>
+    typeof unit.sourceId === 'string'
     && typeof unit.privacyScope === 'string'
   ));
 
@@ -38,7 +41,7 @@ test('knowledge pack and budget summaries label generated facts as fact units', 
   assert.ok(summary.facts.every(fact => fact.unitType === 'fact'));
   assert.equal(summary.totalUnitCount, pack.unitCount);
   assert.equal(summary.includedUnitCount, summary.units.length);
-  assert.ok(summary.units.every(unit => unit.unitType === 'fact'));
+  assert.ok(summary.units.some(unit => unit.unitType === 'fact'));
 });
 
 test('knowledge pack and budget summaries accept maxUnits as the unit-first budget alias', async () => {
@@ -145,7 +148,7 @@ test('knowledge pack consumes unit-native extraction projections', async () => {
     const pack = await buildKnowledgePack(inspection, {
       domains: ['terraform'],
       targetPaths: ['terraform/app'],
-      maxUnits: 8,
+      maxUnits: 12,
       store,
       extractedAt: '2026-05-05T00:00:00.000Z'
     });
