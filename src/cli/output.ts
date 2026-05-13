@@ -47,6 +47,10 @@ import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from 
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
 import type {
+  KnowledgeUnitIndexEntry,
+  KnowledgeUnitMetadataIndex
+} from '../knowledge/unit-index.ts';
+import type {
   KnowledgeTeamPublicationPlan,
   KnowledgeTeamPublicationReadinessReport
 } from '../knowledge/team-artifact-store.ts';
@@ -3573,6 +3577,34 @@ export function printKnowledgePack(pack: KnowledgePack): void {
   process.stdout.write(`storage: public-reference=${pack.storagePolicy.publicReference}, workspace-private=${pack.storagePolicy.workspacePrivate}, shareable=${pack.storagePolicy.shareableByDefault}, opt-in=${pack.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Facts');
   printList(pack.facts.map(fact => `${fact.confidence} ${fact.kind} ${fact.path}: ${fact.summary}`), 'No knowledge facts included.');
+}
+
+function formatKnowledgeUnitIndexEntry(entry: KnowledgeUnitIndexEntry): string {
+  const identity = [
+    entry.domain,
+    entry.targetPath,
+    entry.sourceKind,
+    entry.sourceName,
+    entry.provider,
+    entry.packageName,
+    entry.chart,
+    entry.module,
+    entry.version
+  ].filter(value => value !== undefined && value.length > 0).join(' ');
+  const unitCounts = Object.entries(entry.unitCounts)
+    .filter(([, count]) => count > 0)
+    .map(([unitType, count]) => `${unitType}=${count}`)
+    .join(', ') || 'none';
+
+  return `${identity}: units=${entry.includedUnitCount}, omitted=${entry.omittedUnitCount ?? 'unknown'}, keys=${entry.retrievalKeys.length}, counts=${unitCounts}`;
+}
+
+export function printKnowledgeUnitMetadataIndex(index: KnowledgeUnitMetadataIndex): void {
+  printHeader('Knowledge unit index');
+  process.stdout.write(`pack: ${index.packId}\n`);
+  process.stdout.write(`summary: sources=${index.sourceCount}, includedUnits=${index.includedUnitCount}, omittedUnits=${index.omittedUnitCount}\n\n`);
+  printHeader('Sources');
+  printList(index.entries.map(formatKnowledgeUnitIndexEntry), 'No knowledge unit index entries.');
 }
 
 export function printKnowledgeTeamPublicationPlan(plan: KnowledgeTeamPublicationPlan): void {

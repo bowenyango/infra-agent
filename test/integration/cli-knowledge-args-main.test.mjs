@@ -209,6 +209,35 @@ test('knowledge pack CLI args accept unit-first budget alias', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge index CLI args accept compact unit index flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'index',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--source',
+    'chart-schema:example',
+    '--max-units',
+    '4',
+    '--out',
+    'artifacts/knowledge-index.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'index');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
+  assert.equal(parsed.maxUnits, 4);
+  assert.equal(parsed.outputPath, 'artifacts/knowledge-index.json');
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge publish-plan CLI args accept manifest descriptor and output paths', () => {
   const parsed = parseArgs([
     'knowledge',
