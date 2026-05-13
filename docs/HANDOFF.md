@@ -139,6 +139,28 @@ Next recommended implementation steps:
 3. Use markdown-derived diagnostics/recipes in planner routing or edit-plan
    confidence checks.
 
+## 2026-05-12 Completed Pack Coverage For Markdown Units
+
+Status:
+
+- `knowledge pack --json` now has integration coverage proving cached Helm
+  chart docs markdown units flow through packing, not just extraction.
+- The pack test verifies `fact`, `guidance`, `example`, `diagnostic`, and
+  `recipe` units are present while raw source markdown remains excluded.
+
+Validation completed:
+
+- `node --experimental-strip-types test/integration/cli-knowledge-pack-main.test.mjs`
+- `npm run lint`
+
+Next recommended implementation steps:
+
+1. Add Pulumi docs markdown fixtures for explicit examples and troubleshooting.
+2. Tune tight-budget ranking so task-relevant examples can survive small
+   `maxUnits` values when concrete edit shape is needed.
+3. Use markdown-derived diagnostics/recipes in planner routing or edit-plan
+   confidence checks.
+
 ## 2026-05-12 Completed Read-Only Unit Artifact Registries
 
 Status:

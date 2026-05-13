@@ -75,6 +75,30 @@ const API_CHART_DOCS_MARKDOWN = [
   '| --- | --- | --- | --- | --- |',
   '| `image.repository` | string | `ghcr.io/example/api` | Container image repository. | yes |',
   '| `service.port` | int | `8080` | Service port exposed by the chart. | no |',
+  '',
+  '## Example Values',
+  '',
+  '```yaml',
+  'image:',
+  '  repository: ghcr.io/example/api',
+  '```',
+  '',
+  '## Best Practices',
+  '',
+  'Always set image.repository explicitly before rendering this chart.',
+  '',
+  '## Upgrade Workflow',
+  '',
+  '1. Update the image repository in the environment values file.',
+  '2. Render the chart with helm template.',
+  '3. Review the changed Deployment image before merging.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`Error: image.repository is required` usually means the values file omitted the image repository.',
+  '',
+  '- Check values.yaml and environment override files.',
+  '- Run helm template for the selected chart.',
   ''
 ].join('\n');
 
@@ -600,14 +624,14 @@ test('knowledge pack command emits cached Helm chart docs facts', async () => {
       '--source',
       entry.id,
       '--max-facts',
-      '3',
+      '30',
       '--json'
     ]));
     const pack = JSON.parse(output.slice(output.indexOf('{')));
 
     assert.equal(pack.kind, 'infra-agent.knowledge-pack');
     assert.equal(pack.mutationAllowed, false);
-    assert.equal(pack.maxFacts, 3);
+    assert.equal(pack.maxFacts, 30);
     assert.ok(pack.sources.some(sourceResult =>
       sourceResult.kind === 'chart-docs'
       && sourceResult.name === 'api:home'
@@ -618,6 +642,25 @@ test('knowledge pack command emits cached Helm chart docs facts', async () => {
       && fact.extractionMethod === 'helm-chart-docs-markdown'
       && fact.path === 'chart.api.image.repository'
       && fact.sourceLocator === 'Chart docs: image.repository'
+    ));
+    assert.ok(pack.unitCount > pack.factCount);
+    assert.ok(['fact', 'guidance', 'example', 'diagnostic', 'recipe'].every(unitType =>
+      pack.units.some(unit => unit.unitType === unitType)
+    ));
+    assert.ok(pack.units.some(unit =>
+      unit.unitType === 'example'
+      && unit.exampleType === 'helm-docs-example'
+      && /ghcr\.io\/example\/api/.test(unit.snippet)
+    ));
+    assert.ok(pack.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.engine === 'helm'
+      && unit.signature === 'Error: image.repository is required'
+    ));
+    assert.ok(pack.units.some(unit =>
+      unit.unitType === 'recipe'
+      && unit.name === 'Upgrade Workflow'
+      && unit.steps.length === 3
     ));
     assert.doesNotMatch(output, /"content"\s*:|# API chart|Secret token/);
   } finally {
