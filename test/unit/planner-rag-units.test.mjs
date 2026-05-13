@@ -88,6 +88,72 @@ async function writeTerraformRenameKnowledgeWorkspace(root) {
   );
 }
 
+async function writePulumiAliasKnowledgeWorkspace(root) {
+  await mkdir(join(root, 'infra/api'), { recursive: true });
+  await mkdir(join(root, 'knowledge'), { recursive: true });
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      },
+      knowledgeSources: {
+        curatedUnits: [
+          {
+            domain: 'pulumi',
+            targetPath: 'infra/api',
+            path: 'knowledge/pulumi-alias-units.json',
+            name: 'pulumi-alias-internal'
+          }
+        ]
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'infra/api/Pulumi.yaml'),
+    'name: api\nruntime: yaml\n',
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'infra/api/Pulumi.dev.yaml'),
+    'config:\n  api:environment: dev\n',
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'knowledge/pulumi-alias-units.json'),
+    `${JSON.stringify({
+      kind: 'infra-agent.curated-knowledge-units',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      units: [
+        {
+          unitType: 'guidance',
+          path: 'guidance.pulumi.logical-rename',
+          summary: 'Use Pulumi aliases when a resource logical name changes but the physical resource should be retained.',
+          confidence: 'high',
+          topic: 'pulumi-logical-rename',
+          appliesWhen: ['Pulumi resource logical name rename'],
+          risk: 'Without an alias, a rename can be planned as a replacement.'
+        },
+        {
+          unitType: 'recipe',
+          path: 'recipe.pulumi.alias-stack-config',
+          summary: 'Review Pulumi aliases and stack config before editing resources.',
+          name: 'Pulumi alias and stack config review',
+          steps: [
+            'Collect old and new Pulumi resource type and logical name.',
+            'Review aliases for logical renames that retain the physical resource.',
+            'Use native stack config writes only after approval.'
+          ],
+          requiresApproval: true
+        }
+      ]
+    }, null, 2)}\n`,
+    'utf8'
+  );
+}
+
 test('agent runtime loads unit-only knowledge packs from configured curated units', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-runtime-unit-only-'));
   let checked = false;
@@ -133,6 +199,42 @@ test('agent runtime loads unit-only knowledge packs from configured curated unit
     );
 
     assert.equal(checked, true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rule-based planner uses Pulumi alias units to ask for resource identity review details', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-alias-rag-'));
+
+  try {
+    await writePulumiAliasKnowledgeWorkspace(tempRoot);
+    const result = await runSingleStep(
+      'rename pulumi api dev bucket resource safely',
+      tempRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      {
+        maxTurns: 3,
+        retrievedContextBudget: {
+          maxFacts: 1
+        }
+      }
+    );
+    const lastTurn = result.turns[result.turns.length - 1];
+
+    assert.equal(result.outcome, 'clarification-required');
+    assert.equal(lastTurn?.decision.action.kind, 'ask-for-clarification');
+    assert.equal(lastTurn?.decision.action.payload?.actionFamily, 'pulumi-clarification');
+    assert.equal(lastTurn?.decision.action.payload?.clarificationKind, 'general');
+    assert.match(lastTurn?.decision.action.summary ?? '', /Pulumi rename, alias, or stack-config/i);
+    assert.ok(lastTurn?.decision.action.payload?.questions?.some(question =>
+      /old and new Pulumi resource type/i.test(question)
+    ));
+    assert.ok(lastTurn?.decision.action.payload?.questions?.some(question =>
+      /pulumi_config_set/i.test(question)
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

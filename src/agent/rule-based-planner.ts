@@ -203,8 +203,20 @@ function hasTerraformRenameKnowledge(input: AgentPlanningInput): boolean {
   );
 }
 
+function hasPulumiRenameKnowledge(input: AgentPlanningInput): boolean {
+  const unitPattern = /\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b.*\b(rename|replacement|resource name|import\/state|logical name)\b|\b(rename|replacement|resource name|import\/state|logical name)\b.*\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b/i;
+  return (input.runtime.knowledgeFacts?.units ?? []).some(unit =>
+    (unit.unitType === 'guidance' || unit.unitType === 'diagnostic' || unit.unitType === 'recipe')
+    && unitIncludesText(unit, unitPattern)
+  );
+}
+
 function taskRequestsTerraformRenameReview(task: string): boolean {
   return /\b(rename|renaming|moved block|moved blocks|state mv|move resource|resource address|refactor|adopt|import existing|retain existing)\b/i.test(task);
+}
+
+function taskRequestsPulumiRenameReview(task: string): boolean {
+  return /\b(rename|renaming|alias|aliases|move resource|resource name|refactor|adopt|import existing|retain existing|replacement)\b/i.test(task);
 }
 
 function isYamlSyntaxValidationCommand(command: string): boolean {
@@ -274,6 +286,17 @@ function terraformRenameKnowledgeQuestions(input: AgentPlanningInput): string[] 
     `Is this a Terraform logical resource-address rename${targetText} where the existing remote object should be retained?`,
     'What are the exact old and new Terraform resource addresses for the moved block?',
     'Should the agent add or review a Terraform moved block instead of creating replacement resources?'
+  ];
+}
+
+function pulumiRenameKnowledgeQuestions(input: AgentPlanningInput): string[] {
+  const target = input.runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'pulumi-project');
+  const targetText = target ? ` in ${target.path}` : '';
+
+  return [
+    `Is this a Pulumi logical resource rename${targetText} where the existing physical resource should be retained?`,
+    'What are the old and new Pulumi resource type, logical name, and stack/URN details needed to review aliases?',
+    'Should stack config changes use the native pulumi_config_set path after approval, or is this only an alias/import review?'
   ];
 }
 
@@ -594,6 +617,29 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             questions: terraformRenameKnowledgeQuestions(input),
             clarificationKind: 'general',
             actionFamily: 'terraform-clarification'
+          }
+        }
+      };
+    }
+
+    if (
+      taskMentionsPulumi
+      && taskRequestsPulumiRenameReview(runtime.task)
+      && hasPulumiRenameKnowledge(input)
+      && hasObservations
+      && !hasAppliedWrites
+      && !editPlan
+    ) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'ask-for-clarification',
+          summary: 'Review Pulumi rename, alias, or stack-config requirements before editing resources.',
+          rationale: 'The selected knowledge units indicate that Pulumi logical renames should use aliases, import/state review, or bounded stack config operations instead of speculative replacement edits.',
+          payload: {
+            questions: pulumiRenameKnowledgeQuestions(input),
+            clarificationKind: 'general',
+            actionFamily: 'pulumi-clarification'
           }
         }
       };

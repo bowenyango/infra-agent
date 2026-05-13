@@ -88,6 +88,42 @@ Next recommended implementation steps:
    once old/new resource addresses are known.
 3. Add read-only registry artifact discovery for prebuilt unit artifacts.
 
+## 2026-05-12 Completed Pulumi Alias Unit Planner Behavior
+
+Status:
+
+- The rule-based planner now uses Pulumi rename, alias, import/state, and stack
+  config units as functional RAG input. For Pulumi rename tasks with selected
+  alias/stack-config units and no safe bounded edit plan, it asks for old/new
+  resource identity and stack details before proposing replacement edits.
+
+Implemented checkpoints:
+
+- Added Pulumi rename unit detection over compact `guidance`, `diagnostic`, and
+  `recipe` units.
+- Added Pulumi-specific planner questions for logical rename identity, aliases,
+  and approved `pulumi_config_set` versus alias/import review.
+- Added LLM prompt guidance so compact Pulumi units steer model planning away
+  from speculative replacement edits.
+- Extended `test/unit/planner-rag-units.test.mjs` with a Pulumi alias curated
+  unit workspace.
+
+Validation completed:
+
+- `node --experimental-strip-types test/unit/planner-rag-units.test.mjs`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run smoke`
+- `git diff --check`
+
+Next recommended implementation steps:
+
+1. Add an edit-plan level review artifact for Terraform moved-block candidates
+   once old/new resource addresses are known.
+2. Add a Pulumi alias review artifact once old/new Pulumi resource identity is
+   known.
+3. Add read-only registry artifact discovery for prebuilt unit artifacts.
+
 ## 2026-05-12 Completed CLI Coverage for Prebuilt Unit Artifacts
 
 Status:
