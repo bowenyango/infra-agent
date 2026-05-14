@@ -1,4 +1,5 @@
 import type { AgentRuntimeState, ValidationIssue } from '../types/agent.ts';
+import type { KnowledgePackSource, KnowledgePackUnit } from '../knowledge/pack.ts';
 import type { ConfigSemanticFact, ConfigSemanticsSummary } from '../types/config-semantics.ts';
 
 function factKey(fact: ConfigSemanticFact): string {
@@ -12,7 +13,10 @@ function factKey(fact: ConfigSemanticFact): string {
 }
 
 export function getRuntimeConfigSemantics(runtime: AgentRuntimeState): ConfigSemanticsSummary[] {
-  return runtime.configSemantics ?? runtime.preflight.inspection.configSemantics;
+  return mergeConfigSemantics(
+    runtime.configSemantics ?? runtime.preflight.inspection.configSemantics,
+    deriveConfigSemanticsFromKnowledgeUnits(runtime)
+  );
 }
 
 export function mergeConfigSemantics(
@@ -95,6 +99,162 @@ export function deriveConfigSemanticsFromValidationIssues(runtime: AgentRuntimeS
     targetKind: 'pulumi-project',
     targetPath,
     facts
+  }));
+}
+
+function normalizeHelmKnowledgePath(path: string): string | null {
+  if (path.startsWith('values.')) {
+    return path.slice('values.'.length);
+  }
+
+  if (!path.startsWith('chart.')) {
+    return null;
+  }
+
+  const parts = path.split('.');
+  if (parts.length >= 3) {
+    return parts.slice(2).join('.');
+  }
+
+  if (parts.length === 2) {
+    return parts[1] ?? null;
+  }
+
+  return null;
+}
+
+function normalizePulumiKnowledgePath(path: string): string | null {
+  if (path.startsWith('config.')) {
+    return path;
+  }
+
+  const prefixes = [
+    'pulumi.config.',
+    'pulumi.project.config.',
+    'pulumi.stack.config.'
+  ];
+  for (const prefix of prefixes) {
+    if (path.startsWith(prefix)) {
+      return `config.${path.slice(prefix.length)}`;
+    }
+  }
+
+  return null;
+}
+
+function targetPathForKnowledgeUnit(
+  source: KnowledgePackSource | undefined,
+  runtime: AgentRuntimeState
+): string | null {
+  if (source?.targetPath) {
+    return source.targetPath;
+  }
+
+  const targetPaths = runtime.knowledgeFacts?.targetPaths ?? [];
+  if (targetPaths.length === 1) {
+    return targetPaths[0] ?? null;
+  }
+
+  return null;
+}
+
+function factKindForKnowledgeUnit(unit: Extract<KnowledgePackUnit, { unitType: 'fact' }>): ConfigSemanticFact['kind'] | null {
+  if (unit.required === true) {
+    return 'required-field';
+  }
+
+  if (unit.values && unit.values.length > 0) {
+    return 'enum';
+  }
+
+  if (unit.type) {
+    return 'type-constraint';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(unit, 'defaultValue')) {
+    return 'defaulted-field';
+  }
+
+  return null;
+}
+
+function valuesForKnowledgeUnit(unit: Extract<KnowledgePackUnit, { unitType: 'fact' }>): string[] | undefined {
+  if (unit.values && unit.values.length > 0) {
+    return unit.values;
+  }
+
+  if (unit.type) {
+    return [unit.type];
+  }
+
+  if (Object.prototype.hasOwnProperty.call(unit, 'defaultValue') && unit.defaultValue !== undefined) {
+    return [unit.defaultValue];
+  }
+
+  return undefined;
+}
+
+export function deriveConfigSemanticsFromKnowledgeUnits(runtime: AgentRuntimeState): ConfigSemanticsSummary[] {
+  const knowledgeFacts = runtime.knowledgeFacts;
+  if (!knowledgeFacts) {
+    return [];
+  }
+
+  const sourceById = new Map(knowledgeFacts.sources.map(source => [source.id, source]));
+  const factsByTarget = new Map<string, {
+    targetKind: ConfigSemanticsSummary['targetKind'];
+    facts: ConfigSemanticFact[];
+  }>();
+
+  for (const unit of knowledgeFacts.units) {
+    if (unit.unitType !== 'fact') {
+      continue;
+    }
+
+    const source = sourceById.get(unit.sourceId);
+    const targetPath = targetPathForKnowledgeUnit(source, runtime);
+    if (!targetPath) {
+      continue;
+    }
+
+    const targetKind = unit.path.startsWith('values.') || unit.path.startsWith('chart.')
+      ? 'helm-chart'
+      : unit.path.startsWith('config.') || unit.path.startsWith('pulumi.')
+        ? 'pulumi-project'
+        : null;
+    if (!targetKind) {
+      continue;
+    }
+
+    const path = targetKind === 'helm-chart'
+      ? normalizeHelmKnowledgePath(unit.path)
+      : normalizePulumiKnowledgePath(unit.path);
+    const kind = factKindForKnowledgeUnit(unit);
+    if (!path || !kind) {
+      continue;
+    }
+
+    const entryKey = `${targetKind}\0${targetPath}`;
+    const entry = factsByTarget.get(entryKey) ?? { targetKind, facts: [] };
+    entry.facts.push({
+      kind,
+      path,
+      message: unit.summary,
+      source: {
+        kind: 'knowledge-unit',
+        path: unit.sourceLocator
+      },
+      confidence: unit.confidence,
+      values: valuesForKnowledgeUnit(unit),
+      relatedPaths: unit.relatedPaths
+    });
+    factsByTarget.set(entryKey, entry);
+  }
+
+  return Array.from(factsByTarget.entries()).map(([key, entry]) => ({
+    targetKind: entry.targetKind,
+    targetPath: key.split('\0')[1] ?? '',
+    facts: entry.facts
   }));
 }
 

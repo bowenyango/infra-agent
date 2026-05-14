@@ -7,6 +7,7 @@ export type ConfigSemanticSourceKind =
   | 'pulumi-config'
   | 'pulumi-preview'
   | 'repo-example'
+  | 'knowledge-unit'
   | 'llm-inference';
 
 export type ConfigSemanticFactKind =
