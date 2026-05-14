@@ -8,10 +8,28 @@ const HELM_LINT_UNIT_PATTERN = /\bhelm\s+lint\b|\bchart\s+lint\b|\bvalues?\s+lin
 const HELM_SOURCE_FALLBACK_PATTERN = /\bhelm\b|\bchart\b|\bvalues\.ya?ml\b/i;
 const HELM_TEMPLATE_COMMAND_PATTERN = /(?:^|\s)helm\s+template(?:\s|$)/i;
 const HELM_LINT_COMMAND_PATTERN = /(?:^|\s)helm\s+lint(?:\s|$)/i;
+const TERRAFORM_PLAN_UNIT_PATTERN = /\bterraform\s+plan\b|\bmoved\s+blocks?\b|\brenam(?:e|es|ed|ing)\b|\bimport\b|\bstate\b|\bprevent\s+replacement\b|\breplacement\b|\bdestroy\s*\/\s*create\b|\bcreate\s*\/\s*destroy\b|\bdestroy\b.*\bcreate\b|\bcreate\b.*\bdestroy\b/i;
+const TERRAFORM_VALIDATE_UNIT_PATTERN = /\bterraform\s+validate\b|\brequired\s+arguments?\b|\bschema\b|\binvalid\s+configuration\b|\bconfiguration\s+invalid\b/i;
+const TERRAFORM_FMT_UNIT_PATTERN = /\bterraform\s+fmt\b|\bformat(?:ting)?\b/i;
+const TERRAFORM_SOURCE_FALLBACK_PATTERN = /\bterraform\b|\b\.tfvars\b|\b\.tf\b/i;
+const TERRAFORM_FMT_COMMAND_PATTERN = /(?:^|\s)terraform(?:\s+-[^\s]+)*\s+fmt(?:\s|$)/i;
+const TERRAFORM_VALIDATE_COMMAND_PATTERN = /(?:^|\s)terraform(?:\s+-[^\s]+)*\s+validate(?:\s|$)/i;
+const TERRAFORM_PLAN_COMMAND_PATTERN = /(?:^|\s)terraform(?:\s+-[^\s]+)*\s+plan(?:\s|$)/i;
 
 interface HelmValidationCommandPreference {
   template: boolean;
   lint: boolean;
+}
+
+interface TerraformValidationCommandPreference {
+  fmt: boolean;
+  validate: boolean;
+  plan: boolean;
+}
+
+interface ValidationCommandPreference {
+  helm: HelmValidationCommandPreference;
+  terraform: TerraformValidationCommandPreference;
 }
 
 function isHelmValidationKnowledgeUnit(runtime: AgentRuntimeState, unit: KnowledgePackUnit): boolean {
@@ -19,12 +37,25 @@ function isHelmValidationKnowledgeUnit(runtime: AgentRuntimeState, unit: Knowled
     return true;
   }
 
-  const source = runtime.knowledgeFacts?.sources.find(candidate => candidate.id === unit.sourceId);
+  const source = runtime.knowledgeFacts?.sources?.find(candidate => candidate.id === unit.sourceId);
   if (source !== undefined) {
     return source.domain === 'helm';
   }
 
   return knowledgeUnitIncludesText(unit, HELM_SOURCE_FALLBACK_PATTERN);
+}
+
+function isTerraformValidationKnowledgeUnit(runtime: AgentRuntimeState, unit: KnowledgePackUnit): boolean {
+  if (unit.unitType === 'diagnostic' && unit.engine === 'terraform') {
+    return true;
+  }
+
+  const source = runtime.knowledgeFacts?.sources?.find(candidate => candidate.id === unit.sourceId);
+  if (source !== undefined) {
+    return source.domain === 'terraform';
+  }
+
+  return knowledgeUnitIncludesText(unit, TERRAFORM_SOURCE_FALLBACK_PATTERN);
 }
 
 function isValidationCommandPriorityUnit(unit: KnowledgePackUnit): boolean {
@@ -57,16 +88,78 @@ function resolveHelmValidationCommandPreference(runtime: AgentRuntimeState): Hel
   return preference;
 }
 
-function validationCommandPriority(command: string, preference: HelmValidationCommandPreference): number {
-  if (preference.template && HELM_TEMPLATE_COMMAND_PATTERN.test(command)) {
-    return 0;
+function resolveTerraformValidationCommandPreference(runtime: AgentRuntimeState): TerraformValidationCommandPreference {
+  const preference: TerraformValidationCommandPreference = {
+    fmt: false,
+    validate: false,
+    plan: false
+  };
+
+  for (const unit of runtime.knowledgeFacts?.units ?? []) {
+    if (!isValidationCommandPriorityUnit(unit) || !isTerraformValidationKnowledgeUnit(runtime, unit)) {
+      continue;
+    }
+
+    if (knowledgeUnitIncludesText(unit, TERRAFORM_FMT_UNIT_PATTERN)) {
+      preference.fmt = true;
+    }
+
+    if (knowledgeUnitIncludesText(unit, TERRAFORM_VALIDATE_UNIT_PATTERN)) {
+      preference.validate = true;
+    }
+
+    if (knowledgeUnitIncludesText(unit, TERRAFORM_PLAN_UNIT_PATTERN)) {
+      preference.plan = true;
+    }
   }
 
-  if (preference.lint && HELM_LINT_COMMAND_PATTERN.test(command)) {
-    return preference.template ? 1 : 0;
+  return preference;
+}
+
+function resolveValidationCommandPreference(runtime: AgentRuntimeState): ValidationCommandPreference {
+  return {
+    helm: resolveHelmValidationCommandPreference(runtime),
+    terraform: resolveTerraformValidationCommandPreference(runtime)
+  };
+}
+
+function hasValidationCommandPreference(preference: ValidationCommandPreference): boolean {
+  return preference.helm.template
+    || preference.helm.lint
+    || preference.terraform.fmt
+    || preference.terraform.validate
+    || preference.terraform.plan;
+}
+
+function validationCommandPriority(command: string, preference: ValidationCommandPreference): number {
+  const preferredCommandPatterns: RegExp[] = [];
+
+  if (preference.helm.template) {
+    preferredCommandPatterns.push(HELM_TEMPLATE_COMMAND_PATTERN);
   }
 
-  return 2;
+  if (preference.helm.lint) {
+    preferredCommandPatterns.push(HELM_LINT_COMMAND_PATTERN);
+  }
+
+  if (preference.terraform.fmt) {
+    preferredCommandPatterns.push(TERRAFORM_FMT_COMMAND_PATTERN);
+  }
+
+  if (preference.terraform.validate) {
+    preferredCommandPatterns.push(TERRAFORM_VALIDATE_COMMAND_PATTERN);
+  }
+
+  if (preference.terraform.plan) {
+    preferredCommandPatterns.push(TERRAFORM_PLAN_COMMAND_PATTERN);
+  }
+
+  const priority = preferredCommandPatterns.findIndex(pattern => pattern.test(command));
+  if (priority !== -1) {
+    return priority;
+  }
+
+  return preferredCommandPatterns.length;
 }
 
 function topTargetByKind(runtime: AgentRuntimeState): Record<'helm' | 'pulumi' | 'terraform', string | null> {
@@ -123,9 +216,9 @@ export function selectValidationPlanEntries(runtime: AgentRuntimeState): Validat
 
 export function selectValidationCommands(runtime: AgentRuntimeState): string[] {
   const commands = selectValidationPlanEntries(runtime).flatMap(entry => entry.commands);
-  const preference = resolveHelmValidationCommandPreference(runtime);
+  const preference = resolveValidationCommandPreference(runtime);
 
-  if (!preference.template && !preference.lint) {
+  if (!hasValidationCommandPreference(preference)) {
     return commands.slice(0, 6);
   }
 
