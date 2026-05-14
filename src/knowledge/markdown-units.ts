@@ -270,7 +270,7 @@ function guidanceUnitFromSection(
   section: MarkdownSection,
   privacyScope: KnowledgeUnitPrivacyScope
 ): KnowledgeGuidanceUnit | null {
-  if (!/\b(best practices?|notes?|important|limitations?|caveats?|constraints?)\b/i.test(section.title)) {
+  if (!/\b(best practices?|notes?|important|limitations?|caveats?|constraints?|values?|inputs?)\b/i.test(section.title)) {
     return null;
   }
 

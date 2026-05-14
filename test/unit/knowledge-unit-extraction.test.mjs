@@ -179,6 +179,11 @@ test('markdown knowledge unit extraction promotes explicit docs sections into fi
     ));
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'guidance'
+      && unit.topic === 'values'
+      && unit.path.includes('markdown')
+    ));
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'guidance'
       && unit.topic === 'best-practices'
       && /service.port explicitly/i.test(unit.summary)
     ));
@@ -271,6 +276,11 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
     ));
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'guidance'
+      && unit.topic === 'inputs'
+      && unit.path.includes('markdown')
+    ));
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'guidance'
       && unit.topic === 'important-notes'
       && /globally unique/i.test(unit.summary)
     ));
@@ -337,7 +347,7 @@ test('markdown knowledge unit extraction skips secret-like sections', async () =
     const markdownUnits = extractMarkdownKnowledgeUnitsFromCacheEntry(entry, factSet);
     const unitSet = extractKnowledgeUnitSetFromFactSet(factSet, markdownUnits);
 
-    assert.equal(markdownUnits.length, 0);
+    assert.equal(markdownUnits.length, 1);
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'fact'
       && unit.factKind === 'chart-value'
