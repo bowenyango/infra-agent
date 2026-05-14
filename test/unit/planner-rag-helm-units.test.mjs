@@ -2,6 +2,112 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RuleBasedPlanningModel } from '../../src/agent/rule-based-planner.ts';
 
+function buildHelmRecipeKnowledgePack(unit) {
+  return {
+    kind: 'infra-agent.knowledge-pack',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    packId: 'helm-recipe-pack',
+    workspaceRoot: '/workspace',
+    cacheRoot: '/workspace/.infra-agent/knowledge-cache',
+    requestedDomains: ['helm'],
+    targetPaths: ['charts/payments-api'],
+    sourceIds: ['chart-docs-source'],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: 0,
+    includedFactCount: 0,
+    omittedFactCount: 0,
+    unitCount: 1,
+    includedUnitCount: 1,
+    omittedUnitCount: 0,
+    maxFacts: 4,
+    maxUnits: 4,
+    staleSourceCount: 0,
+    storagePolicy: {
+      publicReference: 1,
+      workspacePrivate: 0,
+      shareableByDefault: 1,
+      explicitOptInRequired: 0
+    },
+    sources: [
+      {
+        id: 'chart-docs-source',
+        domain: 'helm',
+        targetPath: 'charts/payments-api',
+        kind: 'chart-docs',
+        name: 'chart-docs:payments-api',
+        factCount: 0,
+        contentHash: 'b'.repeat(64),
+        fetchedAt: '2026-05-05T00:00:00.000Z',
+        stale: false,
+        freshness: 'fresh',
+        storagePolicy: {
+          scope: 'public-reference',
+          defaultStore: 'local-or-explicit-team-cache',
+          shareableByDefault: true,
+          requiresExplicitOptIn: false,
+          reason: 'Public chart documentation source.'
+        }
+      }
+    ],
+    facts: [],
+    units: [unit]
+  };
+}
+
+function buildObservedHelmPlanningInput({ task, unit }) {
+  return {
+    runtime: {
+      task,
+      preflight: {
+        requestedDomains: ['helm'],
+        requestedEnvironment: 'dev',
+        targetCandidates: [
+          {
+            kind: 'helm-chart',
+            path: 'charts/payments-api',
+            score: 100,
+            reasons: [],
+            details: []
+          }
+        ],
+        assumptions: [],
+        blockers: [],
+        validation: {
+          validators: [{ name: 'helm', available: true }],
+          plan: [
+            {
+              kind: 'helm',
+              target: 'charts/payments-api',
+              commands: [
+                'helm lint charts/payments-api',
+                'helm template charts/payments-api'
+              ]
+            }
+          ]
+        }
+      },
+      retrievedContext: [],
+      knowledgeFacts: buildHelmRecipeKnowledgePack(unit),
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {}
+        }
+      ],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  };
+}
+
 test('rule-based planner surfaces Helm validation diagnostics for chart values review', async () => {
   const model = new RuleBasedPlanningModel();
   const decision = await model.decideNextAction({
@@ -282,4 +388,62 @@ test('rule-based planner ignores unrelated selected Helm diagnostics for current
   assert.match(decision.action.summary, /no bounded repair action/i);
   assert.doesNotMatch(decision.action.rationale, /selected Helm diagnostic unit matched/i);
   assert.doesNotMatch(decision.action.rationale, /image\.repository/i);
+});
+
+test('rule-based planner asks for Helm clarification from compact upgrade recipe before edits', async () => {
+  const model = new RuleBasedPlanningModel();
+  const decision = await model.decideNextAction(buildObservedHelmPlanningInput({
+    task: 'upgrade helm payments-api values safely',
+    unit: {
+      unitType: 'recipe',
+      path: 'recipe.helm.payments-api.safe-upgrade',
+      summary: 'Review chart defaults and values migration before upgrading this Helm chart.',
+      confidence: 'high',
+      extractionMethod: 'repo-local-guidance',
+      sourceId: 'chart-docs-source',
+      sourceLocator: 'UPGRADE.md: safe upgrade',
+      privacyScope: 'public-reference',
+      name: 'Helm values migration review',
+      steps: [
+        'Compare old and new chart defaults for breaking values.',
+        'Run helm template before applying values edits.'
+      ],
+      requiresApproval: true,
+      mutationAllowed: false
+    }
+  }));
+
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.actionFamily, 'helm-clarification');
+  assert.equal(decision.action.payload?.clarificationKind, 'general');
+  assert.equal(decision.action.payload?.writes, undefined);
+  assert.match(decision.action.payload?.questions?.join(' ') ?? '', /values scope|chart version|helm template|render/i);
+});
+
+test('rule-based planner ignores irrelevant compact Helm recipe before edits', async () => {
+  const model = new RuleBasedPlanningModel();
+  const decision = await model.decideNextAction(buildObservedHelmPlanningInput({
+    task: 'upgrade helm payments-api values safely',
+    unit: {
+      unitType: 'recipe',
+      path: 'recipe.helm.release-naming',
+      summary: 'Keep Helm release names aligned with service ownership labels.',
+      confidence: 'medium',
+      extractionMethod: 'repo-local-guidance',
+      sourceId: 'chart-docs-source',
+      sourceLocator: 'README.md: release naming',
+      privacyScope: 'public-reference',
+      name: 'Helm release naming',
+      steps: [
+        'Check release name conventions.',
+        'Keep ownership labels consistent.'
+      ],
+      requiresApproval: false,
+      mutationAllowed: false
+    }
+  }));
+
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'no-safe-action');
+  assert.equal(decision.action.payload?.actionFamily, 'runtime-stop');
 });

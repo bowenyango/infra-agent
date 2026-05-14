@@ -176,6 +176,25 @@ function hasPulumiRenameKnowledge(input: AgentPlanningInput): boolean {
   );
 }
 
+function knowledgeUnitHasHelmSource(input: AgentPlanningInput, unit: KnowledgePackUnit): boolean {
+  if (unit.unitType === 'diagnostic' && unit.engine === 'helm') {
+    return true;
+  }
+
+  const pack = input.runtime.knowledgeFacts;
+  const source = pack?.sources.find(candidate => candidate.id === unit.sourceId);
+  return source?.domain === 'helm';
+}
+
+function hasHelmUpgradeMigrationKnowledge(input: AgentPlanningInput): boolean {
+  const unitPattern = /\b(chart defaults?|values migration|breaking values?|helm template|helm lint)\b|\bvalues?\b.{0,40}\bmigrat(?:e|ed|es|ing|ion)\b|\bmigrat(?:e|ed|es|ing|ion)\b.{0,40}\bvalues?\b|\brender(?:ing)?\b.{0,40}\bbefore\b.{0,40}\b(change|edit|migration|upgrade)\b|\bbefore\b.{0,40}\b(change|edit|migration|upgrade)\b.{0,40}\brender(?:ing)?\b/i;
+  return (input.runtime.knowledgeFacts?.units ?? []).some(unit =>
+    (unit.unitType === 'diagnostic' || unit.unitType === 'recipe')
+    && knowledgeUnitHasHelmSource(input, unit)
+    && knowledgeUnitIncludesText(unit, unitPattern)
+  );
+}
+
 function findPulumiValidationReviewDiagnostic(input: AgentPlanningInput): Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> | null {
   const diagnosticPattern = /\b(alias|aliases|import\/state|import|state repair|cloudfront alias|cnamealreadyexists|dns cutover|dns ownership|logical pulumi rename|logical name)\b/i;
   return (input.runtime.knowledgeFacts?.units ?? []).find((unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> =>
@@ -283,6 +302,10 @@ function taskRequestsPulumiRenameReview(task: string): boolean {
   return /\b(rename|renaming|alias|aliases|urn|move resource|resource name|logical name|state repair|refactor|adopt|adopt existing|import existing|import\/state|retain existing|retaining physical resource|replacement)\b/i.test(task);
 }
 
+function taskRequestsHelmUpgradeMigrationReview(task: string): boolean {
+  return /\b(upgrade|upgrading|migration|migrate|migrating|chart version|chart versions|version bump|bump chart|values migration|migrate values|breaking values)\b/i.test(task);
+}
+
 function isYamlSyntaxValidationCommand(command: string): boolean {
   return command.startsWith('infra-agent yaml-parse ');
 }
@@ -361,6 +384,17 @@ function pulumiRenameKnowledgeQuestions(input: AgentPlanningInput): string[] {
     `Is this a Pulumi logical resource rename${targetText} where the existing physical resource should be retained?`,
     'What are the old and new Pulumi resource type, logical name, and stack/URN details needed to review aliases?',
     'Should stack config changes use the native pulumi_config_set path after approval, or is this only an alias/import review?'
+  ];
+}
+
+function helmUpgradeMigrationKnowledgeQuestions(input: AgentPlanningInput): string[] {
+  const target = input.runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'helm-chart');
+  const targetText = target ? ` for ${target.path}` : '';
+
+  return [
+    `What Helm chart version change or migration target should be applied${targetText}?`,
+    'Which values scope or environment values file should be migrated, and are breaking values expected?',
+    'Should the agent render with helm template or run helm lint before applying bounded values edits?'
   ];
 }
 
@@ -760,6 +794,30 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
             questions: pulumiRenameKnowledgeQuestions(input),
             clarificationKind: 'general',
             actionFamily: 'pulumi-clarification'
+          }
+        }
+      };
+    }
+
+    if (
+      taskMentionsHelm
+      && hasHelmTarget
+      && taskRequestsHelmUpgradeMigrationReview(runtime.task)
+      && hasHelmUpgradeMigrationKnowledge(input)
+      && hasObservations
+      && !hasAppliedWrites
+      && !editPlan
+    ) {
+      return {
+        confidence: 'high',
+        action: {
+          kind: 'ask-for-clarification',
+          summary: 'Review Helm chart upgrade or values migration requirements before editing values.',
+          rationale: 'The selected Helm knowledge units indicate that chart defaults, values migration, breaking values, or rendering checks should be reviewed before speculative bounded edits.',
+          payload: {
+            questions: helmUpgradeMigrationKnowledgeQuestions(input),
+            clarificationKind: 'general',
+            actionFamily: 'helm-clarification'
           }
         }
       };
