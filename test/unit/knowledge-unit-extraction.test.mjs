@@ -53,6 +53,7 @@ test('knowledge unit extraction promotes examples and infra guidance from fact s
       now: new Date('2026-05-06T00:00:00.000Z')
     });
     const unitSet = extractKnowledgeUnitSetFromFactSet(factSet);
+    const markdownUnits = extractMarkdownKnowledgeUnitsFromCacheEntry(entry, factSet);
     const parsed = parseKnowledgeUnitSet(unitSet);
 
     assert.equal(parsed.kind, 'infra-agent.knowledge-units');
@@ -84,6 +85,11 @@ test('knowledge unit extraction promotes examples and infra guidance from fact s
       unit.unitType === 'guidance'
       && unit.topic === 'required-provider-input'
       && unit.path === 'guidance.required.resource.aws_s3_bucket.force_destroy'
+    ));
+    assert.ok(markdownUnits.some(unit =>
+      unit.unitType === 'guidance'
+      && unit.topic === 'argument-reference'
+      && unit.path.includes('markdown')
     ));
     assert.ok(parsed.units.some(unit =>
       unit.unitType === 'diagnostic'
