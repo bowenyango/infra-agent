@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { AgentRuntimeState } from '../../types/agent.ts';
 import type { EditPlan } from '../../types/edit-plan.ts';
-import type { KnowledgePackUnit } from '../../knowledge/pack.ts';
+import { knowledgeUnitIncludesText } from '../knowledge-unit-text.ts';
 import { getLatestFileContent } from './runtime-file-content.ts';
 
 const TERRAFORM_ADDRESS_PATTERN =
@@ -11,67 +11,9 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function unitIncludesText(unit: KnowledgePackUnit, pattern: RegExp): boolean {
-  const textParts = [
-    unit.unitType,
-    unit.path,
-    unit.summary,
-    unit.extractionMethod,
-    unit.sourceLocator,
-    unit.privacyScope,
-    ...(unit.relatedPaths ?? [])
-  ];
-
-  if (unit.unitType === 'fact') {
-    textParts.push(
-      unit.factKind,
-      ...(unit.values ?? []),
-      unit.type ?? '',
-      unit.defaultValue ?? ''
-    );
-  }
-
-  if (unit.unitType === 'guidance') {
-    textParts.push(
-      unit.topic,
-      ...(unit.appliesWhen ?? []),
-      ...(unit.avoidWhen ?? []),
-      unit.risk ?? ''
-    );
-  }
-
-  if (unit.unitType === 'example') {
-    textParts.push(
-      unit.exampleType,
-      unit.language ?? '',
-      unit.snippet,
-      ...(unit.appliesWhen ?? []),
-      ...(unit.avoidWhen ?? [])
-    );
-  }
-
-  if (unit.unitType === 'diagnostic') {
-    textParts.push(
-      unit.engine,
-      unit.signature,
-      unit.likelyCause,
-      ...unit.recommendedReview
-    );
-  }
-
-  if (unit.unitType === 'recipe') {
-    textParts.push(
-      unit.name,
-      ...unit.steps
-    );
-  }
-
-  return pattern.test(textParts.join(' '));
-}
-
 function hasTerraformMovedBlockKnowledge(runtime: AgentRuntimeState): boolean {
   const movedBlockPattern = /\b(terraform|hcl)\b.*\b(rename|renaming|moved[- ]block|moved[- ]blocks|resource[- ]address|state mv|import\/state)\b|\b(rename|renaming|moved[- ]block|moved[- ]blocks|resource[- ]address|state mv|import\/state)\b.*\b(terraform|hcl)\b/i;
-  return (runtime.knowledgeFacts?.units ?? []).some(unit => unitIncludesText(unit, movedBlockPattern));
+  return (runtime.knowledgeFacts?.units ?? []).some(unit => knowledgeUnitIncludesText(unit, movedBlockPattern));
 }
 
 function taskRequestsTerraformMovedBlock(task: string): boolean {
