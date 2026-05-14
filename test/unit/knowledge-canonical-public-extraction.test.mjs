@@ -13,6 +13,121 @@ import {
 } from '../support/canonical-public-knowledge-fixtures.mjs';
 
 const EXPECTED_UNIT_TYPES = ['diagnostic', 'example', 'fact', 'guidance', 'recipe'];
+const CANONICAL_VARIANT_ASSERTIONS = {
+  terraformAwsProviderDocs: [
+    {
+      label: 'Terraform Basic Usage example',
+      predicate: unit => unit.unitType === 'example'
+        && unit.source.locator.includes('Basic Usage')
+        && unit.language === 'hcl'
+        && unit.snippet.includes('required_providers')
+    },
+    {
+      label: 'Terraform nested Arguments facts',
+      predicate: unit => unit.unitType === 'fact'
+        && unit.path.endsWith('.assume_role')
+        && unit.source.locator === 'Arguments: assume_role'
+    },
+    {
+      label: 'Terraform singular Attribute Reference facts',
+      predicate: unit => unit.unitType === 'fact'
+        && unit.path.endsWith('.account_id')
+        && unit.source.locator === 'Attribute Reference: account_id'
+    },
+    {
+      label: 'Terraform compatibility guidance',
+      predicate: unit => unit.unitType === 'guidance'
+        && unit.topic === 'compatibility-and-requirements'
+        && unit.source.locator === 'markdown:Compatibility and Requirements'
+        && unit.summary.includes('Terraform CLI 1.5')
+    },
+    {
+      label: 'Terraform import/state recipe with init validate plan',
+      predicate: unit => unit.unitType === 'recipe'
+        && unit.name === 'Import and State Workflow'
+        && unit.source.locator === 'markdown:Import and State Workflow'
+        && unit.steps.some(step => step.includes('terraform init'))
+        && unit.steps.some(step => step.includes('terraform validate'))
+        && unit.steps.some(step => step.includes('terraform plan'))
+    },
+    {
+      label: 'Terraform validation diagnostic',
+      predicate: unit => unit.unitType === 'diagnostic'
+        && unit.source.locator === 'markdown:Validation Failures'
+        && unit.signature === 'Error: invalid provider configuration'
+    }
+  ],
+  pulumiAwsPackageDocs: [
+    {
+      label: 'Pulumi module/package facts',
+      predicate: unit => unit.unitType === 'fact'
+        && unit.path === 'pulumi.package.aws.ec2'
+        && unit.source.locator === 'Pulumi package docs: ec2'
+    },
+    {
+      label: 'Pulumi TypeScript usage example',
+      predicate: unit => unit.unitType === 'example'
+        && unit.source.locator === 'markdown:TypeScript Usage'
+        && unit.language === 'typescript'
+        && unit.snippet.includes('new aws.sns.Topic')
+    },
+    {
+      label: 'Pulumi compatibility/preview guidance',
+      predicate: unit => unit.unitType === 'guidance'
+        && unit.topic === 'compatibility-and-preview-notes'
+        && unit.source.locator === 'markdown:Compatibility and Preview Notes'
+        && unit.summary.includes('Pulumi CLI 3.x')
+    },
+    {
+      label: 'Pulumi preview recipe',
+      predicate: unit => unit.unitType === 'recipe'
+        && unit.name === 'Deployment Workflow'
+        && unit.source.locator === 'markdown:Deployment Workflow'
+        && unit.steps.some(step => step.includes('pulumi preview'))
+    },
+    {
+      label: 'Pulumi preview diagnostic',
+      predicate: unit => unit.unitType === 'diagnostic'
+        && unit.source.locator === 'markdown:Troubleshooting Preview Failures'
+        && unit.signature === 'error: preview failed because required provider region is missing'
+    }
+  ],
+  helmKubePrometheusStackChartDocs: [
+    {
+      label: 'Helm values facts',
+      predicate: unit => unit.unitType === 'fact'
+        && unit.path === 'chart.kube-prometheus-stack.grafana.enabled'
+        && unit.source.locator === 'Chart docs: grafana.enabled'
+    },
+    {
+      label: 'Helm values example',
+      predicate: unit => unit.unitType === 'example'
+        && unit.source.locator === 'markdown:Example Values'
+        && unit.language === 'yaml'
+        && unit.snippet.includes('serviceMonitorSelectorNilUsesHelmValues')
+    },
+    {
+      label: 'Helm prerequisites/selector guidance',
+      predicate: unit => unit.unitType === 'guidance'
+        && unit.topic === 'prerequisites-and-selector-notes'
+        && unit.source.locator === 'markdown:Prerequisites and Selector Notes'
+        && unit.summary.includes('monitoring CRDs')
+    },
+    {
+      label: 'Helm template recipe',
+      predicate: unit => unit.unitType === 'recipe'
+        && unit.name === 'Template Workflow'
+        && unit.source.locator === 'markdown:Template Workflow'
+        && unit.steps.some(step => step.includes('helm template'))
+    },
+    {
+      label: 'Helm validation diagnostic',
+      predicate: unit => unit.unitType === 'diagnostic'
+        && unit.source.locator === 'markdown:Validation Errors'
+        && unit.signature === 'Error: rendered manifests failed validation'
+    }
+  ]
+};
 
 function assertValidKnowledgePayload(payload, label) {
   const report = validateKnowledgePayload(payload, label);
@@ -65,6 +180,12 @@ function assertNoRawContentOrSecrets(value) {
   assert.doesNotMatch(serialized, /api[_-]?key|authorization|bearer|password|secret value|secret token/i);
 }
 
+function assertCanonicalVariantUnits(key, unitSet) {
+  for (const { label, predicate } of CANONICAL_VARIANT_ASSERTIONS[key]) {
+    assert.ok(unitSet.units.some(predicate), `${key} should extract ${label}`);
+  }
+}
+
 test('canonical public docs cache fixtures normalize into five compact knowledge unit types', async () => {
   const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-canonical-public-knowledge-'));
 
@@ -90,6 +211,7 @@ test('canonical public docs cache fixtures normalize into five compact knowledge
       assert.deepEqual(unitSet.source, source);
       assertPublicReferenceUnits(unitSet);
       assertUnitSourceRefs(unitSet, source);
+      assertCanonicalVariantUnits(key, unitSet);
       assertNoRawContentOrSecrets(factSet);
       assertNoRawContentOrSecrets(unitSet);
       assertValidKnowledgePayload(factSet, `${key}.facts`);
