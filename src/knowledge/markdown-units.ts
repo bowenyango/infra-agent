@@ -12,6 +12,7 @@ import type {
 } from '../types/knowledge.ts';
 
 const SECRET_VALUE_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer)/i;
+const DIAGNOSTIC_SIGNATURE_PATTERN = /(?:\b(?:error|failed|failure|invalid|missing|required|cannot|timeout|conflict|duplicate|forbidden|denied)\b|already\s+exists|alreadyexists|\bnot\s+found\b)/i;
 const MAX_MARKDOWN_UNITS_PER_SOURCE = 8;
 const SUPPORTED_MARKDOWN_SOURCE_KINDS = new Set<KnowledgeCacheEntry['source']['kind']>([
   'terraform-registry',
@@ -338,11 +339,13 @@ function diagnosticUnitFromSection(
   }
 
   const summary = firstParagraph(section);
-  if (!summary || !/\b(error|failed|failure|invalid|missing|required|cannot|timeout)\b/i.test(summary)) {
+  if (!summary || !DIAGNOSTIC_SIGNATURE_PATTERN.test(summary)) {
     return null;
   }
 
-  const codeSignature = section.content.match(/`([^`]*(?:error|failed|failure|invalid|missing|required|cannot|timeout)[^`]*)`/i)?.[1];
+  const codeSignature = Array.from(section.content.matchAll(/`([^`]+)`/g))
+    .map(match => match[1])
+    .find(value => DIAGNOSTIC_SIGNATURE_PATTERN.test(value));
   const signature = compactText(codeSignature ?? summary, 120);
   if (!signature) {
     return null;

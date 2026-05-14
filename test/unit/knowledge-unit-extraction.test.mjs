@@ -259,7 +259,7 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
         '',
         '## Troubleshooting',
         '',
-        '`Error: BucketAlreadyExists` usually means another stack or account owns the requested bucket name.',
+        '`BucketAlreadyExists` usually means another stack or account owns the requested bucket name.',
         '',
         '- Confirm the owning account and region.',
         '- Use import or aliases when preserving an existing bucket.',
@@ -299,7 +299,7 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'diagnostic'
       && unit.engine === 'pulumi'
-      && unit.signature === 'Error: BucketAlreadyExists'
+      && unit.signature === 'BucketAlreadyExists'
     ));
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'recipe'
