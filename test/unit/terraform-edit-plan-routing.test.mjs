@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   mkdtemp,
   cp,
+  writeFile,
   readFile,
   rm
 } from 'node:fs/promises';
@@ -701,7 +702,7 @@ test('buildEditPlan reuses existing Terraform variable key names from tfvars and
   assert.doesNotMatch(editPlan?.writes[0]?.content ?? '', /^environment =/m);
 });
 
-test('buildEditPlan creates a bounded Pulumi missing-config repair plan', async () => {
+test('buildEditPlan creates a bounded Pulumi missing-config repair plan from a stack ref', async () => {
   const preflight = await buildRunPreflight(
     'update pulumi dev stack for payments-api image tag to 1.2.3',
     'fixtures/sample-workspace'
@@ -724,7 +725,7 @@ test('buildEditPlan creates a bounded Pulumi missing-config repair plan', async 
     appliedWrites: [],
     validationResults: [
       {
-        command: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+        command: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack org/project/dev --non-interactive',
         exitCode: 1,
         stdout: '',
         stderr: 'error: missing required configuration variable "payments-api:imageTag"; run `pulumi config set payments-api:imageTag <value>`'
@@ -734,7 +735,7 @@ test('buildEditPlan creates a bounded Pulumi missing-config repair plan', async 
       {
         kind: 'pulumi-missing-config',
         repairable: true,
-        sourceCommand: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack dev --non-interactive',
+        sourceCommand: 'PULUMI_BACKEND_URL=file://$PWD/.pulumi-state pulumi preview --cwd infra/payments-api --stack org/project/dev --non-interactive',
         message: 'error: missing required configuration variable "payments-api:imageTag"; run `pulumi config set payments-api:imageTag <value>`',
         metadata: {
           missingConfigKey: 'payments-api:imageTag'
@@ -747,9 +748,82 @@ test('buildEditPlan creates a bounded Pulumi missing-config repair plan', async 
   });
 
   assert.equal(editPlan?.kind, 'pulumi-missing-config-repair');
+  assert.equal(editPlan?.writes[0]?.path, 'infra/payments-api/Pulumi.dev.yaml');
+  assert.equal(editPlan?.pulumiConfigOperations?.[0]?.stackName, 'dev');
   assert.equal(editPlan?.pulumiConfigOperations?.[0]?.key, 'payments-api:imageTag');
   assert.equal(editPlan?.pulumiConfigOperations?.[0]?.value, '1.2.3');
   assert.match(editPlan?.writes[0]?.content ?? '', /payments-api:imageTag: 1\.2\.3/);
+});
+
+test('buildEditPlan preserves dotted Pulumi stack names from missing-config source commands', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'infra-agent-pulumi-stack-'));
+  const workspaceRoot = join(tempRoot, 'workspace');
+
+  try {
+    await cp('fixtures/sample-workspace', workspaceRoot, { recursive: true });
+    const stackPath = join(workspaceRoot, 'infra/payments-api/Pulumi.tenant-shared.non-prod.yaml');
+    await writeFile(
+      stackPath,
+      'config:\n  payments-api:environment: tenant-shared.non-prod\n',
+      'utf8'
+    );
+    await writeFile(
+      join(workspaceRoot, 'infra-agent.config.json'),
+      JSON.stringify({ profileId: 'generic' }),
+      'utf8'
+    );
+
+    const preflight = await buildRunPreflight(
+      'update pulumi tenant-shared non-prod stack for payments-api image tag to 2.4.0',
+      workspaceRoot
+    );
+
+    const editPlan = buildEditPlan({
+      task: preflight.task,
+      preflight,
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {
+            path: stackPath,
+            content: await readFile(stackPath, 'utf8'),
+            truncated: false
+          }
+        }
+      ],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'pulumi preview --cwd infra/payments-api --stack tenant-shared.non-prod --non-interactive',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'error: missing required configuration variable "payments-api:imageTag"; run `pulumi config set payments-api:imageTag <value>`'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'pulumi-missing-config',
+          repairable: true,
+          sourceCommand: 'pulumi preview --cwd infra/payments-api --stack tenant-shared.non-prod --non-interactive',
+          message: 'error: missing required configuration variable "payments-api:imageTag"; run `pulumi config set payments-api:imageTag <value>`',
+          metadata: {
+            missingConfigKey: 'payments-api:imageTag'
+          }
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    });
+
+    assert.equal(editPlan?.kind, 'pulumi-missing-config-repair');
+    assert.equal(editPlan?.writes[0]?.path, 'infra/payments-api/Pulumi.tenant-shared.non-prod.yaml');
+    assert.equal(editPlan?.pulumiConfigOperations?.[0]?.stackName, 'tenant-shared.non-prod');
+    assert.match(editPlan?.writes[0]?.content ?? '', /payments-api:imageTag: 2\.4\.0/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('buildEditPlan creates a bounded Terraform missing-required-argument repair plan', async () => {

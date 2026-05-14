@@ -93,7 +93,12 @@ function detectImageTag(task: string): string | null {
 
 function extractStackNameFromCommand(command: string): string | null {
   const match = command.match(/--stack\s+([^\s]+)/);
-  return match?.[1] ?? null;
+  const stackRef = match?.[1]?.trim();
+  if (!stackRef) {
+    return null;
+  }
+
+  return stackRef.split('/').filter(Boolean).at(-1) ?? null;
 }
 
 function extractProjectName(projectFileContent: string | null, projectRoot: string): string {
