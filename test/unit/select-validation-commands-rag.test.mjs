@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { selectValidationCommands } from '../../src/agent/select-validation-commands.ts';
 
 const CHART_ROOT = 'charts/payments-api';
+const PULUMI_ROOT = 'infra/payments-api';
 const TERRAFORM_ROOT = 'terraform/payments-api';
 
 function baseUnit(overrides = {}) {
@@ -126,6 +127,60 @@ function terraformKnowledgePack(units) {
   };
 }
 
+function pulumiKnowledgePack(units) {
+  return {
+    kind: 'infra-agent.knowledge-pack',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    packId: 'pulumi-validation-rag-pack',
+    workspaceRoot: '/workspace',
+    cacheRoot: '/workspace/.infra-agent/knowledge-cache',
+    requestedDomains: ['pulumi'],
+    targetPaths: [PULUMI_ROOT],
+    sourceIds: ['pulumi-source'],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: 0,
+    includedFactCount: 0,
+    omittedFactCount: 0,
+    unitCount: units.length,
+    includedUnitCount: units.length,
+    omittedUnitCount: 0,
+    maxFacts: 6,
+    maxUnits: 6,
+    staleSourceCount: 0,
+    storagePolicy: {
+      publicReference: 0,
+      workspacePrivate: 1,
+      shareableByDefault: 0,
+      explicitOptInRequired: 0
+    },
+    sources: [
+      {
+        id: 'pulumi-source',
+        domain: 'pulumi',
+        targetPath: PULUMI_ROOT,
+        kind: 'pulumi-config',
+        name: 'pulumi-config:payments-api',
+        factCount: 0,
+        contentHash: 'c'.repeat(64),
+        fetchedAt: '2026-05-05T00:00:00.000Z',
+        stale: false,
+        freshness: 'fresh',
+        storagePolicy: {
+          scope: 'workspace-private',
+          defaultStore: 'local-only',
+          shareableByDefault: false,
+          requiresExplicitOptIn: false,
+          reason: 'Workspace Pulumi stack configuration source.'
+        }
+      }
+    ],
+    facts: [],
+    units
+  };
+}
+
 function baseTerraformUnit(overrides = {}) {
   return {
     path: 'unit.terraform.validation',
@@ -134,6 +189,19 @@ function baseTerraformUnit(overrides = {}) {
     extractionMethod: 'repo-local-guidance',
     sourceId: 'terraform-source',
     sourceLocator: 'knowledge/terraform-validation.json',
+    privacyScope: 'workspace-private',
+    ...overrides
+  };
+}
+
+function basePulumiUnit(overrides = {}) {
+  return {
+    path: 'unit.pulumi.validation',
+    summary: 'Compact Pulumi validation unit',
+    confidence: 'high',
+    extractionMethod: 'repo-local-guidance',
+    sourceId: 'pulumi-source',
+    sourceLocator: 'knowledge/pulumi-validation.json',
     privacyScope: 'workspace-private',
     ...overrides
   };
@@ -158,6 +226,43 @@ function runtime({ commands, knowledgeFacts = null }) {
           {
             kind: 'helm',
             target: CHART_ROOT,
+            commands
+          }
+        ]
+      }
+    },
+    knowledgeFacts,
+    retrievedContext: [],
+    observations: [],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+}
+
+function pulumiRuntime({ commands, knowledgeFacts = null }) {
+  return {
+    task: 'update payments-api Pulumi project',
+    preflight: {
+      profile: {
+        id: 'generic'
+      },
+      requestedDomains: ['pulumi'],
+      targetCandidates: [
+        {
+          kind: 'pulumi-project',
+          path: PULUMI_ROOT
+        }
+      ],
+      validation: {
+        plan: [
+          {
+            kind: 'pulumi',
+            target: PULUMI_ROOT,
             commands
           }
         ]
@@ -374,6 +479,114 @@ test('Terraform command selection keeps original order and cap without related R
       baseTerraformUnit({
         unitType: 'guidance',
         topic: 'terraform-tagging',
+        summary: 'Keep common provider tags consistent across resources.',
+        appliesWhen: ['editing shared tags'],
+        risk: 'Inconsistent tags make ownership unclear.'
+      })
+    ])
+  }));
+
+  assert.deepEqual(commands, [
+    'custom validation 1',
+    'custom validation 2',
+    'custom validation 3',
+    'custom validation 4',
+    'custom validation 5',
+    'custom validation 6'
+  ]);
+});
+
+test('Pulumi missing-config diagnostic prioritizes matching stack preview inside the six-command cap', () => {
+  const devPreviewCommand = `pulumi preview --stack dev --cwd ${PULUMI_ROOT}`;
+  const prodPreviewCommand = `pulumi preview --stack prod --cwd ${PULUMI_ROOT}`;
+  const commands = selectValidationCommands(pulumiRuntime({
+    commands: [
+      'custom validation 1',
+      'custom validation 2',
+      'custom validation 3',
+      'custom validation 4',
+      'custom validation 5',
+      'custom validation 6',
+      prodPreviewCommand,
+      devPreviewCommand
+    ],
+    knowledgeFacts: pulumiKnowledgePack([
+      basePulumiUnit({
+        unitType: 'diagnostic',
+        engine: 'pulumi',
+        sourceLocator: 'diagnostics/pulumi preview --stack org/project/dev',
+        signature: 'missing required stack config',
+        likelyCause: 'The selected stack is missing required configuration.',
+        recommendedReview: [
+          'Repair missing config, then rerun pulumi preview --stack org/project/dev.'
+        ]
+      })
+    ])
+  }));
+
+  assert.equal(commands.length, 6);
+  assert.equal(commands[0], devPreviewCommand);
+  assert.equal(commands[1], prodPreviewCommand);
+  assert.ok(commands.includes('custom validation 1'));
+  assert.ok(commands.includes('custom validation 4'));
+  assert.equal(commands.includes('custom validation 5'), false);
+  assert.equal(commands.includes('custom validation 6'), false);
+});
+
+test('Pulumi alias/import recipe prioritizes previews while preserving preview order without an explicit stack', () => {
+  const prodPreviewCommand = `pulumi preview --stack prod --cwd ${PULUMI_ROOT}`;
+  const devPreviewCommand = `pulumi preview --stack dev --cwd ${PULUMI_ROOT}`;
+  const commands = selectValidationCommands(pulumiRuntime({
+    commands: [
+      'custom validation 1',
+      'custom validation 2',
+      'custom validation 3',
+      'custom validation 4',
+      'custom validation 5',
+      'custom validation 6',
+      prodPreviewCommand,
+      devPreviewCommand
+    ],
+    knowledgeFacts: pulumiKnowledgePack([
+      basePulumiUnit({
+        unitType: 'recipe',
+        name: 'Pulumi alias import state repair review',
+        summary: 'Use aliases or import when logical rename work must retain existing resources.',
+        steps: [
+          'Review alias/import options before editing resource names.',
+          'Run pulumi preview and inspect state repair behavior before applying changes.'
+        ],
+        requiresApproval: false,
+        mutationAllowed: false
+      })
+    ])
+  }));
+
+  assert.equal(commands.length, 6);
+  assert.equal(commands[0], prodPreviewCommand);
+  assert.equal(commands[1], devPreviewCommand);
+  assert.ok(commands.includes('custom validation 1'));
+  assert.ok(commands.includes('custom validation 4'));
+  assert.equal(commands.includes('custom validation 5'), false);
+  assert.equal(commands.includes('custom validation 6'), false);
+});
+
+test('Pulumi command selection keeps original order and cap without related RAG units', () => {
+  const commands = selectValidationCommands(pulumiRuntime({
+    commands: [
+      'custom validation 1',
+      'custom validation 2',
+      'custom validation 3',
+      'custom validation 4',
+      'custom validation 5',
+      'custom validation 6',
+      `pulumi preview --stack dev --cwd ${PULUMI_ROOT}`,
+      `pulumi preview --stack prod --cwd ${PULUMI_ROOT}`
+    ],
+    knowledgeFacts: pulumiKnowledgePack([
+      basePulumiUnit({
+        unitType: 'guidance',
+        topic: 'pulumi-tagging',
         summary: 'Keep common provider tags consistent across resources.',
         appliesWhen: ['editing shared tags'],
         risk: 'Inconsistent tags make ownership unclear.'
