@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  mkdtemp,
+  rm
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+import { runSingleStep } from '../../src/agent/run-single-step.ts';
 import { RuleBasedPlanningModel } from '../../src/agent/rule-based-planner.ts';
+import { writeMultiTargetUnitArtifactRegistryWorkspace } from '../support/planner-rag-unit-fixtures.mjs';
 
-function buildHelmRecipeKnowledgePack(unit) {
+function buildHelmRecipeKnowledgePack(unit, targetPath = 'charts/payments-api', sourceName = 'chart-docs:payments-api') {
   return {
     kind: 'infra-agent.knowledge-pack',
     schemaVersion: 1,
@@ -11,7 +19,7 @@ function buildHelmRecipeKnowledgePack(unit) {
     workspaceRoot: '/workspace',
     cacheRoot: '/workspace/.infra-agent/knowledge-cache',
     requestedDomains: ['helm'],
-    targetPaths: ['charts/payments-api'],
+    targetPaths: [targetPath],
     sourceIds: ['chart-docs-source'],
     sourceCount: 1,
     factSetCount: 1,
@@ -34,9 +42,9 @@ function buildHelmRecipeKnowledgePack(unit) {
       {
         id: 'chart-docs-source',
         domain: 'helm',
-        targetPath: 'charts/payments-api',
+        targetPath,
         kind: 'chart-docs',
-        name: 'chart-docs:payments-api',
+        name: sourceName,
         factCount: 0,
         contentHash: 'b'.repeat(64),
         fetchedAt: '2026-05-05T00:00:00.000Z',
@@ -246,6 +254,142 @@ test('rule-based planner surfaces Helm validation diagnostics for chart values r
   assert.equal(decision.action.payload?.actionFamily, 'helm-validation');
   assert.match(decision.action.summary, /Helm validation failed/i);
   assert.match(decision.action.rationale, /service\.port is declared/i);
+  assert.match(decision.action.rationale, /helm template/i);
+});
+
+test('rule-based planner uses only selected-target kube-prometheus-stack upgrade units from registry artifacts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-helm-upgrade-registry-scope-'));
+
+  try {
+    await writeMultiTargetUnitArtifactRegistryWorkspace(tempRoot);
+    const result = await runSingleStep(
+      'upgrade helm monitoring kube-prometheus-stack values safely',
+      tempRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      {
+        maxTurns: 3,
+        retrievedContextBudget: {
+          maxFacts: 5
+        }
+      }
+    );
+    const lastTurn = result.turns[result.turns.length - 1];
+    const serializedKnowledge = JSON.stringify(result.runtime.knowledgeFacts);
+
+    assert.equal(result.outcome, 'clarification-required');
+    assert.deepEqual(result.runtime.knowledgeFacts?.requestedDomains, ['helm']);
+    assert.deepEqual(result.runtime.knowledgeFacts?.targetPaths, ['charts/monitoring']);
+    assert.equal(lastTurn?.decision.action.kind, 'ask-for-clarification');
+    assert.equal(lastTurn?.decision.action.payload?.actionFamily, 'helm-clarification');
+    assert.ok(result.runtime.knowledgeFacts?.units.some(unit =>
+      unit.unitType === 'recipe'
+      && unit.path === 'recipe.helm.monitoring.safe-upgrade'
+    ));
+    assert.doesNotMatch(serializedKnowledge, /EDGE_HELM_UNIT_SENTINEL/);
+    assert.doesNotMatch(serializedKnowledge, /OPS_TERRAFORM_UNIT_SENTINEL/);
+    assert.doesNotMatch(serializedKnowledge, /WORKER_PULUMI_UNIT_SENTINEL/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rule-based planner surfaces kube-prometheus-stack validation diagnostics before repair', async () => {
+  const model = new RuleBasedPlanningModel();
+  const decision = await model.decideNextAction({
+    runtime: {
+      task: 'review helm template failure for kube-prometheus-stack retention value',
+      preflight: {
+        requestedDomains: ['helm'],
+        requestedEnvironment: 'dev',
+        targetCandidates: [
+          {
+            kind: 'helm-chart',
+            path: 'charts/monitoring',
+            score: 100,
+            reasons: [],
+            details: []
+          },
+          {
+            kind: 'pulumi-project',
+            path: 'infra/api',
+            score: 1,
+            reasons: [],
+            details: []
+          }
+        ],
+        assumptions: [],
+        blockers: [],
+        validation: {
+          validators: [{ name: 'helm', available: true }],
+          plan: [
+            {
+              kind: 'helm',
+              target: 'charts/monitoring',
+              commands: ['helm template charts/monitoring']
+            }
+          ]
+        }
+      },
+      retrievedContext: [],
+      knowledgeFacts: buildHelmRecipeKnowledgePack({
+        unitType: 'diagnostic',
+        path: 'diagnostic.helm.monitoring.retention',
+        summary: 'kube-prometheus-stack validation should check prometheus.prometheusSpec.retention after values migration.',
+        confidence: 'high',
+        extractionMethod: 'provider-diagnostic',
+        sourceId: 'chart-docs-source',
+        sourceLocator: 'UPGRADE.md: retention validation',
+        privacyScope: 'public-reference',
+        engine: 'helm',
+        signature: 'prometheus.prometheusSpec.retention must be a duration string',
+        likelyCause: 'The migrated kube-prometheus-stack values file changed retention to an invalid duration.',
+        recommendedReview: [
+          'Compare old and new kube-prometheus-stack chart defaults for prometheus.prometheusSpec.retention.',
+          'Run helm template for charts/monitoring before applying values edits.'
+        ]
+      }, 'charts/monitoring', 'chart-docs:kube-prometheus-stack'),
+      observations: [
+        {
+          toolName: 'helm_template',
+          safety: 'read_only',
+          output: {}
+        }
+      ],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'helm template charts/monitoring',
+          cwd: '/workspace',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'values validation failed: prometheus.prometheusSpec.retention must be a duration string'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'helm-retention-invalid',
+          repairable: true,
+          sourceCommand: 'helm template charts/monitoring',
+          message: 'prometheus.prometheusSpec.retention must be a duration string.',
+          guidance: 'Review migrated kube-prometheus-stack values before rerunning helm template.',
+          metadata: {
+            missingConfigKey: 'prometheus.prometheusSpec.retention'
+          }
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'validation-blocked');
+  assert.equal(decision.action.payload?.actionFamily, 'helm-validation');
+  assert.match(decision.action.rationale, /kube-prometheus-stack chart defaults/i);
   assert.match(decision.action.rationale, /helm template/i);
 });
 
