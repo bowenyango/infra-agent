@@ -1,10 +1,22 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+
+import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
+import { createFileKnowledgeStore } from '../../src/knowledge/knowledge-store.ts';
+import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
+import {
+  CANONICAL_PUBLIC_EXTRACTION_TARGETS
+} from '../../src/knowledge/public-extraction-targets.ts';
 
 export const CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS = [
   'terraformAwsProviderDocs',
   'pulumiAwsPackageDocs',
   'helmKubePrometheusStackChartDocs'
 ];
+
+export const DEFAULT_CANONICAL_PUBLIC_KNOWLEDGE_PACK_MAX_UNITS = 8;
 
 const FALLBACK_CANONICAL_PUBLIC_KNOWLEDGE_TARGETS = {
   terraformAwsProviderDocs: {
@@ -328,4 +340,74 @@ export async function writeCanonicalPublicKnowledgeCacheFixtures(cacheRoot) {
   }
 
   return entries;
+}
+
+function canonicalPublicExtractionTargetByKey() {
+  return new Map(CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS.map((key, index) => [
+    key,
+    CANONICAL_PUBLIC_EXTRACTION_TARGETS[index]
+  ]));
+}
+
+export async function buildCanonicalPublicKnowledgePacks({
+  maxUnits = DEFAULT_CANONICAL_PUBLIC_KNOWLEDGE_PACK_MAX_UNITS,
+  now = new Date('2026-05-14T12:00:00.000Z'),
+  extractedAt = '2026-05-14T00:00:00.000Z'
+} = {}) {
+  const workspaceRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-canonical-public-pack-workspace-'));
+  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-canonical-public-pack-cache-'));
+
+  try {
+    const inspection = await inspectWorkspace(workspaceRoot);
+    const store = createFileKnowledgeStore(cacheRoot);
+    const fixtures = await writeCanonicalPublicKnowledgeCacheFixtures(cacheRoot);
+    const targets = canonicalPublicExtractionTargetByKey();
+    const packs = [];
+
+    for (const fixture of fixtures) {
+      const target = targets.get(fixture.key);
+      if (!target) {
+        throw new Error(`Missing canonical public extraction target for fixture key: ${fixture.key}`);
+      }
+
+      const pack = await buildKnowledgePack(inspection, {
+        domains: [target.domain],
+        targetPaths: [target.targetPath],
+        sourceIds: [fixture.entry.id],
+        store,
+        now,
+        extractedAt,
+        maxUnits
+      });
+
+      packs.push({
+        key: fixture.key,
+        target,
+        pack
+      });
+    }
+
+    return packs;
+  } finally {
+    await rm(workspaceRoot, { recursive: true, force: true });
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
+}
+
+export function collectObjectKeys(value, keys = new Set()) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectObjectKeys(item, keys);
+    }
+    return keys;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      keys.add(key);
+      collectObjectKeys(child, keys);
+    }
+  }
+
+  return keys;
 }

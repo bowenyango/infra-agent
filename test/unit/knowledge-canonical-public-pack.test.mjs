@@ -1,19 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
 
-import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
-import {
-  CANONICAL_PUBLIC_EXTRACTION_TARGETS
-} from '../../src/knowledge/public-extraction-targets.ts';
 import { budgetKnowledgePackFacts } from '../../src/knowledge/fact-budget.ts';
-import { createFileKnowledgeStore } from '../../src/knowledge/knowledge-store.ts';
-import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 import {
   CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS,
-  writeCanonicalPublicKnowledgeCacheFixtures
+  buildCanonicalPublicKnowledgePacks,
+  collectObjectKeys
 } from '../support/canonical-public-knowledge-fixtures.mjs';
 
 const EXTRACTED_AT = '2026-05-14T00:00:00.000Z';
@@ -37,52 +29,6 @@ const EXPECTED_BY_KEY = {
   }
 };
 
-function targetByKey() {
-  return new Map(CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS.map((key, index) => [
-    key,
-    CANONICAL_PUBLIC_EXTRACTION_TARGETS[index]
-  ]));
-}
-
-async function buildCanonicalPacks() {
-  const workspaceRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-canonical-public-pack-workspace-'));
-  const cacheRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-canonical-public-pack-cache-'));
-
-  try {
-    const inspection = await inspectWorkspace(workspaceRoot);
-    const store = createFileKnowledgeStore(cacheRoot);
-    const fixtures = await writeCanonicalPublicKnowledgeCacheFixtures(cacheRoot);
-    const targets = targetByKey();
-    const packs = [];
-
-    for (const fixture of fixtures) {
-      const target = targets.get(fixture.key);
-      assert.ok(target, fixture.key);
-
-      const pack = await buildKnowledgePack(inspection, {
-        domains: [target.domain],
-        targetPaths: [target.targetPath],
-        sourceIds: [fixture.entry.id],
-        store,
-        now: NOW,
-        extractedAt: EXTRACTED_AT,
-        maxUnits: COMPACT_MAX_UNITS
-      });
-
-      packs.push({
-        key: fixture.key,
-        target,
-        pack
-      });
-    }
-
-    return packs;
-  } finally {
-    await rm(workspaceRoot, { recursive: true, force: true });
-    await rm(cacheRoot, { recursive: true, force: true });
-  }
-}
-
 function assertSourceIdentity(source, target) {
   assert.equal(source.kind, target.expectedSourceIdentity.kind);
   assert.equal(source.name, target.expectedSourceIdentity.name);
@@ -99,24 +45,6 @@ function assertSourceIdentity(source, target) {
   assert.equal(source.storagePolicy.requiresExplicitOptIn, false);
   assert.equal(source.stale, false);
   assert.equal(source.freshness, 'fresh');
-}
-
-function collectObjectKeys(value, keys = new Set()) {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectObjectKeys(item, keys);
-    }
-    return keys;
-  }
-
-  if (value !== null && typeof value === 'object') {
-    for (const [key, child] of Object.entries(value)) {
-      keys.add(key);
-      collectObjectKeys(child, keys);
-    }
-  }
-
-  return keys;
 }
 
 function assertFiveUnitTypes(units) {
@@ -268,7 +196,11 @@ function publicReferenceRagContext(pack) {
 }
 
 test('canonical public targets pack as compact five-type public-reference knowledge', async () => {
-  const packs = await buildCanonicalPacks();
+  const packs = await buildCanonicalPublicKnowledgePacks({
+    maxUnits: COMPACT_MAX_UNITS,
+    now: NOW,
+    extractedAt: EXTRACTED_AT
+  });
 
   assert.deepEqual(packs.map(pack => pack.key), CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS);
 
@@ -298,7 +230,11 @@ test('canonical public targets pack as compact five-type public-reference knowle
 });
 
 test('canonical public-reference units can be consumed as generic RAG context', async () => {
-  const packs = await buildCanonicalPacks();
+  const packs = await buildCanonicalPublicKnowledgePacks({
+    maxUnits: COMPACT_MAX_UNITS,
+    now: NOW,
+    extractedAt: EXTRACTED_AT
+  });
   const contexts = packs.flatMap(({ pack }) => publicReferenceRagContext(pack));
 
   assert.equal(contexts.length, CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS.length * COMPACT_MAX_UNITS);
