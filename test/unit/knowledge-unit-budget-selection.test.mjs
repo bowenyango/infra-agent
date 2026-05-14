@@ -189,6 +189,37 @@ test('knowledge unit budget keeps fresh guidance at five-unit budgets', () => {
   );
 });
 
+test('knowledge unit budget keeps a fresh diagnostic at five-unit budgets', () => {
+  const selected = selectKnowledgePackUnitsForBudget([
+    optionalHelmFact('chart.api.service.targetPort', 'service.targetPort configures the service backend port.'),
+    optionalHelmFact('chart.api.service.metrics.port', 'service.metrics.port configures the metrics service port.'),
+    optionalHelmFact('chart.api.autoscaling.minReplicas', 'autoscaling.minReplicas configures the lower scale bound.'),
+    optionalHelmFact('chart.api.autoscaling.maxReplicas', 'autoscaling.maxReplicas configures the upper scale bound.'),
+    ...helmUnits()
+  ], {
+    sources: helmSources(),
+    requestedDomains: ['helm'],
+    targetPaths: ['charts/api'],
+    maxUnits: 5
+  });
+
+  assert.equal(selected.length, 5);
+  assert.deepEqual(
+    selected.map(unit => unit.unitType).sort(),
+    ['diagnostic', 'example', 'fact', 'guidance', 'recipe']
+  );
+  assert.ok(selected.some(unit =>
+    unit.unitType === 'fact'
+    && unit.required === true
+    && unit.path === 'chart.api.service.port'
+  ));
+  assert.ok(selected.some(unit =>
+    unit.unitType === 'diagnostic'
+    && unit.recommendedReview.includes('Run helm template for the selected chart.')
+  ));
+  assert.equal(selected.some(unit => unit.unitType === 'fact' && unit.required === false), false);
+});
+
 test('knowledge unit budget does not evict protected facts or diagnostics', () => {
   const extraProtectedUnits = [
     {

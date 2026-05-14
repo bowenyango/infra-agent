@@ -261,6 +261,29 @@ function findGuidanceBudgetReplacementIndex(selected: KnowledgePackUnit[]): numb
   return -1;
 }
 
+function findDiagnosticBudgetReplacementIndex(selected: KnowledgePackUnit[]): number {
+  for (let index = selected.length - 1; index >= 0; index -= 1) {
+    const unit = selected[index];
+    if (
+      !isProtectedBudgetUnit(unit)
+      && unit.unitType !== 'example'
+      && unit.unitType !== 'recipe'
+      && unit.unitType !== 'guidance'
+    ) {
+      return index;
+    }
+  }
+
+  for (let index = selected.length - 1; index >= 0; index -= 1) {
+    const unit = selected[index];
+    if (!isProtectedBudgetUnit(unit) && unit.unitType === 'guidance') {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
 function selectPreferredBudgetUnit(
   ranked: KnowledgePackUnit[],
   selected: KnowledgePackUnit[],
@@ -304,6 +327,27 @@ function selectPreferredGuidanceBudgetUnit(
   }) ?? null;
 }
 
+function selectPreferredDiagnosticBudgetUnit(
+  ranked: KnowledgePackUnit[],
+  selected: KnowledgePackUnit[],
+  sourceById: Map<string, KnowledgePackSource>
+): KnowledgePackUnit | null {
+  const selectedIds = new Set(selected.map(unit => `${unit.sourceId}:${unit.unitType}:${unit.path}:${unit.sourceLocator}`));
+
+  return ranked.find(unit => {
+    if (unit.unitType !== 'diagnostic') {
+      return false;
+    }
+
+    if (selectedIds.has(`${unit.sourceId}:${unit.unitType}:${unit.path}:${unit.sourceLocator}`)) {
+      return false;
+    }
+
+    const source = sourceById.get(unit.sourceId);
+    return source?.stale !== true;
+  }) ?? null;
+}
+
 function hasFreshSelectedUnitType(
   selected: KnowledgePackUnit[],
   sourceById: Map<string, KnowledgePackSource>,
@@ -321,6 +365,16 @@ function hasFreshSelectedGuidance(
 ): boolean {
   return selected.some(unit =>
     unit.unitType === 'guidance'
+    && sourceById.get(unit.sourceId)?.stale !== true
+  );
+}
+
+function hasFreshSelectedDiagnostic(
+  selected: KnowledgePackUnit[],
+  sourceById: Map<string, KnowledgePackSource>
+): boolean {
+  return selected.some(unit =>
+    unit.unitType === 'diagnostic'
     && sourceById.get(unit.sourceId)?.stale !== true
   );
 }
@@ -411,6 +465,16 @@ export function selectKnowledgePackUnitsForBudget(
     const candidate = selectPreferredGuidanceBudgetUnit(ranked, selected, sourceById);
     if (candidate) {
       const replacementIndex = findGuidanceBudgetReplacementIndex(selected);
+      if (replacementIndex !== -1) {
+        selected[replacementIndex] = candidate;
+      }
+    }
+  }
+
+  if (maxUnits >= 5 && !hasFreshSelectedDiagnostic(selected, sourceById)) {
+    const candidate = selectPreferredDiagnosticBudgetUnit(ranked, selected, sourceById);
+    if (candidate) {
+      const replacementIndex = findDiagnosticBudgetReplacementIndex(selected);
       if (replacementIndex !== -1) {
         selected[replacementIndex] = candidate;
       }
