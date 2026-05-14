@@ -13,7 +13,10 @@ import {
   join
 } from 'node:path';
 import { runSingleStep } from '../../src/agent/run-single-step.ts';
-import { buildKnowledgeCacheId } from '../../src/knowledge/cache.ts';
+import {
+  buildKnowledgeCacheId,
+  writeKnowledgeCacheEntry
+} from '../../src/knowledge/cache.ts';
 
 const terraformMovedBlockUnits = [
   {
@@ -174,6 +177,64 @@ async function writeTerraformMovedBlockRegistryRagWorkspace(root) {
   );
 }
 
+function terraformS3BucketRegistrySource() {
+  return {
+    kind: 'terraform-registry',
+    name: 'resource:aws_s3_bucket',
+    provider: 'hashicorp/aws',
+    module: 'terraform/app/main.tf',
+    url: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket'
+  };
+}
+
+function terraformS3BucketPublicDocsMarkdown() {
+  return [
+    '# aws_s3_bucket',
+    '',
+    'CANONICAL_RAW_DOC_PAYLOAD_SENTINEL_DO_NOT_LEAK appears only in the raw Registry-style page body.',
+    '',
+    '## Important',
+    '',
+    'When a Terraform resource address is renamed while the remote bucket should be retained, add a Terraform moved block that maps the old resource address to the new resource address before planning.',
+    '',
+    '## Example Usage',
+    '',
+    '```hcl',
+    'moved {',
+    '  from = aws_s3_bucket.old',
+    '  to   = aws_s3_bucket.api',
+    '}',
+    '```',
+    '',
+    '## Argument Reference',
+    '',
+    '- `bucket` - (Optional) Name of the S3 bucket; if only the Terraform resource address is renamed, use a Terraform moved block to map the old address to the new address.',
+    ''
+  ].join('\n');
+}
+
+async function writeTerraformMovedBlockPublicDocsRagWorkspace(root) {
+  const cacheRoot = join(root, '.infra-agent/knowledge-cache');
+
+  await writeTerraformRoot(root, 'terraform/app');
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeKnowledgeCacheEntry(cacheRoot, {
+    source: terraformS3BucketRegistrySource(),
+    contentType: 'text/markdown',
+    content: terraformS3BucketPublicDocsMarkdown(),
+    fetchedAt: '2026-05-13T00:00:00.000Z',
+    staleAfter: '2026-06-13T00:00:00.000Z'
+  });
+}
+
 test('rule-based agent applies Terraform moved-block edit plans from compact RAG units', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-moved-rag-'));
 
@@ -245,6 +306,76 @@ test('rule-based agent applies Terraform moved-block edit plans from registry-ba
     assert.ok(renameUnit);
     assert.equal(renameUnitSource?.kind, 'knowledge-unit-artifact');
     assert.equal(result.runtime.knowledgeFacts?.factCount, 0);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rule-based agent applies Terraform moved-block edit plans from public Registry compact units under a tight budget', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-terraform-moved-public-rag-'));
+
+  try {
+    await writeTerraformMovedBlockPublicDocsRagWorkspace(tempRoot);
+    const result = await runSingleStep(
+      'rename terraform app dev from aws_s3_bucket.old to aws_s3_bucket.api',
+      tempRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      {
+        maxTurns: 2,
+        retrievedContextBudget: {
+          maxFacts: 1
+        }
+      }
+    );
+    const movedTf = await readFile(join(tempRoot, 'terraform/app/moved.tf'), 'utf8');
+    const movedBlockPlannerSource = await readFile(
+      resolve(process.cwd(), 'src/agent/edit-plans/terraform-moved-block.ts'),
+      'utf8'
+    );
+
+    assert.ok(result.turns.some(turn =>
+      turn.decision.action.payload?.editPlan?.kind === 'terraform-moved-block'
+    ));
+    assert.ok(result.runtime.appliedWrites.some(write => write.path.endsWith('terraform/app/moved.tf')));
+    assert.equal(movedTf, [
+      'moved {',
+      '  from = aws_s3_bucket.old',
+      '  to   = aws_s3_bucket.api',
+      '}',
+      ''
+    ].join('\n'));
+
+    const movedUnit = result.runtime.knowledgeFacts?.units.find(unit =>
+      unit.privacyScope === 'public-reference'
+      && /moved block|resource address|aws_s3_bucket\.old/i.test(JSON.stringify(unit))
+    );
+    const selectedSource = result.runtime.knowledgeFacts?.sources.find(source =>
+      source.id === movedUnit?.sourceId
+    );
+    const serializedKnowledgeFacts = JSON.stringify(result.runtime.knowledgeFacts);
+    const serializedUnits = JSON.stringify(result.runtime.knowledgeFacts?.units);
+
+    assert.ok(movedUnit);
+    assert.equal(selectedSource?.kind, 'terraform-registry');
+    assert.equal(selectedSource?.storagePolicy.scope, 'public-reference');
+    assert.equal(selectedSource?.storagePolicy.shareableByDefault, true);
+    assert.equal(selectedSource?.storagePolicy.requiresExplicitOptIn, false);
+    assert.equal(result.runtime.knowledgeFacts?.storagePolicy.publicReference, 1);
+    assert.equal(result.runtime.knowledgeFacts?.storagePolicy.shareableByDefault, 1);
+    assert.equal(result.runtime.knowledgeFacts?.includedFactCount, 1);
+    assert.equal(result.runtime.knowledgeFacts?.maxFacts, 1);
+    assert.equal(result.runtime.knowledgeFacts?.maxUnits, 1);
+    assert.doesNotMatch(
+      serializedKnowledgeFacts,
+      /rawContent|CANONICAL_RAW_DOC_PAYLOAD_SENTINEL_DO_NOT_LEAK|"content"\s*:/
+    );
+    assert.doesNotMatch(
+      serializedUnits,
+      /rawContent|CANONICAL_RAW_DOC_PAYLOAD_SENTINEL_DO_NOT_LEAK|"content"\s*:|https:\/\/registry\.terraform\.io\/providers\/hashicorp\/aws\/latest\/docs\/resources\/s3_bucket|contentHash|fetchedAt|staleAfter/
+    );
+    assert.doesNotMatch(movedBlockPlannerSource, /aws_s3_bucket|hashicorp\/aws|s3_bucket/i);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
