@@ -222,6 +222,227 @@ async function writeRegistryWorkspace(root) {
   );
 }
 
+async function writeRegistrySelectorWorkspace(root) {
+  await mkdir(join(root, 'terraform/app'), { recursive: true });
+  await mkdir(join(root, 'pulumi/service'), { recursive: true });
+  await mkdir(join(root, 'charts/platform'), { recursive: true });
+  await mkdir(join(root, 'charts/nginx'), { recursive: true });
+  await mkdir(join(root, 'knowledge'), { recursive: true });
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      },
+      knowledgeSources: {
+        unitArtifactRegistries: [
+          {
+            path: 'knowledge/registry.json',
+            name: 'multi-domain-unit-registry'
+          }
+        ]
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'knowledge/registry.json'),
+    `${JSON.stringify({
+      kind: 'infra-agent.knowledge-unit-registry',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      entries: [
+        {
+          domain: 'terraform',
+          targetPath: 'terraform/app',
+          provider: 'hashicorp/aws',
+          artifact: {
+            path: 'knowledge/tf-aws.units.json',
+            name: 'terraform-aws-units'
+          }
+        },
+        {
+          domain: 'terraform',
+          targetPath: 'terraform/app',
+          provider: 'hashicorp/google',
+          artifact: {
+            path: 'knowledge/tf-google.units.json',
+            name: 'terraform-google-units'
+          }
+        },
+        {
+          domain: 'pulumi',
+          targetPath: 'pulumi/service',
+          packageName: '@pulumi/aws',
+          artifact: {
+            path: 'knowledge/pulumi-aws.units.json',
+            name: 'pulumi-aws-units'
+          }
+        },
+        {
+          domain: 'pulumi',
+          targetPath: 'pulumi/service',
+          packageName: '@pulumi/kubernetes',
+          artifact: {
+            path: 'knowledge/pulumi-kubernetes.units.json',
+            name: 'pulumi-kubernetes-units'
+          }
+        },
+        {
+          domain: 'helm',
+          targetPath: 'charts/platform',
+          chart: 'kube-prometheus-stack',
+          artifact: {
+            path: 'knowledge/kube-prometheus-stack.units.json',
+            name: 'helm-kube-prometheus-stack-units'
+          }
+        },
+        {
+          domain: 'helm',
+          targetPath: 'charts/nginx',
+          chart: 'nginx',
+          artifact: {
+            path: 'knowledge/nginx.units.json',
+            name: 'helm-nginx-units'
+          }
+        }
+      ]
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'terraform/app/main.tf'),
+    [
+      'terraform {',
+      '  required_providers {',
+      '    aws = {',
+      '      source = "hashicorp/aws"',
+      '      version = "5.37.0"',
+      '    }',
+      '  }',
+      '}',
+      '',
+      'resource "aws_s3_bucket" "api" {',
+      '  bucket = "example-api"',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'pulumi/service/Pulumi.yaml'),
+    ['name: service', 'runtime: nodejs', ''].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'pulumi/service/package.json'),
+    `${JSON.stringify({
+      dependencies: {
+        '@pulumi/aws': '^6.0.0'
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'charts/platform/Chart.yaml'),
+    ['apiVersion: v2', 'name: kube-prometheus-stack', 'version: 1.0.0', ''].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'charts/nginx/Chart.yaml'),
+    ['apiVersion: v2', 'name: nginx', 'version: 1.0.0', ''].join('\n'),
+    'utf8'
+  );
+}
+
+async function writeRegistryDefaultMetadataWorkspace(root) {
+  await mkdir(join(root, 'terraform/aws'), { recursive: true });
+  await mkdir(join(root, 'terraform/google'), { recursive: true });
+  await mkdir(join(root, 'knowledge'), { recursive: true });
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      },
+      knowledgeSources: {
+        unitArtifactRegistries: [
+          {
+            path: 'knowledge/default-registry.json',
+            name: 'default-metadata-registry',
+            provider: 'hashicorp/aws',
+            packageName: '@pulumi/aws',
+            chart: 'kube-prometheus-stack',
+            module: 'default-module'
+          }
+        ]
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'knowledge/default-registry.json'),
+    `${JSON.stringify({
+      kind: 'infra-agent.knowledge-unit-registry',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      entries: [
+        {
+          domain: 'terraform',
+          targetPath: 'terraform/aws',
+          artifact: {
+            path: 'knowledge/shared.units.json',
+            name: 'inherited-default-metadata-units'
+          }
+        },
+        {
+          domain: 'terraform',
+          targetPath: 'terraform/google',
+          provider: 'hashicorp/google',
+          packageName: '@pulumi/kubernetes',
+          chart: 'nginx',
+          module: 'override-module',
+          artifact: {
+            path: 'knowledge/shared.units.json',
+            name: 'override-metadata-units'
+          }
+        }
+      ]
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'terraform/aws/main.tf'),
+    [
+      'terraform {',
+      '  required_providers {',
+      '    aws = { source = "hashicorp/aws" }',
+      '  }',
+      '}',
+      'resource "aws_s3_bucket" "api" {',
+      '  bucket = "example-api"',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'terraform/google/main.tf'),
+    [
+      'terraform {',
+      '  required_providers {',
+      '    google = { source = "hashicorp/google" }',
+      '  }',
+      '}',
+      'resource "google_compute_network" "api" {',
+      '  name = "api"',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+}
+
 test('configured prebuilt knowledge unit artifacts are listed as local sources', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-unit-artifact-source-'));
 
@@ -241,6 +462,95 @@ test('configured prebuilt knowledge unit artifacts are listed as local sources',
     assert.equal(source.requiresFetch, false);
     assert.equal(source.cacheStatus, 'local');
     assert.equal(source.storagePolicy.scope, 'workspace-private');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('registry metadata selectors choose matching artifacts across Terraform, Pulumi, and Helm targets', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-unit-artifact-selector-'));
+
+  try {
+    await writeRegistrySelectorWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+    const report = await buildKnowledgeSourcesReport(inspection, {
+      domains: ['terraform', 'pulumi', 'helm'],
+      targetPaths: ['terraform/app', 'pulumi/service', 'charts/platform']
+    });
+    const artifacts = report.sources
+      .filter(entry => entry.source.kind === 'knowledge-unit-artifact')
+      .map(entry => ({
+        domain: entry.domain,
+        targetPath: entry.targetPath,
+        name: entry.source.name,
+        provider: entry.source.provider,
+        packageName: entry.source.packageName,
+        chart: entry.source.chart
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    assert.deepEqual(artifacts, [
+      {
+        domain: 'helm',
+        targetPath: 'charts/platform',
+        name: 'helm-kube-prometheus-stack-units',
+        provider: undefined,
+        packageName: undefined,
+        chart: 'kube-prometheus-stack'
+      },
+      {
+        domain: 'pulumi',
+        targetPath: 'pulumi/service',
+        name: 'pulumi-aws-units',
+        provider: undefined,
+        packageName: '@pulumi/aws',
+        chart: undefined
+      },
+      {
+        domain: 'terraform',
+        targetPath: 'terraform/app',
+        name: 'terraform-aws-units',
+        provider: 'hashicorp/aws',
+        packageName: undefined,
+        chart: undefined
+      }
+    ]);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('registry default metadata is inherited, entry metadata overrides it, and artifact source ids include metadata', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-unit-artifact-default-selector-'));
+
+  try {
+    await writeRegistryDefaultMetadataWorkspace(tempRoot);
+    const inspection = await inspectWorkspace(tempRoot);
+    const report = await buildKnowledgeSourcesReport(inspection, {
+      domains: ['terraform'],
+      targetPaths: ['terraform/aws', 'terraform/google']
+    });
+    const inherited = report.sources.find(entry => entry.source.name === 'inherited-default-metadata-units');
+    const override = report.sources.find(entry => entry.source.name === 'override-metadata-units');
+
+    assert.ok(inherited);
+    assert.ok(override);
+    assert.equal(inherited?.source.provider, 'hashicorp/aws');
+    assert.equal(inherited?.source.packageName, '@pulumi/aws');
+    assert.equal(inherited?.source.chart, 'kube-prometheus-stack');
+    assert.equal(inherited?.source.module, 'default-module');
+    assert.equal(override?.source.provider, 'hashicorp/google');
+    assert.equal(override?.source.packageName, '@pulumi/kubernetes');
+    assert.equal(override?.source.chart, 'nginx');
+    assert.equal(override?.source.module, 'override-module');
+    assert.notEqual(inherited?.id, override?.id);
+    assert.notEqual(
+      buildKnowledgeCacheId(inherited.source),
+      buildKnowledgeCacheId({
+        ...inherited.source,
+        provider: 'hashicorp/google'
+      })
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

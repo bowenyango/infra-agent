@@ -52,6 +52,10 @@ export interface WorkspaceKnowledgeUnitArtifactRegistrySourceConfig {
   url?: string;
   name?: string;
   version?: string;
+  provider?: string;
+  packageName?: string;
+  chart?: string;
+  module?: string;
 }
 
 export interface WorkspaceApprovalPathRule {
