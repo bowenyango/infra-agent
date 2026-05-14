@@ -271,7 +271,7 @@ function guidanceUnitFromSection(
   section: MarkdownSection,
   privacyScope: KnowledgeUnitPrivacyScope
 ): KnowledgeGuidanceUnit | null {
-  if (!/\b(best practices?|notes?|important|limitations?|caveats?|constraints?|values?|inputs?|arguments?|argument reference|parameters?|requirements?|restrictions?)\b/i.test(section.title)) {
+  if (!/\b(best practices?|notes?|important|warnings?|compatibility|prerequisites?|breaking changes?|deprecations?|deprecated|limitations?|caveats?|constraints?|values?|inputs?|arguments?|argument reference|parameters?|requirements?|restrictions?)\b/i.test(section.title)) {
     return null;
   }
 
@@ -291,7 +291,7 @@ function guidanceUnitFromSection(
     tokenEstimate: tokenEstimateFor(section.title, summary),
     topic: section.slug,
     appliesWhen: [`${entry.source.name} docs mention ${section.title}.`],
-    risk: /\b(cannot|must|avoid|limitation|caveat|warning|required)\b/i.test(summary)
+    risk: /\b(cannot|must|avoid|limitation|caveat|warning|deprecated|deprecation|breaking|incompatible|prerequisite|required)\b/i.test(summary)
       ? summary
       : undefined
   };

@@ -242,9 +242,9 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
         '});',
         '```',
         '',
-        '## Important Notes',
+        '## Compatibility Warnings',
         '',
-        'Bucket names are globally unique and should be reviewed before replacement.',
+        'Bucket names are globally unique and incompatible replacements should be reviewed before changing identity fields.',
         '',
         '## Migration Workflow',
         '',
@@ -293,8 +293,9 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
     ));
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'guidance'
-      && unit.topic === 'important-notes'
+      && unit.topic === 'compatibility-warnings'
       && /globally unique/i.test(unit.summary)
+      && /incompatible/i.test(unit.risk ?? '')
     ));
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'diagnostic'
