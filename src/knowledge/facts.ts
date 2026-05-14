@@ -236,7 +236,7 @@ function extractTerraformBulletFacts(
   }
 
   const facts: KnowledgeFact[] = [];
-  const bulletPattern = /(?:^|\n)\s*[-*]\s+`([^`]+)`\s*[-–]\s*([^\n]+)/g;
+  const bulletPattern = /(?:^|\n)\s*[-*]\s+`([^`]+)`(?:\s*[-–:]\s*|\s+(?=\((?:Optional|Required|Computed)\)))([^\n]+)/g;
   for (const match of section.matchAll(bulletPattern)) {
     const name = match[1]?.trim();
     const description = match[2]?.trim();

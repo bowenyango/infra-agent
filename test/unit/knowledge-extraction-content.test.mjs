@@ -54,7 +54,7 @@ test('knowledge fact extractor summarizes Terraform Registry markdown from cache
         '',
         '## Argument Reference',
         '',
-        '- `bucket` - (Optional) Name of the bucket. Forces replacement.',
+        '- `bucket` (Optional) Name of the bucket. Forces replacement.',
         '- `tags` - (Optional) Map of tags for the bucket.',
         '',
         '## Attributes Reference',
