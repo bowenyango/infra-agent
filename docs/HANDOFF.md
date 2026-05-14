@@ -6,6 +6,62 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-14 Target-Scoped Registry RAG Phase
+
+Status:
+
+- The active RAG path now treats reviewed `infra-agent.knowledge-units`
+  artifacts as reusable public or internal references selected by structured
+  metadata, not by raw document recall or provider-specific parser branches.
+- The canonical regression anchors remain Terraform HashiCorp AWS provider
+  docs, Pulumi AWS package docs, and Helm `kube-prometheus-stack`, but the
+  implementation must stay provider/package/chart neutral.
+- Planner-facing RAG checks should route through the shared planner knowledge
+  unit selector before adding new decision logic. Do not add another round of
+  ad hoc planner regex scans across every unit in the pack.
+
+Completed in this phase:
+
+- Added registry artifact selectors for Terraform provider/module, Pulumi
+  package/module, Helm chart, and domain/target metadata so generic registries
+  can carry multiple public or internal unit artifacts without leaking
+  unrelated targets into a task.
+- Added multi-target CLI coverage proving source discovery, extraction, and
+  packing select only the requested `terraform/app`, `infra/api`, or
+  `charts/monitoring` unit artifacts while preserving all five unit families.
+- Fixed Pulumi stack targeting so `stack` is treated as a standalone Pulumi
+  token and Helm names such as `kube-prometheus-stack` do not trigger Pulumi
+  routing.
+- Scoped runtime knowledge selection to the chosen target per requested domain
+  and preserved selected workflow recipe units in the initial runtime pack.
+- Added runtime/planner regressions proving Terraform, Pulumi, and Helm RAG
+  facts stay target-scoped and do not include sentinel units from unrelated
+  workspace targets.
+- Introduced `planner-knowledge-unit-selector` as the shared selector for
+  planner RAG signals such as Terraform rename review, Pulumi rename/validation
+  review, and Helm upgrade/validation review.
+- Routed rule-based planner RAG checks through the shared selector so source
+  domain, target path, stale source state, and signal type are enforced in one
+  place before planner decisions consume compact units.
+
+Validation:
+
+- Focused selector, planner, CLI, and runtime tests passed during the phase:
+  `planner-knowledge-unit-selector`, Terraform/Pulumi/Helm planner RAG tests,
+  multi-target knowledge artifact CLI tests, and runtime target-scope tests.
+- `npm run lint` passed after selector integration.
+
+Recommended next work:
+
+1. Extend selector ranking with explicit task action, validation issue, and
+   resource/module/chart identity reasons so prompt and edit-plan builders can
+   explain why a compact unit was selected.
+2. Continue feature work on public/internal registry download and local cache
+   reuse for reviewed artifacts; keep team-upload boundary expansion out of the
+   feature path unless a concrete upload workflow is requested.
+3. Add live opt-in extraction smoke around the canonical public targets only
+   after the offline target-scoped registry behavior remains stable.
+
 ## 2026-05-14 RAG Runtime and Edit-Plan Phase
 
 Status:

@@ -50,6 +50,16 @@ Terraform, and Pulumi units also influence validation command selection before
 the six-command cap, including Helm template/lint, Terraform fmt/validate/plan,
 and matching-stack Pulumi preview commands.
 
+The current registry RAG implementation also supports target-scoped
+`infra-agent.knowledge-units` artifact discovery by structured metadata. Public
+or internal registries can describe Terraform provider/module, Pulumi
+package/module, and Helm chart artifacts generically. Runtime knowledge
+selection now keeps only the selected target per requested domain, preserves
+selected workflow recipes, and routes planner RAG signals through the shared
+planner knowledge unit selector. Future planner work should add new signals or
+ranking reasons to that selector instead of scanning all compact units directly
+inside planner branches.
+
 The canonical public extraction target API and first target regressions now
 exist for the agreed public examples, and current work should keep using the
 canonical public target resolver plus compact target summaries:
