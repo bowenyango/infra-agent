@@ -64,12 +64,22 @@ infra-agent knowledge index ... --json
 infra-agent knowledge validate <artifact.json> --json
 ```
 
+Run the canonical public RAG acceptance shards directly while changing
+extraction or packing:
+
+```sh
+npm run test:unit -- knowledge-canonical-public-extraction
+npm run test:unit -- knowledge-canonical-public-pack
+```
+
 Focused tests should prove the canonical public target resolver, target
 summaries, `infra-agent.knowledge-units`, metadata index output, budget
 `unitIndex`, and index validator stay generic for Terraform, Pulumi, and Helm.
 Use HashiCorp AWS provider docs, `@pulumi/aws`, and
 `kube-prometheus-stack` only as regression anchors; do not add
-provider-specific parser assertions for those examples.
+provider-specific parser assertions for those examples. The canonical public
+fixtures intentionally use generic heading variants to prevent
+provider-specific parser coupling.
 
 Index tests should assert deterministic metadata, count consistency, source
 identity, privacy scope, redaction, stale/unchecked source posture, and

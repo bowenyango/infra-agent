@@ -35,6 +35,17 @@ directly, and larger catalogs can be configured as
 provider, Helm, Pulumi, or internal unit payloads without rerunning extraction
 or loading raw docs into prompts.
 
+Canonical public RAG acceptance is anchored on three extraction targets:
+HashiCorp Terraform AWS provider docs
+`https://registry.terraform.io/providers/hashicorp/aws/latest/docs`
+(`hashicorp/aws`), Pulumi AWS `@pulumi/aws`
+`https://www.pulumi.com/registry/packages/aws/api-docs/`, and Helm
+`kube-prometheus-stack`
+`https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack/`.
+Extraction and packing must stay generic/extensible; the tests intentionally
+use generic heading variants so future parsers do not couple to those specific
+providers or charts.
+
 The initial infrastructure domains are:
 
 - `Pulumi`
