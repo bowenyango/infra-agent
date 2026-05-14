@@ -157,6 +157,75 @@ async function writePulumiAliasKnowledgeWorkspace(root, units = null) {
   );
 }
 
+function buildIrrelevantKnowledgePack(domain, targetPath) {
+  const sourceId = `${domain}-irrelevant-guidance`;
+  return {
+    kind: 'infra-agent.knowledge-pack',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    packId: `${domain}-irrelevant-pack`,
+    workspaceRoot: '/workspace',
+    cacheRoot: '/workspace/.infra-agent/knowledge-cache',
+    requestedDomains: [domain],
+    targetPaths: [targetPath],
+    sourceIds: [sourceId],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: 0,
+    includedFactCount: 0,
+    omittedFactCount: 0,
+    unitCount: 1,
+    includedUnitCount: 1,
+    omittedUnitCount: 0,
+    maxFacts: 4,
+    maxUnits: 4,
+    staleSourceCount: 0,
+    storagePolicy: {
+      publicReference: 0,
+      workspacePrivate: 1,
+      shareableByDefault: 0,
+      explicitOptInRequired: 1
+    },
+    sources: [
+      {
+        id: sourceId,
+        domain,
+        targetPath,
+        kind: 'internal-knowledge',
+        name: sourceId,
+        factCount: 0,
+        contentHash: 'c'.repeat(64),
+        fetchedAt: '2026-05-05T00:00:00.000Z',
+        stale: false,
+        freshness: 'fresh',
+        storagePolicy: {
+          scope: 'workspace-private',
+          defaultStore: 'local-only',
+          shareableByDefault: false,
+          requiresExplicitOptIn: true,
+          reason: 'Local internal guidance.'
+        }
+      }
+    ],
+    facts: [],
+    units: [
+      {
+        unitType: 'guidance',
+        path: 'guidance.general.change-review',
+        summary: 'Review requested infrastructure changes against existing files before editing.',
+        confidence: 'medium',
+        extractionMethod: 'repo-local-guidance',
+        sourceId,
+        sourceLocator: 'irrelevant-guidance',
+        privacyScope: 'workspace-private',
+        topic: 'general-change-review',
+        appliesWhen: ['Bounded infrastructure updates'],
+        risk: 'Speculative edits can affect unintended resources.'
+      }
+    ]
+  };
+}
+
 test('agent runtime loads unit-only knowledge packs from configured curated units', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-runtime-unit-only-'));
   let checked = false;
@@ -207,6 +276,54 @@ test('agent runtime loads unit-only knowledge packs from configured curated unit
   }
 });
 
+test('rule-based planner does not ask Terraform rename clarification without relevant units', async () => {
+  const model = new RuleBasedPlanningModel();
+  const decision = await model.decideNextAction({
+    runtime: {
+      task: 'rename terraform api bucket resource safely',
+      preflight: {
+        requestedDomains: ['terraform'],
+        requestedEnvironment: null,
+        targetCandidates: [
+          {
+            kind: 'terraform-root',
+            path: 'terraform/api',
+            score: 100,
+            reasons: [],
+            details: []
+          }
+        ],
+        assumptions: [],
+        blockers: [],
+        validation: {
+          validators: [],
+          plan: []
+        }
+      },
+      retrievedContext: [],
+      knowledgeFacts: buildIrrelevantKnowledgePack('terraform', 'terraform/api'),
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {}
+        }
+      ],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.notEqual(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'no-safe-action');
+});
+
 test('rule-based planner uses Pulumi alias units to ask for resource identity review details', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-alias-rag-'));
 
@@ -241,6 +358,54 @@ test('rule-based planner uses Pulumi alias units to ask for resource identity re
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('rule-based planner does not ask Pulumi rename clarification without relevant units', async () => {
+  const model = new RuleBasedPlanningModel();
+  const decision = await model.decideNextAction({
+    runtime: {
+      task: 'rename pulumi api bucket resource safely',
+      preflight: {
+        requestedDomains: ['pulumi'],
+        requestedEnvironment: null,
+        targetCandidates: [
+          {
+            kind: 'pulumi-project',
+            path: 'infra/api',
+            score: 100,
+            reasons: [],
+            details: []
+          }
+        ],
+        assumptions: [],
+        blockers: [],
+        validation: {
+          validators: [],
+          plan: []
+        }
+      },
+      retrievedContext: [],
+      knowledgeFacts: buildIrrelevantKnowledgePack('pulumi', 'infra/api'),
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {}
+        }
+      ],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.notEqual(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'no-safe-action');
 });
 
 test('rule-based planner gates Pulumi stack config edits behind alias knowledge review', async () => {
