@@ -380,14 +380,14 @@ function selectKnowledgeFactScope(preflight: RunPreflightState): {
   domains: InfraDomainId[];
   targetPaths: string[];
 } {
-  const maxCandidates = preflight.requestedDomains.length === 0 ? 1 : 3;
-  const selectedCandidates = preflight.targetCandidates
-    .filter(candidate => {
-      const candidateDomain = knowledgeDomainForTargetKind(candidate.kind);
-      return preflight.requestedDomains.length === 0
-        || preflight.requestedDomains.includes(candidateDomain);
-    })
-    .slice(0, maxCandidates);
+  const selectedCandidates = preflight.requestedDomains.length === 0
+    ? preflight.targetCandidates.slice(0, 1)
+    : preflight.requestedDomains.flatMap(domain => {
+      const candidate = preflight.targetCandidates.find(target =>
+        knowledgeDomainForTargetKind(target.kind) === domain
+      );
+      return candidate ? [candidate] : [];
+    });
   const domains = preflight.requestedDomains.length > 0
     ? preflight.requestedDomains
     : Array.from(new Set(selectedCandidates.map(candidate => knowledgeDomainForTargetKind(candidate.kind))));
@@ -416,6 +416,43 @@ async function retrieveInitialKnowledgeFacts(
   return pack.factCount > 0 || pack.unitCount > 0 ? pack : null;
 }
 
+function syncInitialWorkflowRecipeKnowledgeUnits(runtime: AgentRuntimeState): AgentRuntimeState {
+  const sourceById = new Map((runtime.knowledgeFacts?.sources ?? []).map(source => [source.id, source]));
+  const selectedWorkflowRecipes = runtime.knowledgeFacts?.units.filter(unit =>
+    unit.unitType === 'recipe' && unit.extractionMethod === 'workflow-recipe'
+    && sourceById.get(unit.sourceId)?.kind === 'knowledge-unit-artifact'
+  ) ?? [];
+  const syncedRuntime = syncInfraWorkflowRecipeKnowledgeUnits(runtime);
+  if (!syncedRuntime.knowledgeFacts || selectedWorkflowRecipes.length === 0) {
+    return syncedRuntime;
+  }
+
+  const selectedRecipeBySourceId = new Map(selectedWorkflowRecipes.map(unit => [unit.sourceId, unit]));
+  const selectedRecipeForSource = (sourceId: string) => {
+    const source = sourceById.get(sourceId);
+    return selectedRecipeBySourceId.get(sourceId) ?? selectedWorkflowRecipes.find(recipe => {
+      const recipeSource = sourceById.get(recipe.sourceId);
+      return source && recipeSource
+        && source.domain === recipeSource.domain
+        && source.targetPath === recipeSource.targetPath;
+    });
+  };
+
+  return {
+    ...syncedRuntime,
+    knowledgeFacts: {
+      ...syncedRuntime.knowledgeFacts,
+      units: syncedRuntime.knowledgeFacts.units.map(unit => {
+        if (unit.unitType !== 'recipe' || unit.extractionMethod !== 'workflow-recipe') {
+          return unit;
+        }
+
+        return selectedRecipeForSource(unit.sourceId) ?? unit;
+      })
+    }
+  };
+}
+
 async function buildInitialRuntime(
   task: string,
   preflight: RunPreflightState,
@@ -439,7 +476,7 @@ async function buildInitialRuntime(
     lastEditPlan: null
   };
 
-  return syncInfraWorkflowRecipeKnowledgeUnits(runtime);
+  return syncInitialWorkflowRecipeKnowledgeUnits(runtime);
 }
 
 function executionHasValidationFailure(execution: AgentDecisionExecution | null): boolean {
