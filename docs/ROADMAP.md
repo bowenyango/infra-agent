@@ -36,6 +36,17 @@ non-expanding safety scaffold. The registry path is read-only artifact
 discovery and download of reviewed `infra-agent.knowledge-units` payloads, not
 remote write/upload execution.
 
+Recent RAG progress moved the canonical public extraction targets into real
+planner, edit-plan, and runtime behavior. Canonical public pack fixtures now
+feed prompt regressions, compact unit search text is shared, Terraform
+moved-block RAG is covered across all five unit types, Helm and Pulumi config
+semantics are derived from compact facts, Helm/Pulumi edit plans consume those
+facts, and runtime selection is scoped to current source/target context to avoid
+target drift. `npm run test:structure` still needs the existing
+`test/unit/knowledge-pack-ranking.test.mjs` shard split; the former oversized
+runtime execution shard has been reduced and Terraform RAG runtime coverage now
+lives in `test/integration/agent-runtime-terraform-rag.test.mjs`.
+
 The canonical public extraction target API and first target regressions now
 exist for the agreed public examples, and current work should keep using the
 canonical public target resolver plus compact target summaries:

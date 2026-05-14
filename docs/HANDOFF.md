@@ -6,6 +6,54 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-14 RAG Runtime and Edit-Plan Phase
+
+Status:
+
+- Feature-first RAG remains the active direction. The compact five unit types
+  are still the retrieval and planner/edit-plan contract: `fact`, `guidance`,
+  `example`, `diagnostic`, and `recipe`.
+- This phase moved the canonical public-target and compact-unit work from
+  extraction/packing coverage into planner, edit-plan, and runtime behavior.
+- Keep the CLI surface focused on user workflows. Avoid adding more internal
+  upload or boundary commands unless a concrete user-facing requirement
+  justifies them.
+
+Completed in this phase:
+
+- Reused canonical public pack fixtures and added prompt regression coverage for
+  the Terraform AWS provider, Pulumi AWS, and `kube-prometheus-stack` canonical
+  extraction targets.
+- Added a shared compact knowledge-unit search text helper so matching behavior
+  is consistent across ranking, planner prompt, and edit-plan paths.
+- Proved Terraform moved-block RAG with compact `guidance`, `example`,
+  `diagnostic`, `recipe`, and `fact` units, including variant coverage.
+- Derived Helm and Pulumi config semantics from compact `fact` units.
+- Added Helm and Pulumi edit-plan coverage proving compact fact units guide
+  generated changes.
+- Scoped selected units to current source/target context to prevent RAG target
+  drift across unrelated infrastructure targets.
+- Split Terraform RAG runtime coverage into a focused integration shard and
+  added a target-scope negative test.
+
+Validation:
+
+- Focused unit and integration tests for the above slices passed during the
+  phase.
+- `npm run test:structure` now only fails on existing oversized shard
+  `test/unit/knowledge-pack-ranking.test.mjs` at 1147 lines.
+- `test/integration/agent-runtime-execution.test.mjs` was reduced to 836 lines.
+- New `test/integration/agent-runtime-terraform-rag.test.mjs` is 286 lines.
+
+Recommended next work:
+
+1. Split `test/unit/knowledge-pack-ranking.test.mjs` by behavior so structure
+   checks pass without weakening coverage.
+2. Continue extraction/runtime RAG work around the five unit types, with
+   emphasis on behavior changes under tight budgets instead of raw-doc recall.
+3. Keep safety boundaries at Claude Code style/weight and avoid internal
+   boundary CLI expansion unless justified by a user workflow.
+
 ## 2026-05-12 Priority Reset: Feature-First RAG
 
 Status:
