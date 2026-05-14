@@ -193,6 +193,77 @@ test('derives Pulumi config semantics from compact config fact units and preserv
   assert.doesNotMatch(serialized, /https:\/\/example\.test|raw\/pulumi|url/);
 });
 
+test('skips fact units whose sourceId does not resolve to a known source', () => {
+  const semantics = deriveConfigSemanticsFromKnowledgeUnits(runtime({
+    knowledgeFacts: knowledgePack({
+      units: [
+        factUnit({
+          sourceId: 'missing-source',
+          values: ['alb', 'nginx']
+        })
+      ]
+    })
+  }));
+
+  assert.deepEqual(semantics, []);
+});
+
+test('skips fact units whose source targetPath is outside pack targetPaths', () => {
+  const semantics = deriveConfigSemanticsFromKnowledgeUnits(runtime({
+    knowledgeFacts: knowledgePack({
+      targetPaths: ['charts/other-service'],
+      sources: [
+        source({
+          targetPath: 'charts/payments-api'
+        })
+      ],
+      units: [
+        factUnit({
+          values: ['alb', 'nginx']
+        })
+      ]
+    })
+  }));
+
+  assert.deepEqual(semantics, []);
+});
+
+test('skips fact units whose config path domain conflicts with the source domain', () => {
+  const semantics = deriveConfigSemanticsFromKnowledgeUnits(runtime({
+    knowledgeFacts: knowledgePack({
+      requestedDomains: ['helm', 'pulumi'],
+      targetPaths: ['charts/payments-api', 'infra/payments-api'],
+      sources: [
+        source({
+          id: 'helm-source',
+          domain: 'helm',
+          targetPath: 'charts/payments-api'
+        }),
+        source({
+          id: 'pulumi-source',
+          domain: 'pulumi',
+          targetPath: 'infra/payments-api',
+          kind: 'pulumi-docs'
+        })
+      ],
+      units: [
+        factUnit({
+          sourceId: 'helm-source',
+          path: 'config.payments-api:imageTag',
+          required: true
+        }),
+        factUnit({
+          sourceId: 'pulumi-source',
+          path: 'values.ingress.className',
+          values: ['alb', 'nginx']
+        })
+      ]
+    })
+  }));
+
+  assert.deepEqual(semantics, []);
+});
+
 test('skips non-fact and ambiguous knowledge units, and refresh merges without duplicates', () => {
   const sourceCommand = 'pulumi preview --cwd infra/payments-api --stack dev';
   const baseRuntime = runtime({

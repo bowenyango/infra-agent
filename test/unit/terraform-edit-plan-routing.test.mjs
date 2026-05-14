@@ -352,6 +352,19 @@ test('buildEditPlan keeps Terraform moved block generation tied to RAG units', a
   assert.equal(editPlan, null);
 });
 
+test('buildEditPlan ignores Terraform moved block knowledge scoped to a different target path', async () => {
+  const preflight = await buildRunPreflight(
+    'rename terraform payments-api dev from aws_s3_bucket.old to aws_s3_bucket.api',
+    'fixtures/terraform-workspace'
+  );
+
+  const editPlan = buildEditPlan(terraformEditRuntime(preflight, {
+    knowledgeFacts: terraformMovedBlockKnowledgePack('terraform/other-service')
+  }));
+
+  assert.equal(editPlan, null);
+});
+
 test('buildEditPlan appends Terraform moved blocks to an observed moved.tf file', async () => {
   const preflight = await buildRunPreflight(
     'rename terraform payments-api dev from aws_s3_bucket.old to aws_s3_bucket.api',

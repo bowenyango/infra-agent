@@ -11,9 +11,22 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function hasTerraformMovedBlockKnowledge(runtime: AgentRuntimeState): boolean {
+function hasTerraformMovedBlockKnowledge(runtime: AgentRuntimeState, targetPath: string): boolean {
+  const knowledgeFacts = runtime.knowledgeFacts;
+  if (!knowledgeFacts) {
+    return false;
+  }
+
+  if (knowledgeFacts.requestedDomains.length > 0 && !knowledgeFacts.requestedDomains.includes('terraform')) {
+    return false;
+  }
+
+  if (knowledgeFacts.targetPaths.length > 0 && !knowledgeFacts.targetPaths.includes(targetPath)) {
+    return false;
+  }
+
   const movedBlockPattern = /\b(terraform|hcl)\b.*\b(rename|renaming|moved[- ]block|moved[- ]blocks|resource[- ]address|state mv|import\/state)\b|\b(rename|renaming|moved[- ]block|moved[- ]blocks|resource[- ]address|state mv|import\/state)\b.*\b(terraform|hcl)\b/i;
-  return (runtime.knowledgeFacts?.units ?? []).some(unit => knowledgeUnitIncludesText(unit, movedBlockPattern));
+  return knowledgeFacts.units.some(unit => knowledgeUnitIncludesText(unit, movedBlockPattern));
 }
 
 function taskRequestsTerraformMovedBlock(task: string): boolean {
@@ -70,12 +83,12 @@ export function buildTerraformMovedBlockEditPlan(runtime: AgentRuntimeState): Ed
     return null;
   }
 
-  if (!hasTerraformMovedBlockKnowledge(runtime)) {
+  const topTerraformTarget = runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
+  if (!topTerraformTarget) {
     return null;
   }
 
-  const topTerraformTarget = runtime.preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
-  if (!topTerraformTarget) {
+  if (!hasTerraformMovedBlockKnowledge(runtime, topTerraformTarget.path)) {
     return null;
   }
 

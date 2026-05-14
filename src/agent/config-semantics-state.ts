@@ -143,14 +143,19 @@ function normalizePulumiKnowledgePath(path: string): string | null {
 }
 
 function targetPathForKnowledgeUnit(
-  source: KnowledgePackSource | undefined,
+  source: KnowledgePackSource,
   runtime: AgentRuntimeState
 ): string | null {
-  if (source?.targetPath) {
+  const targetPaths = runtime.knowledgeFacts?.targetPaths ?? [];
+
+  if (source.targetPath) {
+    if (targetPaths.length > 0 && !targetPaths.includes(source.targetPath)) {
+      return null;
+    }
+
     return source.targetPath;
   }
 
-  const targetPaths = runtime.knowledgeFacts?.targetPaths ?? [];
   if (targetPaths.length === 1) {
     return targetPaths[0] ?? null;
   }
@@ -194,6 +199,21 @@ function valuesForKnowledgeUnit(unit: Extract<KnowledgePackUnit, { unitType: 'fa
   return undefined;
 }
 
+function targetKindForKnowledgeUnit(
+  unit: Extract<KnowledgePackUnit, { unitType: 'fact' }>,
+  source: KnowledgePackSource
+): ConfigSemanticsSummary['targetKind'] | null {
+  if (unit.path.startsWith('values.') || unit.path.startsWith('chart.')) {
+    return source.domain === 'helm' ? 'helm-chart' : null;
+  }
+
+  if (unit.path.startsWith('config.') || unit.path.startsWith('pulumi.')) {
+    return source.domain === 'pulumi' ? 'pulumi-project' : null;
+  }
+
+  return null;
+}
+
 export function deriveConfigSemanticsFromKnowledgeUnits(runtime: AgentRuntimeState): ConfigSemanticsSummary[] {
   const knowledgeFacts = runtime.knowledgeFacts;
   if (!knowledgeFacts) {
@@ -212,16 +232,16 @@ export function deriveConfigSemanticsFromKnowledgeUnits(runtime: AgentRuntimeSta
     }
 
     const source = sourceById.get(unit.sourceId);
+    if (!source) {
+      continue;
+    }
+
     const targetPath = targetPathForKnowledgeUnit(source, runtime);
     if (!targetPath) {
       continue;
     }
 
-    const targetKind = unit.path.startsWith('values.') || unit.path.startsWith('chart.')
-      ? 'helm-chart'
-      : unit.path.startsWith('config.') || unit.path.startsWith('pulumi.')
-        ? 'pulumi-project'
-        : null;
+    const targetKind = targetKindForKnowledgeUnit(unit, source);
     if (!targetKind) {
       continue;
     }
