@@ -303,7 +303,7 @@ function recipeUnitFromSection(
   section: MarkdownSection,
   privacyScope: KnowledgeUnitPrivacyScope
 ): KnowledgeRecipeUnit | null {
-  if (!/\b(how to|configure|configuration|install|installation|upgrade|upgrade guide|migration|migration guide|migrate|workflow|import|state)\b/i.test(section.title)) {
+  if (!/\b(how[- ]?to|configure|configuration|install|installation|upgrade|upgrade guide|migration|migration guide|migrate|workflow|import(?:ing)?|state|guide(?:s)?|procedures?|setup|deploy(?:ment)?|managing state)\b/i.test(section.title)) {
     return null;
   }
 
@@ -323,7 +323,7 @@ function recipeUnitFromSection(
     tokenEstimate: tokenEstimateFor(section.title, ...steps),
     name: section.title,
     steps,
-    requiresApproval: /\b(upgrade|migration|migrate|import|state|rename)\b/i.test(section.title),
+    requiresApproval: /\b(upgrade|migration|migrate|import(?:ing)?|state|rename)\b/i.test(section.title),
     mutationAllowed: false
   };
 }

@@ -252,7 +252,7 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
         '2. Add aliases or import/state review when preserving the physical bucket.',
         '3. Run pulumi preview and inspect replacements.',
         '',
-        '## Import',
+        '## Importing resources',
         '',
         '1. Review the existing cloud resource and matching Pulumi type.',
         '2. Run pulumi import with the provider ID before previewing updates.',
@@ -309,7 +309,7 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
     ));
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'recipe'
-      && unit.name === 'Import'
+      && unit.name === 'Importing resources'
       && unit.requiresApproval === true
       && unit.steps.length === 2
     ));
