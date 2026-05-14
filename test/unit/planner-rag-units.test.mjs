@@ -360,11 +360,117 @@ test('rule-based planner uses Pulumi alias units to ask for resource identity re
   }
 });
 
+test('rule-based planner uses Pulumi recipe units for URN alias clarification without writes', async () => {
+  const model = new RuleBasedPlanningModel();
+  const knowledgeFacts = buildIrrelevantKnowledgePack('pulumi', 'infra/api');
+  knowledgeFacts.units = [
+    {
+      unitType: 'recipe',
+      path: 'recipe.pulumi.alias-urn-review',
+      summary: 'Review Pulumi aliases for old and new URN details before retaining an existing physical resource.',
+      extractionMethod: 'repo-local-guidance',
+      sourceId: knowledgeFacts.sourceIds[0],
+      sourceLocator: 'pulumi-recipes.md',
+      privacyScope: 'workspace-private',
+      name: 'Pulumi alias URN review',
+      steps: ['Collect old and new Pulumi URN details.', 'Review aliases before retaining the existing physical resource.'],
+      requiresApproval: true
+    }
+  ];
+  const runtime = {
+    task: 'review alias for old/new URN retaining physical resource',
+    preflight: {
+      requestedDomains: ['pulumi'],
+      requestedEnvironment: null,
+      targetCandidates: [
+        {
+          kind: 'pulumi-project',
+          path: 'infra/api',
+          score: 100,
+          reasons: [],
+          details: []
+        }
+      ],
+      assumptions: [],
+      blockers: [],
+      validation: {
+        validators: [],
+        plan: []
+      }
+    },
+    retrievedContext: [],
+    knowledgeFacts,
+    observations: [{ toolName: 'read_file', safety: 'read_only', output: {} }],
+    toolSummaries: [],
+    appliedWrites: [],
+    validationResults: [],
+    validationIssues: [],
+    approvalSignals: [],
+    repairAttempts: 0,
+    lastEditPlan: null
+  };
+  const decision = await model.decideNextAction({ runtime });
+
+  assert.equal(runtime.appliedWrites.length, 0);
+  assert.equal(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.payload?.actionFamily, 'pulumi-clarification');
+  assert.equal(decision.action.payload?.clarificationKind, 'general');
+  assert.match(decision.action.summary ?? '', /Pulumi rename, alias, or stack-config/i);
+});
+
 test('rule-based planner does not ask Pulumi rename clarification without relevant units', async () => {
   const model = new RuleBasedPlanningModel();
   const decision = await model.decideNextAction({
     runtime: {
       task: 'rename pulumi api bucket resource safely',
+      preflight: {
+        requestedDomains: ['pulumi'],
+        requestedEnvironment: null,
+        targetCandidates: [
+          {
+            kind: 'pulumi-project',
+            path: 'infra/api',
+            score: 100,
+            reasons: [],
+            details: []
+          }
+        ],
+        assumptions: [],
+        blockers: [],
+        validation: {
+          validators: [],
+          plan: []
+        }
+      },
+      retrievedContext: [],
+      knowledgeFacts: buildIrrelevantKnowledgePack('pulumi', 'infra/api'),
+      observations: [
+        {
+          toolName: 'read_file',
+          safety: 'read_only',
+          output: {}
+        }
+      ],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [],
+      validationIssues: [],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.notEqual(decision.action.kind, 'ask-for-clarification');
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'no-safe-action');
+});
+
+test('rule-based planner does not ask Pulumi URN clarification with irrelevant units', async () => {
+  const model = new RuleBasedPlanningModel();
+  const decision = await model.decideNextAction({
+    runtime: {
+      task: 'review alias for old/new URN retaining physical resource',
       preflight: {
         requestedDomains: ['pulumi'],
         requestedEnvironment: null,
@@ -594,6 +700,120 @@ test('rule-based planner surfaces Pulumi validation diagnostics for alias review
   assert.match(decision.action.summary, /Pulumi validation failed/i);
   assert.match(decision.action.rationale, /CloudFront alias ownership/i);
   assert.match(decision.action.rationale, /aliases, import\/state review/i);
+});
+
+test('rule-based planner ignores stale Pulumi diagnostic for Helm validation failure', async () => {
+  const model = new RuleBasedPlanningModel();
+  const knowledgeFacts = buildIrrelevantKnowledgePack('helm', 'charts/payments-api');
+  knowledgeFacts.sourceIds = ['stale-pulumi-source'];
+  knowledgeFacts.staleSourceCount = 1;
+  knowledgeFacts.sources = [
+    {
+      id: 'stale-pulumi-source',
+      domain: 'pulumi',
+      targetPath: 'infra/edge',
+      kind: 'pulumi-config',
+      name: 'pulumi-config:infra/edge',
+      factCount: 0,
+      contentHash: 'd'.repeat(64),
+      fetchedAt: '2026-05-01T00:00:00.000Z',
+      stale: true,
+      freshness: 'stale',
+      storagePolicy: {
+        scope: 'workspace-private',
+        defaultStore: 'local-only',
+        shareableByDefault: false,
+        requiresExplicitOptIn: true,
+        reason: 'Local Pulumi config source.'
+      }
+    }
+  ];
+  knowledgeFacts.units = [
+    {
+      unitType: 'diagnostic',
+      path: 'diagnostic.pulumi.aws-cloudfront-alias.edge',
+      summary: 'Stale Pulumi preview detected a CloudFront alias ownership conflict.',
+      confidence: 'high',
+      extractionMethod: 'validation-diagnostic',
+      sourceId: 'stale-pulumi-source',
+      sourceLocator: 'pulumi preview --cwd infra/edge --stack prod',
+      privacyScope: 'private-run',
+      engine: 'pulumi',
+      signature: 'CNAMEAlreadyExists',
+      likelyCause: 'Pulumi attempted to create a CloudFront alias before ownership was resolved.',
+      recommendedReview: [
+        'Confirm CloudFront alias ownership, certificate coverage, distribution ownership, and DNS cutover before transfer or import.',
+        'For logical Pulumi renames, prefer reviewed aliases, import/state review, or bounded stack config changes before retrying preview.'
+      ]
+    }
+  ];
+  const decision = await model.decideNextAction({
+    runtime: {
+      task: 'review helm template failure for payments-api service port',
+      preflight: {
+        requestedDomains: ['helm'],
+        requestedEnvironment: 'dev',
+        targetCandidates: [
+          {
+            kind: 'helm-chart',
+            path: 'charts/payments-api',
+            score: 100,
+            reasons: [],
+            details: []
+          }
+        ],
+        assumptions: [],
+        blockers: [],
+        validation: {
+          validators: [{ name: 'helm', available: true }],
+          plan: [
+            {
+              kind: 'helm',
+              target: 'charts/payments-api',
+              commands: ['helm template charts/payments-api']
+            }
+          ]
+        }
+      },
+      retrievedContext: [],
+      knowledgeFacts,
+      observations: [
+        {
+          toolName: 'helm_template',
+          safety: 'read_only',
+          output: {}
+        }
+      ],
+      toolSummaries: [],
+      appliedWrites: [],
+      validationResults: [
+        {
+          command: 'helm template charts/payments-api',
+          cwd: '/workspace',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'template: service.yaml: executing at <.Values.service.port>: nil pointer evaluating interface {}.port'
+        }
+      ],
+      validationIssues: [
+        {
+          kind: 'helm-missing-service-port',
+          repairable: true,
+          sourceCommand: 'helm template charts/payments-api',
+          message: 'Validation failed because .Values.service.port is missing.',
+          guidance: 'Read chart values and define service.port before rerunning helm template.'
+        }
+      ],
+      approvalSignals: [],
+      repairAttempts: 0,
+      lastEditPlan: null
+    }
+  });
+
+  assert.equal(decision.action.kind, 'stop');
+  assert.equal(decision.action.payload?.stopReason, 'validation-blocked');
+  assert.notEqual(decision.action.payload?.actionFamily, 'pulumi-validation');
+  assert.doesNotMatch(decision.action.summary, /Pulumi validation failed/i);
 });
 
 test('rule-based planner surfaces Helm validation diagnostics for chart values review', async () => {

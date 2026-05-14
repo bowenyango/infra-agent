@@ -169,7 +169,7 @@ function hasTerraformRenameKnowledge(input: AgentPlanningInput): boolean {
 }
 
 function hasPulumiRenameKnowledge(input: AgentPlanningInput): boolean {
-  const unitPattern = /\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b.*\b(rename|replacement|resource name|import\/state|logical name)\b|\b(rename|replacement|resource name|import\/state|logical name)\b.*\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b/i;
+  const unitPattern = /\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b.*\b(rename|replacement|resource name|import\/state|state repair|logical name|adopt existing|retain existing|retaining physical resource|physical resource)\b|\b(rename|replacement|resource name|import\/state|state repair|logical name|adopt existing|retain existing|retaining physical resource|physical resource)\b.*\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b/i;
   return (input.runtime.knowledgeFacts?.units ?? []).some(unit =>
     (unit.unitType === 'guidance' || unit.unitType === 'diagnostic' || unit.unitType === 'recipe')
     && knowledgeUnitIncludesText(unit, unitPattern)
@@ -204,12 +204,27 @@ function summarizeHelmDiagnosticReview(unit: Extract<KnowledgePackUnit, { unitTy
   return review.length > 0 ? review : unit.likelyCause;
 }
 
+function hasCurrentPulumiValidationFailure(input: AgentPlanningInput): boolean {
+  const failedCommands = new Set(input.runtime.validationResults
+    .filter(result => result.exitCode !== 0)
+    .map(result => result.command));
+
+  return input.runtime.validationResults.some(result =>
+    result.exitCode !== 0
+    && /\bpulumi\b.*\b(preview|up|update)\b/i.test(result.command)
+  )
+  || input.runtime.validationIssues.some(issue =>
+    issue.kind.startsWith('pulumi-')
+    && failedCommands.has(issue.sourceCommand)
+  );
+}
+
 function taskRequestsTerraformRenameReview(task: string): boolean {
   return /\b(rename|renaming|moved block|moved blocks|state mv|move resource|resource address|refactor|adopt|import existing|retain existing)\b/i.test(task);
 }
 
 function taskRequestsPulumiRenameReview(task: string): boolean {
-  return /\b(rename|renaming|alias|aliases|move resource|resource name|refactor|adopt|import existing|retain existing|replacement)\b/i.test(task);
+  return /\b(rename|renaming|alias|aliases|urn|move resource|resource name|logical name|state repair|refactor|adopt|adopt existing|import existing|import\/state|retain existing|retaining physical resource|replacement)\b/i.test(task);
 }
 
 function isYamlSyntaxValidationCommand(command: string): boolean {
@@ -329,9 +344,12 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const taskMentionsHelm =
       /\b(helm|chart|values|ingress|probe|probes|readiness|liveness|health|healthcheck)\b/i.test(runtime.task)
       || (preflight.requestedDomains.length === 1 && preflight.requestedDomains[0] === 'helm');
+    const taskHasPulumiRenameVocabulary = taskRequestsPulumiRenameReview(runtime.task);
+    const hasPulumiTarget = preflight.targetCandidates.some(candidate => candidate.kind === 'pulumi-project');
     const taskMentionsPulumi =
       /\b(pulumi|stack|stacks|preview|config)\b/i.test(runtime.task)
-      || (preflight.requestedDomains.length === 1 && preflight.requestedDomains[0] === 'pulumi');
+      || (preflight.requestedDomains.length === 1 && preflight.requestedDomains[0] === 'pulumi')
+      || (hasPulumiTarget && taskHasPulumiRenameVocabulary);
     const topScore = preflight.targetCandidates[0]?.score ?? 0;
     const hasValidatorsAvailable = preflight.validation.validators.every(validator => validator.available);
     const hasObservations = runtime.observations.length > 0;
@@ -345,7 +363,6 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
     const terraformFormattingIssue = runtime.validationIssues.find(issue => issue.kind === 'terraform-formatting-required');
     const topTerraformTarget = preflight.targetCandidates.find(candidate => candidate.kind === 'terraform-root');
     const hasHelmTarget = preflight.targetCandidates.some(candidate => candidate.kind === 'helm-chart');
-    const hasPulumiTarget = preflight.targetCandidates.some(candidate => candidate.kind === 'pulumi-project');
     const hasTerraformTarget = preflight.targetCandidates.some(candidate => candidate.kind === 'terraform-root');
     const isMissingRequestedDomainTarget =
       (taskMentionsHelm && !hasHelmTarget)
@@ -595,7 +612,7 @@ export class RuleBasedPlanningModel extends BasePlanningModel {
       const unrepairableIssue = runtime.validationIssues.find(issue => !issue.repairable);
       const repairBudgetExhausted = hasRepairableValidationIssues && runtime.repairAttempts >= maxRepairAttempts;
       const pulumiReviewDiagnostic = findPulumiValidationReviewDiagnostic(input);
-      if (!repairBudgetExhausted && pulumiReviewDiagnostic) {
+      if (!repairBudgetExhausted && pulumiReviewDiagnostic && hasCurrentPulumiValidationFailure(input)) {
         return {
           confidence: 'medium',
           action: {
