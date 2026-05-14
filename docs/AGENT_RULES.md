@@ -142,6 +142,19 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   by a real team-upload feature. New work should improve extraction, analysis,
   deterministic retrieval, planner usage, and edit-plan behavior for compact
   `fact`, `guidance`, `example`, `diagnostic`, and `recipe` units.
+- New multi-step agent development must use the subagent operating model from
+  root `AGENTS.md`. The main agent remains the PM/Architect owner: it reads the
+  durable plan, confirms acceptance criteria, decomposes work, assigns bounded
+  tasks, reviews returned changes, runs final validation, updates handoff when
+  needed, and commits. Subagents are specialists with explicit scope:
+  `Explorer` is read-only and reports architecture/code context;
+  `Implementation Worker` edits only the assigned write set; `Test Worker`
+  writes focused tests and acceptance coverage; `Reviewer` reports findings
+  without patching; `Validator` runs checks and reports failures without
+  repair unless explicitly reassigned. Use the full sequence for high-risk or
+  cross-module changes, but keep small safe changes lightweight. Do not run
+  multiple writing subagents against the same files at the same time, and do
+  not let subagents commit unless the user explicitly changes that rule.
 - Use structured `ConfigSemantics` facts from Helm schemas, Terraform variables, Pulumi stack config, validation blocks, and repo examples before asking the LLM to infer constraints.
 - Treat Terraform variable enums and validation rules as configuration constraints, and validate generated values against them before writing when possible.
 - Validation output is part of the task state and must inform the next step.

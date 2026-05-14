@@ -121,6 +121,33 @@ Every implementation slice must follow this sequence:
 Large refactors must be split into independently testable commits. Do not mix
 format-only churn, unrelated cleanup, and behavior changes in one commit.
 
+## Subagent Operating Model
+
+For non-trivial implementation work, the main agent owns product intent,
+architecture fit, task decomposition, validation, and commits. Subagents should
+be used as bounded specialists, not as unmanaged parallel coders. Apply the
+detailed role model in `docs/AGENT_RULES.md` before starting new agent
+development or multi-step feature work.
+
+Default responsibilities:
+
+- Main agent / PM-Architect: interpret the request, read durable project state,
+  define acceptance criteria, assign bounded tasks, review results, run final
+  verification, update durable handoff when needed, and commit.
+- Explorer: read-only codebase investigation and architecture/context answers.
+- Implementation worker: scoped code changes within an explicit write set.
+- Test worker: focused tests and acceptance coverage, preferably separate from
+  implementation for higher-risk behavior.
+- Reviewer: code-review findings only; do not patch while reviewing.
+- Validator: run lint/tests/smoke checks and report failures without repairing
+  unless explicitly reassigned.
+
+Do not spawn every role for every task. Small safe changes may use one worker or
+no subagent; high-risk or cross-module changes should use explorer,
+implementation, test, review, and validation stages in order. Never let multiple
+subagents write the same files concurrently. Subagents do not commit by default;
+the main agent commits coherent, reviewed slices.
+
 ## Engineering Standards
 
 - Prefer simple, typed TypeScript over clever abstractions.
