@@ -195,6 +195,43 @@ test('validation diagnostic units add Pulumi DNS ownership review steps', () => 
   assert.ok(diagnostic.recommendedReview.some(review => /logical Pulumi renames/i.test(review)));
 });
 
+test('validation diagnostic units add precise Helm missing values signatures from metadata', () => {
+  const runtime = buildRuntime({
+    validationIssues: [
+      {
+        kind: 'helm-missing-service-port',
+        repairable: true,
+        sourceCommand: 'helm template charts/payments-api',
+        message: 'Validation failed because .Values.service.port is missing.',
+        guidance: 'Read chart values and define service.port before rerunning helm template.',
+        metadata: {
+          yamlPath: 'charts/payments-api/values.yaml'
+        }
+      },
+      {
+        kind: 'helm-missing-ingress-values',
+        repairable: true,
+        sourceCommand: 'helm template charts/payments-api',
+        message: 'Validation failed because .Values.ingress.enabled is missing.',
+        guidance: 'Read chart values and define ingress.enabled before rerunning helm template.',
+        metadata: {
+          yamlPath: 'charts/payments-api/values.yaml'
+        }
+      }
+    ]
+  });
+
+  const synced = syncValidationDiagnosticKnowledgeUnits(runtime);
+  const diagnostics = synced.knowledgeFacts.units.filter(unit => unit.unitType === 'diagnostic');
+
+  assert.equal(diagnostics[0]?.engine, 'helm');
+  assert.equal(diagnostics[0]?.signature, 'helm-missing-service-port:service.port');
+  assert.equal(diagnostics[0]?.path, 'service.port');
+  assert.equal(diagnostics[1]?.engine, 'helm');
+  assert.equal(diagnostics[1]?.signature, 'helm-missing-ingress-values:ingress.enabled');
+  assert.equal(diagnostics[1]?.path, 'ingress.enabled');
+});
+
 test('validation diagnostic units avoid secret-like issue fields', () => {
   const runtime = buildRuntime({
     validationIssues: [

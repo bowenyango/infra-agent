@@ -1,5 +1,5 @@
 import { BasePlanningModel } from './planning-model.ts';
-import type { AgentDecision, AgentPlanningInput } from '../types/agent.ts';
+import type { AgentDecision, AgentPlanningInput, ValidationIssue } from '../types/agent.ts';
 import { selectValidationCommands } from './select-validation-commands.ts';
 import type { AgentActionFamily, AgentClarificationKind, AgentStopReason } from '../types/agent.ts';
 import type { EditPlanKind } from '../types/edit-plan.ts';
@@ -185,12 +185,68 @@ function findPulumiValidationReviewDiagnostic(input: AgentPlanningInput): Extrac
   ) ?? null;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function helmIssueMetadataIdentity(issue: ValidationIssue): string | null {
+  return issue.metadata?.missingConfigKey
+    ?? issue.metadata?.yamlPath
+    ?? null;
+}
+
+function helmIssueRequiredValue(issue: ValidationIssue): string | null {
+  if (issue.kind === 'helm-missing-service-port') {
+    return 'service.port';
+  }
+
+  if (issue.kind === 'helm-missing-ingress-values') {
+    return 'ingress.enabled';
+  }
+
+  return helmIssueMetadataIdentity(issue);
+}
+
+function isCurrentHelmValidationIssue(input: AgentPlanningInput, issue: ValidationIssue): boolean {
+  if (!issue.kind.startsWith('helm-') && !/^helm\b/i.test(issue.sourceCommand)) {
+    return false;
+  }
+
+  const failedCommands = new Set(input.runtime.validationResults
+    .filter(result => result.exitCode !== 0)
+    .map(result => result.command));
+
+  return failedCommands.size === 0 || failedCommands.has(issue.sourceCommand);
+}
+
+function helmDiagnosticMatchesIssue(
+  unit: Extract<KnowledgePackUnit, { unitType: 'diagnostic' }>,
+  issue: ValidationIssue
+): boolean {
+  const identity = helmIssueMetadataIdentity(issue);
+  if (identity && knowledgeUnitIncludesText(unit, new RegExp(`\\b${escapeRegExp(issue.kind)}:${escapeRegExp(identity)}\\b`, 'i'))) {
+    return true;
+  }
+
+  if (knowledgeUnitIncludesText(unit, new RegExp(`\\b${escapeRegExp(issue.kind)}\\b`, 'i'))) {
+    return true;
+  }
+
+  const requiredValue = helmIssueRequiredValue(issue);
+  return requiredValue !== null
+    && knowledgeUnitIncludesText(unit, new RegExp(`\\b${escapeRegExp(requiredValue)}\\b`, 'i'));
+}
+
 function findHelmValidationReviewDiagnostic(input: AgentPlanningInput): Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> | null {
-  const diagnosticPattern = /\b(helm|chart|values|service\.port|required value|required chart value|template|render)\b/i;
+  const issues = input.runtime.validationIssues.filter(issue => isCurrentHelmValidationIssue(input, issue));
+  if (issues.length === 0) {
+    return null;
+  }
+
   return (input.runtime.knowledgeFacts?.units ?? []).find((unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> =>
     unit.unitType === 'diagnostic'
     && unit.engine === 'helm'
-    && knowledgeUnitIncludesText(unit, diagnosticPattern)
+    && issues.some(issue => helmDiagnosticMatchesIssue(unit, issue))
   ) ?? null;
 }
 

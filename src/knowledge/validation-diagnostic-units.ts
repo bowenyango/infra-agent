@@ -56,6 +56,11 @@ function compactText(value: string | undefined, fallback: string): string {
 }
 
 function metadataIdentity(issue: ValidationIssue): string | null {
+  const helmIdentity = helmValidationMetadataIdentity(issue);
+  if (helmIdentity) {
+    return helmIdentity;
+  }
+
   const candidates = [
     issue.metadata?.resourceAddress,
     issue.metadata?.resourceType,
@@ -67,6 +72,27 @@ function metadataIdentity(issue: ValidationIssue): string | null {
   ];
 
   return candidates.find(candidate => candidate && !SECRET_VALUE_PATTERN.test(candidate)) ?? null;
+}
+
+function helmValidationMetadataIdentity(issue: ValidationIssue): string | null {
+  if (!issue.metadata || Object.keys(issue.metadata).length === 0) {
+    return null;
+  }
+
+  const configuredKey = compactOptionalText(issue.metadata.missingConfigKey);
+  if (configuredKey) {
+    return configuredKey;
+  }
+
+  if (issue.kind === 'helm-missing-service-port') {
+    return 'service.port';
+  }
+
+  if (issue.kind === 'helm-missing-ingress-values') {
+    return 'ingress.enabled';
+  }
+
+  return null;
 }
 
 function safeMetadataValue(
