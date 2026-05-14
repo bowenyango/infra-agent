@@ -23,6 +23,8 @@ const MAX_PULUMI_CONFIG_FACTS = 140;
 const MAX_PULUMI_COMPONENT_FACTS = 140;
 const MAX_HELM_CHART_METADATA_FACTS = 140;
 const TERRAFORM_EXAMPLE_SECTION_HEADINGS = ['Example Usage', 'Examples', 'Usage', 'Basic Usage'];
+const TERRAFORM_ARGUMENT_SECTION_HEADINGS = ['Argument Reference', 'Arguments Reference', 'Arguments'];
+const TERRAFORM_ATTRIBUTE_SECTION_HEADINGS = ['Attributes Reference', 'Attribute Reference', 'Attributes'];
 
 interface CompactTerraformProviderSchemaAttribute {
   name: string;
@@ -294,12 +296,29 @@ function extractTerraformBulletFacts(
   return facts;
 }
 
+function extractTerraformBulletFactsFromFirstSection(
+  entry: KnowledgeCacheEntry,
+  prefix: string,
+  sectionNames: string[],
+  kind: 'argument' | 'attribute'
+): KnowledgeFact[] {
+  for (const sectionName of sectionNames) {
+    if (sectionContent(entry.content, sectionName) === null) {
+      continue;
+    }
+
+    return extractTerraformBulletFacts(entry, prefix, sectionName, kind);
+  }
+
+  return [];
+}
+
 function extractTerraformRegistryFacts(entry: KnowledgeCacheEntry): KnowledgeFact[] {
   const prefix = pathPrefixForSource(entry);
   return [
     ...extractExampleFact(entry, prefix),
-    ...extractTerraformBulletFacts(entry, prefix, 'Argument Reference', 'argument'),
-    ...extractTerraformBulletFacts(entry, prefix, 'Attributes Reference', 'attribute')
+    ...extractTerraformBulletFactsFromFirstSection(entry, prefix, TERRAFORM_ARGUMENT_SECTION_HEADINGS, 'argument'),
+    ...extractTerraformBulletFactsFromFirstSection(entry, prefix, TERRAFORM_ATTRIBUTE_SECTION_HEADINGS, 'attribute')
   ];
 }
 

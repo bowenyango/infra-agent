@@ -52,12 +52,12 @@ test('knowledge fact extractor summarizes Terraform Registry markdown from cache
         '}',
         '```',
         '',
-        '#### Argument Reference',
+        '#### Arguments',
         '',
         '- `bucket` (Optional) Name of the bucket. Forces replacement.',
         '- `tags` - (Optional) Map of tags for the bucket.',
         '',
-        '## Attributes Reference',
+        '## Attribute Reference',
         '',
         '- `arn` - ARN of the bucket.',
         ''
@@ -78,7 +78,7 @@ test('knowledge fact extractor summarizes Terraform Registry markdown from cache
       fact.kind === 'argument'
       && fact.path === 'resource.aws_s3_bucket.bucket'
       && fact.required === false
-      && fact.source.locator === 'Argument Reference: bucket'
+      && fact.source.locator === 'Arguments: bucket'
     ));
     assert.ok(factSet.facts.some(fact =>
       fact.kind === 'identity-field'
