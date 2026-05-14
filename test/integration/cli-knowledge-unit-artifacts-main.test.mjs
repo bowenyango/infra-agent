@@ -12,6 +12,7 @@ import {
   resolve
 } from 'node:path';
 import { captureStdout } from '../support/capture-stdout.mjs';
+import { writeMultiTargetUnitArtifactRegistryWorkspace } from '../support/planner-rag-unit-fixtures.mjs';
 import { main } from '../../src/cli/main.ts';
 import { buildKnowledgeCacheId } from '../../src/knowledge/cache.ts';
 
@@ -300,6 +301,125 @@ test('knowledge CLI discovers prebuilt unit artifacts from a configured registry
     assert.equal(pack.unitCount, 2);
     assert.equal(pack.includedUnitCount, 1);
     assert.equal(pack.units[0]?.topic, 'terraform-logical-rename');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge CLI scopes registry-backed units to the requested target in a multi-target workspace', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-cli-unit-artifact-registry-scope-'));
+  const cases = [
+    {
+      domain: 'terraform',
+      target: 'terraform/app',
+      sourceName: 'terraform-app-registry-units',
+      expectedPath: 'guidance.terraform.app.logical-rename',
+      absentPatterns: [
+        /OPS_TERRAFORM_UNIT_SENTINEL/,
+        /WORKER_PULUMI_UNIT_SENTINEL/,
+        /EDGE_HELM_UNIT_SENTINEL/
+      ]
+    },
+    {
+      domain: 'pulumi',
+      target: 'infra/api',
+      sourceName: 'pulumi-api-registry-units',
+      expectedPath: 'guidance.pulumi.api.logical-rename',
+      absentPatterns: [
+        /OPS_TERRAFORM_UNIT_SENTINEL/,
+        /WORKER_PULUMI_UNIT_SENTINEL/,
+        /EDGE_HELM_UNIT_SENTINEL/
+      ]
+    },
+    {
+      domain: 'helm',
+      target: 'charts/monitoring',
+      sourceName: 'helm-monitoring-registry-units',
+      expectedPath: 'guidance.helm.monitoring.values-migration',
+      absentPatterns: [
+        /OPS_TERRAFORM_UNIT_SENTINEL/,
+        /WORKER_PULUMI_UNIT_SENTINEL/,
+        /EDGE_HELM_UNIT_SENTINEL/
+      ]
+    }
+  ];
+
+  try {
+    await writeMultiTargetUnitArtifactRegistryWorkspace(tempRoot);
+
+    for (const entry of cases) {
+      const sourcesOutput = await captureStdout(() => main([
+        'knowledge',
+        'sources',
+        tempRoot,
+        '--domain',
+        entry.domain,
+        '--target',
+        entry.target,
+        '--json'
+      ]));
+      const sourcesReport = parseJsonOutput(sourcesOutput);
+      const artifactSources = sourcesReport.sources.filter(source =>
+        source.source.kind === 'knowledge-unit-artifact'
+      );
+
+      assert.equal(artifactSources.length, 1);
+      assert.equal(artifactSources[0]?.domain, entry.domain);
+      assert.equal(artifactSources[0]?.targetPath, entry.target);
+      assert.equal(artifactSources[0]?.source.name, entry.sourceName);
+
+      const extractionOutput = await captureStdout(() => main([
+        'knowledge',
+        'extract',
+        tempRoot,
+        '--domain',
+        entry.domain,
+        '--target',
+        entry.target,
+        '--json'
+      ]));
+      const extraction = parseJsonOutput(extractionOutput);
+      const unitSet = extraction.unitSets.find(source =>
+        source.source.kind === 'knowledge-unit-artifact'
+      );
+
+      assert.equal(unitSet?.source.name, entry.sourceName);
+      assert.equal(unitSet?.unitCount, 5);
+      assert.deepEqual(
+        [...new Set(unitSet?.units.map(unit => unit.unitType))].sort(),
+        ['diagnostic', 'example', 'fact', 'guidance', 'recipe']
+      );
+      assert.ok(unitSet?.units.some(unit => unit.path === entry.expectedPath));
+
+      const packOutput = await captureStdout(() => main([
+        'knowledge',
+        'pack',
+        tempRoot,
+        '--domain',
+        entry.domain,
+        '--target',
+        entry.target,
+        '--max-units',
+        '8',
+        '--json'
+      ]));
+      const pack = parseJsonOutput(packOutput);
+      const sourceIds = new Set(pack.sources
+        .filter(source => source.kind === 'knowledge-unit-artifact' && source.name === entry.sourceName)
+        .map(source => source.id));
+      const packedArtifactUnits = pack.units.filter(unit => sourceIds.has(unit.sourceId));
+
+      assert.deepEqual(pack.requestedDomains, [entry.domain]);
+      assert.deepEqual(pack.targetPaths, [entry.target]);
+      assert.ok(packedArtifactUnits.some(unit => unit.path === entry.expectedPath));
+      assert.ok(packedArtifactUnits.length > 0);
+
+      for (const pattern of entry.absentPatterns) {
+        assert.doesNotMatch(sourcesOutput, pattern);
+        assert.doesNotMatch(extractionOutput, pattern);
+        assert.doesNotMatch(packOutput, pattern);
+      }
+    }
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
