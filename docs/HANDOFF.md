@@ -21,6 +21,9 @@ Status:
 
 Completed in this phase:
 
+- Split the oversized knowledge pack contract/ranking shard so
+  `npm run test:structure` passes again and future agents can rely on the
+  structure gate.
 - Reused canonical public pack fixtures and added prompt regression coverage for
   the Terraform AWS provider, Pulumi AWS, and `kube-prometheus-stack` canonical
   extraction targets.
@@ -35,22 +38,47 @@ Completed in this phase:
   drift across unrelated infrastructure targets.
 - Split Terraform RAG runtime coverage into a focused integration shard and
   added a target-scope negative test.
+- Added tight-budget runtime coverage proving public Terraform Registry-shaped
+  docs can extract compact public-reference units that drive a Terraform
+  moved-block edit without leaking raw docs into runtime facts or adding
+  provider-specific edit-plan branches.
+- Tightened Pulumi rename handling so compact alias/import/state-repair units
+  gate unsafe rename/config edits and stale Pulumi diagnostics do not hijack
+  unrelated Helm/Terraform failures.
+- Tightened Helm diagnostic matching so selected diagnostic units must match
+  the current validation issue kind or metadata identity before they stop the
+  planner for Helm repair review.
+- Added Helm upgrade/value-migration recipe gating so compact recipe units ask
+  for chart version, values scope, and render/lint confirmation before bounded
+  values edits.
+- Added RAG-aware validation command selection for Helm, Terraform, and Pulumi:
+  selected compact units can now prioritize `helm template`/`helm lint`,
+  `terraform fmt`/`terraform validate`/`terraform plan`, and matching-stack
+  `pulumi preview` commands before the six-command cap is applied.
+- Normalized Pulumi CLI stack refs such as `org/project/dev` to the local
+  `Pulumi.dev.yaml` stack name for missing-config repair, while preserving
+  dotted local stack names such as `tenant-shared.non-prod`.
 
 Validation:
 
 - Focused unit and integration tests for the above slices passed during the
   phase.
-- `npm run test:structure` now only fails on existing oversized shard
-  `test/unit/knowledge-pack-ranking.test.mjs` at 1147 lines.
+- `npm run test:structure` passes after splitting the oversized
+  `knowledge-pack-ranking` coverage.
 - `test/integration/agent-runtime-execution.test.mjs` was reduced to 836 lines.
-- New `test/integration/agent-runtime-terraform-rag.test.mjs` is 286 lines.
+- `test/integration/agent-runtime-terraform-rag.test.mjs` now carries compact,
+  registry-backed, public-doc, and target-scope runtime RAG cases.
+- `test/unit/select-validation-commands-rag.test.mjs` carries focused
+  cross-domain validation selector coverage for compact Helm, Terraform, and
+  Pulumi units.
 
 Recommended next work:
 
-1. Split `test/unit/knowledge-pack-ranking.test.mjs` by behavior so structure
-   checks pass without weakening coverage.
-2. Continue extraction/runtime RAG work around the five unit types, with
+1. Continue extraction/runtime RAG work around the five unit types, with
    emphasis on behavior changes under tight budgets instead of raw-doc recall.
+2. Add more end-to-end run coverage showing public/internal unit registries
+   choose the right compact units for multi-target repositories before planner
+   handoff.
 3. Keep safety boundaries at Claude Code style/weight and avoid internal
    boundary CLI expansion unless justified by a user workflow.
 
