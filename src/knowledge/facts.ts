@@ -194,7 +194,7 @@ function firstSentence(value: string): string {
 
 function sectionContent(markdown: string, heading: string): string | null {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = markdown.match(new RegExp(`(?:^|\\n)#{2,3}\\s+${escapedHeading}\\s*\\n([\\s\\S]*?)(?=\\n#{2,3}\\s+|$)`, 'i'));
+  const match = markdown.match(new RegExp(`(?:^|\\n)#{2,5}\\s+${escapedHeading}\\s*\\n([\\s\\S]*?)(?=\\n#{2,5}\\s+|$)`, 'i'));
   return match?.[1]?.trim() ?? null;
 }
 
