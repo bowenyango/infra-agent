@@ -10,6 +10,7 @@ import { runSingleStep } from '../../src/agent/run-single-step.ts';
 import { RuleBasedPlanningModel } from '../../src/agent/rule-based-planner.ts';
 import {
   buildIrrelevantKnowledgePack,
+  writeMultiTargetUnitArtifactRegistryWorkspace,
   writePulumiAliasKnowledgeWorkspace
 } from '../support/planner-rag-unit-fixtures.mjs';
 
@@ -44,6 +45,44 @@ test('rule-based planner uses Pulumi alias units to ask for resource identity re
     assert.ok(lastTurn?.decision.action.payload?.questions?.some(question =>
       /pulumi_config_set/i.test(question)
     ));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rule-based planner uses only selected-target Pulumi alias units from registry artifacts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-pulumi-alias-registry-scope-'));
+
+  try {
+    await writeMultiTargetUnitArtifactRegistryWorkspace(tempRoot);
+    const result = await runSingleStep(
+      'rename pulumi api dev bucket resource safely',
+      tempRoot,
+      undefined,
+      'rule-based',
+      undefined,
+      {
+        maxTurns: 3,
+        retrievedContextBudget: {
+          maxFacts: 5
+        }
+      }
+    );
+    const lastTurn = result.turns[result.turns.length - 1];
+    const serializedKnowledge = JSON.stringify(result.runtime.knowledgeFacts);
+
+    assert.equal(result.outcome, 'clarification-required');
+    assert.deepEqual(result.runtime.knowledgeFacts?.requestedDomains, ['pulumi']);
+    assert.deepEqual(result.runtime.knowledgeFacts?.targetPaths, ['infra/api']);
+    assert.equal(lastTurn?.decision.action.kind, 'ask-for-clarification');
+    assert.equal(lastTurn?.decision.action.payload?.actionFamily, 'pulumi-clarification');
+    assert.ok(result.runtime.knowledgeFacts?.units.some(unit =>
+      unit.unitType === 'recipe'
+      && unit.path === 'recipe.pulumi.api.alias-stack-config'
+    ));
+    assert.doesNotMatch(serializedKnowledge, /WORKER_PULUMI_UNIT_SENTINEL/);
+    assert.doesNotMatch(serializedKnowledge, /OPS_TERRAFORM_UNIT_SENTINEL/);
+    assert.doesNotMatch(serializedKnowledge, /EDGE_HELM_UNIT_SENTINEL/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
