@@ -134,6 +134,22 @@ function helmUnits() {
   ];
 }
 
+function optionalHelmFact(path, summary) {
+  return {
+    unitType: 'fact',
+    factKind: 'chart-value',
+    path,
+    summary,
+    confidence: 'high',
+    extractionMethod: 'helm-values-schema',
+    sourceId: 'chart-schema-source',
+    sourceLocator: `values.schema.json: ${path}`,
+    privacyScope: 'workspace-private',
+    required: false,
+    type: 'number'
+  };
+}
+
 test('knowledge unit budget keeps concrete examples and recipes under tight budgets', () => {
   const selected = selectKnowledgePackUnitsForBudget(helmUnits(), {
     sources: helmSources(),
@@ -152,6 +168,25 @@ test('knowledge unit budget keeps concrete examples and recipes under tight budg
     unit.unitType === 'recipe'
     && unit.steps.includes('Run helm template for the selected chart.')
   ));
+});
+
+test('knowledge unit budget keeps fresh guidance at five-unit budgets', () => {
+  const selected = selectKnowledgePackUnitsForBudget([
+    optionalHelmFact('chart.api.service.targetPort', 'service.targetPort configures the service backend port.'),
+    optionalHelmFact('chart.api.service.metrics.port', 'service.metrics.port configures the metrics service port.'),
+    ...helmUnits()
+  ], {
+    sources: helmSources(),
+    requestedDomains: ['helm'],
+    targetPaths: ['charts/api'],
+    maxUnits: 5
+  });
+
+  assert.equal(selected.length, 5);
+  assert.deepEqual(
+    selected.map(unit => unit.unitType).sort(),
+    ['diagnostic', 'example', 'fact', 'guidance', 'recipe']
+  );
 });
 
 test('knowledge unit budget does not evict protected facts or diagnostics', () => {
@@ -181,6 +216,28 @@ test('knowledge unit budget does not evict protected facts or diagnostics', () =
   assert.equal(selected.filter(unit => unit.unitType === 'diagnostic').length, 2);
   assert.equal(selected.some(unit => unit.unitType === 'example'), false);
   assert.equal(selected.some(unit => unit.unitType === 'recipe'), false);
+
+  const saturatedSelected = selectKnowledgePackUnitsForBudget([
+    optionalHelmFact('chart.api.service.targetPort', 'service.targetPort configures the service backend port.'),
+    {
+      ...helmUnits().find(unit => unit.unitType === 'fact'),
+      path: 'chart.api.resources.requests.cpu',
+      summary: 'resources.requests.cpu is required by chart templates.'
+    },
+    ...helmUnits()
+  ], {
+    sources: helmSources(),
+    requestedDomains: ['helm'],
+    targetPaths: ['charts/api'],
+    maxUnits: 5
+  });
+
+  assert.equal(saturatedSelected.length, 5);
+  assert.equal(saturatedSelected.filter(unit => unit.unitType === 'fact' && unit.required === true).length, 2);
+  assert.equal(saturatedSelected.filter(unit => unit.unitType === 'diagnostic').length, 1);
+  assert.equal(saturatedSelected.some(unit => unit.unitType === 'example'), true);
+  assert.equal(saturatedSelected.some(unit => unit.unitType === 'recipe'), true);
+  assert.equal(saturatedSelected.some(unit => unit.unitType === 'guidance'), false);
 });
 
 test('knowledge unit budget prefers fresh concrete units over stale concrete units', () => {
