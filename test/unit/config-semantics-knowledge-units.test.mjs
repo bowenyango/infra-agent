@@ -100,6 +100,31 @@ function runtime(overrides = {}) {
   };
 }
 
+test('returns no knowledge-unit config semantics for legacy knowledge facts without units', () => {
+  const { units: _units, ...legacyKnowledgeFacts } = knowledgePack({
+    facts: [
+      {
+        kind: 'chart-value',
+        path: 'values.ingress.className',
+        summary: 'Legacy fact without compact knowledge unit shape.',
+        confidence: 'high',
+        extractionMethod: 'helm-chart-docs-markdown',
+        sourceId: 'source-1',
+        sourceLocator: 'Chart docs: ingress.className',
+        privacyScope: 'public-reference'
+      }
+    ]
+  });
+  let semantics;
+
+  assert.doesNotThrow(() => {
+    semantics = deriveConfigSemanticsFromKnowledgeUnits(runtime({
+      knowledgeFacts: legacyKnowledgeFacts
+    }));
+  });
+  assert.deepEqual(semantics, []);
+});
+
 test('derives Helm config semantics from compact values fact units without raw source leakage', () => {
   const semantics = deriveConfigSemanticsFromKnowledgeUnits(runtime({
     knowledgeFacts: knowledgePack({

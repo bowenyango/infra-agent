@@ -146,7 +146,9 @@ function targetPathForKnowledgeUnit(
   source: KnowledgePackSource,
   runtime: AgentRuntimeState
 ): string | null {
-  const targetPaths = runtime.knowledgeFacts?.targetPaths ?? [];
+  const targetPaths = Array.isArray(runtime.knowledgeFacts?.targetPaths)
+    ? runtime.knowledgeFacts.targetPaths
+    : [];
 
   if (source.targetPath) {
     if (targetPaths.length > 0 && !targetPaths.includes(source.targetPath)) {
@@ -220,13 +222,15 @@ export function deriveConfigSemanticsFromKnowledgeUnits(runtime: AgentRuntimeSta
     return [];
   }
 
-  const sourceById = new Map(knowledgeFacts.sources.map(source => [source.id, source]));
+  const sources = Array.isArray(knowledgeFacts.sources) ? knowledgeFacts.sources : [];
+  const units = Array.isArray(knowledgeFacts.units) ? knowledgeFacts.units : [];
+  const sourceById = new Map(sources.map(source => [source.id, source]));
   const factsByTarget = new Map<string, {
     targetKind: ConfigSemanticsSummary['targetKind'];
     facts: ConfigSemanticFact[];
   }>();
 
-  for (const unit of knowledgeFacts.units) {
+  for (const unit of units) {
     if (unit.unitType !== 'fact') {
       continue;
     }
