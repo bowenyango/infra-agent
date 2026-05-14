@@ -44,7 +44,7 @@ test('knowledge fact extractor summarizes Terraform Registry markdown from cache
       content: [
         '# aws_s3_bucket',
         '',
-        '## Example Usage',
+        '## Basic Usage',
         '',
         '```hcl',
         'resource "aws_s3_bucket" "example" {',
@@ -95,6 +95,7 @@ test('knowledge fact extractor summarizes Terraform Registry markdown from cache
     assert.ok(factSet.facts.some(fact =>
       fact.kind === 'example'
       && fact.path === 'resource.aws_s3_bucket.example'
+      && fact.source.locator === 'Basic Usage'
     ));
     assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
   } finally {

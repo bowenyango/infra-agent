@@ -22,6 +22,7 @@ const MAX_TERRAFORM_MODULE_FACTS = 140;
 const MAX_PULUMI_CONFIG_FACTS = 140;
 const MAX_PULUMI_COMPONENT_FACTS = 140;
 const MAX_HELM_CHART_METADATA_FACTS = 140;
+const TERRAFORM_EXAMPLE_SECTION_HEADINGS = ['Example Usage', 'Examples', 'Usage', 'Basic Usage'];
 
 interface CompactTerraformProviderSchemaAttribute {
   name: string;
@@ -198,25 +199,29 @@ function sectionContent(markdown: string, heading: string): string | null {
 }
 
 function extractExampleFact(entry: KnowledgeCacheEntry, prefix: string): KnowledgeFact[] {
-  const section = sectionContent(entry.content, 'Example Usage');
-  if (!section) {
-    return [];
+  for (const heading of TERRAFORM_EXAMPLE_SECTION_HEADINGS) {
+    const section = sectionContent(entry.content, heading);
+    if (!section) {
+      continue;
+    }
+
+    const codeBlock = section.match(/```(?:hcl|terraform|tf)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+    if (!codeBlock) {
+      continue;
+    }
+
+    return [{
+      kind: 'example',
+      path: `${prefix}.example`,
+      summary: `Example usage for ${entry.source.name}.`,
+      values: [codeBlock.slice(0, 240)],
+      confidence: 'medium',
+      extractionMethod: 'terraform-registry-markdown',
+      source: factSource(entry, heading)
+    }];
   }
 
-  const codeBlock = section.match(/```(?:hcl|terraform|tf)?\s*([\s\S]*?)```/i)?.[1]?.trim();
-  if (!codeBlock) {
-    return [];
-  }
-
-  return [{
-    kind: 'example',
-    path: `${prefix}.example`,
-    summary: `Example usage for ${entry.source.name}.`,
-    values: [codeBlock.slice(0, 240)],
-    confidence: 'medium',
-    extractionMethod: 'terraform-registry-markdown',
-    source: factSource(entry, 'Example Usage')
-  }];
+  return [];
 }
 
 function extractTerraformBulletFacts(
