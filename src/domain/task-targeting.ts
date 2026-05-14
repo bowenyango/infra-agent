@@ -29,6 +29,7 @@ const DOMAIN_KEYWORDS = [
   'health',
   'healthcheck'
 ] as const;
+const STANDALONE_STACK_PATTERN = /(?:^|[^a-z0-9_-])stacks?(?=$|[^a-z0-9_-])/i;
 
 function normalizeToken(token: string): string {
   return token.trim().toLowerCase();
@@ -60,12 +61,31 @@ export function detectRequestedService(task: string): string | null {
     ...ENVIRONMENT_KEYWORDS,
     ...DOMAIN_KEYWORDS,
     'to',
+    'from',
     'for',
     'add',
     'update',
+    'upgrade',
+    'upgrading',
     'create',
+    'rename',
+    'renaming',
+    'change',
+    'changing',
+    'set',
+    'review',
+    'repair',
+    'fix',
     'and',
     'with',
+    'safe',
+    'safely',
+    'safety',
+    'retain',
+    'retaining',
+    'existing',
+    'resource',
+    'resources',
     'image',
     'tag',
     'tags',
@@ -197,7 +217,8 @@ function scoreCandidate(params: {
   }
 
   const taskMentionsHelm = /\b(chart|helm|ingress|probe|probes|readiness|liveness)\b/i.test(params.task);
-  const taskMentionsPulumi = /\b(stack|pulumi)\b/i.test(params.task);
+  const taskMentionsPulumi = /\b(pulumi|preview)\b/i.test(params.task)
+    || STANDALONE_STACK_PATTERN.test(params.task);
   const taskMentionsTerraform = /\b(terraform|tfvars|module|variable|variables)\b/i.test(params.task);
 
   if (params.profileId === 'scrawlr-infra-apps' && params.candidateKind === 'helm-chart') {

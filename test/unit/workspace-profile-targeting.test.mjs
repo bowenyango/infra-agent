@@ -263,6 +263,10 @@ test('inferRequestedDomains detects task domain focus from available domain capa
     inferRequestedDomains('update pulumi stack config for payments-api', inspection.domainCapabilities),
     ['pulumi']
   );
+  assert.deepEqual(
+    inferRequestedDomains('upgrade helm monitoring kube-prometheus-stack values safely', inspection.domainCapabilities),
+    ['helm']
+  );
 });
 
 test('buildRunPreflight records requested domains and warns when task spans multiple domains', async () => {

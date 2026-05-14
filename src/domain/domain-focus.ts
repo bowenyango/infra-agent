@@ -5,9 +5,15 @@ import type {
 
 const DOMAIN_PATTERNS: Record<InfraDomainId, RegExp> = {
   helm: /\b(helm|chart|values|template|templates|ingress|probe|probes|readiness|liveness|health|healthcheck)\b/i,
-  pulumi: /\b(pulumi|stack|stacks|preview|config|namespace)\b/i,
+  pulumi: /\b(pulumi|preview)\b/i,
   terraform: /\b(terraform|tf|tfvars|variable|variables|module|modules|fmt|validate)\b/i
 };
+
+const STANDALONE_STACK_PATTERN = /(?:^|[^a-z0-9_-])stacks?(?=$|[^a-z0-9_-])/i;
+
+function taskMentionsPulumiDomain(task: string): boolean {
+  return DOMAIN_PATTERNS.pulumi.test(task) || STANDALONE_STACK_PATTERN.test(task);
+}
 
 export function inferRequestedDomains(
   task: string,
@@ -21,7 +27,7 @@ export function inferRequestedDomains(
       continue;
     }
 
-    if (pattern.test(task)) {
+    if ((domainId === 'pulumi' && taskMentionsPulumiDomain(task)) || (domainId !== 'pulumi' && pattern.test(task))) {
       requestedDomains.push(domainId);
     }
   }

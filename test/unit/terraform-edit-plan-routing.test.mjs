@@ -164,6 +164,8 @@ test('targeting uses Terraform module hints to disambiguate multi-root workspace
 
 test('detectRequestedService ignores generic Terraform config nouns like image and tag', () => {
   assert.equal(detectRequestedService('update terraform dev image tag to 2.3.4'), null);
+  assert.equal(detectRequestedService('upgrade helm monitoring kube-prometheus-stack values safely'), 'monitoring');
+  assert.equal(detectRequestedService('rename pulumi api dev bucket resource safely'), 'api');
 });
 
 test('Terraform target candidates expose tfvars and module hint details for non-infra users', async () => {
