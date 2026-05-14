@@ -28,19 +28,78 @@ import { main } from '../../src/cli/main.ts';
 function terraformMovedBlockKnowledgePack(targetPath = 'terraform/payments-api') {
   return {
     units: [
-      {
-        unitType: 'guidance',
-        path: 'guidance.terraform.logical-rename',
-        summary: 'Use Terraform moved blocks when a resource logical name changes but the remote object should be retained.',
-        confidence: 'high',
-        extractionMethod: 'repo-local-guidance',
-        sourceId: 'terraform-rename-internal',
-        sourceLocator: 'knowledge/terraform-rename-units.json',
-        privacyScope: 'workspace-private',
+      terraformMovedBlockKnowledgeUnit('guidance')
+    ],
+    targetPaths: [targetPath],
+    requestedDomains: ['terraform']
+  };
+}
+
+function terraformMovedBlockKnowledgeUnit(unitType) {
+  const base = {
+    path: `${unitType}.terraform.logical-rename`,
+    summary: 'Use Terraform moved blocks when a resource logical name changes but the remote object should be retained.',
+    confidence: 'high',
+    extractionMethod: 'repo-local-guidance',
+    sourceId: `terraform-rename-${unitType}`,
+    sourceLocator: `knowledge/terraform-rename-${unitType}.json`,
+    privacyScope: 'workspace-private'
+  };
+
+  switch (unitType) {
+    case 'fact':
+      return {
+        ...base,
+        unitType,
+        factKind: 'resource',
+        values: ['terraform resource address rename', 'moved block retains the remote object']
+      };
+    case 'guidance':
+      return {
+        ...base,
+        unitType,
         topic: 'terraform-logical-rename',
         appliesWhen: ['Terraform resource address rename'],
         risk: 'Without a moved block, a rename can look like destroy and create.'
-      }
+      };
+    case 'example':
+      return {
+        ...base,
+        unitType,
+        exampleType: 'terraform-moved-block',
+        language: 'hcl',
+        snippet: 'moved { from = aws_s3_bucket.old to = aws_s3_bucket.api }',
+        appliesWhen: ['Terraform resource address rename']
+      };
+    case 'diagnostic':
+      return {
+        ...base,
+        unitType,
+        engine: 'terraform',
+        signature: 'plan shows delete/create after resource address rename',
+        likelyCause: 'Terraform needs a moved block for a logical resource address rename.',
+        recommendedReview: ['Add a reviewed Terraform moved block or use state mv before replacement.']
+      };
+    case 'recipe':
+      return {
+        ...base,
+        unitType,
+        name: 'Terraform logical resource address rename',
+        steps: [
+          'Confirm the old and new Terraform resource addresses.',
+          'Add a moved block so Terraform retains the existing remote object.'
+        ],
+        mutationAllowed: false
+      };
+    default:
+      throw new Error(`unsupported test knowledge unit type: ${unitType}`);
+  }
+}
+
+function terraformMovedBlockKnowledgePackForUnit(unitType, targetPath = 'terraform/payments-api') {
+  return {
+    units: [
+      terraformMovedBlockKnowledgeUnit(unitType)
     ],
     targetPaths: [targetPath],
     requestedDomains: ['terraform']
@@ -209,6 +268,64 @@ test('buildEditPlan creates a Terraform moved block from explicit RAG-backed ren
   assert.match(editPlan?.writes[0]?.content ?? '', /moved \{/);
   assert.match(editPlan?.writes[0]?.content ?? '', /from = aws_s3_bucket\.old/);
   assert.match(editPlan?.writes[0]?.content ?? '', /to   = aws_s3_bucket\.api/);
+});
+
+test('buildEditPlan creates multiple Terraform moved blocks from explicit RAG-backed rename address pairs', async () => {
+  const preflight = await buildRunPreflight(
+    [
+      'rename terraform payments-api dev',
+      'from aws_s3_bucket.old to aws_s3_bucket.api',
+      'and from aws_iam_role.old to aws_iam_role.api'
+    ].join(' '),
+    'fixtures/terraform-workspace'
+  );
+  const mainTfPath = resolve('fixtures/terraform-workspace/terraform/payments-api/main.tf');
+
+  const editPlan = buildEditPlan(terraformEditRuntime(preflight, {
+    knowledgeFacts: terraformMovedBlockKnowledgePack(),
+    observations: [
+      {
+        toolName: 'read_file',
+        safety: 'read_only',
+        output: {
+          path: mainTfPath,
+          content: await readFile(mainTfPath, 'utf8'),
+          truncated: false
+        }
+      }
+    ]
+  }));
+
+  assert.ok(editPlan);
+  assert.equal(editPlan?.kind, 'terraform-moved-block');
+  assert.equal(editPlan?.writes.length, 1);
+  assert.equal(editPlan?.writes[0]?.path, 'terraform/payments-api/moved.tf');
+  assert.equal(editPlan?.writes[0]?.mode, 'create');
+  assert.match(editPlan?.writes[0]?.content ?? '', /from = aws_s3_bucket\.old/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /to   = aws_s3_bucket\.api/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /from = aws_iam_role\.old/);
+  assert.match(editPlan?.writes[0]?.content ?? '', /to   = aws_iam_role\.api/);
+  assert.equal((editPlan?.writes[0]?.content.match(/moved \{/g) ?? []).length, 2);
+});
+
+test('buildEditPlan accepts Terraform moved block knowledge from compact non-guidance units', async t => {
+  for (const unitType of ['example', 'diagnostic', 'recipe', 'fact']) {
+    await t.test(unitType, async () => {
+      const preflight = await buildRunPreflight(
+        'rename terraform payments-api dev from aws_s3_bucket.old to aws_s3_bucket.api',
+        'fixtures/terraform-workspace'
+      );
+
+      const editPlan = buildEditPlan(terraformEditRuntime(preflight, {
+        knowledgeFacts: terraformMovedBlockKnowledgePackForUnit(unitType)
+      }));
+
+      assert.equal(editPlan?.kind, 'terraform-moved-block');
+      assert.equal(editPlan?.writes[0]?.path, 'terraform/payments-api/moved.tf');
+      assert.match(editPlan?.writes[0]?.content ?? '', /from = aws_s3_bucket\.old/);
+      assert.match(editPlan?.writes[0]?.content ?? '', /to   = aws_s3_bucket\.api/);
+    });
+  }
 });
 
 test('buildEditPlan does not create Terraform moved blocks without explicit old and new addresses', async () => {
