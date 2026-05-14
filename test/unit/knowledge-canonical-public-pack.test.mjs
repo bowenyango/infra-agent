@@ -18,22 +18,22 @@ import {
 
 const EXTRACTED_AT = '2026-05-14T00:00:00.000Z';
 const NOW = new Date('2026-05-14T12:00:00.000Z');
+const COMPACT_MAX_UNITS = 8;
+const EXPECTED_UNIT_TYPES = ['fact', 'guidance', 'example', 'diagnostic', 'recipe'];
+const SOURCE_IDENTITY_RETRIEVAL_FIELDS = ['provider', 'packageName', 'chart', 'version'];
 
 const EXPECTED_BY_KEY = {
   terraformAwsProviderDocs: {
     examplePattern: /provider "aws"/,
-    recipePattern: /terraform plan/i,
-    rawMarkers: ['# AWS Provider', '## Argument Reference']
+    recipePattern: /terraform plan/i
   },
   pulumiAwsPackageDocs: {
     examplePattern: /new aws\.sns\.Topic/,
-    recipePattern: /pulumi preview/i,
-    rawMarkers: ['# AWS', '| Module | Description |']
+    recipePattern: /pulumi preview/i
   },
   helmKubePrometheusStackChartDocs: {
     examplePattern: /serviceMonitorSelectorNilUsesHelmValues/,
-    recipePattern: /helm template/i,
-    rawMarkers: ['# kube-prometheus-stack', '| Parameter | Type | Default | Description | Required |']
+    recipePattern: /helm template/i
   }
 };
 
@@ -66,7 +66,7 @@ async function buildCanonicalPacks() {
         store,
         now: NOW,
         extractedAt: EXTRACTED_AT,
-        maxUnits: 5
+        maxUnits: COMPACT_MAX_UNITS
       });
 
       packs.push({
@@ -101,23 +101,110 @@ function assertSourceIdentity(source, target) {
   assert.equal(source.freshness, 'fresh');
 }
 
+function collectObjectKeys(value, keys = new Set()) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectObjectKeys(item, keys);
+    }
+    return keys;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      keys.add(key);
+      collectObjectKeys(child, keys);
+    }
+  }
+
+  return keys;
+}
+
+function assertFiveUnitTypes(units) {
+  assert.deepEqual(
+    Array.from(new Set(units.map(unit => unit.unitType))).sort(),
+    [...EXPECTED_UNIT_TYPES].sort()
+  );
+}
+
+function assertUnitIndexSourceIdentity(entry, target, source) {
+  assert.equal(entry.domain, target.domain);
+  assert.equal(entry.targetPath, target.targetPath);
+  assert.equal(entry.sourceId, source.id);
+  assert.equal(entry.sourceKind, target.expectedSourceIdentity.kind);
+  assert.equal(entry.sourceName, target.expectedSourceIdentity.name);
+  assert.equal(entry.provider, target.expectedSourceIdentity.provider);
+  assert.equal(entry.packageName, target.expectedSourceIdentity.packageName);
+  assert.equal(entry.chart, target.expectedSourceIdentity.chart);
+  assert.equal(entry.version, target.expectedSourceIdentity.version);
+  assert.equal(entry.storageScope, 'public-reference');
+  assert.deepEqual(entry.privacyScopes, ['public-reference']);
+  assert.equal(entry.freshness, 'fresh');
+}
+
+function assertUnitIndexRetrievalKeys(entry, target) {
+  assert.ok(entry.retrievalKeys.includes(`domain:${target.domain}`));
+  assert.ok(entry.retrievalKeys.includes(`targetPath:${target.targetPath}`));
+  assert.ok(entry.retrievalKeys.includes(`sourceKind:${target.expectedSourceIdentity.kind}`));
+  assert.ok(entry.retrievalKeys.includes('storageScope:public-reference'));
+  assert.ok(entry.retrievalKeys.includes('freshness:fresh'));
+
+  for (const field of SOURCE_IDENTITY_RETRIEVAL_FIELDS) {
+    const value = target.expectedSourceIdentity[field];
+    if (value !== undefined) {
+      assert.ok(entry.retrievalKeys.includes(`${field}:${value}`), `${field}:${value}`);
+    }
+  }
+
+  for (const unitType of EXPECTED_UNIT_TYPES) {
+    assert.ok(entry.retrievalKeys.includes(`unitType:${unitType}`), unitType);
+  }
+}
+
+function assertCompactBudgetUnitIndex(budget, target) {
+  const entry = budget.unitIndex?.entries[0];
+
+  assert.equal(budget.unitIndex?.kind, 'infra-agent.knowledge-unit-index');
+  assert.equal(budget.unitIndex?.schemaVersion, 1);
+  assert.equal(budget.unitIndex?.mutationAllowed, false);
+  assert.equal(budget.unitIndex?.sourceCount, 1);
+  assert.equal(budget.unitIndex?.includedUnitCount, COMPACT_MAX_UNITS);
+  assert.equal(budget.unitIndex?.omittedUnitCount, budget.totalUnitCount - COMPACT_MAX_UNITS);
+  assert.equal(budget.unitIndex?.entries.length, 1);
+  assert.ok(entry);
+
+  assertUnitIndexSourceIdentity(entry, target, budget.sources[0]);
+  assert.equal(
+    entry.includedUnitCount,
+    Object.values(entry.unitCounts).reduce((sum, count) => sum + count, 0)
+  );
+  assert.equal(entry.includedUnitCount, COMPACT_MAX_UNITS);
+  assert.equal(entry.omittedUnitCount, budget.totalUnitCount - COMPACT_MAX_UNITS);
+  assert.equal(entry.sourceUnitCountEstimate, budget.totalUnitCount);
+
+  for (const unitType of EXPECTED_UNIT_TYPES) {
+    assert.ok(entry.unitCounts[unitType] > 0, unitType);
+  }
+  assertUnitIndexRetrievalKeys(entry, target);
+}
+
 function assertCompactPublicPack({ key, target, pack }) {
   const expected = EXPECTED_BY_KEY[key];
   const source = pack.sources[0];
+  const keys = collectObjectKeys(pack);
 
   assert.equal(pack.kind, 'infra-agent.knowledge-pack');
   assert.equal(pack.mutationAllowed, false);
-  assert.equal(pack.maxFacts, 5);
-  assert.equal(pack.maxUnits, 5);
+  assert.equal(pack.maxFacts, COMPACT_MAX_UNITS);
+  assert.equal(pack.maxUnits, COMPACT_MAX_UNITS);
   assert.deepEqual(pack.requestedDomains, [target.domain]);
   assert.deepEqual(pack.targetPaths, [target.targetPath]);
   assert.equal(pack.sourceCount, 1);
   assert.equal(pack.factSetCount, 1);
   assert.equal(pack.sources.length, 1);
   assert.ok(pack.factCount > 0);
-  assert.ok(pack.unitCount > 5);
-  assert.equal(pack.includedUnitCount, 5);
-  assert.equal(pack.omittedUnitCount, pack.unitCount - 5);
+  assert.ok(pack.unitCount > COMPACT_MAX_UNITS);
+  assert.equal(pack.includedUnitCount, COMPACT_MAX_UNITS);
+  assert.equal(pack.omittedUnitCount, pack.unitCount - COMPACT_MAX_UNITS);
   assert.ok(pack.omittedUnitCount > 0);
   assert.equal(pack.storagePolicy.publicReference, 1);
   assert.equal(pack.storagePolicy.workspacePrivate, 0);
@@ -139,6 +226,7 @@ function assertCompactPublicPack({ key, target, pack }) {
     && typeof unit.sourceLocator === 'string'
     && !('source' in unit)
   ));
+  assertFiveUnitTypes(pack.units);
   assert.ok(pack.units.some(unit =>
     unit.unitType === 'example'
     && expected.examplePattern.test(unit.snippet)
@@ -150,10 +238,10 @@ function assertCompactPublicPack({ key, target, pack }) {
   ));
 
   const serialized = JSON.stringify(pack);
+  assert.equal(keys.has('content'), false);
+  assert.equal(keys.has('rawContent'), false);
+  assert.equal(keys.has('rawDocs'), false);
   assert.doesNotMatch(serialized, /"content"\s*:/);
-  for (const marker of expected.rawMarkers) {
-    assert.equal(serialized.includes(marker), false, marker);
-  }
 }
 
 function publicReferenceRagContext(pack) {
@@ -179,7 +267,7 @@ function publicReferenceRagContext(pack) {
   });
 }
 
-test('canonical public targets pack as compact five-unit public-reference knowledge', async () => {
+test('canonical public targets pack as compact five-type public-reference knowledge', async () => {
   const packs = await buildCanonicalPacks();
 
   assert.deepEqual(packs.map(pack => pack.key), CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS);
@@ -187,13 +275,24 @@ test('canonical public targets pack as compact five-unit public-reference knowle
   for (const packedTarget of packs) {
     assertCompactPublicPack(packedTarget);
 
-    const budget = budgetKnowledgePackFacts(packedTarget.pack, { maxUnits: 5 });
-    assert.equal(budget.includedUnitCount, 5);
-    assert.equal(budget.omittedUnitCount, packedTarget.pack.unitCount - 5);
+    const budget = budgetKnowledgePackFacts(packedTarget.pack, { maxUnits: COMPACT_MAX_UNITS });
+    const budgetKeys = collectObjectKeys(budget);
+
+    assert.equal(budget.includedUnitCount, COMPACT_MAX_UNITS);
+    assert.equal(budget.omittedUnitCount, packedTarget.pack.unitCount - COMPACT_MAX_UNITS);
     assert.equal(budget.sources[0]?.provider, packedTarget.target.expectedSourceIdentity.provider);
     assert.equal(budget.sources[0]?.packageName, packedTarget.target.expectedSourceIdentity.packageName);
     assert.equal(budget.sources[0]?.chart, packedTarget.target.expectedSourceIdentity.chart);
     assert.ok(budget.units.every(unit => unit.privacyScope === 'public-reference'));
+    assertFiveUnitTypes(budget.units);
+    assertCompactBudgetUnitIndex(budget, packedTarget.target);
+    assert.equal(budgetKeys.has('url'), false);
+    assert.equal(budgetKeys.has('contentHash'), false);
+    assert.equal(budgetKeys.has('fetchedAt'), false);
+    assert.equal(budgetKeys.has('staleAfter'), false);
+    assert.equal(budgetKeys.has('content'), false);
+    assert.equal(budgetKeys.has('rawContent'), false);
+    assert.equal(budgetKeys.has('rawDocs'), false);
     assert.doesNotMatch(JSON.stringify(budget), /"content"\s*:|contentHash|fetchedAt|staleAfter|url/);
   }
 });
@@ -202,7 +301,7 @@ test('canonical public-reference units can be consumed as generic RAG context', 
   const packs = await buildCanonicalPacks();
   const contexts = packs.flatMap(({ pack }) => publicReferenceRagContext(pack));
 
-  assert.equal(contexts.length, 15);
+  assert.equal(contexts.length, CANONICAL_PUBLIC_KNOWLEDGE_TARGET_KEYS.length * COMPACT_MAX_UNITS);
   assert.ok(contexts.every(context =>
     context.storageScope === 'public-reference'
     && typeof context.sourceLocator === 'string'
