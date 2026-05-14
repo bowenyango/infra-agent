@@ -154,7 +154,7 @@ test('markdown knowledge unit extraction promotes explicit docs sections into fi
         '2. Render the chart with helm template.',
         '3. Review changed Service and Deployment manifests.',
         '',
-        '## Troubleshooting',
+        '## Common Problems',
         '',
         '`Error: service.port is required` usually means the environment values file omitted the service port.',
         '',
@@ -196,6 +196,7 @@ test('markdown knowledge unit extraction promotes explicit docs sections into fi
     assert.ok(unitSet.units.some(unit =>
       unit.unitType === 'diagnostic'
       && unit.engine === 'helm'
+      && unit.source.locator === 'markdown:Common Problems'
       && unit.signature === 'Error: service.port is required'
     ));
     assert.ok(unitSet.units.some(unit =>

@@ -333,7 +333,7 @@ function diagnosticUnitFromSection(
   section: MarkdownSection,
   privacyScope: KnowledgeUnitPrivacyScope
 ): KnowledgeDiagnosticUnit | null {
-  if (!/\b(troubleshooting|errors?|known issues?|failure|debugging)\b/i.test(section.title)) {
+  if (!/\b(troubleshooting|errors?|known issues?|failure(?: modes?)?|debugging|validation|common problems?)\b/i.test(section.title)) {
     return null;
   }
 
