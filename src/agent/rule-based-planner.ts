@@ -6,6 +6,11 @@ import type { EditPlanKind } from '../types/edit-plan.ts';
 import { DEFAULT_QUERY_LOOP_CONFIG } from '../query-config.ts';
 import type { KnowledgePackUnit } from '../knowledge/pack.ts';
 import { knowledgeUnitIncludesText } from './knowledge-unit-text.ts';
+import {
+  findSelectedPlannerKnowledgeUnit,
+  hasPlannerKnowledgeSignal,
+  selectPlannerKnowledgeUnits
+} from './planner-knowledge-unit-selector.ts';
 
 function toTopTargetPaths(input: AgentPlanningInput): string[] {
   return input.runtime.preflight.targetCandidates
@@ -161,47 +166,23 @@ function getPrimaryRequestedDomain(input: AgentPlanningInput): string | null {
 }
 
 function hasTerraformRenameKnowledge(input: AgentPlanningInput): boolean {
-  const unitPattern = /\b(terraform|hcl)\b.*\b(rename|moved block|moved blocks|resource address|state mv|import\/state)\b|\b(rename|moved block|moved blocks|resource address|state mv|import\/state)\b.*\b(terraform|hcl)\b/i;
-  return (input.runtime.knowledgeFacts?.units ?? []).some(unit =>
-    (unit.unitType === 'guidance' || unit.unitType === 'diagnostic' || unit.unitType === 'recipe')
-    && knowledgeUnitIncludesText(unit, unitPattern)
-  );
+  return hasPlannerKnowledgeSignal(input.runtime, 'terraform-rename-review');
 }
 
 function hasPulumiRenameKnowledge(input: AgentPlanningInput): boolean {
-  const unitPattern = /\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b.*\b(rename|replacement|resource name|import\/state|state repair|logical name|adopt existing|retain existing|retaining physical resource|physical resource)\b|\b(rename|replacement|resource name|import\/state|state repair|logical name|adopt existing|retain existing|retaining physical resource|physical resource)\b.*\b(pulumi|urn|alias|aliases|stack config|stack configuration)\b/i;
-  return (input.runtime.knowledgeFacts?.units ?? []).some(unit =>
-    (unit.unitType === 'guidance' || unit.unitType === 'diagnostic' || unit.unitType === 'recipe')
-    && knowledgeUnitIncludesText(unit, unitPattern)
-  );
-}
-
-function knowledgeUnitHasHelmSource(input: AgentPlanningInput, unit: KnowledgePackUnit): boolean {
-  if (unit.unitType === 'diagnostic' && unit.engine === 'helm') {
-    return true;
-  }
-
-  const pack = input.runtime.knowledgeFacts;
-  const source = pack?.sources.find(candidate => candidate.id === unit.sourceId);
-  return source?.domain === 'helm';
+  return hasPlannerKnowledgeSignal(input.runtime, 'pulumi-rename-review');
 }
 
 function hasHelmUpgradeMigrationKnowledge(input: AgentPlanningInput): boolean {
-  const unitPattern = /\b(chart defaults?|values migration|breaking values?|helm template|helm lint)\b|\bvalues?\b.{0,40}\bmigrat(?:e|ed|es|ing|ion)\b|\bmigrat(?:e|ed|es|ing|ion)\b.{0,40}\bvalues?\b|\brender(?:ing)?\b.{0,40}\bbefore\b.{0,40}\b(change|edit|migration|upgrade)\b|\bbefore\b.{0,40}\b(change|edit|migration|upgrade)\b.{0,40}\brender(?:ing)?\b/i;
-  return (input.runtime.knowledgeFacts?.units ?? []).some(unit =>
-    (unit.unitType === 'diagnostic' || unit.unitType === 'recipe')
-    && knowledgeUnitHasHelmSource(input, unit)
-    && knowledgeUnitIncludesText(unit, unitPattern)
-  );
+  return hasPlannerKnowledgeSignal(input.runtime, 'helm-upgrade-migration-review');
 }
 
 function findPulumiValidationReviewDiagnostic(input: AgentPlanningInput): Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> | null {
-  const diagnosticPattern = /\b(alias|aliases|import\/state|import|state repair|cloudfront alias|cnamealreadyexists|dns cutover|dns ownership|logical pulumi rename|logical name)\b/i;
-  return (input.runtime.knowledgeFacts?.units ?? []).find((unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> =>
-    unit.unitType === 'diagnostic'
-    && unit.engine === 'pulumi'
-    && knowledgeUnitIncludesText(unit, diagnosticPattern)
-  ) ?? null;
+  return findSelectedPlannerKnowledgeUnit(
+    input.runtime,
+    'pulumi-validation-review',
+    (unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> => unit.unitType === 'diagnostic'
+  );
 }
 
 function escapeRegExp(value: string): string {
@@ -262,11 +243,13 @@ function findHelmValidationReviewDiagnostic(input: AgentPlanningInput): Extract<
     return null;
   }
 
-  return (input.runtime.knowledgeFacts?.units ?? []).find((unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> =>
-    unit.unitType === 'diagnostic'
-    && unit.engine === 'helm'
-    && issues.some(issue => helmDiagnosticMatchesIssue(unit, issue))
-  ) ?? null;
+  return selectPlannerKnowledgeUnits(input.runtime, { signals: ['helm-validation-review'] })
+    .map(entry => entry.unit)
+    .find((unit): unit is Extract<KnowledgePackUnit, { unitType: 'diagnostic' }> =>
+      unit.unitType === 'diagnostic'
+      && unit.engine === 'helm'
+      && issues.some(issue => helmDiagnosticMatchesIssue(unit, issue))
+    ) ?? null;
 }
 
 function summarizePulumiDiagnosticReview(unit: Extract<KnowledgePackUnit, { unitType: 'diagnostic' }>): string {
