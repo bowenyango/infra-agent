@@ -251,6 +251,11 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
         '2. Add aliases or import/state review when preserving the physical bucket.',
         '3. Run pulumi preview and inspect replacements.',
         '',
+        '## Import',
+        '',
+        '1. Review the existing cloud resource and matching Pulumi type.',
+        '2. Run pulumi import with the provider ID before previewing updates.',
+        '',
         '## Troubleshooting',
         '',
         '`Error: BucketAlreadyExists` usually means another stack or account owns the requested bucket name.',
@@ -300,6 +305,12 @@ test('markdown knowledge unit extraction handles Pulumi docs examples and diagno
       && unit.name === 'Migration Workflow'
       && unit.requiresApproval === true
       && unit.steps.length === 3
+    ));
+    assert.ok(unitSet.units.some(unit =>
+      unit.unitType === 'recipe'
+      && unit.name === 'Import'
+      && unit.requiresApproval === true
+      && unit.steps.length === 2
     ));
     assert.equal(validateKnowledgePayload(unitSet, 'inline').valid, true);
   } finally {

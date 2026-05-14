@@ -302,7 +302,7 @@ function recipeUnitFromSection(
   section: MarkdownSection,
   privacyScope: KnowledgeUnitPrivacyScope
 ): KnowledgeRecipeUnit | null {
-  if (!/\b(how to|configure|configuration|install|installation|upgrade|migration|migrate|workflow)\b/i.test(section.title)) {
+  if (!/\b(how to|configure|configuration|install|installation|upgrade|upgrade guide|migration|migration guide|migrate|workflow|import|state)\b/i.test(section.title)) {
     return null;
   }
 
