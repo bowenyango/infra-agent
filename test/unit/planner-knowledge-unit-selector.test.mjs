@@ -165,3 +165,132 @@ test('planner knowledge selector ignores stale validation diagnostics', () => {
 
   assert.equal(hasPlannerKnowledgeSignal(runtime, 'pulumi-validation-review'), false);
 });
+
+test('planner knowledge selector ranks diagnostics by validation issue kind and metadata reasons', () => {
+  const sources = [
+    source('helm-current', 'helm', 'charts/payments-api', { chart: 'payments-api' }),
+    source('helm-other', 'helm', 'charts/other-api', { chart: 'other-api' }),
+    source('helm-stale', 'helm', 'charts/payments-api', {
+      chart: 'payments-api',
+      stale: true,
+      freshness: 'stale'
+    })
+  ];
+  const runtime = baseRuntime([
+    unit('helm-current', 'diagnostic', 'diagnostic.helm.generic', 'Helm template failed; review chart values before retrying.', {
+      extractionMethod: 'validation-diagnostic',
+      engine: 'helm',
+      signature: 'helm-template-failure',
+      likelyCause: 'A Helm validation command failed.',
+      recommendedReview: ['Review chart values.']
+    }),
+    unit('helm-current', 'diagnostic', 'diagnostic.helm.service-port', 'helm-missing-service-port requires service.port in charts/payments-api/values.yaml.', {
+      extractionMethod: 'validation-diagnostic',
+      engine: 'helm',
+      signature: 'helm-missing-service-port:service.port',
+      likelyCause: 'The chart values are missing service.port.',
+      recommendedReview: ['Define service.port in charts/payments-api/values.yaml.']
+    }),
+    unit('helm-other', 'diagnostic', 'diagnostic.helm.other-service-port', 'helm-missing-service-port requires service.port in charts/other-api/values.yaml.', {
+      extractionMethod: 'validation-diagnostic',
+      engine: 'helm',
+      signature: 'helm-missing-service-port:service.port',
+      likelyCause: 'The other chart values are missing service.port.',
+      recommendedReview: ['Define service.port in charts/other-api/values.yaml.']
+    }),
+    unit('helm-stale', 'diagnostic', 'diagnostic.helm.stale-service-port', 'helm-missing-service-port requires service.port in charts/payments-api/values.yaml.', {
+      extractionMethod: 'validation-diagnostic',
+      engine: 'helm',
+      signature: 'helm-missing-service-port:service.port',
+      likelyCause: 'The stale chart values are missing service.port.',
+      recommendedReview: ['Define service.port in charts/payments-api/values.yaml.']
+    })
+  ], sources, ['charts/payments-api']);
+
+  const selected = selectPlannerKnowledgeUnits(runtime, {
+    signals: ['helm-validation-review'],
+    validationIssues: [
+      {
+        kind: 'helm-missing-service-port',
+        repairable: true,
+        sourceCommand: 'helm template charts/payments-api',
+        message: 'Validation failed because .Values.service.port is missing.',
+        guidance: 'Read chart values and define service.port before rerunning helm template.',
+        metadata: {
+          missingConfigKey: 'service.port',
+          yamlPath: 'charts/payments-api/values.yaml'
+        }
+      }
+    ]
+  });
+
+  assert.deepEqual(selected.map(entry => entry.unit.path), [
+    'diagnostic.helm.service-port',
+    'diagnostic.helm.generic'
+  ]);
+  assert.ok(selected[0]?.reasons.includes('validation-issue:helm-missing-service-port'));
+  assert.ok(selected[0]?.reasons.includes('validation-issue:missingConfigKey'));
+  assert.ok(selected[0]?.reasons.includes('identity:missingConfigKey:service.port'));
+  assert.ok(selected[0]?.reasons.includes('validation-issue:yamlPath'));
+  assert.equal(selected.some(entry => entry.unit.path === 'diagnostic.helm.other-service-port'), false);
+  assert.equal(selected.some(entry => entry.unit.path === 'diagnostic.helm.stale-service-port'), false);
+});
+
+test('planner knowledge selector adds task action hint reasons', () => {
+  const sources = [
+    source('pulumi-api', 'pulumi', 'infra/api', { packageName: '@pulumi/aws' })
+  ];
+  const runtime = baseRuntime([
+    unit('pulumi-api', 'recipe', 'recipe.pulumi.state-repair', 'Use Pulumi aliases with import/state repair when a logical resource name changes.', {
+      name: 'Pulumi state repair review',
+      steps: ['Collect old and new URNs.', 'Review import/state repair before retrying.'],
+      requiresApproval: true,
+      mutationAllowed: false
+    })
+  ], sources, ['infra/api']);
+
+  const selected = selectPlannerKnowledgeUnits(runtime, {
+    signals: ['pulumi-rename-review'],
+    plannedActionHints: ['state repair']
+  });
+
+  assert.equal(selected.length, 1);
+  assert.ok(selected[0]?.reasons.includes('task-action:state repair'));
+});
+
+test('planner knowledge selector adds resource module and chart identity hint reasons', () => {
+  const sources = [
+    source('terraform-edge', 'terraform', 'terraform/edge', {
+      provider: 'hashicorp/aws',
+      module: 'edge-listener'
+    }),
+    source('helm-monitoring', 'helm', 'charts/monitoring', {
+      chart: 'kube-prometheus-stack'
+    })
+  ];
+  const runtime = baseRuntime([
+    unit('terraform-edge', 'guidance', 'guidance.terraform.edge-listener.rename', 'Use Terraform moved blocks when aws_lb_listener_rule.api changes resource address.'),
+    unit('helm-monitoring', 'recipe', 'recipe.helm.monitoring.safe-upgrade', 'Review kube-prometheus-stack chart defaults and values migration before upgrades.', {
+      name: 'kube-prometheus-stack values migration',
+      steps: ['Compare chart defaults.', 'Run helm template before edits.'],
+      requiresApproval: true,
+      mutationAllowed: false
+    })
+  ], sources, ['terraform/edge', 'charts/monitoring']);
+
+  const selected = selectPlannerKnowledgeUnits(runtime, {
+    signals: ['terraform-rename-review', 'helm-upgrade-migration-review'],
+    identityHints: {
+      resources: ['aws_lb_listener_rule.api'],
+      modules: ['edge-listener'],
+      charts: ['kube-prometheus-stack']
+    }
+  });
+  const terraformSelected = selected.find(entry => entry.unit.path === 'guidance.terraform.edge-listener.rename');
+  const helmSelected = selected.find(entry => entry.unit.path === 'recipe.helm.monitoring.safe-upgrade');
+
+  assert.ok(terraformSelected?.reasons.includes('identity:resource:aws_lb_listener_rule.api'));
+  assert.ok(terraformSelected?.reasons.includes('identity:module:edge-listener'));
+  assert.ok(helmSelected?.reasons.includes('identity:chart:kube-prometheus-stack'));
+  assert.ok(helmSelected?.reasons.includes('chart:kube-prometheus-stack'));
+});

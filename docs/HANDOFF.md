@@ -140,6 +140,37 @@ Validation:
 - `npm run test:focused -- test/integration/cli-knowledge-index-main.test.mjs`
   passed.
 
+## 2026-05-15 Planner Knowledge Selector Ranking
+
+Status:
+
+- The preserved `agent-1` selector ranking stash was reviewed and applied to
+  `agent-2` because it fits the context-compiler direction: it improves
+  compact knowledge-unit selection and explanation quality without adding new
+  upload-boundary or harness behavior.
+
+Completed:
+
+- Extended `planner-knowledge-unit-selector` with optional task text, planned
+  action hints, validation issues, and resource/module/chart/component/provider/
+  package identity hints.
+- Added context scoring so selected compact units rank by validation issue
+  kind, issue metadata, task action, and identity matches after domain/target/
+  stale-source gating has already selected eligible units.
+- Added selector reason strings for validation issue matches, identity matches,
+  source module/package aliases, and task action hints so future prompt/pack
+  surfaces can explain why a unit was selected.
+- Preserved deterministic ordering by falling back to original unit order when
+  scores tie.
+
+Validation:
+
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run test:focused -- test/unit/planner-knowledge-unit-selector.test.mjs`
+  passed.
+- `npm run test:unit` passed.
+
 ## 2026-05-14 Target-Scoped Registry RAG Phase
 
 Status:
