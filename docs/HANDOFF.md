@@ -57,6 +57,89 @@ Validation:
 - `git diff --check` passed.
 - `npm run package:check` passed, including the tightened packaged skill.
 
+## 2026-05-15 Agent-2 Reset Management Plan
+
+Status:
+
+- Work has moved to local branch `agent-2` at
+  `e390dff Clarify IaC context compiler direction`.
+- The uncommitted `agent-1` selector ranking work was preserved as
+  `stash@{0}: On agent-1: preserve agent-1 selector ranking work` and must not
+  be applied automatically to `agent-2`.
+- `agent-2` should prioritize a lean IaC context compiler over the previous
+  harness/upload-boundary direction.
+
+Management decision:
+
+- Freeze legacy team-upload and upload-boundary work. Do not add commands,
+  contract artifacts, validators, docs, or tests for that path.
+- Keep the old implementation only as temporary compatibility ballast while
+  the new context compiler path is extracted. New code must not depend on it.
+- Prefer deletion or archival in slices once the replacement context-compiler
+  surfaces are present and tested.
+
+Agent-2 execution phases:
+
+1. **Seal legacy surface**
+   - Remove legacy upload-boundary commands from public help, skill workflow,
+     and active docs.
+   - Mark `docs/CLAUDE_CODE_AGENT_PATTERNS.md` upload-boundary content as
+     legacy guidance, not current architecture.
+   - Keep existing legacy code only if needed to avoid an unsafe giant diff.
+
+2. **Define lean public surface**
+   - Promote context-compiler commands: `inspect`/inventory, `knowledge
+     sources`, `knowledge prefetch`, `knowledge extract`, `knowledge pack`,
+     `knowledge index`, `knowledge validate`, `graph`, changed-context, scoped
+     pack, and cache status.
+   - Treat `agent` and `run` as legacy/experimental surfaces until the core CLI
+     is stable.
+
+3. **Extract core modules**
+   - Keep and harden Terraform, Pulumi, Helm extraction, five-type knowledge
+     units, metadata index, graph JSON, validation summaries, secret redaction,
+     and local fingerprint/hash cache.
+   - Add Argo CD and Kubernetes discovery only as read-only graph and
+     changed-context evidence.
+
+4. **Prune legacy code**
+   - Delete or move `team-upload-*`, team backend upload readiness, and related
+     CLI/tests/docs after the context-compiler MVP has replacement tests.
+   - Keep only artifact validation pieces that directly support local cache,
+     repo-curated packs, or read-only public-reference artifact reuse.
+
+5. **Build MVP proof**
+   - Prove that `changed`/scoped pack outputs let Codex or Claude Code inspect
+     fewer files and consume fewer tokens for a representative Terraform, Helm,
+     and Pulumi change.
+
+Immediate next slice:
+
+- Finish sealing the legacy CLI surface by removing upload-boundary commands
+  from `infra-agent --help` and active documentation.
+- Add the first lightweight tests around the visible command surface if needed.
+
+Completed in this slice:
+
+- Removed legacy team-upload/upload-boundary commands from the default
+  `infra-agent --help` output while leaving implementation files in place for
+  staged pruning.
+- Marked upload-boundary guidance in `docs/CLAUDE_CODE_AGENT_PATTERNS.md` as
+  legacy `agent-1` scaffolding instead of current architecture.
+- Updated `docs/AGENT_RULES.md`, `docs/ROADMAP.md`, and `package.json` to make
+  the active product surface the lean IaC context compiler path.
+
+Validation:
+
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run dev -- --help` shows only the active context-compiler command
+  surface plus legacy `agent`/`run`.
+- `npm run package:check` passed.
+- `npm run test:structure` passed.
+- `npm run test:focused -- test/integration/cli-knowledge-index-main.test.mjs`
+  passed.
+
 ## 2026-05-14 Target-Scoped Registry RAG Phase
 
 Status:

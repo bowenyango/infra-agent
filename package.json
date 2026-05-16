@@ -2,7 +2,7 @@
   "name": "infra-agent",
   "version": "0.1.0",
   "private": true,
-  "description": "TypeScript CLI agent for inspecting and preparing Terraform, Pulumi, and Helm configuration workspaces.",
+  "description": "IaC context compiler CLI for Terraform, Pulumi, and Helm repositories.",
   "type": "module",
   "bin": {
     "infra-agent": "./bin/infra-agent.js"

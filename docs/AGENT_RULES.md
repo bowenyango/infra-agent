@@ -136,12 +136,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 
 - Prefer editing existing Helm, Pulumi, and Terraform assets over creating new parallel assets.
 - Infer repository conventions from concrete files, not from generic best practices alone.
-- Current feature priority is RAG capability, not more remote-upload safety
-  scaffolding. Maintain existing `knowledge team-upload-*` contracts when
-  touched, but do not add new upload boundary stages unless explicitly required
-  by a real team-upload feature. New work should improve extraction, analysis,
-  deterministic retrieval, planner usage, and edit-plan behavior for compact
-  `fact`, `guidance`, `example`, `diagnostic`, and `recipe` units.
+- Current feature priority is the agent-2 IaC context compiler path, not
+  remote-upload safety scaffolding or a larger standalone harness. Treat
+  existing `knowledge team-upload-*` and upload-boundary code as legacy
+  compatibility ballast. Do not add new upload boundary stages, docs, tests, or
+  command surfaces unless explicitly required by a real team-upload feature.
+  New work should improve inventory, changed-context, scoped packs, semantic
+  graph, semantic-unit hash cache, extraction, deterministic retrieval, and the
+  compact `fact`, `guidance`, `example`, `diagnostic`, and `recipe` unit
+  contract.
 - New multi-step agent development must use the subagent operating model from
   root `AGENTS.md`. The main agent remains the PM/Architect owner: it reads the
   durable plan, confirms acceptance criteria, decomposes work, assigns bounded

@@ -60,6 +60,21 @@ non-expanding safety scaffold. The registry path is read-only artifact
 discovery and download of reviewed `infra-agent.knowledge-units` payloads, not
 remote write/upload execution.
 
+Agent-2 reset policy:
+
+- Treat team-upload and upload-boundary implementation as legacy compatibility
+  ballast. It is not part of the active product surface and must not receive
+  new feature work.
+- Prefer an aggressive but staged reduction: first remove the legacy commands
+  from help/skill/docs, then stop new tests from depending on them, then delete
+  or archive the implementation once context-compiler command coverage exists.
+- Keep only the safety properties that belong in a context compiler:
+  read-only defaults, secret redaction, hash/freshness checks, schema
+  validation, compact handoff contracts, and explicit refusal to execute
+  apply/deploy/state mutations.
+- Move engineering effort to `inventory`, `changed`, scoped `pack`, `refs`,
+  `cache status`, semantic graph, and five-unit extraction quality.
+
 Recent RAG progress moved the canonical public extraction targets into real
 planner, edit-plan, and runtime behavior. Canonical public pack fixtures now
 feed prompt regressions, compact unit search text is shared, Terraform
