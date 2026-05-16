@@ -1,15 +1,19 @@
 # infra-agent
 
-`infra-agent` is a TypeScript CLI agent for generating, modifying, and validating infrastructure configuration in a controlled repository workspace.
+`infra-agent` is a TypeScript CLI and agent-facing skill surface for compiling
+Infrastructure as Code repositories into semantic, low-token context for tools
+such as Codex, Claude Code, Cursor, and OpenCode.
 
 The product goal is narrow on purpose:
 
-- read an infrastructure repository with tools
-- understand existing `Pulumi`, `Terraform`, and `Helm` patterns
-- generate or modify configuration safely
-- validate every change with infrastructure-aware validators
-- stop before destructive actions unless explicitly approved
-- help non-Infra contributors succeed without guessing repository conventions
+- inspect existing `Pulumi`, `Terraform`, `Helm`, and Kubernetes-adjacent repo
+  structure
+- extract compact facts, guidance, examples, diagnostics, and recipes
+- build inventory, graph, changed-context, and scoped pack artifacts
+- validate saved knowledge artifacts before another agent uses them
+- use hash and freshness metadata to avoid repeated parsing and token waste
+- leave editing, command execution, approvals, rollback, and PR workflows to the
+  host coding agent and human operator
 
 ## Scope
 
@@ -17,12 +21,14 @@ Version `v0` is intentionally constrained.
 
 - Single CLI entrypoint: `infra-agent`
 - Single repository workspace per run
-- Single task at a time
-- Focus on `Pulumi`, `Terraform`, and `Helm` only
-- File generation and modification only
-- Validation-first workflow
+- Focus on `Pulumi`, `Terraform`, and `Helm`, with graph hooks for
+  Kubernetes/Argo CD relationships where repo evidence exists
+- Read-only context extraction, graph, validation, and handoff artifacts by
+  default
+- Markdown/JSON artifacts intended for downstream coding agents
 - No automatic `pulumi up`
 - No automatic `terraform apply`
+- No automatic `helm upgrade`
 - No secret material generation
 
 ## Non-Goals
@@ -34,6 +40,8 @@ The first version will not attempt to be:
 - a background daemon
 - a deployment operator
 - a remote execution system
+- a replacement for Codex, Claude Code, Terraform plan, Pulumi preview, Helm,
+  Checkov, tfsec, OPA, or human review
 
 ## Development Standards
 
@@ -59,14 +67,19 @@ CI/script gates. See `docs/TESTING.md` for the extension rules.
 
 ## Core Design Direction
 
-The agent will follow a tool-driven loop rather than a prompt-only workflow.
+The active direction is an IaC context compiler, not another harness. A coding
+agent asks `infra-agent` for focused infrastructure context, then uses its own
+editing, command execution, approval, rollback, and PR workflow.
 
 1. Inspect the repository and detect relevant infrastructure files.
-2. Build structured task state from the repository, user intent, and validation results.
-3. Propose the next action through a bounded planning and execution loop.
-4. Read, patch, or create only the files required for the task.
-5. Run validators and use the output to refine the result.
-6. Produce a final summary of files changed and major decisions.
+2. Extract structured inventory and five compact knowledge-unit types:
+   `fact`, `guidance`, `example`, `diagnostic`, and `recipe`.
+3. Build graph and impact context from Terraform modules, Pulumi stacks, Helm
+   charts, Kubernetes resources, and Git diff evidence.
+4. Rank and pack only the context another agent needs for the requested scope.
+5. Validate saved artifacts and freshness hashes before reuse.
+6. Produce compact Markdown or JSON handoff output without raw docs, secrets,
+   or broad repository dumps.
 
 ## Validation Contract
 
@@ -102,22 +115,8 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]`
 - `infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--manifest-out <manifest.json>] [--json]`
 - `infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]`
-- `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]`
-- `infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>] [--out <plan.json>] [--json]`
-- `infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>] [--out <readiness.json>] [--json]`
-- `infra-agent knowledge backend-readiness <backend-config.json> [--out <readiness.json>] [--json]`
-- `infra-agent knowledge backend-reference-readiness <backend-config.json> --registry <reference-registry.json> [--out <readiness.json>] [--json]`
-- `infra-agent knowledge upload-approval-intent <publication-readiness.json> --backend-reference <reference-readiness.json> [--out <intent.json>] [--json]`
-- `infra-agent knowledge upload-approval-continuation <intent.json> --approval-fingerprint <sha256> [--out <continuation.json>] [--json]`
-- `infra-agent knowledge upload-adapter-preflight <continuation.json> --adapter-plan <adapter-plan.json> [--out <preflight.json>] [--json]`
-- `infra-agent knowledge upload-mock-harness <preflight.json> [--out <harness.json>] [--json]`
-- `infra-agent knowledge upload-execution-gate <continuation.json> --mock-harness <harness.json> [--out <gate.json>] [--json]`
-- `infra-agent knowledge upload-mutation-plan <gate.json> [--out <mutation-plan.json>] [--json]`
-- `infra-agent knowledge upload-mutation-approval-review <mutation-plan.json> --approval-fingerprint <sha256> [--out <review.json>] [--json]`
-- `infra-agent knowledge upload-execution-prerequisite-plan <approval-review.json> [--out <prerequisite-plan.json>] [--json]`
-- `infra-agent knowledge upload-write-token-boundary <execution-prerequisite-plan.json> [--out <write-token-boundary.json>] [--json]`
-- `infra-agent knowledge upload-execution-lease-boundary <write-token-boundary.json> [--out <execution-lease-boundary.json>] [--json]`
-- `infra-agent knowledge upload-rollback-plan-boundary <execution-lease-boundary.json> [--out <rollback-plan-boundary.json>] [--json]`
+- `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]`
+- `infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -194,160 +193,19 @@ Current behavior is intentionally runtime-foundation oriented:
   Direct artifacts and registry entries can carry an optional SHA-256
   `artifactContentHash` / `contentHash` so extraction rejects drifted unit
   payloads before planner use.
-  `validate` checks facts,
-  extraction reports,
-  and compact packs before use, and `pack` ranks and emits a bounded
-  planner-safe `infra-agent.knowledge-pack` without raw source content. Packs
-  carry the same
-  storage-policy summary so downstream agents can see when a handoff includes
-  workspace-private facts that require opt-in before team-cache publication.
-  `extract --out` explicitly persists reusable fact artifacts for later
-  validation, and `pack --out` persists bounded packs for handoff or
-  team-cache staging without changing the default stdout-only behavior. Add
-  `--manifest-out <manifest.json>` alongside `--out` to persist a
-  plan-only `infra-agent.knowledge-artifact-manifest` with artifact hash,
-  storage-policy summary, publishable/blocked source ids, and remote-write
-  disabled publication posture before any future team-cache backend is used. Pass
-  `knowledge validate --workspace <workspace>` to recheck repo-derived fact
-  fingerprints against current files and reject stale local knowledge before it
-  reaches a planner. `knowledge publish-plan <manifest.json>` reads the
-  manifest's referenced pack artifact and emits a non-mutating
-  `infra-agent.knowledge-team-publication-plan` dry run for future team-cache
-  publication review; it may write a local `--out` plan file but never calls a
-  store, remote backend, or upload command. `knowledge publish-readiness
-  <plan.json>` reads a saved dry-run plan and an optional compact
-  `infra-agent.knowledge-team-artifact-index-entry`, then emits a local
-  `infra-agent.knowledge-team-publication-readiness` report showing
-  `already-published`, `upload-required`, `blocked`, or `conflict` posture
-  without reading or writing a real remote index. `knowledge backend-readiness
-  <backend-config.json>` reads a local private backend config and emits a
-  compact `infra-agent.knowledge-team-backend-readiness` report for future
-  explicit-upload design; it keeps remote writes, live checks, credential value
-  exposure, and upload commands disabled. `knowledge backend-reference-readiness
-  <backend-config.json> --registry <reference-registry.json>` reads a private
-  S3-compatible backend config plus reference registry and emits a dry-run
-  `infra-agent.knowledge-team-s3-compatible-reference-validation` summary that
-  lists required environment variable names without reading their values.
-  `knowledge upload-approval-intent <publication-readiness.json>
-  --backend-reference <reference-readiness.json>` composes saved dry-run
-  publication readiness with saved S3-compatible reference readiness and emits
-  a private `infra-agent.knowledge-team-upload-approval-intent` review summary;
-  it can say that explicit upload approval is required, but it does not grant
-  approval, check credential presence, read credential values, create a client,
-  generate an upload command, or write remote objects. It also emits a safe
-  approval fingerprint over the intended artifact/backend-reference scope.
-  `knowledge upload-approval-continuation <intent.json>
-  --approval-fingerprint <sha256>` records a matching explicit fingerprint as
-  private dry-run continuation state for future dependency-injected adapter
-  design; it keeps `uploadApproved=false`, `uploadExecutionAllowed=false`,
-  `clientCreated=false`, and `uploadCommand=null`.
-  `knowledge upload-adapter-preflight <continuation.json> --adapter-plan
-  <adapter-plan.json>` reads saved continuation and adapter-resolution plan
-  JSON, then emits a private
-  `infra-agent.knowledge-team-upload-adapter-preflight` review summary for a
-  future mock dependency injection harness. `preflight-ready` does not approve
-  upload, inject an adapter, create a client, check credentials, run live
-  backend checks, generate an upload command, or write remote objects.
-  `knowledge upload-mock-harness <preflight.json>` reads a saved adapter
-  preflight and emits a private `infra-agent.knowledge-team-upload-mock-harness`
-  dry-run contract for an in-memory mock adapter harness. It may instantiate
-  only the mock adapter descriptor boundary, but it does not inject an adapter
-  into upload execution, create SDK clients, check credential presence, read
-  credentials, run live backend checks, generate upload commands, or write
-  object-store/index entries. All output write-attempt flags remain false.
-  `knowledge upload-execution-gate <continuation.json> --mock-harness
-  <harness.json>` reads saved continuation and mock harness artifacts, verifies
-  that they describe the same artifact scope, and emits a private
-  `infra-agent.knowledge-team-upload-execution-gate` dry-run review. A
-  `gate-ready` result only means a later mutation design can request separate
-  approval; it does not approve upload, allow execution, issue write tokens,
-  create execution leases, inject adapters, provide artifact bytes, create SDK
-  clients, check credentials, generate commands, or attempt object/index
-  writes.
-  `knowledge upload-mutation-plan <gate.json>` reads one saved execution gate
-  artifact and emits a private
-  `infra-agent.knowledge-team-upload-mutation-plan` approval-audit dry run.
-  `plan-ready` means the saved gate can be taken to a separate human mutation
-  approval review; it does not grant approval, allow execution, issue write
-  tokens, create leases, provide artifact bytes, create SDK clients, inject
-  adapters, check credentials, generate upload commands, or attempt
-  object/index writes.
-  `knowledge upload-mutation-approval-review <mutation-plan.json>
-  --approval-fingerprint <sha256>` reads one saved mutation plan and records
-  that the operator reviewed the exact plan fingerprint. A `review-ready`
-  result is still only a private review record: it keeps
-  `mutationApprovalGranted=false`, `uploadExecutionAllowed=false`, and all
-  token, lease, client, adapter, artifact-byte, command, credential, live-check,
-  object-write, index-write, and remote-mutation fields disabled.
-  `knowledge upload-execution-prerequisite-plan <approval-review.json>` reads
-  one saved mutation approval review and emits a private
-  `infra-agent.knowledge-team-upload-execution-prerequisite-plan` dry-run
-  boundary plan. `prerequisite-plan-ready` means only that the review can be
-  used as a prerequisite signal for future boundary design; it does not grant
-  mutation approval, allow upload execution, issue write tokens, create leases,
-  create rollback plans, provide artifact bytes, inject adapters, create
-  clients, check credentials, generate upload commands, or attempt object/index
-  writes.
-  `knowledge upload-write-token-boundary <execution-prerequisite-plan.json>`
-  reads one saved prerequisite plan and emits a private
-  `infra-agent.knowledge-team-upload-write-token-boundary` dry-run boundary.
-  `write-token-boundary-ready` means only that a future execution lease design
-  can require a scoped, single-use, expiring, audit-bound write token; it does
-  not issue a token, bind token scope, set expiry, grant approval, allow upload
-  execution, create leases, create rollback plans, provide artifact bytes,
-  inject adapters, create clients, check credentials, generate upload commands,
-  or attempt object/index writes.
-  `knowledge upload-execution-lease-boundary <write-token-boundary.json>` reads
-  one saved write-token boundary and emits a private
-  `infra-agent.knowledge-team-upload-execution-lease-boundary` dry-run boundary.
-  `execution-lease-boundary-ready` means only that a later rollback boundary can
-  require an execution lease with artifact scope binding, single-use behavior,
-  expiry, write-token precondition, audit binding, and rollback precondition; it
-  does not create a lease, issue or bind a token, grant approval, allow upload
-  execution, create rollback plans, provide artifact bytes, inject adapters,
-  create clients, check credentials, generate upload commands, or attempt
-  object/index writes.
-  `knowledge upload-rollback-plan-boundary <execution-lease-boundary.json>`
-  reads one saved execution lease boundary and emits a private
-  `infra-agent.knowledge-team-upload-rollback-plan-boundary` dry-run boundary.
-  `rollback-plan-boundary-ready` means only that a later audit boundary can
-  require rollback-plan scope binding, rollback review, write-token and
-  execution-lease preconditions, artifact bytes, and audit binding; it does not
-  create a rollback plan, create a lease, issue a token, grant approval, allow
-  upload execution, provide artifact bytes, inject adapters, create clients,
-  check credentials, generate upload commands, or attempt object/index writes.
-  `knowledge validate` also
-  accepts compact `infra-agent.knowledge-team-artifact-descriptor` payloads
-  produced by the internal mocked S3-compatible team artifact store
-  abstraction, compact index entries, saved publication-plan dry runs, and
-  readiness reports, plus compact backend-readiness, upload-intent,
-  upload-continuation, upload-adapter-preflight, upload-mock-harness,
-  upload-execution-gate, upload-mutation-plan,
-  upload-mutation-approval-review, upload-execution-prerequisite-plan,
-  upload-write-token-boundary, upload-execution-lease-boundary, and
-  upload-rollback-plan-boundary reports. Team artifact
-  payloads are content-addressed and
-  backend-neutral;
-  they do not include backend URLs, buckets, endpoints, credentials, absolute
-  workspace paths, raw docs, or raw repo content. Contract tests now lock these
-  compact team artifact shapes, including content-addressed key/hash
-  consistency and blocker summary consistency. Internally, the team backend
-  adapter boundary now has compact capability descriptors, a mock-only adapter
-  factory, and a mock-only resolver that rejects credential, endpoint, bucket,
-  URL, absolute-path, live-check, and remote-write leakage. The first
-  S3-compatible backend family now has a contract-first private config parser,
-  an offline reference registry for storage/auth refs and required environment
-  variable names, a dry-run CLI review path for those references, a private
-  upload approval intent review surface, a private explicit approval
-  continuation surface, sanitized internal descriptor metadata,
-  readiness-input projection, and fail-closed resolution planning for future
-  real adapter work; it still does not create a client or read credential
-  values. There is still no real remote storage
-  backend or CLI upload command. Internally, team
-  artifact and backend readiness
-  validation now lives in focused modules while `knowledge validate` remains
-  the public dispatcher; this keeps the next real-backend work from expanding
-  the generic validation entrypoint.
+  `validate` checks facts, extraction reports, compact packs, unit artifacts,
+  indexes, and plan-only artifact manifests before use. `pack` ranks and emits a
+  bounded planner-safe `infra-agent.knowledge-pack` without raw source content;
+  `index` emits compact metadata for deterministic retrieval by unit type,
+  provider/package/chart/module/version, privacy scope, storage scope, and target
+  path. `extract --out` and `pack --out` explicitly persist reusable local
+  artifacts, while `--manifest-out` records artifact hashes, source ids,
+  storage-policy summary, and `mutationAllowed=false` for review. Pass
+  `knowledge validate --workspace <workspace>` to recheck repo-derived source
+  fingerprints against current files before another agent consumes saved context.
+  Legacy team-upload, backend-readiness, and publication commands have been
+  removed from the active branch; shared catalog consumption is now modeled as
+  read-only unit artifact discovery and local validation, not upload execution.
   Validation reports include a structured freshness summary
   with stale and unchecked source counts, affected fact counts, safe source
   ids, source kinds/names, stale reasons, and safe workspace-relative

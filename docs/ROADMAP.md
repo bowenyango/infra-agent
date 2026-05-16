@@ -23,8 +23,8 @@ coding agent, deployment system, security scanner, or approval sandbox.
 Keep Claude Code style safety principles inside the CLI where they protect
 outputs: read-only defaults, dry-run versus mutation separation, secret
 redaction, compact handoff, and explicit refusal to apply/deploy. Do not add
-more fine-grained `knowledge team-upload-*` dry-run boundaries unless a
-concrete product requirement depends on them.
+team-upload, backend-readiness, or remote-publication boundary stages unless a
+real customer workflow explicitly requires shared artifact publishing.
 
 Prioritize work that makes infrastructure edits more accurate and token
 efficient:
@@ -55,19 +55,19 @@ efficient:
    snapshots, and generated packs independently so unchanged context can be
    reused without re-tokenizing or re-analyzing the repo.
 
-Existing team-upload boundary code should be treated as a maintained but
-non-expanding safety scaffold. The registry path is read-only artifact
-discovery and download of reviewed `infra-agent.knowledge-units` payloads, not
-remote write/upload execution.
+Legacy team-upload boundary code is sealed off from active development on
+`agent-2`. The registry path is read-only artifact discovery and download of
+reviewed `infra-agent.knowledge-units` payloads, not remote write/upload
+execution.
 
 Agent-2 reset policy:
 
-- Treat team-upload and upload-boundary implementation as legacy compatibility
-  ballast. It is not part of the active product surface and must not receive
-  new feature work.
-- Prefer an aggressive but staged reduction: first remove the legacy commands
-  from help/skill/docs, then stop new tests from depending on them, then delete
-  or archive the implementation once context-compiler command coverage exists.
+- Treat team-upload and upload-boundary implementation as archived legacy
+  ballast from `agent-1`. It is not part of the active product surface and must
+  not receive new feature work.
+- Prefer aggressive but staged reduction: keep active context-compiler
+  commands covered, remove stale public docs, and delete hidden implementation
+  only when no active CLI/parser/validator path depends on it.
 - Keep only the safety properties that belong in a context compiler:
   read-only defaults, secret redaction, hash/freshness checks, schema
   validation, compact handoff contracts, and explicit refusal to execute
@@ -404,39 +404,17 @@ Current progress as of 2026-05-13:
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy; HTML official-doc responses are normalized into compact Markdown cache entries in the explicit fetch path; `knowledge sources` reports fresh/stale/missing cache posture without fetching; prefetch results report previous cache posture for each source | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts, explicit `KnowledgeUnit` / `KnowledgeUnitSet` contracts for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`, cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact/unit ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, fact-derived required-input guidance, provider/Helm diagnostics, Terraform/Helm/Pulumi workflow recipes, conservative markdown section extraction for explicit examples, best practices, troubleshooting/errors, and upgrade/migration workflows, local curated internal units, prebuilt unit artifact sources, canonical public target resolver/summaries, knowledge unit metadata index, budget summary `unitIndex`, `knowledge index` CLI, index validation through `knowledge validate`, and structured local freshness summaries for stale or unchecked repo-derived facts | Runtime/edit-plan use of markdown-derived diagnostic and recipe units, Non-Node Pulumi language discovery, dynamic/deeper component internals, exact multi-source pack source-level omitted distribution, and real team storage backends are pending |
-| Team storage | Partial | Cache root can be local, environment-selected, or workspace-relative; persisted knowledge artifacts can emit plan-only manifests with byte-level artifact hashes, storage policy, publishable/blocked source ids, remote writes disabled, and validation that rechecks referenced artifact bytes plus repo-local source fingerprints; public-reference knowledge packs can be staged through an injected mocked S3-compatible content-addressed store and compact descriptor validation; `knowledge publish-plan` emits a non-mutating dry-run publication plan for persisted pack manifests; `knowledge publish-readiness` emits a local readiness report from a saved plan and optional compact index entry; contract tests lock descriptor, publication-plan, index-entry, and readiness JSON shapes; `knowledge backend-readiness` emits compact dry-run readiness for local private backend configs without live checks or credential values; `knowledge backend-reference-readiness` emits private dry-run validation for S3-compatible config refs against an offline reference registry without reading env values; `knowledge upload-approval-intent` emits private dry-run approval-boundary state and a safe scope fingerprint from saved publication readiness plus saved backend-reference readiness without granting approval or checking credentials; `knowledge upload-approval-continuation` records a matching explicit fingerprint as private dry-run continuation state while keeping upload/client execution disabled; `knowledge upload-adapter-preflight` reviews a saved continuation plus saved mock adapter resolution plan for future dependency injection while keeping upload/client/adapter execution disabled; `knowledge upload-mock-harness` reads a saved preflight and builds an in-memory mock adapter harness contract while keeping adapter injection, object writes, index writes, clients, credentials, live checks, and upload commands disabled; `knowledge upload-execution-gate` reads saved continuation plus saved mock harness artifacts, verifies matching artifact scope, and emits dry-run permission/audit state while keeping upload approval, execution, write tokens, execution leases, adapter injection, clients, credentials, live checks, artifact bytes, commands, and object/index writes disabled; `knowledge upload-mutation-plan` reads a saved execution gate and emits a private approval-audit dry-run plan for a later human mutation review while keeping approval, execution, tokens, leases, artifact bytes, adapters, clients, credentials, commands, and object/index writes disabled; `knowledge upload-mutation-approval-review` reads a saved mutation plan plus an explicit approval fingerprint and records only that the exact plan fingerprint was reviewed while keeping mutation approval, execution, tokens, leases, artifact bytes, adapters, clients, credentials, commands, and object/index writes disabled; `knowledge upload-execution-prerequisite-plan` reads a saved mutation approval review and records the remaining execution prerequisites while keeping every upload/mutation path disabled; `knowledge upload-write-token-boundary` reads a saved prerequisite plan and records scoped, single-use, expiring, audit-bound write-token requirements while keeping token issuance, leases, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-execution-lease-boundary` reads a saved write-token boundary and records scoped, single-use, expiring, audit-bound execution lease requirements while keeping lease creation, token issuance, rollback plans, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-rollback-plan-boundary` reads a saved execution lease boundary and records scoped rollback-plan requirements while keeping rollback creation, lease creation, token issuance, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-audit-record-boundary` reads a saved rollback plan boundary and records scoped audit-record requirements while keeping audit creation, rollback creation, lease creation, token issuance, artifact bytes, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-artifact-bytes-boundary` reads a saved audit record boundary and records local artifact-byte staging requirements while keeping byte reads/staging/provision, adapters, clients, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-adapter-injection-boundary` reads a saved artifact bytes boundary and records adapter dependency-injection requirements while keeping adapter instantiation/injection, client creation, byte reads/staging/provision, credentials, commands, object writes, index writes, and remote mutation disabled; `knowledge upload-client-creation-boundary` reads a saved adapter injection boundary and records client creation requirements while keeping SDK client creation, adapter injection, credential reads/presence checks, live checks, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; `knowledge upload-credential-read-boundary` reads a saved client creation boundary and records credential-read requirements while keeping credential value reads, credential presence checks, SDK client creation, adapter injection, live checks, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; `knowledge upload-credential-presence-boundary` reads a saved credential read boundary and records credential-presence requirements while keeping credential value reads, credential presence checks, SDK client creation, adapter injection, live checks, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; `knowledge upload-live-check-boundary` reads a saved credential presence boundary and records live-check requirements while keeping credential value reads, credential presence checks, live checks, live-check result exposure, SDK client creation, adapter injection, command generation, object-store binding, metadata-index binding, byte reads/staging/provision, object writes, index writes, and remote mutation disabled; team artifact, backend-readiness, upload-intent, upload-continuation, upload-adapter-preflight, upload-mock-harness, upload-execution-gate, upload-mutation-plan, upload-mutation-approval-review, upload-execution-prerequisite-plan, upload-write-token-boundary, upload-execution-lease-boundary, upload-rollback-plan-boundary, upload-audit-record-boundary, upload-artifact-bytes-boundary, upload-adapter-injection-boundary, upload-client-creation-boundary, upload-credential-read-boundary, upload-credential-presence-boundary, and upload-live-check-boundary validators are split into focused modules behind the `knowledge validate` dispatcher; an internal team backend adapter interface now exposes mock-only capability descriptors, object-store/index dependencies, and a resolver that rejects credential, backend-detail, live-check, and remote-write leakage; the first S3-compatible backend family has a private contract parser, offline reference registry for storage/auth refs and required environment variable names, sanitized descriptor, readiness-input projection, fail-closed resolution plan, and mock-backed adapter conformance tests | No real S3/GCS/Azure/Postgres backend implementation, no remote metadata index service, no SDK client, no credential read, no credential presence check, no live backend check, and no CLI upload/publication command |
+| Shared artifacts | Archived | Active branch keeps local cache, plan-only artifact manifests, validated prebuilt `infra-agent.knowledge-units`, read-only artifact registries, and storage-policy metadata for privacy posture. Legacy team-upload/backend-readiness/publication/upload boundary implementation has been removed from the active source surface. | No remote object store, metadata service, upload command, credential read, live backend check, or publication workflow in v0 |
 
-2026-05-10 addendum: `knowledge upload-command-boundary` now consumes a saved
-private live-check boundary and emits a validated dry-run upload-command
-boundary with command descriptor/redaction/approval requirements, object and
-index dependency requirements, content-addressed key requirements, idempotent
-write requirements, and explicit approval requirements. It keeps command
-generation, command materialization/exposure, executable state, credential
-reads, credential presence checks, live checks, SDK client creation, adapter
-injection, byte staging, object/index writes, and remote mutation disabled; the
-target object key is redacted from the output. Its validator is also wired into
-the `knowledge validate` dispatcher.
-
-2026-05-10 addendum: `knowledge upload-object-index-binding-boundary` now
-consumes a saved private upload-command boundary and emits a validated dry-run
-object/index binding boundary with object-store descriptor, metadata-index
-descriptor, object-key redaction, metadata-index entry redaction,
-content-addressed key, idempotent write, execution-boundary, and explicit
-approval requirements. It keeps concrete store/index binding, handle exposure,
-command generation/materialization/exposure, executable state, credential
-reads, credential presence checks, live checks, SDK client creation, adapter
-injection, byte staging, object/index writes, and remote mutation disabled;
-the target object key remains redacted from the output. Its validator is also
-wired into the `knowledge validate` dispatcher.
+Archived note: the 2026-05-10 upload-boundary addenda were part of the sealed `agent-1` safety-surface expansion. They are intentionally removed from the active `agent-2` roadmap.
 
 Target artifact families:
 
 - `infra-agent.knowledge-unit`: the normalized retrieval unit for
-  infrastructure RAG. Unit types are `fact`, `guidance`, `example`,
-  `diagnostic`, and `recipe`; every unit carries source, version or commit,
-  confidence, freshness, privacy scope, source locator, extraction method, and
-  token-budget metadata. Existing `KnowledgeFact` payloads should evolve toward
-  this unit contract instead of growing unrelated fact-only fields.
+  infrastructure RAG. Unit types are `fact`, `guidance`,
+  `example`, `diagnostic`, and `recipe`; every unit carries source,
+  version or commit, confidence, freshness, privacy scope, source locator,
+  extraction method, and token-budget metadata.
 - `infra-agent.knowledge-source`: selected source metadata for official docs,
   local schemas, examples, module READMEs, chart metadata, and configured
   internal curated unit files.
@@ -447,365 +425,21 @@ Target artifact families:
   replacement-sensitive fields, identity fields, examples, chart values, module
   inputs/outputs, Pulumi component config shape, chart metadata, and chart
   dependencies.
-- `infra-agent.knowledge-pack`: a bounded, validated bundle of facts for one
-  provider version, resource type, chart version, module, component, or repo
-  target. Repo-local pack sources carry compact safe path/hash fingerprints so
-  reuse can be rejected when local files change. This should become a bounded
-  bundle of knowledge units while preserving backward-compatible fact summaries
-  for current planner prompts.
+- `infra-agent.knowledge-pack`: a bounded, validated bundle of facts and
+  units for one provider version, resource type, chart version, module,
+  component, or repo target. Repo-local pack sources carry compact safe
+  path/hash fingerprints so reuse can be rejected when local files change.
 - `infra-agent.knowledge-index`: a deterministic metadata index over extracted
-  or packed `infra-agent.knowledge-units`. It records source-linked unit
-  selectors, target summaries, counts, freshness, privacy scope, budget
-  `unitIndex` posture, and validation metadata without raw docs or
-  provider-specific parser state. This is the current core retrieval bridge for
-  public/internal RAG.
-- `infra-agent.knowledge-artifact-manifest`: a plan-only publication manifest
-  for persisted extraction or pack artifacts. It records byte-level artifact
-  hash, storage-policy summary, publishable-by-default source ids, blocked
-  source ids and reasons, required validation commands, and
-  `remoteWriteAllowed=false`. Validation re-reads the referenced artifact and
-  rejects byte-hash or metadata drift before reuse/publication planning.
-- `infra-agent.knowledge-team-artifact-descriptor`: a compact descriptor for a
-  staged public-reference knowledge pack in an injected team artifact store. It
-  records backend kind, content-addressed object key, byte hash, byte length,
-  counts, storage-policy summary, and publication counts without backend URLs,
-  buckets, endpoints, credentials, absolute workspace paths, raw docs, or raw
-  repo content.
-- `infra-agent.knowledge-team-publication-plan`: a dry-run publication review
-  artifact for persisted knowledge-pack manifests. It rechecks manifest byte
-  hash and metadata, previews the content-addressed object key, records
-  allowed/blocked publication posture, and keeps `remoteWriteAllowed=false`
-  without calling a store or including backend URLs, buckets, endpoints,
-  credentials, absolute workspace paths, raw docs, or raw repo content.
-- `infra-agent.knowledge-team-artifact-index-entry`: a compact metadata index
-  record derived from a validated team artifact descriptor. It records the
-  backend kind, index key, object key, byte hash, byte length, artifact counts,
-  storage-policy summary, and publication counts without backend URLs, buckets,
-  endpoints, credentials, absolute workspace paths, raw docs, or raw repo
-  content.
-- `infra-agent.knowledge-team-publication-readiness`: a local dry-run readiness
-  report derived from a publication plan and optional compact index entry. It
-  reports `already-published`, `upload-required`, `blocked`, or `conflict`
-  posture and keeps `remoteWriteAllowed=false` without reading or writing a real
-  remote index.
-- `infra-agent.knowledge-team-backend-readiness`: a compact dry-run backend
-  readiness report derived from a local private backend config. It records
-  structural readiness for a future explicit upload design while keeping
-  `remoteWriteAllowed=false`, `liveCheckAllowed=false`,
-  `credentialValuesExposed=false`, and `uploadCommand=null`; it does not expose
-  backend URLs, buckets, endpoints, headers, credential values, absolute local
-  paths, raw docs, facts, or source arrays.
-- `infra-agent.knowledge-team-upload-adapter-preflight`: a private dry-run
-  adapter dependency preflight derived from a saved upload approval continuation
-  and a saved backend adapter resolution plan. It can report
-  `preflight-ready` only for a continuation-ready artifact plus a resolvable
-  mock adapter plan, while keeping upload approval, upload execution, adapter
-  injection, client creation, credential reads, live checks, remote writes, and
-  upload commands disabled.
-- `infra-agent.knowledge-team-upload-mock-harness`: a private dry-run in-memory
-  mock harness summary derived from a saved upload adapter preflight. It can
-  report `harness-ready` only for a safe mock preflight and records that object
-  writes, metadata index writes, remote mutations, SDK clients, credential
-  reads, live checks, upload commands, and adapter injection are disabled.
-- `infra-agent.knowledge-team-upload-execution-gate`: a private dry-run
-  permission/audit gate derived from a saved upload approval continuation and a
-  saved upload mock harness. It can report `gate-ready` only when both inputs
-  are ready and describe the same manifest id, object key, object hash, and
-  artifact id, while write tokens, execution leases, upload approval, upload
-  execution, adapter injection, artifact bytes, object writes, metadata index
-  writes, SDK clients, credential reads, live checks, and upload commands stay
-  disabled.
-- `infra-agent.knowledge-team-upload-mutation-plan`: a private dry-run
-  approval-audit plan derived from a saved upload execution gate. It can report
-  `plan-ready` only when the gate is ready and sanitized, while mutation
-  approval, upload execution, artifact bytes, write tokens, execution leases,
-  rollback-plan creation, adapter injection, SDK clients, credential reads,
-  live checks, upload commands, object writes, metadata index writes, and
-  remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-mutation-approval-review`: a private
-  dry-run human fingerprint review record derived from a saved upload mutation
-  plan and an explicit operator-supplied approval fingerprint. It can report
-  `review-ready` only when the plan is ready and the fingerprint matches the
-  deterministic mutation-plan approval-audit fingerprint, while mutation
-  approval, upload execution, artifact bytes, write tokens, execution leases,
-  rollback-plan creation, adapter injection, SDK clients, credential reads,
-  live checks, upload commands, object writes, metadata index writes, and
-  remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-execution-prerequisite-plan`: a private
-  dry-run execution prerequisite boundary plan derived from a saved mutation
-  approval review. It can report `prerequisite-plan-ready` only when the review
-  is ready, human review is recorded, and the fingerprint is verified. It
-  records artifact bytes, adapter injection, write token, execution lease,
-  rollback plan, and audit record as future required boundaries, while mutation
-  approval, upload execution, artifact bytes, write tokens, execution leases,
-  rollback-plan creation, adapter injection, SDK clients, credential reads,
-  live checks, upload commands, object writes, metadata index writes, and
-  remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-write-token-boundary`: a private dry-run
-  write-token boundary plan derived from a saved execution prerequisite plan.
-  It can report `write-token-boundary-ready` only when the prerequisite plan is
-  ready and the prior review signal remains verified. It records token-before-
-  execution, artifact scope binding, single-use issuance, expiry, audit
-  binding, execution lease precondition, and rollback precondition as future
-  required boundaries, while token issuance, token binding, token expiry,
-  mutation approval, upload execution, artifact bytes, execution leases,
-  rollback-plan creation, adapter injection, SDK clients, credential reads,
-  live checks, upload commands, object writes, metadata index writes, and
-  remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-execution-lease-boundary`: a private
-  dry-run execution lease boundary plan derived from a saved write-token
-  boundary. It can report `execution-lease-boundary-ready` only when the
-  write-token boundary is ready and the prior review signal remains verified.
-  It records lease-before-execution, artifact scope binding, single-use lease
-  creation, expiry, write-token precondition, audit binding, and rollback
-  precondition as future required boundaries, while lease creation, token
-  issuance, token binding, rollback-plan creation, mutation approval, upload
-  execution, artifact bytes, adapter injection, SDK clients, credential reads,
-  live checks, upload commands, object writes, metadata index writes, and
-  remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-rollback-plan-boundary`: a private
-  dry-run rollback plan boundary derived from a saved execution lease
-  boundary. It can report `rollback-plan-boundary-ready` only when the lease
-  boundary is ready and the prior review signal remains verified. It records
-  rollback-plan before execution, artifact scope binding, rollback review,
-  write-token and execution-lease preconditions, artifact bytes, audit binding,
-  and audit record precondition as future required boundaries, while rollback
-  creation, lease creation, token issuance, mutation approval, upload
-  execution, artifact bytes, adapter injection, SDK clients, credential reads,
-  live checks, upload commands, object writes, metadata index writes, and
-  remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-audit-record-boundary`: a private dry-run
-  audit record boundary derived from a saved rollback plan boundary. It can
-  report `audit-record-boundary-ready` only when the rollback boundary is ready
-  and the prior review signal remains verified. It records audit-record before
-  execution, artifact scope binding, audit review, write-token,
-  execution-lease, rollback-plan, and artifact-byte preconditions as future
-  required boundaries, while audit creation, rollback creation, lease creation,
-  token issuance, mutation approval, upload execution, artifact bytes, adapter
-  injection, SDK clients, credential reads, live checks, upload commands,
-  object writes, metadata index writes, and remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-artifact-bytes-boundary`: a private
-  dry-run artifact-byte boundary derived from a saved audit record boundary. It
-  can report `artifact-bytes-boundary-ready` only when the audit boundary is
-  ready and the prior review signal remains verified. It records future
-  artifact-byte staging requirements, digest verification, artifact scope
-  binding, audit, rollback, lease, token, and adapter-injection preconditions,
-  while byte reading, byte staging, digest verification, audit creation,
-  rollback creation, lease creation, token issuance, mutation approval, upload
-  execution, adapter injection, SDK clients, credential reads, live checks,
-  upload commands, object writes, metadata index writes, and remote mutations
-  stay disabled.
-- `infra-agent.knowledge-team-upload-adapter-injection-boundary`: a private
-  dry-run adapter injection boundary derived from a saved artifact bytes
-  boundary. It can report `adapter-injection-boundary-ready` only when the
-  artifact bytes boundary is ready, the prior review signal remains verified,
-  and the adapter backend remains the mock S3-compatible boundary. It records
-  future adapter dependency requirements, dependency-injection-only posture,
-  mock adapter descriptor, object-store and metadata-index dependencies,
-  content-addressed key requirements, idempotent write requirement, explicit
-  approval requirement, and client-creation precondition, while adapter
-  instantiation/injection, client creation, byte staging, credential reads,
-  live checks, upload commands, object writes, metadata index writes, and
-  remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-client-creation-boundary`: a private
-  dry-run client creation boundary derived from a saved adapter injection
-  boundary. It can report `client-creation-boundary-ready` only when the
-  adapter injection boundary is ready, the prior review signal remains
-  verified, and the adapter backend remains the mock S3-compatible boundary.
-  It records future client factory requirements, credential-read and
-  credential-presence boundary requirements, live-check and upload-command
-  boundary requirements, object-store and metadata-index dependencies,
-  content-addressed key requirements, idempotent write requirement, and
-  explicit approval requirement, while SDK client creation, adapter injection,
-  credential reads, credential presence checks, live checks, command
-  generation, store/index binding, byte staging, object writes, metadata index
-  writes, and remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-credential-read-boundary`: a private
-  dry-run credential read boundary derived from a saved client creation
-  boundary. It can report `credential-read-boundary-ready` only when the
-  client creation boundary is ready, the prior review signal remains verified,
-  and the adapter backend remains the mock S3-compatible boundary. It records
-  future credential source descriptor requirements, credential reference-only
-  posture, credential value redaction requirement, credential-presence
-  boundary requirement, live-check and upload-command boundary requirements,
-  client-creation boundary requirement, object-store and metadata-index
-  dependencies, content-addressed key requirements, idempotent write
-  requirement, and explicit approval requirement, while credential value reads,
-  credential exposure, credential presence checks, SDK client creation,
-  adapter injection, live checks, command generation, store/index binding, byte
-  staging, object writes, metadata index writes, and remote mutations stay
-  disabled.
-- `infra-agent.knowledge-team-upload-credential-presence-boundary`: a private
-  dry-run credential presence boundary derived from a saved credential read
-  boundary. It can report `credential-presence-boundary-ready` only when the
-  credential read boundary is ready, the prior review signal remains verified,
-  and the adapter backend remains the mock S3-compatible boundary. It records
-  future credential presence signal requirements, credential presence result
-  redaction requirement, credential-reference-only posture, credential value
-  redaction requirement, live-check and upload-command boundary requirements,
-  object-store and metadata-index dependencies, content-addressed key
-  requirements, idempotent write requirement, and explicit approval
-  requirement, while credential value reads, credential exposure, credential
-  presence checks, SDK client creation, adapter injection, live checks, command
-  generation, store/index binding, byte staging, object writes, metadata index
-  writes, and remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-live-check-boundary`: a private dry-run
-  live-check boundary derived from a saved credential presence boundary. It can
-  report `live-check-boundary-ready` only when the credential presence boundary
-  is ready, the prior review signal remains verified, and the adapter backend
-  remains the mock S3-compatible boundary. It records future live-check
-  requirements, read-only live-check policy, credential-presence and
-  credential-read boundary requirements, credential and credential-presence
-  result redaction, upload-command boundary requirement, object-store and
-  metadata-index dependencies, content-addressed key requirements, idempotent
-  write requirement, and explicit approval requirement, while credential value
-  reads, credential exposure, credential presence checks, SDK client creation,
-  adapter injection, live checks, live-check result exposure, command
-  generation, store/index binding, byte staging, object writes, metadata index
-  writes, and remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-command-boundary`: a private dry-run
-  upload command boundary derived from a saved live-check boundary. It can
-  report `upload-command-boundary-ready` only when the live-check boundary is
-  ready, the prior review signal remains verified, and the adapter backend
-  remains the mock S3-compatible boundary. It records future upload-command
-  descriptor, post-live-check command-generation, command payload/material
-  redaction, command execution approval, object-store and metadata-index
-  dependency, content-addressed key, idempotent write, and explicit approval
-  requirements, while command generation/materialization/exposure, executable
-  command state, credential reads, credential presence checks, SDK client
-  creation, adapter injection, live checks, live-check result exposure,
-  store/index binding, byte staging, object writes, metadata index writes, and
-  remote mutations stay disabled. The target object key is intentionally
-  redacted from this boundary output.
-- `infra-agent.knowledge-team-upload-object-index-binding-boundary`: a private
-  dry-run object/index binding boundary derived from a saved upload-command
-  boundary. It can report `object-index-binding-boundary-ready` only when the
-  upload-command boundary is ready, the prior review signal remains verified,
-  the target remains safe and object-key-redacted, and the adapter backend
-  remains the mock S3-compatible boundary. It records future object-store and
-  metadata-index descriptors, object-key and index-entry redaction,
-  content-addressed key, idempotent write, execution-boundary, and explicit
-  approval requirements, while concrete store/index binding, handle exposure,
-  command generation/materialization/exposure, executable command state,
-  credential reads, credential presence checks, SDK client creation, adapter
-  injection, live checks, byte staging, object writes, metadata index writes,
-  and remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-execution-readiness-boundary`: a private
-  dry-run execution readiness boundary derived from a saved object/index
-  binding boundary. It can report `upload-execution-readiness-boundary-ready`
-  only when the object/index boundary is ready, the prior review signal remains
-  verified, the target remains safe and object-key-redacted, and the adapter
-  backend remains the mock S3-compatible boundary. It records final future
-  execution requirements plus separate upload execution approval, while upload
-  approval, upload execution approval, upload execution, command generation,
-  token issuance, lease creation, rollback creation, audit creation, byte
-  staging, adapter injection, SDK client creation, credential reads,
-  credential presence checks, live checks, store/index binding, object writes,
-  metadata index writes, and remote mutations stay disabled.
-- `infra-agent.knowledge-team-upload-execution-approval-request`: a private
-  dry-run human upload execution approval request derived from a saved
-  execution readiness boundary. It can report
-  `upload-execution-approval-request-ready` only when the readiness boundary is
-  ready, reviewed, scope-matched, and still fully non-executing. It emits a
-  deterministic SHA-256 approval request fingerprint for later human review
-  while keeping human approval recorded, approval granted, upload execution
-  approval, upload execution, command generation, token issuance, leases,
-  rollback, audit records, byte staging, adapter injection, SDK client
-  creation, credential reads, credential presence checks, live checks,
-  store/index binding, object writes, metadata index writes, and remote
-  mutations disabled.
-- `infra-agent.knowledge-team-upload-execution-approval-record`: a private
-  dry-run human upload execution approval record derived from a saved approval
-  request plus an explicit operator-supplied fingerprint. It can report
-  `upload-execution-approval-record-ready` only when the approval request is
-  ready, still non-executing, and the supplied SHA-256 fingerprint exactly
-  matches the approval request fingerprint. It records human approval
-  fingerprint verification for the local plan chain, while keeping approval
-  granted, upload execution approval, upload execution, command generation,
-  token issuance, leases, rollback, audit records, byte staging, adapter
-  injection, SDK client creation, credential reads, credential presence checks,
-  live checks, store/index binding, object writes, metadata index writes, and
-  remote mutations disabled.
-- `infra-agent.knowledge-team-upload-execution-authorization-boundary`: a
-  private dry-run upload execution authorization boundary derived from a saved
-  human upload execution approval record. It can report
-  `upload-execution-authorization-boundary-ready` only when the approval record
-  is ready, still non-executing, and its human approval fingerprint remains
-  verified. It records only that a later Plan/Rules update must explicitly
-  review the upload execution boundary, while approval grants, upload execution
-  authorization, upload execution, command generation, token issuance, leases,
-  rollback, audit records, byte staging, adapter injection, SDK client
-  creation, credential reads, credential presence checks, live checks,
-  store/index binding, object writes, metadata index writes, and remote
-  mutations stay disabled.
-- `infra-agent.knowledge-team-upload-execution-plan-rules-review`: a private
-  dry-run Plan/Rules update review artifact derived from a saved upload
-  execution authorization boundary. It can report
-  `upload-execution-plan-rules-review-ready` only when the authorization
-  boundary is ready, still non-executing, and its next action is
-  `await-plan-rules-update-for-upload-execution`. It records only the safe
-  review checklist for a future explicit Plan/Rules update; it is not Plan/Rules
-  approval, upload execution approval, upload execution authorization, command
-  generation, object/index binding, or remote write permission.
-- `infra-agent.knowledge-team-upload-execution-plan-rules-update-record`: a
-  private dry-run Plan/Rules update record derived from a saved Plan/Rules
-  review artifact plus an explicit operator-supplied review fingerprint. It can
-  report `upload-execution-plan-rules-update-record-ready` only when the review
-  artifact is ready, still non-executing, and the supplied SHA-256 fingerprint
-  exactly matches the review fingerprint. It records only local fingerprint
-  verification for the policy-update chain; it is not upload execution
-  approval, upload execution authorization, upload execution allowance, command
-  generation, object/index binding, or remote write permission.
-- `infra-agent.knowledge-team-upload-execution-implementation-boundary`: a
-  private dry-run upload execution implementation boundary derived from a saved
-  Plan/Rules update record. It can report
-  `upload-execution-implementation-boundary-ready` only when the update record
-  is ready, still non-executing, and its next action is
-  `design-upload-execution-implementation-boundary`. It records only that a
-  later implementation design boundary has been modeled; it is not upload
-  execution approval, upload execution authorization, upload execution
-  allowance, command generation, adapter injection, client creation,
-  credential access, live checking, object/index binding, object/index writes,
-  or remote mutation permission.
-- `infra-agent.knowledge-team-upload-execution-runtime-boundaries`: a private
-  dry-run upload execution runtime-boundaries artifact derived from a saved
-  implementation boundary. It can report
-  `upload-execution-runtime-boundaries-ready` only when the implementation
-  boundary is ready, still non-executing, and its next action is
-  `design-upload-execution-runtime-boundaries`. It records only that command,
-  adapter, client, credential, live-check, object/index binding, write,
-  token/lease, rollback, audit, artifact-byte, and remote-mutation runtime
-  boundaries have been modeled. It is not upload execution approval, upload
-  execution authorization, upload execution allowance, command generation,
-  adapter injection, client creation, credential access, live checking,
-  object/index binding, object/index writes, token or lease issuance,
-  rollback/audit creation, artifact-byte staging, or remote mutation
-  permission.
-- `infra-agent.knowledge-team-upload-execution-runtime-boundary-policy-review`:
-  a private dry-run upload execution runtime-boundary policy-review artifact
-  derived from a saved runtime-boundaries artifact. It can report
-  `upload-execution-runtime-boundary-policy-review-ready` only when the
-  runtime-boundaries artifact is ready, still non-executing, and its next action
-  is `await-explicit-upload-execution-runtime-boundary-policy-review`. It
-  records only that runtime boundary policy families were reviewed as a local
-  checkpoint; it is not upload execution approval, upload execution
-  authorization, upload execution allowance, Plan/Rules update, command
-  generation, adapter injection, client creation, credential access, live
-  checking, object/index binding, object/index writes, token or lease issuance,
-  rollback/audit creation, artifact-byte staging, or remote mutation
-  permission.
-
-Team artifact public contracts:
-
-- Descriptor, publication-plan, index-entry, and readiness JSON payloads have
-  contract tests plus `knowledge validate` coverage before any real team cache
-  backend exists.
-- Contract gates reject remote-write posture, credentials, upload commands,
-  backend details, absolute local paths, raw facts, raw source arrays, unsafe
-  object keys, content-address/key/hash drift, and blocker-code summary drift.
-- Backend-readiness reports are separate from artifact public contracts. They
-  may summarize local private backend config structure, but must not be treated
-  as upload approval or evidence that a remote backend was checked.
+  or packed units. It records source-linked selectors, target summaries,
+  counts, freshness, privacy scope, budget posture, and validation metadata
+  without raw docs or provider-specific parser state.
+- `infra-agent.knowledge-artifact-manifest`: a plan-only local manifest for
+  persisted extraction or pack artifacts. It records byte-level artifact hash,
+  storage-policy summary, source ids, required validation commands, and
+  `mutationAllowed=false`. It is not a publication or upload request.
+- `infra-agent.curated-knowledge-units` and read-only unit artifact registry
+  payloads: reviewed local or explicitly configured catalogs that can feed the
+  same extract, validate, rank, pack, and index path without remote writes.
 
 Extraction rules:
 
@@ -827,325 +461,35 @@ Extraction rules:
 
 Implemented initial CLI surfaces:
 
-- `infra-agent knowledge sources <workspace> [--domain helm|pulumi|terraform]
-  [--target <path>] [--json]`
+- `infra-agent knowledge sources <workspace> [--domain helm|pulumi|terraform] [--target <path>] [--json]`
   - lists selected knowledge sources without fetching.
 - `infra-agent knowledge prefetch <workspace> ...`
-  - aliases the current top-level `prefetch` command.
-- `infra-agent knowledge extract <workspace> [--domain ...] [--target ...]
-  [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--json]`
-  - extracts normalized `knowledge-facts` from cached docs, repo-local schemas,
-    examples, and module/component/chart code, and extracts configured local
-    `infra-agent.curated-knowledge-units` JSON files into internal-team
-    knowledge units. `--out` explicitly persists the generated artifact for
-    later validation or handoff. `--units-out`
-    additionally writes one standalone `infra-agent.knowledge-units` artifact
-    per extracted source.
-- `infra-agent knowledge validate <facts.json|pack.json|manifest.json|descriptor.json> [--workspace <workspace>] --json`
-  - validates schema, source links, count consistency, stale policy, confidence
-    labels, compact pack freshness metadata, artifact manifest publication
-    posture, team artifact descriptors, compact index entries,
-    publication-plan dry runs, publication-readiness reports, local source
-    fingerprints, and secret safety before facts are used by the planner or
-    considered for team-cache staging.
-- `infra-agent knowledge pack <workspace> [--target <path>] [--out <pack.json>]
-  [--manifest-out <manifest.json>] --json`
-  - builds a bounded `knowledge-pack` for handoff or team cache publication.
-    `--out` explicitly persists the bounded artifact without changing the
-    default stdout-only behavior. `--manifest-out` writes a plan-only manifest
-    that still contains no backend URL, bucket, credential, or upload command.
-- `infra-agent knowledge index ...`
-  - builds a deterministic metadata index from extracted units or bounded packs
-    after `knowledge extract` / `knowledge pack` and before planner reuse. The
-    index is the preferred lookup surface for public/internal five-unit RAG and
-    must remain source-linked, compact, raw-content-free, and parser-neutral.
-- `infra-agent knowledge publish-plan <manifest.json> [--descriptor <descriptor.json>]
-  [--out <plan.json>] --json`
-  - reads a persisted artifact manifest and its referenced knowledge-pack
-    bytes, rechecks hash/metadata drift, optionally compares an existing compact
-    descriptor, and emits a dry-run team publication plan. It may write the
-    local plan file requested by `--out`, but it does not write to a mock or
-    remote store.
-- `infra-agent knowledge publish-readiness <plan.json> [--index-entry <entry.json>]
-  [--out <readiness.json>] --json`
-  - reads a saved dry-run publication plan and optional compact index entry,
-    validates both local inputs, and emits a dry-run readiness report. It may
-    write the local readiness file requested by `--out`, but it does not read or
-    write a real remote metadata index.
-- `infra-agent knowledge backend-readiness <backend-config.json>
-  [--out <readiness.json>] --json`
-  - reads a local private backend config and emits a compact dry-run backend
-    readiness report. It may write the local readiness file requested by
-    `--out`, but it does not perform live checks, read credential values, write
-    remote objects, mutate a metadata index, or approve an upload.
-- `infra-agent knowledge backend-reference-readiness <backend-config.json>
-  --registry <reference-registry.json> [--out <readiness.json>] --json`
-  - reads a local private S3-compatible backend config and private reference
-    registry, then emits a dry-run reference validation summary. It may list
-    required environment variable names, but it does not read their values,
-    validate credential presence, create a client, or approve upload.
-- `infra-agent knowledge upload-approval-intent <publication-readiness.json>
-  --backend-reference <reference-readiness.json> [--out <intent.json>] --json`
-  - reads saved dry-run publication readiness plus saved backend-reference
-    readiness, then emits private approval-boundary state. It may report that
-    explicit human upload approval is required, but it does not grant approval,
-    check credentials, generate an upload command, or write remote objects.
-- `infra-agent knowledge upload-approval-continuation <intent.json>
-  --approval-fingerprint <sha256> [--out <continuation.json>] --json`
-  - reads a saved private upload approval intent and compares an explicit
-    operator-supplied fingerprint with the deterministic intent scope
-    fingerprint, then emits private dry-run continuation state. A matching
-    continuation still does not approve upload, create clients, read
-    credentials, generate commands, or allow remote writes.
-- `infra-agent knowledge upload-adapter-preflight <continuation.json>
-  --adapter-plan <adapter-plan.json> [--out <preflight.json>] --json`
-  - reads a saved private upload approval continuation plus a saved adapter
-    resolution plan, then emits private dry-run adapter dependency preflight
-    state. A `preflight-ready` result still does not approve upload, inject an
-    adapter, create clients, read credentials, generate commands, perform live
-    checks, or allow remote writes.
-- `infra-agent knowledge upload-mock-harness <preflight.json>
-  [--out <harness.json>] --json`
-  - reads a saved private upload adapter preflight, then emits private dry-run
-    in-memory mock harness state. A `harness-ready` result may instantiate only
-    the mock descriptor boundary and still does not inject adapters into upload
-    execution, create clients, read credentials, generate commands, perform
-    live checks, or write object/index entries.
-- `infra-agent knowledge upload-execution-gate <continuation.json>
-  --mock-harness <harness.json> [--out <gate.json>] --json`
-  - reads saved private upload approval continuation and upload mock harness
-    artifacts, verifies that their artifact scope matches, then emits private
-    dry-run permission/audit state. A `gate-ready` result is only a signal to
-    request separate mutation approval; it does not approve upload, allow
-    execution, issue write tokens, create execution leases, inject adapters,
-    provide artifact bytes, create clients, read credentials, generate
-    commands, perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-mutation-plan <gate.json>
-  [--out <mutation-plan.json>] --json`
-  - reads one saved private upload execution gate artifact, then emits private
-    approval-audit plan state for a later human mutation review. A `plan-ready`
-    result is not mutation approval and does not allow execution, issue write
-    tokens, create execution leases, create rollback plans, provide artifact
-    bytes, inject adapters, create clients, read credentials, generate
-    commands, perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-mutation-approval-review <mutation-plan.json>
-  --approval-fingerprint <sha256> [--out <review.json>] --json`
-  - reads one saved private upload mutation plan artifact and records only that
-    the operator reviewed the exact deterministic plan fingerprint. A
-    `review-ready` result is not mutation approval and does not allow
-    execution, issue write tokens, create execution leases, create rollback
-    plans, provide artifact bytes, inject adapters, create clients, read
-    credentials, generate commands, perform live checks, or write object/index
-    entries.
-- `infra-agent knowledge upload-execution-prerequisite-plan
-  <approval-review.json> [--out <prerequisite-plan.json>] --json`
-  - reads one saved private upload mutation approval review artifact, then
-    records the remaining execution prerequisites. A `prerequisite-plan-ready`
-    result does not grant mutation approval, allow execution, issue write
-    tokens, create leases, create rollback plans, provide artifact bytes,
-    inject adapters, create clients, read credentials, generate commands,
-    perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-write-token-boundary
-  <execution-prerequisite-plan.json> [--out <write-token-boundary.json>] --json`
-  - reads one saved private upload execution prerequisite plan, then records
-    future scoped, single-use, expiring, audit-bound write-token requirements.
-    A `write-token-boundary-ready` result does not issue or bind a token,
-    allow execution, create execution leases, create rollback plans, provide
-    artifact bytes, inject adapters, create clients, read credentials, generate
-    commands, perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-execution-lease-boundary
-  <write-token-boundary.json> [--out <execution-lease-boundary.json>] --json`
-  - reads one saved private upload write-token boundary, then records future
-    scoped, single-use, expiring, audit-bound execution lease requirements. A
-    `execution-lease-boundary-ready` result does not create a lease, issue or
-    bind a token, allow execution, create rollback plans, provide artifact
-    bytes, inject adapters, create clients, read credentials, generate
-    commands, perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-rollback-plan-boundary
-  <execution-lease-boundary.json> [--out <rollback-plan-boundary.json>] --json`
-  - reads one saved private upload execution lease boundary, then records
-    future scoped rollback-plan requirements. A
-    `rollback-plan-boundary-ready` result does not create a rollback plan,
-    create a lease, issue or bind a token, allow execution, provide artifact
-    bytes, inject adapters, create clients, read credentials, generate
-    commands, perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-audit-record-boundary
-  <rollback-plan-boundary.json> [--out <audit-record-boundary.json>] --json`
-  - reads one saved private upload rollback plan boundary, then records future
-    scoped audit-record requirements. An `audit-record-boundary-ready` result
-    does not create an audit record, create a rollback plan, create a lease,
-    issue or bind a token, allow execution, provide artifact bytes, inject
-    adapters, create clients, read credentials, generate commands, perform live
-    checks, or write object/index entries.
-- `infra-agent knowledge upload-artifact-bytes-boundary
-  <audit-record-boundary.json> [--out <artifact-bytes-boundary.json>] --json`
-  - reads one saved private upload audit record boundary, then records future
-    artifact-byte staging requirements. An `artifact-bytes-boundary-ready`
-    result does not read, hash, stage, or provide bytes; it also does not
-    create audit records, rollback plans, leases, or tokens, allow execution,
-    inject adapters, create clients, read credentials, generate commands,
-    perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-adapter-injection-boundary
-  <artifact-bytes-boundary.json> [--out <adapter-injection-boundary.json>]
-  --json`
-  - reads one saved private upload artifact bytes boundary, then records future
-    adapter dependency-injection requirements. An
-    `adapter-injection-boundary-ready` result does not instantiate or inject
-    adapters, create clients, read/hash/stage bytes, read credentials,
-    generate commands, perform live checks, or write object/index entries.
-- `infra-agent knowledge upload-client-creation-boundary
-  <adapter-injection-boundary.json> [--out <client-creation-boundary.json>]
-  --json`
-  - reads one saved private upload adapter injection boundary, then records
-    future client creation requirements. A `client-creation-boundary-ready`
-    result does not instantiate SDK clients, inject adapters, read credentials,
-    check credential presence, perform live checks, generate commands, bind
-    object stores or metadata indexes, read/hash/stage bytes, or write
-    object/index entries.
-- `infra-agent knowledge upload-credential-read-boundary
-  <client-creation-boundary.json> [--out <credential-read-boundary.json>]
-  --json`
-  - reads one saved private upload client creation boundary, then records
-    future credential read requirements. A `credential-read-boundary-ready`
-    result does not read credential values, check credential presence,
-    instantiate SDK clients, inject adapters, perform live checks, generate
-    commands, bind object stores or metadata indexes, read/hash/stage bytes, or
-    write object/index entries.
-- `infra-agent knowledge upload-credential-presence-boundary
-  <credential-read-boundary.json> [--out <credential-presence-boundary.json>]
-  --json`
-  - reads one saved private upload credential read boundary, then records
-    future credential presence requirements. A
-    `credential-presence-boundary-ready` result does not read credential
-    values, check credential presence, expose credential presence results,
-    instantiate SDK clients, inject adapters, perform live checks, generate
-    commands, bind object stores or metadata indexes, read/hash/stage bytes, or
-    write object/index entries.
-- `infra-agent knowledge upload-live-check-boundary
-  <credential-presence-boundary.json> [--out <live-check-boundary.json>]
-  --json`
-  - reads one saved private upload credential presence boundary, then records
-    future live-check requirements. A `live-check-boundary-ready` result does
-    not probe backend reachability, read credential values, check credential
-    presence, expose credential presence or live-check results, instantiate SDK
-    clients, inject adapters, generate commands, bind object stores or metadata
-    indexes, read/hash/stage bytes, or write object/index entries.
-- `infra-agent knowledge upload-command-boundary
-  <live-check-boundary.json> [--out <command-boundary.json>] --json`
-  - reads one saved private upload live check boundary, then records future
-    upload-command requirements. A `upload-command-boundary-ready` result does
-    not generate, materialize, expose, or execute upload command material,
-    expose target object keys, probe backend reachability, read credential
-    values, check credential presence, expose live-check results, instantiate
-    SDK clients, inject adapters, bind object stores or metadata indexes,
-    read/hash/stage bytes, or write object/index entries.
-- `infra-agent knowledge upload-object-index-binding-boundary
-  <command-boundary.json> [--out <object-index-binding-boundary.json>] --json`
-  - reads one saved private upload command boundary, then records future
-    object-store and metadata-index binding requirements. An
-    `object-index-binding-boundary-ready` result does not bind concrete stores
-    or indexes, expose handles, generate/materialize/expose command material,
-    expose target object keys, probe backend reachability, read credential
-    values, check credential presence, instantiate SDK clients, inject
-    adapters, read/hash/stage bytes, allow object/index writes, or write
-    object/index entries.
-- `infra-agent knowledge upload-execution-readiness-boundary
-  <object-index-binding-boundary.json> [--out <execution-readiness-boundary.json>] --json`
-  - reads one saved private upload object/index binding boundary, then records
-    final future upload execution readiness requirements. A
-    `upload-execution-readiness-boundary-ready` result does not approve upload
-    execution, grant mutation approval, issue tokens, create leases, create
-    rollback plans, create audit records, stage bytes, inject adapters, create
-    clients, read or check credentials, probe live backends, generate commands,
-    bind stores or indexes, allow object/index writes, or write object/index
-    entries.
-- `infra-agent knowledge request-separate-upload-execution-approval
-  <execution-readiness-boundary.json> [--out <execution-approval-request.json>] --json`
-  - reads one saved private upload execution readiness boundary, then records a
-    deterministic approval request fingerprint for later human review. A
-    `upload-execution-approval-request-ready` result does not record human
-    approval, grant approval, allow upload execution, issue tokens, create
-    leases, create rollback plans, create audit records, stage bytes, inject
-    adapters, create clients, read or check credentials, probe live backends,
-    generate commands, bind stores or indexes, allow object/index writes, or
-    write object/index entries.
-- `infra-agent knowledge record-human-upload-execution-approval
-  <execution-approval-request.json> --approval-fingerprint <sha256>
-  [--out <execution-approval-record.json>] --json`
-  - reads one saved private upload execution approval request and one explicit
-    operator-supplied fingerprint, then records only that the fingerprint
-    matched. A `upload-execution-approval-record-ready` result does not grant
-    approval, allow upload execution, issue tokens, create leases, create
-    rollback plans, create audit records, stage bytes, inject adapters, create
-    clients, read or check credentials, probe live backends, generate commands,
-    bind stores or indexes, allow object/index writes, or write object/index
-    entries.
-- `infra-agent knowledge upload-execution-authorization-boundary
-  <execution-approval-record.json> [--out <execution-authorization-boundary.json>] --json`
-  - reads one saved private human upload execution approval record, then
-    records only the dry-run explicit authorization boundary that a later
-    plan/rules update must review before any upload execution design can
-    advance. A `upload-execution-authorization-boundary-ready` result does not
-    grant upload execution approval, authorize upload execution, allow upload
-    execution, issue tokens, create leases, create rollback plans, create
-    audit records, stage bytes, inject adapters, create clients, read or check
-    credentials, probe live backends, generate commands, bind stores or
-    indexes, allow object/index writes, or write object/index entries.
-- `infra-agent knowledge upload-execution-plan-rules-review
-  <execution-authorization-boundary.json> [--out <plan-rules-review.json>] --json`
-  - reads one saved private upload execution authorization boundary, then
-    records only the dry-run Plan/Rules update review gate that a later
-    policy update must inspect before any upload execution design can advance.
-    A `upload-execution-plan-rules-review-ready` result does not approve
-    Plan/Rules changes, grant upload execution approval, authorize upload
-    execution, allow upload execution, issue tokens, create leases, create
-    rollback plans, create audit records, stage bytes, inject adapters, create
-    clients, read or check credentials, probe live backends, generate commands,
-    bind stores or indexes, allow object/index writes, or write object/index
-    entries.
-- `infra-agent knowledge record-upload-execution-plan-rules-update
-  <plan-rules-review.json> --review-fingerprint <sha256>
-  [--out <plan-rules-update-record.json>] --json`
-  - reads one saved private upload execution Plan/Rules review artifact and one
-    explicit operator-supplied review fingerprint, then records only that the
-    fingerprint matched. A `upload-execution-plan-rules-update-record-ready`
-    result does not approve upload execution, grant upload execution
-    authorization, allow upload execution, issue tokens, create leases, create
-    rollback plans, create audit records, stage bytes, inject adapters, create
-    clients, read or check credentials, probe live backends, generate commands,
-    bind stores or indexes, allow object/index writes, or write object/index
-    entries.
-- `infra-agent knowledge upload-execution-implementation-boundary
-  <plan-rules-update-record.json> [--out <implementation-boundary.json>] --json`
-  - reads one saved private upload execution Plan/Rules update record, then
-    records only a dry-run implementation boundary design checkpoint. A
-    `upload-execution-implementation-boundary-ready` result does not approve
-    upload execution, grant upload execution authorization, allow upload
-    execution, issue tokens, create leases, create rollback plans, create audit
-    records, stage bytes, inject adapters, create clients, read or check
-    credentials, probe live backends, generate commands, bind stores or
-    indexes, allow object/index writes, or write object/index entries.
-- `infra-agent knowledge upload-execution-runtime-boundaries
-  <implementation-boundary.json> [--out <runtime-boundaries.json>] --json`
-  - reads one saved private upload execution implementation boundary, then
-    records only dry-run runtime-boundary design checkpoints. A
-    `upload-execution-runtime-boundaries-ready` result does not approve upload
-    execution, grant upload execution authorization, allow upload execution,
-    issue tokens, create leases, create rollback plans, create audit records,
-    stage bytes, inject adapters, create clients, read or check credentials,
-    probe live backends, generate commands, bind stores or indexes, allow
-    object/index writes, or write object/index entries.
-- `infra-agent knowledge upload-execution-runtime-boundary-policy-review
-  <runtime-boundaries.json> [--out <policy-review.json>] --json`
-  - reads one saved private upload execution runtime-boundaries artifact, then
-    records only a dry-run runtime-boundary policy-review checkpoint. A
-    `upload-execution-runtime-boundary-policy-review-ready` result does not
-    update Plan/Rules, approve upload execution, grant upload execution
-    authorization, allow upload execution, issue tokens, create leases, create
-    rollback plans, create audit records, stage bytes, inject adapters, create
-    clients, read or check credentials, probe live backends, generate commands,
-    bind stores or indexes, allow object/index writes, or write object/index
-    entries.
+  - aliases the bounded explicit cache update path.
+- `infra-agent knowledge extract <workspace> [--domain ...] [--target ...] [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--manifest-out <manifest.json>] [--json]`
+  - extracts normalized facts and five-unit artifacts from cached docs,
+    repo-local schemas, examples, modules, components, charts, and configured
+    curated/unit-artifact sources. `--out` persists the generated report;
+    `--units-out` additionally writes one standalone
+    `infra-agent.knowledge-units` artifact per extracted source.
+- `infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] --json`
+  - validates schema, source links, count consistency, freshness/fingerprints,
+    confidence labels, compact pack/index/manifest posture, and secret safety
+    before facts or units are used by a planner.
+- `infra-agent knowledge pack <workspace> [--domain ...] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] --json`
+  - builds a bounded `knowledge-pack` for local handoff. `--manifest-out` writes
+    a plan-only local artifact manifest with no backend URL, bucket,
+    credential, upload command, or remote write posture.
+- `infra-agent knowledge index <workspace> ...`
+  - builds a deterministic metadata index from bounded units before planner
+    reuse. The index is the preferred lookup surface for public/internal
+    five-unit RAG and must remain source-linked, compact, raw-content-free, and
+    parser-neutral.
+
+Removed from active CLI surface:
+
+- Legacy team-upload, backend-readiness, publication-readiness, and upload
+  boundary commands. Future shared-catalog work starts from read-only artifact
+  discovery and local validation, not upload execution.
 
 Recommended storage layers:
 
@@ -1155,19 +499,13 @@ Recommended storage layers:
 - Repo-curated: small reviewed packs under a workspace-relative configured path,
   never automatic bulk cache commits. Saved repo-derived fact sets should be
   revalidated with `knowledge validate --workspace` so file hash drift is
-  detected before reuse. Saved compact packs should also pass
-  `knowledge validate` before handoff or team-cache publication. Optional
-  manifests should be validated too; manifests with workspace-private or stale
-  sources are planning artifacts only until explicit opt-in is recorded.
-- Team cache: content-addressed object store plus metadata index. S3-compatible
-  storage remains the expected first real remote backend for blobs; an injected
-  mocked S3-compatible artifact store now proves content-addressed pack
-  storage, retrieval integrity, and publication-policy gates without network
-  writes, buckets, endpoints, credentials, or a CLI upload command. A compact
-  injected metadata index plus `knowledge publish-readiness` now models
-  already-published, upload-required, blocked, and conflict posture before any
-  real remote metadata service exists. Add DynamoDB/Postgres only when
-  query/index requirements justify it.
+  detected before reuse. Saved compact packs, indexes, and manifests should
+  also pass `knowledge validate` before handoff.
+- Read-only shared catalogs: explicitly configured
+  `infra-agent.knowledge-units` artifacts and registries that can be
+  discovered, downloaded into the local cache, hash-checked, and validated. This
+  is consumption-only in v0: no remote upload command, credential read, live
+  backend check, object-store write, or metadata-index mutation.
 - Package-bundled: only schemas, extractors, validators, and small durable rules.
   Do not bundle full provider docs.
 

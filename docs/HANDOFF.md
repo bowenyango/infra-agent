@@ -211,6 +211,68 @@ Remaining risk:
   guidance. Treat those modules as sealed compatibility ballast until the next
   deletion slice removes CLI/parser/source dependencies.
 
+## 2026-05-15 Legacy Upload Source Prune
+
+Status:
+
+- The remaining hidden legacy team-upload, team backend, S3-compatible backend,
+  team artifact store, publication/readiness, upload approval, and upload
+  execution boundary source surface has been removed from `agent-2`.
+- Active `knowledge` CLI actions are now limited to `sources`, `prefetch`,
+  `extract`, `validate`, `pack`, and `index`.
+- `knowledge validate` now validates only active extraction, pack, unit, index,
+  and local artifact-manifest contracts. Legacy `infra-agent.knowledge-team-*`
+  payloads are no longer accepted by the active dispatcher.
+- README and ROADMAP now describe the product as an IaC context compiler and
+  mark upload/backend publication work as archived legacy, not current product
+  direction.
+
+Files changed:
+
+- `src/cli/main.ts` prunes legacy parser branches and runtime command handlers.
+- `src/cli/output.ts` removes legacy team/upload text renderers.
+- `src/knowledge/validate.ts` removes legacy validation dispatch entries while
+  preserving active storage-policy and artifact-manifest validation.
+- Deleted `src/knowledge/team-*`, `src/knowledge/team-s3-compatible-*`, and
+  `src/knowledge/team-upload-*` modules that were no longer reachable from the
+  active CLI.
+- Deleted the remaining legacy unit tests for team artifact roundtrip,
+  S3-compatible storage, artifact keys, storage contracts, and descriptor
+  validation.
+- Updated `README.md` and `docs/ROADMAP.md` so future agents see the active
+  context compiler surface instead of removed upload/publication commands.
+
+Validation:
+
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-knowledge-args-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/unit/knowledge-unit-index-validation.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-index-validation-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-pack-main.test.mjs`
+  passed after restoring the active storage-policy validator import.
+- `npm run test:unit` passed.
+- `npm run test:integration` passed.
+- `npm run test:contract` passed.
+- `npm run verify` passed, including isolated shards, smoke, e2e, coverage, and
+  package dry-run.
+
+Remaining risk:
+
+- Historical handoff/archive documents still mention the old legacy work by
+  design. Treat those as history only; active README, ROADMAP, skill, CLI help,
+  parser, output, validation, source, tests, and package contents now follow
+  the context-compiler direction.
+- The `agent` and `run` harness surfaces still exist. They are not expanded in
+  this slice, but future manager work should decide whether to keep them as
+  compatibility wrappers or reduce them after the `changed`/inventory/cache
+  compiler commands are stronger.
+
 ## 2026-05-14 Target-Scoped Registry RAG Phase
 
 Status:

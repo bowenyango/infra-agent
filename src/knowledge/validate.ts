@@ -4,6 +4,7 @@ import { buildKnowledgeCacheId } from './cache.ts';
 import { parseKnowledgeFactSet } from './facts-contract.ts';
 import { checkKnowledgeSourceFingerprint } from './local-source-fingerprint.ts';
 import type { KnowledgePackFact, KnowledgePackSource, KnowledgePackUnit } from './pack.ts';
+import { validateKnowledgeStoragePolicySummary } from './storage-policy-validation.ts';
 import {
   isKnowledgeStoragePolicyCompatibleWithSourceKind,
   type KnowledgeStorageDefault,
@@ -36,45 +37,6 @@ import {
   validatePackSourceFingerprints,
   type LocalSourceValidationStats
 } from './validation-source-fingerprints.ts';
-import {
-  validateKnowledgeTeamArtifactDescriptorPayload,
-  validateKnowledgeTeamArtifactIndexEntryPayload,
-  validateKnowledgeTeamPublicationPlanPayload,
-  validateKnowledgeTeamPublicationReadinessPayload
-} from './team-artifact-validation.ts';
-import { validateKnowledgeStoragePolicySummary } from './storage-policy-validation.ts';
-import { validateKnowledgeTeamBackendReadinessPayload } from './team-backend-readiness-validation.ts';
-import {
-  validateKnowledgeTeamUploadAdapterPreflightPayload,
-  validateKnowledgeTeamUploadAdapterInjectionBoundaryPayload,
-  validateKnowledgeTeamUploadApprovalContinuationPayload,
-  validateKnowledgeTeamUploadApprovalIntentPayload,
-  validateKnowledgeTeamUploadArtifactBytesBoundaryPayload,
-  validateKnowledgeTeamUploadAuditRecordBoundaryPayload,
-  validateKnowledgeTeamUploadClientCreationBoundaryPayload,
-  validateKnowledgeTeamUploadCredentialPresenceBoundaryPayload,
-  validateKnowledgeTeamUploadCredentialReadBoundaryPayload,
-  validateKnowledgeTeamUploadCommandBoundaryPayload,
-  validateKnowledgeTeamUploadExecutionAuthorizationBoundaryPayload,
-  validateKnowledgeTeamUploadExecutionApprovalRecordPayload,
-  validateKnowledgeTeamUploadExecutionApprovalRequestPayload,
-  validateKnowledgeTeamUploadExecutionImplementationBoundaryPayload,
-  validateKnowledgeTeamUploadExecutionPlanRulesReviewPayload,
-  validateKnowledgeTeamUploadExecutionPlanRulesUpdateRecordPayload,
-  validateKnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReviewPayload,
-  validateKnowledgeTeamUploadExecutionRuntimeBoundariesPayload,
-  validateKnowledgeTeamUploadExecutionReadinessBoundaryPayload,
-  validateKnowledgeTeamUploadLiveCheckBoundaryPayload,
-  validateKnowledgeTeamUploadObjectIndexBindingBoundaryPayload,
-  validateKnowledgeTeamUploadExecutionLeaseBoundaryPayload,
-  validateKnowledgeTeamUploadExecutionGatePayload,
-  validateKnowledgeTeamUploadExecutionPrerequisitePlanPayload,
-  validateKnowledgeTeamUploadMutationApprovalReviewPayload,
-  validateKnowledgeTeamUploadMutationPlanPayload,
-  validateKnowledgeTeamUploadMockHarnessPayload,
-  validateKnowledgeTeamUploadRollbackPlanBoundaryPayload,
-  validateKnowledgeTeamUploadWriteTokenBoundaryPayload
-} from './team-upload-approval-validation.ts';
 
 export interface KnowledgeValidationIssue {
   severity: 'error' | 'warning';
@@ -1717,142 +1679,6 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-artifact-manifest') {
     return validateKnowledgeArtifactManifestPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-artifact-descriptor') {
-    return validateKnowledgeTeamArtifactDescriptorPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-artifact-index-entry') {
-    return validateKnowledgeTeamArtifactIndexEntryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-publication-plan') {
-    return validateKnowledgeTeamPublicationPlanPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-publication-readiness') {
-    return validateKnowledgeTeamPublicationReadinessPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-backend-readiness') {
-    return validateKnowledgeTeamBackendReadinessPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-approval-intent') {
-    return validateKnowledgeTeamUploadApprovalIntentPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-approval-continuation') {
-    return validateKnowledgeTeamUploadApprovalContinuationPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-adapter-preflight') {
-    return validateKnowledgeTeamUploadAdapterPreflightPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-mock-harness') {
-    return validateKnowledgeTeamUploadMockHarnessPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-gate') {
-    return validateKnowledgeTeamUploadExecutionGatePayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-mutation-plan') {
-    return validateKnowledgeTeamUploadMutationPlanPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-mutation-approval-review') {
-    return validateKnowledgeTeamUploadMutationApprovalReviewPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-prerequisite-plan') {
-    return validateKnowledgeTeamUploadExecutionPrerequisitePlanPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-write-token-boundary') {
-    return validateKnowledgeTeamUploadWriteTokenBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-lease-boundary') {
-    return validateKnowledgeTeamUploadExecutionLeaseBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-rollback-plan-boundary') {
-    return validateKnowledgeTeamUploadRollbackPlanBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-audit-record-boundary') {
-    return validateKnowledgeTeamUploadAuditRecordBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-artifact-bytes-boundary') {
-    return validateKnowledgeTeamUploadArtifactBytesBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-adapter-injection-boundary') {
-    return validateKnowledgeTeamUploadAdapterInjectionBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-client-creation-boundary') {
-    return validateKnowledgeTeamUploadClientCreationBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-credential-read-boundary') {
-    return validateKnowledgeTeamUploadCredentialReadBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-credential-presence-boundary') {
-    return validateKnowledgeTeamUploadCredentialPresenceBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-live-check-boundary') {
-    return validateKnowledgeTeamUploadLiveCheckBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-command-boundary') {
-    return validateKnowledgeTeamUploadCommandBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-object-index-binding-boundary') {
-    return validateKnowledgeTeamUploadObjectIndexBindingBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-readiness-boundary') {
-    return validateKnowledgeTeamUploadExecutionReadinessBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-approval-request') {
-    return validateKnowledgeTeamUploadExecutionApprovalRequestPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-approval-record') {
-    return validateKnowledgeTeamUploadExecutionApprovalRecordPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-authorization-boundary') {
-    return validateKnowledgeTeamUploadExecutionAuthorizationBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-plan-rules-review') {
-    return validateKnowledgeTeamUploadExecutionPlanRulesReviewPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-plan-rules-update-record') {
-    return validateKnowledgeTeamUploadExecutionPlanRulesUpdateRecordPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-implementation-boundary') {
-    return validateKnowledgeTeamUploadExecutionImplementationBoundaryPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-runtime-boundaries') {
-    return validateKnowledgeTeamUploadExecutionRuntimeBoundariesPayload(payload, inputPath, inputKind);
-  }
-
-  if (inputKind === 'infra-agent.knowledge-team-upload-execution-runtime-boundary-policy-review') {
-    return validateKnowledgeTeamUploadExecutionRuntimeBoundaryPolicyReviewPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind !== 'infra-agent.knowledge-extraction') {
