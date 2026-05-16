@@ -110,26 +110,6 @@ values.
   raw-content-free, parser-neutral, and validated before planner use. A
   multi-source pack's source-level omitted distribution is estimate-only until
   exact per-source accounting exists.
-- Treat team artifact descriptors as compact validation artifacts only. They
-  may summarize a fresh public-reference pack staged through the mocked store,
-  but they must not include buckets, endpoints, credentials, signed URLs,
-  absolute workspace paths, raw docs, or raw repo file content.
-- Treat team publication plans as non-mutating dry-run review artifacts. A
-  blocked plan is useful handoff context, not a failure to work around, and an
-  allowed plan is not approval to publish to a real backend.
-- Treat team publication readiness reports as compact routing artifacts only.
-  `already-published`, `upload-required`, `blocked`, and `conflict` are planning
-  states, not permission to execute a remote upload or mutate a metadata index.
-- Treat team backend readiness reports as compact routing artifacts only.
-  `ready-for-explicit-upload` means the config shape is ready for a future
-  explicit upload design; it is not permission to execute a remote upload or
-  proof that a remote backend was checked.
-- Treat team backend adapter descriptors as internal capability metadata only.
-  The current adapter resolver is mock-only and must keep remote writes, live
-  checks, credential exposure, and upload commands disabled.
-- Treat team artifact contract failures as hard blockers for downstream agents.
-  Rebuild or revalidate the compact artifact instead of asking for raw pack
-  content or backend details.
 - For Terraform local modules, prefer `terraform-module` knowledge facts over
   raw module file reads when the module source is literal and workspace-local.
   These facts describe inputs and outputs only; remote, registry, git, dynamic,

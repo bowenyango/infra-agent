@@ -231,178 +231,18 @@ test('help output includes planner provider catalog command', async () => {
   assert.match(output, /infra-agent planner-providers \[--json\]/);
 });
 
-test('help output includes backend reference readiness command', async () => {
+test('help output exposes the active context compiler surface and omits legacy upload boundaries', async () => {
   const output = await captureStdout(() => main(['--help']));
 
-  assert.match(output, /infra-agent knowledge backend-reference-readiness <backend-config\.json> --registry <reference-registry\.json>/);
-});
-
-test('help output includes upload approval intent command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-approval-intent <publication-readiness\.json> --backend-reference <reference-readiness\.json>/);
-});
-
-test('help output includes upload approval continuation command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-approval-continuation <intent\.json> --approval-fingerprint <sha256>/);
-});
-
-test('help output includes upload adapter preflight command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-adapter-preflight <continuation\.json> --adapter-plan <adapter-plan\.json>/);
-});
-
-test('help output includes upload mock harness command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-mock-harness <preflight\.json>/);
-});
-
-test('help output includes upload execution gate command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-gate <continuation\.json> --mock-harness <harness\.json>/);
-});
-
-test('help output includes upload mutation plan command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-mutation-plan <gate\.json>/);
-});
-
-test('help output includes upload mutation approval review command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-mutation-approval-review <mutation-plan\.json> --approval-fingerprint <sha256>/);
-});
-
-test('help output includes upload execution prerequisite plan command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-prerequisite-plan <approval-review\.json>/);
-});
-
-test('help output includes upload write token boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-write-token-boundary <execution-prerequisite-plan\.json>/);
-});
-
-test('help output includes upload execution lease boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-lease-boundary <write-token-boundary\.json>/);
-});
-
-test('help output includes upload rollback plan boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-rollback-plan-boundary <execution-lease-boundary\.json>/);
-});
-
-test('help output includes upload audit record boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-audit-record-boundary <rollback-plan-boundary\.json>/);
-});
-
-test('help output includes upload artifact bytes boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-artifact-bytes-boundary <audit-record-boundary\.json>/);
-});
-
-test('help output includes upload adapter injection boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-adapter-injection-boundary <artifact-bytes-boundary\.json>/);
-});
-
-test('help output includes upload client creation boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-client-creation-boundary <adapter-injection-boundary\.json>/);
-});
-
-test('help output includes upload credential read boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-credential-read-boundary <client-creation-boundary\.json>/);
-});
-
-test('help output includes upload credential presence boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-credential-presence-boundary <credential-read-boundary\.json>/);
-});
-
-test('help output includes upload live check boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-live-check-boundary <credential-presence-boundary\.json>/);
-});
-
-test('help output includes upload command boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-command-boundary <live-check-boundary\.json>/);
-});
-
-test('help output includes upload object/index binding boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-object-index-binding-boundary <command-boundary\.json>/);
-});
-
-test('help output includes upload execution readiness boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-readiness-boundary <object-index-binding-boundary\.json>/);
-});
-
-test('help output includes upload execution approval request command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge request-separate-upload-execution-approval <execution-readiness-boundary\.json>/);
-});
-
-test('help output includes human upload execution approval record command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge record-human-upload-execution-approval <execution-approval-request\.json> --approval-fingerprint <sha256>/);
-});
-
-test('help output includes upload execution authorization boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-authorization-boundary <execution-approval-record\.json>/);
-});
-
-test('help output includes upload execution plan\/rules review command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-plan-rules-review <execution-authorization-boundary\.json>/);
-});
-
-test('help output includes upload execution plan\/rules update record command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge record-upload-execution-plan-rules-update <plan-rules-review\.json> --review-fingerprint <sha256>/);
-});
-
-test('help output includes upload execution implementation boundary command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-implementation-boundary <plan-rules-update-record\.json>/);
-});
-
-test('help output includes upload execution runtime boundaries command', async () => {
-  const output = await captureStdout(() => main(['--help']));
-
-  assert.match(output, /infra-agent knowledge upload-execution-runtime-boundaries <implementation-boundary\.json>/);
+  assert.match(output, /infra-agent inspect \[workspace\] \[--json\]/);
+  assert.match(output, /infra-agent knowledge sources \[workspace\]/);
+  assert.match(output, /infra-agent knowledge extract \[workspace\]/);
+  assert.match(output, /infra-agent knowledge pack \[workspace\]/);
+  assert.match(output, /infra-agent knowledge index \[workspace\]/);
+  assert.match(output, /infra-agent graph \[workspace\].*\[--json\]/);
+  assert.doesNotMatch(output, /upload-/);
+  assert.doesNotMatch(output, /backend-readiness/);
+  assert.doesNotMatch(output, /publish-readiness/);
 });
 
 test('CLI version command reads package metadata', async () => {
@@ -578,45 +418,25 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(claudePatternsContent, /knowledge sources\/prefetch\/extract\/validate\/pack/);
   assert.match(testingContent, /test\/run-category\.mjs/);
   assert.match(testingContent, /no nested category shards/i);
-  assert.match(infraSkillContent, /handoffCheckpoint/);
-  assert.match(infraSkillContent, /mutationAllowed=false/);
-  assert.match(infraSkillContent, /harness\.plannerHandoff/);
-  assert.match(infraSkillContent, /harness\.targeting/);
-  assert.match(infraSkillContent, /harness\.workPlan/);
-  assert.match(infraSkillContent, /harness\.plannerConfig/);
-  assert.match(infraSkillContent, /harness\.plannerConfig\.llm\.capabilities/);
-  assert.match(infraSkillContent, /provider\s+adapter/);
-  assert.match(infraSkillContent, /harness\.repairBudget/);
-  assert.match(infraSkillContent, /harness\.turnTraceBudget/);
-  assert.match(infraSkillContent, /harness\.lifecycleEvents/);
-  assert.match(infraSkillContent, /harness\.toolTrace/);
-  assert.match(infraSkillContent, /harness\.toolPermissionSummary/);
-  assert.match(infraSkillContent, /readiness/);
-  assert.match(infraSkillContent, /doctorCommand/);
-  assert.match(infraSkillContent, /readiness\.plannerProviderCatalog/);
-  assert.match(infraSkillContent, /read\s+`readiness\.plannerProviderCatalog` first/i);
-  assert.match(infraSkillContent, /planner-providers --json/);
-  assert.match(infraSkillContent, /static,\s+read-only LLM planner adapter catalog/);
-  assert.match(infraSkillContent, /validation\.selectedPlan/);
-  assert.match(infraSkillContent, /validation\.commands/);
-  assert.match(infraSkillContent, /validation\.issueSummary/);
-  assert.match(infraSkillContent, /validation\.issueDetails/);
-  assert.match(infraSkillContent, /validation\.issues/);
-  assert.match(infraSkillContent, /validation\.safetyBlockers/);
-  assert.match(infraSkillContent, /validation\.identityConflictSummary/);
-  assert.match(infraSkillContent, /runtimeIdentityConflictSummary/);
-  assert.match(infraSkillContent, /summary\.sourceProvenance/);
-  assert.match(infraSkillContent, /reviewTargetBudget/);
-  assert.match(infraSkillContent, /approval\.resume/);
-  assert.match(infraSkillContent, /approval\.grants/);
-  assert.match(infraSkillContent, /pendingScope/);
-  assert.match(infraSkillContent, /query-budget-preserving/);
-  assert.match(infraSkillContent, /CLI-selected planner flags/);
-  assert.match(infraSkillContent, /additionalCommands/);
-  assert.match(infraSkillContent, /knowledgeCache/);
+  assert.match(infraSkillContent, /specialist IaC context compiler/);
+  assert.match(infraSkillContent, /Codex, Claude Code, or the calling agent remains responsible/);
+  assert.match(infraSkillContent, /infra-agent knowledge sources <workspace>/);
+  assert.match(infraSkillContent, /infra-agent knowledge prefetch <workspace>/);
+  assert.match(infraSkillContent, /infra-agent knowledge extract <workspace>/);
+  assert.match(infraSkillContent, /infra-agent knowledge pack <workspace>/);
+  assert.match(infraSkillContent, /infra-agent knowledge index <artifact>/);
+  assert.match(infraSkillContent, /infra-agent knowledge validate <artifact> --workspace <workspace>/);
+  assert.match(infraSkillContent, /infra-agent graph <workspace> --json/);
+  assert.match(infraSkillContent, /infra-agent agent "<task>" --workspace <workspace> --json/);
+  assert.match(infraSkillContent, /structured issue summary/);
+  assert.match(infraSkillContent, /identity conflicts/);
+  assert.match(infraSkillContent, /suggested next action/);
   assert.match(infraSkillContent, /knowledgeContext/);
-  assert.match(infraSkillContent, /knowledge\s+sources\/prefetch\/extract\/validate\/pack/);
+  assert.match(infraSkillContent, /deterministic retrieval metadata/);
+  assert.match(infraSkillContent, /`fact`, `guidance`, `example`,\s+`diagnostic`, and `recipe` units/);
   assert.match(infraSkillContent, /references\/context-validation-and-impact\.md/);
+  assert.doesNotMatch(infraSkillContent, /team publication/);
+  assert.doesNotMatch(infraSkillContent, /upload-approval/);
   assert.match(infraSkillReferenceContent, /Compact Contract Checklist/);
   assert.match(infraSkillReferenceContent, /readiness\.plannerProviderCatalog/);
   assert.match(infraSkillReferenceContent, /prefer\s+`readiness\.plannerProviderCatalog`/i);

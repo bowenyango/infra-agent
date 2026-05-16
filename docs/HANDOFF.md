@@ -171,6 +171,46 @@ Validation:
   passed.
 - `npm run test:unit` passed.
 
+## 2026-05-15 Legacy Upload Test Prune
+
+Status:
+
+- Removed the legacy `team-upload-*`, team backend readiness, S3-compatible
+  backend reference, team publication/readiness, and upload execution boundary
+  test suites from unit, integration, contract, and support test directories.
+- Updated the remaining core CLI integration tests so default help output is
+  locked to the active context compiler surface and explicitly omits legacy
+  upload/backend readiness commands.
+- Trimmed the packaged `infra-configuration` skill so future agents do not see
+  team publication or upload-approval guidance in the main workflow.
+- Production source is intentionally still present in this slice; the next
+  pruning slice should remove the hidden parser branches, CLI output printers,
+  validation dispatch entries, and then the now-uncovered `src/knowledge/team-*`
+  upload modules.
+
+Validation:
+
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed with 114 test files checked.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-knowledge-args-main.test.mjs`
+  passed.
+- `npm run test:unit` passed.
+- `npm run test:integration` passed.
+- `npm run test:contract` passed.
+- `npm run smoke` passed.
+- `npm run e2e` passed.
+- `npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json`
+  passed.
+
+Remaining risk:
+
+- The npm package still includes the legacy upload/backend source modules
+  because this slice only removed the active test surface and packaged skill
+  guidance. Treat those modules as sealed compatibility ballast until the next
+  deletion slice removes CLI/parser/source dependencies.
+
 ## 2026-05-14 Target-Scoped Registry RAG Phase
 
 Status:
