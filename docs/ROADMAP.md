@@ -6,10 +6,25 @@ runtime patterns learned from `learning-claude-code`.
 
 ## Active Development Priority
 
-The next development phase is feature-first RAG, not additional upload-boundary
-modeling. Keep Claude Code style safety principles, but do not add more
-fine-grained `knowledge team-upload-*` dry-run boundaries unless a concrete
-product requirement depends on them.
+The next development phase is feature-first IaC context compilation, not
+additional upload-boundary modeling or a larger standalone agent harness.
+`infra-agent` should act as a specialist CLI and skill surface that compiles
+Terraform, Pulumi, Helm, and eventually Argo CD/Kubernetes repositories into
+semantic, low-token, cacheable context for Codex, Claude Code, Cursor, OpenCode,
+and similar coding agents.
+
+Codex/Claude Code should own file editing, shell execution, approvals, git
+diffs, PR creation, rollback, and user-facing safety workflows. `infra-agent`
+should own repo-specific IaC understanding: inventory, semantic dependencies,
+compact knowledge units, changed-context impact, risk hints, provider/chart/
+package references, and cache-aware handoff artifacts. Do not make `v0` a new
+coding agent, deployment system, security scanner, or approval sandbox.
+
+Keep Claude Code style safety principles inside the CLI where they protect
+outputs: read-only defaults, dry-run versus mutation separation, secret
+redaction, compact handoff, and explicit refusal to apply/deploy. Do not add
+more fine-grained `knowledge team-upload-*` dry-run boundaries unless a
+concrete product requirement depends on them.
 
 Prioritize work that makes infrastructure edits more accurate and token
 efficient:
@@ -30,6 +45,15 @@ efficient:
 7. Prove the value with workflows such as Terraform moved blocks, Pulumi
    aliases and stack config, Helm values migration, provider replacement risk,
    and validation-derived repair diagnostics.
+8. Add diff-aware changed-context and scoped pack outputs so another agent can
+   inspect fewer files for a specific change while still seeing affected
+   modules, charts, stacks, Argo CD applications, Kubernetes resources, and
+   risk hints.
+9. Use semantic-unit hash caching, not repo-level caching alone. Cache file
+   parses, Terraform module inventories, Pulumi stack summaries, Helm chart
+   summaries, Argo CD application linkages, provider references, graph
+   snapshots, and generated packs independently so unchanged context can be
+   reused without re-tokenizing or re-analyzing the repo.
 
 Existing team-upload boundary code should be treated as a maintained but
 non-expanding safety scaffold. The registry path is read-only artifact
@@ -89,6 +113,25 @@ This is the v0 RAG path for public and internal Terraform/Pulumi/Helm
 knowledge. Do not make a Vector DB required for planner accuracy, and do not
 write provider-specific parsers for the canonical examples.
 
+Near-term user-facing command direction:
+
+1. Keep `inspect`, `knowledge sources/prefetch/extract/pack/index/validate`,
+   and `graph` as the current stable surfaces.
+2. Add or evolve a repo `inventory` output from `inspect` so agents can read a
+   compact list of tools, environments, modules, charts, stacks, values layers,
+   and deployment linkages.
+3. Add a diff-aware `changed` surface that accepts a base/head comparison and
+   returns changed files, affected components, suggested files to inspect,
+   omitted unrelated domains, and risk hints. This should be read-only and
+   cache-aware.
+4. Add a scoped agent `pack` surface that emits markdown or compact JSON for a
+   path, module, chart, stack, environment, or changed-component set.
+5. Add `cache status` style visibility for semantic-unit cache hits, misses,
+   invalidations, and reused outputs.
+6. Add compact `refs` lookups for Terraform/Pulumi/Helm interfaces only when
+   they are tied to repo usage or the requested scope. Public reference lookup
+   is supporting context, not the product center.
+
 ## Current Baseline
 
 The repository already has a working TypeScript CLI skeleton with:
@@ -108,8 +151,10 @@ changes unless the user explicitly asks to rewrite history or discard work.
 
 ## Product Target
 
-`infra-agent` should become an installable CLI and an agent-facing skill package
-for infrastructure configuration work. It is not a general coding assistant.
+`infra-agent` should become an installable IaC context compiler CLI and an
+agent-facing skill package for infrastructure configuration work. It is not a
+general coding assistant and should not compete with Codex or Claude Code as
+the operator-facing harness.
 
 The CLI should help Infra and non-Infra users:
 
@@ -117,10 +162,23 @@ The CLI should help Infra and non-Infra users:
 - infer repository-specific conventions from concrete files
 - retrieve only task-relevant official, public-registry, team, and repo-local
   knowledge
-- generate or modify Helm, Pulumi, and Terraform configuration
+- compile agent-ready markdown/JSON context for a target path, module, chart,
+  stack, environment, or git diff
+- identify which files another agent should inspect and which files/domains are
+  likely irrelevant for the current change
+- provide compact provider, package, chart, and values references tied to how
+  the current repo actually uses them
+- expose semantic dependency graph JSON and diff-aware impact summaries
+- provide risk hints such as IAM policy changes, public ingress changes,
+  image-tag changes, sync-policy changes, state/rename risk, or replacement
+  cascades
 - validate syntax, schema, module inputs, and provider constraints
-- explain update, replace, rename, and dependency impact before deployment
-- stop before destructive operations or state mutations unless explicitly approved
+- explain update, replace, rename, and dependency impact before another tool
+  edits, reviews, or plans deployment
+
+Final safety decisions remain outside the product boundary. Human reviewers,
+CI/policy engines, and the calling coding agent decide whether to approve,
+apply, merge, roll back, or create a PR.
 
 ## Claude Code Patterns To Keep
 
@@ -160,16 +218,20 @@ The product should settle into seven layers.
    - instructions for other agents to call the CLI instead of hand-editing IaC
    - minimal trigger metadata and deeper references loaded only when needed
 
-3. **Harness Runtime**
-   - immutable `QueryLoopConfig`
-   - mutable `AgentRuntimeState`
-   - bounded planner decisions
-   - deterministic tool-result writeback
-   - approval and policy gates before writes or state suggestions
+3. **Bounded Runtime and Handoff Internals**
+   - immutable query configuration and mutable runtime state where still needed
+   - compact JSON handoff contracts for other agents
+   - deterministic tool-result writeback for validation and inspection results
+   - no autonomous apply/deploy loop in v0
+   - approval and policy state only where needed to block CLI-owned mutation
+     paths or explain why a result is read-only
 
 4. **Repository and Domain Tools**
-   - repository search/read/write tools
+   - repository search/read tools and narrowly scoped write helpers only where
+     existing behavior requires them
    - Helm, Pulumi, and Terraform inspection adapters
+   - Argo CD Application and Kubernetes manifest discovery as read-only graph
+     and changed-context sources
    - native CLI wrappers with structured outputs
    - safe shell boundaries for validation only
 
@@ -183,6 +245,10 @@ The product should settle into seven layers.
    - structured extraction into `fact`, `guidance`, `example`, `diagnostic`,
      and `recipe` units from cached docs, schemas, examples, validation output,
      plan/preview output, and repo-local code
+   - semantic-unit hash cache for file parses, module/chart/stack summaries,
+     Argo CD linkages, provider references, graph snapshots, and generated
+     agent packs
+   - scoped markdown/JSON packs for Codex/Claude Code consumption
    - repo-local and validator-derived units as the highest priority source
    - provider, module, chart, and validation schemas preferred over prose where
      available
@@ -200,6 +266,11 @@ The product should settle into seven layers.
 
 7. **Change Impact and Graph Layer**
    - normalized infra graph JSON first
+   - Argo CD -> Helm -> Kubernetes and Terraform/Pulumi -> Kubernetes/resource
+     edges where they can be derived from repo evidence
+   - diff-aware changed-context summaries with suggested files and omitted
+     unrelated context
+   - risk hints, not final safety judgments
    - state/rename impact analysis before any web UI
    - local topology visualization only after graph data is reliable
 
@@ -233,6 +304,29 @@ large install, and can mismatch provider versions. Instead:
   the current workspace
 - always prefer repo-local files, lockfiles, installed provider schemas, chart
   schemas, and validator output over generic docs prose
+
+Cache invalidation should be semantic-unit based. A changed Helm values file
+should invalidate its file parse, chart summary, linked Argo CD application
+context, affected graph nodes, and generated packs for that scope, but it should
+not force unrelated Terraform modules, Pulumi stacks, provider references, or
+other chart summaries to be reprocessed. Every cache entry must be safe to
+describe in compact output: use paths, content hashes, source ids, versions,
+freshness, and omission counts, but do not expose secrets or raw credential-like
+values.
+
+The core context-compiler outputs should be:
+
+- **inventory**: compact repo/tool/environment/module/chart/stack/application
+  summaries.
+- **graph**: normalized semantic nodes and edges with source evidence and
+  confidence.
+- **pack**: scoped markdown or JSON for another agent to read before editing.
+- **changed context**: base/head diff impact, affected components, suggested
+  inspection files, omitted unrelated context, and risk hints.
+- **refs**: compact provider/package/chart references tied to the requested
+  scope or actual repo usage.
+- **cache report**: hit/miss/reused/invalidated posture for semantic units and
+  generated outputs.
 
 Canonical v0 public extraction targets:
 

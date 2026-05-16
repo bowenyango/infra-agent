@@ -4,10 +4,12 @@ This file is the mandatory operating standard for every agent that develops
 `infra-agent`. It applies to the entire repository unless a more specific
 `AGENTS.md` is added in a subdirectory.
 
-`infra-agent` is a specialist infrastructure-configuration CLI and harness for
-Helm, Pulumi, and Terraform. It is not a general coding assistant. Treat every
-change as work on a safety-sensitive developer tool that other agents and human
-operators will rely on.
+`infra-agent` is a specialist IaC context compiler CLI and agent-facing skill
+surface for Helm, Pulumi, and Terraform, with read-only graph/context expansion
+to adjacent Argo CD and Kubernetes evidence when the repository provides it. It
+is not a general coding assistant or a replacement for Codex/Claude Code. Treat
+every change as work on a safety-sensitive developer tool that other agents and
+human operators will rely on.
 
 ## Required Reading Order
 
@@ -28,13 +30,19 @@ durable project state.
 
 ## Mission And Product Boundaries
 
-- Build an installable CLI and agent-facing skill package for infrastructure
-  configuration work.
+- Build an installable CLI and agent-facing skill package that compiles
+  infrastructure repositories into semantic, low-token, cacheable context for
+  other coding agents.
 - Keep the product focused on Helm, Pulumi, Terraform, repository inspection,
-  context retrieval, validation, semantic constraints, impact analysis, and
-  safe handoff.
+  context retrieval, validation, semantic constraints, impact analysis, compact
+  provider/chart/package references, changed-context summaries, and safe
+  handoff.
 - Do not expand into a general-purpose coding agent, deployment system, daemon,
   chat UI, or autonomous apply/update runner.
+- Do not reimplement Codex/Claude Code's operator-facing safety harness. File
+  editing, broad shell execution, approvals, rollback, git diff review, PR
+  creation, and final apply/merge decisions belong to the caller and human
+  reviewer.
 - Do not add broad shell or filesystem capabilities unless they are tightly
   scoped to the infrastructure workflow and approval model.
 - The web topology viewer is lower priority than reliable graph JSON, impact
@@ -42,15 +50,18 @@ durable project state.
 
 ## Core Knowledge Direction
 
-Infrastructure RAG is a core product differentiator for `infra-agent`, not a
-generic vector-search add-on. Future development must optimize for accurate,
-token-efficient infrastructure changes by extracting, validating, storing, and
-retrieving compact knowledge units.
+IaC context compilation and infrastructure RAG are core product differentiators
+for `infra-agent`, not generic vector-search add-ons. Future development must
+optimize for accurate, token-efficient infrastructure changes by extracting,
+validating, storing, and retrieving compact knowledge units and semantic graph
+context that another agent can consume without reading the whole repo.
 
-Active priority: build functional RAG behavior before adding more remote-upload
-safety scaffolding. Keep safety at Claude Code harness weight: structured
-permission state, dry-run versus execution separation, explicit approval before
-mutation, compact handoff, and secret redaction. Do not add new
+Active priority: build functional extraction, deterministic retrieval,
+diff-aware context, semantic graph, and hash-cache behavior before adding more
+remote-upload safety scaffolding. Keep safety at Claude Code harness weight:
+structured permission state where the CLI still owns a bounded action, dry-run
+versus execution separation, compact handoff, and secret redaction. Do not add
+new
 `knowledge team-upload-*` boundary stages unless the user explicitly asks for a
 real team-upload feature or a concrete product requirement depends on it.
 Prefer read-only artifact discovery/download and planner/edit-plan integration
@@ -79,6 +90,13 @@ chart, Helm metadata, and official-doc units may be shared through a registry or
 team cache; internal module, component, chart, policy, incident, and example
 units must remain local, repo-curated, or explicitly opted into private team
 storage according to privacy scope.
+
+Use hash-based semantic-unit caching to avoid repeated repo analysis and token
+spend. Cache file parses, Terraform module summaries, Pulumi stack summaries,
+Helm chart summaries, Argo CD application linkages, provider/package/chart
+references, graph snapshots, and generated agent packs independently. Invalidate
+only the affected units when a file, version, source hash, or target scope
+changes.
 
 ## Non-Negotiable Safety Rules
 

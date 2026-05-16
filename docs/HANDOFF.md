@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-15 IaC Context Compiler Direction
+
+Status:
+
+- Product direction has been clarified: `infra-agent` should be an installable
+  IaC context compiler CLI and agent-facing skill surface, not a competing
+  coding-agent harness.
+- Codex, Claude Code, Cursor, OpenCode, human reviewers, and CI/policy engines
+  should own file editing, broad shell execution, approvals, rollback, git/PR
+  workflows, and final apply/merge decisions.
+- `infra-agent` should own high-quality, low-token, cacheable IaC context:
+  inventory, compact five-type knowledge units, semantic graph JSON, scoped
+  packs, diff-aware changed context, compact provider/chart/package references,
+  risk hints, and cache posture.
+- The five knowledge-unit types remain the core extraction contract:
+  `fact`, `guidance`, `example`, `diagnostic`, and `recipe`.
+
+Plan changes recorded:
+
+- Updated `docs/ROADMAP.md` so the active priority is feature-first IaC context
+  compilation with deterministic extraction/retrieval, scoped agent packs,
+  diff-aware changed-context, semantic graph, and semantic-unit hash caching.
+- Updated root `AGENTS.md` so future agents preserve the clarified product
+  boundary: do not reimplement Codex/Claude Code safety workflows, do not grow
+  upload-boundary scaffolding without a concrete requirement, and prioritize
+  extraction/cache/context quality.
+- Tightened `skills/infra-configuration/SKILL.md` so the main skill path is the
+  context-compiler workflow: inspect, knowledge extraction/packing/indexing,
+  compact JSON/graph reports, structured validation, and caller-owned safety.
+
+Recommended next work:
+
+1. Finish the in-progress planner knowledge selector ranking slice without
+   broadening it into a new planner branch.
+2. Add a read-only changed-context surface that maps git diff files to affected
+   Terraform modules, Pulumi stacks, Helm charts, Argo CD applications when
+   present, Kubernetes resources when derivable, suggested inspection files,
+   omitted unrelated context, and risk hints.
+3. Add semantic-unit cache status/invalidation reporting so agents can see what
+   was reused, invalidated, or regenerated.
+4. Keep `skills/infra-configuration/SKILL.md` lean over time: installation
+   check, inspect/knowledge/pack/changed/validate workflows, JSON handoff
+   contract, and references to deeper docs. Avoid putting legacy upload-boundary
+   detail in the main skill path.
+
+Validation:
+
+- Direction-only documentation slice.
+- `git diff --check` passed.
+- `npm run package:check` passed, including the tightened packaged skill.
+
 ## 2026-05-14 Target-Scoped Registry RAG Phase
 
 Status:
