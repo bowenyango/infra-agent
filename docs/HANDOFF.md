@@ -273,6 +273,52 @@ Remaining risk:
   compatibility wrappers or reduce them after the `changed`/inventory/cache
   compiler commands are stronger.
 
+## 2026-05-15 Lean Shared Knowledge Artifact Publish
+
+Status:
+
+- Product correction: team/shared knowledge storage is useful for multiplayer
+  IaC repos and should remain in scope. The removed part is the oversized
+  upload safety-boundary stack, not shared artifact publication itself.
+- Added a lean `infra-agent knowledge publish` path for standalone
+  `infra-agent.knowledge-units` artifacts. It validates the input artifact,
+  writes it by SHA-256 into a workspace-relative shared store directory, and
+  updates a `infra-agent.knowledge-unit-registry` JSON file.
+- The new publish path is deliberately not the old upload harness. It does not
+  create cloud clients, read credentials, perform live backend checks, generate
+  upload commands, issue write tokens, create leases, or model runtime upload
+  authorization.
+- Public-reference and internal-team units are publishable by default.
+  Workspace-private and private-run units require `--allow-workspace-private`
+  so the operator explicitly opts repo-private knowledge into the shared store.
+
+Files changed:
+
+- `src/knowledge/shared-artifact-publish.ts` owns the small local-file shared
+  artifact publisher.
+- `src/cli/main.ts` adds `knowledge publish` parsing and execution.
+- `src/cli/output.ts` renders the compact publish report.
+- `test/integration/cli-knowledge-publish-main.test.mjs` proves a published
+  artifact can be discovered through the registry and reused by
+  `knowledge extract`.
+- `AGENTS.md`, `README.md`, `docs/ROADMAP.md`, and
+  `skills/infra-configuration/SKILL.md` now preserve the corrected boundary:
+  keep lightweight shared knowledge storage; do not revive legacy upload
+  boundary scaffolding.
+
+Validation:
+
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-knowledge-args-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-publish-main.test.mjs`
+  passed.
+- `npm run verify` passed, including isolated shards, smoke, e2e, coverage, and
+  package dry-run.
+
 ## 2026-05-14 Target-Scoped Registry RAG Phase
 
 Status:

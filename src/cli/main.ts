@@ -27,6 +27,7 @@ import {
   type KnowledgeUnitIndexEntryFilter,
   type KnowledgeUnitMetadataIndex
 } from '../knowledge/unit-index.ts';
+import { publishSharedKnowledgeArtifact } from '../knowledge/shared-artifact-publish.ts';
 import {
   buildKnowledgeArtifactManifest,
   hashKnowledgeArtifactFile
@@ -52,6 +53,7 @@ import {
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
   printKnowledgePack,
+  printKnowledgeSharedArtifactPublishReport,
   printKnowledgeUnitMetadataIndex,
   printPlannerProviderCatalogReport,
   printRunPreflight,
@@ -76,13 +78,22 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 
 export interface ParsedArgs {
   command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'publish' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
   outputPath?: string | null;
   unitOutputDir?: string | null;
   manifestOutputPath?: string | null;
+  publishStoreDir?: string | null;
+  publishRegistryPath?: string | null;
+  publishName?: string | null;
+  publishVersion?: string | null;
+  publishProvider?: string | null;
+  publishPackageName?: string | null;
+  publishChart?: string | null;
+  publishModule?: string | null;
+  publishAllowWorkspacePrivate?: boolean;
   validationWorkspace?: string | null;
   json: boolean;
   jsonFull: boolean;
@@ -130,6 +141,7 @@ function printUsage(): void {
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]',
+      '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -650,8 +662,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'validate'
       && knowledgeAction !== 'pack'
       && knowledgeAction !== 'index'
+      && knowledgeAction !== 'publish'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, or index.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, or publish.');
     }
 
     let workspace = cwd();
@@ -665,6 +678,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let unitOutputDir: string | null = null;
     let manifestOutputPath: string | null = null;
     let validationWorkspace: string | null = null;
+    let publishStoreDir: string | null = null;
+    let publishRegistryPath: string | null = null;
+    let publishName: string | null = null;
+    let publishVersion: string | null = null;
+    let publishProvider: string | null = null;
+    let publishPackageName: string | null = null;
+    let publishChart: string | null = null;
+    let publishModule: string | null = null;
+    let publishAllowWorkspacePrivate = false;
     const knowledgeIndexFilter: KnowledgeUnitIndexEntryFilter = {};
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
@@ -751,6 +773,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!provider) {
           fail('Missing value for --provider.');
         }
+        if (knowledgeAction === 'publish') {
+          if (publishProvider !== null) {
+            fail('--provider can be provided at most once.');
+          }
+          publishProvider = provider;
+          index += 1;
+          continue;
+        }
         if (knowledgeAction !== 'index') {
           fail('--provider is only supported for knowledge index.');
         }
@@ -767,6 +797,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         const packageName = actionArgs[index + 1]?.trim();
         if (!packageName) {
           fail('Missing value for --package.');
+        }
+        if (knowledgeAction === 'publish') {
+          if (publishPackageName !== null) {
+            fail('--package can be provided at most once.');
+          }
+          publishPackageName = packageName;
+          index += 1;
+          continue;
         }
         if (knowledgeAction !== 'index') {
           fail('--package is only supported for knowledge index.');
@@ -785,6 +823,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!chart) {
           fail('Missing value for --chart.');
         }
+        if (knowledgeAction === 'publish') {
+          if (publishChart !== null) {
+            fail('--chart can be provided at most once.');
+          }
+          publishChart = chart;
+          index += 1;
+          continue;
+        }
         if (knowledgeAction !== 'index') {
           fail('--chart is only supported for knowledge index.');
         }
@@ -802,6 +848,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!moduleName) {
           fail('Missing value for --module.');
         }
+        if (knowledgeAction === 'publish') {
+          if (publishModule !== null) {
+            fail('--module can be provided at most once.');
+          }
+          publishModule = moduleName;
+          index += 1;
+          continue;
+        }
         if (knowledgeAction !== 'index') {
           fail('--module is only supported for knowledge index.');
         }
@@ -818,6 +872,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         const version = actionArgs[index + 1]?.trim();
         if (!version) {
           fail('Missing value for --version.');
+        }
+        if (knowledgeAction === 'publish') {
+          if (publishVersion !== null) {
+            fail('--version can be provided at most once.');
+          }
+          publishVersion = version;
+          index += 1;
+          continue;
         }
         if (knowledgeAction !== 'index') {
           fail('--version is only supported for knowledge index.');
@@ -870,8 +932,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!outputValue) {
           fail('Missing value for --out.');
         }
-        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'index') {
-          fail('--out is only supported for knowledge extract, knowledge pack, or knowledge index.');
+        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'publish') {
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, or knowledge publish.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -947,16 +1009,76 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--workspace') {
-        if (knowledgeAction !== 'validate') {
-          fail('--workspace is only supported for knowledge validate.');
+        if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish') {
+          fail('--workspace is only supported for knowledge validate or knowledge publish.');
         }
         const workspaceValue = actionArgs[index + 1]?.trim();
         if (!workspaceValue) {
           fail('Missing value for --workspace.');
         }
 
-        validationWorkspace = resolve(cwd(), workspaceValue);
+        if (knowledgeAction === 'publish') {
+          workspace = resolve(cwd(), workspaceValue);
+        } else {
+          validationWorkspace = resolve(cwd(), workspaceValue);
+        }
         index += 1;
+        continue;
+      }
+
+      if (arg === '--store-dir') {
+        if (knowledgeAction !== 'publish') {
+          fail('--store-dir is only supported for knowledge publish.');
+        }
+        const storeDir = actionArgs[index + 1]?.trim();
+        if (!storeDir) {
+          fail('Missing value for --store-dir.');
+        }
+        if (publishStoreDir !== null) {
+          fail('--store-dir can be provided at most once.');
+        }
+        publishStoreDir = storeDir;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--registry') {
+        if (knowledgeAction !== 'publish') {
+          fail('--registry is only supported for knowledge publish.');
+        }
+        const registryPath = actionArgs[index + 1]?.trim();
+        if (!registryPath) {
+          fail('Missing value for --registry.');
+        }
+        if (publishRegistryPath !== null) {
+          fail('--registry can be provided at most once.');
+        }
+        publishRegistryPath = registryPath;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--name') {
+        if (knowledgeAction !== 'publish') {
+          fail('--name is only supported for knowledge publish.');
+        }
+        const name = actionArgs[index + 1]?.trim();
+        if (!name) {
+          fail('Missing value for --name.');
+        }
+        if (publishName !== null) {
+          fail('--name can be provided at most once.');
+        }
+        publishName = name;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--allow-workspace-private') {
+        if (knowledgeAction !== 'publish') {
+          fail('--allow-workspace-private is only supported for knowledge publish.');
+        }
+        publishAllowWorkspacePrivate = true;
         continue;
       }
 
@@ -974,21 +1096,47 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'validate' && positionalArgs.length !== 1) {
       fail('knowledge validate requires exactly one knowledge JSON path.');
     }
+    if (knowledgeAction === 'publish' && positionalArgs.length !== 1) {
+      fail('knowledge publish requires exactly one knowledge-units JSON path.');
+    }
+    if (knowledgeAction === 'publish' && publishStoreDir === null) {
+      fail('knowledge publish requires --store-dir.');
+    }
+    if (knowledgeAction === 'publish' && publishRegistryPath === null) {
+      fail('knowledge publish requires --registry.');
+    }
+    if (knowledgeAction === 'publish' && domains.length > 1) {
+      fail('knowledge publish accepts at most one --domain value.');
+    }
+    if (knowledgeAction === 'publish' && targetPaths.length > 1) {
+      fail('knowledge publish accepts at most one --target value.');
+    }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
 
-    workspace = positionalArgs[0] ?? workspace;
+    if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish') {
+      workspace = positionalArgs[0] ?? workspace;
+    }
 
     return {
       command: 'knowledge',
       knowledgeAction,
       task: null,
       workspace: knowledgeAction === 'validate' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' ? positionalArgs[0] : null,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish' ? positionalArgs[0] : null,
       outputPath,
       unitOutputDir,
       manifestOutputPath,
+      publishStoreDir,
+      publishRegistryPath,
+      publishName,
+      publishVersion,
+      publishProvider,
+      publishPackageName,
+      publishChart,
+      publishModule,
+      publishAllowWorkspacePrivate,
       validationWorkspace,
       json,
       jsonFull,
@@ -1473,6 +1621,58 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
     if (!report.valid) {
       process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'publish') {
+    if (!parsed.inputPath || !parsed.publishStoreDir || !parsed.publishRegistryPath) {
+      fail('knowledge publish requires a knowledge-units JSON path, --store-dir, and --registry.');
+    }
+
+    const validationReport = await loadKnowledgeValidationReport(parsed.inputPath, cwd(), {});
+    if (!validationReport.valid) {
+      if (parsed.json) {
+        process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
+      } else {
+        printKnowledgeValidationReport(validationReport);
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    const report = await publishSharedKnowledgeArtifact({
+      workspaceRoot: parsed.workspace,
+      artifactPath: parsed.inputPath,
+      storeDir: parsed.publishStoreDir,
+      registryPath: parsed.publishRegistryPath,
+      domain: parsed.domains[0],
+      targetPath: parsed.targetPaths[0],
+      name: parsed.publishName ?? undefined,
+      version: parsed.publishVersion ?? undefined,
+      provider: parsed.publishProvider ?? undefined,
+      packageName: parsed.publishPackageName ?? undefined,
+      chart: parsed.publishChart ?? undefined,
+      moduleName: parsed.publishModule ?? undefined,
+      allowWorkspacePrivate: parsed.publishAllowWorkspacePrivate
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...report,
+            outputPath: writtenPath
+          }
+        : report, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeSharedArtifactPublishReport(report);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
     return;
   }

@@ -65,7 +65,11 @@ new
 `knowledge team-upload-*` boundary stages unless the user explicitly asks for a
 real team-upload feature or a concrete product requirement depends on it.
 Prefer read-only artifact discovery/download and planner/edit-plan integration
-for reviewed knowledge units.
+for reviewed knowledge units. Keep the lean shared artifact path: a validated
+`infra-agent.knowledge-units` artifact may be staged into a workspace-relative,
+content-addressed shared store and referenced from a registry JSON. Do not
+rebuild the old approval-token/lease/runtime-boundary upload stack around that
+feature.
 
 The long-term retrieval contract is `infra-agent.knowledge-unit` with five unit
 types:

@@ -49,6 +49,19 @@ values.
    repo-derived facts. Treat `knowledge index` and compact `unitIndex` metadata
    as lookup metadata, not raw source content.
 
+   For team reuse of reviewed units, publish only standalone
+   `infra-agent.knowledge-units` artifacts through the lean shared registry
+   path:
+
+   ```sh
+   infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json>
+   ```
+
+   This stages content-addressed files and updates registry JSON only. It is
+   not a deployment/upload harness and must not be treated as approval to run
+   cloud clients, read credentials, perform live backend checks, or execute
+   infrastructure mutations.
+
 4. Prefer bounded packs and compact JSON over raw docs or whole-repo bundles.
    Read `knowledgeFacts`, `knowledgeContext`, cache posture, omitted counts,
    source freshness, and selector reasons before asking for more files.

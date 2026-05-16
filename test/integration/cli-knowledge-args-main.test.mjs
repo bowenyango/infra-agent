@@ -265,6 +265,58 @@ test('knowledge index CLI args accept compact unit index flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge publish CLI args accept lean shared artifact staging flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'publish',
+    'artifacts/aws-s3.units.json',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--store-dir',
+    'knowledge/shared',
+    '--registry',
+    'knowledge/unit-registry.json',
+    '--domain',
+    'terraform',
+    '--target',
+    'terraform/app',
+    '--name',
+    'aws-s3-team-units',
+    '--version',
+    '2026-05-15',
+    '--provider',
+    'hashicorp/aws',
+    '--package',
+    '@pulumi/aws',
+    '--chart',
+    'kube-prometheus-stack',
+    '--module',
+    's3',
+    '--allow-workspace-private',
+    '--out',
+    'artifacts/publish-report.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'publish');
+  assert.equal(parsed.inputPath, 'artifacts/aws-s3.units.json');
+  assert.equal(parsed.workspace, resolve(process.cwd(), 'fixtures/sample-workspace'));
+  assert.equal(parsed.publishStoreDir, 'knowledge/shared');
+  assert.equal(parsed.publishRegistryPath, 'knowledge/unit-registry.json');
+  assert.deepEqual(parsed.domains, ['terraform']);
+  assert.deepEqual(parsed.targetPaths, ['terraform/app']);
+  assert.equal(parsed.publishName, 'aws-s3-team-units');
+  assert.equal(parsed.publishVersion, '2026-05-15');
+  assert.equal(parsed.publishProvider, 'hashicorp/aws');
+  assert.equal(parsed.publishPackageName, '@pulumi/aws');
+  assert.equal(parsed.publishChart, 'kube-prometheus-stack');
+  assert.equal(parsed.publishModule, 's3');
+  assert.equal(parsed.publishAllowWorkspacePrivate, true);
+  assert.equal(parsed.outputPath, 'artifacts/publish-report.json');
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge index filters are rejected for other knowledge actions', () => {
   const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'pack', 'fixtures/sample-workspace', '--unit-type', 'fact']);";
   const result = spawnSync(process.execPath, [

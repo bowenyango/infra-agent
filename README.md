@@ -117,6 +117,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]`
 - `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]`
 - `infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]`
+- `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -203,9 +204,13 @@ Current behavior is intentionally runtime-foundation oriented:
   storage-policy summary, and `mutationAllowed=false` for review. Pass
   `knowledge validate --workspace <workspace>` to recheck repo-derived source
   fingerprints against current files before another agent consumes saved context.
-  Legacy team-upload, backend-readiness, and publication commands have been
-  removed from the active branch; shared catalog consumption is now modeled as
-  read-only unit artifact discovery and local validation, not upload execution.
+  `knowledge publish` stages a validated `infra-agent.knowledge-units` artifact
+  into a workspace-relative content-addressed shared store and updates a
+  `infra-agent.knowledge-unit-registry` JSON file for team reuse. This is a
+  thin file-store publisher: it does not create cloud clients, read
+  credentials, run live backend checks, generate upload commands, or implement
+  approval/token/lease boundaries. Legacy team-upload, backend-readiness, and
+  upload-boundary commands remain removed from the active branch.
   Validation reports include a structured freshness summary
   with stale and unchecked source counts, affected fact counts, safe source
   ids, source kinds/names, stale reasons, and safe workspace-relative
@@ -573,10 +578,12 @@ Current behavior is intentionally runtime-foundation oriented:
   validated fact sets and bounded packs for Terraform Registry markdown, Pulumi
   docs markdown, Helm `values.schema.json` chart values, local Helm chart
   metadata/dependencies, and cached Helm chart-doc markdown. Optional artifact
-  manifests record the publication plan without credentials or upload commands.
-  Public facts should default to the user or team cache, not bulk commits inside
-  every infrastructure repo; private repo-derived facts require explicit opt-in
-  before any shared backend is used.
+  manifests record artifact hashes without credentials or upload commands.
+  `knowledge publish` can stage reviewed unit artifacts into a workspace-local
+  shared registry for team reuse. Public and internal-team units are publishable
+  by default; workspace-private or private-run units require
+  `--allow-workspace-private` so the operator explicitly marks that shared
+  repository/module knowledge is intended for the team store.
 
 CLI exit codes for downstream agents:
 

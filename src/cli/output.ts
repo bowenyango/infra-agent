@@ -46,6 +46,7 @@ import type { KnowledgeSourcesReport, KnowledgeSourceReportEntry } from '../know
 import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
+import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-artifact-publish.ts';
 import type {
   KnowledgeUnitIndexEntry,
   KnowledgeUnitMetadataIndex
@@ -3542,6 +3543,30 @@ export function printKnowledgePack(pack: KnowledgePack): void {
   process.stdout.write(`storage: public-reference=${pack.storagePolicy.publicReference}, workspace-private=${pack.storagePolicy.workspacePrivate}, shareable=${pack.storagePolicy.shareableByDefault}, opt-in=${pack.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Facts');
   printList(pack.facts.map(fact => `${fact.confidence} ${fact.kind} ${fact.path}: ${fact.summary}`), 'No knowledge facts included.');
+}
+
+export function printKnowledgeSharedArtifactPublishReport(
+  report: SharedKnowledgeArtifactPublishReport
+): void {
+  printHeader('Knowledge shared artifact publish');
+  process.stdout.write(`mode: ${report.executionMode}\n`);
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`artifact: ${report.artifact.sourceName}\n`);
+  process.stdout.write(`source kind: ${report.artifact.sourceKind}\n`);
+  process.stdout.write(`units: ${report.artifact.unitCount}\n`);
+  process.stdout.write(`privacy scopes: ${report.artifact.privacyScopes.join(', ') || 'none'}\n`);
+  process.stdout.write(`stored: ${report.artifact.registryPath}\n`);
+  process.stdout.write(`sha256: ${report.artifact.sha256}\n`);
+  process.stdout.write(`registry: ${report.registry.path}\n`);
+  process.stdout.write(`registry entries: ${report.registry.entryCount}\n`);
+  process.stdout.write(`updated existing entry: ${report.registry.updatedExistingEntry ? 'yes' : 'no'}\n`);
+  process.stdout.write(`domain: ${report.entry.domain}\n`);
+  process.stdout.write(`target: ${report.entry.targetPath ?? 'all'}\n`);
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
 }
 
 function formatKnowledgeUnitIndexEntry(entry: KnowledgeUnitIndexEntry): string {

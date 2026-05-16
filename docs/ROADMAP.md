@@ -404,7 +404,7 @@ Current progress as of 2026-05-13:
 | Official docs retrieval | Partial | Explicit `prefetch` and `knowledge prefetch` can fetch bounded official/external sources through mocked-testable fetchers; public URL-backed docs get a default stale-after policy; HTML official-doc responses are normalized into compact Markdown cache entries in the explicit fetch path; `knowledge sources` reports fresh/stale/missing cache posture without fetching; prefetch results report previous cache posture for each source | Agent loop remains cache-only for automatic runs; live refresh is still deliberate |
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts, explicit `KnowledgeUnit` / `KnowledgeUnitSet` contracts for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`, cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact/unit ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, fact-derived required-input guidance, provider/Helm diagnostics, Terraform/Helm/Pulumi workflow recipes, conservative markdown section extraction for explicit examples, best practices, troubleshooting/errors, and upgrade/migration workflows, local curated internal units, prebuilt unit artifact sources, canonical public target resolver/summaries, knowledge unit metadata index, budget summary `unitIndex`, `knowledge index` CLI, index validation through `knowledge validate`, and structured local freshness summaries for stale or unchecked repo-derived facts | Runtime/edit-plan use of markdown-derived diagnostic and recipe units, Non-Node Pulumi language discovery, dynamic/deeper component internals, exact multi-source pack source-level omitted distribution, and real team storage backends are pending |
-| Shared artifacts | Archived | Active branch keeps local cache, plan-only artifact manifests, validated prebuilt `infra-agent.knowledge-units`, read-only artifact registries, and storage-policy metadata for privacy posture. Legacy team-upload/backend-readiness/publication/upload boundary implementation has been removed from the active source surface. | No remote object store, metadata service, upload command, credential read, live backend check, or publication workflow in v0 |
+| Shared artifacts | Partial | Active branch keeps local cache, plan-only artifact manifests, validated prebuilt `infra-agent.knowledge-units`, read-only artifact registries, storage-policy metadata, and a lean `knowledge publish` command that stages validated unit artifacts into a workspace-relative content-addressed shared store plus registry JSON. Legacy team-upload/backend-readiness/upload boundary implementation remains removed. | No S3/GCS/Azure/Postgres backend, no credential read, no live backend check, no upload command generation, and no approval/token/lease runtime boundary in v0 |
 
 Archived note: the 2026-05-10 upload-boundary addenda were part of the sealed `agent-1` safety-surface expansion. They are intentionally removed from the active `agent-2` roadmap.
 
@@ -440,6 +440,11 @@ Target artifact families:
 - `infra-agent.curated-knowledge-units` and read-only unit artifact registry
   payloads: reviewed local or explicitly configured catalogs that can feed the
   same extract, validate, rank, pack, and index path without remote writes.
+- `infra-agent.knowledge-shared-artifact-publish`: a report from explicit
+  local-file shared artifact staging. It records the source unit artifact,
+  content-addressed stored path, registry path, privacy scopes, and whether a
+  registry entry was replaced. It does not include credentials, backend URLs,
+  live-check results, upload commands, approval tokens, or execution leases.
 
 Extraction rules:
 
@@ -484,12 +489,21 @@ Implemented initial CLI surfaces:
     reuse. The index is the preferred lookup surface for public/internal
     five-unit RAG and must remain source-linked, compact, raw-content-free, and
     parser-neutral.
+- `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
+  --store-dir <dir> --registry <registry.json> ...`
+  - validates a standalone `infra-agent.knowledge-units` artifact, stores it by
+    SHA-256 under a workspace-relative shared directory, and updates a
+    `infra-agent.knowledge-unit-registry` JSON file. It is the retained team
+    collaboration path for shared knowledge artifacts. It is intentionally not
+    the old safety-boundary stack: no cloud client, credential read, live check,
+    upload command, approval chain, write token, lease, or runtime execution
+    boundary is created.
 
 Removed from active CLI surface:
 
 - Legacy team-upload, backend-readiness, publication-readiness, and upload
-  boundary commands. Future shared-catalog work starts from read-only artifact
-  discovery and local validation, not upload execution.
+  boundary commands. Future remote shared-catalog work should extend the lean
+  artifact store/publish contract instead of reviving the old boundary chain.
 
 Recommended storage layers:
 
@@ -501,11 +515,13 @@ Recommended storage layers:
   revalidated with `knowledge validate --workspace` so file hash drift is
   detected before reuse. Saved compact packs, indexes, and manifests should
   also pass `knowledge validate` before handoff.
-- Read-only shared catalogs: explicitly configured
-  `infra-agent.knowledge-units` artifacts and registries that can be
-  discovered, downloaded into the local cache, hash-checked, and validated. This
-  is consumption-only in v0: no remote upload command, credential read, live
-  backend check, object-store write, or metadata-index mutation.
+- Shared catalogs: explicitly configured `infra-agent.knowledge-units`
+  artifacts and registries that can be discovered, downloaded into the local
+  cache, hash-checked, and validated. `knowledge publish` can also stage unit
+  artifacts into a workspace-relative shared directory and update the registry
+  file. Remote shared storage remains future work: no cloud SDK client,
+  credential read, live backend check, generated upload command, or remote
+  metadata-index mutation in v0.
 - Package-bundled: only schemas, extractors, validators, and small durable rules.
   Do not bundle full provider docs.
 
