@@ -42,6 +42,7 @@ import {
   buildScopedPackReport,
   renderScopedPackMarkdown
 } from '../domain/scoped-pack.ts';
+import { buildRefsReport } from '../domain/refs.ts';
 import type { ChangedContextFileInput } from '../types/changed-context.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -60,6 +61,7 @@ import {
   printInfraGraph,
   printInventoryReport,
   printInspection,
+  printRefsReport,
   printKnowledgePrefetchResult,
   printKnowledgeExtractionReport,
   printKnowledgeCacheStatusReport,
@@ -90,7 +92,7 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 ] as const satisfies readonly KnowledgeStorageScope[];
 
 export interface ParsedArgs {
-  command: 'inspect' | 'inventory' | 'pack' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'cache' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
+  command: 'inspect' | 'inventory' | 'pack' | 'refs' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'cache' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
   knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'publish' | null;
   cacheAction?: 'status' | null;
   task: string | null;
@@ -127,6 +129,7 @@ export interface ParsedArgs {
   targetPaths: string[];
   packScope?: string | null;
   packChanged?: boolean;
+  refsScope?: string | null;
   sourceIds?: string[];
   knowledgeIndexFilter?: KnowledgeUnitIndexEntryFilter;
   maxSources: number | null;
@@ -152,6 +155,7 @@ function printUsage(): void {
       '  infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent pack [workspace] (--scope <path|target|env|stack> | --changed --base <ref>|--file <path>) [--head <ref>] [--domain helm|pulumi|terraform] [--json]',
       '  infra-agent cache status [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
+      '  infra-agent refs [workspace] --scope <path|target|env|stack> [--domain helm|pulumi|terraform] [--max-units <n>] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
@@ -678,6 +682,93 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains,
       targetPaths,
       maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
+    };
+  }
+
+  if (commandName === 'refs') {
+    let workspace = cwd();
+    let refsScope: string | null = null;
+    let maxUnits: number | null = null;
+    const domains: InfraDomainId[] = [];
+    const positionalArgs: string[] = [];
+
+    for (let index = 0; index < cleanArgs.length; index += 1) {
+      const arg = cleanArgs[index];
+
+      if (arg === '--scope') {
+        const scopeValue = cleanArgs[index + 1]?.trim();
+        if (!scopeValue) {
+          fail('Missing value for --scope.');
+        }
+        if (refsScope !== null) {
+          fail('--scope can be provided at most once.');
+        }
+
+        refsScope = scopeValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--domain') {
+        const domainValue = cleanArgs[index + 1];
+        if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
+          fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
+        }
+
+        domains.push(domainValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--max-units') {
+        const rawMaxUnits = cleanArgs[index + 1];
+        const parsedMaxUnits = Number.parseInt(rawMaxUnits ?? '', 10);
+        if (!Number.isInteger(parsedMaxUnits) || parsedMaxUnits < 1) {
+          fail('Missing or invalid value for --max-units. Expected a positive integer.');
+        }
+
+        maxUnits = parsedMaxUnits;
+        index += 1;
+        continue;
+      }
+
+      if (arg.startsWith('--')) {
+        fail(`Unknown refs option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('refs accepts at most one workspace path.');
+    }
+    if (refsScope === null) {
+      fail('refs requires --scope.');
+    }
+
+    workspace = positionalArgs[0] ?? workspace;
+
+    return {
+      command: 'refs',
+      task: null,
+      workspace,
+      inputPath: null,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains,
+      targetPaths: [],
+      refsScope,
+      maxSources: null,
+      maxUnits,
       terraformPlanPaths: [],
       pulumiPreviewPaths: []
     };
@@ -2134,6 +2225,27 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeCacheStatusReport(report);
+    return;
+  }
+
+  if (parsed.command === 'refs') {
+    if (!parsed.refsScope) {
+      fail('refs requires --scope.');
+    }
+
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const report = await buildRefsReport(inspection, {
+      scope: parsed.refsScope,
+      domains: parsed.domains,
+      maxUnits: parsed.maxUnits ?? undefined
+    });
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    printRefsReport(report);
     return;
   }
 

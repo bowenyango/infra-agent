@@ -178,6 +178,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   warranted. Do not treat cache status as validator-grade authority, freshness
   proof, approval, upload readiness, or permission to apply, deploy, mutate
   state, or publish private workspace knowledge.
+- Treat `infra-agent refs` as the compact read-only interface lookup surface
+  for repo-selected Terraform, Pulumi, and Helm references. Use it after
+  `inventory` or scoped `pack` when another agent needs valid fields, required
+  inputs, defaults, enum-like values, configured fields, source freshness, or
+  replacement-sensitive hints for a scoped target. Its `infra-agent.refs`
+  output is advisory context selected from actual repo usage or the requested
+  scope. It must not become a generic public documentation search engine,
+  validator, approval signal, live docs fetcher, or source/raw-cache payload
+  transport.
 - New multi-step agent development must use the subagent operating model from
   root `AGENTS.md`. The main agent remains the PM/Architect owner: it reads the
   durable plan, confirms acceptance criteria, decomposes work, assigns bounded

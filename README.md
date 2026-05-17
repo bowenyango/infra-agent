@@ -110,6 +110,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
 - `infra-agent pack [workspace] --scope <path|target|env|stack> [--changed] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--json]`
 - `infra-agent cache status [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
+- `infra-agent refs [workspace] --scope <path|target|env|stack> [--domain helm|pulumi|terraform] [--max-units <n>] [--json]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
 - `infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
@@ -154,6 +155,15 @@ Current behavior is intentionally runtime-foundation oriented:
   context or deliberately refresh/extract/pack again. It does not fetch,
   prefetch, validate, upload, plan, preview, apply, deploy, mutate state, or
   expose cache entry content, content hashes, or timestamps.
+- `refs` emits a read-only `infra-agent.refs` report with compact interface
+  facts selected from actual repo usage for a requested scope. It resolves the
+  scope the same way scoped packs do, then returns matching targets, reference
+  source cache posture, and bounded Helm values/schema, Pulumi config, and
+  Terraform/provider/module semantics such as required fields, defaults,
+  enum-like values, configured fields, and replacement-sensitive hints when
+  present. It is cache-first advisory context, not a generic documentation
+  search surface, and it does not fetch live docs, expose raw docs/source/cache
+  payloads, run validators, plan, preview, apply, deploy, or mutate state.
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
   from workspace inspection facts and can attach read-only Terraform plan JSON

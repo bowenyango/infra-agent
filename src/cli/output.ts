@@ -82,6 +82,7 @@ import {
 import type { InfraGraph } from '../types/infra-graph.ts';
 import type { ChangedContextReport } from '../types/changed-context.ts';
 import type { InventoryReport, InventoryTarget } from '../types/inventory.ts';
+import type { RefsFact, RefsReferenceSource, RefsReport, RefsTarget } from '../types/refs.ts';
 import type { DoctorReport } from './doctor.ts';
 import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts';
 import type { InfraGraphImpactReport } from './infra-graph-report.ts';
@@ -3534,6 +3535,62 @@ export function printInventoryReport(report: InventoryReport): void {
 
   printHeader('Omitted');
   printList(report.omitted.filteredTargetsByDomain.map(item => `${item.domain}: ${item.count} filtered target(s)`), 'No filtered targets.');
+}
+
+function summarizeRefsTarget(target: RefsTarget): string {
+  const interfaces = target.interfaceKinds.length > 0
+    ? ` interfaces=${target.interfaceKinds.join(',')}`
+    : ' interfaces=none';
+  const environments = target.environmentHints.length > 0
+    ? ` env=${target.environmentHints.join(',')}`
+    : '';
+  return `${target.domain} ${target.kind} ${target.path} (${target.matchReasons.join('; ') || 'matched scope'}; facts=${target.semanticFactCount}${interfaces}${environments})`;
+}
+
+function summarizeRefsSource(source: RefsReferenceSource): string {
+  const metadata = [
+    source.provider ? `provider=${source.provider}` : null,
+    source.packageName ? `package=${source.packageName}` : null,
+    source.chart ? `chart=${source.chart}` : null,
+    source.module ? `module=${source.module}` : null,
+    source.version ? `version=${source.version}` : null
+  ].filter((entry): entry is string => Boolean(entry));
+  const refresh = source.refreshRecommended ? ', refresh recommended' : '';
+  const metadataText = metadata.length > 0 ? `, ${metadata.join(', ')}` : '';
+  return `${source.domain} ${source.targetPath}: ${source.sourceKind} ${source.sourceName} (freshness=${source.freshness}${refresh}, storage=${source.storageScope}${metadataText}, id=${source.id})`;
+}
+
+function summarizeRefsFact(ref: RefsFact): string {
+  const values = ref.values && ref.values.length > 0
+    ? ` values=${ref.values.join(',')}`
+    : '';
+  const related = ref.relatedPaths && ref.relatedPaths.length > 0
+    ? ` related=${ref.relatedPaths.join(',')}`
+    : '';
+  return `${ref.targetKind} ${ref.targetPath}: ${ref.kind} ${ref.path} (${ref.confidence}, source=${ref.source.kind}:${ref.source.path}) ${ref.summary}${values}${related}`;
+}
+
+export function printRefsReport(report: RefsReport): void {
+  printHeader('Refs');
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`profile: ${report.profile.label} (${report.profile.id})\n`);
+  process.stdout.write(`scope: ${report.scope.requested} (${report.scope.matchKinds.join(', ') || 'unmatched'})\n`);
+  process.stdout.write(`domains: ${report.summary.domains.join(', ') || 'none'}\n`);
+  process.stdout.write(`max refs: ${report.filters.maxUnits}\n`);
+  process.stdout.write(`summary: targets=${report.summary.matchedTargetCount}, sources=${report.summary.sourceCount}, refs=${report.summary.includedRefCount}, omitted=${report.summary.omittedRefCount}, staleSources=${report.summary.staleSourceCount}, missingSources=${report.summary.missingOrSkippedSourceCount}\n`);
+  process.stdout.write(`recommended action: ${report.summary.recommendedAction}\n\n`);
+
+  printHeader('Targets');
+  printList(report.targets.map(summarizeRefsTarget), 'No scoped targets matched.');
+  process.stdout.write('\n');
+
+  printHeader('Sources');
+  printList(report.sources.map(summarizeRefsSource), 'No reference sources selected.');
+  process.stdout.write('\n');
+
+  printHeader('Refs');
+  printList(report.refs.map(summarizeRefsFact), 'No compact refs selected.');
 }
 
 export function printValidationPreflight(preflight: ValidationPreflight): void {

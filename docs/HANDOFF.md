@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-16 Scoped Refs MVP
+
+Status:
+
+- Added the first read-only repo-aware interface lookup surface:
+  `infra-agent refs`.
+- The command requires `--scope <path|target|env|stack>` and supports repeated
+  `--domain helm|pulumi|terraform`, `--max-units <n>`, and `--json`.
+- The JSON contract is `infra-agent.refs` with `mutationAllowed=false`. It
+  resolves scope using existing scoped-pack matching, then returns matched
+  targets, compact interface kinds, selected reference source cache posture,
+  bounded repo-local config semantics, and omission counts.
+- This MVP is intentionally not a generic public documentation search. It uses
+  existing inspection/config-semantics and knowledge source discovery only. It
+  does not run `knowledge extract`, write local cache entries, fetch live docs,
+  expose raw docs/source/cache payloads, run validators, plan, preview, apply,
+  deploy, or mutate state.
+- Current references come from already-inspected repo-local semantics such as
+  Helm values schema required/default/enum facts and Pulumi config shape facts.
+  Richer Terraform/Pulumi/Helm public-reference enrichment, field/resource
+  filters, and unit-index-backed refs remain future work.
+
+Files changed:
+
+- `src/types/refs.ts` defines the compact `infra-agent.refs` report contract.
+- `src/domain/refs.ts` builds scoped refs from scoped-pack target selection,
+  config semantics, and knowledge source cache posture.
+- `src/cli/main.ts` adds `refs` parsing, help output, and entrypoint wiring.
+- `src/cli/output.ts` adds compact text output for refs reports.
+- `test/unit/refs.test.mjs`, `test/integration/cli-refs-main.test.mjs`, and
+  `test/integration/cli-core-main.test.mjs` cover builder behavior, parser,
+  CLI JSON, help output, max-unit bounding, domain/scope filtering, and raw
+  payload/URL omission.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
+  `skills/infra-configuration/SKILL.md` document `refs` as scoped,
+  repo-aware, read-only advisory interface lookup.
+
+Validation:
+
+- `npm run test:focused -- test/integration/cli-refs-main.test.mjs` passed.
+- `npm run test:focused -- test/unit/refs.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run dev -- refs fixtures/sample-workspace --scope charts/payments-api --domain helm --json` passed.
+- `npm run dev -- refs fixtures/sample-workspace --scope charts/payments-api --domain helm --max-units 3` passed.
+- `npm run dev -- refs fixtures/sample-workspace --scope infra/payments-api --domain pulumi --max-units 5 --json` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed, including lint, structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+
 ## 2026-05-16 Cache Status MVP
 
 Status:

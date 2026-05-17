@@ -34,6 +34,7 @@ values.
    infra-agent inventory <workspace> --json
    infra-agent cache status <workspace> --json
    infra-agent pack <workspace> --scope <path|target|env|stack> --json
+   infra-agent refs <workspace> --scope <path|target|env|stack> --json
    infra-agent pack <workspace> --changed --base main --head HEAD --json
    ```
 
@@ -51,6 +52,10 @@ values.
    validation targets only. Prefer `pack --changed` as the one-shot handoff when
    the task is scoped to a branch or patch and another agent needs only
    changed-component context.
+   Prefer `refs --scope ...` when the task needs interface shape rather than
+   file-selection context. Treat refs as compact advisory facts selected from
+   repo usage and cache posture; native schemas, plan/preview, Helm rendering,
+   and validators remain authoritative.
 
 3. For reusable provider, module, chart, stack, or validation knowledge, prefer
    the deterministic metadata workflow:
