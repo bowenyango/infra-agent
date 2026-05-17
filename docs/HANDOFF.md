@@ -6,6 +6,53 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-16 Scoped Pack MVP
+
+Status:
+
+- Added the first top-level scoped agent handoff surface: `infra-agent pack`.
+- The command requires `--scope <path|target|env|stack>` and supports repeated
+  `--domain helm|pulumi|terraform` filters plus `--json`.
+- The report contract is `infra-agent.scoped-pack` with
+  `mutationAllowed=false`. Default output is compact Markdown for direct
+  Codex/Claude Code handoff.
+- This MVP derives context from existing inventory inspection only. It selects
+  matching Helm charts, Pulumi projects/stacks, or Terraform roots by path
+  intersection, target id/name, environment hint, or Pulumi stack name.
+- Output includes matched targets, match reasons, suggested files, validation
+  targets, environment hints, semantic fact counts, knowledge-cache posture,
+  and omitted/unmatched metadata. It does not include raw file content and does
+  not run validators, git diff, plan/preview, apply, deploy, or state mutation.
+- Changed-component set scopes, Argo CD/Kubernetes linkage, graph-aware related
+  systems, selected knowledge-unit enrichment, and semantic cache hit/miss
+  reuse remain future work.
+
+Files changed:
+
+- `src/types/scoped-pack.ts` defines the compact scoped pack report contract.
+- `src/domain/scoped-pack.ts` builds scoped packs from inventory inspection and
+  renders Markdown handoff output.
+- `src/cli/main.ts` adds `pack` parsing and entrypoint execution.
+- `test/unit/scoped-pack.test.mjs`,
+  `test/integration/cli-report-main.test.mjs`, and
+  `test/integration/cli-core-main.test.mjs` cover builder behavior, CLI parser,
+  entrypoint JSON/Markdown, and help output.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
+  `skills/infra-configuration/SKILL.md` document the scoped pack surface for
+  downstream agents.
+
+Validation:
+
+- `npm run dev -- pack fixtures/sample-workspace --scope charts/payments-api --json` passed.
+- `npm run dev -- pack fixtures/sample-workspace --scope infra/payments-api` passed.
+- `npm run test:focused -- test/unit/scoped-pack.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run lint` passed.
+- `git diff --check` passed.
+- `npm run verify` passed, including lint, structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+
 ## 2026-05-16 Inventory MVP
 
 Status:

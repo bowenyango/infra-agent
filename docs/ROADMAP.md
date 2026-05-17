@@ -130,7 +130,7 @@ write provider-specific parsers for the canonical examples.
 
 Near-term user-facing command direction:
 
-1. Keep `inspect`, `inventory`, `knowledge sources/prefetch/extract/pack/index/validate`,
+1. Keep `inspect`, `inventory`, `pack`, `knowledge sources/prefetch/extract/pack/index/validate`,
    `graph`, and `changed` as the current stable context-compiler surfaces.
 2. Evolve `inventory` so agents can read a compact list of tools,
    environments, modules, charts, stacks, values layers, and deployment
@@ -139,8 +139,9 @@ Near-term user-facing command direction:
    Kubernetes resources, semantic cache invalidation, Terraform local-module
    reverse dependency impact, and plan/preview-enriched risk when evidence is
    available.
-4. Add a scoped agent `pack` surface that emits markdown or compact JSON for a
-   path, module, chart, stack, environment, or changed-component set.
+4. Evolve the scoped agent `pack` surface so markdown and compact JSON can
+   include richer graph/deployment linkage, changed-component sets, selected
+   knowledge units, and semantic cache reuse.
 5. Add `cache status` style visibility for semantic-unit cache hits, misses,
    invalidations, and reused outputs.
 6. Add compact `refs` lookups for Terraform/Pulumi/Helm interfaces only when
@@ -405,6 +406,7 @@ Current progress as of 2026-05-13:
 | Repo-local semantics | Partial | Helm schema, Helm chart metadata/dependency facts, Terraform variables/validation blocks, Pulumi stack config, local Terraform provider schema exports, local Terraform module interface facts, conservative Node.js/TypeScript Pulumi component interface and child-resource facts, and bounded Helm schema knowledge packs | Non-Node Pulumi component discovery and dynamic/deeper component internals are not implemented |
 | Structured knowledge extraction | Partial | Normalized `KnowledgeFact` / `KnowledgeFactSet` contracts, explicit `KnowledgeUnit` / `KnowledgeUnitSet` contracts for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`, cache-first extraction, validation, bounded packs, runtime fact loading, planner prompt summaries, compact `knowledgeFacts`, result-card counts, deterministic fact/unit ranking, focused Terraform provider schema facts, local Terraform module input/output facts, Pulumi config facts, Pulumi component input/output/child-resource facts, cached Pulumi config/YAML/package/resource docs facts selected from YAML and Node.js/TypeScript constructor evidence, local Helm metadata/dependency facts, cached Helm chart-doc markdown `chart-value` facts, fact-derived required-input guidance, provider/Helm diagnostics, Terraform/Helm/Pulumi workflow recipes, conservative markdown section extraction for explicit examples, best practices, troubleshooting/errors, and upgrade/migration workflows, local curated internal units, prebuilt unit artifact sources, canonical public target resolver/summaries, knowledge unit metadata index, budget summary `unitIndex`, `knowledge index` CLI, index validation through `knowledge validate`, and structured local freshness summaries for stale or unchecked repo-derived facts | Runtime/edit-plan use of markdown-derived diagnostic and recipe units, Non-Node Pulumi language discovery, dynamic/deeper component internals, exact multi-source pack source-level omitted distribution, and real team storage backends are pending |
 | Inventory | Partial | `infra-agent inventory` emits a compact read-only `infra-agent.inventory` JSON/text report from existing inspection data. It summarizes detected Helm charts, Pulumi projects/stacks, Terraform roots, domain tools, environment hints, primary files, validation targets, semantic fact counts, knowledge-cache posture, and filtered omitted target counts. | Argo CD/Kubernetes deployment linkage, Terraform module interface rollups, Helm dependency/version details, semantic-unit hash cache hit/miss reporting, and richer fact-kind summaries remain future work |
+| Scoped pack | Partial | `infra-agent pack` emits compact Markdown or `infra-agent.scoped-pack` JSON from an explicit path, target name/id, environment hint, or Pulumi stack. It selects matching inventory targets, suggested files, validation targets, environment hints, semantic fact counts, and knowledge-cache posture without raw content or execution. | Changed-component set scopes, Argo CD/Kubernetes linkage, selected knowledge-unit enrichment, semantic cache hit/miss reuse, and graph-aware related systems remain future work |
 | Changed context | Partial | `infra-agent changed` emits a read-only `infra-agent.changed-context` JSON/text report from git base/head diff or explicit `--file` inputs. It maps changed paths to inspected Helm charts, Pulumi projects/stacks, and Terraform roots, with suggested inspection files, validation targets, unmapped files, and heuristic risk hints. | Argo CD/Kubernetes linkage, Terraform local-module reverse dependency impact, semantic cache invalidation, and plan/preview-enriched risk remain future work |
 | Shared artifacts | Partial | Active branch keeps local cache, plan-only artifact manifests, validated prebuilt `infra-agent.knowledge-units`, read-only artifact registries, storage-policy metadata, and a lean `knowledge publish` command that stages validated unit artifacts into a workspace-relative content-addressed shared store plus registry JSON. Legacy team-upload/backend-readiness/upload boundary implementation remains removed. | No S3/GCS/Azure/Postgres backend, no credential read, no live backend check, no upload command generation, and no approval/token/lease runtime boundary in v0 |
 

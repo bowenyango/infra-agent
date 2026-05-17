@@ -106,6 +106,24 @@ test('inventory CLI args accept workspace and context filters', () => {
   assert.equal(parsed.json, true);
 });
 
+test('pack CLI args accept workspace, scope, and domain filters', () => {
+  const parsed = parseArgs([
+    'pack',
+    'fixtures/sample-workspace',
+    '--scope',
+    'charts/payments-api',
+    '--domain',
+    'helm',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'pack');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.packScope, 'charts/payments-api');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.equal(parsed.json, true);
+});
+
 test('changed CLI args accept git diff and context filters', () => {
   const parsed = parseArgs([
     'changed',
@@ -175,6 +193,45 @@ test('inventory command emits compact read-only inventory JSON through the entry
     && target.kind === 'pulumi-project'
     && target.path === 'infra/payments-api'
   ));
+  assert.doesNotMatch(output, /example-api-secret/i);
+});
+
+test('pack command emits scoped read-only JSON through the entrypoint', async () => {
+  const output = await captureStdout(() => main([
+    'pack',
+    'fixtures/sample-workspace',
+    '--scope',
+    'charts/payments-api',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.scoped-pack');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.mutationAllowed, false);
+  assert.equal(report.scope.requested, 'charts/payments-api');
+  assert.equal(report.summary.matchedTargetCount, 1);
+  assert.ok(report.targets.some(target =>
+    target.domain === 'helm'
+    && target.kind === 'helm-chart'
+    && target.path === 'charts/payments-api'
+  ));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+  assert.doesNotMatch(output, /example-api-secret/i);
+});
+
+test('pack command emits compact Markdown by default', async () => {
+  const output = await captureStdout(() => main([
+    'pack',
+    'fixtures/sample-workspace',
+    '--scope',
+    'infra/payments-api'
+  ]));
+
+  assert.match(output, /^# Context Pack: infra\/payments-api/m);
+  assert.match(output, /Mutation allowed: no/);
+  assert.match(output, /pulumi-project/);
+  assert.match(output, /Pulumi\.dev\.yaml/);
   assert.doesNotMatch(output, /example-api-secret/i);
 });
 

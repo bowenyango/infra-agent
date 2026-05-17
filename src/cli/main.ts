@@ -36,6 +36,10 @@ import {
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { buildChangedContextReport } from '../impact/changed-context.ts';
 import { buildInventoryReport } from '../domain/inventory.ts';
+import {
+  buildScopedPackReport,
+  renderScopedPackMarkdown
+} from '../domain/scoped-pack.ts';
 import type { ChangedContextFileInput } from '../types/changed-context.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
@@ -83,7 +87,7 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 ] as const satisfies readonly KnowledgeStorageScope[];
 
 export interface ParsedArgs {
-  command: 'inspect' | 'inventory' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
+  command: 'inspect' | 'inventory' | 'pack' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
   knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'publish' | null;
   task: string | null;
   workspace: string;
@@ -117,6 +121,7 @@ export interface ParsedArgs {
   contextFactLimit?: number | null;
   domains: InfraDomainId[];
   targetPaths: string[];
+  packScope?: string | null;
   sourceIds?: string[];
   knowledgeIndexFilter?: KnowledgeUnitIndexEntryFilter;
   maxSources: number | null;
@@ -140,6 +145,7 @@ function printUsage(): void {
       '  infra-agent planner-providers [--json]',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
+      '  infra-agent pack [workspace] --scope <path|target|env|stack> [--domain helm|pulumi|terraform] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
@@ -452,6 +458,79 @@ export function parseArgs(argv: string[]): ParsedArgs {
       contextTokenBudget: null,
       domains,
       targetPaths,
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
+    };
+  }
+
+  if (commandName === 'pack') {
+    let workspace = cwd();
+    let packScope: string | null = null;
+    const domains: InfraDomainId[] = [];
+    const positionalArgs: string[] = [];
+
+    for (let index = 0; index < cleanArgs.length; index += 1) {
+      const arg = cleanArgs[index];
+
+      if (arg === '--scope') {
+        const scopeValue = cleanArgs[index + 1]?.trim();
+        if (!scopeValue) {
+          fail('Missing value for --scope.');
+        }
+        if (packScope !== null) {
+          fail('--scope can be provided at most once.');
+        }
+
+        packScope = scopeValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--domain') {
+        const domainValue = cleanArgs[index + 1];
+        if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
+          fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
+        }
+
+        domains.push(domainValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg.startsWith('--')) {
+        fail(`Unknown pack option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('pack accepts at most one workspace path.');
+    }
+    if (packScope === null) {
+      fail('pack requires --scope.');
+    }
+
+    workspace = positionalArgs[0] ?? workspace;
+
+    return {
+      command: 'pack',
+      task: null,
+      workspace,
+      inputPath: null,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains,
+      targetPaths: [],
+      packScope,
       maxSources: null,
       terraformPlanPaths: [],
       pulumiPreviewPaths: []
@@ -1710,6 +1789,26 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printInventoryReport(report);
+    return;
+  }
+
+  if (parsed.command === 'pack') {
+    if (!parsed.packScope) {
+      fail('pack requires --scope.');
+    }
+
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const report = buildScopedPackReport(inspection, {
+      scope: parsed.packScope,
+      domains: parsed.domains
+    });
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    process.stdout.write(`${renderScopedPackMarkdown(report)}\n`);
     return;
   }
 
