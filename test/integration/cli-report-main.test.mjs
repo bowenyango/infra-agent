@@ -88,6 +88,82 @@ test('graph CLI args accept Pulumi preview impact flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('changed CLI args accept git diff and context filters', () => {
+  const parsed = parseArgs([
+    'changed',
+    'fixtures/sample-workspace',
+    '--base',
+    'main',
+    '--head',
+    'HEAD',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'changed');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.changedBaseRef, 'main');
+  assert.equal(parsed.changedHeadRef, 'HEAD');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.equal(parsed.json, true);
+});
+
+test('changed CLI args accept explicit files for non-git callers', () => {
+  const parsed = parseArgs([
+    'changed',
+    'fixtures/sample-workspace',
+    '--file',
+    'charts/payments-api/values.yaml',
+    '--file',
+    'README.md',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'changed');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.changedFilePaths, [
+    'charts/payments-api/values.yaml',
+    'README.md'
+  ]);
+  assert.equal(parsed.changedBaseRef, null);
+  assert.equal(parsed.changedHeadRef, null);
+  assert.equal(parsed.json, true);
+});
+
+test('changed command emits read-only affected context JSON through the entrypoint', async () => {
+  const output = await captureStdout(() => main([
+    'changed',
+    'fixtures/sample-workspace',
+    '--file',
+    'charts/payments-api/values.yaml',
+    '--file',
+    'infra/payments-api/Pulumi.dev.yaml',
+    '--file',
+    'README.md',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.changed-context');
+  assert.equal(report.mutationAllowed, false);
+  assert.equal(report.summary.changedFileCount, 3);
+  assert.ok(report.affectedComponents.some(component =>
+    component.domain === 'helm'
+    && component.kind === 'helm-chart'
+    && component.targetPath === 'charts/payments-api'
+  ));
+  assert.ok(report.affectedComponents.some(component =>
+    component.domain === 'pulumi'
+    && component.targetPath === 'infra/payments-api'
+  ));
+  assert.ok(report.omitted.unmappedFiles.some(file => file.path === 'README.md'));
+  assert.doesNotMatch(output, /example-api-secret/i);
+});
+
 test('identity-report CLI args accept compact result input path', () => {
   const parsed = parseArgs([
     'identity-report',

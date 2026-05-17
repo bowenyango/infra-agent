@@ -1,4 +1,5 @@
 import { cwd, exit } from 'node:process';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +34,8 @@ import {
   hashKnowledgeArtifactFile
 } from '../knowledge/artifact-manifest.ts';
 import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
+import { buildChangedContextReport } from '../impact/changed-context.ts';
+import type { ChangedContextFileInput } from '../types/changed-context.ts';
 import { attachTerraformPlanToGraph } from '../impact/terraform-plan-graph.ts';
 import { attachPulumiPreviewToGraph } from '../impact/pulumi-preview-graph.ts';
 import { loadIdentityConflictIncidentReport } from './identity-report.ts';
@@ -46,6 +49,7 @@ import {
   printInfraGraphImpactReport,
   printAgentRunState,
   printDoctorReport,
+  printChangedContextReport,
   printInfraGraph,
   printInspection,
   printKnowledgePrefetchResult,
@@ -77,7 +81,7 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 ] as const satisfies readonly KnowledgeStorageScope[];
 
 export interface ParsedArgs {
-  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
+  command: 'inspect' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
   knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'publish' | null;
   task: string | null;
   workspace: string;
@@ -118,6 +122,9 @@ export interface ParsedArgs {
   maxUnits?: number | null;
   terraformPlanPaths: string[];
   pulumiPreviewPaths: string[];
+  changedBaseRef?: string | null;
+  changedHeadRef?: string | null;
+  changedFilePaths?: string[];
 }
 
 function printUsage(): void {
@@ -132,6 +139,7 @@ function printUsage(): void {
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
+      '  infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent impact-report <graph.json> [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
@@ -193,6 +201,77 @@ function resolveFromCwd(inputPath: string): string {
   return isAbsolute(inputPath)
     ? inputPath
     : resolve(cwd(), inputPath);
+}
+
+function parseGitChangedStatus(value: string): ChangedContextFileInput['status'] {
+  if (value.startsWith('A')) {
+    return 'added';
+  }
+  if (value.startsWith('C')) {
+    return 'copied';
+  }
+  if (value.startsWith('D')) {
+    return 'deleted';
+  }
+  if (value.startsWith('R')) {
+    return 'renamed';
+  }
+  if (value.startsWith('M')) {
+    return 'modified';
+  }
+
+  return 'unknown';
+}
+
+function parseGitNameStatus(output: string): ChangedContextFileInput[] {
+  return output
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => {
+      const columns = line.split('\t');
+      const status = parseGitChangedStatus(columns[0] ?? '');
+      if (status === 'renamed' && columns[1] && columns[2]) {
+        return {
+          path: columns[2],
+          previousPath: columns[1],
+          status
+        };
+      }
+
+      return {
+        path: columns[1] ?? columns[0] ?? line,
+        status
+      };
+    });
+}
+
+function readGitChangedFiles(
+  workspace: string,
+  baseRef: string,
+  headRef: string | null | undefined
+): ChangedContextFileInput[] {
+  const range = headRef ? `${baseRef}...${headRef}` : baseRef;
+  const result = spawnSync('git', [
+    '-C',
+    workspace,
+    'diff',
+    '--name-status',
+    range
+  ], {
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024
+  });
+
+  if (result.error) {
+    fail(`Unable to run git diff for changed context: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    const message = result.stderr.trim() || result.stdout.trim() || `git diff exited with status ${result.status}`;
+    fail(`Unable to read changed files: ${message}`);
+  }
+
+  return parseGitNameStatus(result.stdout);
 }
 
 async function writeKnowledgeUnitArtifacts(
@@ -499,6 +578,126 @@ export function parseArgs(argv: string[]): ParsedArgs {
       maxSources: null,
       terraformPlanPaths,
       pulumiPreviewPaths
+    };
+  }
+
+  if (commandName === 'changed') {
+    let workspace = cwd();
+    let changedBaseRef: string | null = null;
+    let changedHeadRef: string | null = null;
+    const changedFilePaths: string[] = [];
+    const domains: InfraDomainId[] = [];
+    const targetPaths: string[] = [];
+    const positionalArgs: string[] = [];
+
+    for (let index = 0; index < cleanArgs.length; index += 1) {
+      const arg = cleanArgs[index];
+
+      if (arg === '--base') {
+        const baseValue = cleanArgs[index + 1]?.trim();
+        if (!baseValue) {
+          fail('Missing value for --base.');
+        }
+        if (changedBaseRef !== null) {
+          fail('--base can be provided at most once.');
+        }
+
+        changedBaseRef = baseValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--head') {
+        const headValue = cleanArgs[index + 1]?.trim();
+        if (!headValue) {
+          fail('Missing value for --head.');
+        }
+        if (changedHeadRef !== null) {
+          fail('--head can be provided at most once.');
+        }
+
+        changedHeadRef = headValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--file') {
+        const fileValue = cleanArgs[index + 1]?.trim();
+        if (!fileValue) {
+          fail('Missing value for --file.');
+        }
+
+        changedFilePaths.push(fileValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--domain') {
+        const domainValue = cleanArgs[index + 1];
+        if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
+          fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
+        }
+
+        domains.push(domainValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--target') {
+        const targetValue = cleanArgs[index + 1]?.trim();
+        if (!targetValue) {
+          fail('Missing value for --target.');
+        }
+
+        targetPaths.push(targetValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg.startsWith('--')) {
+        fail(`Unknown changed option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('changed accepts at most one workspace path.');
+    }
+    if (changedFilePaths.length > 0 && changedBaseRef !== null) {
+      fail('changed accepts either --file values or --base/--head, not both.');
+    }
+    if (changedHeadRef !== null && changedBaseRef === null) {
+      fail('--head requires --base.');
+    }
+    if (changedFilePaths.length === 0 && changedBaseRef === null) {
+      fail('changed requires --base or at least one --file.');
+    }
+
+    workspace = positionalArgs[0] ?? workspace;
+
+    return {
+      command: 'changed',
+      task: null,
+      workspace,
+      inputPath: null,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains,
+      targetPaths,
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: [],
+      changedBaseRef,
+      changedHeadRef: changedBaseRef !== null ? changedHeadRef ?? 'HEAD' : null,
+      changedFilePaths
     };
   }
 
@@ -1468,6 +1667,34 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printInfraGraph(graph);
+    return;
+  }
+
+  if (parsed.command === 'changed') {
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const explicitFiles = parsed.changedFilePaths ?? [];
+    const changedFiles = explicitFiles.length > 0
+      ? explicitFiles.map(path => ({ path, status: 'unknown' as const }))
+      : readGitChangedFiles(parsed.workspace, parsed.changedBaseRef ?? 'HEAD', parsed.changedHeadRef);
+    const report = buildChangedContextReport(inspection, {
+      changedFiles,
+      comparison: explicitFiles.length > 0
+        ? { source: 'explicit-files' }
+        : {
+            source: 'git-diff',
+            base: parsed.changedBaseRef ?? 'HEAD',
+            head: parsed.changedHeadRef ?? undefined
+          },
+      domains: parsed.domains,
+      targetPaths: parsed.targetPaths
+    });
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    printChangedContextReport(report);
     return;
   }
 

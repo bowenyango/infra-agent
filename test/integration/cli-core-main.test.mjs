@@ -240,6 +240,7 @@ test('help output exposes the active context compiler surface and omits legacy u
   assert.match(output, /infra-agent knowledge pack \[workspace\]/);
   assert.match(output, /infra-agent knowledge index \[workspace\]/);
   assert.match(output, /infra-agent graph \[workspace\].*\[--json\]/);
+  assert.match(output, /infra-agent changed \[workspace\].*\[--json\]/);
   assert.doesNotMatch(output, /upload-/);
   assert.doesNotMatch(output, /backend-readiness/);
   assert.doesNotMatch(output, /publish-readiness/);

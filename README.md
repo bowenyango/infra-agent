@@ -109,6 +109,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent inspect [workspace]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
+- `infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
 - `infra-agent identity-report <agent-result.json> [--json]`
 - `infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>]`
 - `infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
@@ -158,6 +159,12 @@ Current behavior is intentionally runtime-foundation oriented:
   required but permits omitted ports for
   all-protocol and ICMPv6 rules. A stable graph snapshot fixture now covers the
   cross-domain impact contract before any topology viewer work starts
+- `changed` emits a read-only `infra-agent.changed-context` report for a git
+  base/head comparison or explicit `--file` list. It maps changed paths to
+  detected Helm charts, Pulumi projects/stacks, and Terraform roots, returns
+  affected components, suggested inspection files, suggested validation
+  targets, unmapped files, and heuristic risk hints. It does not run plan,
+  preview, apply, deploy, or mutation commands.
 - `prefetch` explicitly fills the version-aware knowledge cache for selected
   Terraform/Helm/Pulumi official docs; it is bounded by `--max-sources` and
   skips repo-local schema/config/code files that do not require network

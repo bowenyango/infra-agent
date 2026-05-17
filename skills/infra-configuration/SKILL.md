@@ -70,9 +70,16 @@ values.
 
    ```sh
    infra-agent graph <workspace> --json
+   infra-agent changed <workspace> --base main --head HEAD --json
    infra-agent impact-report <graph.json> --json
    infra-agent identity-report <agent-result.json> --json
    ```
+
+   Use `changed` before broad file reads when a task is scoped to a branch or
+   patch. Its report is advisory context only: it identifies affected
+   Helm/Pulumi/Terraform components, suggested inspection files, validation
+   targets, unmapped files, and risk hints, but it does not replace native
+   plan/preview/render validation.
 
 6. Use `infra-agent agent "<task>" --workspace <workspace> --json` only when
    the caller explicitly wants the existing bounded planner/runtime result.

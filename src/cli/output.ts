@@ -76,6 +76,7 @@ import {
   normalizeInfraGraphImpactReviewTargets
 } from '../impact/graph-impact-summary.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
+import type { ChangedContextReport } from '../types/changed-context.ts';
 import type { DoctorReport } from './doctor.ts';
 import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts';
 import type { InfraGraphImpactReport } from './infra-graph-report.ts';
@@ -3755,6 +3756,48 @@ export function printInfraGraph(graph: InfraGraph): void {
   process.stdout.write('\n');
   printHeader('Edges');
   printList(graph.edges.map(edge => `${edge.kind} ${edge.from} -> ${edge.to}`), 'No graph edges detected.');
+}
+
+export function printChangedContextReport(report: ChangedContextReport): void {
+  printHeader('Changed Context');
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`source: ${report.comparison.source}\n`);
+  if (report.comparison.base) {
+    process.stdout.write(`base: ${report.comparison.base}\n`);
+  }
+  if (report.comparison.head) {
+    process.stdout.write(`head: ${report.comparison.head}\n`);
+  }
+  process.stdout.write(`changed files: ${report.summary.changedFileCount}\n`);
+  process.stdout.write(`affected components: ${report.summary.affectedComponentCount}\n`);
+  process.stdout.write(`domains: ${report.summary.domains.join(', ') || 'none'}\n`);
+  process.stdout.write(`risk: ${report.summary.riskLevel}\n`);
+  process.stdout.write(`recommended action: ${report.summary.recommendedAction}\n\n`);
+
+  printHeader('Affected Components');
+  printList(report.affectedComponents.map(component => {
+    const hints = component.riskHints.length > 0 ? ` risk=${component.riskHints.join('; ')}` : '';
+    return `${component.domain} ${component.kind} ${component.targetPath} (${component.changedFiles.length} changed file(s))${hints}`;
+  }), 'No affected infrastructure components detected.');
+  process.stdout.write('\n');
+
+  printHeader('Suggested Inspection Files');
+  printList(Array.from(new Set(report.affectedComponents.flatMap(component => component.suggestedInspectFiles))), 'No inspection files suggested.');
+  process.stdout.write('\n');
+
+  printHeader('Changed Files');
+  printList(report.changedFiles.map(file => {
+    const previous = file.previousPath ? ` from ${file.previousPath}` : '';
+    return `${file.status ?? 'unknown'} ${file.path}${previous}`;
+  }), 'No changed files detected.');
+  process.stdout.write('\n');
+
+  printHeader('Unmapped Files');
+  printList(report.omitted.unmappedFiles.map(file => {
+    const previous = file.previousPath ? ` from ${file.previousPath}` : '';
+    return `${file.status ?? 'unknown'} ${file.path}${previous}`;
+  }), 'No unmapped files.');
 }
 
 export function printRunPreflight(state: RunPreflightState): void {

@@ -6,6 +6,50 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-16 Changed Context MVP
+
+Status:
+
+- Added the first read-only diff-aware context compiler surface:
+  `infra-agent changed`.
+- The command accepts either explicit `--file` inputs for non-git callers or a
+  git `--base` / optional `--head` comparison. It never runs plan, preview,
+  apply, deploy, or state mutation commands.
+- The output contract is `infra-agent.changed-context` with
+  `mutationAllowed=false`. It reports changed files, affected Helm charts,
+  Pulumi projects/stacks, Terraform roots, suggested inspection files,
+  suggested validation targets, unmapped files, and heuristic risk hints.
+- This MVP intentionally maps only the existing inspection surfaces. Argo CD,
+  Kubernetes resource linkage, Terraform local-module reverse dependencies,
+  semantic cache invalidation, and plan/preview-enriched impact remain future
+  work.
+
+Files changed:
+
+- `src/types/changed-context.ts` defines the compact report contract.
+- `src/impact/changed-context.ts` maps changed paths to inspected
+  Helm/Pulumi/Terraform components.
+- `src/cli/main.ts` adds `changed` parsing, read-only git diff collection, and
+  entrypoint execution.
+- `src/cli/output.ts` renders text output for the changed-context report.
+- `test/unit/changed-context.test.mjs`,
+  `test/integration/cli-report-main.test.mjs`, and
+  `test/integration/cli-core-main.test.mjs` cover builder behavior, CLI parser,
+  entrypoint JSON, and help output.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
+  `skills/infra-configuration/SKILL.md` document `changed` as advisory context
+  for downstream agents.
+
+Validation:
+
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run test:focused -- test/unit/changed-context.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run verify` passed, including isolated shards, smoke, e2e, coverage, and
+  package dry-run.
+
 ## 2026-05-15 IaC Context Compiler Direction
 
 Status:

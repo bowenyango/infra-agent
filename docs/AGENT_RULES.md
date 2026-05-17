@@ -145,6 +145,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   graph, semantic-unit hash cache, extraction, deterministic retrieval, and the
   compact `fact`, `guidance`, `example`, `diagnostic`, and `recipe` unit
   contract.
+- Treat `infra-agent changed` as the first diff-aware context compiler
+  surface. Its `infra-agent.changed-context` output is read-only advisory
+  context that maps git or explicit changed files to inspected Helm charts,
+  Pulumi projects/stacks, and Terraform roots. Use it to select files and
+  validation targets before broad reads; do not treat risk hints as a safety
+  verdict or as permission to apply, deploy, or mutate infrastructure.
 - New multi-step agent development must use the subagent operating model from
   root `AGENTS.md`. The main agent remains the PM/Architect owner: it reads the
   durable plan, confirms acceptance criteria, decomposes work, assigns bounded
