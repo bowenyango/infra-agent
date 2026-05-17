@@ -109,6 +109,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent inspect [workspace]`
 - `infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
 - `infra-agent pack [workspace] --scope <path|target|env|stack> [--changed] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--json]`
+- `infra-agent cache status [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
 - `infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
@@ -146,6 +147,13 @@ Current behavior is intentionally runtime-foundation oriented:
   knowledge-cache posture without raw file content, validators, git mutation,
   plan/preview, apply, deploy, or state mutation. Read-only git diff collection
   is used only when `--changed --base` is requested.
+- `cache status` emits a read-only `infra-agent.cache-status` report for the
+  semantic-unit hash cache posture behind selected Terraform, Pulumi, and Helm
+  knowledge sources. It summarizes local, fresh, stale, and missing source
+  cache entries by domain and target so agents can decide when to reuse cached
+  context or deliberately refresh/extract/pack again. It does not fetch,
+  prefetch, validate, upload, plan, preview, apply, deploy, mutate state, or
+  expose cache entry content, content hashes, or timestamps.
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
   from workspace inspection facts and can attach read-only Terraform plan JSON

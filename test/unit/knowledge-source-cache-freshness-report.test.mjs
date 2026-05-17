@@ -12,7 +12,10 @@ import {
   resolve
 } from 'node:path';
 import { isKnowledgeCacheEntryStale } from '../../src/knowledge/cache.ts';
-import { resolveKnowledgeSourceCacheStatus } from '../../src/knowledge/cache-status.ts';
+import {
+  buildKnowledgeCacheStatusReportFromSources,
+  resolveKnowledgeSourceCacheStatus
+} from '../../src/knowledge/cache-status.ts';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildKnowledgeSourcesReport } from '../../src/knowledge/sources.ts';
 
@@ -189,6 +192,31 @@ test('knowledge sources report summarizes external cache freshness without fetch
       report.summary.cacheStatus.refreshRecommended,
       report.summary.cacheStatus.stale + report.summary.cacheStatus.missing
     );
+
+    const cacheStatusReport = buildKnowledgeCacheStatusReportFromSources(
+      report,
+      inspection.knowledgeCache.source
+    );
+    const pulumiDomain = cacheStatusReport.byDomain.find(entry => entry.domain === 'pulumi');
+
+    assert.equal(cacheStatusReport.kind, 'infra-agent.cache-status');
+    assert.equal(cacheStatusReport.mutationAllowed, false);
+    assert.equal(cacheStatusReport.cacheRootSource, inspection.knowledgeCache.source);
+    assert.equal(cacheStatusReport.summary.sourceCount, report.sourceCount);
+    assert.equal(cacheStatusReport.summary.fresh, 1);
+    assert.equal(cacheStatusReport.summary.stale, 1);
+    assert.equal(
+      cacheStatusReport.summary.refreshRecommended,
+      cacheStatusReport.summary.stale + cacheStatusReport.summary.missing
+    );
+    assert.ok(pulumiDomain);
+    assert.equal(pulumiDomain.refreshRecommended, cacheStatusReport.summary.refreshRecommended);
+    assert.ok(cacheStatusReport.sources.some(source =>
+      source.sourceKind === 'pulumi-docs'
+      && source.sourceName === 'pulumi-docs:resource:aws:s3/bucket'
+      && source.refreshRecommended === true
+      && source.location === 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/'
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

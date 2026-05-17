@@ -130,7 +130,7 @@ write provider-specific parsers for the canonical examples.
 
 Near-term user-facing command direction:
 
-1. Keep `inspect`, `inventory`, `pack`, `knowledge sources/prefetch/extract/pack/index/validate`,
+1. Keep `inspect`, `inventory`, `pack`, `cache status`, `knowledge sources/prefetch/extract/pack/index/validate`,
    `graph`, and `changed` as the current stable context-compiler surfaces.
 2. Evolve `inventory` so agents can read a compact list of tools,
    environments, modules, charts, stacks, values layers, and deployment
@@ -142,8 +142,8 @@ Near-term user-facing command direction:
 4. Evolve the scoped agent `pack` surface so markdown and compact JSON can
    include richer graph/deployment linkage, selected knowledge units, and
    semantic cache reuse after the initial changed-component set support.
-5. Add `cache status` style visibility for semantic-unit cache hits, misses,
-   invalidations, and reused outputs.
+5. Evolve `cache status` from current source-cache posture into semantic-unit
+   hash cache visibility for hits, misses, invalidations, and reused outputs.
 6. Add compact `refs` lookups for Terraform/Pulumi/Helm interfaces only when
    they are tied to repo usage or the requested scope. Public reference lookup
    is supporting context, not the product center.

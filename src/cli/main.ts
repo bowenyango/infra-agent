@@ -16,6 +16,7 @@ import type { ToolPermissionCategory } from '../agent/tool-permissions.ts';
 import type { KnowledgeStorageScope } from '../knowledge/storage-policy.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
+import { buildKnowledgeCacheStatusReportFromSources } from '../knowledge/cache-status.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
 import {
   loadKnowledgeValidationReport,
@@ -61,6 +62,7 @@ import {
   printInspection,
   printKnowledgePrefetchResult,
   printKnowledgeExtractionReport,
+  printKnowledgeCacheStatusReport,
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
   printKnowledgePack,
@@ -88,8 +90,9 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 ] as const satisfies readonly KnowledgeStorageScope[];
 
 export interface ParsedArgs {
-  command: 'inspect' | 'inventory' | 'pack' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
+  command: 'inspect' | 'inventory' | 'pack' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'cache' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
   knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'publish' | null;
+  cacheAction?: 'status' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
@@ -148,6 +151,7 @@ function printUsage(): void {
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent pack [workspace] (--scope <path|target|env|stack> | --changed --base <ref>|--file <path>) [--head <ref>] [--domain helm|pulumi|terraform] [--json]',
+      '  infra-agent cache status [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
@@ -603,6 +607,79 @@ export function parseArgs(argv: string[]): ParsedArgs {
       changedBaseRef,
       changedHeadRef: changedBaseRef !== null ? changedHeadRef ?? 'HEAD' : null,
       changedFilePaths
+    };
+  }
+
+  if (commandName === 'cache') {
+    const cacheAction = cleanArgs[0];
+    if (cacheAction !== 'status') {
+      fail('cache requires a supported action: status.');
+    }
+
+    let workspace = cwd();
+    const domains: InfraDomainId[] = [];
+    const targetPaths: string[] = [];
+    const positionalArgs: string[] = [];
+    const actionArgs = cleanArgs.slice(1);
+
+    for (let index = 0; index < actionArgs.length; index += 1) {
+      const arg = actionArgs[index];
+
+      if (arg === '--domain') {
+        const domainValue = actionArgs[index + 1];
+        if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
+          fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
+        }
+
+        domains.push(domainValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--target') {
+        const targetValue = actionArgs[index + 1]?.trim();
+        if (!targetValue) {
+          fail('Missing value for --target.');
+        }
+
+        targetPaths.push(targetValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg.startsWith('--')) {
+        fail(`Unknown cache status option: ${arg}`);
+      }
+
+      positionalArgs.push(arg);
+    }
+
+    if (positionalArgs.length > 1) {
+      fail('cache status accepts at most one workspace path.');
+    }
+
+    workspace = positionalArgs[0] ?? workspace;
+
+    return {
+      command: 'cache',
+      cacheAction,
+      task: null,
+      workspace,
+      inputPath: null,
+      json,
+      jsonFull,
+      planner: 'auto',
+      approvedWritePaths: [],
+      approvedWriteRisks: [],
+      approvedToolCategories: [],
+      maxTurns: null,
+      contextPacketLimit: null,
+      contextTokenBudget: null,
+      domains,
+      targetPaths,
+      maxSources: null,
+      terraformPlanPaths: [],
+      pulumiPreviewPaths: []
     };
   }
 
@@ -2037,6 +2114,26 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeSourcesReport(report);
+    return;
+  }
+
+  if (parsed.command === 'cache' && parsed.cacheAction === 'status') {
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const sourceReport = await buildKnowledgeSourcesReport(inspection, {
+      domains: parsed.domains,
+      targetPaths: parsed.targetPaths
+    });
+    const report = buildKnowledgeCacheStatusReportFromSources(
+      sourceReport,
+      inspection.knowledgeCache.source
+    );
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    printKnowledgeCacheStatusReport(report);
     return;
   }
 

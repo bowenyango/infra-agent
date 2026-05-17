@@ -43,6 +43,10 @@ import {
 } from '../agent/identity-conflicts.ts';
 import type { KnowledgePrefetchResult, KnowledgePrefetchSourceResult } from '../knowledge/prefetch.ts';
 import type { KnowledgeSourcesReport, KnowledgeSourceReportEntry } from '../knowledge/sources.ts';
+import type {
+  KnowledgeCacheStatusReport,
+  KnowledgeCacheStatusSourceEntry
+} from '../knowledge/cache-status.ts';
 import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
@@ -635,6 +639,16 @@ function formatKnowledgeSourceReportEntry(entry: KnowledgeSourceReportEntry): st
     : 'workspace-private';
   const sharing = entry.storagePolicy.shareableByDefault ? 'shareable' : 'opt-in';
   return `${entry.domain} ${entry.targetPath}: ${entry.source.kind} ${entry.source.name} (${fetchPosture}, ${cache}, ${storage}, ${sharing}, id=${entry.id}, ${location})`;
+}
+
+function formatKnowledgeCacheStatusSourceEntry(entry: KnowledgeCacheStatusSourceEntry): string {
+  const location = entry.location ?? 'no source location';
+  const fetchPosture = entry.requiresFetch ? 'external' : 'local';
+  const cache = entry.refreshRecommended
+    ? `cache=${entry.cacheStatus}, refresh=prefetch recommended`
+    : `cache=${entry.cacheStatus}`;
+
+  return `${entry.domain} ${entry.targetPath}: ${entry.sourceKind} ${entry.sourceName} (${fetchPosture}, ${cache}, ${entry.storageScope}, id=${entry.id}, ${location})`;
 }
 
 function formatKnowledgeExtractionSourceResult(result: KnowledgeExtractionSourceResult): string {
@@ -3563,6 +3577,26 @@ export function printKnowledgeSourcesReport(report: KnowledgeSourcesReport): voi
   process.stdout.write(`storage: public-reference=${report.summary.storagePolicy.publicReference}, workspace-private=${report.summary.storagePolicy.workspacePrivate}, shareable=${report.summary.storagePolicy.shareableByDefault}, opt-in=${report.summary.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Sources');
   printList(report.sources.map(formatKnowledgeSourceReportEntry), 'No knowledge sources selected.');
+}
+
+export function printKnowledgeCacheStatusReport(report: KnowledgeCacheStatusReport): void {
+  printHeader('Cache status');
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`knowledge cache: ${report.cacheRoot}\n`);
+  process.stdout.write(`cache root source: ${report.cacheRootSource}\n`);
+  process.stdout.write(`domains: ${report.requestedDomains.length > 0 ? report.requestedDomains.join(', ') : 'none'}\n`);
+  process.stdout.write(`targets: ${report.targetPaths.length > 0 ? report.targetPaths.join(', ') : 'all'}\n`);
+  process.stdout.write(`summary: sources=${report.summary.sourceCount}, local=${report.summary.local}, external=${report.summary.external}\n`);
+  process.stdout.write(`source cache: fresh=${report.summary.fresh}, stale=${report.summary.stale}, missing=${report.summary.missing}, refresh-recommended=${report.summary.refreshRecommended}\n\n`);
+
+  printHeader('Domains');
+  printList(report.byDomain.map(entry =>
+    `${entry.domain}: sources=${entry.sourceCount}, local=${entry.local}, external=${entry.external}, fresh=${entry.fresh}, stale=${entry.stale}, missing=${entry.missing}, refresh-recommended=${entry.refreshRecommended}`
+  ), 'No domain cache status available.');
+
+  process.stdout.write('\n');
+  printHeader('Sources');
+  printList(report.sources.map(formatKnowledgeCacheStatusSourceEntry), 'No cache-tracked knowledge sources selected.');
 }
 
 export function printKnowledgeExtractionReport(report: KnowledgeExtractionReport): void {

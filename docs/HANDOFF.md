@@ -6,6 +6,56 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-16 Cache Status MVP
+
+Status:
+
+- Added the first top-level read-only cache posture surface:
+  `infra-agent cache status`.
+- The command supports `cache status [workspace]`, repeated
+  `--domain helm|pulumi|terraform`, repeated `--target <path>`, and `--json`.
+- The JSON contract is `infra-agent.cache-status` with
+  `mutationAllowed=false`. It projects existing knowledge source discovery into
+  a cache-focused report with cache root/source, requested domains, target
+  paths, local/fresh/stale/missing counts, refresh-recommended counts,
+  per-domain summaries, and compact source entries.
+- This MVP reports selected source-cache posture only. It does not yet track
+  runtime semantic-unit hits/misses, graph snapshot reuse, generated pack reuse,
+  cache invalidation events, or semantic-unit output reuse metrics.
+- The command does not fetch, prefetch, validate, upload, plan, preview, apply,
+  deploy, mutate state, or expose cache entry content, content hashes, fetched
+  timestamps, or stale-after timestamps.
+
+Files changed:
+
+- `src/knowledge/cache-status.ts` adds the `infra-agent.cache-status` report
+  contract and projection from `KnowledgeSourcesReport`.
+- `src/cli/main.ts` adds `cache status` parsing, help output, and entrypoint
+  wiring.
+- `src/cli/output.ts` adds compact text output for cache status reports.
+- `test/integration/cli-cache-status-main.test.mjs`,
+  `test/integration/cli-core-main.test.mjs`, and
+  `test/unit/knowledge-source-cache-freshness-report.test.mjs` cover parser,
+  entrypoint JSON, help output, projection summaries, and secret/cache-entry
+  field omission.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
+  `skills/infra-configuration/SKILL.md` document `cache status` as read-only
+  advisory cache posture for context-compiler workflows.
+
+Validation:
+
+- `npm run test:focused -- test/integration/cli-cache-status-main.test.mjs` passed.
+- `npm run test:focused -- test/unit/knowledge-source-cache-freshness-report.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run dev -- cache status fixtures/sample-workspace --domain helm --target charts/payments-api --json` passed.
+- `npm run dev -- cache status fixtures/sample-workspace --domain helm --target charts/payments-api` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed, including lint, structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+
 ## 2026-05-16 Changed Scoped Pack
 
 Status:

@@ -169,6 +169,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   Pulumi projects/stacks, and Terraform roots. Use it to select files and
   validation targets before broad reads; do not treat risk hints as a safety
   verdict or as permission to apply, deploy, or mutate infrastructure.
+- Treat `infra-agent cache status` as the read-only cache posture surface for
+  downstream agents. Its `infra-agent.cache-status` output summarizes selected
+  knowledge source cache state by domain and target: local, fresh, stale,
+  missing, and refresh-recommended entries. Use it to decide whether cached
+  semantic context can be reused or whether a deliberate
+  `knowledge prefetch` / `knowledge extract` / `knowledge pack` refresh is
+  warranted. Do not treat cache status as validator-grade authority, freshness
+  proof, approval, upload readiness, or permission to apply, deploy, mutate
+  state, or publish private workspace knowledge.
 - New multi-step agent development must use the subagent operating model from
   root `AGENTS.md`. The main agent remains the PM/Architect owner: it reads the
   durable plan, confirms acceptance criteria, decomposes work, assigns bounded
