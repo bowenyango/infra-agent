@@ -51,11 +51,28 @@ test('buildInventoryReport summarizes Helm and Pulumi targets from inspection', 
   assert.equal(chart.chartMetadata.hasLockFile, false);
   assert.equal(chart.chartMetadata.dependencyCount, 0);
   assert.deepEqual(chart.chartMetadata.dependencies, []);
+  assert.equal(chart.deploymentLinks.length, 1);
+  assert.deepEqual(chart.deploymentLinks[0], {
+    kind: 'argocd-application',
+    applicationName: 'payments-api-prod',
+    applicationNamespace: 'argocd',
+    applicationFile: 'apps/payments-api.yaml',
+    sourcePath: 'charts/payments-api',
+    matchReason: 'argocd-source-path-matches-chart-root',
+    confidence: 'medium',
+    destinationNamespace: 'payments',
+    targetRevision: 'main',
+    releaseName: 'payments-api',
+    valueFiles: ['charts/payments-api/values.yaml'],
+    valueFileCount: 1,
+    syncPolicyAutomated: true
+  });
   assert.deepEqual(chart.files.primary, [
     'charts/payments-api/Chart.yaml',
     'charts/payments-api/values.yaml',
     'charts/payments-api/values.schema.json'
   ]);
+  assert.ok(chart.files.related.includes('apps/payments-api.yaml'));
   assert.deepEqual(chart.validationTargets, ['charts/payments-api']);
   assert.ok(chart.semanticFactCount > 0);
 
@@ -72,6 +89,8 @@ test('buildInventoryReport summarizes Helm and Pulumi targets from inspection', 
   assert.ok(project.files.primary.includes('infra/payments-api/Pulumi.yaml'));
   assert.ok(project.files.related.includes('infra/payments-api/Pulumi.dev.yaml'));
   assert.doesNotMatch(JSON.stringify(report), /example-api-secret/i);
+  assert.doesNotMatch(JSON.stringify(report), /kubernetes\.default\.svc/i);
+  assert.doesNotMatch(JSON.stringify(report), /secret-values\.yaml/i);
 });
 
 test('buildInventoryReport summarizes Terraform roots from inspection', async () => {

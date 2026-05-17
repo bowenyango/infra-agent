@@ -3434,7 +3434,7 @@ export function printInspection(inspection: WorkspaceInspection): void {
       ].join(', ');
       const version = chart.chartMetadata.version ? ` version=${chart.chartMetadata.version}` : '';
       const appVersion = chart.chartMetadata.appVersion ? ` appVersion=${chart.chartMetadata.appVersion}` : '';
-      return `${chart.chartRoot} (${features}; chart=${chart.chartMetadata.chartName}${version}${appVersion}; deps=${chart.chartMetadata.dependencyCount})`;
+      return `${chart.chartRoot} (${features}; chart=${chart.chartMetadata.chartName}${version}${appVersion}; deps=${chart.chartMetadata.dependencyCount}; deployments=${chart.deploymentLinks.length})`;
     }),
     'No Helm charts detected.'
   );
@@ -3488,7 +3488,7 @@ function summarizeInventoryTarget(target: InventoryTarget): string {
     ].join(',');
     const version = target.chartMetadata.version ? ` version=${target.chartMetadata.version}` : '';
     const appVersion = target.chartMetadata.appVersion ? ` appVersion=${target.chartMetadata.appVersion}` : '';
-    return `${target.domain} ${target.kind} ${target.path} (${features}; chart=${target.chartMetadata.chartName}${version}${appVersion}; deps=${target.chartMetadata.dependencyCount})${environments}${facts}`;
+    return `${target.domain} ${target.kind} ${target.path} (${features}; chart=${target.chartMetadata.chartName}${version}${appVersion}; deps=${target.chartMetadata.dependencyCount}; deployments=${target.deploymentLinks.length})${environments}${facts}`;
   }
 
   if (target.kind === 'pulumi-project') {

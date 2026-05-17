@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-api-prod
+  namespace: argocd
+spec:
+  source:
+    targetRevision: main
+    path: ./charts/payments-api
+    helm:
+      releaseName: payments-api
+      valueFiles:
+        - values.yaml
+        - secret-values.yaml
+  destination:
+    namespace: payments
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated: {}

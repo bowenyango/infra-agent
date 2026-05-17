@@ -1,4 +1,4 @@
-import type { InfraDomainId } from './repository.ts';
+import type { HelmDeploymentLinkSummary, InfraDomainId } from './repository.ts';
 
 export type ChangedContextFileStatus =
   | 'added'
@@ -62,6 +62,7 @@ export interface ChangedContextAffectedComponent {
   suggestedValidationTargets: string[];
   riskHints: string[];
   evidence: ChangedContextEvidence[];
+  deploymentLinks?: HelmDeploymentLinkSummary[];
 }
 
 export interface ChangedContextReport {

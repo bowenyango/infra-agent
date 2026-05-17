@@ -9,14 +9,16 @@ import type {
 } from '../types/changed-context.ts';
 import type {
   HelmChartSummary,
+  HelmDeploymentLinkSummary,
   InfraDomainId,
   PulumiProjectSummary,
   TerraformRootSummary,
   WorkspaceInspection
 } from '../types/repository.ts';
 
-type ComponentDraft = Omit<ChangedContextAffectedComponent, 'changedFiles' | 'evidence' | 'riskHints' | 'suggestedInspectFiles' | 'suggestedValidationTargets'> & {
+type ComponentDraft = Omit<ChangedContextAffectedComponent, 'changedFiles' | 'deploymentLinks' | 'evidence' | 'riskHints' | 'suggestedInspectFiles' | 'suggestedValidationTargets'> & {
   changedFiles: Map<string, ChangedContextFile>;
+  deploymentLinks?: HelmDeploymentLinkSummary[];
   evidence: Map<string, string>;
   riskHints: Set<string>;
   suggestedInspectFiles: Set<string>;
@@ -112,6 +114,12 @@ function buildHelmDraft(chart: HelmChartSummary): ComponentDraft {
   if (chart.valuesSchemaFile) {
     suggestedInspectFiles.add(chart.valuesSchemaFile);
   }
+  for (const link of chart.deploymentLinks) {
+    suggestedInspectFiles.add(link.applicationFile);
+    for (const valueFile of link.valueFiles) {
+      suggestedInspectFiles.add(valueFile);
+    }
+  }
 
   return {
     id: `helm-chart:${chart.chartRoot}`,
@@ -120,6 +128,12 @@ function buildHelmDraft(chart: HelmChartSummary): ComponentDraft {
     name: chart.chartName,
     targetPath: chart.chartRoot,
     changedFiles: new Map(),
+    deploymentLinks: chart.deploymentLinks.length > 0
+      ? chart.deploymentLinks.map(link => ({
+        ...link,
+        valueFiles: [...link.valueFiles]
+      }))
+      : undefined,
     suggestedInspectFiles,
     suggestedValidationTargets: new Set([chart.chartRoot]),
     riskHints: new Set(),
@@ -127,15 +141,42 @@ function buildHelmDraft(chart: HelmChartSummary): ComponentDraft {
   };
 }
 
+function fileTouchesArgoApplicationLink(file: ChangedContextFile, link: HelmDeploymentLinkSummary): boolean {
+  return file.path === link.applicationFile || file.previousPath === link.applicationFile;
+}
+
+function fileTouchesArgoValueFile(file: ChangedContextFile, link: HelmDeploymentLinkSummary): boolean {
+  return link.valueFiles.some(valueFile => file.path === valueFile || file.previousPath === valueFile);
+}
+
 function mapHelmChart(chart: HelmChartSummary, files: ChangedContextFile[]): ComponentDraft | null {
   const draft = buildHelmDraft(chart);
 
   for (const file of files) {
-    if (!fileTouchesRoot(file, chart.chartRoot)) {
+    const touchesChart = fileTouchesRoot(file, chart.chartRoot);
+    const touchedApplicationLinks = chart.deploymentLinks.filter(link => fileTouchesArgoApplicationLink(file, link));
+    const touchedValueLinks = chart.deploymentLinks.filter(link => fileTouchesArgoValueFile(file, link));
+    if (!touchesChart && touchedApplicationLinks.length === 0 && touchedValueLinks.length === 0) {
       continue;
     }
 
-    addFileEvidence(draft, file, 'changed file is inside Helm chart root');
+    if (touchesChart) {
+      addFileEvidence(draft, file, 'changed file is inside Helm chart root');
+    }
+    for (const link of touchedApplicationLinks) {
+      addFileEvidence(draft, file, 'changed Argo CD Application links to Helm chart');
+      draft.riskHints.add('Argo CD Application sync path for Helm chart changed');
+      if (link.syncPolicyAutomated) {
+        draft.riskHints.add('Argo CD automated sync policy should be reviewed');
+      }
+    }
+    for (const link of touchedValueLinks) {
+      addFileEvidence(draft, file, 'changed file is referenced by Argo CD Application Helm valueFiles');
+      draft.riskHints.add('Argo CD Helm values file changed');
+      if (link.syncPolicyAutomated) {
+        draft.riskHints.add('Argo CD automated sync policy should be reviewed');
+      }
+    }
     addStatusRiskHints(draft, file);
 
     if (file.path.endsWith('/templates') || file.path.includes('/templates/')) {
@@ -259,7 +300,7 @@ function finalizeDraft(draft: ComponentDraft): ChangedContextAffectedComponent {
     .map(([path, reason]) => ({ path, reason }))
     .sort((left, right) => left.path.localeCompare(right.path) || left.reason.localeCompare(right.reason));
 
-  return {
+  const component: ChangedContextAffectedComponent = {
     id: draft.id,
     domain: draft.domain,
     kind: draft.kind,
@@ -271,6 +312,12 @@ function finalizeDraft(draft: ComponentDraft): ChangedContextAffectedComponent {
     riskHints: uniqueSorted(draft.riskHints),
     evidence
   };
+
+  if (draft.deploymentLinks) {
+    component.deploymentLinks = draft.deploymentLinks;
+  }
+
+  return component;
 }
 
 function compareChangedFiles(left: ChangedContextFile, right: ChangedContextFile): number {
@@ -293,6 +340,8 @@ function componentRisk(component: ChangedContextAffectedComponent): ChangedConte
     || hint.includes('Pulumi stack config')
     || hint.includes('Helm template')
     || hint.includes('metadata or dependency')
+    || hint.includes('Argo CD Application')
+    || hint.includes('Argo CD Helm values')
   ) && RISK_WEIGHT[riskLevel] < RISK_WEIGHT.medium) {
     return 'medium';
   }

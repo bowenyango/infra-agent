@@ -6,6 +6,80 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-17 Argo CD Application Helm Linkage
+
+Status:
+
+- Added read-only Argo CD `Application` discovery as Helm deployment linkage
+  metadata during workspace inspection.
+- Argo Applications are not a new domain and do not expand graph contracts in
+  this slice. Matching links are attached to existing Helm chart targets when a
+  normalized `spec.source.path` or `spec.sources[].path` matches an inspected
+  chart root.
+- Inventory and scoped packs now expose compact Helm `deploymentLinks` with
+  Application name, namespace, manifest file, source path, destination
+  namespace, target revision, release name, local non-sensitive value files,
+  sync-policy presence, and medium confidence.
+- Changed-context now maps changes to a linked Argo Application manifest back
+  to the affected Helm chart, suggests the chart files plus the Application
+  manifest, and emits Argo-specific review hints while keeping validation
+  targets Helm-focused.
+- The parser skips Helm template directories, does not emit raw manifests,
+  `repoURL`, destination server values, annotations, labels, arbitrary spec
+  blocks, or secret-like Helm value file paths. Links remain advisory because
+  repo identity is not validated.
+
+Files changed:
+
+- `src/domain/argocd-application-linkage.ts` discovers compact Argo CD
+  Application -> Helm chart links with path normalization and secret-like
+  value-file filtering.
+- `src/domain/inspect-workspace.ts` attaches discovered links to Helm chart
+  summaries after read-only scanning.
+- `src/types/repository.ts`, `src/types/inventory.ts`, and
+  `src/types/changed-context.ts` expose the compact deployment link contract.
+- `src/domain/inventory.ts`, `src/domain/scoped-pack.ts`, and
+  `src/impact/changed-context.ts` carry deployment links into inventory,
+  packs, changed-context evidence, suggested files, and risk hints.
+- `src/cli/output.ts` adds compact deployment counts in text summaries.
+- `fixtures/sample-workspace/apps/payments-api.yaml` adds a small Argo CD
+  Application fixture with normalized source path coverage and a filtered
+  secret-like value file.
+- `test/unit/changed-context.test.mjs`, `test/unit/inventory.test.mjs`,
+  `test/unit/scoped-pack.test.mjs`, and
+  `test/integration/cli-report-main.test.mjs` cover linkage serialization,
+  changed-context mapping, scoped packs, CLI JSON, redaction, and path
+  normalization.
+
+Validation:
+
+- `npm run test:focused -- test/unit/changed-context.test.mjs` passed.
+- `npm run test:focused -- test/unit/inventory.test.mjs` passed.
+- `npm run test:focused -- test/unit/scoped-pack.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run dev -- inventory fixtures/sample-workspace --domain helm --json`
+  passed.
+- `npm run dev -- changed fixtures/sample-workspace --file apps/payments-api.yaml --json`
+  passed.
+- `npm run dev -- pack fixtures/sample-workspace --changed --file apps/payments-api.yaml`
+  passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:unit` passed.
+- `npm run test:integration` passed.
+- `npm run test:contract` passed.
+- `git diff --check` passed.
+- `npm run verify` passed, including lint, structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+
+Residual risks:
+
+- Argo link confidence is medium because matching currently uses local
+  `source.path` only and does not validate repository identity.
+- Graph nodes and deployment-link edges for Argo CD remain deferred until a
+  separate graph schema slice.
+- Kubernetes resource linkage from rendered Helm output remains future work.
+
 ## 2026-05-16 Helm Chart Metadata In Inventory And Packs
 
 Status:

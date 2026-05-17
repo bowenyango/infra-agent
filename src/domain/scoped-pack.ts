@@ -247,7 +247,8 @@ function summarizeTarget(target: ScopedPackTarget): string {
         `chart=${target.chartMetadata.chartName}`,
         target.chartMetadata.version ? `version=${target.chartMetadata.version}` : null,
         target.chartMetadata.appVersion ? `appVersion=${target.chartMetadata.appVersion}` : null,
-        `deps=${target.chartMetadata.dependencyCount}`
+        `deps=${target.chartMetadata.dependencyCount}`,
+        `deployments=${target.deploymentLinks.length}`
       ].filter((item): item is string => Boolean(item)).join(' ')
     : null;
   const metadata = helmMetadata ? `; ${helmMetadata}` : '';

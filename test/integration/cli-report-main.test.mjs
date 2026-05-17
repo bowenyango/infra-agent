@@ -246,12 +246,18 @@ test('inventory command emits compact read-only inventory JSON through the entry
   assert.equal(chart.chartMetadata.hasLockFile, false);
   assert.equal(chart.chartMetadata.dependencyCount, 0);
   assert.deepEqual(chart.chartMetadata.dependencies, []);
+  assert.equal(chart.deploymentLinks.length, 1);
+  assert.equal(chart.deploymentLinks[0].applicationFile, 'apps/payments-api.yaml');
+  assert.equal(chart.deploymentLinks[0].destinationNamespace, 'payments');
+  assert.equal(chart.deploymentLinks[0].confidence, 'medium');
   assert.ok(report.targets.some(target =>
     target.domain === 'pulumi'
     && target.kind === 'pulumi-project'
     && target.path === 'infra/payments-api'
   ));
   assert.doesNotMatch(output, /example-api-secret/i);
+  assert.doesNotMatch(output, /kubernetes\.default\.svc/i);
+  assert.doesNotMatch(output, /secret-values\.yaml/i);
 });
 
 test('pack command emits scoped read-only JSON through the entrypoint', async () => {
@@ -287,8 +293,13 @@ test('pack command emits scoped read-only JSON through the entrypoint', async ()
   assert.equal(chart.chartMetadata.hasLockFile, false);
   assert.equal(chart.chartMetadata.dependencyCount, 0);
   assert.deepEqual(chart.chartMetadata.dependencies, []);
+  assert.equal(chart.deploymentLinks.length, 1);
+  assert.equal(chart.deploymentLinks[0].applicationName, 'payments-api-prod');
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+  assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.doesNotMatch(output, /example-api-secret/i);
+  assert.doesNotMatch(output, /kubernetes\.default\.svc/i);
+  assert.doesNotMatch(output, /secret-values\.yaml/i);
 });
 
 test('pack --changed command emits changed scoped JSON through the entrypoint', async () => {
@@ -317,7 +328,36 @@ test('pack --changed command emits changed scoped JSON through the entrypoint', 
     && target.changedFiles.some(file => file.path === 'charts/payments-api/values.yaml')
   ));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+  assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.doesNotMatch(output, /example-api-secret/i);
+  assert.doesNotMatch(output, /kubernetes\.default\.svc/i);
+});
+
+test('pack --changed command maps linked Argo CD Application files to Helm JSON', async () => {
+  const output = await captureStdout(() => main([
+    'pack',
+    'fixtures/sample-workspace',
+    '--changed',
+    '--file',
+    'apps/payments-api.yaml',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.scoped-pack');
+  assert.equal(report.source.kind, 'changed-context');
+  assert.equal(report.summary.matchedTargetCount, 1);
+  assert.ok(report.targets.some(target =>
+    target.domain === 'helm'
+    && target.kind === 'helm-chart'
+    && target.path === 'charts/payments-api'
+    && target.changedFiles.some(file => file.path === 'apps/payments-api.yaml')
+    && target.riskHints.includes('Argo CD Application sync path for Helm chart changed')
+  ));
+  assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
+  assert.doesNotMatch(output, /kubernetes\.default\.svc/i);
+  assert.doesNotMatch(output, /secret-values\.yaml/i);
 });
 
 test('pack command emits compact Markdown by default', async () => {
@@ -363,6 +403,7 @@ test('changed command emits read-only affected context JSON through the entrypoi
   ));
   assert.ok(report.omitted.unmappedFiles.some(file => file.path === 'README.md'));
   assert.doesNotMatch(output, /example-api-secret/i);
+  assert.doesNotMatch(output, /secret-values\.yaml/i);
 });
 
 test('identity-report CLI args accept compact result input path', () => {

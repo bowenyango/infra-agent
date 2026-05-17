@@ -117,10 +117,27 @@ export interface HelmChartSummary {
   chartRoot: string;
   chartName: string;
   chartMetadata: HelmChartMetadataSummary;
+  deploymentLinks: HelmDeploymentLinkSummary[];
   hasValuesFile: boolean;
   hasTemplatesDir: boolean;
   valuesSchemaFile: string | null;
   environmentHints: string[];
+}
+
+export interface HelmDeploymentLinkSummary {
+  kind: 'argocd-application';
+  applicationName: string;
+  applicationNamespace?: string;
+  applicationFile: string;
+  sourcePath: string;
+  matchReason: 'argocd-source-path-matches-chart-root';
+  confidence: 'medium' | 'high';
+  destinationNamespace?: string;
+  targetRevision?: string;
+  releaseName?: string;
+  valueFiles: string[];
+  valueFileCount: number;
+  syncPolicyAutomated: boolean;
 }
 
 export interface HelmChartDependencySummary {

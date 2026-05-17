@@ -5,6 +5,7 @@ import {
 } from '../tools/repository/repository-tools.ts';
 import { detectRepoProfile } from './repo-profile.ts';
 import { resolveDomainCapabilities } from './domain-capabilities.ts';
+import { discoverArgoCdHelmApplicationLinks } from './argocd-application-linkage.ts';
 import { readHelmChartMetadataSummary } from './helm-chart-context.ts';
 import { extractHelmValuesSchemaSemanticsForCharts } from './helm-values-schema.ts';
 import { extractPulumiStackConfigSemanticsForProjects } from './pulumi-stack-config.ts';
@@ -89,6 +90,7 @@ async function buildHelmChartSummary(dirPath: string, entryNames: Set<string>, w
     chartRoot,
     chartName: chartMetadata.chartName,
     chartMetadata,
+    deploymentLinks: [],
     hasValuesFile: entryNames.has('values.yaml'),
     hasTemplatesDir: entryNames.has('templates'),
     valuesSchemaFile: entryNames.has('values.schema.json')
@@ -223,6 +225,10 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
   state.helmCharts.sort((left, right) => left.chartRoot.localeCompare(right.chartRoot));
   state.pulumiProjects.sort((left, right) => left.projectRoot.localeCompare(right.projectRoot));
   state.terraformRoots.sort((left, right) => left.rootPath.localeCompare(right.rootPath));
+  const argoLinksByChartRoot = await discoverArgoCdHelmApplicationLinks(workspaceRoot, state.helmCharts);
+  for (const chart of state.helmCharts) {
+    chart.deploymentLinks = argoLinksByChartRoot.get(chart.chartRoot) ?? [];
+  }
   for (const project of state.pulumiProjects) {
     project.resourceTokens = await detectPulumiProjectResourceTokens(workspaceRoot, project);
   }

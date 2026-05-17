@@ -39,11 +39,17 @@ test('buildScopedPackReport matches Helm chart path scopes', async () => {
   assert.equal(chart.chartMetadata.hasLockFile, false);
   assert.equal(chart.chartMetadata.dependencyCount, 0);
   assert.deepEqual(chart.chartMetadata.dependencies, []);
+  assert.equal(chart.deploymentLinks.length, 1);
+  assert.equal(chart.deploymentLinks[0].applicationFile, 'apps/payments-api.yaml');
+  assert.equal(chart.deploymentLinks[0].applicationName, 'payments-api-prod');
   assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.schema.json'));
+  assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.deepEqual(report.validationTargets, ['charts/payments-api']);
   assert.doesNotMatch(JSON.stringify(report), /example-api-secret/i);
+  assert.doesNotMatch(JSON.stringify(report), /kubernetes\.default\.svc/i);
+  assert.doesNotMatch(JSON.stringify(report), /secret-values\.yaml/i);
 });
 
 test('buildScopedPackReport matches Pulumi stack and environment scopes', async () => {
@@ -127,6 +133,36 @@ test('buildChangedScopedPackReport matches changed affected components', async (
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
   assert.deepEqual(report.validationTargets, ['charts/payments-api']);
   assert.doesNotMatch(JSON.stringify(report), /example-api-secret/i);
+});
+
+test('buildChangedScopedPackReport maps linked Argo CD Application changes to the Helm chart', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const changedContext = buildChangedContextReport(inspection, {
+    changedFiles: [
+      {
+        path: 'apps/payments-api.yaml',
+        status: 'modified'
+      }
+    ],
+    comparison: {
+      source: 'explicit-files'
+    }
+  });
+  const report = buildChangedScopedPackReport(inspection, changedContext);
+
+  assert.equal(report.summary.matchedTargetCount, 1);
+  assert.deepEqual(report.summary.domains, ['helm']);
+  assert.ok(report.targets.some(target =>
+    target.kind === 'helm-chart'
+    && target.path === 'charts/payments-api'
+    && target.changedFiles?.some(file => file.path === 'apps/payments-api.yaml')
+    && target.riskHints?.includes('Argo CD Application sync path for Helm chart changed')
+  ));
+  assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
+  assert.deepEqual(report.validationTargets, ['charts/payments-api']);
+  assert.doesNotMatch(JSON.stringify(report), /kubernetes\.default\.svc/i);
+  assert.doesNotMatch(JSON.stringify(report), /secret-values\.yaml/i);
 });
 
 test('buildChangedScopedPackReport returns a narrow scope report for unmapped changes', async () => {

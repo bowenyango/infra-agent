@@ -99,7 +99,13 @@ function buildHelmTarget(
     chart.hasValuesFile ? joinRelative(chart.chartRoot, 'values.yaml') : null,
     chart.valuesSchemaFile
   ].filter((file): file is string => Boolean(file));
-  const related = chart.hasTemplatesDir ? [joinRelative(chart.chartRoot, 'templates')] : [];
+  const related = [
+    chart.hasTemplatesDir ? joinRelative(chart.chartRoot, 'templates') : null,
+    ...chart.deploymentLinks.flatMap(link => [
+      link.applicationFile,
+      ...link.valueFiles
+    ])
+  ].filter((file): file is string => Boolean(file));
 
   return {
     id: `helm-chart:${chart.chartRoot}`,
@@ -109,6 +115,10 @@ function buildHelmTarget(
     path: chart.chartRoot,
     chartName: chart.chartName,
     chartMetadata: chart.chartMetadata,
+    deploymentLinks: chart.deploymentLinks.map(link => ({
+      ...link,
+      valueFiles: [...link.valueFiles]
+    })),
     hasValuesFile: chart.hasValuesFile,
     hasTemplatesDir: chart.hasTemplatesDir,
     valuesSchemaFile: chart.valuesSchemaFile,

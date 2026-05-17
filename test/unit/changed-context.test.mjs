@@ -46,7 +46,53 @@ test('buildChangedContextReport maps Helm values changes to the Helm chart', asy
   assert.ok(chart.suggestedInspectFiles.includes('charts/payments-api/Chart.yaml'));
   assert.ok(chart.suggestedInspectFiles.includes('charts/payments-api/values.yaml'));
   assert.ok(chart.suggestedInspectFiles.includes('charts/payments-api/values.schema.json'));
+  assert.ok(chart.suggestedInspectFiles.includes('apps/payments-api.yaml'));
   assert.deepEqual(chart.suggestedValidationTargets, ['charts/payments-api']);
+  assert.deepEqual(report.omitted.unmappedFiles, []);
+});
+
+test('buildChangedContextReport maps Argo CD Application changes to the linked Helm chart', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const report = buildChangedContextReport(inspection, {
+    changedFiles: [
+      {
+        path: 'apps/payments-api.yaml',
+        status: 'modified'
+      }
+    ],
+    comparison: explicitComparison
+  });
+
+  const chart = findComponent(report, 'helm-chart', 'charts/payments-api');
+
+  assert.equal(report.summary.changedFileCount, 1);
+  assert.equal(report.summary.affectedComponentCount, 1);
+  assert.deepEqual(report.summary.domains, ['helm']);
+  assert.equal(report.summary.riskLevel, 'medium');
+  assert.ok(chart);
+  assert.equal(chart.id, 'helm-chart:charts/payments-api');
+  assert.deepEqual(chart.changedFiles, [
+    {
+      path: 'apps/payments-api.yaml',
+      status: 'modified'
+    }
+  ]);
+  assert.ok(chart.suggestedInspectFiles.includes('apps/payments-api.yaml'));
+  assert.ok(chart.suggestedInspectFiles.includes('charts/payments-api/Chart.yaml'));
+  assert.deepEqual(chart.suggestedValidationTargets, ['charts/payments-api']);
+  assert.ok(chart.riskHints.includes('Argo CD Application sync path for Helm chart changed'));
+  assert.ok(chart.riskHints.includes('Argo CD automated sync policy should be reviewed'));
+  assert.deepEqual(chart.evidence, [
+    {
+      path: 'apps/payments-api.yaml',
+      reason: 'changed Argo CD Application links to Helm chart'
+    }
+  ]);
+  assert.equal(chart.deploymentLinks.length, 1);
+  assert.equal(chart.deploymentLinks[0].applicationFile, 'apps/payments-api.yaml');
+  assert.equal(chart.deploymentLinks[0].confidence, 'medium');
+  assert.doesNotMatch(JSON.stringify(report), /kubernetes\.default\.svc/i);
+  assert.doesNotMatch(JSON.stringify(report), /secret-values\.yaml/i);
   assert.deepEqual(report.omitted.unmappedFiles, []);
 });
 
