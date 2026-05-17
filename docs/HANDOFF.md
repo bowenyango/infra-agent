@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-16 Changed Scoped Pack
+
+Status:
+
+- Added `infra-agent pack --changed`, a one-shot changed-component scoped
+  handoff for downstream agents.
+- The command supports either `--changed --file <path>` inputs for non-git
+  callers or `--changed --base <ref> [--head <ref>]` for read-only git diff
+  collection. It remains mutually exclusive with `--scope`.
+- The output contract remains `infra-agent.scoped-pack` with
+  `mutationAllowed=false`. Changed-derived reports now include a compact
+  `source.kind=changed-context` summary with changed-file count, affected
+  component count, unmapped file count, changed risk level, and changed-context
+  recommended action.
+- Changed affected components are mapped back to inventory targets, preserving
+  suggested files, validation targets, environment hints, semantic fact counts,
+  and knowledge-cache posture. Targets can include compact changed-file and
+  risk-hint summaries.
+- This partially closes the previous scoped-pack gap for changed-component set
+  scopes. It does not add Argo CD/Kubernetes linkage, selected knowledge-unit
+  enrichment, semantic cache hit/miss reuse, graph-aware related systems, raw
+  file content, validators, plan/preview, apply, deploy, or state mutation.
+
+Files changed:
+
+- `src/types/scoped-pack.ts` adds compact scoped-pack source metadata and
+  optional changed summaries on matched targets.
+- `src/domain/scoped-pack.ts` adds `buildChangedScopedPackReport` and Markdown
+  rendering for changed-context source/risk summaries.
+- `src/cli/main.ts` adds `pack --changed` parsing and entrypoint wiring while
+  leaving `changed` output unchanged.
+- `test/unit/scoped-pack.test.mjs`,
+  `test/integration/cli-report-main.test.mjs`, and
+  `test/integration/cli-core-main.test.mjs` cover changed-derived scoped packs,
+  parser behavior, CLI JSON, and help output.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
+  `skills/infra-configuration/SKILL.md` document `pack --changed` as advisory
+  changed-component handoff.
+
+Validation:
+
+- `npm run test:focused -- test/unit/scoped-pack.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run dev -- pack fixtures/sample-workspace --changed --file charts/payments-api/values.yaml --json` passed.
+- `npm run dev -- pack fixtures/sample-workspace --changed --file charts/payments-api/templates/deployment.yaml` passed.
+- `git diff --check` passed.
+- `npm run verify` passed, including lint, structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+
 ## 2026-05-16 Scoped Pack MVP
 
 Status:

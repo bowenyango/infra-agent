@@ -33,6 +33,7 @@ values.
    infra-agent inspect <workspace>
    infra-agent inventory <workspace> --json
    infra-agent pack <workspace> --scope <path|target|env|stack> --json
+   infra-agent pack <workspace> --changed --base main --head HEAD --json
    ```
 
    Prefer `inventory --json` when another agent needs a compact repo map. It
@@ -43,6 +44,8 @@ values.
    task already has a path, target name/id, environment, or Pulumi stack; it
    returns a smaller `infra-agent.scoped-pack` JSON handoff, or compact
    Markdown without `--json`, with suggested files and validation targets only.
+   Prefer `pack --changed` as the one-shot handoff when the task is scoped to a
+   branch or patch and another agent needs only changed-component context.
 
 3. For reusable provider, module, chart, stack, or validation knowledge, prefer
    the deterministic metadata workflow:
@@ -87,10 +90,12 @@ values.
    ```
 
    Use `changed` before broad file reads when a task is scoped to a branch or
-   patch. Its report is advisory context only: it identifies affected
-   Helm/Pulumi/Terraform components, suggested inspection files, validation
-   targets, unmapped files, and risk hints, but it does not replace native
-   plan/preview/render validation.
+   patch and needs the broader impact report. Use `pack --changed` when a
+   downstream agent needs the smaller scoped handoff built from the changed
+   component set. Both reports are advisory context only: they identify
+   affected Helm/Pulumi/Terraform components, suggested inspection files,
+   validation targets, unmapped files, and risk hints, but they do not replace
+   native plan/preview/render validation.
 
 6. Use `infra-agent agent "<task>" --workspace <workspace> --json` only when
    the caller explicitly wants the existing bounded planner/runtime result.

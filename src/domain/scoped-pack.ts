@@ -2,9 +2,15 @@ import { buildInventoryReport } from './inventory.ts';
 import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
 import type { InventoryTarget } from '../types/inventory.ts';
 import type {
+  ChangedContextAffectedComponent,
+  ChangedContextReport
+} from '../types/changed-context.ts';
+import type {
+  ChangedScopedPackOptions,
   ScopedPackOptions,
   ScopedPackReport,
   ScopedPackScope,
+  ScopedPackSource,
   ScopedPackTarget
 } from '../types/scoped-pack.ts';
 
@@ -91,25 +97,19 @@ function buildScope(requestedScope: string, normalizedScope: string, targets: Sc
   };
 }
 
-export function buildScopedPackReport(
+function buildReport(
   inspection: WorkspaceInspection,
-  options: ScopedPackOptions
+  targets: ScopedPackTarget[],
+  source: ScopedPackSource,
+  requestedScope: string,
+  normalizedScope: string,
+  domains: InfraDomainId[] | undefined,
+  filteredDomainCount: number
 ): ScopedPackReport {
-  const normalizedScope = normalizeScope(options.scope);
-  const inventory = buildInventoryReport(inspection);
-  const candidates = inventory.targets.filter(target => domainAllowed(target, options.domains));
-  const filteredDomainCount = inventory.targets.length - candidates.length;
-  const targets = candidates
-    .map(target => ({
-      ...target,
-      matchReasons: targetMatchReasons(target, normalizedScope)
-    }))
-    .filter((target): target is ScopedPackTarget => target.matchReasons.length > 0)
-    .sort((left, right) => left.domain.localeCompare(right.domain) || left.path.localeCompare(right.path));
   const suggestedFiles = collectSuggestedFiles(targets);
   const validationTargets = collectValidationTargets(targets);
   const environmentHints = collectEnvironmentHints(targets);
-  const domains = collectDomains(targets);
+  const reportDomains = collectDomains(targets);
 
   return {
     kind: 'infra-agent.scoped-pack',
@@ -117,13 +117,14 @@ export function buildScopedPackReport(
     mutationAllowed: false,
     workspaceRoot: inspection.workspaceRoot,
     profile: inspection.profile,
-    scope: buildScope(options.scope, normalizedScope, targets),
+    source,
+    scope: buildScope(requestedScope, normalizedScope, targets),
     filters: {
-      domains: options.domains ?? []
+      domains: domains ?? []
     },
     summary: {
       matchedTargetCount: targets.length,
-      domains,
+      domains: reportDomains,
       environmentHints,
       suggestedFileCount: suggestedFiles.length,
       validationTargetCount: validationTargets.length,
@@ -142,6 +143,93 @@ export function buildScopedPackReport(
   };
 }
 
+export function buildScopedPackReport(
+  inspection: WorkspaceInspection,
+  options: ScopedPackOptions
+): ScopedPackReport {
+  const normalizedScope = normalizeScope(options.scope);
+  const inventory = buildInventoryReport(inspection);
+  const candidates = inventory.targets.filter(target => domainAllowed(target, options.domains));
+  const filteredDomainCount = inventory.targets.length - candidates.length;
+  const targets = candidates
+    .map(target => ({
+      ...target,
+      matchReasons: targetMatchReasons(target, normalizedScope)
+    }))
+    .filter((target): target is ScopedPackTarget => target.matchReasons.length > 0)
+    .sort((left, right) => left.domain.localeCompare(right.domain) || left.path.localeCompare(right.path));
+
+  return buildReport(
+    inspection,
+    targets,
+    { kind: 'explicit-scope' },
+    options.scope,
+    normalizedScope,
+    options.domains,
+    filteredDomainCount
+  );
+}
+
+function changedComponentKey(component: ChangedContextAffectedComponent): string {
+  return `${component.domain}:${component.kind}:${component.targetPath}`;
+}
+
+function inventoryTargetChangedKey(target: InventoryTarget): string {
+  return `${target.domain}:${target.kind}:${target.path}`;
+}
+
+export function buildChangedScopedPackReport(
+  inspection: WorkspaceInspection,
+  changedContext: ChangedContextReport,
+  options: ChangedScopedPackOptions = {}
+): ScopedPackReport {
+  const inventory = buildInventoryReport(inspection);
+  const candidates = inventory.targets.filter(target => domainAllowed(target, options.domains));
+  const filteredDomainCount = inventory.targets.length - candidates.length;
+  const componentsByKey = new Map(changedContext.affectedComponents.map(component => [
+    changedComponentKey(component),
+    component
+  ]));
+  const componentsById = new Map(changedContext.affectedComponents.map(component => [
+    component.id,
+    component
+  ]));
+  const targets = candidates
+    .map(target => {
+      const component = componentsById.get(target.id) ?? componentsByKey.get(inventoryTargetChangedKey(target));
+      if (!component) {
+        return null;
+      }
+
+      return {
+        ...target,
+        matchReasons: ['changed context affected component'],
+        changedFiles: component.changedFiles,
+        riskHints: component.riskHints
+      };
+    })
+    .filter((target): target is ScopedPackTarget => target !== null)
+    .sort((left, right) => left.domain.localeCompare(right.domain) || left.path.localeCompare(right.path));
+
+  return buildReport(
+    inspection,
+    targets,
+    {
+      kind: 'changed-context',
+      comparison: changedContext.comparison,
+      changedFileCount: changedContext.summary.changedFileCount,
+      affectedComponentCount: changedContext.summary.affectedComponentCount,
+      unmappedFileCount: changedContext.omitted.unmappedFiles.length,
+      riskLevel: changedContext.summary.riskLevel,
+      recommendedAction: changedContext.summary.recommendedAction
+    },
+    'changed-context',
+    'changed-context',
+    options.domains,
+    filteredDomainCount
+  );
+}
+
 function markdownList(values: string[], emptyText: string): string {
   if (values.length === 0) {
     return `- ${emptyText}`;
@@ -153,15 +241,37 @@ function markdownList(values: string[], emptyText: string): string {
 function summarizeTarget(target: ScopedPackTarget): string {
   const reasons = target.matchReasons.join('; ');
   const environments = target.environmentHints.length > 0 ? `; env=${target.environmentHints.join(', ')}` : '';
-  return `${target.domain} ${target.kind} ${target.path} (${reasons}${environments}; facts=${target.semanticFactCount})`;
+  const changed = target.changedFiles && target.changedFiles.length > 0 ? `; changed=${target.changedFiles.length}` : '';
+  return `${target.domain} ${target.kind} ${target.path} (${reasons}${environments}${changed}; facts=${target.semanticFactCount})`;
+}
+
+function collectRiskHints(targets: ScopedPackTarget[]): string[] {
+  return uniqueSorted(targets.flatMap(target => target.riskHints ?? []));
+}
+
+function renderSourceSummary(report: ScopedPackReport): string[] {
+  if (report.source.kind === 'explicit-scope') {
+    return ['Source: explicit-scope'];
+  }
+
+  return [
+    'Source: changed-context',
+    `Changed files: ${report.source.changedFileCount}`,
+    `Affected components: ${report.source.affectedComponentCount}`,
+    `Unmapped files: ${report.source.unmappedFileCount}`,
+    `Changed risk: ${report.source.riskLevel}`,
+    `Changed recommended action: ${report.source.recommendedAction}`
+  ];
 }
 
 export function renderScopedPackMarkdown(report: ScopedPackReport): string {
+  const riskHints = collectRiskHints(report.targets);
   const lines = [
     `# Context Pack: ${report.scope.requested}`,
     '',
     `Workspace: ${report.workspaceRoot}`,
     'Mutation allowed: no',
+    ...renderSourceSummary(report),
     `Profile: ${report.profile.label} (${report.profile.id})`,
     `Matched targets: ${report.summary.matchedTargetCount}`,
     `Domains: ${report.summary.domains.join(', ') || 'none'}`,
@@ -179,6 +289,9 @@ export function renderScopedPackMarkdown(report: ScopedPackReport): string {
     '',
     '## Environment Hints',
     markdownList(report.summary.environmentHints, 'No environment hints detected.'),
+    '',
+    '## Risk Hints',
+    markdownList(riskHints, 'No changed-context risk hints detected.'),
     '',
     '## Boundaries',
     '- Read-only context only.',

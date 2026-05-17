@@ -108,7 +108,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent planner-providers [--json]`
 - `infra-agent inspect [workspace]`
 - `infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
-- `infra-agent pack [workspace] --scope <path|target|env|stack> [--domain helm|pulumi|terraform] [--json]`
+- `infra-agent pack [workspace] --scope <path|target|env|stack> [--changed] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--json]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
 - `infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
@@ -140,10 +140,12 @@ Current behavior is intentionally runtime-foundation oriented:
   the smallest useful repo map before broad file reads.
 - `pack` emits a scoped read-only `infra-agent.scoped-pack` report, or compact
   Markdown by default, for a requested path, target name/id, environment hint,
-  or Pulumi stack. It selects matching inventory targets, suggested files,
-  validation targets, environment hints, semantic fact counts, and
-  knowledge-cache posture without raw file content, validators, git diff,
-  plan/preview, apply, deploy, or state mutation.
+  Pulumi stack, or changed-component set from `--changed`. It selects matching
+  inventory targets, suggested files, validation targets, environment hints,
+  semantic fact counts, optional changed-file/risk-hint summaries, and
+  knowledge-cache posture without raw file content, validators, git mutation,
+  plan/preview, apply, deploy, or state mutation. Read-only git diff collection
+  is used only when `--changed --base` is requested.
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
   from workspace inspection facts and can attach read-only Terraform plan JSON

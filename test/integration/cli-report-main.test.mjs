@@ -124,6 +124,51 @@ test('pack CLI args accept workspace, scope, and domain filters', () => {
   assert.equal(parsed.json, true);
 });
 
+test('pack CLI args accept changed scope from explicit files', () => {
+  const parsed = parseArgs([
+    'pack',
+    'fixtures/sample-workspace',
+    '--changed',
+    '--file',
+    'charts/payments-api/values.yaml',
+    '--domain',
+    'helm',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'pack');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.packChanged, true);
+  assert.equal(parsed.packScope, null);
+  assert.deepEqual(parsed.changedFilePaths, ['charts/payments-api/values.yaml']);
+  assert.equal(parsed.changedBaseRef, null);
+  assert.equal(parsed.changedHeadRef, null);
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.equal(parsed.json, true);
+});
+
+test('pack CLI args accept changed scope from git refs', () => {
+  const parsed = parseArgs([
+    'pack',
+    'fixtures/sample-workspace',
+    '--changed',
+    '--base',
+    'main',
+    '--head',
+    'HEAD',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'pack');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.packChanged, true);
+  assert.equal(parsed.packScope, null);
+  assert.equal(parsed.changedBaseRef, 'main');
+  assert.equal(parsed.changedHeadRef, 'HEAD');
+  assert.deepEqual(parsed.changedFilePaths, []);
+  assert.equal(parsed.json, true);
+});
+
 test('changed CLI args accept git diff and context filters', () => {
   const parsed = parseArgs([
     'changed',
@@ -215,6 +260,35 @@ test('pack command emits scoped read-only JSON through the entrypoint', async ()
     target.domain === 'helm'
     && target.kind === 'helm-chart'
     && target.path === 'charts/payments-api'
+  ));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+  assert.doesNotMatch(output, /example-api-secret/i);
+});
+
+test('pack --changed command emits changed scoped JSON through the entrypoint', async () => {
+  const output = await captureStdout(() => main([
+    'pack',
+    'fixtures/sample-workspace',
+    '--changed',
+    '--file',
+    'charts/payments-api/values.yaml',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.scoped-pack');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.mutationAllowed, false);
+  assert.equal(report.source.kind, 'changed-context');
+  assert.equal(report.source.changedFileCount, 1);
+  assert.equal(report.scope.requested, 'changed-context');
+  assert.equal(report.summary.matchedTargetCount, 1);
+  assert.ok(report.targets.some(target =>
+    target.domain === 'helm'
+    && target.kind === 'helm-chart'
+    && target.path === 'charts/payments-api'
+    && target.matchReasons.includes('changed context affected component')
+    && target.changedFiles.some(file => file.path === 'charts/payments-api/values.yaml')
   ));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
   assert.doesNotMatch(output, /example-api-secret/i);

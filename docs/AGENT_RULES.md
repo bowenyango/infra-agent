@@ -152,12 +152,17 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   knowledge-cache posture. Use it before broad file reads, and keep future
   inventory fields compact and raw-content-free.
 - Treat `infra-agent pack` as the scoped handoff surface when the caller
-  already has a path, target name/id, environment hint, or Pulumi stack. Its
-  `infra-agent.scoped-pack` output and default Markdown are read-only advisory
-  context derived from inventory targets: matching targets, suggested files,
-  validation targets, environment hints, semantic fact counts, and
-  knowledge-cache posture. It must not include raw file content or run
-  validators, git diff, plan/preview, apply, deploy, or state mutation.
+  already has a path, target name/id, environment hint, Pulumi stack, or
+  changed-component set. Treat `infra-agent pack --changed` as a read-only
+  scoped handoff derived from changed files, not as a replacement for
+  `infra-agent changed` impact reporting. Its `infra-agent.scoped-pack` output
+  and default Markdown are read-only advisory context derived from inventory
+  targets: matching targets, suggested files, validation targets, environment
+  hints, semantic fact counts, changed-file/risk-hint summaries, and
+  knowledge-cache posture. It must not include raw file content, run
+  validators, or run plan/preview/apply/deploy/state mutation commands.
+  Read-only git diff collection is allowed only for `--changed` scope
+  resolution; it must not mutate git state.
 - Treat `infra-agent changed` as the first diff-aware context compiler
   surface. Its `infra-agent.changed-context` output is read-only advisory
   context that maps git or explicit changed files to inspected Helm charts,

@@ -37,6 +37,7 @@ import { buildWorkspaceInfraGraph } from '../impact/workspace-graph.ts';
 import { buildChangedContextReport } from '../impact/changed-context.ts';
 import { buildInventoryReport } from '../domain/inventory.ts';
 import {
+  buildChangedScopedPackReport,
   buildScopedPackReport,
   renderScopedPackMarkdown
 } from '../domain/scoped-pack.ts';
@@ -122,6 +123,7 @@ export interface ParsedArgs {
   domains: InfraDomainId[];
   targetPaths: string[];
   packScope?: string | null;
+  packChanged?: boolean;
   sourceIds?: string[];
   knowledgeIndexFilter?: KnowledgeUnitIndexEntryFilter;
   maxSources: number | null;
@@ -145,7 +147,7 @@ function printUsage(): void {
       '  infra-agent planner-providers [--json]',
       '  infra-agent inspect [workspace] [--json]',
       '  infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
-      '  infra-agent pack [workspace] --scope <path|target|env|stack> [--domain helm|pulumi|terraform] [--json]',
+      '  infra-agent pack [workspace] (--scope <path|target|env|stack> | --changed --base <ref>|--file <path>) [--head <ref>] [--domain helm|pulumi|terraform] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
@@ -467,11 +469,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (commandName === 'pack') {
     let workspace = cwd();
     let packScope: string | null = null;
+    let packChanged = false;
+    let changedBaseRef: string | null = null;
+    let changedHeadRef: string | null = null;
+    const changedFilePaths: string[] = [];
     const domains: InfraDomainId[] = [];
     const positionalArgs: string[] = [];
 
     for (let index = 0; index < cleanArgs.length; index += 1) {
       const arg = cleanArgs[index];
+
+      if (arg === '--changed') {
+        packChanged = true;
+        continue;
+      }
 
       if (arg === '--scope') {
         const scopeValue = cleanArgs[index + 1]?.trim();
@@ -483,6 +494,45 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         packScope = scopeValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--base') {
+        const baseValue = cleanArgs[index + 1]?.trim();
+        if (!baseValue) {
+          fail('Missing value for --base.');
+        }
+        if (changedBaseRef !== null) {
+          fail('--base can be provided at most once.');
+        }
+
+        changedBaseRef = baseValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--head') {
+        const headValue = cleanArgs[index + 1]?.trim();
+        if (!headValue) {
+          fail('Missing value for --head.');
+        }
+        if (changedHeadRef !== null) {
+          fail('--head can be provided at most once.');
+        }
+
+        changedHeadRef = headValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--file') {
+        const fileValue = cleanArgs[index + 1]?.trim();
+        if (!fileValue) {
+          fail('Missing value for --file.');
+        }
+
+        changedFilePaths.push(fileValue);
         index += 1;
         continue;
       }
@@ -508,8 +558,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (positionalArgs.length > 1) {
       fail('pack accepts at most one workspace path.');
     }
-    if (packScope === null) {
-      fail('pack requires --scope.');
+    if (packScope !== null && packChanged) {
+      fail('pack accepts either --scope or --changed, not both.');
+    }
+    if (packScope === null && !packChanged) {
+      fail('pack requires --scope or --changed.');
+    }
+    if (!packChanged && (changedBaseRef !== null || changedHeadRef !== null || changedFilePaths.length > 0)) {
+      fail('pack --base, --head, and --file require --changed.');
+    }
+    if (packChanged && changedFilePaths.length > 0 && changedBaseRef !== null) {
+      fail('pack --changed accepts either --file values or --base/--head, not both.');
+    }
+    if (packChanged && changedHeadRef !== null && changedBaseRef === null) {
+      fail('--head requires --base.');
+    }
+    if (packChanged && changedFilePaths.length === 0 && changedBaseRef === null) {
+      fail('pack --changed requires --base or at least one --file.');
     }
 
     workspace = positionalArgs[0] ?? workspace;
@@ -531,9 +596,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains,
       targetPaths: [],
       packScope,
+      packChanged,
       maxSources: null,
       terraformPlanPaths: [],
-      pulumiPreviewPaths: []
+      pulumiPreviewPaths: [],
+      changedBaseRef,
+      changedHeadRef: changedBaseRef !== null ? changedHeadRef ?? 'HEAD' : null,
+      changedFilePaths
     };
   }
 
@@ -1793,15 +1862,39 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   if (parsed.command === 'pack') {
-    if (!parsed.packScope) {
-      fail('pack requires --scope.');
-    }
-
     const inspection = await inspectWorkspace(parsed.workspace);
-    const report = buildScopedPackReport(inspection, {
-      scope: parsed.packScope,
-      domains: parsed.domains
-    });
+    let report;
+
+    if (parsed.packChanged) {
+      const explicitFiles = parsed.changedFilePaths ?? [];
+      const changedFiles = explicitFiles.length > 0
+        ? explicitFiles.map(path => ({ path, status: 'unknown' as const }))
+        : readGitChangedFiles(parsed.workspace, parsed.changedBaseRef ?? 'HEAD', parsed.changedHeadRef);
+      const changedContext = buildChangedContextReport(inspection, {
+        changedFiles,
+        comparison: explicitFiles.length > 0
+          ? { source: 'explicit-files' }
+          : {
+              source: 'git-diff',
+              base: parsed.changedBaseRef ?? 'HEAD',
+              head: parsed.changedHeadRef ?? undefined
+            },
+        domains: parsed.domains
+      });
+
+      report = buildChangedScopedPackReport(inspection, changedContext, {
+        domains: parsed.domains
+      });
+    } else {
+      if (!parsed.packScope) {
+        fail('pack requires --scope or --changed.');
+      }
+
+      report = buildScopedPackReport(inspection, {
+        scope: parsed.packScope,
+        domains: parsed.domains
+      });
+    }
 
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
