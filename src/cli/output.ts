@@ -77,6 +77,7 @@ import {
 } from '../impact/graph-impact-summary.ts';
 import type { InfraGraph } from '../types/infra-graph.ts';
 import type { ChangedContextReport } from '../types/changed-context.ts';
+import type { InventoryReport, InventoryTarget } from '../types/inventory.ts';
 import type { DoctorReport } from './doctor.ts';
 import { classifyUnsafeValidationCommand } from '../validators/command-safety.ts';
 import type { InfraGraphImpactReport } from './infra-graph-report.ts';
@@ -3452,6 +3453,73 @@ export function printInspection(inspection: WorkspaceInspection): void {
     inspection.configSemantics.map(summary => `${summary.targetKind} ${summary.targetPath}: ${summary.facts.length} fact(s)`),
     'No structured config semantics detected.'
   );
+}
+
+function summarizeInventoryTarget(target: InventoryTarget): string {
+  const environments = target.environmentHints.length > 0
+    ? ` env=${target.environmentHints.join(',')}`
+    : '';
+  const facts = target.semanticFactCount > 0
+    ? ` facts=${target.semanticFactCount}`
+    : '';
+
+  if (target.kind === 'helm-chart') {
+    const features = [
+      target.hasValuesFile ? 'values' : 'missing-values',
+      target.hasTemplatesDir ? 'templates' : 'missing-templates',
+      target.valuesSchemaFile ? 'values-schema' : 'missing-values-schema'
+    ].join(',');
+    return `${target.domain} ${target.kind} ${target.path} (${features})${environments}${facts}`;
+  }
+
+  if (target.kind === 'pulumi-project') {
+    const stacks = target.stackNames.length > 0 ? target.stackNames.join(',') : 'none';
+    const packages = target.resourcePackages.length > 0 ? ` packages=${target.resourcePackages.join(',')}` : '';
+    return `${target.domain} ${target.kind} ${target.path} (stacks=${stacks}, resources=${target.resourceTokenCount})${packages}${environments}${facts}`;
+  }
+
+  const modules = target.moduleHints.length > 0 ? ` modules=${target.moduleHints.join(',')}` : '';
+  return `${target.domain} ${target.kind} ${target.path} (.tf=${target.tfFileCount}, tfvars=${target.tfvarsFileCount}, schemas=${target.providerSchemaFileCount})${modules}${environments}${facts}`;
+}
+
+export function printInventoryReport(report: InventoryReport): void {
+  printHeader('Inventory');
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`profile: ${report.profile.label} (${report.profile.id})\n`);
+  process.stdout.write(`workspace config: ${report.workspaceConfigPresent ? 'present' : 'absent'}\n`);
+  process.stdout.write(`knowledge cache: ${report.knowledgeCache.root} (${report.knowledgeCache.source})\n`);
+  process.stdout.write(`targets: ${report.summary.includedTargetCount}/${report.summary.totalTargetCount}\n`);
+  process.stdout.write(`domains: ${report.summary.domains.join(', ') || 'none'}\n`);
+  process.stdout.write(`environments: ${report.summary.environmentCount}\n`);
+  process.stdout.write(`semantic facts: ${report.summary.semanticFactCount}\n`);
+  if (report.filters.domains.length > 0 || report.filters.targetPaths.length > 0) {
+    process.stdout.write(`filters: domains=${report.filters.domains.join(',') || 'all'} targets=${report.filters.targetPaths.join(',') || 'all'}\n`);
+  }
+  process.stdout.write('\n');
+
+  printHeader('Tools');
+  printList(report.tools.map(tool =>
+    `${tool.label}: ${tool.includedTargetCount}/${tool.detectedTargetCount} target(s); validators=${tool.validatorCommands.join(', ') || 'none'}`
+  ), 'No infrastructure tools detected.');
+  process.stdout.write('\n');
+
+  printHeader('Environments');
+  printList(report.environments.map(environment =>
+    `${environment.name}: ${environment.targetCount} target(s); domains=${environment.domains.join(', ')}; paths=${environment.targetPaths.join(', ')}`
+  ), 'No environment hints detected.');
+  process.stdout.write('\n');
+
+  printHeader('Targets');
+  printList(report.targets.map(summarizeInventoryTarget), 'No inventory targets included.');
+  process.stdout.write('\n');
+
+  printHeader('Primary Files');
+  printList(report.targets.flatMap(target => target.files.primary.map(file => `${target.id}: ${file}`)), 'No primary files detected.');
+  process.stdout.write('\n');
+
+  printHeader('Omitted');
+  printList(report.omitted.filteredTargetsByDomain.map(item => `${item.domain}: ${item.count} filtered target(s)`), 'No filtered targets.');
 }
 
 export function printValidationPreflight(preflight: ValidationPreflight): void {

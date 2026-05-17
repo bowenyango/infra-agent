@@ -107,6 +107,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent doctor [workspace] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]`
 - `infra-agent planner-providers [--json]`
 - `infra-agent inspect [workspace]`
+- `infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
 - `infra-agent validate [workspace]`
 - `infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>]`
 - `infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]`
@@ -130,6 +131,12 @@ Current behavior is intentionally runtime-foundation oriented:
   Its JSON also exposes `plannerProviderCatalog` as a compact pointer to the
   static read-only planner adapter catalog.
 - `inspect` detects Helm charts, Pulumi projects, and Terraform roots
+- `inventory` emits a compact read-only `infra-agent.inventory` report from
+  the existing inspection surface. It summarizes tools, target paths,
+  environment hints, primary files, validation targets, semantic fact counts,
+  and knowledge-cache posture without raw file content or full semantic facts.
+  Repeated `--domain` and `--target` filters let downstream agents start from
+  the smallest useful repo map before broad file reads.
 - `validate` reports validator availability and the validation plan implied by the workspace
 - `graph` emits a normalized `infra-agent.infra-graph` topology foundation
   from workspace inspection facts and can attach read-only Terraform plan JSON

@@ -31,7 +31,14 @@ values.
 
    ```sh
    infra-agent inspect <workspace>
+   infra-agent inventory <workspace> --json
    ```
+
+   Prefer `inventory --json` when another agent needs a compact repo map. It
+   reports detected Helm/Pulumi/Terraform targets, environment hints, primary
+   files, validation targets, semantic fact counts, and knowledge-cache posture
+   without raw file contents or full semantic facts. Use `--domain` and
+   `--target` to keep the context scoped.
 
 3. For reusable provider, module, chart, stack, or validation knowledge, prefer
    the deterministic metadata workflow:

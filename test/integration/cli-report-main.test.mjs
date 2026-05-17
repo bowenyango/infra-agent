@@ -88,6 +88,24 @@ test('graph CLI args accept Pulumi preview impact flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('inventory CLI args accept workspace and context filters', () => {
+  const parsed = parseArgs([
+    'inventory',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--target',
+    'charts/payments-api',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'inventory');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, ['charts/payments-api']);
+  assert.equal(parsed.json, true);
+});
+
 test('changed CLI args accept git diff and context filters', () => {
   const parsed = parseArgs([
     'changed',
@@ -132,6 +150,32 @@ test('changed CLI args accept explicit files for non-git callers', () => {
   assert.equal(parsed.changedBaseRef, null);
   assert.equal(parsed.changedHeadRef, null);
   assert.equal(parsed.json, true);
+});
+
+test('inventory command emits compact read-only inventory JSON through the entrypoint', async () => {
+  const output = await captureStdout(() => main([
+    'inventory',
+    'fixtures/sample-workspace',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.inventory');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.mutationAllowed, false);
+  assert.equal(report.summary.totalTargetCount, 2);
+  assert.deepEqual(report.summary.domains, ['helm', 'pulumi']);
+  assert.ok(report.targets.some(target =>
+    target.domain === 'helm'
+    && target.kind === 'helm-chart'
+    && target.path === 'charts/payments-api'
+  ));
+  assert.ok(report.targets.some(target =>
+    target.domain === 'pulumi'
+    && target.kind === 'pulumi-project'
+    && target.path === 'infra/payments-api'
+  ));
+  assert.doesNotMatch(output, /example-api-secret/i);
 });
 
 test('changed command emits read-only affected context JSON through the entrypoint', async () => {

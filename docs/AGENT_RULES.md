@@ -145,6 +145,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   graph, semantic-unit hash cache, extraction, deterministic retrieval, and the
   compact `fact`, `guidance`, `example`, `diagnostic`, and `recipe` unit
   contract.
+- Treat `infra-agent inventory` as the compact repo-map surface for downstream
+  agents. Its `infra-agent.inventory` output is read-only advisory context
+  derived from existing inspection data: tools, target paths, environment
+  hints, primary files, validation targets, semantic fact counts, and
+  knowledge-cache posture. Use it before broad file reads, and keep future
+  inventory fields compact and raw-content-free.
 - Treat `infra-agent changed` as the first diff-aware context compiler
   surface. Its `infra-agent.changed-context` output is read-only advisory
   context that maps git or explicit changed files to inspected Helm charts,

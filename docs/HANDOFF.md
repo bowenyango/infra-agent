@@ -6,6 +6,48 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-16 Inventory MVP
+
+Status:
+
+- Added the first compact repo-map surface: `infra-agent inventory`.
+- The command derives a read-only `infra-agent.inventory` report from existing
+  workspace inspection data. It does not run validators, git diff, Terraform
+  plan, Pulumi preview, apply, deploy, or state mutation commands.
+- The report includes `mutationAllowed=false`, detected domain tools, included
+  targets, environment hints, primary/related file references, validation
+  targets, semantic fact counts, knowledge-cache posture, and filtered omitted
+  target counts.
+- This MVP intentionally summarizes only existing Helm/Pulumi/Terraform
+  inspection surfaces. Argo CD/Kubernetes deployment linkage, Terraform module
+  interface rollups, Helm dependency/version metadata, semantic-unit hash cache
+  status, and richer fact-kind summaries remain future work.
+
+Files changed:
+
+- `src/types/inventory.ts` defines the compact inventory report contract.
+- `src/domain/inventory.ts` builds the report from `WorkspaceInspection`.
+- `src/cli/main.ts` adds `inventory` parsing and entrypoint execution with
+  `--domain`, `--target`, and `--json`.
+- `src/cli/output.ts` renders human-readable inventory summaries.
+- `test/unit/inventory.test.mjs`,
+  `test/integration/cli-report-main.test.mjs`, and
+  `test/integration/cli-core-main.test.mjs` cover builder behavior, CLI parser,
+  entrypoint JSON, and help output.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, and
+  `skills/infra-configuration/SKILL.md` document the inventory surface for
+  downstream agents.
+
+Validation:
+
+- `npm run test:focused -- test/unit/inventory.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run verify` passed, including isolated shards, smoke, e2e, coverage, and
+  package dry-run.
+
 ## 2026-05-16 Changed Context MVP
 
 Status:

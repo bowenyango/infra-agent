@@ -235,6 +235,7 @@ test('help output exposes the active context compiler surface and omits legacy u
   const output = await captureStdout(() => main(['--help']));
 
   assert.match(output, /infra-agent inspect \[workspace\] \[--json\]/);
+  assert.match(output, /infra-agent inventory \[workspace\].*\[--json\]/);
   assert.match(output, /infra-agent knowledge sources \[workspace\]/);
   assert.match(output, /infra-agent knowledge extract \[workspace\]/);
   assert.match(output, /infra-agent knowledge pack \[workspace\]/);
