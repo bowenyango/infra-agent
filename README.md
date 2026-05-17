@@ -137,17 +137,19 @@ Current behavior is intentionally runtime-foundation oriented:
 - `inventory` emits a compact read-only `infra-agent.inventory` report from
   the existing inspection surface. It summarizes tools, target paths,
   environment hints, primary files, validation targets, semantic fact counts,
-  and knowledge-cache posture without raw file content or full semantic facts.
-  Repeated `--domain` and `--target` filters let downstream agents start from
-  the smallest useful repo map before broad file reads.
+  knowledge-cache posture, and compact Helm chart identity/version/dependency
+  metadata without raw file content or full semantic facts. Repeated `--domain`
+  and `--target` filters let downstream agents start from the smallest useful
+  repo map before broad file reads.
 - `pack` emits a scoped read-only `infra-agent.scoped-pack` report, or compact
   Markdown by default, for a requested path, target name/id, environment hint,
   Pulumi stack, or changed-component set from `--changed`. It selects matching
   inventory targets, suggested files, validation targets, environment hints,
-  semantic fact counts, optional changed-file/risk-hint summaries, and
-  knowledge-cache posture without raw file content, validators, git mutation,
-  plan/preview, apply, deploy, or state mutation. Read-only git diff collection
-  is used only when `--changed --base` is requested.
+  semantic fact counts, compact Helm chart metadata, optional
+  changed-file/risk-hint summaries, and knowledge-cache posture without raw
+  file content, validators, git mutation, plan/preview, apply, deploy, or state
+  mutation. Read-only git diff collection is used only when `--changed --base`
+  is requested.
 - `cache status` emits a read-only `infra-agent.cache-status` report for the
   semantic-unit hash cache posture behind selected Terraform, Pulumi, and Helm
   knowledge sources. It summarizes local, fresh, stale, and missing source

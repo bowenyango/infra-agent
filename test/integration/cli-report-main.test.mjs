@@ -233,6 +233,19 @@ test('inventory command emits compact read-only inventory JSON through the entry
     && target.kind === 'helm-chart'
     && target.path === 'charts/payments-api'
   ));
+  const chart = report.targets.find(target =>
+    target.domain === 'helm'
+    && target.kind === 'helm-chart'
+    && target.path === 'charts/payments-api'
+  );
+  assert.ok(chart);
+  assert.equal(chart.chartMetadata.apiVersion, 'v2');
+  assert.equal(chart.chartMetadata.version, '0.1.0');
+  assert.equal(chart.chartMetadata.appVersion, '1.0.0');
+  assert.equal(chart.chartMetadata.chartType, 'application');
+  assert.equal(chart.chartMetadata.hasLockFile, false);
+  assert.equal(chart.chartMetadata.dependencyCount, 0);
+  assert.deepEqual(chart.chartMetadata.dependencies, []);
   assert.ok(report.targets.some(target =>
     target.domain === 'pulumi'
     && target.kind === 'pulumi-project'
@@ -261,6 +274,19 @@ test('pack command emits scoped read-only JSON through the entrypoint', async ()
     && target.kind === 'helm-chart'
     && target.path === 'charts/payments-api'
   ));
+  const chart = report.targets.find(target =>
+    target.domain === 'helm'
+    && target.kind === 'helm-chart'
+    && target.path === 'charts/payments-api'
+  );
+  assert.ok(chart);
+  assert.equal(chart.chartMetadata.apiVersion, 'v2');
+  assert.equal(chart.chartMetadata.version, '0.1.0');
+  assert.equal(chart.chartMetadata.appVersion, '1.0.0');
+  assert.equal(chart.chartMetadata.chartType, 'application');
+  assert.equal(chart.chartMetadata.hasLockFile, false);
+  assert.equal(chart.chartMetadata.dependencyCount, 0);
+  assert.deepEqual(chart.chartMetadata.dependencies, []);
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
   assert.doesNotMatch(output, /example-api-secret/i);
 });

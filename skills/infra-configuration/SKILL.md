@@ -40,18 +40,19 @@ values.
 
    Prefer `inventory --json` when another agent needs a compact repo map. It
    reports detected Helm/Pulumi/Terraform targets, environment hints, primary
-   files, validation targets, semantic fact counts, and knowledge-cache posture
-   without raw file contents or full semantic facts. Use `--domain` and
-   `--target` to keep the context scoped. Use `cache status --json` when the
-   next agent needs cache posture before deciding to reuse, prefetch, extract,
-   or pack knowledge units; it is read-only and does not fetch, upload,
-   validate, plan, preview, apply, deploy, or mutate state. Prefer
+   files, validation targets, semantic fact counts, knowledge-cache posture,
+   and compact Helm chart identity/version/dependency metadata without raw file
+   contents or full semantic facts. Use `--domain` and `--target` to keep the
+   context scoped. Use `cache status --json` when the next agent needs cache
+   posture before deciding to reuse, prefetch, extract, or pack knowledge
+   units; it is read-only and does not fetch, upload, validate, plan, preview,
+   apply, deploy, or mutate state. Prefer
    `pack --scope ...` when the task already has a path, target name/id,
    environment, or Pulumi stack; it returns a smaller `infra-agent.scoped-pack`
-   JSON handoff, or compact Markdown without `--json`, with suggested files and
-   validation targets only. Prefer `pack --changed` as the one-shot handoff when
-   the task is scoped to a branch or patch and another agent needs only
-   changed-component context.
+   JSON handoff, or compact Markdown without `--json`, with suggested files,
+   validation targets, and compact target metadata. Prefer `pack --changed` as
+   the one-shot handoff when the task is scoped to a branch or patch and
+   another agent needs only changed-component context.
    Prefer `refs --scope ...` when the task needs interface shape rather than
    file-selection context. Treat refs as compact advisory facts selected from
    repo usage and cache posture; native schemas, plan/preview, Helm rendering,

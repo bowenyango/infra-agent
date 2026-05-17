@@ -148,9 +148,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
 - Treat `infra-agent inventory` as the compact repo-map surface for downstream
   agents. Its `infra-agent.inventory` output is read-only advisory context
   derived from existing inspection data: tools, target paths, environment
-  hints, primary files, validation targets, semantic fact counts, and
-  knowledge-cache posture. Use it before broad file reads, and keep future
-  inventory fields compact and raw-content-free.
+  hints, primary files, validation targets, semantic fact counts,
+  knowledge-cache posture, and compact Helm chart identity/version/dependency
+  metadata. Use it before broad file reads, and keep future inventory fields
+  compact and raw-content-free.
 - Treat `infra-agent pack` as the scoped handoff surface when the caller
   already has a path, target name/id, environment hint, Pulumi stack, or
   changed-component set. Treat `infra-agent pack --changed` as a read-only
@@ -158,8 +159,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `infra-agent changed` impact reporting. Its `infra-agent.scoped-pack` output
   and default Markdown are read-only advisory context derived from inventory
   targets: matching targets, suggested files, validation targets, environment
-  hints, semantic fact counts, changed-file/risk-hint summaries, and
-  knowledge-cache posture. It must not include raw file content, run
+  hints, semantic fact counts, compact Helm chart metadata,
+  changed-file/risk-hint summaries, and knowledge-cache posture. It must not
+  include raw file content, run
   validators, or run plan/preview/apply/deploy/state mutation commands.
   Read-only git diff collection is allowed only for `--changed` scope
   resolution; it must not mutate git state.
@@ -1111,8 +1113,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   version, app version, type, home/source URLs, and dependencies. Prefer locked
   dependency versions from `Chart.lock`, skip secret-like names or unsafe
   metadata URLs, and do not expose raw chart YAML, lock digests, generated
-  timestamps, or dependency repository prose in packs, prompts, or compact
-  handoff output.
+  timestamps, or external dependency repository prose/content in packs, prompts,
+  or compact handoff output. Compact secret-safe repository identifiers may
+  appear in JSON dependency summaries when they come directly from Chart.yaml or
+  Chart.lock.
 - For cached Helm chart-doc knowledge, use only public `chart-docs` sources
   selected from chart `home`, `sources`, or HTTP(S) dependency repository docs
   after an explicit cache or prefetch path exists. Extract compact

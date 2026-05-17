@@ -1,4 +1,5 @@
 import type {
+  HelmChartMetadataSummary,
   InfraDomainId,
   RepoProfile
 } from './repository.ts';
@@ -37,6 +38,7 @@ export interface HelmInventoryTarget extends InventoryTargetBase {
   domain: 'helm';
   kind: 'helm-chart';
   chartName: string;
+  chartMetadata: HelmChartMetadataSummary;
   hasValuesFile: boolean;
   hasTemplatesDir: boolean;
   valuesSchemaFile: string | null;

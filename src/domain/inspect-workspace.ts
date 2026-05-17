@@ -5,6 +5,7 @@ import {
 } from '../tools/repository/repository-tools.ts';
 import { detectRepoProfile } from './repo-profile.ts';
 import { resolveDomainCapabilities } from './domain-capabilities.ts';
+import { readHelmChartMetadataSummary } from './helm-chart-context.ts';
 import { extractHelmValuesSchemaSemanticsForCharts } from './helm-values-schema.ts';
 import { extractPulumiStackConfigSemanticsForProjects } from './pulumi-stack-config.ts';
 import { detectPulumiProjectResourceTokens } from './pulumi-resource-tokens.ts';
@@ -72,22 +73,28 @@ function extractEnvironmentHints(values: string[]): string[] {
   return Array.from(hints).sort();
 }
 
-function buildHelmChartSummary(dirPath: string, entryNames: Set<string>, workspaceRoot: string): HelmChartSummary | null {
+async function buildHelmChartSummary(dirPath: string, entryNames: Set<string>, workspaceRoot: string): Promise<HelmChartSummary | null> {
   if (!entryNames.has('Chart.yaml')) {
     return null;
   }
 
   const chartName = basename(dirPath);
+  const chartRoot = relative(workspaceRoot, dirPath) || '.';
+  const chartMetadata = await readHelmChartMetadataSummary(workspaceRoot, {
+    chartRoot,
+    chartName
+  });
 
   return {
-    chartRoot: relative(workspaceRoot, dirPath) || '.',
-    chartName,
+    chartRoot,
+    chartName: chartMetadata.chartName,
+    chartMetadata,
     hasValuesFile: entryNames.has('values.yaml'),
     hasTemplatesDir: entryNames.has('templates'),
     valuesSchemaFile: entryNames.has('values.schema.json')
       ? relative(workspaceRoot, join(dirPath, 'values.schema.json'))
       : null,
-    environmentHints: extractEnvironmentHints([chartName, relative(workspaceRoot, dirPath) || '.'])
+    environmentHints: extractEnvironmentHints([chartMetadata.chartName, chartRoot])
   };
 }
 
@@ -160,7 +167,7 @@ async function scanDirectory(currentDir: string, workspaceRoot: string, state: S
   const entryNames = entries.map(entry => entry.name);
   const entryNameSet = new Set(entryNames);
 
-  const helmChart = buildHelmChartSummary(currentDir, entryNameSet, workspaceRoot);
+  const helmChart = await buildHelmChartSummary(currentDir, entryNameSet, workspaceRoot);
   if (helmChart) {
     state.helmCharts.push(helmChart);
     state.chartFiles += 1;

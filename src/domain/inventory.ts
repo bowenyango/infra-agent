@@ -95,6 +95,7 @@ function buildHelmTarget(
 ): InventoryTarget {
   const primary = [
     joinRelative(chart.chartRoot, 'Chart.yaml'),
+    chart.chartMetadata.hasLockFile ? joinRelative(chart.chartRoot, 'Chart.lock') : null,
     chart.hasValuesFile ? joinRelative(chart.chartRoot, 'values.yaml') : null,
     chart.valuesSchemaFile
   ].filter((file): file is string => Boolean(file));
@@ -107,6 +108,7 @@ function buildHelmTarget(
     name: chart.chartName,
     path: chart.chartRoot,
     chartName: chart.chartName,
+    chartMetadata: chart.chartMetadata,
     hasValuesFile: chart.hasValuesFile,
     hasTemplatesDir: chart.hasTemplatesDir,
     valuesSchemaFile: chart.valuesSchemaFile,

@@ -116,10 +116,31 @@ export interface ResolvedEditConstraintPolicy {
 export interface HelmChartSummary {
   chartRoot: string;
   chartName: string;
+  chartMetadata: HelmChartMetadataSummary;
   hasValuesFile: boolean;
   hasTemplatesDir: boolean;
   valuesSchemaFile: string | null;
   environmentHints: string[];
+}
+
+export interface HelmChartDependencySummary {
+  name: string;
+  locked: boolean;
+  version?: string;
+  repository?: string;
+  alias?: string;
+}
+
+export interface HelmChartMetadataSummary {
+  chartName: string;
+  hasLockFile: boolean;
+  dependencyCount: number;
+  dependencies: HelmChartDependencySummary[];
+  apiVersion?: string;
+  version?: string;
+  appVersion?: string;
+  kubeVersion?: string;
+  chartType?: string;
 }
 
 export interface PulumiProjectSummary {

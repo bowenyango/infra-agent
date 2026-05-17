@@ -1,5 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  mkdir,
+  mkdtemp,
+  rm,
+  writeFile
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import {
+  join,
+  resolve
+} from 'node:path';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { buildInventoryReport } from '../../src/domain/inventory.ts';
 
@@ -33,6 +44,13 @@ test('buildInventoryReport summarizes Helm and Pulumi targets from inspection', 
   assert.equal(chart.hasValuesFile, true);
   assert.equal(chart.hasTemplatesDir, true);
   assert.equal(chart.valuesSchemaFile, 'charts/payments-api/values.schema.json');
+  assert.equal(chart.chartMetadata.apiVersion, 'v2');
+  assert.equal(chart.chartMetadata.version, '0.1.0');
+  assert.equal(chart.chartMetadata.appVersion, '1.0.0');
+  assert.equal(chart.chartMetadata.chartType, 'application');
+  assert.equal(chart.chartMetadata.hasLockFile, false);
+  assert.equal(chart.chartMetadata.dependencyCount, 0);
+  assert.deepEqual(chart.chartMetadata.dependencies, []);
   assert.deepEqual(chart.files.primary, [
     'charts/payments-api/Chart.yaml',
     'charts/payments-api/values.yaml',
@@ -134,4 +152,89 @@ test('buildInventoryReport caps related file references', async () => {
   assert.ok(project);
   assert.deepEqual(project.files.related, []);
   assert.equal(project.files.omittedRelatedCount, 1);
+});
+
+test('buildInventoryReport summarizes Helm chart metadata dependencies from Chart.lock safely', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-inventory-helm-metadata-'));
+
+  try {
+    const chartRoot = join(tempRoot, 'charts/api');
+    await mkdir(chartRoot, { recursive: true });
+    await writeFile(
+      join(chartRoot, 'Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'description: api token should not be retained',
+        'type: application',
+        'version: 0.2.0',
+        'appVersion: "1.4.0"',
+        'kubeVersion: ">=1.27.0"',
+        'home: https://example.com/api-chart?token=bad',
+        'dependencies:',
+        '  - name: redis',
+        '    alias: cache',
+        '    version: 17.3.0',
+        '    repository: https://charts.bitnami.com/bitnami',
+        '  - name: metrics',
+        '    version: 1.2.3',
+        '    repository: https://charts.example.com/metrics',
+        '  - name: api-token-helper',
+        '    version: 0.1.0',
+        '    repository: https://example.com/secret-helper',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(chartRoot, 'Chart.lock'),
+      [
+        'dependencies:',
+        '  - name: redis',
+        '    version: 17.3.1',
+        '    repository: https://charts.bitnami.com/bitnami',
+        '  - name: postgresql',
+        '    version: 12.1.0',
+        '    repository: oci://registry.example.com/charts',
+        'digest: sha256:abc123',
+        'generated: "2026-04-28T00:00:00Z"',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const report = buildInventoryReport(inspection);
+    const chart = findTarget(report, 'helm-chart', 'charts/api');
+
+    assert.ok(chart);
+    assert.equal(chart.chartMetadata.apiVersion, 'v2');
+    assert.equal(chart.chartMetadata.version, '0.2.0');
+    assert.equal(chart.chartMetadata.appVersion, '1.4.0');
+    assert.equal(chart.chartMetadata.kubeVersion, '>=1.27.0');
+    assert.equal(chart.chartMetadata.chartType, 'application');
+    assert.equal(chart.chartMetadata.hasLockFile, true);
+    assert.equal(chart.chartMetadata.dependencyCount, chart.chartMetadata.dependencies.length);
+    assert.ok(chart.chartMetadata.dependencies.some(dependency =>
+      dependency.name === 'metrics'
+      && dependency.version === '1.2.3'
+      && dependency.repository === 'https://charts.example.com/metrics'
+      && dependency.locked === false
+    ));
+    assert.ok(chart.chartMetadata.dependencies.some(dependency =>
+      dependency.name === 'redis'
+      && dependency.version === '17.3.1'
+      && dependency.repository === 'https://charts.bitnami.com/bitnami'
+      && dependency.locked === true
+    ));
+    assert.ok(chart.chartMetadata.dependencies.some(dependency =>
+      dependency.name === 'postgresql'
+      && dependency.version === '12.1.0'
+      && dependency.repository === 'oci://registry.example.com/charts'
+      && dependency.locked === true
+    ));
+    assert.doesNotMatch(JSON.stringify(report), /dependencies:\s*\n|api-token-helper|secret-helper|token=bad|api token should not be retained|repository:\s/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });

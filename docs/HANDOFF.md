@@ -6,6 +6,60 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-16 Helm Chart Metadata In Inventory And Packs
+
+Status:
+
+- Added compact Helm `Chart.yaml` / `Chart.lock` metadata to workspace
+  inspection, `infra-agent.inventory`, and `infra-agent.scoped-pack` targets.
+- Helm chart targets now carry `chartMetadata` with chart name, api version,
+  chart version, app version, kube version, chart type, lock-file presence,
+  dependency count, and compact dependency summaries.
+- Locked dependency entries from `Chart.lock` take precedence over declared
+  dependency versions for the same dependency name. Safe declared aliases or
+  repositories may be retained when the lock entry omits them.
+- The metadata path intentionally omits raw chart YAML, descriptions, home
+  URLs, source URLs, lock digests, generated timestamps, and secret-like
+  dependency names or repository values.
+- Scoped pack Markdown and inventory text now include only compact Helm
+  identity/version/dependency-count details; full dependency summaries remain
+  JSON-only.
+- Argo CD Application -> Helm chart linkage was investigated and remains the
+  recommended next dedicated linkage slice. Kubernetes manifest linkage is
+  deferred until after a stable deployment-linkage shape exists.
+
+Files changed:
+
+- `src/types/repository.ts` adds compact Helm chart metadata and dependency
+  summary types.
+- `src/domain/helm-chart-context.ts` exports a safe chart metadata summary
+  helper reusing the existing Chart.yaml/Chart.lock parser path.
+- `src/domain/inspect-workspace.ts` populates Helm summaries with chart
+  metadata during read-only inspection.
+- `src/types/inventory.ts` and `src/domain/inventory.ts` expose metadata on
+  Helm inventory targets and include `Chart.lock` as a primary file when
+  present.
+- `src/domain/scoped-pack.ts` includes compact Helm identity/version/dependency
+  count in Markdown target summaries.
+- `src/cli/output.ts` includes compact Helm metadata in inspection and
+  inventory text output.
+- `test/unit/inventory.test.mjs`, `test/unit/scoped-pack.test.mjs`, and
+  `test/integration/cli-report-main.test.mjs` cover metadata serialization,
+  lock precedence, and raw/secret-like field omission.
+
+Validation:
+
+- `npm run test:focused -- test/unit/inventory.test.mjs` passed.
+- `npm run test:focused -- test/unit/scoped-pack.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run dev -- inventory fixtures/sample-workspace --domain helm --json` passed.
+- `npm run dev -- pack fixtures/sample-workspace --scope charts/payments-api` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed, including lint, structure, unit, integration,
+  contract, isolated shards, smoke, e2e, coverage, and package dry-run.
+
 ## 2026-05-16 Scoped Refs MVP
 
 Status:

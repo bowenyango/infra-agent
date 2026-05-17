@@ -242,7 +242,17 @@ function summarizeTarget(target: ScopedPackTarget): string {
   const reasons = target.matchReasons.join('; ');
   const environments = target.environmentHints.length > 0 ? `; env=${target.environmentHints.join(', ')}` : '';
   const changed = target.changedFiles && target.changedFiles.length > 0 ? `; changed=${target.changedFiles.length}` : '';
-  return `${target.domain} ${target.kind} ${target.path} (${reasons}${environments}${changed}; facts=${target.semanticFactCount})`;
+  const helmMetadata = target.kind === 'helm-chart'
+    ? [
+        `chart=${target.chartMetadata.chartName}`,
+        target.chartMetadata.version ? `version=${target.chartMetadata.version}` : null,
+        target.chartMetadata.appVersion ? `appVersion=${target.chartMetadata.appVersion}` : null,
+        `deps=${target.chartMetadata.dependencyCount}`
+      ].filter((item): item is string => Boolean(item)).join(' ')
+    : null;
+  const metadata = helmMetadata ? `; ${helmMetadata}` : '';
+
+  return `${target.domain} ${target.kind} ${target.path} (${reasons}${environments}${changed}${metadata}; facts=${target.semanticFactCount})`;
 }
 
 function collectRiskHints(targets: ScopedPackTarget[]): string[] {

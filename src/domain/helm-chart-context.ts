@@ -5,7 +5,11 @@ import { buildKnowledgeCacheId } from '../knowledge/cache.ts';
 import type { KnowledgeFetcher } from '../knowledge/retrieve.ts';
 import { retrieveKnowledgeContextPacket } from '../knowledge/retrieve.ts';
 import type { KnowledgeSource, RetrievedContextPacket } from '../types/knowledge.ts';
-import type { HelmChartSummary } from '../types/repository.ts';
+import type {
+  HelmChartDependencySummary,
+  HelmChartMetadataSummary,
+  HelmChartSummary
+} from '../types/repository.ts';
 
 interface HelmChartMetadata {
   apiVersion: string | null;
@@ -49,6 +53,11 @@ interface HelmChartContextRetrievalInput {
   fetcher?: KnowledgeFetcher;
   now?: Date;
   maxExternalSources?: number;
+}
+
+interface HelmChartIdentity {
+  chartRoot: string;
+  chartName: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -122,6 +131,29 @@ function isFetchableUrl(value: string | null): value is string {
   return Boolean(value && /^https?:\/\//i.test(value));
 }
 
+function emptyChartMetadata(chart: HelmChartIdentity): HelmChartMetadata {
+  return {
+    apiVersion: null,
+    name: chart.chartName,
+    version: null,
+    appVersion: null,
+    kubeVersion: null,
+    chartType: null,
+    description: null,
+    home: null,
+    sources: [],
+    dependencies: []
+  };
+}
+
+function emptyChartLockMetadata(): HelmChartLockMetadata {
+  return {
+    digest: null,
+    generated: null,
+    dependencies: []
+  };
+}
+
 function estimateTokens(value: string): number {
   return Math.ceil(value.length / 4);
 }
@@ -142,37 +174,21 @@ async function readWorkspaceFile(workspaceRoot: string, path: string): Promise<s
   }
 }
 
-async function readChartMetadata(workspaceRoot: string, chart: HelmChartSummary): Promise<HelmChartMetadata> {
+async function readChartMetadata(workspaceRoot: string, chart: HelmChartIdentity): Promise<HelmChartMetadata> {
   const content = await readWorkspaceFile(workspaceRoot, join(chart.chartRoot, 'Chart.yaml'));
   if (!content) {
-    return {
-      apiVersion: null,
-      name: chart.chartName,
-      version: null,
-      appVersion: null,
-      kubeVersion: null,
-      chartType: null,
-      description: null,
-      home: null,
-      sources: [],
-      dependencies: []
-    };
+    return emptyChartMetadata(chart);
   }
 
-  const parsed = parseDocument(content).toJSON() as unknown;
+  const parsed = (() => {
+    try {
+      return parseDocument(content).toJSON() as unknown;
+    } catch {
+      return null;
+    }
+  })();
   if (!isRecord(parsed)) {
-    return {
-      apiVersion: null,
-      name: chart.chartName,
-      version: null,
-      appVersion: null,
-      kubeVersion: null,
-      chartType: null,
-      description: null,
-      home: null,
-      sources: [],
-      dependencies: []
-    };
+    return emptyChartMetadata(chart);
   }
 
   return {
@@ -191,34 +207,32 @@ async function readChartMetadata(workspaceRoot: string, chart: HelmChartSummary)
 
 async function readChartLockMetadata(
   workspaceRoot: string,
-  chart: HelmChartSummary
+  chart: HelmChartIdentity
 ): Promise<HelmChartLockMetadata> {
   const content = await readWorkspaceFile(workspaceRoot, join(chart.chartRoot, 'Chart.lock'));
   if (!content) {
-    return {
-      digest: null,
-      generated: null,
-      dependencies: []
-    };
+    return emptyChartLockMetadata();
   }
 
-  const parsed = parseDocument(content).toJSON() as unknown;
+  const parsed = (() => {
+    try {
+      return parseDocument(content).toJSON() as unknown;
+    } catch {
+      return null;
+    }
+  })();
   return isRecord(parsed)
     ? {
       digest: asString(parsed.digest),
       generated: asString(parsed.generated),
       dependencies: asDependencyArray(parsed.dependencies)
     }
-    : {
-      digest: null,
-      generated: null,
-      dependencies: []
-    };
+    : emptyChartLockMetadata();
 }
 
 async function readChartLockDependencies(
   workspaceRoot: string,
-  chart: HelmChartSummary
+  chart: HelmChartIdentity
 ): Promise<HelmChartDependency[]> {
   return (await readChartLockMetadata(workspaceRoot, chart)).dependencies;
 }
@@ -290,6 +304,79 @@ function compactDependency(
     ...(safeString(dependency.version) ? { version: safeString(dependency.version) } : {}),
     ...(safeRepository(dependency.repository) ? { repository: safeRepository(dependency.repository) } : {}),
     ...(safeString(dependency.alias) ? { alias: safeString(dependency.alias) } : {})
+  };
+}
+
+function toHelmDependencySummary(dependency: HelmChartDependency, locked: boolean): HelmChartDependencySummary | null {
+  const name = safeString(dependency.name);
+  if (!name) {
+    return null;
+  }
+
+  const repository = safeRepository(dependency.repository);
+
+  return {
+    name,
+    locked,
+    ...(safeString(dependency.version) ? { version: safeString(dependency.version) } : {}),
+    ...(repository ? { repository } : {}),
+    ...(safeString(dependency.alias) ? { alias: safeString(dependency.alias) } : {})
+  };
+}
+
+function compactDependencySummaries(
+  declaredDependencies: HelmChartDependency[],
+  lockedDependencies: HelmChartDependency[]
+): HelmChartDependencySummary[] {
+  const byName = new Map<string, HelmChartDependencySummary>();
+
+  for (const dependency of declaredDependencies) {
+    const summary = toHelmDependencySummary(dependency, false);
+    if (!summary || byName.has(summary.name)) {
+      continue;
+    }
+
+    byName.set(summary.name, summary);
+  }
+
+  for (const dependency of lockedDependencies) {
+    const summary = toHelmDependencySummary(dependency, true);
+    if (!summary) {
+      continue;
+    }
+
+    const declared = byName.get(summary.name);
+    byName.set(summary.name, {
+      ...summary,
+      ...(summary.repository ? {} : declared?.repository ? { repository: declared.repository } : {}),
+      ...(summary.alias ? {} : declared?.alias ? { alias: declared.alias } : {})
+    });
+  }
+
+  return Array.from(byName.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function readHelmChartMetadataSummary(
+  workspaceRoot: string,
+  chart: HelmChartIdentity
+): Promise<HelmChartMetadataSummary> {
+  const metadata = await readChartMetadata(workspaceRoot, chart);
+  const lockPath = join(chart.chartRoot, 'Chart.lock');
+  const hasLockFile = Boolean(await readWorkspaceFile(workspaceRoot, lockPath));
+  const lockMetadata = await readChartLockMetadata(workspaceRoot, chart);
+  const chartName = safeString(metadata.name) ?? safeString(chart.chartName) ?? chart.chartName;
+  const dependencies = compactDependencySummaries(metadata.dependencies, lockMetadata.dependencies);
+
+  return {
+    chartName,
+    hasLockFile,
+    dependencyCount: dependencies.length,
+    dependencies,
+    ...(safeString(metadata.apiVersion) ? { apiVersion: safeString(metadata.apiVersion) } : {}),
+    ...(safeString(metadata.version) ? { version: safeString(metadata.version) } : {}),
+    ...(safeString(metadata.appVersion) ? { appVersion: safeString(metadata.appVersion) } : {}),
+    ...(safeString(metadata.kubeVersion) ? { kubeVersion: safeString(metadata.kubeVersion) } : {}),
+    ...(safeString(metadata.chartType) ? { chartType: safeString(metadata.chartType) } : {})
   };
 }
 
