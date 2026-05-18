@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
+import {
+  collectWorkspaceKnowledgeSources,
+  resolveKnowledgeSourceSelection
+} from './prefetch.ts';
 import {
   buildEmptyCuratedKnowledgeFactSet,
   extractCuratedKnowledgeUnitSetFromCacheEntry
@@ -48,6 +51,7 @@ export interface KnowledgeExtractionReport {
   workspaceRoot: string;
   cacheRoot: string;
   requestedDomains: InfraDomainId[];
+  resource?: string;
   targetPaths: string[];
   sourceIds: string[];
   sourceCount: number;
@@ -64,6 +68,7 @@ export interface KnowledgeExtractionReport {
 export interface KnowledgeExtractionOptions {
   domains?: InfraDomainId[];
   targetPaths?: string[];
+  resource?: string;
   sourceIds?: string[];
   store?: KnowledgeStore;
   now?: Date;
@@ -384,9 +389,11 @@ export async function extractWorkspaceKnowledgeFacts(
   options: KnowledgeExtractionOptions = {}
 ): Promise<KnowledgeExtractionReport> {
   const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
+  const selection = resolveKnowledgeSourceSelection(inspection, options);
   const candidates = await collectWorkspaceKnowledgeSources(inspection, {
     domains: options.domains,
-    targetPaths: options.targetPaths
+    targetPaths: options.targetPaths,
+    resource: options.resource
   });
   const requestedSourceIds = new Set(options.sourceIds ?? []);
   const factSets: KnowledgeFactSet[] = [];
@@ -529,8 +536,9 @@ export async function extractWorkspaceKnowledgeFacts(
     mutationAllowed: false,
     workspaceRoot: inspection.workspaceRoot,
     cacheRoot: inspection.knowledgeCache.root,
-    requestedDomains: options.domains ?? inspection.domainCapabilities.map(domain => domain.id),
-    targetPaths: options.targetPaths ?? [],
+    requestedDomains: selection.requestedDomains,
+    ...(selection.resource !== undefined ? { resource: selection.resource } : {}),
+    targetPaths: selection.targetPaths,
     sourceIds: options.sourceIds ?? [],
     sourceCount: sources.length,
     factSetCount: factSets.length,

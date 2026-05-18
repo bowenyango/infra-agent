@@ -131,6 +131,7 @@ export interface ParsedArgs {
   packChanged?: boolean;
   refsScope?: string | null;
   refsResource?: string | null;
+  knowledgeResource?: string | null;
   sourceIds?: string[];
   knowledgeIndexFilter?: KnowledgeUnitIndexEntryFilter;
   maxSources: number | null;
@@ -163,12 +164,12 @@ function printUsage(): void {
       '  infra-agent impact-report <graph.json> [--json]',
       '  infra-agent identity-report <agent-result.json> [--json]',
       '  infra-agent prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
-      '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--max-sources <n>] [--json]',
-      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--manifest-out <manifest.json>] [--json]',
+      '  infra-agent knowledge sources [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--json]',
+      '  infra-agent knowledge prefetch [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--max-sources <n>] [--json]',
+      '  infra-agent knowledge extract [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--out <knowledge.json>] [--units-out <dir>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
-      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
-      '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]',
+      '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
+      '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]',
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
@@ -1291,6 +1292,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let publishChart: string | null = null;
     let publishModule: string | null = null;
     let publishAllowWorkspacePrivate = false;
+    let knowledgeResource: string | null = null;
     const knowledgeIndexFilter: KnowledgeUnitIndexEntryFilter = {};
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
@@ -1322,6 +1324,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         targetPaths.push(targetValue);
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--resource') {
+        const resourceValue = actionArgs[index + 1]?.trim();
+        if (!resourceValue) {
+          fail('Missing value for --resource.');
+        }
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish') {
+          fail('--resource is not supported for knowledge validate or knowledge publish.');
+        }
+        if (knowledgeResource !== null) {
+          fail('--resource can be provided at most once.');
+        }
+
+        knowledgeResource = resourceValue;
         index += 1;
         continue;
       }
@@ -1715,6 +1734,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'publish' && targetPaths.length > 1) {
       fail('knowledge publish accepts at most one --target value.');
     }
+    if (knowledgeResource !== null && targetPaths.length > 0) {
+      fail(`knowledge ${knowledgeAction} accepts either --target or --resource, not both.`);
+    }
     if (manifestOutputPath !== null && outputPath === null) {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
@@ -1753,6 +1775,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       contextTokenBudget: null,
       domains,
       targetPaths,
+      knowledgeResource,
       sourceIds,
       knowledgeIndexFilter: hasKnowledgeIndexFilter(knowledgeIndexFilter) ? knowledgeIndexFilter : undefined,
       maxSources,
@@ -2216,7 +2239,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const inspection = await inspectWorkspace(parsed.workspace);
     const report = await buildKnowledgeSourcesReport(inspection, {
       domains: parsed.domains,
-      targetPaths: parsed.targetPaths
+      targetPaths: parsed.targetPaths,
+      resource: parsed.knowledgeResource ?? undefined
     });
 
     if (parsed.json) {
@@ -2275,6 +2299,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const result = await prefetchWorkspaceKnowledge(inspection, {
       domains: parsed.domains,
       targetPaths: parsed.targetPaths,
+      resource: parsed.knowledgeResource ?? undefined,
       maxSources: parsed.maxSources ?? undefined
     });
 
@@ -2292,6 +2317,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const report = await extractWorkspaceKnowledgeFacts(inspection, {
       domains: parsed.domains,
       targetPaths: parsed.targetPaths,
+      resource: parsed.knowledgeResource ?? undefined,
       sourceIds: parsed.sourceIds
     });
     const writtenPath = parsed.outputPath
@@ -2416,6 +2442,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const pack = await buildKnowledgePack(inspection, {
       domains: parsed.domains,
       targetPaths: parsed.targetPaths,
+      resource: parsed.knowledgeResource ?? undefined,
       sourceIds: parsed.sourceIds,
       maxUnits: parsed.maxUnits ?? undefined
     });
@@ -2449,6 +2476,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const pack = await buildKnowledgePack(inspection, {
       domains: parsed.domains,
       targetPaths: parsed.targetPaths,
+      resource: parsed.knowledgeResource ?? undefined,
       sourceIds: parsed.sourceIds,
       maxFacts: parsed.maxFacts ?? undefined,
       maxUnits: parsed.maxUnits ?? undefined

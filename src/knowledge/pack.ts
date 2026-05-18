@@ -137,6 +137,7 @@ export interface KnowledgePack {
   workspaceRoot: string;
   cacheRoot: string;
   requestedDomains: InfraDomainId[];
+  resource?: string;
   targetPaths: string[];
   sourceIds: string[];
   sourceCount: number;
@@ -418,6 +419,7 @@ export async function buildKnowledgePack(
     workspaceRoot: extraction.workspaceRoot,
     cacheRoot: extraction.cacheRoot,
     requestedDomains: extraction.requestedDomains,
+    ...(extraction.resource !== undefined ? { resource: extraction.resource } : {}),
     targetPaths: extraction.targetPaths,
     sourceIds: extraction.sourceIds,
     sourceCount: sources.length,

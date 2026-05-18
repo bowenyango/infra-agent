@@ -6,6 +6,76 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-17 Resource Knowledge Resolver Iteration 2
+
+Status:
+
+- Added `--resource <identity>` to `knowledge sources`, `knowledge prefetch`,
+  `knowledge extract`, `knowledge pack`, and `knowledge index`. It is
+  intentionally not supported for `knowledge validate` or `knowledge publish`.
+- Resource-scoped knowledge commands reuse the scoped-pack lookup path instead
+  of adding a parallel resolver. The resource identity is resolved into matched
+  inventory target paths before any knowledge source selection happens.
+- Unmatched resource identities now return empty knowledge sources/facts/packs
+  instead of falling back to whole-workspace source selection.
+- Terraform and Pulumi resource-scoped source selection now filters within the
+  matched target: Terraform keeps only matching `terraform-registry` resource or
+  data-source docs, and Pulumi keeps only matching `pulumi-docs:resource:*`
+  docs. This prevents unrelated resource docs in the same root/project from
+  entering packs and indexes.
+- Helm resource identities continue to include chart-level knowledge sources
+  for the matched chart because chart/release/application identities map to the
+  chart as the semantic unit.
+- Knowledge sources, extraction reports, packs, and prefetch results now include
+  an additive `resource` field when resource-scoped.
+- Updated the infra-configuration skill to direct agents toward
+  resource-scoped refs and knowledge commands while preserving the boundary:
+  context extraction only, not deployment/apply/upload automation.
+
+Files changed:
+
+- `src/cli/main.ts` parses and routes `--resource` for supported knowledge
+  actions and rejects `--target` + `--resource` ambiguity.
+- `src/knowledge/prefetch.ts` centralizes resource-to-target resolution and
+  resource-aware source filtering for knowledge source collection and prefetch.
+- `src/knowledge/sources.ts`, `src/knowledge/extract.ts`, and
+  `src/knowledge/pack.ts` preserve resolved resource and target metadata in
+  agent-facing JSON contracts.
+- `skills/infra-configuration/SKILL.md` documents resource-scoped refs and
+  knowledge workflow guidance.
+- `test/integration/cli-knowledge-resource-main.test.mjs` adds cross-domain
+  Terraform and Pulumi regression coverage proving unrelated cached resource
+  docs are excluded from sources, packs, and indexes.
+- Existing CLI integration tests cover knowledge argument parsing, Helm
+  resource-scoped pack/index behavior, source misses, and package skill docs.
+
+Validation:
+
+- `npm run test:focused -- test/integration/cli-knowledge-resource-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-args-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-core-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:unit` passed.
+- `npm run test:integration` passed.
+- `npm run test:contract` passed.
+- `npm run test:structure` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Resource-scoped Terraform/Pulumi packs currently favor public resource docs
+  for precision and omit target-level local sources such as provider-schema,
+  Terraform local-module, Pulumi config, and configured team artifacts under
+  `--resource`. Later iterations should add explicit resource metadata to those
+  sources before re-including them.
+- Knowledge index filtering is still source-level after resource routing. It
+  does not yet select individual unit metadata by resource field path.
+- A single-command resource knowledge flow is still pending; users currently
+  compose `knowledge sources`, optional `knowledge prefetch`, `knowledge pack`,
+  and `knowledge index`.
+
 ## 2026-05-17 Resource Identity Lookup Iteration 1
 
 Status:

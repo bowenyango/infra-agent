@@ -93,6 +93,31 @@ test('knowledge index command emits compact unit metadata JSON', async () => {
   }
 });
 
+test('knowledge index command resolves resource identities before metadata filtering', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'index',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--resource',
+    'chart:payments-api',
+    '--max-units',
+    '4',
+    '--json'
+  ]));
+  const index = parseJsonOutput(output);
+
+  assert.equal(index.kind, 'infra-agent.knowledge-unit-index');
+  assert.ok(index.sourceCount >= 1);
+  assert.ok(index.includedUnitCount > 0);
+  assert.ok(index.entries.every(entry =>
+    entry.domain === 'helm'
+    && entry.targetPath === 'charts/payments-api'
+  ));
+  assert.equal(collectObjectKeys(index).has('content'), false);
+});
+
 test('knowledge index filters entries by unit type and storage scope', async () => {
   const baseArgs = [
     'knowledge',

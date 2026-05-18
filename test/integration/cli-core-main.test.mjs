@@ -430,7 +430,7 @@ test('package metadata exposes only the installable CLI and skill surface', asyn
   assert.match(infraSkillContent, /infra-agent knowledge prefetch <workspace>/);
   assert.match(infraSkillContent, /infra-agent knowledge extract <workspace>/);
   assert.match(infraSkillContent, /infra-agent knowledge pack <workspace>/);
-  assert.match(infraSkillContent, /infra-agent knowledge index <artifact>/);
+  assert.match(infraSkillContent, /infra-agent knowledge index <workspace>/);
   assert.match(infraSkillContent, /infra-agent knowledge validate <artifact> --workspace <workspace>/);
   assert.match(infraSkillContent, /infra-agent graph <workspace> --json/);
   assert.match(infraSkillContent, /infra-agent agent "<task>" --workspace <workspace> --json/);

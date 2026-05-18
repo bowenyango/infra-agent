@@ -287,9 +287,59 @@ test('knowledge sources command lists Pulumi resource docs from language tokens'
       && source.storagePolicy.shareableByDefault === true
     ));
     assert.doesNotMatch(output, /api-bucket|new aws\.s3\.Bucket|"content"\s*:/);
+
+    const resourceOutput = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--resource',
+      'aws:s3/bucket:Bucket',
+      '--json'
+    ]));
+    const resourceReport = JSON.parse(resourceOutput.slice(resourceOutput.indexOf('{')));
+
+    assert.equal(resourceReport.kind, 'infra-agent.knowledge-sources');
+    assert.equal(resourceReport.resource, 'aws:s3/bucket:Bucket');
+    assert.deepEqual(resourceReport.requestedDomains, ['pulumi']);
+    assert.deepEqual(resourceReport.targetPaths, ['infra/api']);
+    assert.ok(resourceReport.sources.every(source =>
+      source.domain === 'pulumi'
+      && source.targetPath === 'infra/api'
+    ));
+    assert.ok(resourceReport.sources.some(source =>
+      source.requiresFetch === true
+      && source.source.kind === 'pulumi-docs'
+      && source.source.name === 'pulumi-docs:resource:aws:s3/bucket'
+      && source.source.module === 'aws:s3/bucket:Bucket'
+    ));
+    assert.doesNotMatch(resourceOutput, /api-bucket|new aws\.s3\.Bucket|"content"\s*:/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('knowledge sources resource misses do not fall back to all workspace targets', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'sources',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--resource',
+    'chart:missing',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.knowledge-sources');
+  assert.equal(report.resource, 'chart:missing');
+  assert.deepEqual(report.requestedDomains, ['helm']);
+  assert.deepEqual(report.targetPaths, []);
+  assert.equal(report.sourceCount, 0);
+  assert.deepEqual(report.sources, []);
+  assert.doesNotMatch(output, /charts\/payments-api|replicaCount|"\$schema"/);
 });
 
 test('knowledge sources command lists Pulumi component sources without raw source content', async () => {

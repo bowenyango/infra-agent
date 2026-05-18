@@ -105,6 +105,30 @@ test('knowledge sources CLI args accept bounded source listing flags', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge source selection accepts resource identities', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'pack',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--resource',
+    'chart:payments-api',
+    '--max-units',
+    '4',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'pack');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, []);
+  assert.equal(parsed.knowledgeResource, 'chart:payments-api');
+  assert.equal(parsed.maxUnits, 4);
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge extract CLI args accept source filters and bounded targets', () => {
   const parsed = parseArgs([
     'knowledge',
@@ -319,6 +343,21 @@ test('knowledge publish CLI args accept lean shared artifact staging flags', () 
 
 test('knowledge index filters are rejected for other knowledge actions', () => {
   const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'pack', 'fixtures/sample-workspace', '--unit-type', 'fact']);";
+  const result = spawnSync(process.execPath, [
+    '--experimental-strip-types',
+    '--input-type=module',
+    '-e',
+    script
+  ], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  });
+
+  assert.equal(result.status, 1);
+});
+
+test('knowledge source selection rejects target and resource together', () => {
+  const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'sources', 'fixtures/sample-workspace', '--target', 'charts/payments-api', '--resource', 'chart:payments-api']);";
   const result = spawnSync(process.execPath, [
     '--experimental-strip-types',
     '--input-type=module',

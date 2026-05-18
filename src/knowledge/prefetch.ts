@@ -18,6 +18,7 @@ import {
   configuredRegistrySources,
   registryPrefetchCandidate
 } from './unit-artifact-registry.ts';
+import { buildScopedPackReport } from '../domain/scoped-pack.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
 import { buildPulumiComponentKnowledgeSources } from '../domain/pulumi-components.ts';
@@ -73,6 +74,7 @@ export interface KnowledgePrefetchResult {
   workspaceRoot: string;
   cacheRoot: string;
   requestedDomains: InfraDomainId[];
+  resource?: string;
   targetPaths: string[];
   maxSources: number;
   sources: KnowledgePrefetchSourceResult[];
@@ -82,6 +84,7 @@ export interface KnowledgePrefetchResult {
 export interface KnowledgePrefetchOptions {
   domains?: InfraDomainId[];
   targetPaths?: string[];
+  resource?: string;
   maxSources?: number;
   fetcher?: KnowledgeFetcher;
   store?: KnowledgeStore;
@@ -91,7 +94,14 @@ export interface KnowledgePrefetchOptions {
 interface CollectWorkspaceKnowledgeSourcesOptions {
   domains?: InfraDomainId[];
   targetPaths?: string[];
+  resource?: string;
   store?: KnowledgeStore;
+}
+
+export interface KnowledgeSourceSelection {
+  requestedDomains: InfraDomainId[];
+  targetPaths: string[];
+  resource?: string;
 }
 
 function normalizeMaxSources(maxSources: number | undefined): number {
@@ -111,6 +121,187 @@ function resolveRequestedDomains(
   }
 
   return inspection.domainCapabilities.map(domain => domain.id);
+}
+
+function uniqueSorted(values: Iterable<string>): string[] {
+  return Array.from(new Set(Array.from(values).filter(Boolean))).sort();
+}
+
+function normalizeIdentity(value: string): string {
+  return value.trim().replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+/g, '/').replace(/\/$/, '').toLowerCase();
+}
+
+function identityMatches(resource: string, identities: Iterable<string | null | undefined>): boolean {
+  const normalizedResource = normalizeIdentity(resource);
+  for (const identity of identities) {
+    if (typeof identity === 'string' && normalizeIdentity(identity) === normalizedResource) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function terraformUsageIdentities(usage: WorkspaceInspection['terraformRoots'][number]['resourceUsages'][number]): string[] {
+  return [
+    usage.typeName,
+    `${usage.typeName}.${usage.name}`,
+    usage.sourceLocator,
+    usage.kind === 'data-source' ? `data.${usage.typeName}.${usage.name}` : null,
+    usage.kind === 'resource' ? `resource.${usage.typeName}.${usage.name}` : null,
+    usage.kind === 'data-source' ? `data:${usage.typeName}` : null,
+    usage.kind === 'resource' ? `resource:${usage.typeName}` : null
+  ].filter((value): value is string => Boolean(value));
+}
+
+function pulumiTokenIdentities(token: WorkspaceInspection['pulumiProjects'][number]['resourceTokens'][number]): string[] {
+  return [
+    token.name,
+    token.type,
+    `${token.type}.${token.name}`,
+    `pulumi:${token.type}`,
+    `@pulumi/${token.packageName}`,
+    token.packageName,
+    token.moduleName,
+    token.typeName,
+    token.evidence?.sourceLocator
+  ].filter((value): value is string => Boolean(value));
+}
+
+function matchedTerraformResourceUsages(
+  inspection: WorkspaceInspection,
+  targetPath: string,
+  resource: string
+): WorkspaceInspection['terraformRoots'][number]['resourceUsages'] {
+  const root = inspection.terraformRoots.find(candidate => candidate.rootPath === targetPath);
+  if (!root) {
+    return [];
+  }
+
+  return root.resourceUsages.filter(usage => identityMatches(resource, terraformUsageIdentities(usage)));
+}
+
+function matchedPulumiResourceTokens(
+  inspection: WorkspaceInspection,
+  targetPath: string,
+  resource: string
+): WorkspaceInspection['pulumiProjects'][number]['resourceTokens'] {
+  const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === targetPath);
+  if (!project) {
+    return [];
+  }
+
+  return project.resourceTokens.filter(token => identityMatches(resource, pulumiTokenIdentities(token)));
+}
+
+function terraformSourceAllowedForResource(input: {
+  inspection: WorkspaceInspection;
+  targetPath: string;
+  resource: string;
+  source: KnowledgeSource;
+}): boolean {
+  if (input.source.kind !== 'terraform-registry') {
+    return false;
+  }
+
+  const matchedUsages = matchedTerraformResourceUsages(input.inspection, input.targetPath, input.resource);
+  if (matchedUsages.length === 0) {
+    return false;
+  }
+
+  return matchedUsages.some(usage =>
+    input.source.name === `${usage.kind === 'data-source' ? 'data-source' : 'resource'}:${usage.typeName}`
+  );
+}
+
+function pulumiSourceAllowedForResource(input: {
+  inspection: WorkspaceInspection;
+  targetPath: string;
+  resource: string;
+  source: KnowledgeSource;
+}): boolean {
+  if (input.source.kind !== 'pulumi-docs' || !input.source.name.startsWith('pulumi-docs:resource:')) {
+    return false;
+  }
+
+  const matchedTokens = matchedPulumiResourceTokens(input.inspection, input.targetPath, input.resource);
+  if (matchedTokens.length === 0) {
+    return false;
+  }
+
+  return matchedTokens.some(token => input.source.module === token.type);
+}
+
+function sourceAllowedForResource(
+  inspection: WorkspaceInspection,
+  candidate: KnowledgePrefetchCandidate,
+  resource: string
+): boolean {
+  if (candidate.domain === 'helm') {
+    return true;
+  }
+
+  if (candidate.domain === 'terraform') {
+    return terraformSourceAllowedForResource({
+      inspection,
+      targetPath: candidate.targetPath,
+      resource,
+      source: candidate.source
+    });
+  }
+
+  if (candidate.domain === 'pulumi') {
+    return pulumiSourceAllowedForResource({
+      inspection,
+      targetPath: candidate.targetPath,
+      resource,
+      source: candidate.source
+    });
+  }
+
+  return false;
+}
+
+function filterResourceScopedCandidates(
+  inspection: WorkspaceInspection,
+  candidates: KnowledgePrefetchCandidate[],
+  resource: string | undefined
+): KnowledgePrefetchCandidate[] {
+  if (resource === undefined) {
+    return candidates;
+  }
+
+  return candidates.filter(candidate => sourceAllowedForResource(inspection, candidate, resource));
+}
+
+export function resolveKnowledgeSourceSelection(
+  inspection: WorkspaceInspection,
+  options: {
+    domains?: InfraDomainId[];
+    targetPaths?: string[];
+    resource?: string;
+  } = {}
+): KnowledgeSourceSelection {
+  const requestedDomains = resolveRequestedDomains(inspection, options.domains);
+  const resource = options.resource?.trim();
+
+  if (resource && resource.length > 0) {
+    const scopedPack = buildScopedPackReport(inspection, {
+      scope: resource,
+      domains: requestedDomains
+    });
+
+    return {
+      requestedDomains,
+      resource,
+      targetPaths: uniqueSorted(scopedPack.targets.map(target => target.path))
+    };
+  }
+
+  return {
+    requestedDomains,
+    targetPaths: options.targetPaths ?? []
+  };
 }
 
 function collectConfiguredCuratedUnitSources(
@@ -238,8 +429,13 @@ export async function collectWorkspaceKnowledgeSources(
   options: CollectWorkspaceKnowledgeSourcesOptions = {}
 ): Promise<KnowledgePrefetchCandidate[]> {
   const workspaceRoot = inspection.workspaceRoot;
-  const requestedDomains = new Set(resolveRequestedDomains(inspection, options.domains));
-  const targetPaths = new Set(options.targetPaths ?? []);
+  const selection = resolveKnowledgeSourceSelection(inspection, options);
+  if (selection.resource !== undefined && selection.targetPaths.length === 0) {
+    return [];
+  }
+
+  const requestedDomains = new Set(selection.requestedDomains);
+  const targetPaths = new Set(selection.targetPaths);
   const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
   const candidates: KnowledgePrefetchCandidate[] = [];
 
@@ -326,7 +522,7 @@ export async function collectWorkspaceKnowledgeSources(
     store
   ));
 
-  return candidates;
+  return filterResourceScopedCandidates(inspection, candidates, selection.resource);
 }
 
 function buildSummary(sources: KnowledgePrefetchSourceResult[]): KnowledgePrefetchSummary {
@@ -434,25 +630,29 @@ export async function prefetchWorkspaceKnowledge(
   inspection: WorkspaceInspection,
   options: KnowledgePrefetchOptions = {}
 ): Promise<KnowledgePrefetchResult> {
-  const requestedDomains = resolveRequestedDomains(inspection, options.domains);
-  const targetPaths = options.targetPaths ?? [];
+  const selection = resolveKnowledgeSourceSelection(inspection, options);
+  const requestedDomains = selection.requestedDomains;
+  const targetPaths = selection.targetPaths;
   const maxSources = normalizeMaxSources(options.maxSources);
   const fetcher = options.fetcher ?? fetchOfficialKnowledgeSource;
   const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
   const storeBuildId = (source: KnowledgeSource) => store.buildId(source);
-  const registryPrefetch = await prefetchConfiguredUnitArtifactRegistries({
-    inspection,
-    requestedDomains,
-    targetPaths,
-    maxSources,
-    fetcher,
-    store,
-    now: options.now,
-    externalSourceCount: 0
-  });
+  const registryPrefetch = selection.resource !== undefined
+    ? { sources: [], externalSourceCount: 0 }
+    : await prefetchConfiguredUnitArtifactRegistries({
+        inspection,
+        requestedDomains,
+        targetPaths,
+        maxSources,
+        fetcher,
+        store,
+        now: options.now,
+        externalSourceCount: 0
+      });
   const candidates = await collectWorkspaceKnowledgeSources(inspection, {
     domains: requestedDomains,
     targetPaths,
+    resource: selection.resource,
     store
   });
   const sources: KnowledgePrefetchSourceResult[] = [...registryPrefetch.sources];
@@ -506,6 +706,7 @@ export async function prefetchWorkspaceKnowledge(
     workspaceRoot: inspection.workspaceRoot,
     cacheRoot: inspection.knowledgeCache.root,
     requestedDomains,
+    ...(selection.resource !== undefined ? { resource: selection.resource } : {}),
     targetPaths,
     maxSources,
     sources,

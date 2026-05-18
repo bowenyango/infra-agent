@@ -1,4 +1,7 @@
-import { collectWorkspaceKnowledgeSources } from './prefetch.ts';
+import {
+  collectWorkspaceKnowledgeSources,
+  resolveKnowledgeSourceSelection
+} from './prefetch.ts';
 import {
   resolveKnowledgeSourceCacheStatus,
   type KnowledgeSourceCacheStatus
@@ -30,6 +33,7 @@ export interface KnowledgeSourcesReport {
   workspaceRoot: string;
   cacheRoot: string;
   requestedDomains: InfraDomainId[];
+  resource?: string;
   targetPaths: string[];
   sourceCount: number;
   summary: {
@@ -76,10 +80,12 @@ export async function buildKnowledgeSourcesReport(
   options: {
     domains?: InfraDomainId[];
     targetPaths?: string[];
+    resource?: string;
     store?: KnowledgeStore;
     now?: Date;
   } = {}
 ): Promise<KnowledgeSourcesReport> {
+  const selection = resolveKnowledgeSourceSelection(inspection, options);
   const candidates = await collectWorkspaceKnowledgeSources(inspection, options);
   const store = options.store ?? createFileKnowledgeStore(inspection.knowledgeCache.root);
   const sources = await Promise.all(candidates.map(async candidate => ({
@@ -98,8 +104,9 @@ export async function buildKnowledgeSourcesReport(
     mutationAllowed: false,
     workspaceRoot: inspection.workspaceRoot,
     cacheRoot: inspection.knowledgeCache.root,
-    requestedDomains: options.domains ?? inspection.domainCapabilities.map(domain => domain.id),
-    targetPaths: options.targetPaths ?? [],
+    requestedDomains: selection.requestedDomains,
+    ...(selection.resource !== undefined ? { resource: selection.resource } : {}),
+    targetPaths: selection.targetPaths,
     sourceCount: sources.length,
     summary: summarizeSources(sources),
     sources

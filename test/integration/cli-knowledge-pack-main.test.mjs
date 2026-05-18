@@ -135,6 +135,35 @@ test('knowledge pack command emits bounded fact pack JSON', async () => {
   assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
 });
 
+test('knowledge pack command resolves Helm chart resource identities', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'pack',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--resource',
+    'chart:payments-api',
+    '--max-units',
+    '5',
+    '--json'
+  ]));
+  const pack = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(pack.kind, 'infra-agent.knowledge-pack');
+  assert.equal(pack.mutationAllowed, false);
+  assert.equal(pack.resource, 'chart:payments-api');
+  assert.deepEqual(pack.requestedDomains, ['helm']);
+  assert.deepEqual(pack.targetPaths, ['charts/payments-api']);
+  assert.equal(pack.maxUnits, 5);
+  assert.ok(pack.sources.every(source =>
+    source.domain === 'helm'
+    && source.targetPath === 'charts/payments-api'
+  ));
+  assert.ok(pack.units.some(unit => unit.path === 'chart.payments-api.image.repository'));
+  assert.doesNotMatch(output, /"content"\s*:|replicaCount":\s*\{|"\$schema"/);
+});
+
 test('knowledge pack command emits Helm chart metadata and dependency facts', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-pack-helm-metadata-cli-'));
 
