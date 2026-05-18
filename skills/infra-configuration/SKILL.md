@@ -63,7 +63,7 @@ values.
    the deterministic metadata workflow:
 
    ```sh
-   infra-agent knowledge resource <workspace> --resource <identity>
+   infra-agent knowledge resource <workspace> --domain <helm|pulumi|terraform> --resource <identity> --json
    infra-agent knowledge sources <workspace>
    infra-agent knowledge prefetch <workspace>
    infra-agent knowledge extract <workspace>

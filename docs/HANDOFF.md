@@ -6,6 +6,48 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge Smoke Iteration 9
+
+Status:
+
+- Continued the ten-iteration resource extraction milestone. The user plans to
+  test after ten loops by providing a Terraform, Pulumi, or Helm resource
+  identity and expecting a repo-linked, compact five-unit knowledge report.
+- Added a final resource-knowledge smoke path for the one-shot
+  `infra-agent knowledge resource <workspace> --domain <domain> --resource
+  <identity> --json` workflow.
+- The smoke seeds temporary workspace-local knowledge caches, avoids network
+  and global cache dependencies, and covers Terraform, Pulumi, and Helm command
+  shapes with compact report assertions.
+- Wired the new smoke into `npm run smoke` through
+  `npm run smoke:knowledge-resource`.
+- Documented the user-facing acceptance commands and added `knowledge
+  resource` to the README CLI surface.
+
+Files changed:
+
+- `scripts/resource-knowledge-smoke.mjs` adds the dedicated resource-knowledge
+  smoke path.
+- `package.json` wires `smoke:knowledge-resource` into `npm run smoke`.
+- `README.md`, `docs/TESTING.md`, `docs/ROADMAP.md`, and
+  `skills/infra-configuration/SKILL.md` document the final command shape and
+  milestone progress.
+
+Validation:
+
+- `npm run test:structure` passed.
+- `npm run lint` passed.
+- `npm run smoke:knowledge-resource` passed.
+- `npm run smoke` passed.
+- `npm run verify` passed.
+- `git diff --check` passed.
+
+Residual risks:
+
+- This smoke uses seeded cache entries so it remains deterministic and offline.
+  The tenth-loop user test may still expose live-repo resource identities or
+  missing-cache cases that need final polish.
+
 ## 2026-05-18 Resource Knowledge Cross-Domain Acceptance Iteration 8
 
 Status:

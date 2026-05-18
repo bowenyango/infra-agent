@@ -34,7 +34,8 @@
     "test:coverage": "node --experimental-strip-types --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/types/**/*.ts' --test-coverage-lines=85 --test-coverage-branches=75 --test-coverage-functions=90 ./test/run-all.mjs",
     "test:focused": "node --experimental-strip-types",
     "test": "npm run test:structure && npm run test:all",
-    "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
+    "smoke": "node --experimental-strip-types ./scripts/smoke.mjs && npm run smoke:knowledge-resource",
+    "smoke:knowledge-resource": "node --experimental-strip-types ./scripts/resource-knowledge-smoke.mjs",
     "e2e": "node --experimental-strip-types ./scripts/e2e.mjs",
     "package:check": "npm_config_cache=/tmp/infra-agent-npm-cache npm pack --dry-run --json",
     "verify": "npm run lint && npm run test:structure && npm run test:unit && npm run test:integration && npm run test:contract && npm run test:isolated && npm run smoke && npm run e2e && npm run test:coverage && npm run package:check"

@@ -99,7 +99,7 @@ Iteration plan:
 10. Add a final user-facing smoke path and documented command sequence for the
     user's acceptance test.
 
-Current progress: iterations 1 through 8 have initial implementations on
+Current progress: iterations 1 through 9 have initial implementations on
 `agent-2`. `knowledge resource --resource <identity>` now composes target
 lookup, suggested files, resource-filtered source posture, compact refs, a
 bounded five-unit knowledge pack, and a unit index in one read-only report.
@@ -118,8 +118,10 @@ specific resource field without loading unrelated fields or raw source content.
 Iteration 8 adds cross-domain acceptance coverage for Terraform resource and
 data-source identities, Pulumi resource name and package-token identities, and
 Helm Argo CD application and namespace identities. The remaining milestone work
-is the final user-facing smoke path and documented command sequence for the
-ten-loop test.
+Iteration 9 adds the resource-knowledge smoke path wired into `npm run smoke`
+and documents the user-facing Terraform, Pulumi, and Helm command shapes for
+the ten-loop test. The remaining milestone work is final acceptance polish
+before the user supplies their own resource identity.
 
 Agent-2 reset policy:
 

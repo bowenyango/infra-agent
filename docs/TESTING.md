@@ -14,6 +14,8 @@ stable category entrypoints.
 - `npm run test:all`: all category suites.
 - `npm run test:coverage`: all category suites with Node's native coverage
   gate over `src/**/*.ts` (minimum 85% lines, 75% branches, 90% functions).
+- `npm run smoke:knowledge-resource`: final resource-knowledge acceptance smoke
+  for the one-shot `knowledge resource` CLI path.
 - `npm test`: structure guard plus all category suites.
 - `npm run package:check`: package dry-run for shipped file surface.
 - `npm run verify`: full local gate: lint, structure, unit, integration,
@@ -87,6 +89,33 @@ validation failure on forged or drifted metadata. They should not require a
 Vector DB, raw cached docs, full examples, live network access, or public-doc
 goldens. Multi-source pack source-level omitted distribution remains an
 estimate, so tests should not require exact per-source omitted allocation yet.
+
+## Resource Knowledge Acceptance Smoke
+
+Run the resource-knowledge smoke before a user-facing acceptance check:
+
+```sh
+npm run smoke:knowledge-resource
+```
+
+The smoke seeds a temporary workspace-local knowledge cache and exercises the
+one-shot resource report path for Terraform, Pulumi, and Helm. It does not use
+the network, global cache, shared registry, upload path, or infrastructure
+mutation commands.
+
+The equivalent user-facing command shapes are:
+
+```sh
+infra-agent knowledge resource <workspace> --domain terraform --resource resource:aws_s3_bucket --max-units 20 --json
+infra-agent knowledge resource <workspace> --domain pulumi --resource pulumi:aws:s3/bucket:Bucket --max-units 20 --json
+infra-agent knowledge resource <workspace> --domain helm --resource argocd:payments-api-prod --max-units 50 --json
+```
+
+Acceptance output should be an `infra-agent.knowledge-resource-report` with
+`mutationAllowed: false`, one matched target, scoped suggested files, cache
+posture, compact refs, a bounded `knowledge-pack`, all five unit types, and a
+field-aware `unitIndex`. It must not include raw source content, secret values,
+or unrelated resource sources.
 
 ## Layout
 
