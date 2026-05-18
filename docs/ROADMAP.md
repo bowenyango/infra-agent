@@ -105,9 +105,11 @@ lookup, suggested files, resource-filtered source posture, compact refs, a
 bounded five-unit knowledge pack, and a unit index in one read-only report.
 Iteration 4 Helm coverage now has a dedicated `chart:payments-api` resource
 report fixture that proves Argo CD linkage, values-layer ordering, secret
-value-file omission, five knowledge unit types, and cache immutability. Later
-iterations still need resource-field-level index filtering, semantic hash cache
-reporting, equivalent release-identity coverage, broader Terraform/Pulumi/Helm
+value-file omission, five knowledge unit types, and cache immutability.
+Iteration 5 adds equivalent `release:payments-api` coverage, proving Helm
+release identity resolves to the same chart-scoped report without falling back
+to broad workspace context. Later iterations still need resource-field-level
+index filtering, semantic hash cache reporting, broader Terraform/Pulumi/Helm
 acceptance fixtures, and the final user-facing smoke path.
 
 Agent-2 reset policy:

@@ -680,6 +680,99 @@ test('knowledge resource report composes Helm Argo values layers and five-unit c
   }
 });
 
+test('knowledge resource report resolves Helm release identity to chart knowledge', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-resource-report-helm-release-'));
+
+  try {
+    await writeHelmResourceWorkspace(tempRoot);
+    await seedHelmResourceCaches(tempRoot);
+    const cacheDir = join(tempRoot, '.infra-agent/knowledge-cache');
+    const cacheSnapshotBefore = await snapshotCacheFiles(cacheDir);
+
+    const report = parseJsonOutput(await captureStdout(() => main([
+      'knowledge',
+      'resource',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--resource',
+      'release:payments-api',
+      '--max-units',
+      '50',
+      '--json'
+    ])));
+    const cacheSnapshotAfter = await snapshotCacheFiles(cacheDir);
+    const reportText = jsonText(report);
+    const unitTypes = new Set(report.pack.units.map(unit => unit.unitType));
+    const target = report.targets[0];
+    const link = target.deploymentLinks?.[0];
+
+    assert.equal(report.kind, 'infra-agent.knowledge-resource-report');
+    assert.equal(report.mutationAllowed, false);
+    assert.equal(report.resource, 'release:payments-api');
+    assert.deepEqual(report.requestedDomains, ['helm']);
+    assert.deepEqual(report.targetPaths, ['charts/payments-api']);
+    assert.equal(report.summary.matchedTargetCount, 1);
+    assert.equal(report.summary.recommendedAction, 'use-resource-knowledge');
+    assert.deepEqual(cacheSnapshotAfter, cacheSnapshotBefore);
+
+    assert.equal(target.domain, 'helm');
+    assert.equal(target.kind, 'helm-chart');
+    assert.equal(target.path, 'charts/payments-api');
+    assert.equal(target.chartName, 'payments-api');
+    assert.deepEqual(target.lookupIdentities, ['release:payments-api']);
+    assert.equal(target.valuesSchemaFile, 'charts/payments-api/values.schema.json');
+    assert.ok(link);
+    assert.equal(link.releaseName, 'payments-api');
+    assert.equal(link.applicationName, 'payments-api-prod');
+    assert.equal(link.applicationFile, 'apps/payments-api.yaml');
+    assert.equal(link.destinationNamespace, 'payments');
+    assert.deepEqual(link.valuesLayers.map(layer => layer.path), [
+      'charts/payments-api/values.yaml',
+      'charts/payments-api/values-prod.yaml'
+    ]);
+    assert.deepEqual(link.valuesLayers.map(layer => layer.source), [
+      'chart-default',
+      'argocd-value-file'
+    ]);
+    assert.deepEqual(link.valueFiles, ['charts/payments-api/values-prod.yaml']);
+    assert.equal(link.omittedValueFileCount, 1);
+
+    assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
+    assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
+    assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+    assert.ok(report.suggestedFiles.includes('charts/payments-api/values-prod.yaml'));
+    assert.equal(report.suggestedFiles.includes('charts/payments-api/secret-values.yaml'), false);
+    assert.deepEqual(report.validationTargets, ['charts/payments-api']);
+
+    assert.ok(report.sources.every(source => source.domain === 'helm' && source.targetPath === 'charts/payments-api'));
+    assert.ok(report.pack.sources.every(source => source.domain === 'helm' && source.targetPath === 'charts/payments-api'));
+    assert.ok(report.unitIndex.entries.every(entry => entry.domain === 'helm' && entry.targetPath === 'charts/payments-api'));
+    assert.ok(report.sources.some(source => source.source.name === 'payments-api:Chart.yaml'));
+    assert.ok(report.sources.some(source => source.source.name === 'payments-api:values.schema.json'));
+    assert.ok(report.sources.some(source => source.source.name === 'payments-api:home'));
+    assert.ok(report.pack.sources.some(source => source.kind === 'chart-docs' && source.name === 'payments-api:home'));
+    assert.ok(report.unitIndex.entries.some(entry =>
+      entry.sourceKind === 'chart-docs'
+      && entry.sourceName === 'payments-api:home'
+      && entry.unitCounts.example > 0
+    ));
+    assert.ok(['fact', 'guidance', 'example', 'diagnostic', 'recipe'].every(unitType => unitTypes.has(unitType)));
+    assert.ok(report.pack.units.some(unit =>
+      unit.unitType === 'fact'
+      && unit.path === 'chart.payments-api.image.repository'
+    ));
+    assert.ok(report.pack.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.engine === 'helm'
+      && unit.signature === 'Error: image.repository is required'
+    ));
+    assert.doesNotMatch(reportText, /secret-values\.yaml|repository:\s*example\/payments-api|replicaCount:\s*2|"\$schema"|kubernetes\.default\.svc|password|authorization|bearer|"content"\s*:|"rawContent"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('knowledge resource report does not fall back when a resource is unmatched', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-resource-report-miss-'));
 

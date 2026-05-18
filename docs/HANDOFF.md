@@ -6,6 +6,42 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge Helm Release Iteration 5
+
+Status:
+
+- Continued the ten-iteration resource extraction milestone. The user plans to
+  test after ten loops by providing a Terraform, Pulumi, or Helm resource
+  identity and expecting a repo-linked, compact five-unit knowledge report.
+- Confirmed the existing resolver already maps Helm release identity input such
+  as `release:payments-api` through inventory lookup identities to the
+  `charts/payments-api` Helm chart target.
+- Added dedicated end-to-end integration coverage proving release identity
+  input returns the same chart-scoped knowledge posture as chart identity
+  input: Helm-only sources, structured Argo CD deployment linkage, ordered
+  values layers, suggested files, validation target, five knowledge unit types,
+  unit index metadata, and read-only cache behavior.
+
+Files changed:
+
+- `test/integration/cli-knowledge-resource-main.test.mjs` adds a
+  `release:payments-api` `knowledge resource` report test using the existing
+  sample workspace and seeded chart-doc cache.
+
+Validation:
+
+- `npm run test:focused -- test/integration/cli-knowledge-resource-main.test.mjs`
+  passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Resource-field-level unit index filtering and semantic hash cache reporting
+  remain pending milestone items.
+- The next acceptance hardening step should broaden cross-domain fixture
+  coverage around Terraform addresses and Pulumi resource tokens under the
+  one-shot `knowledge resource` command.
+
 ## 2026-05-18 Resource Knowledge Helm Iteration 4
 
 Status:
