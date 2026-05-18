@@ -123,6 +123,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]`
 - `infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]`
 - `infra-agent knowledge resource [workspace] --domain <helm|pulumi|terraform> --resource <identity> [--max-units <n>] [--out <report.json>] [--json]`
+- `infra-agent knowledge from-url <url> [--max-units <n>] [--out <url-knowledge.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
@@ -268,6 +269,14 @@ Current behavior is intentionally runtime-foundation oriented:
   acceptance routing. This lets another agent distinguish an acceptance-ready
   five-unit context pack from unmatched resources, missing/stale cache entries,
   empty packs, or partial unit coverage under a tight budget.
+- `knowledge from-url` emits a read-only
+  `infra-agent.public-knowledge-url-report` directly from a public official
+  documentation URL without requiring a workspace. It infers the source identity
+  from supported URLs such as Terraform Registry provider resource/data-source
+  docs, extracts the same five unit types, groups them under `unitsByType`, and
+  reports `unitTypeComplete` plus missing/included unit types. This is the
+  public-reference path to use when another agent gives a documentation link
+  such as `aws_s3_bucket` and needs compact JSON rather than repo linkage.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

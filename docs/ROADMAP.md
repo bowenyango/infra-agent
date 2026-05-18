@@ -128,6 +128,15 @@ distinguish ready, unmatched, cache-refresh, empty-pack, and partial-coverage
 outcomes. The ten-iteration milestone is ready for the user to supply their own
 Terraform, Pulumi, or Helm resource identity for acceptance testing.
 
+The first acceptance clarification showed a second required entrypoint: when
+the user provides only a public documentation URL, the tool must not require a
+workspace. `knowledge from-url <url>` is the URL-only public-reference path. It
+infers supported source identity directly from the URL, currently Terraform
+Registry provider resource/data-source docs, and emits a compact
+`infra-agent.public-knowledge-url-report` with the same five unit types grouped
+for agent consumption. Continue treating this as public-reference extraction,
+not repo topology, plan, upload, or safety-boundary work.
+
 Agent-2 reset policy:
 
 - Treat team-upload and upload-boundary implementation as archived legacy
@@ -570,6 +579,12 @@ Implemented initial CLI surfaces:
     `knowledge-pack`, and `unitIndex` metadata. It must not fetch, upload,
     apply, deploy, mutate infrastructure state, or fall back to whole-workspace
     knowledge when the resource is unmatched.
+- `infra-agent knowledge from-url <url> [--max-units <n>]
+  [--out <report.json>] --json`
+  - builds a read-only `infra-agent.public-knowledge-url-report` from a
+    supported public official documentation URL without requiring a workspace.
+    It is for public-reference extraction only and currently supports
+    Terraform Registry provider resource/data-source docs.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

@@ -133,6 +133,24 @@ the report is reusable, `partial-unit-coverage` means the selected units do not
 cover all five unit types under the current budget, and `empty-knowledge-pack`
 means no units were included even though a target resolved.
 
+## Public Knowledge URL Acceptance Smoke
+
+When the user provides only a public documentation URL and does not want a
+workspace-scoped report, use the URL-only extraction path:
+
+```sh
+infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --json
+```
+
+The output should be an `infra-agent.public-knowledge-url-report` with
+`mutationAllowed: false`, `domain: "terraform"`, source identity
+`resource:aws_s3_bucket`, `summary.unitTypeComplete: true`, all five
+`includedUnitTypes`, an empty `missingUnitTypes` array, grouped `unitsByType`
+entries for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`, and no
+raw source content. This path can fetch the URL live; tests should continue to
+use offline fixtures through the internal `--content <file>` helper so default
+CI does not require network access.
+
 ## Layout
 
 - Put unit shards directly under `test/unit/`.

@@ -159,6 +159,30 @@ test('knowledge resource CLI args accept one-shot resource report flags', () => 
   assert.equal(parsed.json, true);
 });
 
+test('knowledge from-url CLI args accept public documentation URL extraction flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'from-url',
+    'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket',
+    '--content',
+    'fixtures/aws_s3_bucket.md',
+    '--max-units',
+    '20',
+    '--out',
+    'artifacts/aws-s3-url-knowledge.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'from-url');
+  assert.equal(parsed.inputPath, 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket');
+  assert.equal(parsed.contentPath, 'fixtures/aws_s3_bucket.md');
+  assert.equal(parsed.maxUnits, 20);
+  assert.equal(parsed.outputPath, 'artifacts/aws-s3-url-knowledge.json');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge extract CLI args accept source filters and bounded targets', () => {
   const parsed = parseArgs([
     'knowledge',

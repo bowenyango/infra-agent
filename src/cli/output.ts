@@ -51,6 +51,7 @@ import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from 
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
 import type { ResourceKnowledgeReport } from '../knowledge/resource-report.ts';
+import type { PublicKnowledgeUrlReport } from '../knowledge/url-report.ts';
 import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-artifact-publish.ts';
 import type {
   KnowledgeUnitIndexEntry,
@@ -3754,6 +3755,20 @@ export function printResourceKnowledgeReport(report: ResourceKnowledgeReport): v
 
   printHeader('Knowledge units');
   printList(report.unitIndex.entries.map(formatKnowledgeUnitIndexEntry), 'No knowledge units indexed.');
+}
+
+export function printPublicKnowledgeUrlReport(report: PublicKnowledgeUrlReport): void {
+  printHeader('Public knowledge URL');
+  process.stdout.write(`url: ${report.sourceUrl}\n`);
+  process.stdout.write(`domain: ${report.domain}\n`);
+  process.stdout.write(`source: ${report.source.name}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`summary: units=${report.summary.includedUnitCount}/${report.summary.unitCount}, unitTypes=${report.summary.includedUnitTypes.join(', ') || 'none'}, missingUnitTypes=${report.summary.missingUnitTypes.join(', ') || 'none'}, unitTypeComplete=${report.summary.unitTypeComplete ? 'yes' : 'no'}\n\n`);
+
+  printHeader('Knowledge units');
+  printList(report.unitSet.units.map(unit =>
+    `${unit.unitType} ${unit.confidence} ${unit.path}: ${unit.summary}`
+  ), 'No knowledge units extracted.');
 }
 
 export function printKnowledgeSharedArtifactPublishReport(

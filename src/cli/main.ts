@@ -24,6 +24,7 @@ import {
 } from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
 import { buildResourceKnowledgeReport } from '../knowledge/resource-report.ts';
+import { buildPublicKnowledgeUrlReport } from '../knowledge/url-report.ts';
 import {
   buildKnowledgeUnitMetadataIndex,
   selectKnowledgeUnitIndexEntries,
@@ -71,6 +72,7 @@ import {
   printKnowledgeValidationReport,
   printKnowledgePack,
   printResourceKnowledgeReport,
+  printPublicKnowledgeUrlReport,
   printKnowledgeSharedArtifactPublishReport,
   printKnowledgeUnitMetadataIndex,
   printPlannerProviderCatalogReport,
@@ -96,12 +98,13 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 
 export interface ParsedArgs {
   command: 'inspect' | 'inventory' | 'pack' | 'refs' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'cache' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'resource' | 'publish' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'resource' | 'from-url' | 'publish' | null;
   cacheAction?: 'status' | null;
   task: string | null;
   workspace: string;
   inputPath: string | null;
   outputPath?: string | null;
+  contentPath?: string | null;
   unitOutputDir?: string | null;
   manifestOutputPath?: string | null;
   publishStoreDir?: string | null;
@@ -174,6 +177,7 @@ function printUsage(): void {
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--field-path <path>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]',
       '  infra-agent knowledge resource [workspace] --resource <identity> [--domain helm|pulumi|terraform] [--source <id>] [--max-units <n>] [--out <resource-knowledge.json>] [--json]',
+      '  infra-agent knowledge from-url <url> [--max-units <n>] [--content <markdown-or-html-file>] [--out <url-knowledge.json>] [--json]',
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
@@ -1276,9 +1280,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'pack'
       && knowledgeAction !== 'index'
       && knowledgeAction !== 'resource'
+      && knowledgeAction !== 'from-url'
       && knowledgeAction !== 'publish'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, resource, or publish.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, resource, from-url, or publish.');
     }
 
     let workspace = cwd();
@@ -1289,6 +1294,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let maxFacts: number | null = null;
     let maxUnits: number | null = null;
     let outputPath: string | null = null;
+    let contentPath: string | null = null;
     let unitOutputDir: string | null = null;
     let manifestOutputPath: string | null = null;
     let validationWorkspace: string | null = null;
@@ -1313,6 +1319,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (knowledgeAction === 'validate') {
           fail('--domain is not supported for knowledge validate.');
         }
+        if (knowledgeAction === 'from-url') {
+          fail('--domain is inferred for knowledge from-url.');
+        }
         const domainValue = actionArgs[index + 1];
         if (domainValue !== 'helm' && domainValue !== 'pulumi' && domainValue !== 'terraform') {
           fail('Missing or invalid value for --domain. Expected helm, pulumi, or terraform.');
@@ -1326,6 +1335,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       if (arg === '--target') {
         if (knowledgeAction === 'validate') {
           fail('--target is not supported for knowledge validate.');
+        }
+        if (knowledgeAction === 'from-url') {
+          fail('--target is not supported for knowledge from-url.');
         }
         if (knowledgeAction === 'resource') {
           fail('--target is not supported for knowledge resource. Use --resource instead.');
@@ -1345,8 +1357,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!resourceValue) {
           fail('Missing value for --resource.');
         }
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish') {
-          fail('--resource is not supported for knowledge validate or knowledge publish.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url') {
+          fail('--resource is not supported for knowledge validate, knowledge from-url, or knowledge publish.');
         }
         if (knowledgeResource !== null) {
           fail('--resource can be provided at most once.');
@@ -1584,8 +1596,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!outputValue) {
           fail('Missing value for --out.');
         }
-        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'resource' && knowledgeAction !== 'publish') {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, knowledge resource, or knowledge publish.');
+        if (
+          knowledgeAction !== 'extract'
+          && knowledgeAction !== 'pack'
+          && knowledgeAction !== 'index'
+          && knowledgeAction !== 'resource'
+          && knowledgeAction !== 'from-url'
+          && knowledgeAction !== 'publish'
+        ) {
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, knowledge resource, knowledge from-url, or knowledge publish.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -1609,6 +1628,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         unitOutputDir = unitOutputValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--content') {
+        const contentValue = actionArgs[index + 1]?.trim();
+        if (!contentValue) {
+          fail('Missing value for --content.');
+        }
+        if (knowledgeAction !== 'from-url') {
+          fail('--content is only supported for knowledge from-url.');
+        }
+        if (contentPath !== null) {
+          fail('--content can be provided at most once.');
+        }
+
+        contentPath = contentValue;
         index += 1;
         continue;
       }
@@ -1651,8 +1687,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!Number.isInteger(parsedMaxUnits) || parsedMaxUnits < 1) {
           fail('Missing or invalid value for --max-units. Expected a positive integer.');
         }
-        if (knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'resource') {
-          fail('--max-units is only supported for knowledge pack, knowledge index, or knowledge resource.');
+        if (knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'resource' && knowledgeAction !== 'from-url') {
+          fail('--max-units is only supported for knowledge pack, knowledge index, knowledge resource, or knowledge from-url.');
         }
 
         maxUnits = parsedMaxUnits;
@@ -1741,8 +1777,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
       positionalArgs.push(arg);
     }
 
-    if (positionalArgs.length > 1) {
+    if (knowledgeAction !== 'from-url' && positionalArgs.length > 1) {
       fail(`knowledge ${knowledgeAction} accepts at most one workspace path.`);
+    }
+    if (knowledgeAction === 'from-url' && positionalArgs.length !== 1) {
+      fail('knowledge from-url requires exactly one public documentation URL.');
     }
 
     if (knowledgeAction === 'validate' && positionalArgs.length !== 1) {
@@ -1773,7 +1812,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
 
-    if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish') {
+    if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish' && knowledgeAction !== 'from-url') {
       workspace = positionalArgs[0] ?? workspace;
     }
 
@@ -1782,8 +1821,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
       knowledgeAction,
       task: null,
       workspace: knowledgeAction === 'validate' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish' ? positionalArgs[0] : null,
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url'
+        ? positionalArgs[0]
+        : null,
       outputPath,
+      contentPath,
       unitOutputDir,
       manifestOutputPath,
       publishStoreDir,
@@ -2392,6 +2434,37 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
     if (manifestPath) {
       process.stdout.write(`manifest: ${manifestPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'from-url') {
+    if (!parsed.inputPath) {
+      fail('knowledge from-url requires exactly one public documentation URL.');
+    }
+
+    const report = await buildPublicKnowledgeUrlReport({
+      url: parsed.inputPath,
+      contentPath: parsed.contentPath ? resolve(cwd(), parsed.contentPath) : undefined,
+      maxUnits: parsed.maxUnits ?? undefined
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...report,
+            outputPath: writtenPath
+          }
+        : report, null, 2)}\n`);
+      return;
+    }
+
+    printPublicKnowledgeUrlReport(report);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
     return;
   }

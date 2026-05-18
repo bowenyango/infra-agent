@@ -6,6 +6,65 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Public Knowledge URL Extraction
+
+Status:
+
+- Added the URL-only public-reference extraction path after the first
+  ten-loop acceptance clarification: when the user provides only a public
+  official documentation URL, the tool should not require a workspace.
+- `infra-agent knowledge from-url <url> --json` now accepts supported
+  Terraform Registry provider resource/data-source docs URLs such as
+  `https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket`.
+- The command infers source identity from the URL, fetches or reads normalized
+  official content, builds compact facts, derives the five unit types, groups
+  selected units under `unitsByType`, and emits an
+  `infra-agent.public-knowledge-url-report` with `mutationAllowed=false`.
+- Kept the path separate from repo-aware `knowledge resource`: `from-url` is
+  public-reference extraction only and does not inspect workspace topology,
+  suggested files, local usage linkage, upload state, or safety boundaries.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` builds URL-derived public knowledge reports.
+- `src/cli/main.ts` parses and routes `knowledge from-url`, with optional
+  offline `--content` fixture support for tests.
+- `src/cli/output.ts` prints compact human-readable URL report summaries.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers the
+  Terraform Registry S3 bucket URL shape, all five unit types, artifact
+  writing, raw-content omission, and Terraform Registry JavaScript shell
+  fallback to provider repository docs.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers the new parser
+  contract.
+- `README.md`, `docs/TESTING.md`, `docs/ROADMAP.md`, and
+  `skills/infra-configuration/SKILL.md` document the no-workspace URL-only
+  public-reference path.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `node bin/infra-agent.js knowledge from-url
+  https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+  --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --json` passed
+  with `summary.unitTypeComplete=true` after live Terraform Registry/GitHub raw
+  docs retrieval.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Live `knowledge from-url` depends on network access. Terraform Registry pages
+  that return a JavaScript shell now fall back to provider repository docs using
+  common Terraform provider docs paths, but unusual providers may need a future
+  source-repo metadata resolver.
+- v0 URL inference is intentionally narrow: Terraform Registry provider
+  resources and data sources only. Pulumi and Helm URL-only support should be
+  added through the same parser-neutral five-unit path when needed.
+
 ## 2026-05-18 Resource Knowledge Acceptance Readiness Iteration 10
 
 Status:
