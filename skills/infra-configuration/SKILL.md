@@ -35,7 +35,7 @@ values.
    infra-agent cache status <workspace> --json
    infra-agent pack <workspace> --scope <path|target|env|stack> --json
    infra-agent refs <workspace> --resource <terraform|pulumi|helm-identity> --json
-   infra-agent knowledge resource <workspace> --resource <terraform|pulumi|helm-identity> --json
+   infra-agent knowledge resource <workspace> --domain <helm|pulumi|terraform> --resource <identity> --json
    infra-agent pack <workspace> --changed --base main --head HEAD --json
    ```
 
@@ -81,8 +81,16 @@ values.
    Prefer `knowledge resource --resource <identity> --json` as the one-shot
    handoff when another agent needs repo-linked targets, suggested files,
    source cache posture, compact refs, a bounded five-unit knowledge pack, and
-   a unit index for a named resource. Use the lower-level `sources`, `pack`, and
-   `index` commands when debugging one stage or preparing an explicit prefetch.
+   a unit index for a named resource. Treat `summary.acceptanceStatus` as the
+   authoritative readiness field. Trust the report as acceptance-ready only when
+   `summary.acceptanceStatus` is `ready`, `summary.cacheReady` is true,
+   `summary.unitTypeComplete` is true, and `summary.missingUnitTypes` is empty.
+   Treat `cache-refresh-needed` as a prompt to run the lower-level `sources`,
+   `prefetch`, `extract`, `pack`, and `index` commands, `unmatched-resource` as
+   an identity/scoping problem, and `partial-unit-coverage` as compact but
+   incomplete context under the current unit budget.
+   Use the lower-level `sources`, `pack`, and `index` commands when debugging
+   one stage or preparing an explicit prefetch.
    Use `knowledge index --resource <identity> --field-path <field> --json`
    when the caller needs compact field-level `fact`, `guidance`, `example`,
    `diagnostic`, and `recipe` metadata without loading unrelated fields from

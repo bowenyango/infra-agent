@@ -40,6 +40,19 @@ function assertCachePostureIsCompact(cachePosture) {
   assert.doesNotMatch(postureText, /"url"|"localPath"|"content"|"rawContent"|"fingerprint"\s*:|"files"\s*:/);
 }
 
+function assertReadyAcceptanceSummary(report) {
+  assert.equal(report.summary.acceptanceStatus, 'ready');
+  assert.equal(report.summary.cacheReady, true);
+  assert.equal(report.summary.unitTypeComplete, true);
+  assert.deepEqual(report.summary.includedUnitTypes, ['fact', 'guidance', 'example', 'diagnostic', 'recipe']);
+  assert.deepEqual(report.summary.missingUnitTypes, []);
+  assert.ok(report.summary.unitCounts.fact > 0);
+  assert.ok(report.summary.unitCounts.guidance > 0);
+  assert.ok(report.summary.unitCounts.example > 0);
+  assert.ok(report.summary.unitCounts.diagnostic > 0);
+  assert.ok(report.summary.unitCounts.recipe > 0);
+}
+
 function assertUnitIndexFieldMetadataIsCompact(unitIndex) {
   const indexText = jsonText(unitIndex);
 
@@ -466,6 +479,7 @@ test('knowledge resource report composes Terraform refs, sources, pack, and inde
     assert.equal(report.summary.includedRefCount, report.refs.length);
     assert.ok(report.summary.includedUnitCount > 0);
     assert.equal(report.summary.recommendedAction, 'use-resource-knowledge');
+    assertReadyAcceptanceSummary(report);
     assert.ok(report.targets[0].matchReasons.includes('scope matches resource identity'));
     assert.ok(report.suggestedFiles.includes('terraform/api/main.tf'));
     assert.deepEqual(report.validationTargets, ['terraform/api']);
@@ -612,6 +626,7 @@ test('knowledge resource report composes Pulumi refs, sources, pack, and index',
     assert.equal(report.summary.matchedTargetCount, 1);
     assert.equal(report.summary.sourceCount, 1);
     assert.equal(report.summary.recommendedAction, 'use-resource-knowledge');
+    assertReadyAcceptanceSummary(report);
     assert.ok(report.suggestedFiles.includes('infra/api/Pulumi.yaml'));
     assert.ok(report.validationTargets.includes('infra/api'));
     assert.deepEqual(report.sources.map(source => source.source.name), ['pulumi-docs:resource:aws:s3/bucket']);
@@ -688,6 +703,7 @@ test('knowledge resource report composes Helm Argo values layers and five-unit c
     assert.deepEqual(report.targetPaths, ['charts/payments-api']);
     assert.equal(report.summary.matchedTargetCount, 1);
     assert.equal(report.summary.recommendedAction, 'use-resource-knowledge');
+    assertReadyAcceptanceSummary(report);
     assert.equal(report.summary.suggestedFileCount, report.suggestedFiles.length);
     assert.equal(report.summary.validationTargetCount, report.validationTargets.length);
     assert.ok(['fact', 'guidance', 'example', 'diagnostic', 'recipe'].every(unitType => unitTypes.has(unitType)));
@@ -844,6 +860,7 @@ test('knowledge resource report resolves Helm release identity to chart knowledg
     assert.deepEqual(report.targetPaths, ['charts/payments-api']);
     assert.equal(report.summary.matchedTargetCount, 1);
     assert.equal(report.summary.recommendedAction, 'use-resource-knowledge');
+    assertReadyAcceptanceSummary(report);
     assert.deepEqual(cacheSnapshotAfter, cacheSnapshotBefore);
 
     assert.equal(target.domain, 'helm');
@@ -924,64 +941,6 @@ test('knowledge resource report resolves Helm release identity to chart knowledg
       && unit.signature === 'Error: image.repository is required'
     ));
     assert.doesNotMatch(reportText, /secret-values\.yaml|repository:\s*example\/payments-api|replicaCount:\s*2|"\$schema"|kubernetes\.default\.svc|password|authorization|bearer|"content"\s*:|"rawContent"\s*:/);
-  } finally {
-    await rm(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('knowledge resource report does not fall back when a resource is unmatched', async () => {
-  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-resource-report-miss-'));
-
-  try {
-    await writeResourceWorkspace(tempRoot);
-    await seedResourceCaches(tempRoot);
-
-    const report = parseJsonOutput(await captureStdout(() => main([
-      'knowledge',
-      'resource',
-      tempRoot,
-      '--domain',
-      'terraform',
-      '--resource',
-      'aws_db_instance.primary',
-      '--max-units',
-      '10',
-      '--json'
-    ])));
-    const reportText = jsonText(report);
-
-    assert.equal(report.kind, 'infra-agent.knowledge-resource-report');
-    assert.equal(report.resource, 'aws_db_instance.primary');
-    assert.deepEqual(report.targetPaths, []);
-    assert.equal(report.summary.matchedTargetCount, 0);
-    assert.equal(report.summary.sourceCount, 0);
-    assert.equal(report.summary.includedRefCount, 0);
-    assert.equal(report.summary.includedUnitCount, 0);
-    assert.equal(report.summary.recommendedAction, 'narrow-scope');
-    assert.deepEqual(report.targets, []);
-    assert.deepEqual(report.sources, []);
-    assert.deepEqual(report.pack.sources, []);
-    assert.deepEqual(report.pack.units, []);
-    assert.deepEqual(report.unitIndex.entries, []);
-    assert.deepEqual(report.unitIndex.fieldEntries, []);
-    assert.equal(report.unitIndex.fieldEntryCount, 0);
-    assert.equal(report.unitIndex.fieldIncludedUnitCount, 0);
-    assert.equal(report.cachePosture.packId, report.pack.packId);
-    assert.equal(report.cachePosture.sourceCount, 0);
-    assert.equal(report.cachePosture.local, 0);
-    assert.equal(report.cachePosture.fresh, 0);
-    assert.equal(report.cachePosture.stale, 0);
-    assert.equal(report.cachePosture.missing, 0);
-    assert.equal(report.cachePosture.refreshRecommended, 0);
-    assert.equal(report.cachePosture.reusedSourceCount, 0);
-    assert.equal(report.cachePosture.reusable, false);
-    assert.deepEqual(report.cachePosture.sources, []);
-    assertShortDigest(report.cachePosture.selectionHash, 'selectionHash');
-    assertShortDigest(report.cachePosture.targetHash, 'targetHash');
-    assertShortDigest(report.cachePosture.sourceHash, 'sourceHash');
-    assertShortDigest(report.cachePosture.unitIndexHash, 'unitIndexHash');
-    assertCachePostureIsCompact(report.cachePosture);
-    assert.doesNotMatch(reportText, /aws_s3_bucket|aws_sqs_queue|aws_iam_policy_document|UNRELATED_/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

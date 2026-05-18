@@ -6,6 +6,66 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge Acceptance Readiness Iteration 10
+
+Status:
+
+- Completed the ten-iteration resource extraction milestone. The user plans to
+  test by providing a Terraform, Pulumi, or Helm resource identity and expecting
+  a repo-linked compact knowledge report across the five unit types.
+- Added explicit acceptance-readiness fields to
+  `infra-agent knowledge resource <workspace> --domain <domain> --resource
+  <identity> --json`: `acceptanceStatus`, `cacheReady`, `unitTypeComplete`,
+  `includedUnitTypes`, `missingUnitTypes`, and per-type `unitCounts`.
+- `acceptanceStatus` is now the authoritative user-test readiness field. It
+  distinguishes `ready`, `unmatched-resource`, `cache-refresh-needed`,
+  `partial-unit-coverage`, and `empty-knowledge-pack`.
+- Scoped cache readiness to the selected `--source` ids so a report that packs
+  one complete selected source is not marked stale or missing because of
+  unselected candidates.
+- Split readiness/status coverage into a dedicated integration shard so the
+  main resource test stays under the repository structure limit.
+
+Files changed:
+
+- `src/knowledge/resource-report.ts` computes resource report readiness,
+  unit-type coverage, selected-source cache posture, and the five-state
+  acceptance status.
+- `src/cli/output.ts` includes the readiness summary in text output.
+- `scripts/resource-knowledge-smoke.mjs` and
+  `test/integration/cli-knowledge-resource-acceptance-main.test.mjs` assert the
+  `ready` acceptance contract for Terraform, Pulumi, and Helm fixtures.
+- `test/integration/cli-knowledge-resource-main.test.mjs` keeps the core
+  one-shot resource composition coverage.
+- `test/integration/cli-knowledge-resource-readiness-main.test.mjs` covers
+  selected-source readiness, partial unit coverage, missing-cache refresh,
+  empty-pack, and unmatched-resource states.
+- `README.md`, `docs/TESTING.md`, `docs/ROADMAP.md`, and
+  `skills/infra-configuration/SKILL.md` document that
+  `summary.acceptanceStatus` is the authoritative readiness field.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-resource-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-resource-readiness-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-resource-acceptance-main.test.mjs` passed.
+- `npm run smoke:knowledge-resource` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The acceptance smoke remains deterministic and offline with seeded cache
+  entries. A real user-provided resource may still return
+  `cache-refresh-needed` until the relevant public or local knowledge sources
+  are prefetched/extracted/packed.
+- `recommendedAction` remains a coarse legacy hint; future agents should route
+  acceptance decisions through `summary.acceptanceStatus`.
+
 ## 2026-05-18 Resource Knowledge Smoke Iteration 9
 
 Status:

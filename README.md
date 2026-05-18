@@ -260,6 +260,14 @@ Current behavior is intentionally runtime-foundation oriented:
   ids, source kinds/names, stale reasons, and safe workspace-relative
   stale/missing paths so saved facts can be re-extracted or rebuilt before
   planner use.
+- `knowledge resource` emits a one-shot read-only
+  `infra-agent.knowledge-resource-report` for a Terraform, Pulumi, or Helm
+  resource identity. Its summary exposes `acceptanceStatus`, `cacheReady`,
+  `unitTypeComplete`, `includedUnitTypes`, `missingUnitTypes`, and per-type
+  `unitCounts`; `acceptanceStatus` is the authoritative readiness field for
+  acceptance routing. This lets another agent distinguish an acceptance-ready
+  five-unit context pack from unmatched resources, missing/stale cache entries,
+  empty packs, or partial unit coverage under a tight budget.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

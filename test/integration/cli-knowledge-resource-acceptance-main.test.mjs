@@ -45,6 +45,16 @@ function assertCompactResourceReport(report, forbiddenPattern) {
   assert.equal(report.summary.includedRefCount, report.refs.length);
   assert.equal(report.summary.includedUnitCount, report.pack.includedUnitCount);
   assert.equal(report.summary.sourceCount, report.sources.length);
+  assert.equal(report.summary.acceptanceStatus, 'ready');
+  assert.equal(report.summary.cacheReady, true);
+  assert.equal(report.summary.unitTypeComplete, true);
+  assert.deepEqual(report.summary.includedUnitTypes, ['fact', 'guidance', 'example', 'diagnostic', 'recipe']);
+  assert.deepEqual(report.summary.missingUnitTypes, []);
+  assert.ok(report.summary.unitCounts.fact > 0);
+  assert.ok(report.summary.unitCounts.guidance > 0);
+  assert.ok(report.summary.unitCounts.example > 0);
+  assert.ok(report.summary.unitCounts.diagnostic > 0);
+  assert.ok(report.summary.unitCounts.recipe > 0);
   assert.equal(report.unitIndex.sourceCount, report.unitIndex.entries.length);
   assert.equal(report.unitIndex.includedUnitCount, report.summary.includedUnitCount);
   assert.equal(report.unitIndex.fieldEntryCount, report.unitIndex.fieldEntries.length);

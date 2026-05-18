@@ -114,8 +114,24 @@ infra-agent knowledge resource <workspace> --domain helm --resource argocd:payme
 Acceptance output should be an `infra-agent.knowledge-resource-report` with
 `mutationAllowed: false`, one matched target, scoped suggested files, cache
 posture, compact refs, a bounded `knowledge-pack`, all five unit types, and a
-field-aware `unitIndex`. It must not include raw source content, secret values,
-or unrelated resource sources.
+field-aware `unitIndex`. The acceptance-ready summary must report
+`acceptanceStatus: "ready"`, `cacheReady: true`, `unitTypeComplete: true`,
+all five `includedUnitTypes`, an empty `missingUnitTypes` array, and non-zero
+`unitCounts` for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`.
+It must not include raw source content, secret values, or unrelated resource
+sources.
+
+For acceptance routing, treat `summary.acceptanceStatus` as the authoritative
+readiness field. `summary.recommendedAction` remains a coarse next-step hint
+for legacy callers and can be less precise than the five-state acceptance
+status.
+
+Non-ready summaries are expected guardrails, not failures by themselves:
+`unmatched-resource` means the resource identity did not resolve to a target,
+`cache-refresh-needed` means selected sources need prefetch/extract/pack before
+the report is reusable, `partial-unit-coverage` means the selected units do not
+cover all five unit types under the current budget, and `empty-knowledge-pack`
+means no units were included even though a target resolved.
 
 ## Layout
 

@@ -99,10 +99,11 @@ Iteration plan:
 10. Add a final user-facing smoke path and documented command sequence for the
     user's acceptance test.
 
-Current progress: iterations 1 through 9 have initial implementations on
+Current progress: iterations 1 through 10 have initial implementations on
 `agent-2`. `knowledge resource --resource <identity>` now composes target
 lookup, suggested files, resource-filtered source posture, compact refs, a
-bounded five-unit knowledge pack, and a unit index in one read-only report.
+bounded five-unit knowledge pack, a unit index, and explicit acceptance
+readiness metadata in one read-only report.
 Iteration 4 Helm coverage now has a dedicated `chart:payments-api` resource
 report fixture that proves Argo CD linkage, values-layer ordering, secret
 value-file omission, five knowledge unit types, and cache immutability.
@@ -117,11 +118,15 @@ Iteration 7 adds field-level unit-index metadata and `knowledge index
 specific resource field without loading unrelated fields or raw source content.
 Iteration 8 adds cross-domain acceptance coverage for Terraform resource and
 data-source identities, Pulumi resource name and package-token identities, and
-Helm Argo CD application and namespace identities. The remaining milestone work
-Iteration 9 adds the resource-knowledge smoke path wired into `npm run smoke`
-and documents the user-facing Terraform, Pulumi, and Helm command shapes for
-the ten-loop test. The remaining milestone work is final acceptance polish
-before the user supplies their own resource identity.
+Helm Argo CD application and namespace identities. Iteration 9 adds the
+resource-knowledge smoke path wired into `npm run smoke` and documents the
+user-facing Terraform, Pulumi, and Helm command shapes for the ten-loop test.
+Iteration 10 adds explicit `acceptanceStatus`, `cacheReady`,
+`unitTypeComplete`, `includedUnitTypes`, `missingUnitTypes`, and per-type
+`unitCounts` to the resource report summary so the user acceptance test can
+distinguish ready, unmatched, cache-refresh, empty-pack, and partial-coverage
+outcomes. The ten-iteration milestone is ready for the user to supply their own
+Terraform, Pulumi, or Helm resource identity for acceptance testing.
 
 Agent-2 reset policy:
 

@@ -19,14 +19,28 @@ import {
   type KnowledgeUnitCountByType,
   type KnowledgeUnitMetadataIndex
 } from './unit-index.ts';
-import type { KnowledgeSourceKind } from '../types/knowledge.ts';
+import {
+  KNOWLEDGE_UNIT_TYPES,
+  type KnowledgeSourceKind,
+  type KnowledgeUnitType
+} from '../types/knowledge.ts';
 import type { KnowledgeSourceCacheStatus } from './cache-status.ts';
-import type { KnowledgeStorageScope } from './storage-policy.ts';
+import {
+  summarizeKnowledgeStoragePolicies,
+  type KnowledgeStorageScope
+} from './storage-policy.ts';
 
 export type ResourceKnowledgeRecommendedAction =
   | 'use-resource-knowledge'
   | 'prefetch-or-extract-knowledge'
   | 'narrow-scope';
+
+export type ResourceKnowledgeAcceptanceStatus =
+  | 'ready'
+  | 'unmatched-resource'
+  | 'cache-refresh-needed'
+  | 'partial-unit-coverage'
+  | 'empty-knowledge-pack';
 
 export interface ResourceKnowledgeReportOptions {
   resource: string;
@@ -96,6 +110,12 @@ export interface ResourceKnowledgeReport {
     includedRefCount: number;
     includedUnitCount: number;
     omittedUnitCount: number;
+    unitCounts: KnowledgeUnitCountByType;
+    includedUnitTypes: KnowledgeUnitType[];
+    missingUnitTypes: KnowledgeUnitType[];
+    unitTypeComplete: boolean;
+    cacheReady: boolean;
+    acceptanceStatus: ResourceKnowledgeAcceptanceStatus;
     staleSourceCount: number;
     missingOrSkippedSourceCount: number;
     suggestedFileCount: number;
@@ -280,6 +300,96 @@ function emptyUnitCounts(): KnowledgeUnitCountByType {
   };
 }
 
+function includedUnitTypes(pack: KnowledgePack): KnowledgeUnitType[] {
+  const included = new Set(pack.units.map(unit => unit.unitType));
+  return KNOWLEDGE_UNIT_TYPES.filter(unitType => included.has(unitType));
+}
+
+function missingUnitTypes(includedTypes: readonly KnowledgeUnitType[]): KnowledgeUnitType[] {
+  const included = new Set(includedTypes);
+  return KNOWLEDGE_UNIT_TYPES.filter(unitType => !included.has(unitType));
+}
+
+function unitCounts(pack: KnowledgePack): KnowledgeUnitCountByType {
+  const counts = emptyUnitCounts();
+
+  for (const unit of pack.units) {
+    counts[unit.unitType] += 1;
+  }
+
+  return counts;
+}
+
+function summarizeResourceSources(
+  sources: KnowledgeSourcesReport['sources']
+): KnowledgeSourcesReport['summary'] {
+  const byDomain: Partial<Record<InfraDomainId, number>> = {};
+  for (const source of sources) {
+    byDomain[source.domain] = (byDomain[source.domain] ?? 0) + 1;
+  }
+
+  return {
+    local: sources.filter(source => !source.requiresFetch).length,
+    external: sources.filter(source => source.requiresFetch).length,
+    cacheStatus: {
+      local: sources.filter(source => source.cacheStatus === 'local').length,
+      fresh: sources.filter(source => source.cacheStatus === 'fresh').length,
+      stale: sources.filter(source => source.cacheStatus === 'stale').length,
+      missing: sources.filter(source => source.cacheStatus === 'missing').length,
+      refreshRecommended: sources.filter(source =>
+        source.cacheStatus === 'stale' || source.cacheStatus === 'missing'
+      ).length
+    },
+    storagePolicy: summarizeKnowledgeStoragePolicies(sources.map(source => source.storagePolicy)),
+    byDomain
+  };
+}
+
+function filterSourceReportByIds(
+  report: KnowledgeSourcesReport,
+  sourceIds: readonly string[]
+): KnowledgeSourcesReport {
+  if (sourceIds.length === 0) {
+    return report;
+  }
+
+  const selectedIds = new Set(sourceIds);
+  const sources = report.sources.filter(source => selectedIds.has(source.id));
+
+  return {
+    ...report,
+    targetPaths: uniqueSorted(sources.map(source => source.targetPath)),
+    sourceCount: sources.length,
+    summary: summarizeResourceSources(sources),
+    sources
+  };
+}
+
+function acceptanceStatus(input: {
+  matchedTargetCount: number;
+  includedUnitCount: number;
+  cacheReady: boolean;
+  unitTypeComplete: boolean;
+}): ResourceKnowledgeAcceptanceStatus {
+  if (input.matchedTargetCount === 0) {
+    return 'unmatched-resource';
+  }
+
+  if (!input.cacheReady) {
+    return 'cache-refresh-needed';
+  }
+
+  if (input.includedUnitCount === 0) {
+    return 'empty-knowledge-pack';
+  }
+
+  if (!input.unitTypeComplete) {
+    return 'partial-unit-coverage';
+  }
+
+  return 'ready';
+}
+
 function buildCachePosture(input: {
   inspection: WorkspaceInspection;
   resource: string;
@@ -429,31 +539,39 @@ export async function buildResourceKnowledgeReport(
     maxUnits: options.maxUnits,
     store
   });
+  const sourceIds = options.sourceIds ?? [];
+  const selectedSourceReport = filterSourceReportByIds(sourceReport, sourceIds);
   const unitIndex = buildKnowledgeUnitMetadataIndex(pack);
   const targets = refsReport.targets.map(target => compactTargetForResource(inspection, target, resource));
   const refs = compactRefsForResource(refsReport, resource);
   const targetPaths = uniqueSorted([
     ...targets.map(target => target.path),
-    ...sourceReport.targetPaths,
+    ...selectedSourceReport.targetPaths,
     ...pack.targetPaths
   ]);
   const suggestedFiles = collectSuggestedFiles(targets);
   const validationTargets = collectValidationTargets(targets);
-  const staleSourceCount = sourceReport.summary.cacheStatus.stale;
-  const missingOrSkippedSourceCount = sourceReport.summary.cacheStatus.missing;
+  const staleSourceCount = selectedSourceReport.summary.cacheStatus.stale;
+  const missingOrSkippedSourceCount = selectedSourceReport.summary.cacheStatus.missing;
   const includedUnitCount = pack.includedUnitCount;
-  const sourceIds = options.sourceIds ?? [];
+  const counts = unitCounts(pack);
+  const includedTypes = includedUnitTypes(pack);
+  const missingTypes = missingUnitTypes(includedTypes);
+  const unitTypeComplete = missingTypes.length === 0;
+  const cacheReady = refsReport.summary.matchedTargetCount > 0
+    && staleSourceCount === 0
+    && missingOrSkippedSourceCount === 0;
   const cachePosture = buildCachePosture({
     inspection,
     resource,
-    requestedDomains: sourceReport.requestedDomains,
+    requestedDomains: selectedSourceReport.requestedDomains,
     sourceIds,
     maxUnits: options.maxUnits,
     targetPaths,
     targets,
     matchedTargetCount: refsReport.summary.matchedTargetCount,
     includedUnitCount,
-    sourceReport,
+    sourceReport: selectedSourceReport,
     pack,
     unitIndex
   });
@@ -465,23 +583,36 @@ export async function buildResourceKnowledgeReport(
     workspaceRoot: inspection.workspaceRoot,
     cacheRoot: inspection.knowledgeCache.root,
     resource,
-    requestedDomains: sourceReport.requestedDomains,
+    requestedDomains: selectedSourceReport.requestedDomains,
     sourceIds,
     ...(options.maxUnits !== undefined ? { maxUnits: options.maxUnits } : {}),
     targetPaths,
     summary: {
       matchedTargetCount: refsReport.summary.matchedTargetCount,
-      sourceCount: sourceReport.sourceCount,
+      sourceCount: selectedSourceReport.sourceCount,
       includedRefCount: refs.length,
       includedUnitCount,
       omittedUnitCount: pack.omittedUnitCount,
+      unitCounts: counts,
+      includedUnitTypes: includedTypes,
+      missingUnitTypes: missingTypes,
+      unitTypeComplete,
+      cacheReady,
+      acceptanceStatus: acceptanceStatus({
+        matchedTargetCount: refsReport.summary.matchedTargetCount,
+        includedUnitCount,
+        cacheReady,
+        unitTypeComplete
+      }),
       staleSourceCount,
       missingOrSkippedSourceCount,
       suggestedFileCount: suggestedFiles.length,
       validationTargetCount: validationTargets.length,
       domains: compactDomains([
         ...refsReport.summary.domains,
-        ...sourceReport.requestedDomains.filter(domain => sourceReport.summary.byDomain[domain] !== undefined),
+        ...selectedSourceReport.requestedDomains.filter(domain =>
+          selectedSourceReport.summary.byDomain[domain] !== undefined
+        ),
         ...pack.requestedDomains.filter(domain => pack.sources.some(source => source.domain === domain))
       ]),
       recommendedAction: recommendedAction({
@@ -495,7 +626,7 @@ export async function buildResourceKnowledgeReport(
     suggestedFiles,
     validationTargets,
     refs,
-    sources: sourceReport.sources,
+    sources: selectedSourceReport.sources,
     cachePosture,
     pack,
     unitIndex

@@ -3713,6 +3713,23 @@ export function printKnowledgePack(pack: KnowledgePack): void {
 }
 
 export function printResourceKnowledgeReport(report: ResourceKnowledgeReport): void {
+  const summaryParts = [
+    `targets=${report.summary.matchedTargetCount}`,
+    `sources=${report.summary.sourceCount}`,
+    `refs=${report.summary.includedRefCount}`,
+    `units=${report.summary.includedUnitCount}`,
+    `omittedUnits=${report.summary.omittedUnitCount}`,
+    `unitTypes=${report.summary.includedUnitTypes.join(', ') || 'none'}`,
+    `missingUnitTypes=${report.summary.missingUnitTypes.join(', ') || 'none'}`,
+    `unitTypeComplete=${report.summary.unitTypeComplete ? 'yes' : 'no'}`,
+    `cacheReady=${report.summary.cacheReady ? 'yes' : 'no'}`,
+    `acceptanceStatus=${report.summary.acceptanceStatus}`,
+    `staleSources=${report.summary.staleSourceCount}`,
+    `missingSources=${report.summary.missingOrSkippedSourceCount}`,
+    `suggestedFiles=${report.summary.suggestedFileCount}`,
+    `validationTargets=${report.summary.validationTargetCount}`
+  ];
+
   printHeader('Resource knowledge');
   process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
   process.stdout.write('mutation allowed: no\n');
@@ -3720,7 +3737,7 @@ export function printResourceKnowledgeReport(report: ResourceKnowledgeReport): v
   process.stdout.write(`domains: ${report.requestedDomains.join(', ') || 'none'}\n`);
   process.stdout.write(`targets: ${report.targetPaths.join(', ') || 'none'}\n`);
   process.stdout.write(`max units: ${report.maxUnits ?? report.pack.maxUnits ?? report.pack.maxFacts}\n`);
-  process.stdout.write(`summary: targets=${report.summary.matchedTargetCount}, sources=${report.summary.sourceCount}, refs=${report.summary.includedRefCount}, units=${report.summary.includedUnitCount}, omittedUnits=${report.summary.omittedUnitCount}, staleSources=${report.summary.staleSourceCount}, missingSources=${report.summary.missingOrSkippedSourceCount}, suggestedFiles=${report.summary.suggestedFileCount}, validationTargets=${report.summary.validationTargetCount}\n`);
+  process.stdout.write(`summary: ${summaryParts.join(', ')}\n`);
   process.stdout.write(`recommended action: ${report.summary.recommendedAction}\n\n`);
 
   printHeader('Targets');

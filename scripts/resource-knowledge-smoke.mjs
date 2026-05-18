@@ -171,6 +171,16 @@ function assertCompactOneShotReport(report, options) {
   assert.equal(report.mutationAllowed, false);
   assert.equal(report.summary.matchedTargetCount, 1);
   assert.equal(report.summary.recommendedAction, 'use-resource-knowledge');
+  assert.equal(report.summary.acceptanceStatus, 'ready');
+  assert.equal(report.summary.cacheReady, true);
+  assert.equal(report.summary.unitTypeComplete, true);
+  assert.deepEqual(report.summary.includedUnitTypes, ['fact', 'guidance', 'example', 'diagnostic', 'recipe']);
+  assert.deepEqual(report.summary.missingUnitTypes, []);
+  assert.ok(report.summary.unitCounts.fact > 0);
+  assert.ok(report.summary.unitCounts.guidance > 0);
+  assert.ok(report.summary.unitCounts.example > 0);
+  assert.ok(report.summary.unitCounts.diagnostic > 0);
+  assert.ok(report.summary.unitCounts.recipe > 0);
   assert.deepEqual(report.requestedDomains, [options.domain]);
   assert.deepEqual(report.targetPaths, [options.targetPath]);
   assert.ok(report.validationTargets.includes(options.targetPath));
