@@ -29,6 +29,7 @@ export interface InventoryTargetBase {
   kind: InventoryTargetKind;
   name: string;
   path: string;
+  lookupIdentities: string[];
   environmentHints: string[];
   files: InventoryFileReferences;
   validationTargets: string[];
@@ -55,6 +56,7 @@ export interface PulumiInventoryTarget extends InventoryTargetBase {
   stackNames: string[];
   resourceTokenCount: number;
   resourcePackages: string[];
+  resourceTypes: string[];
 }
 
 export interface TerraformInventoryTarget extends InventoryTargetBase {
@@ -63,6 +65,10 @@ export interface TerraformInventoryTarget extends InventoryTargetBase {
   tfFileCount: number;
   tfvarsFileCount: number;
   providerSchemaFileCount: number;
+  resourceTypeCount: number;
+  dataSourceTypeCount: number;
+  resourceTypes: string[];
+  dataSourceTypes: string[];
   moduleHints: string[];
 }
 

@@ -1,5 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  mkdir,
+  mkdtemp,
+  rm,
+  writeFile
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import {
+  join,
+  resolve
+} from 'node:path';
 import { captureStdout } from '../support/capture-stdout.mjs';
 import {
   main,
@@ -52,8 +63,28 @@ test('refs CLI args accept workspace, required scope, domain filter, max units, 
   assert.equal(parsed.command, 'refs');
   assert.equal(parsed.workspace, 'fixtures/sample-workspace');
   assert.equal(parsed.refsScope, 'charts/payments-api');
+  assert.equal(parsed.refsResource ?? null, null);
   assert.deepEqual(parsed.domains, ['helm']);
   assert.equal(parsed.maxUnits, 2);
+  assert.equal(parsed.json, true);
+});
+
+test('refs CLI args accept resource identity as an alternative to scope', () => {
+  const parsed = parseArgs([
+    'refs',
+    'fixtures/sample-workspace',
+    '--resource',
+    'aws:s3/bucket:Bucket',
+    '--domain',
+    'pulumi',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'refs');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.equal(parsed.refsScope ?? null, null);
+  assert.equal(parsed.refsResource, 'aws:s3/bucket:Bucket');
+  assert.deepEqual(parsed.domains, ['pulumi']);
   assert.equal(parsed.json, true);
 });
 
@@ -130,4 +161,51 @@ test('refs command keeps unrelated domains out of a scoped domain lookup', async
   assert.equal(report.omitted.unmatchedScope, true);
   assert.deepEqual(report.targets, []);
   assert.deepEqual(report.refs, []);
+});
+
+test('refs command resolves resource identity through the entrypoint', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-refs-resource-cli-'));
+
+  try {
+    await mkdir(join(tempRoot, 'infra/api'), { recursive: true });
+    await writeFile(
+      join(tempRoot, 'infra/api/Pulumi.yaml'),
+      [
+        'name: api',
+        'runtime: yaml',
+        'resources:',
+        '  bucket:',
+        '    type: aws:s3/bucket:Bucket',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const output = await captureStdout(() => main([
+      'refs',
+      tempRoot,
+      '--resource',
+      'aws:s3/bucket:Bucket',
+      '--domain',
+      'pulumi',
+      '--json'
+    ]));
+    const report = JSON.parse(output.slice(output.indexOf('{')));
+
+    assert.equal(report.kind, 'infra-agent.refs');
+    assert.equal(report.mutationAllowed, false);
+    assert.equal(report.scope.requested, 'aws:s3/bucket:Bucket');
+    assert.equal(report.summary.matchedTargetCount, 1);
+    assert.equal(report.targets[0]?.path, 'infra/api');
+    assert.ok(report.targets[0]?.matchReasons.includes('scope matches resource identity'));
+    assert.ok(report.targets[0]?.lookupIdentities.includes('aws:s3/bucket:Bucket'));
+    assert.ok(report.targets[0]?.resourceTypes.includes('aws:s3/bucket:Bucket'));
+    assert.ok(report.sources.some(source =>
+      source.sourceKind === 'pulumi-docs'
+      && source.packageName === '@pulumi/aws'
+    ));
+    assertNoForbiddenRefFields(report);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });

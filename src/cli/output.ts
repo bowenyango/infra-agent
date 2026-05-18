@@ -3496,11 +3496,11 @@ function summarizeInventoryTarget(target: InventoryTarget): string {
   if (target.kind === 'pulumi-project') {
     const stacks = target.stackNames.length > 0 ? target.stackNames.join(',') : 'none';
     const packages = target.resourcePackages.length > 0 ? ` packages=${target.resourcePackages.join(',')}` : '';
-    return `${target.domain} ${target.kind} ${target.path} (stacks=${stacks}, resources=${target.resourceTokenCount})${packages}${environments}${facts}`;
+    return `${target.domain} ${target.kind} ${target.path} (stacks=${stacks}, resources=${target.resourceTokenCount}, resourceTypes=${target.resourceTypes.length})${packages}${environments}${facts}`;
   }
 
   const modules = target.moduleHints.length > 0 ? ` modules=${target.moduleHints.join(',')}` : '';
-  return `${target.domain} ${target.kind} ${target.path} (.tf=${target.tfFileCount}, tfvars=${target.tfvarsFileCount}, schemas=${target.providerSchemaFileCount})${modules}${environments}${facts}`;
+  return `${target.domain} ${target.kind} ${target.path} (.tf=${target.tfFileCount}, tfvars=${target.tfvarsFileCount}, schemas=${target.providerSchemaFileCount}, resources=${target.resourceTypeCount}, dataSources=${target.dataSourceTypeCount})${modules}${environments}${facts}`;
 }
 
 export function printInventoryReport(report: InventoryReport): void {

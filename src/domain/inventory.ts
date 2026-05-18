@@ -56,6 +56,13 @@ function uniqueSorted(values: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(values).filter(Boolean))).sort();
 }
 
+function compactLookupIdentities(values: Iterable<string>): string[] {
+  return uniqueSorted(Array.from(values)
+    .map(value => value.trim())
+    .filter(value => value.length > 0)
+  );
+}
+
 function domainAllowed(domain: InfraDomainId, options: InventoryReportOptions): boolean {
   return !options.domains || options.domains.length === 0 || options.domains.includes(domain);
 }
@@ -93,6 +100,17 @@ function buildHelmTarget(
   chart: HelmChartSummary,
   relatedFileLimit: number
 ): InventoryTarget {
+  const lookupIdentities = compactLookupIdentities([
+    chart.chartName,
+    `chart:${chart.chartName}`,
+    `helm:${chart.chartName}`,
+    ...chart.deploymentLinks.flatMap(link => [
+      link.applicationName,
+      `argocd:${link.applicationName}`,
+      link.releaseName ? `release:${link.releaseName}` : null,
+      link.destinationNamespace ? `namespace:${link.destinationNamespace}` : null
+    ].filter((value): value is string => Boolean(value)))
+  ]);
   const primary = [
     joinRelative(chart.chartRoot, 'Chart.yaml'),
     chart.chartMetadata.hasLockFile ? joinRelative(chart.chartRoot, 'Chart.lock') : null,
@@ -113,6 +131,7 @@ function buildHelmTarget(
     kind: 'helm-chart',
     name: chart.chartName,
     path: chart.chartRoot,
+    lookupIdentities,
     chartName: chart.chartName,
     chartMetadata: chart.chartMetadata,
     deploymentLinks: chart.deploymentLinks.map(link => ({
@@ -135,20 +154,42 @@ function buildPulumiTarget(
   project: PulumiProjectSummary,
   relatedFileLimit: number
 ): InventoryTarget {
+  const resourceTypes = uniqueSorted(project.resourceTokens.map(token => token.type));
+  const lookupIdentities = compactLookupIdentities([
+    project.projectRoot,
+    ...project.stackNames,
+    ...project.resourceTokens.flatMap(token => [
+      token.name,
+      token.type,
+      `${token.type}.${token.name}`,
+      `pulumi:${token.type}`,
+      `@pulumi/${token.packageName}`,
+      token.packageName,
+      token.moduleName,
+      token.typeName,
+      token.evidence?.sourceLocator
+    ].filter((value): value is string => Boolean(value)))
+  ]);
+  const resourceEvidenceFiles = project.resourceTokens
+    .map(token => token.evidence?.sourcePath)
+    .filter((file): file is string => Boolean(file));
+
   return {
     id: `pulumi-project:${project.projectRoot}`,
     domain: 'pulumi',
     kind: 'pulumi-project',
     name: project.projectRoot,
     path: project.projectRoot,
+    lookupIdentities,
     projectFile: project.projectFile,
     packageFileCount: project.packageFiles.length,
     stackFileCount: project.stackFiles.length,
     stackNames: [...project.stackNames],
     resourceTokenCount: project.resourceTokens.length,
     resourcePackages: uniqueSorted(project.resourceTokens.map(token => token.packageName)),
+    resourceTypes,
     environmentHints: [...project.environmentHints],
-    files: buildFileReferences([project.projectFile], [...project.packageFiles, ...project.stackFiles], relatedFileLimit),
+    files: buildFileReferences([project.projectFile], [...project.packageFiles, ...project.stackFiles, ...resourceEvidenceFiles], relatedFileLimit),
     validationTargets: [project.projectRoot, ...project.stackNames.map(stack => `${project.projectRoot}:${stack}`)],
     semanticFactCount: countSemanticFacts(inspection, 'pulumi-project', project.projectRoot)
   };
@@ -179,6 +220,26 @@ function buildTerraformTarget(
     ...root.tfvarsFiles,
     ...root.providerSchemaFiles
   ];
+  const resourceTypes = uniqueSorted(root.resourceUsages
+    .filter(usage => usage.kind === 'resource')
+    .map(usage => usage.typeName));
+  const dataSourceTypes = uniqueSorted(root.resourceUsages
+    .filter(usage => usage.kind === 'data-source')
+    .map(usage => usage.typeName));
+  const lookupIdentities = compactLookupIdentities([
+    root.rootPath,
+    ...root.moduleHints,
+    ...resourceTypes,
+    ...dataSourceTypes,
+    ...root.resourceUsages.flatMap(usage => [
+      usage.sourceLocator,
+      `${usage.typeName}.${usage.name}`,
+      usage.kind === 'data-source' ? `data.${usage.typeName}.${usage.name}` : null,
+      usage.kind === 'resource' ? `resource.${usage.typeName}.${usage.name}` : null,
+      usage.kind === 'data-source' ? `data:${usage.typeName}` : null,
+      usage.kind === 'resource' ? `resource:${usage.typeName}` : null
+    ].filter((value): value is string => Boolean(value)))
+  ]);
 
   return {
     id: `terraform-root:${root.rootPath}`,
@@ -186,9 +247,14 @@ function buildTerraformTarget(
     kind: 'terraform-root',
     name: root.rootPath,
     path: root.rootPath,
+    lookupIdentities,
     tfFileCount: root.tfFiles.length,
     tfvarsFileCount: root.tfvarsFiles.length,
     providerSchemaFileCount: root.providerSchemaFiles.length,
+    resourceTypeCount: resourceTypes.length,
+    dataSourceTypeCount: dataSourceTypes.length,
+    resourceTypes,
+    dataSourceTypes,
     moduleHints: [...root.moduleHints],
     environmentHints: [...root.environmentHints],
     files: buildFileReferences(primary, related, relatedFileLimit),

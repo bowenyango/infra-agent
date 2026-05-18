@@ -14,6 +14,7 @@ import {
   detectTerraformProviderSchemaFiles,
   extractTerraformProviderSchemaSemanticsForRoots
 } from './terraform-provider-schema.ts';
+import { detectTerraformResourceUsages } from './terraform-resource-usages.ts';
 import { extractTerraformVariableSemanticsForRoots } from './terraform-variables.ts';
 import { readWorkspaceConfig } from './workspace-config.ts';
 import { resolveKnowledgeCacheRoot } from '../knowledge/cache-root.ts';
@@ -159,6 +160,7 @@ function buildTerraformRootSummary(
     tfFiles: tfFiles.map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
     tfvarsFiles: tfvarsFiles.map(fileName => relative(workspaceRoot, join(dirPath, fileName))),
     providerSchemaFiles: [],
+    resourceUsages: [],
     moduleHints: Array.from(moduleHints).sort(),
     environmentHints: extractEnvironmentHints([relative(workspaceRoot, dirPath) || '.', ...tfvarsFiles])
   };
@@ -234,6 +236,7 @@ export async function inspectWorkspace(inputPath: string): Promise<WorkspaceInsp
   }
   for (const root of state.terraformRoots) {
     root.providerSchemaFiles = await detectTerraformProviderSchemaFiles(workspaceRoot, root);
+    root.resourceUsages = await detectTerraformResourceUsages(workspaceRoot, root);
   }
   const helmSemantics = await extractHelmValuesSchemaSemanticsForCharts(workspaceRoot, state.helmCharts);
   const pulumiSemantics = await extractPulumiStackConfigSemanticsForProjects(workspaceRoot, state.pulumiProjects);

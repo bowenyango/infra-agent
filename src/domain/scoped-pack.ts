@@ -59,6 +59,9 @@ function targetMatchReasons(target: InventoryTarget, normalizedScope: string): s
   if (target.kind === 'pulumi-project' && target.stackNames.some(stack => normalizeScope(stack) === normalizedScope)) {
     reasons.add('scope matches Pulumi stack name');
   }
+  if (target.lookupIdentities.some(identity => normalizeScope(identity) === normalizedScope)) {
+    reasons.add('scope matches resource identity');
+  }
 
   return Array.from(reasons).sort();
 }

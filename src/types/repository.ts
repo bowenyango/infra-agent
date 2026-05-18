@@ -194,11 +194,21 @@ export interface PulumiResourceTokenSummary {
   };
 }
 
+export interface TerraformResourceUsageSummary {
+  kind: 'resource' | 'data-source';
+  typeName: string;
+  name: string;
+  providerLocalName: string;
+  sourcePath: string;
+  sourceLocator: string;
+}
+
 export interface TerraformRootSummary {
   rootPath: string;
   tfFiles: string[];
   tfvarsFiles: string[];
   providerSchemaFiles: string[];
+  resourceUsages: TerraformResourceUsageSummary[];
   moduleHints: string[];
   environmentHints: string[];
 }

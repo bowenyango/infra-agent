@@ -60,6 +60,45 @@ Legacy team-upload boundary code is sealed off from active development on
 reviewed `infra-agent.knowledge-units` payloads, not remote write/upload
 execution.
 
+## Ten-Iteration Resource Extraction Milestone
+
+Near-term acceptance target: after ten focused implementation iterations, the
+user will test the content extraction workflow by providing a Terraform,
+Pulumi, or Helm resource identity. `infra-agent` should resolve that identity
+to the correct repo target, relevant links, and suggested source files, then
+produce a compact, refined knowledge base using the five unit types:
+`fact`, `guidance`, `example`, `diagnostic`, and `recipe`.
+
+The resource input may look like a Terraform resource or data source type or
+address, a Pulumi resource token, or a Helm chart/release identity. The CLI
+should avoid broad repo reads by routing through deterministic inventory,
+scoped pack, refs, knowledge source, extraction, pack, and index metadata.
+Public reference sources may be cache-backed; repo-local sources must remain
+workspace-private unless explicitly configured for shared artifact reuse.
+
+Iteration plan:
+
+1. Add resource-identity lookup to the existing `refs`/scoped-pack path so a
+   resource input can select targets and suggested files without a path.
+2. Extend Terraform resource/data-source discovery into compact inventory
+   metadata and source suggestions.
+3. Improve Pulumi resource token linking from resource input to source files,
+   package docs sources, and compact refs.
+4. Improve Helm chart/release/Argo lookup identities and values-layer file
+   selection for chart-like resource input.
+5. Add a resource-oriented knowledge source resolver that turns selected
+   targets into bounded source candidates.
+6. Add a one-shot resource knowledge pack flow that runs cache-first extraction
+   and emits five-unit compact packs for selected targets.
+7. Add knowledge index filtering that can select unit metadata by resource
+   identity and field path, not only source-level metadata.
+8. Add hash-based semantic cache status for resource lookup, target summaries,
+   and generated packs.
+9. Add cross-domain fixture coverage for Terraform, Pulumi, and Helm resource
+   input with raw-content and secret-leakage guards.
+10. Add a final user-facing smoke path and documented command sequence for the
+    user's acceptance test.
+
 Agent-2 reset policy:
 
 - Treat team-upload and upload-boundary implementation as archived legacy

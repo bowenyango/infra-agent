@@ -28,6 +28,7 @@ export interface RefsTarget {
   name: string;
   path: string;
   matchReasons: string[];
+  lookupIdentities: string[];
   interfaceKinds: string[];
   environmentHints: string[];
   files: InventoryFileReferences;
@@ -35,6 +36,8 @@ export interface RefsTarget {
   semanticFactCount: number;
   chartName?: string;
   resourcePackages?: string[];
+  resourceTypes?: string[];
+  dataSourceTypes?: string[];
   moduleHints?: string[];
 }
 

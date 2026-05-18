@@ -6,6 +6,76 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-17 Resource Identity Lookup Iteration 1
+
+Status:
+
+- Recorded the ten-iteration resource extraction milestone in
+  `docs/ROADMAP.md`. The acceptance target is that the user can provide a
+  Terraform, Pulumi, or Helm resource identity and get repo-linked files plus a
+  compact five-type knowledge base.
+- Added compact resource lookup identities to inventory targets so downstream
+  agents can route from resource-like input without first knowing a target
+  path.
+- Added Terraform resource/data-source usage detection from `.tf` blocks during
+  read-only workspace inspection. Terraform inventory targets now expose
+  compact `resourceTypes`, `dataSourceTypes`, and lookup identities such as
+  `aws_s3_bucket`, `aws_s3_bucket.logs`, and
+  `data.aws_iam_policy_document.assume`.
+- Pulumi inventory targets now expose compact resource token types and include
+  language-source evidence files in related file suggestions when available.
+- Helm inventory targets now expose chart, Argo Application, release, and
+  namespace lookup identities such as `chart:<name>` and `release:<name>`.
+- Scoped pack matching now treats lookup identities as first-class scope
+  matches. `refs` therefore inherits resource identity lookup without a
+  parallel target-selection engine.
+- Added `refs --resource <identity>` as a read-only alias for resource-oriented
+  lookup. It is mutually exclusive with `--scope` and returns the existing
+  `infra-agent.refs` contract.
+
+Files changed:
+
+- `docs/ROADMAP.md` adds the ten-iteration resource extraction milestone and
+  iteration plan.
+- `src/types/repository.ts` adds `TerraformResourceUsageSummary` and attaches
+  usage summaries to Terraform roots.
+- `src/domain/terraform-resource-usages.ts` detects compact Terraform
+  resource/data-source usages with no raw file content.
+- `src/domain/inspect-workspace.ts` populates Terraform resource usages during
+  inspection.
+- `src/types/inventory.ts`, `src/domain/inventory.ts`, `src/types/refs.ts`,
+  and `src/domain/refs.ts` carry compact lookup identities and resource type
+  metadata.
+- `src/domain/scoped-pack.ts` matches scopes against lookup identities.
+- `src/cli/main.ts` adds `refs --resource`.
+- `src/cli/output.ts` includes compact resource counts in inventory text.
+- `test/unit/refs.test.mjs` and `test/integration/cli-refs-main.test.mjs`
+  cover resource identity lookup across Helm, Pulumi, and Terraform.
+
+Validation:
+
+- `npm run test:focused -- test/unit/refs.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-refs-main.test.mjs` passed.
+- `npm run test:focused -- test/unit/inventory.test.mjs` passed.
+- `npm run test:focused -- test/unit/scoped-pack.test.mjs` passed.
+- `npm run dev -- refs fixtures/sample-workspace --resource chart:payments-api --domain helm --json`
+  passed.
+- `npm run dev -- refs fixtures/sample-workspace --resource payments-api --domain helm --json`
+  passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- This is iteration 1 of 10. Resource lookup now selects targets and files, but
+  it does not yet run a one-shot five-type knowledge extraction flow from a
+  resource identity.
+- Terraform registry source URLs still use the current existing latest-docs
+  URL behavior even when provider version metadata is known.
+- Knowledge indexing remains source-level; unit-level resource/field retrieval
+  is deferred to a later iteration.
+
 ## 2026-05-17 Helm Values Layer Metadata
 
 Status:

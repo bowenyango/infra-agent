@@ -130,6 +130,7 @@ export interface ParsedArgs {
   packScope?: string | null;
   packChanged?: boolean;
   refsScope?: string | null;
+  refsResource?: string | null;
   sourceIds?: string[];
   knowledgeIndexFilter?: KnowledgeUnitIndexEntryFilter;
   maxSources: number | null;
@@ -155,7 +156,7 @@ function printUsage(): void {
       '  infra-agent inventory [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
       '  infra-agent pack [workspace] (--scope <path|target|env|stack> | --changed --base <ref>|--file <path>) [--head <ref>] [--domain helm|pulumi|terraform] [--json]',
       '  infra-agent cache status [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
-      '  infra-agent refs [workspace] --scope <path|target|env|stack> [--domain helm|pulumi|terraform] [--max-units <n>] [--json]',
+      '  infra-agent refs [workspace] (--scope <path|target|env|stack|resource> | --resource <identity>) [--domain helm|pulumi|terraform] [--max-units <n>] [--json]',
       '  infra-agent validate [workspace] [--json]',
       '  infra-agent graph [workspace] [--terraform-plan <plan.json>] [--pulumi-preview <preview.json>] [--target <root>] [--json]',
       '  infra-agent changed [workspace] [--base <ref>] [--head <ref>] [--file <path>] [--domain helm|pulumi|terraform] [--target <path>] [--json]',
@@ -690,6 +691,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (commandName === 'refs') {
     let workspace = cwd();
     let refsScope: string | null = null;
+    let refsResource: string | null = null;
     let maxUnits: number | null = null;
     const domains: InfraDomainId[] = [];
     const positionalArgs: string[] = [];
@@ -707,6 +709,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         refsScope = scopeValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--resource') {
+        const resourceValue = cleanArgs[index + 1]?.trim();
+        if (!resourceValue) {
+          fail('Missing value for --resource.');
+        }
+        if (refsResource !== null) {
+          fail('--resource can be provided at most once.');
+        }
+
+        refsResource = resourceValue;
         index += 1;
         continue;
       }
@@ -744,8 +760,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (positionalArgs.length > 1) {
       fail('refs accepts at most one workspace path.');
     }
-    if (refsScope === null) {
-      fail('refs requires --scope.');
+    if (refsScope !== null && refsResource !== null) {
+      fail('refs accepts either --scope or --resource, not both.');
+    }
+    if (refsScope === null && refsResource === null) {
+      fail('refs requires --scope or --resource.');
     }
 
     workspace = positionalArgs[0] ?? workspace;
@@ -767,6 +786,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       domains,
       targetPaths: [],
       refsScope,
+      refsResource,
       maxSources: null,
       maxUnits,
       terraformPlanPaths: [],
@@ -2229,13 +2249,14 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   if (parsed.command === 'refs') {
-    if (!parsed.refsScope) {
-      fail('refs requires --scope.');
+    const refsScope = parsed.refsResource ?? parsed.refsScope;
+    if (!refsScope) {
+      fail('refs requires --scope or --resource.');
     }
 
     const inspection = await inspectWorkspace(parsed.workspace);
     const report = await buildRefsReport(inspection, {
-      scope: parsed.refsScope,
+      scope: refsScope,
       domains: parsed.domains,
       maxUnits: parsed.maxUnits ?? undefined
     });

@@ -79,6 +79,7 @@ function toRefsTarget(input: {
     name: input.target.name,
     path: input.target.path,
     matchReasons: [...input.target.matchReasons],
+    lookupIdentities: [...input.target.lookupIdentities],
     interfaceKinds: input.interfaceKinds,
     environmentHints: [...input.target.environmentHints],
     files: input.target.files,
@@ -86,6 +87,8 @@ function toRefsTarget(input: {
     semanticFactCount: input.target.semanticFactCount,
     ...(input.target.chartName !== undefined ? { chartName: input.target.chartName } : {}),
     ...(input.target.resourcePackages !== undefined ? { resourcePackages: [...input.target.resourcePackages] } : {}),
+    ...(input.target.resourceTypes !== undefined ? { resourceTypes: [...input.target.resourceTypes] } : {}),
+    ...(input.target.dataSourceTypes !== undefined ? { dataSourceTypes: [...input.target.dataSourceTypes] } : {}),
     ...(input.target.moduleHints !== undefined ? { moduleHints: [...input.target.moduleHints] } : {})
   };
 }
