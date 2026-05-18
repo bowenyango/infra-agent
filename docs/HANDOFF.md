@@ -6,6 +6,53 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge Helm Iteration 4
+
+Status:
+
+- Continued the ten-iteration resource extraction milestone. The user plans to
+  test after ten loops by providing a Terraform, Pulumi, or Helm resource
+  identity and expecting a repo-linked, compact five-unit knowledge report.
+- Added structured Helm chart context to
+  `infra-agent knowledge resource --resource chart:<name> --domain helm`.
+  Helm resource report targets now expose chart metadata, values-file presence,
+  templates presence, values schema path, Argo CD deployment links, safe
+  non-secret value files, and ordered values layers.
+- Kept the path read-only. `knowledge resource` still does not fetch docs,
+  upload artifacts, run Helm, deploy, apply, or mutate cache contents while
+  building the report.
+- Fixed the built-in Helm values schema docs source URL to avoid a fragment so
+  cache entries remain compatible with the secret-safe knowledge source
+  contract.
+
+Files changed:
+
+- `src/knowledge/resource-report.ts` enriches Helm `helm-chart` targets with
+  structured chart metadata and deployment linkage from workspace inspection.
+- `src/domain/helm-chart-context.ts` changes the Helm schema docs source URL to
+  a fragment-free official docs URL.
+- `test/integration/cli-knowledge-resource-main.test.mjs` adds an end-to-end
+  Helm resource report fixture using `chart:payments-api`. The test covers
+  Argo Application linkage, `values.yaml` plus `values-prod.yaml` layer order,
+  `secret-values.yaml` omission, five knowledge unit types, Helm-only source
+  scoping, cache content immutability, and raw-content/secret leakage guards.
+
+Validation:
+
+- `npm run test:focused -- test/integration/cli-knowledge-resource-main.test.mjs`
+  passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:unit` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Release identity input such as `release:payments-api` should get equivalent
+  dedicated report coverage in a later iteration.
+- Resource-field-level unit index filtering and semantic hash cache reporting
+  remain pending milestone items.
+
 ## 2026-05-18 Resource Knowledge One-Shot Iteration 3
 
 Status:

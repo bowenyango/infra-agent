@@ -450,7 +450,7 @@ export async function buildHelmChartKnowledgeSources(
       kind: 'helm-docs',
       name: 'values.schema.json',
       chart: chartName,
-      url: 'https://helm.sh/docs/topics/charts/#schema-files'
+      url: 'https://helm.sh/docs/topics/charts/'
     });
   }
 

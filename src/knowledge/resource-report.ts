@@ -1,6 +1,11 @@
 import { buildRefsReport } from '../domain/refs.ts';
 import type { RefsFact, RefsReport, RefsTarget } from '../types/refs.ts';
-import type { InfraDomainId, WorkspaceInspection } from '../types/repository.ts';
+import type {
+  HelmChartMetadataSummary,
+  HelmDeploymentLinkSummary,
+  InfraDomainId,
+  WorkspaceInspection
+} from '../types/repository.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
 import { buildKnowledgePack, type KnowledgePack } from './pack.ts';
 import { buildKnowledgeSourcesReport, type KnowledgeSourcesReport } from './sources.ts';
@@ -19,6 +24,14 @@ export interface ResourceKnowledgeReportOptions {
   domains?: InfraDomainId[];
   sourceIds?: string[];
   maxUnits?: number;
+}
+
+export interface ResourceKnowledgeTarget extends RefsTarget {
+  chartMetadata?: HelmChartMetadataSummary;
+  deploymentLinks?: HelmDeploymentLinkSummary[];
+  hasValuesFile?: boolean;
+  hasTemplatesDir?: boolean;
+  valuesSchemaFile?: string | null;
 }
 
 export interface ResourceKnowledgeReport {
@@ -45,7 +58,7 @@ export interface ResourceKnowledgeReport {
     domains: InfraDomainId[];
     recommendedAction: ResourceKnowledgeRecommendedAction;
   };
-  targets: RefsTarget[];
+  targets: ResourceKnowledgeTarget[];
   suggestedFiles: string[];
   validationTargets: string[];
   refs: RefsFact[];
@@ -119,8 +132,12 @@ function resourceTypeMatchesResource(typeName: string, resource: string): boolea
     || normalizedResource.includes(`:${normalizedType}.`);
 }
 
-function compactTargetForResource(target: RefsTarget, resource: string): RefsTarget {
-  return {
+function compactTargetForResource(
+  inspection: WorkspaceInspection,
+  target: RefsTarget,
+  resource: string
+): ResourceKnowledgeTarget {
+  const compactTarget: ResourceKnowledgeTarget = {
     ...target,
     lookupIdentities: target.lookupIdentities.filter(identity => identityMatchesResource(identity, resource)),
     ...(target.resourceTypes !== undefined
@@ -129,6 +146,28 @@ function compactTargetForResource(target: RefsTarget, resource: string): RefsTar
     ...(target.dataSourceTypes !== undefined
       ? { dataSourceTypes: target.dataSourceTypes.filter(typeName => resourceTypeMatchesResource(typeName, resource)) }
       : {})
+  };
+
+  if (target.domain !== 'helm' || target.kind !== 'helm-chart') {
+    return compactTarget;
+  }
+
+  const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === target.path);
+  if (!chart) {
+    return compactTarget;
+  }
+
+  return {
+    ...compactTarget,
+    chartMetadata: chart.chartMetadata,
+    deploymentLinks: chart.deploymentLinks.map(link => ({
+      ...link,
+      valueFiles: [...link.valueFiles],
+      valuesLayers: link.valuesLayers.map(layer => ({ ...layer }))
+    })),
+    hasValuesFile: chart.hasValuesFile,
+    hasTemplatesDir: chart.hasTemplatesDir,
+    valuesSchemaFile: chart.valuesSchemaFile
   };
 }
 
@@ -156,14 +195,14 @@ function compactDomains(domains: Iterable<InfraDomainId>): InfraDomainId[] {
   return DOMAIN_ORDER.filter(domain => values.has(domain));
 }
 
-function collectSuggestedFiles(targets: RefsTarget[]): string[] {
+function collectSuggestedFiles(targets: ResourceKnowledgeTarget[]): string[] {
   return uniqueSorted(targets.flatMap(target => [
     ...target.files.primary,
     ...target.files.related
   ]));
 }
 
-function collectValidationTargets(targets: RefsTarget[]): string[] {
+function collectValidationTargets(targets: ResourceKnowledgeTarget[]): string[] {
   return uniqueSorted(targets.flatMap(target => target.validationTargets));
 }
 
@@ -212,7 +251,7 @@ export async function buildResourceKnowledgeReport(
     store
   });
   const unitIndex = buildKnowledgeUnitMetadataIndex(pack);
-  const targets = refsReport.targets.map(target => compactTargetForResource(target, resource));
+  const targets = refsReport.targets.map(target => compactTargetForResource(inspection, target, resource));
   const refs = compactRefsForResource(refsReport, resource);
   const targetPaths = uniqueSorted([
     ...targets.map(target => target.path),

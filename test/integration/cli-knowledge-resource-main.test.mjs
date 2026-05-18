@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  cp,
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   writeFile
 } from 'node:fs/promises';
@@ -14,6 +16,7 @@ import {
 } from 'node:path';
 import { captureStdout } from '../support/capture-stdout.mjs';
 import { main } from '../../src/cli/main.ts';
+import { buildHelmChartKnowledgeSources } from '../../src/domain/helm-chart-context.ts';
 import { inspectWorkspace } from '../../src/domain/inspect-workspace.ts';
 import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 import { buildKnowledgeSourcesReport } from '../../src/knowledge/sources.ts';
@@ -25,6 +28,58 @@ function parseJsonOutput(output) {
 function jsonText(value) {
   return JSON.stringify(value);
 }
+
+async function snapshotCacheFiles(cacheDir) {
+  const files = await readdir(cacheDir);
+  const snapshot = {};
+  for (const file of files) {
+    snapshot[file] = await readFile(join(cacheDir, file), 'utf8');
+  }
+  return snapshot;
+}
+
+const API_CHART_DOCS_MARKDOWN = [
+  '# Payments API chart',
+  '',
+  '| Parameter | Type | Default | Description | Required |',
+  '| --- | --- | --- | --- | --- |',
+  '| `image.repository` | string | `ghcr.io/example/payments-api` | Container image repository. | yes |',
+  '| `service.port` | int | `8080` | Service port exposed by the chart. | no |',
+  '',
+  '## Example Values',
+  '',
+  '```yaml',
+  'image:',
+  '  repository: ghcr.io/example/payments-api',
+  '```',
+  '',
+  '## Best Practices',
+  '',
+  'Always set image.repository explicitly before rendering this chart.',
+  '',
+  '## Upgrade Workflow',
+  '',
+  '1. Update the image repository in the environment values file.',
+  '2. Render the chart with helm template.',
+  '3. Review the changed Deployment image before merging.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`Error: image.repository is required` usually means the values file omitted the image repository.',
+  '',
+  '- Check values.yaml and environment override files.',
+  '- Run helm template for the selected chart.',
+  ''
+].join('\n');
+
+const HELM_SCHEMA_DOCS_MARKDOWN = [
+  '# Helm values schema',
+  '',
+  '## Best Practices',
+  '',
+  'Use values.schema.json to document and validate chart values before rendering.',
+  ''
+].join('\n');
 
 async function writeResourceWorkspace(root) {
   const terraformRoot = join(root, 'terraform/api');
@@ -87,6 +142,27 @@ async function writeResourceWorkspace(root) {
   );
 }
 
+async function writeHelmResourceWorkspace(root) {
+  await cp(resolve('fixtures/sample-workspace'), root, { recursive: true });
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+
+  const chartFile = join(root, 'charts/payments-api/Chart.yaml');
+  const chartYaml = await readFile(chartFile, 'utf8');
+  await writeFile(
+    chartFile,
+    `${chartYaml.trimEnd()}\nhome: https://charts.example.test/payments/\n`,
+    'utf8'
+  );
+}
+
 async function seedCachedSource(inspection, options, sourceName, content) {
   const report = await buildKnowledgeSourcesReport(inspection, options);
   const source = report.sources.find(candidate => candidate.source.name === sourceName)?.source;
@@ -95,6 +171,32 @@ async function seedCachedSource(inspection, options, sourceName, content) {
     source,
     contentType: 'text/markdown',
     content,
+    fetchedAt: '2026-05-01T00:00:00.000Z',
+    staleAfter: '2099-01-01T00:00:00.000Z'
+  });
+}
+
+async function seedHelmResourceCaches(root) {
+  const inspection = await inspectWorkspace(root);
+  await seedCachedSource(
+    inspection,
+    {
+      domains: ['helm'],
+      targetPaths: ['charts/payments-api']
+    },
+    'values.schema.json',
+    HELM_SCHEMA_DOCS_MARKDOWN
+  );
+
+  const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === 'charts/payments-api');
+  assert.ok(chart);
+  const chartDocsSource = (await buildHelmChartKnowledgeSources(inspection.workspaceRoot, chart))
+    .find(candidate => candidate.kind === 'chart-docs' && candidate.name === 'payments-api:home');
+  assert.ok(chartDocsSource);
+  await writeKnowledgeCacheEntry(inspection.knowledgeCache.root, {
+    source: chartDocsSource,
+    contentType: 'text/markdown',
+    content: API_CHART_DOCS_MARKDOWN,
     fetchedAt: '2026-05-01T00:00:00.000Z',
     staleAfter: '2099-01-01T00:00:00.000Z'
   });
@@ -469,6 +571,110 @@ test('knowledge resource report composes Pulumi refs, sources, pack, and index',
       && entry.sourceName === 'pulumi-docs:resource:aws:s3/bucket'
     ));
     assert.doesNotMatch(reportText, /aws:sns\/topic:Topic|UNRELATED_TOPIC_MARKER|secretToken|password|authorization|bearer|"content"\s*:|"rawContent"\s*:/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge resource report composes Helm Argo values layers and five-unit chart docs', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-resource-report-helm-'));
+
+  try {
+    await writeHelmResourceWorkspace(tempRoot);
+    await seedHelmResourceCaches(tempRoot);
+    const cacheDir = join(tempRoot, '.infra-agent/knowledge-cache');
+    const cacheSnapshotBefore = await snapshotCacheFiles(cacheDir);
+
+    const report = parseJsonOutput(await captureStdout(() => main([
+      'knowledge',
+      'resource',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--resource',
+      'chart:payments-api',
+      '--max-units',
+      '50',
+      '--json'
+    ])));
+    const cacheSnapshotAfter = await snapshotCacheFiles(cacheDir);
+    const reportText = jsonText(report);
+    const unitTypes = new Set(report.pack.units.map(unit => unit.unitType));
+    const target = report.targets[0];
+    const link = target.deploymentLinks?.[0];
+
+    assert.equal(report.kind, 'infra-agent.knowledge-resource-report');
+    assert.equal(report.schemaVersion, 1);
+    assert.equal(report.mutationAllowed, false);
+    assert.equal(report.resource, 'chart:payments-api');
+    assert.deepEqual(report.requestedDomains, ['helm']);
+    assert.deepEqual(report.targetPaths, ['charts/payments-api']);
+    assert.equal(report.summary.matchedTargetCount, 1);
+    assert.equal(report.summary.recommendedAction, 'use-resource-knowledge');
+    assert.equal(report.summary.suggestedFileCount, report.suggestedFiles.length);
+    assert.equal(report.summary.validationTargetCount, report.validationTargets.length);
+    assert.ok(['fact', 'guidance', 'example', 'diagnostic', 'recipe'].every(unitType => unitTypes.has(unitType)));
+    assert.deepEqual(cacheSnapshotAfter, cacheSnapshotBefore);
+
+    assert.equal(target.domain, 'helm');
+    assert.equal(target.kind, 'helm-chart');
+    assert.equal(target.chartName, 'payments-api');
+    assert.deepEqual(target.lookupIdentities, ['chart:payments-api']);
+    assert.equal(target.chartMetadata.chartName, 'payments-api');
+    assert.equal(target.chartMetadata.version, '0.1.0');
+    assert.equal(target.valuesSchemaFile, 'charts/payments-api/values.schema.json');
+    assert.equal(target.hasValuesFile, true);
+    assert.equal(target.hasTemplatesDir, true);
+    assert.ok(link);
+    assert.equal(link.applicationName, 'payments-api-prod');
+    assert.equal(link.applicationNamespace, 'argocd');
+    assert.equal(link.applicationFile, 'apps/payments-api.yaml');
+    assert.equal(link.destinationNamespace, 'payments');
+    assert.equal(link.releaseName, 'payments-api');
+    assert.deepEqual(link.valueFiles, ['charts/payments-api/values-prod.yaml']);
+    assert.equal(link.omittedValueFileCount, 1);
+    assert.deepEqual(link.valuesLayers.map(layer => layer.path), [
+      'charts/payments-api/values.yaml',
+      'charts/payments-api/values-prod.yaml'
+    ]);
+    assert.deepEqual(link.valuesLayers.map(layer => layer.source), [
+      'chart-default',
+      'argocd-value-file'
+    ]);
+
+    assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
+    assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
+    assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+    assert.ok(report.suggestedFiles.includes('charts/payments-api/values-prod.yaml'));
+    assert.ok(report.suggestedFiles.includes('charts/payments-api/values.schema.json'));
+    assert.equal(report.suggestedFiles.includes('charts/payments-api/secret-values.yaml'), false);
+    assert.deepEqual(report.validationTargets, ['charts/payments-api']);
+
+    assert.ok(report.sources.every(source => source.domain === 'helm' && source.targetPath === 'charts/payments-api'));
+    assert.ok(report.sources.some(source => source.source.name === 'payments-api:Chart.yaml'));
+    assert.ok(report.sources.some(source => source.source.name === 'payments-api:values.schema.json'));
+    assert.ok(report.sources.some(source => source.source.name === 'payments-api:home'));
+    assert.ok(report.pack.sources.some(source => source.kind === 'chart-docs' && source.name === 'payments-api:home'));
+    assert.ok(report.pack.units.some(unit =>
+      unit.unitType === 'fact'
+      && unit.path === 'chart.payments-api.image.repository'
+    ));
+    assert.ok(report.pack.units.some(unit =>
+      unit.unitType === 'example'
+      && unit.exampleType === 'helm-docs-example'
+      && /ghcr\.io\/example\/payments-api/.test(unit.snippet)
+    ));
+    assert.ok(report.pack.units.some(unit =>
+      unit.unitType === 'diagnostic'
+      && unit.engine === 'helm'
+      && unit.signature === 'Error: image.repository is required'
+    ));
+    assert.ok(report.unitIndex.entries.some(entry =>
+      entry.sourceKind === 'chart-docs'
+      && entry.sourceName === 'payments-api:home'
+      && entry.unitCounts.example > 0
+    ));
+    assert.doesNotMatch(reportText, /secret-values\.yaml|repository:\s*example\/payments-api|replicaCount:\s*2|"\$schema"|kubernetes\.default\.svc|password|authorization|bearer|"content"\s*:|"rawContent"\s*:/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

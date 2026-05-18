@@ -103,9 +103,12 @@ Current progress: iterations 1 through 6 have initial implementations on
 `agent-2`. `knowledge resource --resource <identity>` now composes target
 lookup, suggested files, resource-filtered source posture, compact refs, a
 bounded five-unit knowledge pack, and a unit index in one read-only report.
-Later iterations still need resource-field-level index filtering, semantic hash
-cache reporting, broader Helm/Pulumi/Terraform acceptance fixtures, and the
-final user-facing smoke path.
+Iteration 4 Helm coverage now has a dedicated `chart:payments-api` resource
+report fixture that proves Argo CD linkage, values-layer ordering, secret
+value-file omission, five knowledge unit types, and cache immutability. Later
+iterations still need resource-field-level index filtering, semantic hash cache
+reporting, equivalent release-identity coverage, broader Terraform/Pulumi/Helm
+acceptance fixtures, and the final user-facing smoke path.
 
 Agent-2 reset policy:
 
