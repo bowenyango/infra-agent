@@ -250,6 +250,25 @@ test('inventory command emits compact read-only inventory JSON through the entry
   assert.equal(chart.deploymentLinks[0].applicationFile, 'apps/payments-api.yaml');
   assert.equal(chart.deploymentLinks[0].destinationNamespace, 'payments');
   assert.equal(chart.deploymentLinks[0].confidence, 'medium');
+  assert.deepEqual(chart.deploymentLinks[0].valueFiles, ['charts/payments-api/values-prod.yaml']);
+  assert.equal(chart.deploymentLinks[0].omittedValueFileCount, 1);
+  assert.equal(chart.deploymentLinks[0].valuesLayerCount, 2);
+  assert.deepEqual(chart.deploymentLinks[0].valuesLayers.map(layer => ({
+    order: layer.order,
+    path: layer.path,
+    source: layer.source
+  })), [
+    {
+      order: 0,
+      path: 'charts/payments-api/values.yaml',
+      source: 'chart-default'
+    },
+    {
+      order: 1,
+      path: 'charts/payments-api/values-prod.yaml',
+      source: 'argocd-value-file'
+    }
+  ]);
   assert.ok(report.targets.some(target =>
     target.domain === 'pulumi'
     && target.kind === 'pulumi-project'
@@ -295,7 +314,9 @@ test('pack command emits scoped read-only JSON through the entrypoint', async ()
   assert.deepEqual(chart.chartMetadata.dependencies, []);
   assert.equal(chart.deploymentLinks.length, 1);
   assert.equal(chart.deploymentLinks[0].applicationName, 'payments-api-prod');
+  assert.equal(chart.deploymentLinks[0].valuesLayerCount, 2);
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/values-prod.yaml'));
   assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.doesNotMatch(output, /example-api-secret/i);
   assert.doesNotMatch(output, /kubernetes\.default\.svc/i);
@@ -328,6 +349,7 @@ test('pack --changed command emits changed scoped JSON through the entrypoint', 
     && target.changedFiles.some(file => file.path === 'charts/payments-api/values.yaml')
   ));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/values-prod.yaml'));
   assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.doesNotMatch(output, /example-api-secret/i);
   assert.doesNotMatch(output, /kubernetes\.default\.svc/i);
@@ -353,9 +375,13 @@ test('pack --changed command maps linked Argo CD Application files to Helm JSON'
     && target.path === 'charts/payments-api'
     && target.changedFiles.some(file => file.path === 'apps/payments-api.yaml')
     && target.riskHints.includes('Argo CD Application sync path for Helm chart changed')
+    && target.deploymentLinks.some(link =>
+      link.valuesLayers.some(layer => layer.path === 'charts/payments-api/values-prod.yaml')
+    )
   ));
   assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/values-prod.yaml'));
   assert.doesNotMatch(output, /kubernetes\.default\.svc/i);
   assert.doesNotMatch(output, /secret-values\.yaml/i);
 });
@@ -403,6 +429,32 @@ test('changed command emits read-only affected context JSON through the entrypoi
   ));
   assert.ok(report.omitted.unmappedFiles.some(file => file.path === 'README.md'));
   assert.doesNotMatch(output, /example-api-secret/i);
+  assert.doesNotMatch(output, /secret-values\.yaml/i);
+});
+
+test('changed command maps Argo values layer files through the entrypoint', async () => {
+  const output = await captureStdout(() => main([
+    'changed',
+    'fixtures/sample-workspace',
+    '--file',
+    'charts/payments-api/values-prod.yaml',
+    '--json'
+  ]));
+  const report = JSON.parse(output.slice(output.indexOf('{')));
+
+  assert.equal(report.kind, 'infra-agent.changed-context');
+  assert.equal(report.summary.changedFileCount, 1);
+  assert.equal(report.summary.affectedComponentCount, 1);
+  assert.ok(report.affectedComponents.some(component =>
+    component.domain === 'helm'
+    && component.kind === 'helm-chart'
+    && component.targetPath === 'charts/payments-api'
+    && component.changedFiles.some(file => file.path === 'charts/payments-api/values-prod.yaml')
+    && component.riskHints.includes('Argo CD Helm values file changed')
+    && component.deploymentLinks.some(link =>
+      link.valuesLayers.some(layer => layer.path === 'charts/payments-api/values-prod.yaml')
+    )
+  ));
   assert.doesNotMatch(output, /secret-values\.yaml/i);
 });
 

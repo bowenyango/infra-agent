@@ -14,7 +14,8 @@ import {
 } from '../tools/repository/repository-tools.ts';
 import type {
   HelmChartSummary,
-  HelmDeploymentLinkSummary
+  HelmDeploymentLinkSummary,
+  HelmValuesLayerSummary
 } from '../types/repository.ts';
 
 interface ArgoApplicationSource {
@@ -72,8 +73,20 @@ function isWorkspaceRelative(resolvedPath: string, workspaceRoot: string): boole
   return relativePath.length > 0 && !relativePath.startsWith('..') && !isAbsolute(relativePath);
 }
 
-function uniqueSorted(values: Iterable<string>): string[] {
-  return Array.from(new Set(Array.from(values).filter(Boolean))).sort();
+function uniquePreserveOrder(values: Iterable<string>): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+
+  for (const value of values) {
+    if (!value || seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    unique.push(value);
+  }
+
+  return unique;
 }
 
 function compareLinks(left: HelmDeploymentLinkSummary, right: HelmDeploymentLinkSummary): number {
@@ -196,8 +209,12 @@ function parseArgoApplicationManifest(rawDocument: unknown, applicationFile: str
   };
 }
 
-function resolveValueFiles(workspaceRoot: string, sourcePath: string, rawValueFiles: string[]): string[] {
+function resolveValueFiles(workspaceRoot: string, sourcePath: string, rawValueFiles: string[]): {
+  valueFiles: string[];
+  omittedValueFileCount: number;
+} {
   const localValueFiles: string[] = [];
+  let omittedValueFileCount = 0;
 
   for (const rawValueFile of rawValueFiles) {
     const valueFile = rawValueFile.trim();
@@ -208,26 +225,33 @@ function resolveValueFiles(workspaceRoot: string, sourcePath: string, rawValueFi
       || /^[a-z][a-z0-9+.-]*:/i.test(valueFile)
       || valueFile.startsWith('/')
     ) {
+      omittedValueFileCount += 1;
       continue;
     }
 
     const resolvedPath = resolve(workspaceRoot, sourcePath, valueFile);
     if (!isWorkspaceRelative(resolvedPath, workspaceRoot)) {
+      omittedValueFileCount += 1;
       continue;
     }
 
     localValueFiles.push(normalizePath(relative(workspaceRoot, resolvedPath)));
   }
 
-  return uniqueSorted(localValueFiles);
+  return {
+    valueFiles: uniquePreserveOrder(localValueFiles),
+    omittedValueFileCount
+  };
 }
 
 function buildLink(
   workspaceRoot: string,
+  chart: HelmChartSummary,
   application: ArgoApplicationManifest,
   source: ArgoApplicationSource
 ): HelmDeploymentLinkSummary {
-  const valueFiles = resolveValueFiles(workspaceRoot, source.path, source.rawValueFiles);
+  const { valueFiles, omittedValueFileCount } = resolveValueFiles(workspaceRoot, source.path, source.rawValueFiles);
+  const valuesLayers = buildValuesLayers(chart, valueFiles);
 
   return {
     kind: 'argocd-application',
@@ -242,8 +266,33 @@ function buildLink(
     releaseName: source.releaseName,
     valueFiles,
     valueFileCount: valueFiles.length,
+    omittedValueFileCount,
+    valuesLayers,
+    valuesLayerCount: valuesLayers.length,
     syncPolicyAutomated: application.syncPolicyAutomated
   };
+}
+
+function buildValuesLayers(chart: HelmChartSummary, valueFiles: string[]): HelmValuesLayerSummary[] {
+  const layers: HelmValuesLayerSummary[] = [];
+
+  if (chart.hasValuesFile) {
+    layers.push({
+      order: layers.length,
+      path: chart.chartRoot === '.' ? 'values.yaml' : `${chart.chartRoot}/values.yaml`,
+      source: 'chart-default'
+    });
+  }
+
+  for (const valueFile of valueFiles) {
+    layers.push({
+      order: layers.length,
+      path: valueFile,
+      source: 'argocd-value-file'
+    });
+  }
+
+  return layers;
 }
 
 async function readArgoApplicationManifests(workspaceRoot: string, relativePath: string): Promise<ArgoApplicationManifest[]> {
@@ -290,7 +339,7 @@ export async function discoverArgoCdHelmApplicationLinks(
         }
 
         const links = linksByChartRoot.get(chart.chartRoot) ?? [];
-        links.push(buildLink(workspaceRoot, application, source));
+        links.push(buildLink(workspaceRoot, chart, application, source));
         linksByChartRoot.set(chart.chartRoot, links);
       }
     }

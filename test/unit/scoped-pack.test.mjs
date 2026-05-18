@@ -42,8 +42,27 @@ test('buildScopedPackReport matches Helm chart path scopes', async () => {
   assert.equal(chart.deploymentLinks.length, 1);
   assert.equal(chart.deploymentLinks[0].applicationFile, 'apps/payments-api.yaml');
   assert.equal(chart.deploymentLinks[0].applicationName, 'payments-api-prod');
+  assert.equal(chart.deploymentLinks[0].omittedValueFileCount, 1);
+  assert.equal(chart.deploymentLinks[0].valuesLayerCount, 2);
+  assert.deepEqual(chart.deploymentLinks[0].valuesLayers.map(layer => ({
+    order: layer.order,
+    path: layer.path,
+    source: layer.source
+  })), [
+    {
+      order: 0,
+      path: 'charts/payments-api/values.yaml',
+      source: 'chart-default'
+    },
+    {
+      order: 1,
+      path: 'charts/payments-api/values-prod.yaml',
+      source: 'argocd-value-file'
+    }
+  ]);
   assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.yaml'));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/values-prod.yaml'));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/values.schema.json'));
   assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.deepEqual(report.validationTargets, ['charts/payments-api']);
@@ -157,9 +176,13 @@ test('buildChangedScopedPackReport maps linked Argo CD Application changes to th
     && target.path === 'charts/payments-api'
     && target.changedFiles?.some(file => file.path === 'apps/payments-api.yaml')
     && target.riskHints?.includes('Argo CD Application sync path for Helm chart changed')
+    && target.deploymentLinks.some(link =>
+      link.valuesLayers.some(layer => layer.path === 'charts/payments-api/values-prod.yaml')
+    )
   ));
   assert.ok(report.suggestedFiles.includes('apps/payments-api.yaml'));
   assert.ok(report.suggestedFiles.includes('charts/payments-api/Chart.yaml'));
+  assert.ok(report.suggestedFiles.includes('charts/payments-api/values-prod.yaml'));
   assert.deepEqual(report.validationTargets, ['charts/payments-api']);
   assert.doesNotMatch(JSON.stringify(report), /kubernetes\.default\.svc/i);
   assert.doesNotMatch(JSON.stringify(report), /secret-values\.yaml/i);
@@ -203,6 +226,20 @@ test('renderScopedPackMarkdown emits compact agent handoff text', async () => {
   assert.match(markdown, /infra\/payments-api\/Pulumi\.yaml/);
   assert.match(markdown, /No raw file content included/);
   assert.doesNotMatch(markdown, /example-api-secret/i);
+});
+
+test('renderScopedPackMarkdown includes compact Helm values layer count and suggested overlay', async () => {
+  const inspection = await inspectWorkspace('fixtures/sample-workspace');
+  const report = buildScopedPackReport(inspection, {
+    scope: 'charts/payments-api'
+  });
+  const markdown = renderScopedPackMarkdown(report);
+
+  assert.match(markdown, /^# Context Pack: charts\/payments-api/m);
+  assert.match(markdown, /helm helm-chart charts\/payments-api/);
+  assert.match(markdown, /valuesLayers=2/);
+  assert.match(markdown, /charts\/payments-api\/values-prod\.yaml/);
+  assert.doesNotMatch(markdown, /secret-values\.yaml/i);
 });
 
 test('renderScopedPackMarkdown includes compact changed context summary', async () => {

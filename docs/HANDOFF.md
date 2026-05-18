@@ -6,6 +6,72 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-17 Helm Values Layer Metadata
+
+Status:
+
+- Added compact Helm values layer metadata to Argo CD deployment links.
+- `HelmDeploymentLinkSummary` now carries ordered `valuesLayers` and
+  `valuesLayerCount` for the concrete render/deployment: chart default
+  `values.yaml` first when present, followed by filtered Argo CD Helm
+  `valueFiles` in manifest order.
+- Layering is intentionally link-local, not chart-global. Multiple Argo CD
+  Applications can point at the same chart with different overlays without
+  mixing render order into a single ambiguous chart-level list.
+- Argo CD `valueFiles` preserve safe local order and now expose
+  `omittedValueFileCount` for filtered entries. Secret-like paths, `$values`
+  references, remote URLs, absolute paths, and out-of-workspace traversal are
+  omitted from agent-facing output.
+- Inventory, scoped packs, changed-context, and CLI JSON now serialize the
+  link-local layer contract. Text summaries include only a compact aggregate
+  `valuesLayers=<count>`.
+- Changed-context maps linked Argo values layer file changes back to the Helm
+  chart, including out-of-chart workspace-relative overlay files.
+
+Files changed:
+
+- `src/types/repository.ts` adds `HelmValuesLayerSummary` and extends
+  `HelmDeploymentLinkSummary` with `omittedValueFileCount`, `valuesLayers`,
+  and `valuesLayerCount`.
+- `src/domain/argocd-application-linkage.ts` preserves safe value-file order,
+  counts omitted unsafe entries, and builds link-local values layers.
+- `src/domain/inventory.ts` and `src/impact/changed-context.ts` deep-copy the
+  values layer metadata through inventory and changed-context output.
+- `src/domain/scoped-pack.ts` and `src/cli/output.ts` report compact aggregate
+  layer counts in Markdown/text summaries.
+- `fixtures/sample-workspace/apps/payments-api.yaml` now references a
+  non-secret production values overlay and a filtered secret-like values file.
+- `fixtures/sample-workspace/charts/payments-api/values-prod.yaml` adds a
+  small safe overlay fixture.
+- `test/unit/inventory.test.mjs`, `test/unit/scoped-pack.test.mjs`,
+  `test/unit/changed-context.test.mjs`, and
+  `test/integration/cli-report-main.test.mjs` cover ordered layer metadata,
+  unsafe value-file omission, scoped pack Markdown, CLI JSON, and changed
+  mapping for Argo values files inside and outside the chart root.
+
+Validation:
+
+- `npm run test:focused -- test/unit/inventory.test.mjs` passed.
+- `npm run test:focused -- test/unit/scoped-pack.test.mjs` passed.
+- `npm run test:focused -- test/unit/changed-context.test.mjs` passed.
+- `npm run test:focused -- test/integration/cli-report-main.test.mjs` passed.
+- `npm run dev -- inventory fixtures/sample-workspace --domain helm --json`
+  passed.
+- `npm run dev -- changed fixtures/sample-workspace --file charts/payments-api/values-prod.yaml --json`
+  passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run verify` passed.
+- `git diff --check` passed.
+
+Residual risks:
+
+- Values layer metadata remains path-only and does not parse or merge values
+  content.
+- Argo CD `$values` multi-source references are counted as omitted for now
+  because resolving their repository identity safely requires a separate
+  source-aware linkage slice.
+
 ## 2026-05-17 Argo CD Application Helm Linkage
 
 Status:

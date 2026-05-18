@@ -3427,6 +3427,7 @@ export function printInspection(inspection: WorkspaceInspection): void {
   printHeader('Helm Charts');
   printList(
     inspection.helmCharts.map(chart => {
+      const valuesLayerCount = chart.deploymentLinks.reduce((sum, link) => sum + link.valuesLayerCount, 0);
       const features = [
         chart.hasValuesFile ? 'values' : 'missing-values',
         chart.hasTemplatesDir ? 'templates' : 'missing-templates',
@@ -3434,7 +3435,7 @@ export function printInspection(inspection: WorkspaceInspection): void {
       ].join(', ');
       const version = chart.chartMetadata.version ? ` version=${chart.chartMetadata.version}` : '';
       const appVersion = chart.chartMetadata.appVersion ? ` appVersion=${chart.chartMetadata.appVersion}` : '';
-      return `${chart.chartRoot} (${features}; chart=${chart.chartMetadata.chartName}${version}${appVersion}; deps=${chart.chartMetadata.dependencyCount}; deployments=${chart.deploymentLinks.length})`;
+      return `${chart.chartRoot} (${features}; chart=${chart.chartMetadata.chartName}${version}${appVersion}; deps=${chart.chartMetadata.dependencyCount}; deployments=${chart.deploymentLinks.length}; valuesLayers=${valuesLayerCount})`;
     }),
     'No Helm charts detected.'
   );
@@ -3481,6 +3482,7 @@ function summarizeInventoryTarget(target: InventoryTarget): string {
     : '';
 
   if (target.kind === 'helm-chart') {
+    const valuesLayerCount = target.deploymentLinks.reduce((sum, link) => sum + link.valuesLayerCount, 0);
     const features = [
       target.hasValuesFile ? 'values' : 'missing-values',
       target.hasTemplatesDir ? 'templates' : 'missing-templates',
@@ -3488,7 +3490,7 @@ function summarizeInventoryTarget(target: InventoryTarget): string {
     ].join(',');
     const version = target.chartMetadata.version ? ` version=${target.chartMetadata.version}` : '';
     const appVersion = target.chartMetadata.appVersion ? ` appVersion=${target.chartMetadata.appVersion}` : '';
-    return `${target.domain} ${target.kind} ${target.path} (${features}; chart=${target.chartMetadata.chartName}${version}${appVersion}; deps=${target.chartMetadata.dependencyCount}; deployments=${target.deploymentLinks.length})${environments}${facts}`;
+    return `${target.domain} ${target.kind} ${target.path} (${features}; chart=${target.chartMetadata.chartName}${version}${appVersion}; deps=${target.chartMetadata.dependencyCount}; deployments=${target.deploymentLinks.length}; valuesLayers=${valuesLayerCount})${environments}${facts}`;
   }
 
   if (target.kind === 'pulumi-project') {

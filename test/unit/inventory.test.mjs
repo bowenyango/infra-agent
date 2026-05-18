@@ -52,27 +52,45 @@ test('buildInventoryReport summarizes Helm and Pulumi targets from inspection', 
   assert.equal(chart.chartMetadata.dependencyCount, 0);
   assert.deepEqual(chart.chartMetadata.dependencies, []);
   assert.equal(chart.deploymentLinks.length, 1);
-  assert.deepEqual(chart.deploymentLinks[0], {
-    kind: 'argocd-application',
-    applicationName: 'payments-api-prod',
-    applicationNamespace: 'argocd',
-    applicationFile: 'apps/payments-api.yaml',
-    sourcePath: 'charts/payments-api',
-    matchReason: 'argocd-source-path-matches-chart-root',
-    confidence: 'medium',
-    destinationNamespace: 'payments',
-    targetRevision: 'main',
-    releaseName: 'payments-api',
-    valueFiles: ['charts/payments-api/values.yaml'],
-    valueFileCount: 1,
-    syncPolicyAutomated: true
-  });
+  const deploymentLink = chart.deploymentLinks[0];
+  assert.equal(deploymentLink.kind, 'argocd-application');
+  assert.equal(deploymentLink.applicationName, 'payments-api-prod');
+  assert.equal(deploymentLink.applicationNamespace, 'argocd');
+  assert.equal(deploymentLink.applicationFile, 'apps/payments-api.yaml');
+  assert.equal(deploymentLink.sourcePath, 'charts/payments-api');
+  assert.equal(deploymentLink.matchReason, 'argocd-source-path-matches-chart-root');
+  assert.equal(deploymentLink.confidence, 'medium');
+  assert.equal(deploymentLink.destinationNamespace, 'payments');
+  assert.equal(deploymentLink.targetRevision, 'main');
+  assert.equal(deploymentLink.releaseName, 'payments-api');
+  assert.deepEqual(deploymentLink.valueFiles, ['charts/payments-api/values-prod.yaml']);
+  assert.equal(deploymentLink.valueFileCount, 1);
+  assert.equal(deploymentLink.omittedValueFileCount, 1);
+  assert.equal(deploymentLink.valuesLayerCount, 2);
+  assert.equal(deploymentLink.syncPolicyAutomated, true);
+  assert.deepEqual(deploymentLink.valuesLayers.map(layer => ({
+    order: layer.order,
+    path: layer.path,
+    source: layer.source
+  })), [
+    {
+      order: 0,
+      path: 'charts/payments-api/values.yaml',
+      source: 'chart-default'
+    },
+    {
+      order: 1,
+      path: 'charts/payments-api/values-prod.yaml',
+      source: 'argocd-value-file'
+    }
+  ]);
   assert.deepEqual(chart.files.primary, [
     'charts/payments-api/Chart.yaml',
     'charts/payments-api/values.yaml',
     'charts/payments-api/values.schema.json'
   ]);
   assert.ok(chart.files.related.includes('apps/payments-api.yaml'));
+  assert.ok(chart.files.related.includes('charts/payments-api/values-prod.yaml'));
   assert.deepEqual(chart.validationTargets, ['charts/payments-api']);
   assert.ok(chart.semanticFactCount > 0);
 
@@ -91,6 +109,97 @@ test('buildInventoryReport summarizes Helm and Pulumi targets from inspection', 
   assert.doesNotMatch(JSON.stringify(report), /example-api-secret/i);
   assert.doesNotMatch(JSON.stringify(report), /kubernetes\.default\.svc/i);
   assert.doesNotMatch(JSON.stringify(report), /secret-values\.yaml/i);
+});
+
+test('buildInventoryReport preserves safe Argo values layer order and omits unsafe valueFiles', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-inventory-helm-values-layers-'));
+
+  try {
+    await mkdir(join(tempRoot, 'charts/api'), { recursive: true });
+    await mkdir(join(tempRoot, 'apps'), { recursive: true });
+    await mkdir(join(tempRoot, 'overlays'), { recursive: true });
+    await writeFile(
+      join(tempRoot, 'charts/api/Chart.yaml'),
+      [
+        'apiVersion: v2',
+        'name: api',
+        'version: 0.1.0',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(join(tempRoot, 'charts/api/values.yaml'), 'replicaCount: 1\n', 'utf8');
+    await writeFile(join(tempRoot, 'overlays/prod.yaml'), 'replicaCount: 3\n', 'utf8');
+    await writeFile(join(tempRoot, 'overlays/canary.yaml'), 'replicaCount: 2\n', 'utf8');
+    await writeFile(
+      join(tempRoot, 'apps/api.yaml'),
+      [
+        'apiVersion: argoproj.io/v1alpha1',
+        'kind: Application',
+        'metadata:',
+        '  name: api-prod',
+        'spec:',
+        '  source:',
+        '    path: ./charts/api',
+        '    helm:',
+        '      valueFiles:',
+        '        - ../../overlays/prod.yaml',
+        '        - ../../overlays/canary.yaml',
+        '        - ../../overlays/secret-values.yaml',
+        '        - $values/prod.yaml',
+        '        - https://example.com/values.yaml',
+        '        - /tmp/absolute-values.yaml',
+        '        - ../../../outside.yaml',
+        '  destination:',
+        '    namespace: api',
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+
+    const inspection = await inspectWorkspace(tempRoot);
+    const report = buildInventoryReport(inspection);
+    const chart = findTarget(report, 'helm-chart', 'charts/api');
+
+    assert.ok(chart);
+    assert.deepEqual(chart.deploymentLinks[0]?.valueFiles, [
+      'overlays/prod.yaml',
+      'overlays/canary.yaml'
+    ]);
+    assert.equal(chart.deploymentLinks[0]?.omittedValueFileCount, 5);
+    assert.equal(chart.deploymentLinks[0]?.valuesLayerCount, 3);
+    assert.deepEqual(chart.deploymentLinks[0]?.valuesLayers.map(layer => ({
+      order: layer.order,
+      path: layer.path,
+      source: layer.source
+    })), [
+      {
+        order: 0,
+        path: 'charts/api/values.yaml',
+        source: 'chart-default'
+      },
+      {
+        order: 1,
+        path: 'overlays/prod.yaml',
+        source: 'argocd-value-file'
+      },
+      {
+        order: 2,
+        path: 'overlays/canary.yaml',
+        source: 'argocd-value-file'
+      }
+    ]);
+    assert.ok(chart.files.related.includes('apps/api.yaml'));
+    assert.ok(chart.files.related.includes('overlays/prod.yaml'));
+    assert.ok(chart.files.related.includes('overlays/canary.yaml'));
+    assert.doesNotMatch(JSON.stringify(report), /secret-values\.yaml/i);
+    assert.doesNotMatch(JSON.stringify(report), /\$values/i);
+    assert.doesNotMatch(JSON.stringify(report), /example\.com/i);
+    assert.doesNotMatch(JSON.stringify(report), /absolute-values/i);
+    assert.doesNotMatch(JSON.stringify(report), /outside\.yaml/i);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('buildInventoryReport summarizes Terraform roots from inspection', async () => {

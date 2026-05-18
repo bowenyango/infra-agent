@@ -10,7 +10,7 @@ spec:
     helm:
       releaseName: payments-api
       valueFiles:
-        - values.yaml
+        - values-prod.yaml
         - secret-values.yaml
   destination:
     namespace: payments

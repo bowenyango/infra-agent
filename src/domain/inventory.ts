@@ -117,7 +117,8 @@ function buildHelmTarget(
     chartMetadata: chart.chartMetadata,
     deploymentLinks: chart.deploymentLinks.map(link => ({
       ...link,
-      valueFiles: [...link.valueFiles]
+      valueFiles: [...link.valueFiles],
+      valuesLayers: link.valuesLayers.map(layer => ({ ...layer }))
     })),
     hasValuesFile: chart.hasValuesFile,
     hasTemplatesDir: chart.hasTemplatesDir,

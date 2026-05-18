@@ -124,6 +124,14 @@ export interface HelmChartSummary {
   environmentHints: string[];
 }
 
+export type HelmValuesLayerSource = 'chart-default' | 'argocd-value-file';
+
+export interface HelmValuesLayerSummary {
+  order: number;
+  path: string;
+  source: HelmValuesLayerSource;
+}
+
 export interface HelmDeploymentLinkSummary {
   kind: 'argocd-application';
   applicationName: string;
@@ -137,6 +145,9 @@ export interface HelmDeploymentLinkSummary {
   releaseName?: string;
   valueFiles: string[];
   valueFileCount: number;
+  omittedValueFileCount: number;
+  valuesLayers: HelmValuesLayerSummary[];
+  valuesLayerCount: number;
   syncPolicyAutomated: boolean;
 }
 

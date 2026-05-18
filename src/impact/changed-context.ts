@@ -131,7 +131,8 @@ function buildHelmDraft(chart: HelmChartSummary): ComponentDraft {
     deploymentLinks: chart.deploymentLinks.length > 0
       ? chart.deploymentLinks.map(link => ({
         ...link,
-        valueFiles: [...link.valueFiles]
+        valueFiles: [...link.valueFiles],
+        valuesLayers: link.valuesLayers.map(layer => ({ ...layer }))
       }))
       : undefined,
     suggestedInspectFiles,

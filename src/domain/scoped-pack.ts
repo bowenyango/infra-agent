@@ -242,13 +242,17 @@ function summarizeTarget(target: ScopedPackTarget): string {
   const reasons = target.matchReasons.join('; ');
   const environments = target.environmentHints.length > 0 ? `; env=${target.environmentHints.join(', ')}` : '';
   const changed = target.changedFiles && target.changedFiles.length > 0 ? `; changed=${target.changedFiles.length}` : '';
+  const valuesLayerCount = target.kind === 'helm-chart'
+    ? target.deploymentLinks.reduce((sum, link) => sum + link.valuesLayerCount, 0)
+    : 0;
   const helmMetadata = target.kind === 'helm-chart'
     ? [
         `chart=${target.chartMetadata.chartName}`,
         target.chartMetadata.version ? `version=${target.chartMetadata.version}` : null,
         target.chartMetadata.appVersion ? `appVersion=${target.chartMetadata.appVersion}` : null,
         `deps=${target.chartMetadata.dependencyCount}`,
-        `deployments=${target.deploymentLinks.length}`
+        `deployments=${target.deploymentLinks.length}`,
+        `valuesLayers=${valuesLayerCount}`
       ].filter((item): item is string => Boolean(item)).join(' ')
     : null;
   const metadata = helmMetadata ? `; ${helmMetadata}` : '';
