@@ -6,6 +6,78 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge Field Index Iteration 7
+
+Status:
+
+- Continued the ten-iteration resource extraction milestone. The user plans to
+  test after ten loops by providing a Terraform, Pulumi, or Helm resource
+  identity and expecting a repo-linked, compact five-unit knowledge report.
+- Added field-level metadata to `infra-agent.knowledge-unit-index`. Unit index
+  payloads now expose top-level `fieldEntries`, `fieldEntryCount`, and
+  `fieldIncludedUnitCount`, while source-level entries expose compact
+  `fieldPaths` and `fields` summaries.
+- Added `knowledge index --field-path <path>` so another agent can retrieve
+  compact unit metadata for one resource field without reading raw source
+  content or unrelated fields from the same resource docs.
+- Kept `knowledge resource` as the one-shot resource report. It now carries the
+  generated field-level `unitIndex` metadata automatically, without adding a
+  new mutation path, upload boundary, harness, or safety workflow.
+- Included field-level entries in the resource report `cachePosture`
+  `unitIndexHash` so compact cache posture changes when selected field
+  metadata changes.
+
+Files changed:
+
+- `src/knowledge/unit-index.ts` builds source-level and field-level compact
+  metadata from packed units and supports field-path selectors.
+- `src/cli/main.ts` parses and routes `knowledge index --field-path <path>`.
+- `src/knowledge/resource-report.ts` includes field-aware unit-index hash
+  posture in one-shot resource reports.
+- `src/knowledge/validate.ts` validates required field-level index metadata,
+  source/top-level field coherence, counts, scopes, retrieval keys, and
+  secret/URL-safe compact paths.
+- `src/cli/output.ts` includes field index counts in human-readable index
+  summaries.
+- `test/integration/cli-knowledge-args-main.test.mjs`,
+  `test/integration/cli-knowledge-index-main.test.mjs`,
+  `test/integration/cli-knowledge-resource-field-index-main.test.mjs`, and
+  `test/integration/cli-knowledge-resource-main.test.mjs` cover parser,
+  direct index, field-scoped resource index, one-shot resource report,
+  unmatched-resource, compactness, and unrelated-field omission behavior.
+- `test/unit/knowledge-unit-index.test.mjs` and
+  `test/unit/knowledge-unit-index-validation.test.mjs` cover field-level
+  selector and validation contracts.
+
+Validation:
+
+- `npm run lint` passed.
+- `npm run test:focused -- test/integration/cli-knowledge-args-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-index-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-resource-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-resource-field-index-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/unit/knowledge-unit-index.test.mjs` passed.
+- `npm run test:focused -- test/unit/knowledge-unit-index-validation.test.mjs`
+  passed.
+- `npm run test:focused -- test/unit/knowledge-unit-index-budget.test.mjs`
+  passed.
+- `npm run test:focused -- test/unit/planner-knowledge-unit-index-prompt.test.mjs`
+  passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Field-level matching is compact metadata for retrieval and handoff. It does
+  not replace native provider schemas, Terraform plan, Pulumi preview, Helm
+  render/lint, or future final acceptance smoke coverage.
+- Later iterations still need broader cross-domain acceptance fixtures and the
+  final user-facing smoke path for the ten-loop test.
+
 ## 2026-05-18 Resource Knowledge Cache Posture Iteration 6
 
 Status:

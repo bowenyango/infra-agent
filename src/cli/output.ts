@@ -3786,7 +3786,7 @@ function formatKnowledgeUnitIndexEntry(entry: KnowledgeUnitIndexEntry): string {
 export function printKnowledgeUnitMetadataIndex(index: KnowledgeUnitMetadataIndex): void {
   printHeader('Knowledge unit index');
   process.stdout.write(`pack: ${index.packId}\n`);
-  process.stdout.write(`summary: sources=${index.sourceCount}, includedUnits=${index.includedUnitCount}, omittedUnits=${index.omittedUnitCount}\n\n`);
+  process.stdout.write(`summary: sources=${index.sourceCount}, includedUnits=${index.includedUnitCount}, omittedUnits=${index.omittedUnitCount}, fieldEntries=${index.fieldEntryCount}, fieldUnits=${index.fieldIncludedUnitCount}\n\n`);
   printHeader('Sources');
   printList(index.entries.map(formatKnowledgeUnitIndexEntry), 'No knowledge unit index entries.');
 }

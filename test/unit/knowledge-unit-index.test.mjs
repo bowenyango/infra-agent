@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   buildKnowledgeUnitMetadataIndex,
-  selectKnowledgeUnitIndexEntries
+  selectKnowledgeUnitIndexEntries,
+  selectKnowledgeUnitIndexFieldEntries
 } from '../../src/knowledge/unit-index.ts';
 
 function publicStoragePolicy() {
@@ -224,6 +225,9 @@ test('knowledge unit metadata index aggregates five unit types by source', () =>
   assert.equal(index.sourceCount, 4);
   assert.equal(index.includedUnitCount, 6);
   assert.equal(index.omittedUnitCount, 0);
+  assert.equal(index.fieldEntryCount, 0);
+  assert.equal(index.fieldIncludedUnitCount, 0);
+  assert.ok(index.entries.every(entry => entry.fieldPaths.length === 0 && entry.fields.length === 0));
 
   assert.deepEqual(terraformEntry?.unitCounts, {
     fact: 1,
@@ -328,6 +332,185 @@ test('knowledge unit index filter selects by provider package chart version and 
       unitType: 'fact'
     }).map(entry => entry.sourceId),
     ['workspace-private-source']
+  );
+});
+
+test('knowledge unit index filter selects compact field-level unit metadata', () => {
+  const source = {
+    ...SOURCES[0],
+    id: 'terraform-s3-source',
+    name: 'resource:aws_s3_bucket',
+    factCount: 2
+  };
+  const pack = {
+    ...buildPack(),
+    sourceIds: [source.id],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: 4,
+    includedUnitCount: 4,
+    unitCount: 4,
+    sources: [source],
+    units: [
+      {
+        unitType: 'fact',
+        factKind: 'argument',
+        path: 'resource.aws_s3_bucket.bucket',
+        summary: 'Bucket name.',
+        confidence: 'medium',
+        extractionMethod: 'terraform-registry-markdown',
+        sourceId: source.id,
+        sourceLocator: 'bucket',
+        privacyScope: 'public-reference'
+      },
+      {
+        unitType: 'guidance',
+        path: 'guidance.replacement.resource.aws_s3_bucket.bucket',
+        summary: 'Bucket name replacement needs review.',
+        confidence: 'medium',
+        extractionMethod: 'official-guidance',
+        sourceId: source.id,
+        sourceLocator: 'bucket',
+        privacyScope: 'public-reference',
+        topic: 'replacement-sensitive-field'
+      },
+      {
+        unitType: 'diagnostic',
+        path: 'diagnostic.replacement.resource.aws_s3_bucket.bucket',
+        summary: 'Bucket name can force replacement.',
+        confidence: 'medium',
+        extractionMethod: 'provider-diagnostic',
+        sourceId: source.id,
+        sourceLocator: 'bucket',
+        privacyScope: 'public-reference',
+        engine: 'provider',
+        signature: 'replacement-sensitive-field:resource.aws_s3_bucket.bucket',
+        likelyCause: 'Changing the bucket name can force replacement.',
+        recommendedReview: ['Review terraform plan replacement output.']
+      },
+      {
+        unitType: 'fact',
+        factKind: 'argument',
+        path: 'resource.aws_s3_bucket.tags',
+        summary: 'Bucket tags.',
+        confidence: 'medium',
+        extractionMethod: 'terraform-registry-markdown',
+        sourceId: source.id,
+        sourceLocator: 'tags',
+        privacyScope: 'public-reference'
+      }
+    ]
+  };
+  const index = buildKnowledgeUnitMetadataIndex(pack);
+  const fieldEntries = selectKnowledgeUnitIndexFieldEntries(index, { fieldPath: 'bucket' });
+  const sourceEntries = selectKnowledgeUnitIndexEntries(index, { fieldPath: 'bucket' });
+  const serialized = JSON.stringify({ fieldEntries, sourceEntries });
+
+  assert.equal(index.fieldEntryCount, 2);
+  assert.deepEqual(fieldEntries.map(entry => entry.fieldPath), ['bucket']);
+  assert.deepEqual(fieldEntries[0]?.unitCounts, {
+    fact: 1,
+    guidance: 1,
+    example: 0,
+    diagnostic: 1,
+    recipe: 0
+  });
+  assert.deepEqual(fieldEntries[0]?.unitPaths, [
+    'diagnostic.replacement.resource.aws_s3_bucket.bucket',
+    'guidance.replacement.resource.aws_s3_bucket.bucket',
+    'resource.aws_s3_bucket.bucket'
+  ]);
+  assert.equal(sourceEntries[0]?.includedUnitCount, 3);
+  assert.deepEqual(sourceEntries[0]?.privacyScopes, ['public-reference']);
+  assert.deepEqual(sourceEntries[0]?.fieldPaths, ['resource.aws_s3_bucket.bucket']);
+  assert.doesNotMatch(serialized, /resource\.aws_s3_bucket\.tags|sourceLocator|summary|https:\/\//);
+});
+
+test('knowledge unit index field filter applies unit type and privacy after narrowing', () => {
+  const source = {
+    ...SOURCES[0],
+    id: 'terraform-s3-source-narrowed',
+    name: 'resource:aws_s3_bucket',
+    factCount: 3
+  };
+  const pack = {
+    ...buildPack(),
+    sourceIds: [source.id],
+    sourceCount: 1,
+    factSetCount: 1,
+    factCount: 3,
+    includedUnitCount: 3,
+    unitCount: 3,
+    sources: [source],
+    units: [
+      {
+        unitType: 'fact',
+        factKind: 'argument',
+        path: 'resource.aws_s3_bucket.bucket',
+        summary: 'Bucket name.',
+        confidence: 'medium',
+        extractionMethod: 'terraform-registry-markdown',
+        sourceId: source.id,
+        sourceLocator: 'bucket',
+        privacyScope: 'public-reference'
+      },
+      {
+        unitType: 'diagnostic',
+        path: 'diagnostic.replacement.resource.aws_s3_bucket.tags',
+        summary: 'Tags changed.',
+        confidence: 'medium',
+        extractionMethod: 'provider-diagnostic',
+        sourceId: source.id,
+        sourceLocator: 'tags',
+        privacyScope: 'public-reference',
+        engine: 'provider',
+        signature: 'replacement-sensitive-field:resource.aws_s3_bucket.tags',
+        likelyCause: 'Tags changed.',
+        recommendedReview: ['Review changed tags.']
+      },
+      {
+        unitType: 'guidance',
+        path: 'guidance.replacement.resource.aws_s3_bucket.acl',
+        summary: 'ACL is workspace-private guidance.',
+        confidence: 'medium',
+        extractionMethod: 'repo-local-static',
+        sourceId: source.id,
+        sourceLocator: 'acl',
+        privacyScope: 'workspace-private',
+        topic: 'workspace-private-acl'
+      }
+    ]
+  };
+  const index = buildKnowledgeUnitMetadataIndex(pack);
+
+  assert.deepEqual(
+    selectKnowledgeUnitIndexEntries(index, {
+      fieldPath: 'bucket',
+      unitType: 'diagnostic'
+    }),
+    []
+  );
+  assert.deepEqual(
+    selectKnowledgeUnitIndexFieldEntries(index, {
+      fieldPath: 'bucket',
+      unitType: 'diagnostic'
+    }),
+    []
+  );
+  assert.deepEqual(
+    selectKnowledgeUnitIndexEntries(index, {
+      fieldPath: 'bucket',
+      privacyScope: 'workspace-private'
+    }),
+    []
+  );
+  assert.deepEqual(
+    selectKnowledgeUnitIndexEntries(index, {
+      fieldPath: 'bucket',
+      unitType: 'fact',
+      privacyScope: 'public-reference'
+    }).map(entry => entry.fieldPaths),
+    [['resource.aws_s3_bucket.bucket']]
   );
 });
 

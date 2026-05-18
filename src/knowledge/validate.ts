@@ -601,6 +601,159 @@ function validateKnowledgeUnitIndexRetrievalKey(
   }
 }
 
+function validateKnowledgeUnitIndexPathValue(
+  value: string,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  validateNoSecretLikeValue(value, path, issues);
+  if (FULL_URL_PATTERN.test(value)) {
+    issues.push(error(path, 'Knowledge unit index path metadata must not include URLs.'));
+  }
+}
+
+function validateKnowledgeUnitIndexPrivacyScopes(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  label: string
+): KnowledgeUnitPrivacyScope[] {
+  if (!Array.isArray(value)) {
+    issues.push(error(path, `${label} privacyScopes must be an array.`));
+    return [];
+  }
+
+  const scopes: KnowledgeUnitPrivacyScope[] = [];
+  value.forEach((scope, index) => {
+    if (typeof scope !== 'string' || !KNOWLEDGE_UNIT_PRIVACY_SCOPES.includes(scope as KnowledgeUnitPrivacyScope)) {
+      issues.push(error(`${path}[${index}]`, `${label} privacyScope must be supported.`));
+      return;
+    }
+    scopes.push(scope as KnowledgeUnitPrivacyScope);
+  });
+
+  return scopes;
+}
+
+function validateKnowledgeUnitIndexUnitCounts(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): number {
+  let unitCountSum = 0;
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge unit index unitCounts must be an object.'));
+    return unitCountSum;
+  }
+
+  const unitCountKeys = new Set(Object.keys(value));
+  for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+    unitCountKeys.delete(unitType);
+    const unitCount = readNonNegativeInteger(value[unitType], `${path}.${unitType}`, issues);
+    if (unitCount !== null) {
+      unitCountSum += unitCount;
+    }
+  }
+  for (const extraKey of unitCountKeys) {
+    issues.push(error(`${path}.${extraKey}`, 'Knowledge unit index unitCounts must only include supported unit types.'));
+  }
+
+  return unitCountSum;
+}
+
+function validateKnowledgeUnitIndexFieldSummary(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): {
+  fieldPath: string | null;
+  unitCountSum: number;
+} {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge unit index field summary must be an object.'));
+    return {
+      fieldPath: null,
+      unitCountSum: 0
+    };
+  }
+
+  const fieldPath = readNonEmptyString(value.fieldPath, `${path}.fieldPath`, issues);
+  if (fieldPath !== null) {
+    validateKnowledgeUnitIndexPathValue(fieldPath, `${path}.fieldPath`, issues);
+  }
+  validateKnowledgeUnitIndexPrivacyScopes(
+    value.privacyScopes,
+    `${path}.privacyScopes`,
+    issues,
+    'Knowledge unit index field summary'
+  );
+  const unitCountSum = validateKnowledgeUnitIndexUnitCounts(value.unitCounts, `${path}.unitCounts`, issues);
+  const includedUnitCount = readNonNegativeInteger(value.includedUnitCount, `${path}.includedUnitCount`, issues);
+  if (includedUnitCount !== null && includedUnitCount !== unitCountSum) {
+    issues.push(error(`${path}.includedUnitCount`, 'Knowledge unit index field includedUnitCount must match the sum of unitCounts.'));
+  }
+
+  return {
+    fieldPath,
+    unitCountSum
+  };
+}
+
+function validateKnowledgeUnitFieldIndexEntry(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): number {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Knowledge unit field index entry must be an object.'));
+    return 0;
+  }
+
+  if (typeof value.domain !== 'string' || !INFRA_DOMAINS.includes(value.domain as InfraDomainId)) {
+    issues.push(error(`${path}.domain`, 'Knowledge unit field index entry domain must be supported.'));
+  }
+  if (typeof value.sourceKind !== 'string' || !KNOWLEDGE_SOURCE_KINDS.includes(value.sourceKind as KnowledgeSourceKind)) {
+    issues.push(error(`${path}.sourceKind`, 'Knowledge unit field index entry sourceKind must be supported.'));
+  }
+  if (typeof value.storageScope !== 'string' || !KNOWLEDGE_STORAGE_SCOPES.includes(value.storageScope as KnowledgeStorageScope)) {
+    issues.push(error(`${path}.storageScope`, 'Knowledge unit field index entry storageScope must be supported.'));
+  }
+  if (typeof value.freshness !== 'string' || !KNOWLEDGE_PACK_SOURCE_FRESHNESS.includes(value.freshness as typeof KNOWLEDGE_PACK_SOURCE_FRESHNESS[number])) {
+    issues.push(error(`${path}.freshness`, 'Knowledge unit field index entry freshness must be supported.'));
+  }
+
+  for (const field of ['targetPath', 'sourceId', 'sourceName', 'resourceKey', 'fieldPath'] as const) {
+    const stringValue = readNonEmptyString(value[field], `${path}.${field}`, issues);
+    if (stringValue !== null) {
+      validateKnowledgeUnitIndexPathValue(stringValue, `${path}.${field}`, issues);
+    }
+  }
+
+  for (const field of ['provider', 'packageName', 'chart', 'module', 'version'] as const) {
+    validateOptionalString(value[field], `${path}.${field}`, issues);
+  }
+
+  validateKnowledgeUnitIndexPrivacyScopes(
+    value.privacyScopes,
+    `${path}.privacyScopes`,
+    issues,
+    'Knowledge unit field index entry'
+  );
+
+  const unitCountSum = validateKnowledgeUnitIndexUnitCounts(value.unitCounts, `${path}.unitCounts`, issues);
+  const includedUnitCount = readNonNegativeInteger(value.includedUnitCount, `${path}.includedUnitCount`, issues);
+  if (includedUnitCount !== null && includedUnitCount !== unitCountSum) {
+    issues.push(error(`${path}.includedUnitCount`, 'Knowledge unit field index entry includedUnitCount must match the sum of unitCounts.'));
+  }
+
+  readStringArray(value.unitPaths, `${path}.unitPaths`, issues)
+    ?.forEach((unitPath, index) => validateKnowledgeUnitIndexPathValue(unitPath, `${path}.unitPaths[${index}]`, issues));
+  readStringArray(value.retrievalKeys, `${path}.retrievalKeys`, issues)
+    ?.forEach((key, index) => validateKnowledgeUnitIndexRetrievalKey(key, `${path}.retrievalKeys[${index}]`, issues));
+
+  return unitCountSum;
+}
+
 function validateKnowledgeUnitIndexEntry(
   value: unknown,
   path: string,
@@ -635,32 +788,14 @@ function validateKnowledgeUnitIndexEntry(
     validateOptionalString(value[field], `${path}.${field}`, issues);
   }
 
-  if (!Array.isArray(value.privacyScopes)) {
-    issues.push(error(`${path}.privacyScopes`, 'Knowledge unit index entry privacyScopes must be an array.'));
-  } else {
-    value.privacyScopes.forEach((scope, index) => {
-      if (typeof scope !== 'string' || !KNOWLEDGE_UNIT_PRIVACY_SCOPES.includes(scope as KnowledgeUnitPrivacyScope)) {
-        issues.push(error(`${path}.privacyScopes[${index}]`, 'Knowledge unit index entry privacyScope must be supported.'));
-      }
-    });
-  }
+  validateKnowledgeUnitIndexPrivacyScopes(
+    value.privacyScopes,
+    `${path}.privacyScopes`,
+    issues,
+    'Knowledge unit index entry'
+  );
 
-  let unitCountSum = 0;
-  if (!isRecord(value.unitCounts)) {
-    issues.push(error(`${path}.unitCounts`, 'Knowledge unit index entry unitCounts must be an object.'));
-  } else {
-    const unitCountKeys = new Set(Object.keys(value.unitCounts));
-    for (const unitType of KNOWLEDGE_UNIT_TYPES) {
-      unitCountKeys.delete(unitType);
-      const unitCount = readNonNegativeInteger(value.unitCounts[unitType], `${path}.unitCounts.${unitType}`, issues);
-      if (unitCount !== null) {
-        unitCountSum += unitCount;
-      }
-    }
-    for (const extraKey of unitCountKeys) {
-      issues.push(error(`${path}.unitCounts.${extraKey}`, 'Knowledge unit index entry unitCounts must only include supported unit types.'));
-    }
-  }
+  const unitCountSum = validateKnowledgeUnitIndexUnitCounts(value.unitCounts, `${path}.unitCounts`, issues);
 
   const includedUnitCount = readNonNegativeInteger(value.includedUnitCount, `${path}.includedUnitCount`, issues);
   if (includedUnitCount !== null && includedUnitCount !== unitCountSum) {
@@ -670,6 +805,35 @@ function validateKnowledgeUnitIndexEntry(
     readNonNegativeInteger(value.omittedUnitCount, `${path}.omittedUnitCount`, issues);
   }
   readNonNegativeInteger(value.sourceUnitCountEstimate, `${path}.sourceUnitCountEstimate`, issues);
+
+  const fieldPaths = readStringArray(value.fieldPaths, `${path}.fieldPaths`, issues);
+  fieldPaths?.forEach((fieldPath, index) => validateKnowledgeUnitIndexPathValue(fieldPath, `${path}.fieldPaths[${index}]`, issues));
+
+  const fieldSummaryPaths: string[] = [];
+  if (!Array.isArray(value.fields)) {
+    issues.push(error(`${path}.fields`, 'Knowledge unit index entry fields must be an array.'));
+  } else {
+    value.fields.forEach((field, index) => {
+      const fieldSummary = validateKnowledgeUnitIndexFieldSummary(field, `${path}.fields[${index}]`, issues);
+      if (fieldSummary.fieldPath !== null) {
+        fieldSummaryPaths.push(fieldSummary.fieldPath);
+      }
+    });
+  }
+  if (fieldPaths !== null) {
+    const listedFieldPaths = new Set(fieldPaths);
+    const summarizedFieldPaths = new Set(fieldSummaryPaths);
+    for (const fieldPath of listedFieldPaths) {
+      if (!summarizedFieldPaths.has(fieldPath)) {
+        issues.push(error(`${path}.fieldPaths`, 'Knowledge unit index entry fieldPaths must match fields[].fieldPath.'));
+      }
+    }
+    for (const fieldPath of summarizedFieldPaths) {
+      if (!listedFieldPaths.has(fieldPath)) {
+        issues.push(error(`${path}.fields`, 'Knowledge unit index entry fields must match fieldPaths.'));
+      }
+    }
+  }
 
   const retrievalKeys = readStringArray(value.retrievalKeys, `${path}.retrievalKeys`, issues);
   retrievalKeys?.forEach((key, index) => validateKnowledgeUnitIndexRetrievalKey(key, `${path}.retrievalKeys[${index}]`, issues));
@@ -706,8 +870,12 @@ function validateKnowledgeUnitIndexPayload(
   const sourceCount = readNonNegativeInteger(payload.sourceCount, '$.sourceCount', issues);
   const includedUnitCount = readNonNegativeInteger(payload.includedUnitCount, '$.includedUnitCount', issues);
   readNonNegativeInteger(payload.omittedUnitCount, '$.omittedUnitCount', issues);
+  const fieldEntryCount = readNonNegativeInteger(payload.fieldEntryCount, '$.fieldEntryCount', issues);
+  const fieldIncludedUnitCount = readNonNegativeInteger(payload.fieldIncludedUnitCount, '$.fieldIncludedUnitCount', issues);
 
   let actualIncludedUnitCount = 0;
+  const sourceFieldPathsBySourceId = new Map<string, Set<string>>();
+  const sourceEntryPathBySourceId = new Map<string, string>();
   if (!Array.isArray(payload.entries)) {
     issues.push(error('$.entries', 'Knowledge unit index entries must be an array.'));
   } else {
@@ -716,11 +884,76 @@ function validateKnowledgeUnitIndexPayload(
     }
     payload.entries.forEach((entry, index) => {
       actualIncludedUnitCount += validateKnowledgeUnitIndexEntry(entry, `$.entries[${index}]`, issues);
+      if (isRecord(entry) && typeof entry.sourceId === 'string') {
+        sourceEntryPathBySourceId.set(entry.sourceId, `$.entries[${index}]`);
+        const fieldPaths = new Set<string>();
+        if (Array.isArray(entry.fields)) {
+          for (const field of entry.fields) {
+            if (isRecord(field) && typeof field.fieldPath === 'string' && field.fieldPath.length > 0) {
+              fieldPaths.add(field.fieldPath);
+            }
+          }
+        }
+        sourceFieldPathsBySourceId.set(entry.sourceId, fieldPaths);
+      }
+    });
+  }
+
+  let actualFieldIncludedUnitCount = 0;
+  const fieldPathsBySourceId = new Map<string, Set<string>>();
+  if (!Array.isArray(payload.fieldEntries)) {
+    issues.push(error('$.fieldEntries', 'Knowledge unit index fieldEntries must be an array.'));
+  } else {
+    if (fieldEntryCount !== null && fieldEntryCount !== payload.fieldEntries.length) {
+      issues.push(error('$.fieldEntryCount', 'Knowledge unit index fieldEntryCount must match fieldEntries.length.'));
+    }
+    payload.fieldEntries.forEach((entry, index) => {
+      actualFieldIncludedUnitCount += validateKnowledgeUnitFieldIndexEntry(entry, `$.fieldEntries[${index}]`, issues);
+      if (
+        isRecord(entry)
+        && typeof entry.sourceId === 'string'
+        && typeof entry.resourceKey === 'string'
+        && typeof entry.fieldPath === 'string'
+      ) {
+        const fullFieldPath = entry.fieldPath.startsWith(`${entry.resourceKey}.`)
+          ? entry.fieldPath
+          : `${entry.resourceKey}.${entry.fieldPath}`;
+        const fieldPaths = fieldPathsBySourceId.get(entry.sourceId) ?? new Set<string>();
+        fieldPaths.add(fullFieldPath);
+        fieldPathsBySourceId.set(entry.sourceId, fieldPaths);
+      }
     });
   }
 
   if (includedUnitCount !== null && includedUnitCount !== actualIncludedUnitCount) {
     issues.push(error('$.includedUnitCount', 'Knowledge unit index includedUnitCount must match the sum of entry includedUnitCount values.'));
+  }
+  if (fieldIncludedUnitCount !== null && fieldIncludedUnitCount !== actualFieldIncludedUnitCount) {
+    issues.push(error('$.fieldIncludedUnitCount', 'Knowledge unit index fieldIncludedUnitCount must match the sum of field entry includedUnitCount values.'));
+  }
+  for (const [sourceId, sourceFieldPaths] of sourceFieldPathsBySourceId) {
+    const fieldEntryPaths = fieldPathsBySourceId.get(sourceId) ?? new Set<string>();
+    for (const fieldPath of sourceFieldPaths) {
+      if (!fieldEntryPaths.has(fieldPath)) {
+        issues.push(error(
+          `${sourceEntryPathBySourceId.get(sourceId) ?? '$.entries'}.fields`,
+          'Knowledge unit index source fields must correspond to top-level fieldEntries.'
+        ));
+        break;
+      }
+    }
+  }
+  for (const [sourceId, fieldEntryPaths] of fieldPathsBySourceId) {
+    const sourceFieldPaths = sourceFieldPathsBySourceId.get(sourceId) ?? new Set<string>();
+    for (const fieldPath of fieldEntryPaths) {
+      if (!sourceFieldPaths.has(fieldPath)) {
+        issues.push(error(
+          '$.fieldEntries',
+          'Knowledge unit index fieldEntries must correspond to source entry fields.'
+        ));
+        break;
+      }
+    }
   }
 
   return createReport(

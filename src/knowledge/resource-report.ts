@@ -8,7 +8,11 @@ import type {
   WorkspaceInspection
 } from '../types/repository.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
-import { buildKnowledgePack, type KnowledgePack, type KnowledgePackSourceFreshness } from './pack.ts';
+import {
+  buildKnowledgePack,
+  type KnowledgePack,
+  type KnowledgePackSourceFreshness
+} from './pack.ts';
 import { buildKnowledgeSourcesReport, type KnowledgeSourcesReport } from './sources.ts';
 import {
   buildKnowledgeUnitMetadataIndex,
@@ -350,14 +354,25 @@ function buildCachePosture(input: {
       includedUnitCount: source.includedUnitCount,
       unitCounts: source.unitCounts
     }))),
-    unitIndexHash: stableHash(input.unitIndex.entries.map(entry => ({
-      sourceId: entry.sourceId,
-      sourceContentHash: entry.sourceContentHash,
-      includedUnitCount: entry.includedUnitCount,
-      omittedUnitCount: entry.omittedUnitCount,
-      unitCounts: entry.unitCounts,
-      retrievalKeys: entry.retrievalKeys
-    }))),
+    unitIndexHash: stableHash({
+      entries: input.unitIndex.entries.map(entry => ({
+        sourceId: entry.sourceId,
+        sourceContentHash: entry.sourceContentHash,
+        includedUnitCount: entry.includedUnitCount,
+        omittedUnitCount: entry.omittedUnitCount,
+        unitCounts: entry.unitCounts,
+        retrievalKeys: entry.retrievalKeys
+      })),
+      fieldEntries: input.unitIndex.fieldEntries.map(entry => ({
+        sourceId: entry.sourceId,
+        resourceKey: entry.resourceKey,
+        fieldPath: entry.fieldPath,
+        includedUnitCount: entry.includedUnitCount,
+        unitCounts: entry.unitCounts,
+        unitPaths: entry.unitPaths,
+        retrievalKeys: entry.retrievalKeys
+      }))
+    }),
     sourceCount: input.sourceReport.sourceCount,
     local: cacheStatus.local,
     fresh: cacheStatus.fresh,

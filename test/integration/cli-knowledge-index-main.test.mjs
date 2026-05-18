@@ -88,6 +88,11 @@ test('knowledge index command emits compact unit metadata JSON', async () => {
     assert.equal(keys.has('rawContent'), false);
     assert.equal(keys.has('snippet'), false);
     assert.equal(keys.has('sourceLocator'), false);
+    assert.equal(stdoutIndex.fieldEntryCount, stdoutIndex.fieldEntries.length);
+    assert.equal(
+      stdoutIndex.fieldIncludedUnitCount,
+      stdoutIndex.fieldEntries.reduce((sum, fieldEntry) => sum + fieldEntry.includedUnitCount, 0)
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -116,6 +121,44 @@ test('knowledge index command resolves resource identities before metadata filte
     && entry.targetPath === 'charts/payments-api'
   ));
   assert.equal(collectObjectKeys(index).has('content'), false);
+});
+
+test('knowledge index filters resource metadata by field path', async () => {
+  const output = await captureStdout(() => main([
+    'knowledge',
+    'index',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--resource',
+    'chart:payments-api',
+    '--field-path',
+    'image.repository',
+    '--max-units',
+    '8',
+    '--json'
+  ]));
+  const index = parseJsonOutput(output);
+  const indexText = JSON.stringify(index);
+
+  assert.equal(index.kind, 'infra-agent.knowledge-unit-index');
+  assert.ok(index.fieldEntryCount >= 1);
+  assert.equal(index.includedUnitCount, index.fieldIncludedUnitCount);
+  assert.ok(index.entries.every(entry =>
+    entry.domain === 'helm'
+    && entry.targetPath === 'charts/payments-api'
+    && entry.fieldPaths.every(fieldPath => fieldPath.endsWith('.image.repository'))
+  ));
+  assert.ok(index.fieldEntries.every(entry =>
+    entry.domain === 'helm'
+    && entry.targetPath === 'charts/payments-api'
+    && entry.resourceKey === 'chart.payments-api'
+    && entry.fieldPath === 'image.repository'
+  ));
+  assert.ok(index.fieldEntries.some(entry =>
+    entry.unitPaths.includes('chart.payments-api.image.repository')
+  ));
+  assert.doesNotMatch(indexText, /service\.port|replicaCount|"content"|"rawContent"|"snippet"|"sourceLocator"|"url"/);
 });
 
 test('knowledge index filters entries by unit type and storage scope', async () => {

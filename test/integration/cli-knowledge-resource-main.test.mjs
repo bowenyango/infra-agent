@@ -40,6 +40,12 @@ function assertCachePostureIsCompact(cachePosture) {
   assert.doesNotMatch(postureText, /"url"|"localPath"|"content"|"rawContent"|"fingerprint"\s*:|"files"\s*:/);
 }
 
+function assertUnitIndexFieldMetadataIsCompact(unitIndex) {
+  const indexText = jsonText(unitIndex);
+
+  assert.doesNotMatch(indexText, /"summary"|"snippet"|"sourceLocator"|"url"|"localPath"|"content"|"rawContent"/);
+}
+
 async function snapshotCacheFiles(cacheDir) {
   const files = await readdir(cacheDir);
   const snapshot = {};
@@ -413,6 +419,7 @@ test('knowledge resource selection filters Terraform source docs inside a target
     assert.deepEqual(index.entries.map(entry => entry.sourceName), ['resource:aws_s3_bucket']);
     assert.ok(index.entries.every(entry => entry.targetPath === 'terraform/api'));
     assert.doesNotMatch(indexText, /aws_sqs_queue|aws_iam_policy_document|UNRELATED_|"facts"|"units"|"content"|"rawContent"|"snippet"|"sourceLocator"/);
+
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -472,6 +479,17 @@ test('knowledge resource report composes Terraform refs, sources, pack, and inde
       entry.targetPath === 'terraform/api'
       && entry.sourceName === 'resource:aws_s3_bucket'
     ));
+    assert.ok(report.unitIndex.fieldEntryCount > 0);
+    assert.equal(
+      report.unitIndex.fieldIncludedUnitCount,
+      report.unitIndex.fieldEntries.reduce((sum, entry) => sum + entry.includedUnitCount, 0)
+    );
+    assert.ok(report.unitIndex.fieldEntries.some(entry =>
+      entry.resourceKey === 'resource.aws_s3_bucket'
+      && entry.fieldPath === 'bucket'
+      && entry.unitPaths.includes('resource.aws_s3_bucket.bucket')
+    ));
+    assertUnitIndexFieldMetadataIsCompact(report.unitIndex);
     assert.deepEqual(persisted.cachePosture, report.cachePosture);
     assert.equal(report.cachePosture.packId, report.pack.packId);
     assert.equal(report.cachePosture.cacheRootSource, 'workspace-config: knowledgeCache.root');
@@ -558,6 +576,7 @@ test('knowledge resource selection filters Pulumi resource docs inside a project
     assert.deepEqual(index.entries.map(entry => entry.sourceName), ['pulumi-docs:resource:aws:s3/bucket']);
     assert.ok(index.entries.every(entry => entry.targetPath === 'infra/api'));
     assert.doesNotMatch(indexText, /aws:sns\/topic:Topic|UNRELATED_TOPIC_MARKER|"facts"|"units"|"content"|"rawContent"|"snippet"|"sourceLocator"/);
+
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -603,6 +622,12 @@ test('knowledge resource report composes Pulumi refs, sources, pack, and index',
       entry.targetPath === 'infra/api'
       && entry.sourceName === 'pulumi-docs:resource:aws:s3/bucket'
     ));
+    assert.ok(report.unitIndex.fieldEntries.some(entry =>
+      entry.resourceKey === 'pulumi.resource.aws.s3.bucket.Bucket'
+      && entry.fieldPath === 'bucket'
+      && entry.unitPaths.includes('pulumi.resource.aws.s3.bucket.Bucket.bucket')
+    ));
+    assertUnitIndexFieldMetadataIsCompact(report.unitIndex);
     assert.equal(report.cachePosture.packId, report.pack.packId);
     assert.equal(report.cachePosture.sourceCount, 1);
     assert.equal(report.cachePosture.local, 0);
@@ -740,6 +765,12 @@ test('knowledge resource report composes Helm Argo values layers and five-unit c
       && entry.sourceName === 'payments-api:home'
       && entry.unitCounts.example > 0
     ));
+    assert.ok(report.unitIndex.fieldEntries.some(entry =>
+      entry.resourceKey === 'chart.payments-api'
+      && entry.fieldPath === 'image.repository'
+      && entry.unitPaths.includes('chart.payments-api.image.repository')
+    ));
+    assertUnitIndexFieldMetadataIsCompact(report.unitIndex);
     assert.equal(report.cachePosture.packId, report.pack.packId);
     assert.equal(report.cachePosture.sourceCount, report.sources.length);
     assert.equal(report.cachePosture.local, report.sources.filter(source => source.cacheStatus === 'local').length);
@@ -932,6 +963,9 @@ test('knowledge resource report does not fall back when a resource is unmatched'
     assert.deepEqual(report.pack.sources, []);
     assert.deepEqual(report.pack.units, []);
     assert.deepEqual(report.unitIndex.entries, []);
+    assert.deepEqual(report.unitIndex.fieldEntries, []);
+    assert.equal(report.unitIndex.fieldEntryCount, 0);
+    assert.equal(report.unitIndex.fieldIncludedUnitCount, 0);
     assert.equal(report.cachePosture.packId, report.pack.packId);
     assert.equal(report.cachePosture.sourceCount, 0);
     assert.equal(report.cachePosture.local, 0);

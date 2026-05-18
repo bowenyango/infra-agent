@@ -279,6 +279,8 @@ test('knowledge index CLI args accept compact unit index flags', () => {
     '4',
     '--unit-type',
     'fact',
+    '--field-path',
+    'image.repository',
     '--provider',
     'hashicorp/aws',
     '--package',
@@ -307,6 +309,7 @@ test('knowledge index CLI args accept compact unit index flags', () => {
   assert.equal(parsed.maxUnits, 4);
   assert.deepEqual(parsed.knowledgeIndexFilter, {
     unitType: 'fact',
+    fieldPath: 'image.repository',
     provider: 'hashicorp/aws',
     packageName: 'payments-api',
     chart: 'payments-api',

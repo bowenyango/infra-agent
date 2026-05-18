@@ -69,6 +69,7 @@ values.
    infra-agent knowledge extract <workspace>
    infra-agent knowledge pack <workspace>
    infra-agent knowledge index <workspace>
+   infra-agent knowledge index <workspace> --resource <identity> --field-path <field> --json
    infra-agent knowledge validate <artifact> --workspace <workspace>
    ```
 
@@ -82,6 +83,10 @@ values.
    source cache posture, compact refs, a bounded five-unit knowledge pack, and
    a unit index for a named resource. Use the lower-level `sources`, `pack`, and
    `index` commands when debugging one stage or preparing an explicit prefetch.
+   Use `knowledge index --resource <identity> --field-path <field> --json`
+   when the caller needs compact field-level `fact`, `guidance`, `example`,
+   `diagnostic`, and `recipe` metadata without loading unrelated fields from
+   the same resource source.
 
    Use the validation report's freshness summary before trusting saved
    repo-derived facts. Treat `knowledge index` and compact `unitIndex` metadata

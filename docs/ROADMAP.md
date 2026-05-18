@@ -99,7 +99,7 @@ Iteration plan:
 10. Add a final user-facing smoke path and documented command sequence for the
     user's acceptance test.
 
-Current progress: iterations 1 through 6 have initial implementations on
+Current progress: iterations 1 through 7 have initial implementations on
 `agent-2`. `knowledge resource --resource <identity>` now composes target
 lookup, suggested files, resource-filtered source posture, compact refs, a
 bounded five-unit knowledge pack, and a unit index in one read-only report.
@@ -112,9 +112,11 @@ to broad workspace context. Iteration 6 adds the first compact hash/cache
 posture to the one-shot resource report: short selection, target, source, and
 unit-index hashes; source cache counts; reused source count; reusable posture;
 and per-source compact digest metadata without raw content or source URLs.
-Later iterations still need resource-field-level index filtering, broader
-Terraform/Pulumi/Helm acceptance fixtures, and the final user-facing smoke
-path.
+Iteration 7 adds field-level unit-index metadata and `knowledge index
+--field-path <path>` so agents can retrieve compact five-unit metadata for a
+specific resource field without loading unrelated fields or raw source content.
+Later iterations still need broader Terraform/Pulumi/Helm acceptance fixtures
+and the final user-facing smoke path.
 
 Agent-2 reset policy:
 
