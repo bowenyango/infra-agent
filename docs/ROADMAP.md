@@ -99,7 +99,7 @@ Iteration plan:
 10. Add a final user-facing smoke path and documented command sequence for the
     user's acceptance test.
 
-Current progress: iterations 1 through 7 have initial implementations on
+Current progress: iterations 1 through 8 have initial implementations on
 `agent-2`. `knowledge resource --resource <identity>` now composes target
 lookup, suggested files, resource-filtered source posture, compact refs, a
 bounded five-unit knowledge pack, and a unit index in one read-only report.
@@ -115,8 +115,11 @@ and per-source compact digest metadata without raw content or source URLs.
 Iteration 7 adds field-level unit-index metadata and `knowledge index
 --field-path <path>` so agents can retrieve compact five-unit metadata for a
 specific resource field without loading unrelated fields or raw source content.
-Later iterations still need broader Terraform/Pulumi/Helm acceptance fixtures
-and the final user-facing smoke path.
+Iteration 8 adds cross-domain acceptance coverage for Terraform resource and
+data-source identities, Pulumi resource name and package-token identities, and
+Helm Argo CD application and namespace identities. The remaining milestone work
+is the final user-facing smoke path and documented command sequence for the
+ten-loop test.
 
 Agent-2 reset policy:
 

@@ -6,6 +6,50 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge Cross-Domain Acceptance Iteration 8
+
+Status:
+
+- Continued the ten-iteration resource extraction milestone. The user plans to
+  test after ten loops by providing a Terraform, Pulumi, or Helm resource
+  identity and expecting a repo-linked, compact five-unit knowledge report.
+- Added cross-domain one-shot acceptance coverage for
+  `infra-agent knowledge resource <workspace> --domain <domain> --resource
+  <identity> --json`.
+- Covered Terraform resource type and data-source identities, Pulumi resource
+  name and prefixed package token identities, and Helm Argo CD application and
+  namespace identities.
+- The acceptance fixture asserts target resolution, domain scoping, suggested
+  source files, validation targets, selected knowledge sources, five knowledge
+  unit types, field-level unit-index metadata, compact cache posture, and
+  raw-content/secret/unrelated-source omission.
+- Kept the slice read-only. It does not add upload, apply/deploy, state
+  mutation, broad harness, or team-backend behavior.
+
+Files changed:
+
+- `test/integration/cli-knowledge-resource-acceptance-main.test.mjs` adds the
+  cross-domain acceptance shard with cache-seeded Terraform, Pulumi, and Helm
+  fixtures.
+- `docs/ROADMAP.md` records iteration 8 progress and keeps the remaining
+  milestone focused on the final user-facing smoke path.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-resource-acceptance-main.test.mjs` passed.
+- `npm run test:structure` passed.
+- `npm run verify` passed.
+- `git diff --check` passed.
+
+Residual risks:
+
+- This iteration hardens the machine-readable acceptance path. The final
+  user-facing smoke path and documented command sequence remain for the
+  ten-loop acceptance milestone.
+- The report still relies on cached source material for public docs. Live
+  official-doc retrieval remains deliberately outside the default test path.
+
 ## 2026-05-18 Resource Knowledge Field Index Iteration 7
 
 Status:
