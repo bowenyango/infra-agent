@@ -99,6 +99,14 @@ Iteration plan:
 10. Add a final user-facing smoke path and documented command sequence for the
     user's acceptance test.
 
+Current progress: iterations 1 through 6 have initial implementations on
+`agent-2`. `knowledge resource --resource <identity>` now composes target
+lookup, suggested files, resource-filtered source posture, compact refs, a
+bounded five-unit knowledge pack, and a unit index in one read-only report.
+Later iterations still need resource-field-level index filtering, semantic hash
+cache reporting, broader Helm/Pulumi/Terraform acceptance fixtures, and the
+final user-facing smoke path.
+
 Agent-2 reset policy:
 
 - Treat team-upload and upload-boundary implementation as archived legacy
@@ -533,6 +541,14 @@ Implemented initial CLI surfaces:
     reuse. The index is the preferred lookup surface for public/internal
     five-unit RAG and must remain source-linked, compact, raw-content-free, and
     parser-neutral.
+- `infra-agent knowledge resource <workspace> --resource <identity>
+  [--domain ...] [--max-units <n>] [--out <report.json>] --json`
+  - builds a read-only `infra-agent.knowledge-resource-report` for a Terraform,
+    Pulumi, or Helm resource identity by composing resource target lookup,
+    suggested files, source cache posture, compact refs, a bounded
+    `knowledge-pack`, and `unitIndex` metadata. It must not fetch, upload,
+    apply, deploy, mutate infrastructure state, or fall back to whole-workspace
+    knowledge when the resource is unmatched.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

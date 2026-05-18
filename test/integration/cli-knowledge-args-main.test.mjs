@@ -129,6 +129,36 @@ test('knowledge source selection accepts resource identities', () => {
   assert.equal(parsed.json, true);
 });
 
+test('knowledge resource CLI args accept one-shot resource report flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'resource',
+    'fixtures/sample-workspace',
+    '--domain',
+    'helm',
+    '--resource',
+    'chart:payments-api',
+    '--source',
+    'chart-schema:example',
+    '--max-units',
+    '4',
+    '--out',
+    'artifacts/resource-knowledge.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'resource');
+  assert.equal(parsed.workspace, 'fixtures/sample-workspace');
+  assert.deepEqual(parsed.domains, ['helm']);
+  assert.deepEqual(parsed.targetPaths, []);
+  assert.equal(parsed.knowledgeResource, 'chart:payments-api');
+  assert.deepEqual(parsed.sourceIds, ['chart-schema:example']);
+  assert.equal(parsed.maxUnits, 4);
+  assert.equal(parsed.outputPath, 'artifacts/resource-knowledge.json');
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge extract CLI args accept source filters and bounded targets', () => {
   const parsed = parseArgs([
     'knowledge',
@@ -358,6 +388,36 @@ test('knowledge index filters are rejected for other knowledge actions', () => {
 
 test('knowledge source selection rejects target and resource together', () => {
   const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'sources', 'fixtures/sample-workspace', '--target', 'charts/payments-api', '--resource', 'chart:payments-api']);";
+  const result = spawnSync(process.execPath, [
+    '--experimental-strip-types',
+    '--input-type=module',
+    '-e',
+    script
+  ], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  });
+
+  assert.equal(result.status, 1);
+});
+
+test('knowledge resource requires a resource identity', () => {
+  const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'resource', 'fixtures/sample-workspace', '--domain', 'helm']);";
+  const result = spawnSync(process.execPath, [
+    '--experimental-strip-types',
+    '--input-type=module',
+    '-e',
+    script
+  ], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  });
+
+  assert.equal(result.status, 1);
+});
+
+test('knowledge resource rejects target selection', () => {
+  const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'resource', 'fixtures/sample-workspace', '--target', 'charts/payments-api', '--resource', 'chart:payments-api']);";
   const result = spawnSync(process.execPath, [
     '--experimental-strip-types',
     '--input-type=module',

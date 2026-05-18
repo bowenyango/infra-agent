@@ -23,6 +23,7 @@ import {
   validateKnowledgePayload
 } from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
+import { buildResourceKnowledgeReport } from '../knowledge/resource-report.ts';
 import {
   buildKnowledgeUnitMetadataIndex,
   selectKnowledgeUnitIndexEntries,
@@ -68,6 +69,7 @@ import {
   printKnowledgeSourcesReport,
   printKnowledgeValidationReport,
   printKnowledgePack,
+  printResourceKnowledgeReport,
   printKnowledgeSharedArtifactPublishReport,
   printKnowledgeUnitMetadataIndex,
   printPlannerProviderCatalogReport,
@@ -93,7 +95,7 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 
 export interface ParsedArgs {
   command: 'inspect' | 'inventory' | 'pack' | 'refs' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'cache' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'publish' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'resource' | 'publish' | null;
   cacheAction?: 'status' | null;
   task: string | null;
   workspace: string;
@@ -170,6 +172,7 @@ function printUsage(): void {
       '  infra-agent knowledge validate <knowledge.json> [--workspace <workspace>] [--json]',
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]',
+      '  infra-agent knowledge resource [workspace] --resource <identity> [--domain helm|pulumi|terraform] [--source <id>] [--max-units <n>] [--out <resource-knowledge.json>] [--json]',
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
@@ -1267,9 +1270,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'validate'
       && knowledgeAction !== 'pack'
       && knowledgeAction !== 'index'
+      && knowledgeAction !== 'resource'
       && knowledgeAction !== 'publish'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, or publish.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, resource, or publish.');
     }
 
     let workspace = cwd();
@@ -1318,6 +1322,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (knowledgeAction === 'validate') {
           fail('--target is not supported for knowledge validate.');
         }
+        if (knowledgeAction === 'resource') {
+          fail('--target is not supported for knowledge resource. Use --resource instead.');
+        }
         const targetValue = actionArgs[index + 1];
         if (!targetValue) {
           fail('Missing value for --target.');
@@ -1365,8 +1372,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!sourceId) {
           fail('Missing value for --source.');
         }
-        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'index') {
-          fail('--source is only supported for knowledge extract, knowledge pack, or knowledge index.');
+        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'resource') {
+          fail('--source is only supported for knowledge extract, knowledge pack, knowledge index, or knowledge resource.');
         }
 
         sourceIds.push(sourceId);
@@ -1555,8 +1562,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!outputValue) {
           fail('Missing value for --out.');
         }
-        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'publish') {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, or knowledge publish.');
+        if (knowledgeAction !== 'extract' && knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'resource' && knowledgeAction !== 'publish') {
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, knowledge resource, or knowledge publish.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -1622,8 +1629,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!Number.isInteger(parsedMaxUnits) || parsedMaxUnits < 1) {
           fail('Missing or invalid value for --max-units. Expected a positive integer.');
         }
-        if (knowledgeAction !== 'pack' && knowledgeAction !== 'index') {
-          fail('--max-units is only supported for knowledge pack or knowledge index.');
+        if (knowledgeAction !== 'pack' && knowledgeAction !== 'index' && knowledgeAction !== 'resource') {
+          fail('--max-units is only supported for knowledge pack, knowledge index, or knowledge resource.');
         }
 
         maxUnits = parsedMaxUnits;
@@ -1733,6 +1740,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
     if (knowledgeAction === 'publish' && targetPaths.length > 1) {
       fail('knowledge publish accepts at most one --target value.');
+    }
+    if (knowledgeAction === 'resource' && knowledgeResource === null) {
+      fail('knowledge resource requires --resource.');
     }
     if (knowledgeResource !== null && targetPaths.length > 0) {
       fail(`knowledge ${knowledgeAction} accepts either --target or --resource, not both.`);
@@ -2431,6 +2441,39 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
 
     printKnowledgeSharedArtifactPublishReport(report);
+    if (writtenPath) {
+      process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'resource') {
+    if (!parsed.knowledgeResource) {
+      fail('knowledge resource requires --resource.');
+    }
+
+    const inspection = await inspectWorkspace(parsed.workspace);
+    const report = await buildResourceKnowledgeReport(inspection, {
+      resource: parsed.knowledgeResource,
+      domains: parsed.domains,
+      sourceIds: parsed.sourceIds,
+      maxUnits: parsed.maxUnits ?? undefined
+    });
+    const writtenPath = parsed.outputPath
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
+      : null;
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(writtenPath
+        ? {
+            ...report,
+            outputPath: writtenPath
+          }
+        : report, null, 2)}\n`);
+      return;
+    }
+
+    printResourceKnowledgeReport(report);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }

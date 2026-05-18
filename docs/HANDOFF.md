@@ -6,6 +6,70 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge One-Shot Iteration 3
+
+Status:
+
+- Added `infra-agent knowledge resource [workspace] --resource <identity>` as
+  the one-shot read-only resource extraction report for the ten-iteration
+  acceptance milestone.
+- The report composes existing resource target lookup, resource-filtered
+  knowledge sources, cache-first knowledge pack generation, and unit-index
+  metadata. It does not fetch public docs, upload artifacts, apply/deploy, or
+  mutate infrastructure state.
+- `knowledge resource` uses a read-only `KnowledgeStore` wrapper so local
+  source summaries can be extracted in memory without writing cache entries
+  from this report path.
+- Resource report targets and refs are compacted to the requested resource so
+  unrelated resource identities from the same Terraform root or Pulumi project
+  do not leak into the handoff context.
+- CLI output and the infra-configuration skill now steer agents toward
+  `knowledge resource --resource <identity> --json` as the first-choice
+  resource handoff, while keeping lower-level `sources`, `pack`, and `index`
+  commands for debugging or explicit prefetch preparation.
+
+Files changed:
+
+- `src/knowledge/resource-report.ts` adds
+  `infra-agent.knowledge-resource-report`, read-only cache access, compact
+  resource target/ref filtering, summary counts, suggested files, validation
+  targets, resource-filtered sources, a bounded `knowledge-pack`, and
+  `unitIndex` metadata.
+- `src/cli/main.ts` parses and routes `knowledge resource`, requires
+  `--resource`, rejects `--target`, and supports `--domain`, `--source`,
+  `--max-units`, `--out`, and `--json`.
+- `src/cli/output.ts` adds text output for resource knowledge reports.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers parser acceptance
+  and rejection cases.
+- `test/integration/cli-knowledge-resource-main.test.mjs` covers Terraform and
+  Pulumi one-shot reports, five unit types, output-file writing, unmatched
+  resource no-fallback behavior, and raw-content/secret/unrelated-resource
+  guards.
+- `skills/infra-configuration/SKILL.md` and `docs/ROADMAP.md` document the new
+  preferred resource handoff path and the updated milestone progress.
+
+Validation:
+
+- `npm run test:focused -- test/integration/cli-knowledge-args-main.test.mjs`
+  passed.
+- `npm run test:focused -- test/integration/cli-knowledge-resource-main.test.mjs`
+  passed.
+- `npm run test:structure` passed.
+- `npm run lint` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Helm resource one-shot behavior is covered indirectly through existing Helm
+  resource pack/index fixtures, but the new `knowledge resource` report still
+  needs a dedicated Helm report fixture with Argo values-layer assertions.
+- `knowledge resource` still reports unit index metadata at source granularity;
+  field-level resource index filtering remains a later iteration.
+- Terraform/Pulumi local target-level sources such as provider-schema,
+  Terraform local-module, Pulumi config, and component facts remain excluded
+  from resource-scoped source selection unless explicit resource metadata is
+  available.
+
 ## 2026-05-17 Resource Knowledge Resolver Iteration 2
 
 Status:

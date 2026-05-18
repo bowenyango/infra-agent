@@ -35,6 +35,7 @@ values.
    infra-agent cache status <workspace> --json
    infra-agent pack <workspace> --scope <path|target|env|stack> --json
    infra-agent refs <workspace> --resource <terraform|pulumi|helm-identity> --json
+   infra-agent knowledge resource <workspace> --resource <terraform|pulumi|helm-identity> --json
    infra-agent pack <workspace> --changed --base main --head HEAD --json
    ```
 
@@ -62,6 +63,7 @@ values.
    the deterministic metadata workflow:
 
    ```sh
+   infra-agent knowledge resource <workspace> --resource <identity>
    infra-agent knowledge sources <workspace>
    infra-agent knowledge prefetch <workspace>
    infra-agent knowledge extract <workspace>
@@ -75,6 +77,11 @@ values.
    chart, release, Argo CD application, or namespace identity. Resource-scoped
    knowledge commands must resolve to matched inventory targets first and must
    not fall back to whole-workspace knowledge when the resource is unmatched.
+   Prefer `knowledge resource --resource <identity> --json` as the one-shot
+   handoff when another agent needs repo-linked targets, suggested files,
+   source cache posture, compact refs, a bounded five-unit knowledge pack, and
+   a unit index for a named resource. Use the lower-level `sources`, `pack`, and
+   `index` commands when debugging one stage or preparing an explicit prefetch.
 
    Use the validation report's freshness summary before trusting saved
    repo-derived facts. Treat `knowledge index` and compact `unitIndex` metadata

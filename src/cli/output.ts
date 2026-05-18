@@ -50,6 +50,7 @@ import type {
 import type { KnowledgeExtractionReport, KnowledgeExtractionSourceResult } from '../knowledge/extract.ts';
 import type { KnowledgeValidationReport } from '../knowledge/validate.ts';
 import type { KnowledgePack } from '../knowledge/pack.ts';
+import type { ResourceKnowledgeReport } from '../knowledge/resource-report.ts';
 import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-artifact-publish.ts';
 import type {
   KnowledgeUnitIndexEntry,
@@ -3709,6 +3710,33 @@ export function printKnowledgePack(pack: KnowledgePack): void {
   process.stdout.write(`storage: public-reference=${pack.storagePolicy.publicReference}, workspace-private=${pack.storagePolicy.workspacePrivate}, shareable=${pack.storagePolicy.shareableByDefault}, opt-in=${pack.storagePolicy.explicitOptInRequired}\n\n`);
   printHeader('Facts');
   printList(pack.facts.map(fact => `${fact.confidence} ${fact.kind} ${fact.path}: ${fact.summary}`), 'No knowledge facts included.');
+}
+
+export function printResourceKnowledgeReport(report: ResourceKnowledgeReport): void {
+  printHeader('Resource knowledge');
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`resource: ${report.resource}\n`);
+  process.stdout.write(`domains: ${report.requestedDomains.join(', ') || 'none'}\n`);
+  process.stdout.write(`targets: ${report.targetPaths.join(', ') || 'none'}\n`);
+  process.stdout.write(`max units: ${report.maxUnits ?? report.pack.maxUnits ?? report.pack.maxFacts}\n`);
+  process.stdout.write(`summary: targets=${report.summary.matchedTargetCount}, sources=${report.summary.sourceCount}, refs=${report.summary.includedRefCount}, units=${report.summary.includedUnitCount}, omittedUnits=${report.summary.omittedUnitCount}, staleSources=${report.summary.staleSourceCount}, missingSources=${report.summary.missingOrSkippedSourceCount}, suggestedFiles=${report.summary.suggestedFileCount}, validationTargets=${report.summary.validationTargetCount}\n`);
+  process.stdout.write(`recommended action: ${report.summary.recommendedAction}\n\n`);
+
+  printHeader('Targets');
+  printList(report.targets.map(summarizeRefsTarget), 'No resource targets matched.');
+  process.stdout.write('\n');
+
+  printHeader('Suggested files');
+  printList(report.suggestedFiles, 'No suggested files.');
+  process.stdout.write('\n');
+
+  printHeader('Sources');
+  printList(report.sources.map(formatKnowledgeSourceReportEntry), 'No knowledge sources selected.');
+  process.stdout.write('\n');
+
+  printHeader('Knowledge units');
+  printList(report.unitIndex.entries.map(formatKnowledgeUnitIndexEntry), 'No knowledge units indexed.');
 }
 
 export function printKnowledgeSharedArtifactPublishReport(
