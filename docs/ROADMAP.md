@@ -108,9 +108,13 @@ report fixture that proves Argo CD linkage, values-layer ordering, secret
 value-file omission, five knowledge unit types, and cache immutability.
 Iteration 5 adds equivalent `release:payments-api` coverage, proving Helm
 release identity resolves to the same chart-scoped report without falling back
-to broad workspace context. Later iterations still need resource-field-level
-index filtering, semantic hash cache reporting, broader Terraform/Pulumi/Helm
-acceptance fixtures, and the final user-facing smoke path.
+to broad workspace context. Iteration 6 adds the first compact hash/cache
+posture to the one-shot resource report: short selection, target, source, and
+unit-index hashes; source cache counts; reused source count; reusable posture;
+and per-source compact digest metadata without raw content or source URLs.
+Later iterations still need resource-field-level index filtering, broader
+Terraform/Pulumi/Helm acceptance fixtures, and the final user-facing smoke
+path.
 
 Agent-2 reset policy:
 

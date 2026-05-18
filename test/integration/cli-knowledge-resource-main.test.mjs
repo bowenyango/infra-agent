@@ -29,6 +29,17 @@ function jsonText(value) {
   return JSON.stringify(value);
 }
 
+function assertShortDigest(value, fieldName = 'digest') {
+  assert.match(value, /^[a-f0-9]{12}$/, `${fieldName} should be a short lowercase hex digest`);
+}
+
+function assertCachePostureIsCompact(cachePosture) {
+  const postureText = jsonText(cachePosture);
+
+  assert.doesNotMatch(postureText, /[a-f0-9]{64}/);
+  assert.doesNotMatch(postureText, /"url"|"localPath"|"content"|"rawContent"|"fingerprint"\s*:|"files"\s*:/);
+}
+
 async function snapshotCacheFiles(cacheDir) {
   const files = await readdir(cacheDir);
   const snapshot = {};
@@ -461,6 +472,28 @@ test('knowledge resource report composes Terraform refs, sources, pack, and inde
       entry.targetPath === 'terraform/api'
       && entry.sourceName === 'resource:aws_s3_bucket'
     ));
+    assert.deepEqual(persisted.cachePosture, report.cachePosture);
+    assert.equal(report.cachePosture.packId, report.pack.packId);
+    assert.equal(report.cachePosture.cacheRootSource, 'workspace-config: knowledgeCache.root');
+    assert.equal(report.cachePosture.sourceCount, 1);
+    assert.equal(report.cachePosture.local, 0);
+    assert.equal(report.cachePosture.fresh, 1);
+    assert.equal(report.cachePosture.stale, 0);
+    assert.equal(report.cachePosture.missing, 0);
+    assert.equal(report.cachePosture.refreshRecommended, 0);
+    assert.equal(report.cachePosture.reusedSourceCount, 1);
+    assert.equal(report.cachePosture.reusable, true);
+    assertShortDigest(report.cachePosture.selectionHash, 'selectionHash');
+    assertShortDigest(report.cachePosture.targetHash, 'targetHash');
+    assertShortDigest(report.cachePosture.sourceHash, 'sourceHash');
+    assertShortDigest(report.cachePosture.unitIndexHash, 'unitIndexHash');
+    assert.equal(report.cachePosture.sources[0].sourceName, 'resource:aws_s3_bucket');
+    assert.equal(report.cachePosture.sources[0].cacheStatus, 'fresh');
+    assert.equal(report.cachePosture.sources[0].freshness, 'fresh');
+    assert.equal(report.cachePosture.sources[0].storageScope, 'public-reference');
+    assert.equal(report.cachePosture.sources[0].includedUnitCount, report.unitIndex.entries[0].includedUnitCount);
+    assertShortDigest(report.cachePosture.sources[0].sourceContentHash, 'sourceContentHash');
+    assertCachePostureIsCompact(report.cachePosture);
     assert.doesNotMatch(reportText, /aws_sqs_queue|aws_iam_policy_document|UNRELATED_|secretToken|password|authorization|bearer|"content"\s*:|"rawContent"\s*:/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -570,6 +603,25 @@ test('knowledge resource report composes Pulumi refs, sources, pack, and index',
       entry.targetPath === 'infra/api'
       && entry.sourceName === 'pulumi-docs:resource:aws:s3/bucket'
     ));
+    assert.equal(report.cachePosture.packId, report.pack.packId);
+    assert.equal(report.cachePosture.sourceCount, 1);
+    assert.equal(report.cachePosture.local, 0);
+    assert.equal(report.cachePosture.fresh, 1);
+    assert.equal(report.cachePosture.stale, 0);
+    assert.equal(report.cachePosture.missing, 0);
+    assert.equal(report.cachePosture.refreshRecommended, 0);
+    assert.equal(report.cachePosture.reusedSourceCount, 1);
+    assert.equal(report.cachePosture.reusable, true);
+    assertShortDigest(report.cachePosture.selectionHash, 'selectionHash');
+    assertShortDigest(report.cachePosture.targetHash, 'targetHash');
+    assertShortDigest(report.cachePosture.sourceHash, 'sourceHash');
+    assertShortDigest(report.cachePosture.unitIndexHash, 'unitIndexHash');
+    assert.equal(report.cachePosture.sources[0].sourceName, 'pulumi-docs:resource:aws:s3/bucket');
+    assert.equal(report.cachePosture.sources[0].cacheStatus, 'fresh');
+    assert.equal(report.cachePosture.sources[0].freshness, 'fresh');
+    assert.equal(report.cachePosture.sources[0].storageScope, 'public-reference');
+    assertShortDigest(report.cachePosture.sources[0].sourceContentHash, 'sourceContentHash');
+    assertCachePostureIsCompact(report.cachePosture);
     assert.doesNotMatch(reportText, /aws:sns\/topic:Topic|UNRELATED_TOPIC_MARKER|secretToken|password|authorization|bearer|"content"\s*:|"rawContent"\s*:/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -615,6 +667,20 @@ test('knowledge resource report composes Helm Argo values layers and five-unit c
     assert.equal(report.summary.validationTargetCount, report.validationTargets.length);
     assert.ok(['fact', 'guidance', 'example', 'diagnostic', 'recipe'].every(unitType => unitTypes.has(unitType)));
     assert.deepEqual(cacheSnapshotAfter, cacheSnapshotBefore);
+    const secondReport = parseJsonOutput(await captureStdout(() => main([
+      'knowledge',
+      'resource',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--resource',
+      'chart:payments-api',
+      '--max-units',
+      '50',
+      '--json'
+    ])));
+    assert.deepEqual(secondReport.cachePosture, report.cachePosture);
+    assert.deepEqual(await snapshotCacheFiles(cacheDir), cacheSnapshotBefore);
 
     assert.equal(target.domain, 'helm');
     assert.equal(target.kind, 'helm-chart');
@@ -674,6 +740,39 @@ test('knowledge resource report composes Helm Argo values layers and five-unit c
       && entry.sourceName === 'payments-api:home'
       && entry.unitCounts.example > 0
     ));
+    assert.equal(report.cachePosture.packId, report.pack.packId);
+    assert.equal(report.cachePosture.sourceCount, report.sources.length);
+    assert.equal(report.cachePosture.local, report.sources.filter(source => source.cacheStatus === 'local').length);
+    assert.equal(report.cachePosture.fresh, report.sources.filter(source => source.cacheStatus === 'fresh').length);
+    assert.equal(report.cachePosture.stale, 0);
+    assert.equal(report.cachePosture.missing, 0);
+    assert.equal(report.cachePosture.refreshRecommended, 0);
+    assert.equal(report.cachePosture.reusedSourceCount, report.cachePosture.local + report.cachePosture.fresh);
+    assert.equal(report.cachePosture.reusable, true);
+    assertShortDigest(report.cachePosture.selectionHash, 'selectionHash');
+    assertShortDigest(report.cachePosture.targetHash, 'targetHash');
+    assertShortDigest(report.cachePosture.sourceHash, 'sourceHash');
+    assertShortDigest(report.cachePosture.unitIndexHash, 'unitIndexHash');
+    assert.ok(report.cachePosture.sources.every(source =>
+      source.domain === 'helm'
+      && source.targetPath === 'charts/payments-api'
+    ));
+    const chartDocsPosture = report.cachePosture.sources.find(source => source.sourceName === 'payments-api:home');
+    assert.ok(chartDocsPosture);
+    assert.equal(chartDocsPosture.cacheStatus, 'fresh');
+    assert.equal(chartDocsPosture.freshness, 'fresh');
+    assert.equal(chartDocsPosture.storageScope, 'public-reference');
+    assert.ok(chartDocsPosture.includedUnitCount > 0);
+    assert.ok(chartDocsPosture.unitCounts.example > 0);
+    assertShortDigest(chartDocsPosture.sourceContentHash, 'sourceContentHash');
+    const chartMetadataPosture = report.cachePosture.sources.find(source => source.sourceName === 'payments-api:Chart.yaml');
+    assert.ok(chartMetadataPosture);
+    assert.equal(chartMetadataPosture.cacheStatus, 'local');
+    assert.equal(chartMetadataPosture.freshness, 'fresh');
+    assert.equal(chartMetadataPosture.storageScope, 'workspace-private');
+    assertShortDigest(chartMetadataPosture.fingerprintDigest, 'fingerprintDigest');
+    assert.equal(chartMetadataPosture.fingerprintFileCount, 1);
+    assertCachePostureIsCompact(report.cachePosture);
     assert.doesNotMatch(reportText, /secret-values\.yaml|repository:\s*example\/payments-api|replicaCount:\s*2|"\$schema"|kubernetes\.default\.svc|password|authorization|bearer|"content"\s*:|"rawContent"\s*:/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -757,6 +856,32 @@ test('knowledge resource report resolves Helm release identity to chart knowledg
       && entry.sourceName === 'payments-api:home'
       && entry.unitCounts.example > 0
     ));
+    assert.equal(report.cachePosture.packId, report.pack.packId);
+    assert.equal(report.cachePosture.sourceCount, report.sources.length);
+    assert.equal(report.cachePosture.local, report.sources.filter(source => source.cacheStatus === 'local').length);
+    assert.equal(report.cachePosture.fresh, report.sources.filter(source => source.cacheStatus === 'fresh').length);
+    assert.equal(report.cachePosture.stale, 0);
+    assert.equal(report.cachePosture.missing, 0);
+    assert.equal(report.cachePosture.refreshRecommended, 0);
+    assert.equal(report.cachePosture.reusedSourceCount, report.cachePosture.local + report.cachePosture.fresh);
+    assert.equal(report.cachePosture.reusable, true);
+    assertShortDigest(report.cachePosture.selectionHash, 'selectionHash');
+    assertShortDigest(report.cachePosture.targetHash, 'targetHash');
+    assertShortDigest(report.cachePosture.sourceHash, 'sourceHash');
+    assertShortDigest(report.cachePosture.unitIndexHash, 'unitIndexHash');
+    assert.ok(report.cachePosture.sources.every(source =>
+      source.domain === 'helm'
+      && source.targetPath === 'charts/payments-api'
+    ));
+    assert.ok(report.cachePosture.sources.some(source =>
+      source.sourceName === 'payments-api:home'
+      && source.cacheStatus === 'fresh'
+      && source.freshness === 'fresh'
+      && source.storageScope === 'public-reference'
+      && source.includedUnitCount > 0
+      && source.unitCounts.example > 0
+    ));
+    assertCachePostureIsCompact(report.cachePosture);
     assert.ok(['fact', 'guidance', 'example', 'diagnostic', 'recipe'].every(unitType => unitTypes.has(unitType)));
     assert.ok(report.pack.units.some(unit =>
       unit.unitType === 'fact'
@@ -807,6 +932,21 @@ test('knowledge resource report does not fall back when a resource is unmatched'
     assert.deepEqual(report.pack.sources, []);
     assert.deepEqual(report.pack.units, []);
     assert.deepEqual(report.unitIndex.entries, []);
+    assert.equal(report.cachePosture.packId, report.pack.packId);
+    assert.equal(report.cachePosture.sourceCount, 0);
+    assert.equal(report.cachePosture.local, 0);
+    assert.equal(report.cachePosture.fresh, 0);
+    assert.equal(report.cachePosture.stale, 0);
+    assert.equal(report.cachePosture.missing, 0);
+    assert.equal(report.cachePosture.refreshRecommended, 0);
+    assert.equal(report.cachePosture.reusedSourceCount, 0);
+    assert.equal(report.cachePosture.reusable, false);
+    assert.deepEqual(report.cachePosture.sources, []);
+    assertShortDigest(report.cachePosture.selectionHash, 'selectionHash');
+    assertShortDigest(report.cachePosture.targetHash, 'targetHash');
+    assertShortDigest(report.cachePosture.sourceHash, 'sourceHash');
+    assertShortDigest(report.cachePosture.unitIndexHash, 'unitIndexHash');
+    assertCachePostureIsCompact(report.cachePosture);
     assert.doesNotMatch(reportText, /aws_s3_bucket|aws_sqs_queue|aws_iam_policy_document|UNRELATED_/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

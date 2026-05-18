@@ -6,6 +6,48 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Resource Knowledge Cache Posture Iteration 6
+
+Status:
+
+- Continued the ten-iteration resource extraction milestone. The user plans to
+  test after ten loops by providing a Terraform, Pulumi, or Helm resource
+  identity and expecting a repo-linked, compact five-unit knowledge report.
+- Added compact hash/cache posture to
+  `infra-agent knowledge resource --resource <identity> --json`. The one-shot
+  resource report now exposes `cachePosture` with the generated pack id, cache
+  root source, short selection/target/source/unit-index hashes, cache status
+  counts, reused source count, and a `reusable` boolean.
+- Added per-source posture entries that keep source id, domain, target path,
+  source kind/name, cache status, freshness, storage scope, short content or
+  fingerprint digests, fingerprint file count, and five-unit counts.
+- Kept the report read-only and compact. The posture does not write cache
+  entries, fetch remote docs, upload artifacts, expose raw content, expose full
+  SHA-256 values, or include source URLs/local paths.
+
+Files changed:
+
+- `src/knowledge/resource-report.ts` builds the compact `cachePosture` section
+  from existing source, pack, unit-index, and workspace-cache metadata.
+- `test/integration/cli-knowledge-resource-main.test.mjs` covers Terraform,
+  Pulumi, Helm chart, Helm release, and unmatched resource posture behavior,
+  including deterministic repeat output for the Helm cache path and compactness
+  guards.
+
+Validation:
+
+- `npm run test:focused -- test/integration/cli-knowledge-resource-main.test.mjs`
+  passed.
+- `npm run lint` passed.
+- `npm run verify` passed.
+- `git diff --check` passed.
+
+Residual risks:
+
+- Resource-field-level unit index filtering remains pending.
+- The next acceptance hardening step should broaden final user-facing smoke
+  coverage across Terraform, Pulumi, and Helm resource inputs.
+
 ## 2026-05-18 Resource Knowledge Helm Release Iteration 5
 
 Status:

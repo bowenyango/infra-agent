@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { buildRefsReport } from '../domain/refs.ts';
 import type { RefsFact, RefsReport, RefsTarget } from '../types/refs.ts';
 import type {
@@ -7,12 +8,16 @@ import type {
   WorkspaceInspection
 } from '../types/repository.ts';
 import { createFileKnowledgeStore, type KnowledgeStore } from './knowledge-store.ts';
-import { buildKnowledgePack, type KnowledgePack } from './pack.ts';
+import { buildKnowledgePack, type KnowledgePack, type KnowledgePackSourceFreshness } from './pack.ts';
 import { buildKnowledgeSourcesReport, type KnowledgeSourcesReport } from './sources.ts';
 import {
   buildKnowledgeUnitMetadataIndex,
+  type KnowledgeUnitCountByType,
   type KnowledgeUnitMetadataIndex
 } from './unit-index.ts';
+import type { KnowledgeSourceKind } from '../types/knowledge.ts';
+import type { KnowledgeSourceCacheStatus } from './cache-status.ts';
+import type { KnowledgeStorageScope } from './storage-policy.ts';
 
 export type ResourceKnowledgeRecommendedAction =
   | 'use-resource-knowledge'
@@ -32,6 +37,42 @@ export interface ResourceKnowledgeTarget extends RefsTarget {
   hasValuesFile?: boolean;
   hasTemplatesDir?: boolean;
   valuesSchemaFile?: string | null;
+}
+
+export interface ResourceKnowledgeCachePostureSource {
+  sourceId: string;
+  domain: InfraDomainId;
+  targetPath: string;
+  sourceKind: KnowledgeSourceKind;
+  sourceName: string;
+  cacheStatus: KnowledgeSourceCacheStatus;
+  requiresFetch: boolean;
+  freshness?: KnowledgePackSourceFreshness;
+  storageScope: KnowledgeStorageScope;
+  sourceContentHash?: string;
+  fingerprintDigest?: string;
+  fingerprintFileCount?: number;
+  includedUnitCount: number;
+  omittedUnitCount?: number;
+  unitCounts: KnowledgeUnitCountByType;
+}
+
+export interface ResourceKnowledgeCachePosture {
+  packId: string;
+  cacheRootSource: string;
+  selectionHash: string;
+  targetHash: string;
+  sourceHash: string;
+  unitIndexHash: string;
+  sourceCount: number;
+  local: number;
+  fresh: number;
+  stale: number;
+  missing: number;
+  refreshRecommended: number;
+  reusedSourceCount: number;
+  reusable: boolean;
+  sources: ResourceKnowledgeCachePostureSource[];
 }
 
 export interface ResourceKnowledgeReport {
@@ -63,6 +104,7 @@ export interface ResourceKnowledgeReport {
   validationTargets: string[];
   refs: RefsFact[];
   sources: KnowledgeSourcesReport['sources'];
+  cachePosture: ResourceKnowledgeCachePosture;
   pack: KnowledgePack;
   unitIndex: KnowledgeUnitMetadataIndex;
 }
@@ -85,6 +127,24 @@ function createReadOnlyKnowledgeStore(root: string): KnowledgeStore {
 
 function uniqueSorted(values: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(values).filter(Boolean))).sort();
+}
+
+function shortDigest(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 12);
+}
+
+function stableHash(value: unknown): string {
+  return shortDigest(JSON.stringify(value));
+}
+
+function compactDigest(value: string | undefined): string | undefined {
+  if (value === undefined || value.length === 0) {
+    return undefined;
+  }
+
+  return /^[a-f0-9]{12,64}$/.test(value)
+    ? value.slice(0, 12)
+    : shortDigest(value);
 }
 
 function normalizeIdentity(value: string): string {
@@ -206,6 +266,110 @@ function collectValidationTargets(targets: ResourceKnowledgeTarget[]): string[] 
   return uniqueSorted(targets.flatMap(target => target.validationTargets));
 }
 
+function emptyUnitCounts(): KnowledgeUnitCountByType {
+  return {
+    fact: 0,
+    guidance: 0,
+    example: 0,
+    diagnostic: 0,
+    recipe: 0
+  };
+}
+
+function buildCachePosture(input: {
+  inspection: WorkspaceInspection;
+  resource: string;
+  requestedDomains: InfraDomainId[];
+  sourceIds: string[];
+  maxUnits?: number;
+  targetPaths: string[];
+  targets: ResourceKnowledgeTarget[];
+  matchedTargetCount: number;
+  includedUnitCount: number;
+  sourceReport: KnowledgeSourcesReport;
+  pack: KnowledgePack;
+  unitIndex: KnowledgeUnitMetadataIndex;
+}): ResourceKnowledgeCachePosture {
+  const packSourcesById = new Map(input.pack.sources.map(source => [source.id, source]));
+  const indexEntriesBySourceId = new Map(input.unitIndex.entries.map(entry => [entry.sourceId, entry]));
+  const sources = input.sourceReport.sources.map(source => {
+    const packSource = packSourcesById.get(source.id);
+    const indexEntry = indexEntriesBySourceId.get(source.id);
+    const sourceContentHash = compactDigest(indexEntry?.sourceContentHash ?? packSource?.contentHash);
+    const fingerprintDigest = compactDigest(packSource?.fingerprintDigest);
+
+    return {
+      sourceId: source.id,
+      domain: source.domain,
+      targetPath: source.targetPath,
+      sourceKind: source.source.kind,
+      sourceName: source.source.name,
+      cacheStatus: source.cacheStatus,
+      requiresFetch: source.requiresFetch,
+      ...(packSource?.freshness !== undefined ? { freshness: packSource.freshness } : {}),
+      storageScope: source.storagePolicy.scope,
+      ...(sourceContentHash !== undefined ? { sourceContentHash } : {}),
+      ...(fingerprintDigest !== undefined ? { fingerprintDigest } : {}),
+      ...(packSource?.fingerprintFileCount !== undefined ? { fingerprintFileCount: packSource.fingerprintFileCount } : {}),
+      includedUnitCount: indexEntry?.includedUnitCount ?? 0,
+      ...(indexEntry?.omittedUnitCount !== undefined ? { omittedUnitCount: indexEntry.omittedUnitCount } : {}),
+      unitCounts: indexEntry?.unitCounts ?? emptyUnitCounts()
+    } satisfies ResourceKnowledgeCachePostureSource;
+  });
+  const cacheStatus = input.sourceReport.summary.cacheStatus;
+  const reusedSourceCount = cacheStatus.local + cacheStatus.fresh;
+  const reusable = input.matchedTargetCount > 0
+    && input.includedUnitCount > 0
+    && cacheStatus.stale === 0
+    && cacheStatus.missing === 0;
+
+  return {
+    packId: input.pack.packId,
+    cacheRootSource: input.inspection.knowledgeCache.source,
+    selectionHash: stableHash({
+      resource: input.resource,
+      requestedDomains: input.requestedDomains,
+      sourceIds: input.sourceIds,
+      maxUnits: input.maxUnits,
+      targetPaths: input.targetPaths
+    }),
+    targetHash: stableHash(input.targets.map(target => ({
+      id: target.id,
+      path: target.path,
+      domain: target.domain,
+      kind: target.kind,
+      lookupIdentities: target.lookupIdentities,
+      validationTargets: target.validationTargets
+    }))),
+    sourceHash: stableHash(sources.map(source => ({
+      sourceId: source.sourceId,
+      cacheStatus: source.cacheStatus,
+      freshness: source.freshness,
+      sourceContentHash: source.sourceContentHash,
+      fingerprintDigest: source.fingerprintDigest,
+      includedUnitCount: source.includedUnitCount,
+      unitCounts: source.unitCounts
+    }))),
+    unitIndexHash: stableHash(input.unitIndex.entries.map(entry => ({
+      sourceId: entry.sourceId,
+      sourceContentHash: entry.sourceContentHash,
+      includedUnitCount: entry.includedUnitCount,
+      omittedUnitCount: entry.omittedUnitCount,
+      unitCounts: entry.unitCounts,
+      retrievalKeys: entry.retrievalKeys
+    }))),
+    sourceCount: input.sourceReport.sourceCount,
+    local: cacheStatus.local,
+    fresh: cacheStatus.fresh,
+    stale: cacheStatus.stale,
+    missing: cacheStatus.missing,
+    refreshRecommended: cacheStatus.refreshRecommended,
+    reusedSourceCount,
+    reusable,
+    sources
+  };
+}
+
 function recommendedAction(input: {
   matchedTargetCount: number;
   includedUnitCount: number;
@@ -263,6 +427,21 @@ export async function buildResourceKnowledgeReport(
   const staleSourceCount = sourceReport.summary.cacheStatus.stale;
   const missingOrSkippedSourceCount = sourceReport.summary.cacheStatus.missing;
   const includedUnitCount = pack.includedUnitCount;
+  const sourceIds = options.sourceIds ?? [];
+  const cachePosture = buildCachePosture({
+    inspection,
+    resource,
+    requestedDomains: sourceReport.requestedDomains,
+    sourceIds,
+    maxUnits: options.maxUnits,
+    targetPaths,
+    targets,
+    matchedTargetCount: refsReport.summary.matchedTargetCount,
+    includedUnitCount,
+    sourceReport,
+    pack,
+    unitIndex
+  });
 
   return {
     kind: 'infra-agent.knowledge-resource-report',
@@ -272,7 +451,7 @@ export async function buildResourceKnowledgeReport(
     cacheRoot: inspection.knowledgeCache.root,
     resource,
     requestedDomains: sourceReport.requestedDomains,
-    sourceIds: options.sourceIds ?? [],
+    sourceIds,
     ...(options.maxUnits !== undefined ? { maxUnits: options.maxUnits } : {}),
     targetPaths,
     summary: {
@@ -302,6 +481,7 @@ export async function buildResourceKnowledgeReport(
     validationTargets,
     refs,
     sources: sourceReport.sources,
+    cachePosture,
     pack,
     unitIndex
   };
