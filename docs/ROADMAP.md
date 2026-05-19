@@ -635,7 +635,12 @@ Implemented initial CLI surfaces:
     artifact paths, verify the artifact SHA-256 from the registry, and expose
     the compact units as `public-knowledge-library-artifact` sources in the
     `public-reference` storage scope. This is read-only registry
-    download/reuse, not remote upload or publication trust.
+    download/reuse, not remote upload or publication trust. `knowledge
+    validate` accepts `infra-agent.public-knowledge-library-registry` payloads
+    so central-library registries can be checked for coordinate coherence,
+    secret-safe artifact locations, hash shape, media type, unit counts,
+    quality status, and review-required posture before sharing or
+    configuration.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

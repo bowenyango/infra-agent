@@ -33,6 +33,10 @@ import {
 } from '../types/knowledge.ts';
 import { validateKnowledgeArtifactReference } from './validation-artifact-reference.ts';
 import {
+  isSafeWorkspaceRelativePath,
+  isSecretSafeKnowledgeUrl
+} from './source-config.ts';
+import {
   buildLocalSourceStaleDetail,
   buildLocalSourceUncheckedDetail,
   validateKnowledgeSourceFingerprintContract,
@@ -163,6 +167,8 @@ const PUBLIC_KNOWLEDGE_DOWNLOAD_STRATEGIES = ['local-content-fixture', 'terrafor
 const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_ROLES = ['primary', 'fallback'] as const;
 const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_STATUSES = ['used', 'rejected', 'failed'] as const;
 const PUBLIC_KNOWLEDGE_QUALITY_STATUSES = ['ready', 'needs-refinement'] as const;
+const PUBLIC_LIBRARY_ARTIFACT_KINDS = ['terraform-provider-resource', 'terraform-provider-data-source'] as const;
+const PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE = 'application/vnd.infra-agent.public-knowledge-library-artifact+json';
 
 interface PublicKnowledgeLlmReviewExpected {
   sourceId: string | null;
@@ -2405,6 +2411,175 @@ function validatePublicKnowledgeLibraryArtifactPayload(
   );
 }
 
+function validatePublicKnowledgeLibraryRegistryPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+  let totalUnitCount = 0;
+
+  validateNoRawContentKeys(payload, '$', issues);
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Public knowledge library registry schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Public knowledge library registry mutationAllowed must be false.'));
+  }
+  if (!Array.isArray(payload.entries)) {
+    issues.push(error('$.entries', 'Public knowledge library registry entries must be an array.'));
+  } else {
+    const seenCoordinates = new Set<string>();
+    payload.entries.forEach((entry, index) => {
+      const path = `$.entries[${index}]`;
+      if (!isRecord(entry)) {
+        issues.push(error(path, 'Public knowledge library registry entry must be an object.'));
+        return;
+      }
+
+      const coordinates = readNonEmptyString(entry.coordinates, `${path}.coordinates`, issues);
+      if (coordinates !== null) {
+        validateNoSecretLikeValue(coordinates, `${path}.coordinates`, issues);
+        if (FULL_URL_PATTERN.test(coordinates)) {
+          issues.push(error(`${path}.coordinates`, 'Public knowledge library registry coordinates must not contain URLs.'));
+        }
+        if (seenCoordinates.has(coordinates)) {
+          issues.push(error(`${path}.coordinates`, 'Public knowledge library registry coordinates must be unique.'));
+        }
+        seenCoordinates.add(coordinates);
+      }
+
+      if (entry.ecosystem !== 'terraform') {
+        issues.push(error(`${path}.ecosystem`, 'Public knowledge library registry entry ecosystem must be terraform.'));
+      }
+      if (
+        typeof entry.artifactKind !== 'string'
+        || !PUBLIC_LIBRARY_ARTIFACT_KINDS.includes(entry.artifactKind as typeof PUBLIC_LIBRARY_ARTIFACT_KINDS[number])
+      ) {
+        issues.push(error(`${path}.artifactKind`, 'Public knowledge library registry entry artifactKind must be supported.'));
+      }
+      const providerAddress = readNonEmptyString(entry.providerAddress, `${path}.providerAddress`, issues);
+      if (providerAddress !== null) {
+        validateNoSecretLikeValue(providerAddress, `${path}.providerAddress`, issues);
+      }
+      const version = readNonEmptyString(entry.version, `${path}.version`, issues);
+      const sourceName = readNonEmptyString(entry.sourceName, `${path}.sourceName`, issues);
+      if (sourceName !== null) {
+        validateNoSecretLikeValue(sourceName, `${path}.sourceName`, issues);
+        if (
+          entry.artifactKind === 'terraform-provider-resource'
+          && !sourceName.startsWith('resource:')
+        ) {
+          issues.push(error(`${path}.sourceName`, 'Terraform resource public library entries must use a resource: sourceName.'));
+        }
+        if (
+          entry.artifactKind === 'terraform-provider-data-source'
+          && !sourceName.startsWith('data-source:')
+        ) {
+          issues.push(error(`${path}.sourceName`, 'Terraform data-source public library entries must use a data-source: sourceName.'));
+        }
+      }
+
+      if (
+        coordinates !== null
+        && providerAddress !== null
+        && version !== null
+        && sourceName !== null
+        && (
+          entry.artifactKind === 'terraform-provider-resource'
+          || entry.artifactKind === 'terraform-provider-data-source'
+        )
+      ) {
+        const typeName = sourceName.split(':')[1] ?? '';
+        const kindSegment = entry.artifactKind === 'terraform-provider-resource'
+          ? 'resource'
+          : 'data-source';
+        const expectedCoordinates = `terraform/provider/${providerAddress}/${version}/${kindSegment}/${typeName}`;
+        if (coordinates !== expectedCoordinates) {
+          issues.push(error(`${path}.coordinates`, 'Public knowledge library registry coordinates must match provider, version, artifactKind, and sourceName.'));
+        }
+      }
+
+      const tags = readStringArray(entry.tags, `${path}.tags`, issues);
+      if (tags !== null) {
+        tags.forEach((tag, tagIndex) => {
+          validateNoSecretLikeValue(tag, `${path}.tags[${tagIndex}]`, issues);
+          if (FULL_URL_PATTERN.test(tag)) {
+            issues.push(error(`${path}.tags[${tagIndex}]`, 'Public knowledge library registry tags must not contain URLs.'));
+          }
+        });
+      }
+
+      if (!isRecord(entry.artifact)) {
+        issues.push(error(`${path}.artifact`, 'Public knowledge library registry entry artifact must be an object.'));
+        return;
+      }
+
+      const artifactPath = typeof entry.artifact.path === 'string' && isSafeWorkspaceRelativePath(entry.artifact.path);
+      const artifactUrl = typeof entry.artifact.url === 'string' && isSecretSafeKnowledgeUrl(entry.artifact.url);
+      if (artifactPath === artifactUrl) {
+        issues.push(error(`${path}.artifact`, 'Public knowledge library registry artifact must use exactly one safe path or secret-free url.'));
+      }
+      if (typeof entry.artifact.path === 'string' && !artifactPath) {
+        issues.push(error(`${path}.artifact.path`, 'Public knowledge library registry artifact path must be safe and workspace-relative.'));
+      }
+      if (typeof entry.artifact.url === 'string' && !artifactUrl) {
+        issues.push(error(`${path}.artifact.url`, 'Public knowledge library registry artifact url must be secret-free http(s) without query or fragment.'));
+      }
+      if (typeof entry.artifact.contentHash !== 'string' || !SHA256_HEX_PATTERN.test(entry.artifact.contentHash)) {
+        issues.push(error(`${path}.artifact.contentHash`, 'Public knowledge library registry artifact contentHash must be a SHA-256 hex string.'));
+      }
+      if (entry.artifact.mediaType !== PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE) {
+        issues.push(error(`${path}.artifact.mediaType`, 'Public knowledge library registry artifact mediaType must be the public library artifact media type.'));
+      }
+      if (typeof entry.artifact.artifactId !== 'string' || !PACK_ID_PATTERN.test(entry.artifact.artifactId)) {
+        issues.push(error(`${path}.artifact.artifactId`, 'Public knowledge library registry artifact artifactId must be a 24-character hex string.'));
+      }
+      if (typeof entry.artifact.unitPayloadHash !== 'string' || !SHA256_HEX_PATTERN.test(entry.artifact.unitPayloadHash)) {
+        issues.push(error(`${path}.artifact.unitPayloadHash`, 'Public knowledge library registry artifact unitPayloadHash must be a SHA-256 hex string.'));
+      }
+      if (typeof entry.artifact.sourceContentHash !== 'string' || !SHA256_HEX_PATTERN.test(entry.artifact.sourceContentHash)) {
+        issues.push(error(`${path}.artifact.sourceContentHash`, 'Public knowledge library registry artifact sourceContentHash must be a SHA-256 hex string.'));
+      }
+      const unitCount = readPositiveInteger(entry.artifact.unitCount, `${path}.artifact.unitCount`, issues);
+      if (unitCount !== null) {
+        totalUnitCount += unitCount;
+      }
+      if (
+        typeof entry.artifact.qualityStatus !== 'string'
+        || !PUBLIC_KNOWLEDGE_QUALITY_STATUSES.includes(entry.artifact.qualityStatus as typeof PUBLIC_KNOWLEDGE_QUALITY_STATUSES[number])
+      ) {
+        issues.push(error(`${path}.artifact.qualityStatus`, 'Public knowledge library registry artifact qualityStatus must be supported.'));
+      }
+      if (entry.artifact.reviewRequired !== true) {
+        issues.push(error(`${path}.artifact.reviewRequired`, 'Public knowledge library registry artifact must require review.'));
+      }
+    });
+  }
+
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    [],
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
+    },
+    {
+      factSetCount: 0,
+      factCount: 0,
+      unitSetCount: 0,
+      unitCount: totalUnitCount,
+      staleSourceCount: 0
+    }
+  );
+}
+
 function validateKnowledgeArtifactManifestPayload(
   payload: Record<string, unknown>,
   inputPath: string,
@@ -2702,6 +2877,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.public-knowledge-library-artifact') {
     return validatePublicKnowledgeLibraryArtifactPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.public-knowledge-library-registry') {
+    return validatePublicKnowledgeLibraryRegistryPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind === 'infra-agent.knowledge-artifact-manifest') {

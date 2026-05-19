@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-19 Public Library Registry CLI Validation And Fetch Smoke
+
+Status:
+
+- Added `knowledge validate` support for
+  `infra-agent.public-knowledge-library-registry` payloads. Validation checks
+  schema posture, unique hub-style coordinates, Terraform artifact
+  classification coherence, secret-safe artifact `path`/`url` location,
+  artifact hash fields, media type, unit count, quality status, review-required
+  posture, and raw-content omission.
+- Strengthened CLI-level coverage for URL-backed public library registries.
+  The integration fixture now mocks `globalThis.fetch` instead of opening a
+  socket or requiring external network, then runs real CLI commands through
+  `knowledge prefetch`, `sources`, `extract`, and `pack`.
+- The CLI test covers a central-library style registry URL whose entry uses a
+  relative artifact path. Prefetch resolves that path against the registry URL,
+  downloads the artifact into the local cache, and reuses its five compact unit
+  types through the normal public-reference pack path.
+
+Files changed:
+
+- `src/knowledge/validate.ts` validates
+  `infra-agent.public-knowledge-library-registry` payloads.
+- `test/unit/knowledge-public-library-artifact-validation.test.mjs` covers
+  valid registry validation and rejection of coordinate drift, URL-bearing
+  tags, unsafe artifact URL, ambiguous artifact location, bad hash, and missing
+  review posture.
+- `test/integration/cli-public-library-registry-main.test.mjs` covers CLI
+  validation plus mocked-fetch URL registry prefetch and artifact reuse.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  registry validation before sharing or configuring a public central-library
+  registry.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+
+Residual risks:
+
+- Registry validation verifies shape and deterministic classification
+  coherence. It does not download artifacts or prove artifact bytes match the
+  registry hash; extraction/prefetch still performs that cache-time check.
+- Optional LLM refinement remains future work and should consume bounded
+  `llmRefinementInput` packets after deterministic validation succeeds.
+
 ## 2026-05-19 URL-Backed Public Knowledge Library Registries
 
 Status:

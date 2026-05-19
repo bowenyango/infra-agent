@@ -186,9 +186,13 @@ sources`, `extract`, `pack`, and `resource` should discover the matching
 `public-knowledge-library-artifact` by Terraform provider/resource usage,
 expand artifact URLs or relative artifact paths, verify the registered
 SHA-256, preserve `public-reference` storage policy, and emit compact units
-without raw Markdown sections. This path can fetch the URL live; tests should
-continue to use offline fetcher fixtures and the internal `--content <file>`
-helper so default CI does not require network access.
+without raw Markdown sections. `knowledge validate` should accept valid
+`infra-agent.public-knowledge-library-registry` payloads and reject coordinate
+drift, unsafe artifact URLs, malformed hashes, unsupported media types, bad
+quality states, missing review posture, and raw content. This path can fetch
+the URL live; tests should continue to use offline fetcher fixtures, mocked
+fetch, and the internal `--content <file>` helper so default CI does not
+require network access or socket listeners.
 
 ## Layout
 

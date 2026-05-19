@@ -334,7 +334,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   usage matches the provider/resource identity, and extraction must verify the
   registered artifact SHA-256 before using its compact units. Treat this as
   read-only central-library download/reuse with `public-reference` storage
-  scope, not upload, publication approval, or remote trust.
+  scope, not upload, publication approval, or remote trust. Run
+  `knowledge validate <registry.json> --json` on public library registries
+  before configuring or sharing them; validation must reject coordinate drift,
+  unsafe artifact locations, malformed hashes, unsupported media types,
+  invalid quality states, missing review posture, and raw content.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

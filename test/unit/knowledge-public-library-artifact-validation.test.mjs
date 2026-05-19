@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   mkdtemp,
   rm,
@@ -47,6 +48,10 @@ const S3_BUCKET_MARKDOWN = [
   ''
 ].join('\n');
 
+function sha256Hex(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 async function buildArtifactFixture() {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-artifact-'));
   const contentPath = join(tempRoot, 'aws_s3_bucket.md');
@@ -63,6 +68,39 @@ async function buildArtifactFixture() {
     tempRoot,
     report,
     artifact
+  };
+}
+
+function buildRegistryFixture(artifact) {
+  const artifactContent = JSON.stringify(artifact);
+  const { classification } = artifact;
+
+  return {
+    kind: 'infra-agent.public-knowledge-library-registry',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    entries: [
+      {
+        coordinates: artifact.coordinates,
+        ecosystem: classification.ecosystem,
+        artifactKind: classification.artifactKind,
+        providerAddress: classification.providerAddress,
+        version: classification.version,
+        sourceName: classification.sourceName,
+        tags: classification.tags,
+        artifact: {
+          url: 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json',
+          contentHash: sha256Hex(artifactContent),
+          mediaType: 'application/vnd.infra-agent.public-knowledge-library-artifact+json',
+          artifactId: artifact.artifactId,
+          unitPayloadHash: artifact.unitPayloadHash,
+          sourceContentHash: artifact.sourceContentHash,
+          unitCount: artifact.summary.unitCount,
+          qualityStatus: artifact.quality.status,
+          reviewRequired: true
+        }
+      }
+    ]
   };
 }
 
@@ -144,6 +182,52 @@ test('public knowledge library artifact validation rejects drifted hashes classi
     ]) {
       assert.ok(validation.issues.some(issue => issue.path === path), path);
     }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('public knowledge library registry validation checks coordinates hashes and secret-safe artifact locations', async () => {
+  const { tempRoot, artifact } = await buildArtifactFixture();
+
+  try {
+    const registry = buildRegistryFixture(artifact);
+    const validRegistry = validateKnowledgePayload(registry, 'inline');
+
+    assert.equal(validRegistry.inputKind, 'infra-agent.public-knowledge-library-registry');
+    assert.equal(validRegistry.valid, true);
+    assert.equal(validRegistry.factSetCount, 0);
+    assert.equal(validRegistry.factCount, 0);
+    assert.equal(validRegistry.unitSetCount, 0);
+    assert.equal(validRegistry.unitCount, artifact.summary.unitCount);
+
+    const invalidRegistry = JSON.parse(JSON.stringify(registry));
+    invalidRegistry.entries[0].coordinates = `${artifact.coordinates}/drift`;
+    invalidRegistry.entries[0].tags.push('https://example.invalid/raw-doc');
+    invalidRegistry.entries[0].artifact.path = 'public/aws-s3-bucket.public-knowledge-library-artifact.json';
+    invalidRegistry.entries[0].artifact.url = 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json';
+    invalidRegistry.entries[0].artifact.contentHash = 'not-a-sha';
+    invalidRegistry.entries[0].artifact.reviewRequired = false;
+
+    const invalid = validateKnowledgePayload(invalidRegistry, 'inline');
+
+    assert.equal(invalid.valid, false);
+    for (const path of [
+      '$.entries[0].coordinates',
+      '$.entries[0].tags[7]',
+      '$.entries[0].artifact',
+      '$.entries[0].artifact.contentHash',
+      '$.entries[0].artifact.reviewRequired'
+    ]) {
+      assert.ok(invalid.issues.some(issue => issue.path === path), path);
+    }
+
+    const unsafeUrlRegistry = JSON.parse(JSON.stringify(registry));
+    unsafeUrlRegistry.entries[0].artifact.url = 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json?token=bad';
+    const unsafeUrl = validateKnowledgePayload(unsafeUrlRegistry, 'inline');
+
+    assert.equal(unsafeUrl.valid, false);
+    assert.ok(unsafeUrl.issues.some(issue => issue.path === '$.entries[0].artifact.url'));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

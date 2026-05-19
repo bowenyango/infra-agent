@@ -127,7 +127,10 @@ values.
    `pack`, or `resource`. Run `knowledge prefetch <workspace>` first for
    URL-backed registries so the registry and matching artifacts enter the local
    cache. Extraction verifies the registered artifact content hash before
-   exposing units as `public-knowledge-library-artifact` sources.
+   exposing units as `public-knowledge-library-artifact` sources. Use
+   `knowledge validate <registry.json> --json` before sharing or configuring a
+   public registry; validation checks coordinates, artifact locations, hashes,
+   media type, quality status, and review-required posture.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage
