@@ -7,7 +7,7 @@ import {
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
 import { extractMarkdownKnowledgeUnitsFromCacheEntry } from './markdown-units.ts';
 import { normalizeOfficialKnowledgeContent } from './official-doc-normalize.ts';
-import { fetchOfficialKnowledgeSource } from './retrieve.ts';
+import type { FetchOfficialKnowledgeSourceOptions } from './retrieve.ts';
 import { extractKnowledgeUnitSetFromFactSet } from './units.ts';
 import {
   KNOWLEDGE_UNIT_TYPES,
@@ -22,8 +22,7 @@ import type { InfraDomainId } from '../types/repository.ts';
 import type { KnowledgeUnitCountByType } from './unit-index.ts';
 import { isSecretSafeKnowledgeUrl } from './source-config.ts';
 
-type OfficialKnowledgeFetchOptions = NonNullable<Parameters<typeof fetchOfficialKnowledgeSource>[1]>;
-type OfficialKnowledgeFetchImpl = NonNullable<OfficialKnowledgeFetchOptions['fetchImpl']>;
+type OfficialKnowledgeFetchImpl = NonNullable<FetchOfficialKnowledgeSourceOptions['fetchImpl']>;
 
 export interface PublicKnowledgeUrlReportOptions {
   url: string;
@@ -41,6 +40,61 @@ export interface PublicKnowledgeQualitySummary {
   warnings: string[];
   llmUsed: false;
   refinementMode: 'deterministic';
+}
+
+export type PublicKnowledgeDownloadMode = 'live-fetch' | 'local-content';
+export type PublicKnowledgeDownloadAttemptRole = 'primary' | 'fallback';
+export type PublicKnowledgeDownloadAttemptStatus = 'used' | 'rejected' | 'failed';
+
+export interface PublicKnowledgeDownloadAttempt {
+  role: PublicKnowledgeDownloadAttemptRole;
+  url: string;
+  status: PublicKnowledgeDownloadAttemptStatus;
+  reason?: string;
+  httpStatus?: number;
+  statusText?: string;
+  contentType?: KnowledgeContentType;
+  byteLength?: number;
+}
+
+export interface PublicKnowledgeDownloadSummary {
+  mode: PublicKnowledgeDownloadMode;
+  strategy: 'local-content-fixture' | 'terraform-registry-primary-then-provider-repo-raw';
+  attemptedCount: number;
+  fallbackUsed: boolean;
+  usedRole: PublicKnowledgeDownloadAttemptRole | 'local-content';
+  usedUrl?: string;
+  usedContentType: KnowledgeContentType;
+  attempts: PublicKnowledgeDownloadAttempt[];
+}
+
+export interface PublicKnowledgeCentralLibraryClassification {
+  registry: 'infra-agent-public-reference';
+  ecosystem: 'terraform';
+  artifactKind: 'terraform-provider-resource' | 'terraform-provider-data-source';
+  namespace: string;
+  providerName: string;
+  providerAddress: string;
+  version: string;
+  sourceName: string;
+  slug: string;
+  coordinates: string;
+  tags: string[];
+}
+
+export interface PublicKnowledgeLlmRefinementInput {
+  status: 'not-run';
+  mode: 'offline-review';
+  inputRefs: [
+    'report.centralLibraryCandidate.classification',
+    'report.download',
+    'report.unitsByType',
+    'report.quality'
+  ];
+  objective: string;
+  unitTypes: KnowledgeUnitType[];
+  constraints: string[];
+  outputContract: 'infra-agent.public-knowledge-url-report';
 }
 
 export type CompactPublicKnowledgeUnit = KnowledgeUnit extends infer Unit
@@ -73,6 +127,8 @@ export interface PublicKnowledgeCentralLibraryCandidate {
   unitCount: number;
   unitCounts: KnowledgeUnitCountByType;
   unitRef: 'report.unitsByType';
+  classification: PublicKnowledgeCentralLibraryClassification;
+  llmRefinementInput: PublicKnowledgeLlmRefinementInput;
 }
 
 export interface PublicKnowledgeUrlReport {
@@ -86,6 +142,7 @@ export interface PublicKnowledgeUrlReport {
   sourceContentHash: string;
   fetchedAt: string;
   sourceStale: boolean;
+  download: PublicKnowledgeDownloadSummary;
   maxUnits: number;
   summary: {
     factCount: number;
@@ -107,6 +164,7 @@ export interface PublicKnowledgeUrlReport {
 }
 
 const DEFAULT_MAX_UNITS = 80;
+const PUBLIC_KNOWLEDGE_STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 const TERRAFORM_REGISTRY_INLINE_HEADINGS = [
   'Example Usage',
   'Basic Usage',
@@ -134,6 +192,11 @@ interface PublicKnowledgeSourceResolution {
   terraformRegistry?: TerraformRegistryUrlSource;
 }
 
+interface PublicKnowledgeEntryResult {
+  entry: KnowledgeCacheEntry;
+  download: PublicKnowledgeDownloadSummary;
+}
+
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -155,6 +218,26 @@ function contentTypeForPath(path: string): KnowledgeContentType {
   }
 
   return 'text/plain';
+}
+
+function contentTypeFromHeader(header: string | null): KnowledgeContentType {
+  const contentType = header?.toLowerCase() ?? '';
+
+  if (contentType.includes('application/json')) {
+    return 'application/json';
+  }
+  if (contentType.includes('yaml') || contentType.includes('yml')) {
+    return 'application/yaml';
+  }
+  if (contentType.includes('markdown')) {
+    return 'text/markdown';
+  }
+
+  return 'text/plain';
+}
+
+function staleAfterForPublicSource(fetchedAt: string): string {
+  return new Date(Date.parse(fetchedAt) + PUBLIC_KNOWLEDGE_STALE_AFTER_MS).toISOString();
 }
 
 function escapeRegExp(value: string): string {
@@ -326,41 +409,133 @@ async function readEntryFromContentPath(input: {
   source: KnowledgeSource;
   contentPath: string;
   now?: Date;
-}): Promise<KnowledgeCacheEntry> {
+}): Promise<PublicKnowledgeEntryResult> {
   const content = await readFile(input.contentPath, 'utf8');
   const normalized = normalizeOfficialKnowledgeContent({
     content,
     contentType: contentTypeForPath(input.contentPath)
   });
-
-  return buildCacheEntry({
+  const contentType = normalizeContentTypeForSource(input.source, normalized.contentType);
+  const entry = buildCacheEntry({
     source: input.source,
-    contentType: normalizeContentTypeForSource(input.source, normalized.contentType),
+    contentType,
     content: normalizeContentForSource(input.source, normalized.content),
     now: input.now
   });
+
+  return {
+    entry,
+    download: {
+      mode: 'local-content',
+      strategy: 'local-content-fixture',
+      attemptedCount: 0,
+      fallbackUsed: false,
+      usedRole: 'local-content',
+      usedContentType: contentType,
+      attempts: []
+    }
+  };
+}
+
+async function downloadOfficialKnowledgeSource(input: {
+  source: KnowledgeSource;
+  role: PublicKnowledgeDownloadAttemptRole;
+  fetchedAt?: string;
+  fetchImpl?: OfficialKnowledgeFetchImpl;
+}): Promise<{
+  write: KnowledgeCacheWrite;
+  attempt: PublicKnowledgeDownloadAttempt;
+}> {
+  if (!input.source.url) {
+    throw new Error('Public knowledge source is missing a URL.');
+  }
+
+  const fetchImpl = input.fetchImpl ?? (fetch as unknown as OfficialKnowledgeFetchImpl);
+  const response = await fetchImpl(input.source.url);
+  const contentTypeHeader = response.headers.get('content-type');
+  const contentType = contentTypeFromHeader(contentTypeHeader);
+
+  if (!response.ok) {
+    throw Object.assign(new Error(`${response.status} ${response.statusText}`), {
+      attempt: {
+        role: input.role,
+        url: input.source.url,
+        status: 'failed' as const,
+        reason: 'http-error',
+        httpStatus: response.status,
+        statusText: response.statusText,
+        contentType
+      }
+    });
+  }
+
+  const rawContent = await response.text();
+  const normalized = normalizeOfficialKnowledgeContent({
+    content: rawContent,
+    contentType,
+    contentTypeHeader
+  });
+  const fetchedAt = input.fetchedAt ?? new Date().toISOString();
+  const write: KnowledgeCacheWrite = {
+    source: input.source,
+    contentType: normalized.contentType,
+    content: normalized.content,
+    fetchedAt,
+    staleAfter: staleAfterForPublicSource(fetchedAt),
+    metadata: {
+      retrieval: 'official-url',
+      ...(normalized.normalization ? { normalization: normalized.normalization } : {})
+    }
+  };
+
+  return {
+    write,
+    attempt: {
+      role: input.role,
+      url: input.source.url,
+      status: 'used',
+      httpStatus: response.status,
+      statusText: response.statusText,
+      contentType: normalized.contentType,
+      byteLength: Buffer.byteLength(normalized.content)
+    }
+  };
 }
 
 async function fetchEntry(input: {
   resolution: PublicKnowledgeSourceResolution;
   now?: Date;
   fetchImpl?: OfficialKnowledgeFetchImpl;
-}): Promise<KnowledgeCacheEntry> {
+}): Promise<PublicKnowledgeEntryResult> {
   const fetchedAt = input.now?.toISOString();
   let fetched: KnowledgeCacheWrite | null = null;
   let primaryError: Error | null = null;
+  const attempts: PublicKnowledgeDownloadAttempt[] = [];
 
   try {
-    fetched = await fetchOfficialKnowledgeSource(input.resolution.source, {
+    const downloaded = await downloadOfficialKnowledgeSource({
+      source: input.resolution.source,
       fetchedAt,
+      role: 'primary',
       fetchImpl: input.fetchImpl
     });
+    fetched = downloaded.write;
+    attempts.push(downloaded.attempt);
   } catch (error) {
     primaryError = error instanceof Error ? error : new Error(String(error));
+    const attempt = error instanceof Error
+      ? (error as Error & { attempt?: PublicKnowledgeDownloadAttempt }).attempt
+      : undefined;
+    attempts.push(attempt ?? {
+      role: 'primary',
+      url: input.resolution.source.url ?? '',
+      status: 'failed',
+      reason: primaryError.message
+    });
   }
 
   if (fetched && hasExtractableKnowledgeContent(fetched.content)) {
-    return buildCacheEntry({
+    const entry = buildCacheEntry({
       source: input.resolution.source,
       contentType: normalizeContentTypeForSource(input.resolution.source, fetched.contentType),
       content: normalizeContentForSource(input.resolution.source, fetched.content),
@@ -368,21 +543,47 @@ async function fetchEntry(input: {
       staleAfter: fetched.staleAfter,
       now: input.now
     });
+
+    return {
+      entry,
+      download: {
+        mode: 'live-fetch',
+        strategy: 'terraform-registry-primary-then-provider-repo-raw',
+        attemptedCount: attempts.length,
+        fallbackUsed: false,
+        usedRole: 'primary',
+        usedUrl: attempts[attempts.length - 1]?.url,
+        usedContentType: entry.contentType,
+        attempts
+      }
+    };
+  }
+
+  if (fetched) {
+    const attempt = attempts[attempts.length - 1];
+    if (attempt && attempt.status === 'used') {
+      attempt.status = 'rejected';
+      attempt.reason = 'content-not-extractable';
+    }
   }
 
   if (input.resolution.terraformRegistry) {
     for (const url of terraformRegistryRawDocCandidates(input.resolution.terraformRegistry)) {
       try {
-        const fallback = await fetchOfficialKnowledgeSource({
-          ...input.resolution.source,
-          url
-        }, {
+        const downloaded = await downloadOfficialKnowledgeSource({
+          source: {
+            ...input.resolution.source,
+            url
+          },
+          role: 'fallback',
           fetchedAt,
           fetchImpl: input.fetchImpl
         });
+        const fallback = downloaded.write;
+        attempts.push(downloaded.attempt);
 
         if (fallback && hasExtractableKnowledgeContent(fallback.content)) {
-          return buildCacheEntry({
+          const entry = buildCacheEntry({
             source: input.resolution.source,
             contentType: normalizeContentTypeForSource(input.resolution.source, fallback.contentType),
             content: normalizeContentForSource(input.resolution.source, fallback.content),
@@ -390,8 +591,36 @@ async function fetchEntry(input: {
             staleAfter: fallback.staleAfter,
             now: input.now
           });
+
+          return {
+            entry,
+            download: {
+              mode: 'live-fetch',
+              strategy: 'terraform-registry-primary-then-provider-repo-raw',
+              attemptedCount: attempts.length,
+              fallbackUsed: true,
+              usedRole: 'fallback',
+              usedUrl: url,
+              usedContentType: entry.contentType,
+              attempts
+            }
+          };
         }
-      } catch {
+
+        const attempt = attempts[attempts.length - 1];
+        if (attempt && attempt.status === 'used') {
+          attempt.status = 'rejected';
+          attempt.reason = 'content-not-extractable';
+        }
+      } catch (error) {
+        const fallbackError = error instanceof Error ? error : new Error(String(error));
+        const attempt = (fallbackError as Error & { attempt?: PublicKnowledgeDownloadAttempt }).attempt;
+        attempts.push(attempt ?? {
+          role: 'fallback',
+          url,
+          status: 'failed',
+          reason: fallbackError.message
+        });
         // Keep trying provider repository documentation candidates. Terraform
         // providers do not all use the same docs file extension or default ref.
       }
@@ -399,10 +628,11 @@ async function fetchEntry(input: {
   }
 
   if (primaryError) {
+    primaryError.message = `${primaryError.message}; download attempts: ${attempts.length}`;
     throw primaryError;
   }
 
-  throw new Error('Public knowledge URL did not return extractable content.');
+  throw new Error(`Public knowledge URL did not return extractable content after ${attempts.length} download attempts.`);
 }
 
 function emptyUnitCounts(): KnowledgeUnitCountByType {
@@ -767,6 +997,82 @@ function compactSource(source: KnowledgeSource, domain: InfraDomainId): PublicKn
   };
 }
 
+function terraformLibraryClassification(
+  source: TerraformRegistryUrlSource
+): PublicKnowledgeCentralLibraryClassification {
+  const typeName = `${source.providerName}_${source.slug}`;
+  const artifactKind = source.docKind === 'resources'
+    ? 'terraform-provider-resource'
+    : 'terraform-provider-data-source';
+  const sourceName = source.docKind === 'resources'
+    ? `resource:${typeName}`
+    : `data-source:${typeName}`;
+  const kindSegment = source.docKind === 'resources' ? 'resource' : 'data-source';
+  const coordinates = [
+    'terraform',
+    'provider',
+    `${source.namespace}/${source.providerName}`,
+    source.version,
+    kindSegment,
+    typeName
+  ].join('/');
+
+  return {
+    registry: 'infra-agent-public-reference',
+    ecosystem: 'terraform',
+    artifactKind,
+    namespace: source.namespace,
+    providerName: source.providerName,
+    providerAddress: `${source.namespace}/${source.providerName}`,
+    version: source.version,
+    sourceName,
+    slug: source.slug,
+    coordinates,
+    tags: [
+      'public-reference',
+      'terraform',
+      'provider-docs',
+      source.namespace,
+      source.providerName,
+      typeName,
+      kindSegment
+    ]
+  };
+}
+
+function libraryClassification(
+  resolution: PublicKnowledgeSourceResolution
+): PublicKnowledgeCentralLibraryClassification {
+  if (resolution.terraformRegistry) {
+    return terraformLibraryClassification(resolution.terraformRegistry);
+  }
+
+  throw new Error('Unsupported public knowledge source classification.');
+}
+
+function llmRefinementInput(): PublicKnowledgeLlmRefinementInput {
+  return {
+    status: 'not-run',
+    mode: 'offline-review',
+    inputRefs: [
+      'report.centralLibraryCandidate.classification',
+      'report.download',
+      'report.unitsByType',
+      'report.quality'
+    ],
+    objective: 'Review and refine compact public-reference IaC knowledge units for central-library reuse without expanding raw documentation into the artifact.',
+    unitTypes: [...KNOWLEDGE_UNIT_TYPES],
+    constraints: [
+      'Do not invent provider fields, defaults, enum values, or safety claims not supported by selected units or source locators.',
+      'Keep the five unit types distinct: facts are machine-readable evidence, guidance is advisory explanation, examples are bounded edit shapes, diagnostics explain failures, and recipes are review workflows.',
+      'Prefer public-reference facts and identity or replacement guidance over generic documentation sections.',
+      'Preserve sourceId, sourceLocator, privacyScope, mutationAllowed=false, and public-reference storage posture.',
+      'Return compact JSON that remains suitable for deterministic validation and review before publication.'
+    ],
+    outputContract: 'infra-agent.public-knowledge-url-report'
+  };
+}
+
 function candidateId(input: {
   sourceId: string;
   sourceContentHash: string;
@@ -777,6 +1083,7 @@ function candidateId(input: {
 
 function buildCentralLibraryCandidate(input: {
   domain: InfraDomainId;
+  resolution: PublicKnowledgeSourceResolution;
   source: KnowledgeSource;
   sourceId: string;
   sourceContentHash: string;
@@ -802,7 +1109,9 @@ function buildCentralLibraryCandidate(input: {
     quality: input.quality,
     unitCount: input.selectedUnitCount,
     unitCounts: input.counts,
-    unitRef: 'report.unitsByType'
+    unitRef: 'report.unitsByType',
+    classification: libraryClassification(input.resolution),
+    llmRefinementInput: llmRefinementInput()
   };
 }
 
@@ -812,9 +1121,10 @@ export async function buildPublicKnowledgeUrlReport(
   const maxUnits = normalizeMaxUnits(options.maxUnits);
   const resolution = publicKnowledgeSourceFromUrl(options.url);
   const { domain, source } = resolution;
-  const entry = options.contentPath
+  const entryResult = options.contentPath
     ? await readEntryFromContentPath({ source, contentPath: options.contentPath, now: options.now })
     : await fetchEntry({ resolution, now: options.now, fetchImpl: options.fetchImpl });
+  const { entry, download } = entryResult;
   const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
     now: options.now
   });
@@ -834,6 +1144,7 @@ export async function buildPublicKnowledgeUrlReport(
   });
   const centralLibraryCandidate = buildCentralLibraryCandidate({
     domain,
+    resolution,
     source,
     sourceId: entry.id,
     sourceContentHash: entry.contentHash,
@@ -854,6 +1165,7 @@ export async function buildPublicKnowledgeUrlReport(
     sourceContentHash: entry.contentHash,
     fetchedAt: entry.fetchedAt,
     sourceStale: isKnowledgeCacheEntryStale(entry, options.now),
+    download,
     maxUnits,
     summary: {
       factCount: factSet.factCount,

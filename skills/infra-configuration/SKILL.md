@@ -97,11 +97,15 @@ values.
    a workspace; it infers the supported source identity from the URL, emits
    grouped compact `fact`, `guidance`, `example`, `diagnostic`, and `recipe`
    units, reports `summary.qualityStatus`, and includes a
-   `centralLibraryCandidate` for reviewed public-reference reuse. Treat
-   `quality.status: "ready"` plus complete unit types as the acceptance signal
-   for URL-only public knowledge. Use `knowledge resource` instead when the
-   caller needs repo targets, suggested files, cache posture, or local usage
-   linkage.
+   `centralLibraryCandidate` for reviewed public-reference reuse. Check the
+   `download` trace to confirm whether the primary URL or a documented fallback
+   produced the selected source, use
+   `centralLibraryCandidate.classification.coordinates` as the stable
+   downloadable-library coordinate, and treat `llmRefinementInput` as the
+   explicit offline LLM review contract. Treat `quality.status: "ready"` plus
+   complete unit types as the acceptance signal for URL-only public knowledge.
+   Use `knowledge resource` instead when the caller needs repo targets,
+   suggested files, cache posture, or local usage linkage.
    Use the lower-level `sources`, `pack`, and `index` commands when debugging
    one stage or preparing an explicit prefetch.
    Use `knowledge index --resource <identity> --field-path <field> --json`

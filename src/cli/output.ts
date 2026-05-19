@@ -3765,6 +3765,9 @@ export function printPublicKnowledgeUrlReport(report: PublicKnowledgeUrlReport):
   process.stdout.write('mutation allowed: no\n');
   process.stdout.write(`summary: units=${report.summary.includedUnitCount}/${report.summary.unitCount}, unitTypes=${report.summary.includedUnitTypes.join(', ') || 'none'}, missingUnitTypes=${report.summary.missingUnitTypes.join(', ') || 'none'}, unitTypeComplete=${report.summary.unitTypeComplete ? 'yes' : 'no'}\n`);
   process.stdout.write(`quality: ${report.quality.status} score=${report.quality.score} compactBytes=${report.summary.compactByteLength}\n\n`);
+  process.stdout.write(`download: ${report.download.mode} strategy=${report.download.strategy} attempts=${report.download.attemptedCount} fallback=${report.download.fallbackUsed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`library: ${report.centralLibraryCandidate.classification.coordinates}\n`);
+  process.stdout.write(`llm refinement: ${report.centralLibraryCandidate.llmRefinementInput.status}\n\n`);
 
   printHeader('Knowledge units');
   printList(Object.values(report.unitsByType).flat().map(unit =>

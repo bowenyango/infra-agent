@@ -107,6 +107,12 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.deepEqual(report.summary.qualityWarnings, []);
     assert.equal(report.quality.llmUsed, false);
     assert.equal(report.quality.refinementMode, 'deterministic');
+    assert.equal(report.download.mode, 'local-content');
+    assert.equal(report.download.strategy, 'local-content-fixture');
+    assert.equal(report.download.attemptedCount, 0);
+    assert.equal(report.download.fallbackUsed, false);
+    assert.equal(report.download.usedRole, 'local-content');
+    assert.equal(report.download.usedContentType, 'text/markdown');
     assert.deepEqual(report.summary.includedUnitTypes, ['fact', 'guidance', 'example', 'diagnostic', 'recipe']);
     assert.deepEqual(report.summary.missingUnitTypes, []);
     assert.ok(report.summary.unitCounts.fact > 0);
@@ -149,6 +155,17 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(report.centralLibraryCandidate.source.name, 'resource:aws_s3_bucket');
     assert.equal(report.centralLibraryCandidate.unitRef, 'report.unitsByType');
     assert.deepEqual(report.centralLibraryCandidate.unitCounts, report.summary.unitCounts);
+    assert.equal(
+      report.centralLibraryCandidate.classification.coordinates,
+      'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket'
+    );
+    assert.equal(report.centralLibraryCandidate.classification.artifactKind, 'terraform-provider-resource');
+    assert.ok(report.centralLibraryCandidate.classification.tags.includes('aws_s3_bucket'));
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.status, 'not-run');
+    assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.unitsByType'));
+    assert.ok(report.centralLibraryCandidate.llmRefinementInput.constraints.some(constraint =>
+      /Do not invent provider fields/.test(constraint)
+    ));
     assert.equal(writtenReport.kind, report.kind);
     assert.equal(writtenReport.sourceContentHash, report.sourceContentHash);
     assert.equal(Object.hasOwn(writtenReport, 'unitSet'), false);
@@ -222,6 +239,23 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
   assert.equal(report.sourceUrl, S3_BUCKET_URL);
   assert.equal(report.source.url, S3_BUCKET_URL);
   assert.equal(report.source.name, 'resource:aws_s3_bucket');
+  assert.equal(report.download.mode, 'live-fetch');
+  assert.equal(report.download.strategy, 'terraform-registry-primary-then-provider-repo-raw');
+  assert.equal(report.download.fallbackUsed, true);
+  assert.equal(report.download.usedRole, 'fallback');
+  assert.equal(report.download.usedUrl, rawDocsUrl);
+  assert.equal(report.download.attemptedCount, 2);
+  assert.equal(report.download.attempts[0].role, 'primary');
+  assert.equal(report.download.attempts[0].status, 'rejected');
+  assert.equal(report.download.attempts[0].reason, 'content-not-extractable');
+  assert.equal(report.download.attempts[1].role, 'fallback');
+  assert.equal(report.download.attempts[1].status, 'used');
+  assert.equal(report.centralLibraryCandidate.classification.providerAddress, 'hashicorp/aws');
+  assert.equal(
+    report.centralLibraryCandidate.classification.coordinates,
+    'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket'
+  );
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.mode, 'offline-review');
   assert.equal(report.summary.unitTypeComplete, true);
   assert.equal(report.summary.qualityStatus, 'ready');
   assert.deepEqual(report.summary.missingUnitTypes, []);

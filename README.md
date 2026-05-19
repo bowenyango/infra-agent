@@ -276,11 +276,14 @@ Current behavior is intentionally runtime-foundation oriented:
   docs, extracts the same five unit types, groups compact source-referenced
   units under `unitsByType`, and reports `unitTypeComplete`, quality status,
   compact byte length, missing/included unit types, and a
-  `centralLibraryCandidate` for public-reference reuse. Default selection
-  favors reusable facts and identity/replacement guidance over generic
-  Markdown sections. This is the public-reference path to use when another
-  agent gives a documentation link such as `aws_s3_bucket` and needs compact
-  JSON rather than repo linkage.
+  `centralLibraryCandidate` for public-reference reuse. The report also records
+  a compact `download` trace and a hub-style central-library coordinate such as
+  `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus an
+  `llmRefinementInput` contract for explicit offline LLM review. Default
+  selection favors reusable facts and identity/replacement guidance over
+  generic Markdown sections. This is the public-reference path to use when
+  another agent gives a documentation link such as `aws_s3_bucket` and needs
+  compact JSON rather than repo linkage.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

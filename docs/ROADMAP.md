@@ -138,7 +138,11 @@ for agent consumption. The report should stay central-library friendly:
 compact units under `unitsByType`, per-unit `sourceId`/`sourceLocator` instead
 of repeated source objects, a `quality` summary, compact byte budget signals,
 and a `centralLibraryCandidate` with public-reference scope and a
-`unitRef` back to the report units. Continue treating this as
+`unitRef` back to the report units. The candidate should also carry hub-style
+classification coordinates, search tags, and an explicit offline
+`llmRefinementInput` contract. The root report should expose download trace
+metadata so future agents can verify whether the primary URL or a documented
+fallback produced the selected source content. Continue treating this as
 public-reference extraction, not repo topology, plan, upload, or
 safety-boundary work.
 
@@ -592,7 +596,9 @@ Implemented initial CLI surfaces:
     Terraform Registry provider resource/data-source docs. Its default
     selection should favor reusable field facts, identity/replacement guidance,
     one bounded example, concise diagnostics, and one domain workflow recipe
-    over generic Markdown section recipes.
+    over generic Markdown section recipes. Its report should preserve download
+    trace, central-library coordinates, and explicit LLM offline-review
+    constraints before any future publication flow.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

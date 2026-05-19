@@ -153,10 +153,15 @@ duplicating the full source object, strip Markdown links from summaries and
 steps, exclude example facts from `fact`, and avoid default-budget
 `recipe.markdown.*` entries when a domain workflow recipe is available. The
 report should also expose a `centralLibraryCandidate` with public-reference
-scope, quality metadata, unit counts, and `unitRef: "report.unitsByType"`.
-This path can fetch the URL live; tests should continue to use offline
-fixtures through the internal `--content <file>` helper so default CI does not
-require network access.
+scope, quality metadata, unit counts, `unitRef: "report.unitsByType"`, a
+hub-style `classification.coordinates` value, and an `llmRefinementInput`
+contract that points to structured report fields instead of raw docs. Live
+download behavior should expose `download.mode`, `download.strategy`,
+`download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
+can prove Registry JavaScript-shell pages fall back to provider raw docs. This
+path can fetch the URL live; tests should continue to use offline fixtures
+through the internal `--content <file>` helper so default CI does not require
+network access.
 
 ## Layout
 

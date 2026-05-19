@@ -6,6 +6,64 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Public Knowledge Central Library Metadata
+
+Status:
+
+- Added central-library-oriented metadata to the URL-only public-reference
+  report. This supports the user's long-term direction of a downloadable
+  knowledge hub similar in spirit to Docker Hub or GitHub, without adding a
+  remote upload or execution boundary.
+- `knowledge from-url` now records a compact `download` summary. Live Terraform
+  Registry docs use the strategy
+  `terraform-registry-primary-then-provider-repo-raw`: first try the Registry
+  URL, reject JavaScript-shell or otherwise non-extractable content, then fall
+  back to provider repository raw docs. The report records attempted URLs,
+  used URL, used role, fallback posture, content type, and failure/rejection
+  reasons without embedding raw source content.
+- `centralLibraryCandidate.classification` now exposes a stable public
+  coordinate such as
+  `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus
+  ecosystem, artifact kind, provider address, version, source name, slug, and
+  search tags.
+- `centralLibraryCandidate.llmRefinementInput` now describes the explicit
+  offline-review contract for future LLM refinement. It points to structured
+  report fields instead of duplicating raw docs and constrains the LLM not to
+  invent provider facts or collapse the five unit types.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` adds download trace metadata, central-library
+  classification, and LLM refinement input metadata.
+- `src/cli/output.ts` prints the download strategy, fallback posture, library
+  coordinate, and LLM refinement status.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` asserts local
+  fixture download metadata, live-fallback trace behavior through an injected
+  fetcher, stable Terraform provider-resource coordinates, and the LLM
+  refinement input contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run lint` passed.
+- Live smoke:
+  `node bin/infra-agent.js knowledge from-url
+  https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+  --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json` passed with
+  `download.fallbackUsed=true`,
+  `centralLibraryCandidate.classification.coordinates="terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket"`,
+  `llmRefinementInput.status="not-run"`, and a 15.6 KB serialized report.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The LLM refinement path is still metadata-only. Future work can add an
+  explicit opt-in command that consumes `llmRefinementInput`, but default URL
+  extraction should stay deterministic and validator-friendly.
+- v0 central-library classification only covers Terraform Registry provider
+  resources and data sources.
+
 ## 2026-05-18 Public Knowledge URL Quality Refinement
 
 Status:
