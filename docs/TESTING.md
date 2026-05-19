@@ -140,6 +140,7 @@ workspace-scoped report, use the URL-only extraction path:
 
 ```sh
 infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --library-out /tmp/infra-agent-s3-library-artifact.json --json
+infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
 ```
 
 The output should be an `infra-agent.public-knowledge-url-report` with
@@ -163,9 +164,13 @@ can prove Registry JavaScript-shell pages fall back to provider raw docs. With
 `infra-agent.public-knowledge-library-artifact` containing the same compact
 units, public-reference classification, download trace, quality summary,
 `unitPayloadHash`, and `llmRefinementInput`, without raw source content,
-credentials, upload commands, or backend URLs. This path can fetch the URL
-live; tests should continue to use offline fixtures through the internal
-`--content <file>` helper so default CI does not require network access.
+credentials, upload commands, or backend URLs. `knowledge validate` should
+accept that artifact and reject drifted coordinates, inconsistent source
+metadata, malformed download traces, mismatched unit counts, bad
+`unitPayloadHash`, embedded raw content, or secret-like compact unit text. This
+path can fetch the URL live; tests should continue to use offline fixtures
+through the internal `--content <file>` helper so default CI does not require
+network access.
 
 ## Layout
 

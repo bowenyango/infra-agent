@@ -284,9 +284,13 @@ Current behavior is intentionally runtime-foundation oriented:
   generic Markdown sections. Use `--library-out` to write a standalone
   `infra-agent.public-knowledge-library-artifact` with the same compact units,
   download trace, classification, quality, unit hash, and offline LLM review
-  contract for future registry/download workflows. This is the public-reference
-  path to use when another agent gives a documentation link such as
-  `aws_s3_bucket` and needs compact JSON rather than repo linkage.
+  contract for future registry/download workflows. Validate that artifact with
+  `knowledge validate <library-artifact.json> --json` before handing it to a
+  registry, downloader, or LLM refinement step; validation checks coordinate
+  coherence, download trace shape, unit counts, `unitPayloadHash`, and raw
+  content omission. This is the public-reference path to use when another
+  agent gives a documentation link such as `aws_s3_bucket` and needs compact
+  JSON rather than repo linkage.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

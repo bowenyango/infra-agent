@@ -105,10 +105,14 @@ values.
    explicit offline LLM review contract. Add `--library-out <artifact.json>`
    when preparing a downloadable central-library artifact; the artifact is a
    local, review-required `infra-agent.public-knowledge-library-artifact`, not
-   an upload or approval to publish. Treat `quality.status: "ready"` plus
-   complete unit types as the acceptance signal for URL-only public knowledge.
-   Use `knowledge resource` instead when the caller needs repo targets,
-   suggested files, cache posture, or local usage linkage.
+   an upload or approval to publish. Run
+   `knowledge validate <artifact.json> --json` before registry staging,
+   download reuse, or LLM refinement; validation checks coordinate coherence,
+   download trace shape, unit counts, unit hash, and raw-content omission.
+   Treat `quality.status: "ready"` plus complete unit types as the acceptance
+   signal for URL-only public knowledge. Use `knowledge resource` instead when
+   the caller needs repo targets, suggested files, cache posture, or local usage
+   linkage.
    Use the lower-level `sources`, `pack`, and `index` commands when debugging
    one stage or preparing an explicit prefetch.
    Use `knowledge index --resource <identity> --field-path <field> --json`

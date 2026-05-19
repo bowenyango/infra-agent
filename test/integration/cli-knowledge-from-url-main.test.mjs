@@ -13,7 +13,11 @@ import {
 } from 'node:path';
 import { captureStdout } from '../support/capture-stdout.mjs';
 import { main } from '../../src/cli/main.ts';
-import { buildPublicKnowledgeUrlReport } from '../../src/knowledge/url-report.ts';
+import {
+  buildPublicKnowledgeLibraryArtifact,
+  buildPublicKnowledgeUrlReport
+} from '../../src/knowledge/url-report.ts';
+import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 function parseJsonOutput(output) {
   return JSON.parse(output.slice(output.indexOf('{')));
@@ -190,6 +194,16 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(typeof libraryArtifact.unitPayloadHash, 'string');
     assert.equal(libraryArtifact.unitPayloadHash.length, 64);
     assert.doesNotMatch(JSON.stringify(libraryArtifact), /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
+    const validation = parseJsonOutput(await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      libraryOutputPath,
+      '--json'
+    ])));
+    assert.equal(validation.inputKind, 'infra-agent.public-knowledge-library-artifact');
+    assert.equal(validation.valid, true);
+    assert.equal(validation.unitCount, report.summary.includedUnitCount);
+    assert.equal(validation.factCount, report.summary.unitCounts.fact);
     assert.equal(Object.hasOwn(writtenReport, 'unitSet'), false);
     assert.doesNotMatch(serialized, /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
     assert.ok(Buffer.byteLength(serialized) < 16000);
@@ -256,6 +270,8 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
     maxUnits: 20,
     now: new Date('2026-05-18T00:00:00.000Z')
   });
+  const libraryArtifact = buildPublicKnowledgeLibraryArtifact(report);
+  const validation = validateKnowledgePayload(libraryArtifact, 'inline');
 
   assert.deepEqual(requestedUrls.slice(0, 2), [S3_BUCKET_URL, rawDocsUrl]);
   assert.equal(report.sourceUrl, S3_BUCKET_URL);
@@ -272,6 +288,9 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
   assert.equal(report.download.attempts[0].reason, 'content-not-extractable');
   assert.equal(report.download.attempts[1].role, 'fallback');
   assert.equal(report.download.attempts[1].status, 'used');
+  assert.equal(report.download.attempts[1].contentType, 'text/plain');
+  assert.equal(report.download.usedContentType, 'text/markdown');
+  assert.equal(validation.valid, true);
   assert.equal(report.centralLibraryCandidate.classification.providerAddress, 'hashicorp/aws');
   assert.equal(
     report.centralLibraryCandidate.classification.coordinates,

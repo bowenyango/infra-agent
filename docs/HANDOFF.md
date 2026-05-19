@@ -6,6 +6,65 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-19 Public Knowledge Library Artifact Validation
+
+Status:
+
+- Added validation support for
+  `infra-agent.public-knowledge-library-artifact` so central-library candidates
+  are machine-checkable before registry staging, download reuse, or explicit
+  LLM refinement.
+- `knowledge validate <library-artifact.json> --json` now checks the public
+  artifact envelope, source id coherence, hub-style Terraform coordinates,
+  public-reference source metadata, download trace shape, quality metadata,
+  LLM offline-review input, grouped compact units, unit counts,
+  `unitPayloadHash`, publication posture, and raw-content omission.
+- Live download validation allows the controlled `text/plain` HTTP response to
+  normalized `text/markdown` content-type transition used by provider raw docs,
+  while still requiring the used role and URL to match the recorded attempt.
+
+Files changed:
+
+- `src/knowledge/validate.ts` recognizes and validates the public knowledge
+  library artifact contract.
+- `test/unit/knowledge-public-library-artifact-validation.test.mjs` covers
+  valid artifact acceptance and forged artifact rejection for drifted hashes,
+  coordinates, counts, secret-like text, and embedded raw content.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` validates generated
+  library artifacts through the CLI path and covers live-fallback content-type
+  normalization.
+- `README.md`, `docs/TESTING.md`, `docs/ROADMAP.md`, and
+  `skills/infra-configuration/SKILL.md` document `knowledge validate` as the
+  gate before central-library reuse or LLM refinement.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run verify` passed.
+- `git diff --check` passed.
+- Live smoke:
+  `node bin/infra-agent.js knowledge from-url
+  https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+  --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json
+  --library-out /tmp/infra-agent-s3-library-artifact.json` passed.
+- Live artifact validation:
+  `node bin/infra-agent.js knowledge validate
+  /tmp/infra-agent-s3-library-artifact.json --json` passed with
+  `inputKind="infra-agent.public-knowledge-library-artifact"`,
+  `valid=true`, `unitCount=20`, `factCount=10`, and `issueCount=0`.
+
+Residual risks:
+
+- Validation covers the artifact's local contract only. There is still no
+  registry transport, central index, or remote trust model.
+- LLM refinement remains explicit future work; validated artifacts provide the
+  structured input and guardrails for that future command.
+
 ## 2026-05-19 Public Knowledge Library Artifact Output
 
 Status:

@@ -148,7 +148,11 @@ safety-boundary work. `knowledge from-url --library-out <artifact.json>` writes
 a standalone `infra-agent.public-knowledge-library-artifact` for future
 downloadable central-library workflows. That artifact is local, review-required,
 raw-content-free, and publication-ready in shape only; it is not an upload,
-approval, or remote execution path.
+approval, or remote execution path. `knowledge validate` must accept this
+artifact kind before it is used by registry, download, or LLM-refinement
+workflows and must reject coordinate drift, malformed download traces,
+mismatched unit counts, bad unit hashes, raw content, and secret-like compact
+unit text.
 
 Agent-2 reset policy:
 
@@ -607,6 +611,8 @@ Implemented initial CLI surfaces:
     `infra-agent.public-knowledge-library-artifact` that carries compact units,
     classification, quality, download trace, `unitPayloadHash`, and offline LLM
     review input for deterministic central-library download/reuse workflows.
+    Validate the artifact with `knowledge validate <artifact.json> --json`
+    before registry staging, download reuse, or LLM refinement.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by
