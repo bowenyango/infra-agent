@@ -6,6 +6,66 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-19 Public Knowledge Library Registry Reuse
+
+Status:
+
+- Added read-only consumption of staged public knowledge library registries.
+  Workspaces can now configure
+  `knowledgeSources.publicLibraryRegistries` with a safe workspace-relative
+  `infra-agent.public-knowledge-library-registry` path created by
+  `knowledge library-stage`.
+- Matching registry entries expand into
+  `public-knowledge-library-artifact` sources when Terraform repo usage matches
+  the entry's provider/resource identity. Extraction verifies the registered
+  SHA-256 content hash before converting the artifact's grouped compact units
+  into the existing `knowledge extract`, `knowledge pack`, and
+  `knowledge resource` flows.
+- The new source kind keeps `public-reference` storage policy even though the
+  artifact is staged locally. It remains read-only and does not upload,
+  publish, probe remote backends, call LLMs, or trust malformed registries.
+
+Files changed:
+
+- `src/knowledge/public-library-registry.ts` reads configured local public
+  library registries and resolves matching Terraform targets.
+- `src/knowledge/public-library-artifacts.ts` converts validated public
+  library artifacts back into `infra-agent.knowledge-units` for the existing
+  unit ranking and pack path.
+- `src/knowledge/prefetch.ts`, `src/knowledge/extract.ts`, storage policy,
+  source-kind contracts, ranking, validation, and agent result contracts now
+  recognize `public-knowledge-library-artifact`.
+- `src/types/repository.ts` adds
+  `knowledgeSources.publicLibraryRegistries`.
+- `test/integration/cli-public-library-registry-main.test.mjs` covers
+  end-to-end staging reuse through `knowledge sources`, `knowledge extract`,
+  and `knowledge pack --resource aws_s3_bucket`.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  the read-only local registry reuse contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-unit-artifacts-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-unit-artifact-sources.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+
+Residual risks:
+
+- Public library registry reuse is local-path only in this slice. Remote
+  registry download, signature/trust metadata, and LLM refinement remain future
+  explicit work.
+- Registry matching currently targets Terraform provider resource/data-source
+  usage. Pulumi and Helm public-library artifact reuse still need their own
+  classification and matching rules.
+
 ## 2026-05-19 Public Knowledge Library Local Staging
 
 Status:

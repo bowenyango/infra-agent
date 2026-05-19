@@ -20,7 +20,8 @@ const PUBLIC_REFERENCE_KINDS = new Set<KnowledgeSourceKind>([
   'terraform-registry',
   'pulumi-docs',
   'helm-docs',
-  'chart-docs'
+  'chart-docs',
+  'public-knowledge-library-artifact'
 ]);
 
 export function isPublicReferenceCapableSourceKind(kind: KnowledgeSourceKind): boolean {
@@ -45,6 +46,16 @@ export function isKnowledgeStoragePolicyCompatibleWithSourceKind(
 }
 
 export function resolveKnowledgeStoragePolicy(source: KnowledgeSource): KnowledgeStoragePolicy {
+  if (source.kind === 'public-knowledge-library-artifact') {
+    return {
+      scope: 'public-reference',
+      defaultStore: 'local-or-explicit-team-cache',
+      shareableByDefault: true,
+      requiresExplicitOptIn: false,
+      reason: 'Source is a reviewed public-reference library artifact staged for local reuse.'
+    };
+  }
+
   if (source.localPath) {
     return {
       scope: 'workspace-private',

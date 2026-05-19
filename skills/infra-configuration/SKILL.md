@@ -119,7 +119,12 @@ values.
    when preparing local downloadable-registry metadata. It writes a
    content-addressed artifact and an
    `infra-agent.public-knowledge-library-registry` file under the workspace;
-   it is not a remote upload, trust decision, or publication approval.
+   it is not a remote upload, trust decision, or publication approval. Add the
+   registry to `infra-agent.config.json` under
+   `knowledgeSources.publicLibraryRegistries` when a workspace should reuse
+   reviewed public-reference artifacts through `knowledge sources`, `extract`,
+   `pack`, or `resource`; extraction verifies the registry content hash before
+   exposing units as `public-knowledge-library-artifact` sources.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage

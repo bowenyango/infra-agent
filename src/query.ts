@@ -420,7 +420,10 @@ function syncInitialWorkflowRecipeKnowledgeUnits(runtime: AgentRuntimeState): Ag
   const sourceById = new Map((runtime.knowledgeFacts?.sources ?? []).map(source => [source.id, source]));
   const selectedWorkflowRecipes = runtime.knowledgeFacts?.units.filter(unit =>
     unit.unitType === 'recipe' && unit.extractionMethod === 'workflow-recipe'
-    && sourceById.get(unit.sourceId)?.kind === 'knowledge-unit-artifact'
+    && (
+      sourceById.get(unit.sourceId)?.kind === 'knowledge-unit-artifact'
+      || sourceById.get(unit.sourceId)?.kind === 'public-knowledge-library-artifact'
+    )
   ) ?? [];
   const syncedRuntime = syncInfraWorkflowRecipeKnowledgeUnits(runtime);
   if (!syncedRuntime.knowledgeFacts || selectedWorkflowRecipes.length === 0) {

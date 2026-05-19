@@ -125,7 +125,8 @@ const KNOWLEDGE_SOURCE_KINDS = [
   'module-readme',
   'internal-knowledge',
   'knowledge-unit-registry',
-  'knowledge-unit-artifact'
+  'knowledge-unit-artifact',
+  'public-knowledge-library-artifact'
 ] as const satisfies readonly KnowledgeSourceKind[];
 const KNOWLEDGE_SOURCE_STALE_REASONS = [
   'time-expired',

@@ -239,7 +239,13 @@ Current behavior is intentionally runtime-foundation oriented:
   expands into matching artifact entries for the requested domain and target.
   Direct artifacts and registry entries can carry an optional SHA-256
   `artifactContentHash` / `contentHash` so extraction rejects drifted unit
-  payloads before planner use.
+  payloads before planner use. URL-extracted public-reference artifacts can be
+  staged with `knowledge library-stage` and then consumed through
+  `knowledgeSources.publicLibraryRegistries`, which points at a local
+  `infra-agent.public-knowledge-library-registry`. Matching registry entries
+  are discovered by Terraform provider/resource usage, content-hash checked,
+  converted back into compact five-type units, and kept in the
+  `public-reference` storage scope.
   `validate` checks facts, extraction reports, compact packs, unit artifacts,
   indexes, and plan-only artifact manifests before use. `pack` ranks and emits a
   bounded planner-safe `infra-agent.knowledge-pack` without raw source content;
@@ -302,7 +308,11 @@ Current behavior is intentionally runtime-foundation oriented:
   coordinate. This is the local downloadable-registry shape for future central
   library workflows. It writes only local files under the requested workspace;
   it does not contact a remote backend, read credentials, create upload
-  commands, or approve publication.
+  commands, or approve publication. Add the resulting registry under
+  `infra-agent.config.json` -> `knowledgeSources.publicLibraryRegistries` when
+  a workspace should reuse reviewed public-reference artifacts through
+  `knowledge sources`, `knowledge extract`, `knowledge pack`, or
+  `knowledge resource` without re-downloading the public docs.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

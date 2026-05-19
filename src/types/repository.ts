@@ -58,6 +58,15 @@ export interface WorkspaceKnowledgeUnitArtifactRegistrySourceConfig {
   module?: string;
 }
 
+export interface WorkspacePublicKnowledgeLibraryRegistrySourceConfig {
+  domain?: InfraDomainId;
+  targetPath?: string;
+  path?: string;
+  name?: string;
+  version?: string;
+  provider?: string;
+}
+
 export interface WorkspaceApprovalPathRule {
   path: string;
   requiredWriteRisks: FileWriteRisk[];
@@ -72,6 +81,7 @@ export interface WorkspaceAgentConfig {
     curatedUnits?: WorkspaceCuratedKnowledgeUnitsSourceConfig[];
     unitArtifacts?: WorkspaceKnowledgeUnitArtifactSourceConfig[];
     unitArtifactRegistries?: WorkspaceKnowledgeUnitArtifactRegistrySourceConfig[];
+    publicLibraryRegistries?: WorkspacePublicKnowledgeLibraryRegistrySourceConfig[];
   };
   writePolicy?: {
     allowedPaths?: string[];

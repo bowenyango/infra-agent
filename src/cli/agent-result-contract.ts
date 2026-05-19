@@ -108,7 +108,8 @@ const KNOWLEDGE_FACT_SOURCE_KINDS = [
   'module-readme',
   'internal-knowledge',
   'knowledge-unit-registry',
-  'knowledge-unit-artifact'
+  'knowledge-unit-artifact',
+  'public-knowledge-library-artifact'
 ] as const;
 const KNOWLEDGE_FACT_KINDS = [
   'argument',

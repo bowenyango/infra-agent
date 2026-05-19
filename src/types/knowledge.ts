@@ -16,7 +16,8 @@ export type KnowledgeSourceKind =
   | 'module-readme'
   | 'internal-knowledge'
   | 'knowledge-unit-registry'
-  | 'knowledge-unit-artifact';
+  | 'knowledge-unit-artifact'
+  | 'public-knowledge-library-artifact';
 
 export type KnowledgeContentType =
   | 'text/markdown'

@@ -26,7 +26,8 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'module-readme',
   'internal-knowledge',
   'knowledge-unit-registry',
-  'knowledge-unit-artifact'
+  'knowledge-unit-artifact',
+  'public-knowledge-library-artifact'
 ];
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const;
 const KNOWLEDGE_SOURCE_STALE_REASONS = [

@@ -10,6 +10,7 @@ import {
   extractCuratedKnowledgeUnitSetFromCacheEntry
 } from './curated-units.ts';
 import { extractPrebuiltKnowledgeUnitSetFromCacheEntry } from './prebuilt-units.ts';
+import { extractPublicKnowledgeLibraryUnitSetFromCacheEntry } from './public-library-artifacts.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from './facts.ts';
 import { extractMarkdownKnowledgeUnitsFromCacheEntry } from './markdown-units.ts';
 import { extractKnowledgeUnitSetFromFactSet } from './units.ts';
@@ -89,6 +90,7 @@ function localContentType(source: KnowledgeSource): KnowledgeContentType {
     || source.kind === 'terraform-module'
     || source.kind === 'internal-knowledge'
     || source.kind === 'knowledge-unit-artifact'
+    || source.kind === 'public-knowledge-library-artifact'
   ) {
     return 'application/json';
   }
@@ -499,6 +501,46 @@ export async function extractWorkspaceKnowledgeFacts(
       } catch {
         sources.push(sourceResult(base, 'unreadable', {
           message: 'Prebuilt knowledge unit artifact could not be parsed.'
+        }));
+      }
+      continue;
+    }
+
+    if (entry.source.kind === 'public-knowledge-library-artifact') {
+      if (
+        typeof entry.source.artifactContentHash === 'string'
+        && entry.contentHash !== entry.source.artifactContentHash
+      ) {
+        sources.push(sourceResult(base, 'unreadable', {
+          message: 'Public knowledge library artifact content hash did not match the registry reference.'
+        }));
+        continue;
+      }
+
+      try {
+        const unitSet = extractPublicKnowledgeLibraryUnitSetFromCacheEntry(entry, {
+          extractedAt: options.extractedAt
+        });
+        if (unitSet.unitCount === 0) {
+          sources.push(sourceResult(base, 'unsupported', {
+            message: 'Public knowledge library artifact did not contain any units.'
+          }));
+          continue;
+        }
+
+        const factSet = buildEmptyCuratedKnowledgeFactSet(entry, {
+          now: options.now,
+          extractedAt: options.extractedAt
+        });
+        factSets.push(factSet);
+        unitSets.push(unitSet);
+        sources.push(sourceResult(base, 'extracted', {
+          factCount: 0,
+          unitCount: unitSet.unitCount
+        }));
+      } catch {
+        sources.push(sourceResult(base, 'unreadable', {
+          message: 'Public knowledge library artifact could not be parsed.'
         }));
       }
       continue;

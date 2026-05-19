@@ -18,6 +18,7 @@ import {
   configuredRegistrySources,
   registryPrefetchCandidate
 } from './unit-artifact-registry.ts';
+import { collectConfiguredPublicLibraryRegistrySources } from './public-library-registry.ts';
 import { buildScopedPackReport } from '../domain/scoped-pack.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
@@ -200,7 +201,10 @@ function terraformSourceAllowedForResource(input: {
   resource: string;
   source: KnowledgeSource;
 }): boolean {
-  if (input.source.kind !== 'terraform-registry') {
+  if (
+    input.source.kind !== 'terraform-registry'
+    && input.source.kind !== 'public-knowledge-library-artifact'
+  ) {
     return false;
   }
 
@@ -520,6 +524,11 @@ export async function collectWorkspaceKnowledgeSources(
     requestedDomains,
     targetPaths,
     store
+  ));
+  candidates.push(...await collectConfiguredPublicLibraryRegistrySources(
+    inspection,
+    requestedDomains,
+    targetPaths
   ));
 
   return filterResourceScopedCandidates(inspection, candidates, selection.resource);
