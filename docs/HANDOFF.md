@@ -6,6 +6,64 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-19 Public Knowledge Library Artifact Output
+
+Status:
+
+- Added a standalone central-library artifact output to the URL-only
+  public-reference path. `knowledge from-url --library-out <artifact.json>`
+  now writes an `infra-agent.public-knowledge-library-artifact` for future
+  downloadable registry workflows while keeping the default extraction path
+  deterministic and read-only.
+- The library artifact carries the compact `unitsByType` payload, public
+  coordinates, classification metadata, download trace, quality summary,
+  source content hash, `unitPayloadHash`, and `llmRefinementInput`.
+- The artifact is explicitly local and review-required:
+  `publication.status="local-artifact"`, `downloadable=true`,
+  `uploadRequired=false`, and `reviewRequired=true`. It does not embed raw
+  provider docs, backend URLs, credentials, upload commands, or approval state.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` adds
+  `buildPublicKnowledgeLibraryArtifact` and the public artifact contract.
+- `src/cli/main.ts` parses `knowledge from-url --library-out`, writes the
+  standalone artifact, and includes `libraryOutputPath` in JSON output.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers artifact
+  writing, source/hash linkage, publication posture, unit parity with the
+  URL report, and raw-content/secret omission.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers parser support.
+- `README.md`, `docs/TESTING.md`, `docs/ROADMAP.md`, and
+  `skills/infra-configuration/SKILL.md` document the local downloadable
+  artifact path and keep it separate from upload or LLM execution.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- Live smoke:
+  `node bin/infra-agent.js knowledge from-url
+  https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+  --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json
+  --library-out /tmp/infra-agent-s3-library-artifact.json` passed with a
+  downloadable artifact coordinate
+  `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`,
+  `publication.uploadRequired=false`, matching report/library units,
+  a 64-character `unitPayloadHash`, and no raw content markers in the artifact.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The artifact is ready for local review and future download/reuse workflows,
+  but there is still no registry transport or upload command by design.
+- LLM refinement remains explicit future work. The current artifact provides
+  the structured offline input contract but does not call an LLM.
+
 ## 2026-05-18 Public Knowledge Central Library Metadata
 
 Status:

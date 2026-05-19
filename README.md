@@ -123,7 +123,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]`
 - `infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]`
 - `infra-agent knowledge resource [workspace] --domain <helm|pulumi|terraform> --resource <identity> [--max-units <n>] [--out <report.json>] [--json]`
-- `infra-agent knowledge from-url <url> [--max-units <n>] [--out <url-knowledge.json>] [--json]`
+- `infra-agent knowledge from-url <url> [--max-units <n>] [--out <url-knowledge.json>] [--library-out <library-artifact.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
@@ -281,9 +281,12 @@ Current behavior is intentionally runtime-foundation oriented:
   `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus an
   `llmRefinementInput` contract for explicit offline LLM review. Default
   selection favors reusable facts and identity/replacement guidance over
-  generic Markdown sections. This is the public-reference path to use when
-  another agent gives a documentation link such as `aws_s3_bucket` and needs
-  compact JSON rather than repo linkage.
+  generic Markdown sections. Use `--library-out` to write a standalone
+  `infra-agent.public-knowledge-library-artifact` with the same compact units,
+  download trace, classification, quality, unit hash, and offline LLM review
+  contract for future registry/download workflows. This is the public-reference
+  path to use when another agent gives a documentation link such as
+  `aws_s3_bucket` and needs compact JSON rather than repo linkage.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

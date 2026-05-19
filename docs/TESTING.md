@@ -139,7 +139,7 @@ When the user provides only a public documentation URL and does not want a
 workspace-scoped report, use the URL-only extraction path:
 
 ```sh
-infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --json
+infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --library-out /tmp/infra-agent-s3-library-artifact.json --json
 ```
 
 The output should be an `infra-agent.public-knowledge-url-report` with
@@ -158,10 +158,14 @@ hub-style `classification.coordinates` value, and an `llmRefinementInput`
 contract that points to structured report fields instead of raw docs. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
-can prove Registry JavaScript-shell pages fall back to provider raw docs. This
-path can fetch the URL live; tests should continue to use offline fixtures
-through the internal `--content <file>` helper so default CI does not require
-network access.
+can prove Registry JavaScript-shell pages fall back to provider raw docs. With
+`--library-out`, the command should also write an
+`infra-agent.public-knowledge-library-artifact` containing the same compact
+units, public-reference classification, download trace, quality summary,
+`unitPayloadHash`, and `llmRefinementInput`, without raw source content,
+credentials, upload commands, or backend URLs. This path can fetch the URL
+live; tests should continue to use offline fixtures through the internal
+`--content <file>` helper so default CI does not require network access.
 
 ## Layout
 

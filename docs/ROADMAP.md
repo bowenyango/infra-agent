@@ -144,7 +144,11 @@ classification coordinates, search tags, and an explicit offline
 metadata so future agents can verify whether the primary URL or a documented
 fallback produced the selected source content. Continue treating this as
 public-reference extraction, not repo topology, plan, upload, or
-safety-boundary work.
+safety-boundary work. `knowledge from-url --library-out <artifact.json>` writes
+a standalone `infra-agent.public-knowledge-library-artifact` for future
+downloadable central-library workflows. That artifact is local, review-required,
+raw-content-free, and publication-ready in shape only; it is not an upload,
+approval, or remote execution path.
 
 Agent-2 reset policy:
 
@@ -589,7 +593,7 @@ Implemented initial CLI surfaces:
     apply, deploy, mutate infrastructure state, or fall back to whole-workspace
     knowledge when the resource is unmatched.
 - `infra-agent knowledge from-url <url> [--max-units <n>]
-  [--out <report.json>] --json`
+  [--out <report.json>] [--library-out <artifact.json>] --json`
   - builds a read-only `infra-agent.public-knowledge-url-report` from a
     supported public official documentation URL without requiring a workspace.
     It is for public-reference extraction only and currently supports
@@ -598,7 +602,11 @@ Implemented initial CLI surfaces:
     one bounded example, concise diagnostics, and one domain workflow recipe
     over generic Markdown section recipes. Its report should preserve download
     trace, central-library coordinates, and explicit LLM offline-review
-    constraints before any future publication flow.
+    constraints before any future publication flow. With `--library-out`, it
+    also writes a standalone
+    `infra-agent.public-knowledge-library-artifact` that carries compact units,
+    classification, quality, download trace, `unitPayloadHash`, and offline LLM
+    review input for deterministic central-library download/reuse workflows.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

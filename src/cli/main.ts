@@ -24,7 +24,10 @@ import {
 } from '../knowledge/validate.ts';
 import { buildKnowledgePack } from '../knowledge/pack.ts';
 import { buildResourceKnowledgeReport } from '../knowledge/resource-report.ts';
-import { buildPublicKnowledgeUrlReport } from '../knowledge/url-report.ts';
+import {
+  buildPublicKnowledgeLibraryArtifact,
+  buildPublicKnowledgeUrlReport
+} from '../knowledge/url-report.ts';
 import {
   buildKnowledgeUnitMetadataIndex,
   selectKnowledgeUnitIndexEntries,
@@ -104,6 +107,7 @@ export interface ParsedArgs {
   workspace: string;
   inputPath: string | null;
   outputPath?: string | null;
+  libraryOutputPath?: string | null;
   contentPath?: string | null;
   unitOutputDir?: string | null;
   manifestOutputPath?: string | null;
@@ -177,7 +181,7 @@ function printUsage(): void {
       '  infra-agent knowledge pack [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--max-facts <n>] [--out <pack.json>] [--manifest-out <manifest.json>] [--json]',
       '  infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>|--resource <identity>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--field-path <path>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]',
       '  infra-agent knowledge resource [workspace] --resource <identity> [--domain helm|pulumi|terraform] [--source <id>] [--max-units <n>] [--out <resource-knowledge.json>] [--json]',
-      '  infra-agent knowledge from-url <url> [--max-units <n>] [--content <markdown-or-html-file>] [--out <url-knowledge.json>] [--json]',
+      '  infra-agent knowledge from-url <url> [--max-units <n>] [--content <markdown-or-html-file>] [--out <url-knowledge.json>] [--library-out <library-artifact.json>] [--json]',
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
@@ -1294,6 +1298,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let maxFacts: number | null = null;
     let maxUnits: number | null = null;
     let outputPath: string | null = null;
+    let libraryOutputPath: string | null = null;
     let contentPath: string | null = null;
     let unitOutputDir: string | null = null;
     let manifestOutputPath: string | null = null;
@@ -1615,6 +1620,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--library-out') {
+        const outputValue = actionArgs[index + 1]?.trim();
+        if (!outputValue) {
+          fail('Missing value for --library-out.');
+        }
+        if (knowledgeAction !== 'from-url') {
+          fail('--library-out is only supported for knowledge from-url.');
+        }
+        if (libraryOutputPath !== null) {
+          fail('Library output path can be provided at most once.');
+        }
+
+        libraryOutputPath = outputValue;
+        index += 1;
+        continue;
+      }
+
       if (arg === '--units-out') {
         const unitOutputValue = actionArgs[index + 1]?.trim();
         if (!unitOutputValue) {
@@ -1825,6 +1847,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         ? positionalArgs[0]
         : null,
       outputPath,
+      libraryOutputPath,
       contentPath,
       unitOutputDir,
       manifestOutputPath,
@@ -2448,23 +2471,32 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       contentPath: parsed.contentPath ? resolve(cwd(), parsed.contentPath) : undefined,
       maxUnits: parsed.maxUnits ?? undefined
     });
+    const libraryArtifact = parsed.libraryOutputPath
+      ? buildPublicKnowledgeLibraryArtifact(report)
+      : null;
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
       : null;
+    const libraryWrittenPath = parsed.libraryOutputPath && libraryArtifact
+      ? await writeJsonArtifact(parsed.libraryOutputPath, cwd(), libraryArtifact)
+      : null;
 
     if (parsed.json) {
-      process.stdout.write(`${JSON.stringify(writtenPath
-        ? {
-            ...report,
-            outputPath: writtenPath
-          }
-        : report, null, 2)}\n`);
+      const reportPayload = {
+        ...report,
+        ...(writtenPath ? { outputPath: writtenPath } : {}),
+        ...(libraryWrittenPath ? { libraryOutputPath: libraryWrittenPath } : {})
+      };
+      process.stdout.write(`${JSON.stringify(reportPayload, null, 2)}\n`);
       return;
     }
 
     printPublicKnowledgeUrlReport(report);
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
+    }
+    if (libraryWrittenPath) {
+      process.stdout.write(`library artifact: ${libraryWrittenPath}\n`);
     }
     return;
   }

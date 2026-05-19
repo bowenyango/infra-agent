@@ -75,6 +75,7 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
   try {
     const contentPath = join(tempRoot, 'aws_s3_bucket.md');
     const outputPath = join(tempRoot, 'aws_s3_bucket.knowledge.json');
+    const libraryOutputPath = join(tempRoot, 'aws_s3_bucket.library.json');
     await writeFile(contentPath, S3_BUCKET_MARKDOWN, 'utf8');
 
     const report = parseJsonOutput(await captureStdout(() => main([
@@ -87,9 +88,12 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
       '20',
       '--out',
       outputPath,
+      '--library-out',
+      libraryOutputPath,
       '--json'
     ])));
     const writtenReport = JSON.parse(await readFile(outputPath, 'utf8'));
+    const libraryArtifact = JSON.parse(await readFile(libraryOutputPath, 'utf8'));
     const serialized = JSON.stringify(report);
 
     assert.equal(report.kind, 'infra-agent.public-knowledge-url-report');
@@ -168,6 +172,24 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     ));
     assert.equal(writtenReport.kind, report.kind);
     assert.equal(writtenReport.sourceContentHash, report.sourceContentHash);
+    assert.equal(report.libraryOutputPath, libraryOutputPath);
+    assert.equal(libraryArtifact.kind, 'infra-agent.public-knowledge-library-artifact');
+    assert.equal(libraryArtifact.mutationAllowed, false);
+    assert.equal(libraryArtifact.storageScope, 'public-reference');
+    assert.equal(libraryArtifact.privacyScope, 'public-reference');
+    assert.equal(libraryArtifact.artifactId, report.centralLibraryCandidate.candidateId);
+    assert.equal(libraryArtifact.coordinates, report.centralLibraryCandidate.classification.coordinates);
+    assert.equal(libraryArtifact.sourceContentHash, report.sourceContentHash);
+    assert.equal(libraryArtifact.summary.unitCount, report.summary.includedUnitCount);
+    assert.deepEqual(libraryArtifact.summary.unitCounts, report.summary.unitCounts);
+    assert.deepEqual(libraryArtifact.unitsByType, report.unitsByType);
+    assert.equal(libraryArtifact.download.mode, 'local-content');
+    assert.equal(libraryArtifact.llmRefinementInput.status, 'not-run');
+    assert.equal(libraryArtifact.publication.downloadable, true);
+    assert.equal(libraryArtifact.publication.uploadRequired, false);
+    assert.equal(typeof libraryArtifact.unitPayloadHash, 'string');
+    assert.equal(libraryArtifact.unitPayloadHash.length, 64);
+    assert.doesNotMatch(JSON.stringify(libraryArtifact), /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
     assert.equal(Object.hasOwn(writtenReport, 'unitSet'), false);
     assert.doesNotMatch(serialized, /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
     assert.ok(Buffer.byteLength(serialized) < 16000);

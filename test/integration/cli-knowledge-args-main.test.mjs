@@ -170,6 +170,8 @@ test('knowledge from-url CLI args accept public documentation URL extraction fla
     '20',
     '--out',
     'artifacts/aws-s3-url-knowledge.json',
+    '--library-out',
+    'artifacts/aws-s3-library.json',
     '--json'
   ]);
 
@@ -179,6 +181,7 @@ test('knowledge from-url CLI args accept public documentation URL extraction fla
   assert.equal(parsed.contentPath, 'fixtures/aws_s3_bucket.md');
   assert.equal(parsed.maxUnits, 20);
   assert.equal(parsed.outputPath, 'artifacts/aws-s3-url-knowledge.json');
+  assert.equal(parsed.libraryOutputPath, 'artifacts/aws-s3-library.json');
   assert.equal(parsed.workspace, process.cwd());
   assert.equal(parsed.json, true);
 });

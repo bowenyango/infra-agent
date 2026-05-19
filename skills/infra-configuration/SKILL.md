@@ -36,7 +36,7 @@ values.
    infra-agent pack <workspace> --scope <path|target|env|stack> --json
    infra-agent refs <workspace> --resource <terraform|pulumi|helm-identity> --json
    infra-agent knowledge resource <workspace> --domain <helm|pulumi|terraform> --resource <identity> --json
-   infra-agent knowledge from-url <public-doc-url> --json
+   infra-agent knowledge from-url <public-doc-url> --library-out <artifact.json> --json
    infra-agent pack <workspace> --changed --base main --head HEAD --json
    ```
 
@@ -65,7 +65,7 @@ values.
 
    ```sh
    infra-agent knowledge resource <workspace> --domain <helm|pulumi|terraform> --resource <identity> --json
-   infra-agent knowledge from-url <public-doc-url> --json
+   infra-agent knowledge from-url <public-doc-url> --library-out <artifact.json> --json
    infra-agent knowledge sources <workspace>
    infra-agent knowledge prefetch <workspace>
    infra-agent knowledge extract <workspace>
@@ -102,7 +102,10 @@ values.
    produced the selected source, use
    `centralLibraryCandidate.classification.coordinates` as the stable
    downloadable-library coordinate, and treat `llmRefinementInput` as the
-   explicit offline LLM review contract. Treat `quality.status: "ready"` plus
+   explicit offline LLM review contract. Add `--library-out <artifact.json>`
+   when preparing a downloadable central-library artifact; the artifact is a
+   local, review-required `infra-agent.public-knowledge-library-artifact`, not
+   an upload or approval to publish. Treat `quality.status: "ready"` plus
    complete unit types as the acceptance signal for URL-only public knowledge.
    Use `knowledge resource` instead when the caller needs repo targets,
    suggested files, cache posture, or local usage linkage.

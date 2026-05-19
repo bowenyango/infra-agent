@@ -131,6 +131,38 @@ export interface PublicKnowledgeCentralLibraryCandidate {
   llmRefinementInput: PublicKnowledgeLlmRefinementInput;
 }
 
+export interface PublicKnowledgeLibraryArtifact {
+  kind: 'infra-agent.public-knowledge-library-artifact';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  storageScope: 'public-reference';
+  privacyScope: 'public-reference';
+  artifactId: string;
+  coordinates: string;
+  sourceId: string;
+  sourceContentHash: string;
+  unitPayloadHash: string;
+  generatedFromReportKind: PublicKnowledgeUrlReport['kind'];
+  source: PublicKnowledgeCentralLibraryCandidate['source'];
+  classification: PublicKnowledgeCentralLibraryClassification;
+  download: PublicKnowledgeDownloadSummary;
+  quality: PublicKnowledgeQualitySummary;
+  summary: {
+    unitCount: number;
+    unitCounts: KnowledgeUnitCountByType;
+    includedUnitTypes: KnowledgeUnitType[];
+    compactByteLength: number;
+  };
+  unitsByType: Record<KnowledgeUnitType, CompactPublicKnowledgeUnit[]>;
+  llmRefinementInput: PublicKnowledgeLlmRefinementInput;
+  publication: {
+    status: 'local-artifact';
+    downloadable: true;
+    uploadRequired: false;
+    reviewRequired: true;
+  };
+}
+
 export interface PublicKnowledgeUrlReport {
   kind: 'infra-agent.public-knowledge-url-report';
   schemaVersion: 1;
@@ -1184,5 +1216,44 @@ export async function buildPublicKnowledgeUrlReport(
     quality,
     unitsByType: compactGroupedUnits,
     centralLibraryCandidate
+  };
+}
+
+export function buildPublicKnowledgeLibraryArtifact(
+  report: PublicKnowledgeUrlReport
+): PublicKnowledgeLibraryArtifact {
+  const unitPayloadHash = sha256Hex(JSON.stringify(report.unitsByType));
+  const { centralLibraryCandidate } = report;
+
+  return {
+    kind: 'infra-agent.public-knowledge-library-artifact',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    storageScope: 'public-reference',
+    privacyScope: 'public-reference',
+    artifactId: centralLibraryCandidate.candidateId,
+    coordinates: centralLibraryCandidate.classification.coordinates,
+    sourceId: report.sourceId,
+    sourceContentHash: report.sourceContentHash,
+    unitPayloadHash,
+    generatedFromReportKind: report.kind,
+    source: centralLibraryCandidate.source,
+    classification: centralLibraryCandidate.classification,
+    download: report.download,
+    quality: report.quality,
+    summary: {
+      unitCount: report.summary.includedUnitCount,
+      unitCounts: report.summary.unitCounts,
+      includedUnitTypes: report.summary.includedUnitTypes,
+      compactByteLength: report.summary.compactByteLength
+    },
+    unitsByType: report.unitsByType,
+    llmRefinementInput: centralLibraryCandidate.llmRefinementInput,
+    publication: {
+      status: 'local-artifact',
+      downloadable: true,
+      uploadRequired: false,
+      reviewRequired: true
+    }
   };
 }
