@@ -134,8 +134,13 @@ workspace. `knowledge from-url <url>` is the URL-only public-reference path. It
 infers supported source identity directly from the URL, currently Terraform
 Registry provider resource/data-source docs, and emits a compact
 `infra-agent.public-knowledge-url-report` with the same five unit types grouped
-for agent consumption. Continue treating this as public-reference extraction,
-not repo topology, plan, upload, or safety-boundary work.
+for agent consumption. The report should stay central-library friendly:
+compact units under `unitsByType`, per-unit `sourceId`/`sourceLocator` instead
+of repeated source objects, a `quality` summary, compact byte budget signals,
+and a `centralLibraryCandidate` with public-reference scope and a
+`unitRef` back to the report units. Continue treating this as
+public-reference extraction, not repo topology, plan, upload, or
+safety-boundary work.
 
 Agent-2 reset policy:
 
@@ -584,7 +589,10 @@ Implemented initial CLI surfaces:
   - builds a read-only `infra-agent.public-knowledge-url-report` from a
     supported public official documentation URL without requiring a workspace.
     It is for public-reference extraction only and currently supports
-    Terraform Registry provider resource/data-source docs.
+    Terraform Registry provider resource/data-source docs. Its default
+    selection should favor reusable field facts, identity/replacement guidance,
+    one bounded example, concise diagnostics, and one domain workflow recipe
+    over generic Markdown section recipes.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

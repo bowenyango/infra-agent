@@ -6,6 +6,70 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-18 Public Knowledge URL Quality Refinement
+
+Status:
+
+- Refined the URL-only public-reference output after inspecting the S3 bucket
+  acceptance artifact. The earlier report was technically complete but too
+  noisy for agent use: selected units could include example facts, repeated
+  source metadata, duplicated central-library payloads, generic Markdown
+  recipe sections, and Markdown links inside compact summaries.
+- `infra-agent knowledge from-url <url> --max-units 20` now selects a tighter
+  central-library-friendly budget: reusable field facts first, focused
+  identity/replacement guidance, one bounded example, concise diagnostics, and
+  one domain workflow recipe when available.
+- Compact selected units now carry `sourceId` and `sourceLocator` instead of a
+  repeated full source object. `centralLibraryCandidate` records
+  public-reference scope, source identity, quality metadata, unit counts, and
+  `unitRef: "report.unitsByType"` without duplicating the selected units.
+- The report now exposes deterministic `quality` metadata and
+  `summary.qualityStatus`, `summary.qualityScore`,
+  `summary.qualityWarnings`, and `summary.compactByteLength`. The default path
+  still does not call an LLM; it creates a deterministic artifact that can be
+  reviewed, cached, published, or later enriched by an explicit offline
+  workflow.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` refines URL-unit ranking, compact text
+  normalization, quality metadata, and central-library candidate shape.
+- `src/cli/output.ts` prints URL report quality and compact byte size.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` asserts compact
+  five-unit output, source-reference compaction, no `unitSet`, no example
+  facts in `fact`, no default Markdown recipe when a Terraform workflow recipe
+  exists, no Markdown links inside compact units, quality readiness, and
+  central-library candidate metadata.
+- `README.md`, `docs/TESTING.md`, `docs/ROADMAP.md`, and
+  `skills/infra-configuration/SKILL.md` document the refined URL-only
+  public-reference contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- Live smoke:
+  `node bin/infra-agent.js knowledge from-url
+  https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+  --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json` passed with
+  `summary.qualityStatus="ready"`, complete unit types, 13.2 KB serialized
+  output, 11.3 KB compact unit payload, no Markdown links in units, and no
+  legacy `unitSet`.
+- `npm run verify` passed.
+
+Residual risks:
+
+- `quality.llmUsed` remains `false` by design. If future work adds optional LLM
+  refinement, it should be explicit, cache-aware, and offline-review friendly,
+  not part of the default deterministic CLI path.
+- URL-only support remains intentionally narrow: Terraform Registry provider
+  resources and data sources. Pulumi and Helm URL-only extractors should reuse
+  this compact quality contract.
+
 ## 2026-05-18 Public Knowledge URL Extraction
 
 Status:

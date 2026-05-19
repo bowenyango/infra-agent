@@ -16,7 +16,6 @@ import {
   type KnowledgeContentType,
   type KnowledgeSource,
   type KnowledgeUnit,
-  type KnowledgeUnitSet,
   type KnowledgeUnitType
 } from '../types/knowledge.ts';
 import type { InfraDomainId } from '../types/repository.ts';
@@ -32,6 +31,48 @@ export interface PublicKnowledgeUrlReportOptions {
   maxUnits?: number;
   now?: Date;
   fetchImpl?: OfficialKnowledgeFetchImpl;
+}
+
+export type PublicKnowledgeQualityStatus = 'ready' | 'needs-refinement';
+
+export interface PublicKnowledgeQualitySummary {
+  status: PublicKnowledgeQualityStatus;
+  score: number;
+  warnings: string[];
+  llmUsed: false;
+  refinementMode: 'deterministic';
+}
+
+export type CompactPublicKnowledgeUnit = KnowledgeUnit extends infer Unit
+  ? Unit extends KnowledgeUnit
+    ? Omit<Unit, 'source'> & {
+      sourceId: string;
+      sourceLocator: string;
+    }
+    : never
+  : never;
+
+export interface PublicKnowledgeCentralLibraryCandidate {
+  kind: 'infra-agent.central-knowledge-candidate';
+  schemaVersion: 1;
+  mutationAllowed: false;
+  storageScope: 'public-reference';
+  privacyScope: 'public-reference';
+  candidateId: string;
+  sourceId: string;
+  sourceContentHash: string;
+  source: {
+    domain: InfraDomainId;
+    kind: KnowledgeSource['kind'];
+    name: string;
+    provider?: string;
+    version?: string;
+    url?: string;
+  };
+  quality: PublicKnowledgeQualitySummary;
+  unitCount: number;
+  unitCounts: KnowledgeUnitCountByType;
+  unitRef: 'report.unitsByType';
 }
 
 export interface PublicKnowledgeUrlReport {
@@ -55,9 +96,14 @@ export interface PublicKnowledgeUrlReport {
     includedUnitTypes: KnowledgeUnitType[];
     missingUnitTypes: KnowledgeUnitType[];
     unitTypeComplete: boolean;
+    qualityStatus: PublicKnowledgeQualityStatus;
+    qualityScore: number;
+    qualityWarnings: string[];
+    compactByteLength: number;
   };
-  unitSet: KnowledgeUnitSet;
-  unitsByType: Record<KnowledgeUnitType, KnowledgeUnit[]>;
+  quality: PublicKnowledgeQualitySummary;
+  unitsByType: Record<KnowledgeUnitType, CompactPublicKnowledgeUnit[]>;
+  centralLibraryCandidate: PublicKnowledgeCentralLibraryCandidate;
 }
 
 const DEFAULT_MAX_UNITS = 80;
@@ -369,43 +415,6 @@ function emptyUnitCounts(): KnowledgeUnitCountByType {
   };
 }
 
-function selectUnitsForAgent(units: KnowledgeUnit[], maxUnits: number): KnowledgeUnit[] {
-  const selected: KnowledgeUnit[] = [];
-  const selectedKeys = new Set<string>();
-
-  for (const unitType of KNOWLEDGE_UNIT_TYPES) {
-    const unit = units.find(candidate => candidate.unitType === unitType);
-    if (unit) {
-      selected.push(unit);
-      selectedKeys.add(`${unit.unitType}:${unit.path}:${unit.summary}`);
-    }
-  }
-
-  for (const unit of units) {
-    if (selected.length >= maxUnits) {
-      break;
-    }
-
-    const key = `${unit.unitType}:${unit.path}:${unit.summary}`;
-    if (!selectedKeys.has(key)) {
-      selected.push(unit);
-      selectedKeys.add(key);
-    }
-  }
-
-  return selected.slice(0, maxUnits);
-}
-
-function unitsByType(units: KnowledgeUnit[]): Record<KnowledgeUnitType, KnowledgeUnit[]> {
-  return {
-    fact: units.filter(unit => unit.unitType === 'fact'),
-    guidance: units.filter(unit => unit.unitType === 'guidance'),
-    example: units.filter(unit => unit.unitType === 'example'),
-    diagnostic: units.filter(unit => unit.unitType === 'diagnostic'),
-    recipe: units.filter(unit => unit.unitType === 'recipe')
-  };
-}
-
 function unitCounts(units: KnowledgeUnit[]): KnowledgeUnitCountByType {
   const counts = emptyUnitCounts();
 
@@ -414,6 +423,387 @@ function unitCounts(units: KnowledgeUnit[]): KnowledgeUnitCountByType {
   }
 
   return counts;
+}
+
+function compactPublicText(value: string, maxLength = 220): string {
+  const compacted = value
+    .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return compacted.length > maxLength ? `${compacted.slice(0, maxLength - 3)}...` : compacted;
+}
+
+function compactPublicTextList(values: string[], maxLength = 180): string[] {
+  return values.map(value => compactPublicText(value, maxLength));
+}
+
+function compactUnit(unit: KnowledgeUnit): CompactPublicKnowledgeUnit {
+  const {
+    source,
+    ...rest
+  } = unit;
+  const compacted: Record<string, unknown> = {
+    ...rest,
+    summary: compactPublicText(unit.summary)
+  };
+
+  if (unit.unitType === 'guidance') {
+    compacted.appliesWhen = compactPublicTextList(unit.appliesWhen);
+    if (unit.risk) {
+      compacted.risk = compactPublicText(unit.risk);
+    }
+  } else if (unit.unitType === 'example') {
+    compacted.snippet = compactPublicText(unit.snippet, 360);
+    compacted.appliesWhen = compactPublicTextList(unit.appliesWhen);
+  } else if (unit.unitType === 'diagnostic') {
+    compacted.likelyCause = compactPublicText(unit.likelyCause);
+    compacted.recommendedReview = compactPublicTextList(unit.recommendedReview);
+  } else if (unit.unitType === 'recipe') {
+    compacted.steps = compactPublicTextList(unit.steps);
+  }
+
+  return {
+    ...compacted,
+    sourceId: source.id,
+    sourceLocator: source.locator
+  } as CompactPublicKnowledgeUnit;
+}
+
+function compactUnitsByType(
+  units: KnowledgeUnit[]
+): Record<KnowledgeUnitType, CompactPublicKnowledgeUnit[]> {
+  return {
+    fact: units.filter(unit => unit.unitType === 'fact').map(compactUnit),
+    guidance: units.filter(unit => unit.unitType === 'guidance').map(compactUnit),
+    example: units.filter(unit => unit.unitType === 'example').map(compactUnit),
+    diagnostic: units.filter(unit => unit.unitType === 'diagnostic').map(compactUnit),
+    recipe: units.filter(unit => unit.unitType === 'recipe').map(compactUnit)
+  };
+}
+
+function unitPathLeaf(path: string): string {
+  const parts = path.split('.');
+  return parts[parts.length - 1] ?? path;
+}
+
+function unitSearchText(unit: KnowledgeUnit): string {
+  const parts = [
+    unit.path,
+    unit.summary,
+    unit.extractionMethod
+  ];
+
+  if (unit.unitType === 'guidance') {
+    parts.push(unit.topic, ...unit.appliesWhen);
+    if (unit.risk) {
+      parts.push(unit.risk);
+    }
+  } else if (unit.unitType === 'diagnostic') {
+    parts.push(unit.engine, unit.signature, unit.likelyCause, ...unit.recommendedReview);
+  } else if (unit.unitType === 'recipe') {
+    parts.push(unit.name, ...unit.steps);
+  } else if (unit.unitType === 'example') {
+    parts.push(unit.exampleType, unit.snippet, ...unit.appliesWhen);
+    if (unit.language) {
+      parts.push(unit.language);
+    }
+  } else if (unit.values) {
+    parts.push(...unit.values);
+  }
+
+  return parts.join(' ');
+}
+
+function unitContains(unit: KnowledgeUnit, pattern: RegExp): boolean {
+  return pattern.test(unitSearchText(unit));
+}
+
+function isDeprecatedUnit(unit: KnowledgeUnit): boolean {
+  return unitContains(unit, /\bdeprecated\b/i);
+}
+
+function isExampleFactUnit(unit: KnowledgeUnit): boolean {
+  return unit.unitType === 'fact' && unit.factKind === 'example';
+}
+
+function isMarkdownDerivedUnit(unit: KnowledgeUnit): boolean {
+  return unit.path.includes('.markdown.') || unit.source.locator.startsWith('markdown:');
+}
+
+function isWeakDefaultBudgetUnit(unit: KnowledgeUnit): boolean {
+  if (unit.unitType === 'recipe' && isMarkdownDerivedUnit(unit)) {
+    return true;
+  }
+
+  return unit.unitType === 'guidance'
+    && isMarkdownDerivedUnit(unit)
+    && /\b(argument|attribute|parameter|input|value)s?(?:-reference)?\b/i.test(unitSearchText(unit));
+}
+
+function unitSelectionKey(unit: KnowledgeUnit): string {
+  return `${unit.unitType}:${unit.path}:${unit.summary}`;
+}
+
+function unitSelectionBudgets(maxUnits: number): KnowledgeUnitCountByType {
+  const recipe = Math.max(1, Math.floor(maxUnits * 0.08));
+  const example = Math.max(1, Math.floor(maxUnits * 0.1));
+  const diagnostic = Math.max(1, Math.floor(maxUnits * 0.15));
+  const guidance = Math.max(1, Math.floor(maxUnits * 0.2));
+  const fact = Math.max(1, maxUnits - recipe - example - diagnostic - guidance);
+
+  return {
+    fact,
+    guidance,
+    example,
+    diagnostic,
+    recipe
+  };
+}
+
+function unitPriority(unit: KnowledgeUnit): number {
+  let score = 0;
+  const leaf = unitPathLeaf(unit.path);
+
+  if (unit.unitType === 'guidance') {
+    score += 500;
+    if (isMarkdownDerivedUnit(unit)) {
+      score -= 80;
+    }
+    if (unit.topic === 'replacement-sensitive-field') {
+      score += 80;
+    }
+    if (unit.topic === 'provider-identity-field') {
+      score += 70;
+    }
+    if (unit.risk) {
+      score += 20;
+    }
+  } else if (unit.unitType === 'diagnostic') {
+    score += 480;
+    if (unit.signature.includes('replacement-sensitive-field')) {
+      score += 70;
+    }
+    if (unit.signature.includes('identity-field')) {
+      score += 60;
+    }
+  } else if (unit.unitType === 'recipe') {
+    score += 460;
+    if (isMarkdownDerivedUnit(unit)) {
+      score -= 180;
+    }
+    if (/identity|replacement|safe/i.test(unit.name)) {
+      score += 60;
+    }
+  } else if (unit.unitType === 'example') {
+    score += 440;
+  } else if (unit.unitType === 'fact') {
+    if (unit.factKind === 'replacement-sensitive-field') {
+      score += 420;
+    } else if (unit.factKind === 'identity-field') {
+      score += 410;
+    } else if (unit.factKind === 'argument') {
+      score += 300;
+    } else if (unit.factKind === 'attribute') {
+      score += 150;
+    } else if (unit.factKind === 'example') {
+      score -= 1000;
+    } else {
+      score += 200;
+    }
+  }
+
+  if (leaf === 'bucket') {
+    score += 80;
+  } else if (leaf === 'bucket_prefix') {
+    score += 65;
+  } else if (leaf === 'bucket_namespace') {
+    score += 60;
+  } else if (leaf === 'force_destroy') {
+    score += 58;
+  } else if (leaf === 'object_lock_enabled') {
+    score += 55;
+  } else if (leaf === 'tags') {
+    score += 15;
+  } else if (leaf === 'region') {
+    score += 10;
+  }
+
+  if (unitContains(unit, /force(s)? new|replacement|recreate/i)) {
+    score += 35;
+  }
+  if (unitContains(unit, /\bdestroy|delete/i)) {
+    score += 25;
+  }
+  if (isDeprecatedUnit(unit)) {
+    score -= 200;
+  }
+  if (isWeakDefaultBudgetUnit(unit)) {
+    score -= 120;
+  }
+
+  return score;
+}
+
+function refineCandidateUnits(units: KnowledgeUnit[]): KnowledgeUnit[] {
+  return units
+    .filter(unit => !isExampleFactUnit(unit))
+    .sort((left, right) => {
+      const scoreDelta = unitPriority(right) - unitPriority(left);
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      return `${left.unitType}:${left.path}:${left.summary}`
+        .localeCompare(`${right.unitType}:${right.path}:${right.summary}`);
+    });
+}
+
+function findBestUnitOfType(units: KnowledgeUnit[], unitType: KnowledgeUnitType): KnowledgeUnit | null {
+  return units.find(unit => unit.unitType === unitType && !isWeakDefaultBudgetUnit(unit))
+    ?? units.find(unit => unit.unitType === unitType)
+    ?? null;
+}
+
+function selectUnitsForAgent(units: KnowledgeUnit[], maxUnits: number): KnowledgeUnit[] {
+  const rankedUnits = refineCandidateUnits(units);
+  const selected: KnowledgeUnit[] = [];
+  const selectedKeys = new Set<string>();
+  const selectedCounts = emptyUnitCounts();
+  const budgets = unitSelectionBudgets(maxUnits);
+
+  const addUnit = (unit: KnowledgeUnit): boolean => {
+    const key = unitSelectionKey(unit);
+    if (selectedKeys.has(key) || selected.length >= maxUnits) {
+      return false;
+    }
+
+    selected.push(unit);
+    selectedKeys.add(key);
+    selectedCounts[unit.unitType] += 1;
+    return true;
+  };
+
+  for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+    const unit = findBestUnitOfType(rankedUnits, unitType);
+    if (unit) {
+      addUnit(unit);
+    }
+  }
+
+  for (const unit of rankedUnits) {
+    if (selected.length >= maxUnits) {
+      break;
+    }
+    if (selectedCounts[unit.unitType] >= budgets[unit.unitType]) {
+      continue;
+    }
+    if (isWeakDefaultBudgetUnit(unit) && selectedCounts[unit.unitType] > 0) {
+      continue;
+    }
+
+    addUnit(unit);
+  }
+
+  for (const unit of rankedUnits) {
+    if (selected.length >= maxUnits) {
+      break;
+    }
+    if (isWeakDefaultBudgetUnit(unit)) {
+      continue;
+    }
+
+    addUnit(unit);
+  }
+
+  return selected.slice(0, maxUnits);
+}
+
+function qualitySummary(input: {
+  selectedUnits: KnowledgeUnit[];
+  counts: KnowledgeUnitCountByType;
+  missingUnitTypes: KnowledgeUnitType[];
+  compactByteLength: number;
+}): PublicKnowledgeQualitySummary {
+  const warnings: string[] = [];
+
+  if (input.missingUnitTypes.length > 0) {
+    warnings.push(`missing unit types: ${input.missingUnitTypes.join(', ')}`);
+  }
+  if (input.selectedUnits.some(isExampleFactUnit)) {
+    warnings.push('example fact units should be represented only as example units');
+  }
+  if (input.selectedUnits.some(isDeprecatedUnit)) {
+    warnings.push('deprecated fields are included in the selected unit budget');
+  }
+  if (input.compactByteLength > 16000) {
+    warnings.push('compact agent knowledge exceeds the preferred public-reference byte budget');
+  }
+
+  const score = Math.max(0, 100
+    - (input.missingUnitTypes.length * 20)
+    - (input.selectedUnits.some(isExampleFactUnit) ? 20 : 0)
+    - (input.selectedUnits.some(isDeprecatedUnit) ? 10 : 0)
+    - (input.compactByteLength > 16000 ? 10 : 0));
+
+  return {
+    status: warnings.length === 0 ? 'ready' : 'needs-refinement',
+    score,
+    warnings,
+    llmUsed: false,
+    refinementMode: 'deterministic'
+  };
+}
+
+function compactSource(source: KnowledgeSource, domain: InfraDomainId): PublicKnowledgeCentralLibraryCandidate['source'] {
+  return {
+    domain,
+    kind: source.kind,
+    name: source.name,
+    ...(source.provider ? { provider: source.provider } : {}),
+    ...(source.version ? { version: source.version } : {}),
+    ...(source.url ? { url: source.url } : {})
+  };
+}
+
+function candidateId(input: {
+  sourceId: string;
+  sourceContentHash: string;
+  maxUnits: number;
+}): string {
+  return sha256Hex(`${input.sourceId}:${input.sourceContentHash}:${input.maxUnits}`).slice(0, 24);
+}
+
+function buildCentralLibraryCandidate(input: {
+  domain: InfraDomainId;
+  source: KnowledgeSource;
+  sourceId: string;
+  sourceContentHash: string;
+  maxUnits: number;
+  quality: PublicKnowledgeQualitySummary;
+  counts: KnowledgeUnitCountByType;
+  selectedUnitCount: number;
+}): PublicKnowledgeCentralLibraryCandidate {
+  return {
+    kind: 'infra-agent.central-knowledge-candidate',
+    schemaVersion: 1,
+    mutationAllowed: false,
+    storageScope: 'public-reference',
+    privacyScope: 'public-reference',
+    candidateId: candidateId({
+      sourceId: input.sourceId,
+      sourceContentHash: input.sourceContentHash,
+      maxUnits: input.maxUnits
+    }),
+    sourceId: input.sourceId,
+    sourceContentHash: input.sourceContentHash,
+    source: compactSource(input.source, input.domain),
+    quality: input.quality,
+    unitCount: input.selectedUnitCount,
+    unitCounts: input.counts,
+    unitRef: 'report.unitsByType'
+  };
 }
 
 export async function buildPublicKnowledgeUrlReport(
@@ -431,15 +821,27 @@ export async function buildPublicKnowledgeUrlReport(
   const markdownUnits = extractMarkdownKnowledgeUnitsFromCacheEntry(entry, factSet);
   const extractedUnitSet = extractKnowledgeUnitSetFromFactSet(factSet, markdownUnits);
   const selectedUnits = selectUnitsForAgent(extractedUnitSet.units, maxUnits);
-  const groupedUnits = unitsByType(selectedUnits);
   const counts = unitCounts(selectedUnits);
   const includedUnitTypes = KNOWLEDGE_UNIT_TYPES.filter(unitType => counts[unitType] > 0);
   const missingUnitTypes = KNOWLEDGE_UNIT_TYPES.filter(unitType => counts[unitType] === 0);
-  const unitSet = {
-    ...extractedUnitSet,
-    unitCount: selectedUnits.length,
-    units: selectedUnits
-  };
+  const compactGroupedUnits = compactUnitsByType(selectedUnits);
+  const compactByteLength = JSON.stringify(compactGroupedUnits).length;
+  const quality = qualitySummary({
+    selectedUnits,
+    counts,
+    missingUnitTypes,
+    compactByteLength
+  });
+  const centralLibraryCandidate = buildCentralLibraryCandidate({
+    domain,
+    source,
+    sourceId: entry.id,
+    sourceContentHash: entry.contentHash,
+    maxUnits,
+    quality,
+    counts,
+    selectedUnitCount: selectedUnits.length
+  });
 
   return {
     kind: 'infra-agent.public-knowledge-url-report',
@@ -461,9 +863,14 @@ export async function buildPublicKnowledgeUrlReport(
       unitCounts: counts,
       includedUnitTypes,
       missingUnitTypes,
-      unitTypeComplete: missingUnitTypes.length === 0
+      unitTypeComplete: missingUnitTypes.length === 0,
+      qualityStatus: quality.status,
+      qualityScore: quality.score,
+      qualityWarnings: quality.warnings,
+      compactByteLength
     },
-    unitSet,
-    unitsByType: groupedUnits
+    quality,
+    unitsByType: compactGroupedUnits,
+    centralLibraryCandidate
   };
 }

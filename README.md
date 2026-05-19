@@ -273,10 +273,14 @@ Current behavior is intentionally runtime-foundation oriented:
   `infra-agent.public-knowledge-url-report` directly from a public official
   documentation URL without requiring a workspace. It infers the source identity
   from supported URLs such as Terraform Registry provider resource/data-source
-  docs, extracts the same five unit types, groups them under `unitsByType`, and
-  reports `unitTypeComplete` plus missing/included unit types. This is the
-  public-reference path to use when another agent gives a documentation link
-  such as `aws_s3_bucket` and needs compact JSON rather than repo linkage.
+  docs, extracts the same five unit types, groups compact source-referenced
+  units under `unitsByType`, and reports `unitTypeComplete`, quality status,
+  compact byte length, missing/included unit types, and a
+  `centralLibraryCandidate` for public-reference reuse. Default selection
+  favors reusable facts and identity/replacement guidance over generic
+  Markdown sections. This is the public-reference path to use when another
+  agent gives a documentation link such as `aws_s3_bucket` and needs compact
+  JSON rather than repo linkage.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

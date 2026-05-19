@@ -37,6 +37,7 @@ const S3_BUCKET_MARKDOWN = [
   '#### Arguments',
   '',
   '- `bucket` - (Optional, Forces new resource) Name of the bucket.',
+  '- `force_destroy` - (Optional, Default:false) Delete [locked objects](https://example.invalid/object-lock) when the bucket is destroyed.',
   '- `tags` - (Optional) Map of tags to assign to the bucket.',
   '',
   '## Attribute Reference',
@@ -101,6 +102,11 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(report.source.version, 'latest');
     assert.equal(report.sourceUrl, S3_BUCKET_URL);
     assert.equal(report.summary.unitTypeComplete, true);
+    assert.equal(report.summary.qualityStatus, 'ready');
+    assert.equal(report.summary.qualityScore, 100);
+    assert.deepEqual(report.summary.qualityWarnings, []);
+    assert.equal(report.quality.llmUsed, false);
+    assert.equal(report.quality.refinementMode, 'deterministic');
     assert.deepEqual(report.summary.includedUnitTypes, ['fact', 'guidance', 'example', 'diagnostic', 'recipe']);
     assert.deepEqual(report.summary.missingUnitTypes, []);
     assert.ok(report.summary.unitCounts.fact > 0);
@@ -128,9 +134,26 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
       unit.name === 'Plan Terraform identity-sensitive edits'
       && unit.mutationAllowed === false
     ));
+    assert.equal(report.unitsByType.recipe.some(unit => unit.path.startsWith('recipe.markdown.')), false);
+    assert.equal(report.unitsByType.fact.some(unit => unit.factKind === 'example'), false);
+    assert.ok(Object.values(report.unitsByType).flat().every(unit =>
+      !Object.hasOwn(unit, 'source')
+      && typeof unit.sourceId === 'string'
+      && typeof unit.sourceLocator === 'string'
+    ));
+    assert.doesNotMatch(JSON.stringify(report.unitsByType), /\]\(https?:\/\//);
+    assert.equal(report.centralLibraryCandidate.kind, 'infra-agent.central-knowledge-candidate');
+    assert.equal(report.centralLibraryCandidate.storageScope, 'public-reference');
+    assert.equal(report.centralLibraryCandidate.privacyScope, 'public-reference');
+    assert.equal(report.centralLibraryCandidate.quality.status, 'ready');
+    assert.equal(report.centralLibraryCandidate.source.name, 'resource:aws_s3_bucket');
+    assert.equal(report.centralLibraryCandidate.unitRef, 'report.unitsByType');
+    assert.deepEqual(report.centralLibraryCandidate.unitCounts, report.summary.unitCounts);
     assert.equal(writtenReport.kind, report.kind);
     assert.equal(writtenReport.sourceContentHash, report.sourceContentHash);
+    assert.equal(Object.hasOwn(writtenReport, 'unitSet'), false);
     assert.doesNotMatch(serialized, /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
+    assert.ok(Buffer.byteLength(serialized) < 16000);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -200,8 +223,10 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
   assert.equal(report.source.url, S3_BUCKET_URL);
   assert.equal(report.source.name, 'resource:aws_s3_bucket');
   assert.equal(report.summary.unitTypeComplete, true);
+  assert.equal(report.summary.qualityStatus, 'ready');
   assert.deepEqual(report.summary.missingUnitTypes, []);
   assert.ok(report.unitsByType.fact.some(unit => unit.path === 'resource.aws_s3_bucket.bucket'));
   assert.ok(report.unitsByType.example.some(unit => unit.exampleType === 'terraform-resource-snippet'));
   assert.ok(report.unitsByType.diagnostic.some(unit => /resource\.aws_s3_bucket\.bucket/.test(unit.signature)));
+  assert.equal(report.unitsByType.fact.some(unit => unit.factKind === 'example'), false);
 });

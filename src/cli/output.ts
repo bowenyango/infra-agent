@@ -3763,10 +3763,11 @@ export function printPublicKnowledgeUrlReport(report: PublicKnowledgeUrlReport):
   process.stdout.write(`domain: ${report.domain}\n`);
   process.stdout.write(`source: ${report.source.name}\n`);
   process.stdout.write('mutation allowed: no\n');
-  process.stdout.write(`summary: units=${report.summary.includedUnitCount}/${report.summary.unitCount}, unitTypes=${report.summary.includedUnitTypes.join(', ') || 'none'}, missingUnitTypes=${report.summary.missingUnitTypes.join(', ') || 'none'}, unitTypeComplete=${report.summary.unitTypeComplete ? 'yes' : 'no'}\n\n`);
+  process.stdout.write(`summary: units=${report.summary.includedUnitCount}/${report.summary.unitCount}, unitTypes=${report.summary.includedUnitTypes.join(', ') || 'none'}, missingUnitTypes=${report.summary.missingUnitTypes.join(', ') || 'none'}, unitTypeComplete=${report.summary.unitTypeComplete ? 'yes' : 'no'}\n`);
+  process.stdout.write(`quality: ${report.quality.status} score=${report.quality.score} compactBytes=${report.summary.compactByteLength}\n\n`);
 
   printHeader('Knowledge units');
-  printList(report.unitSet.units.map(unit =>
+  printList(Object.values(report.unitsByType).flat().map(unit =>
     `${unit.unitType} ${unit.confidence} ${unit.path}: ${unit.summary}`
   ), 'No knowledge units extracted.');
 }

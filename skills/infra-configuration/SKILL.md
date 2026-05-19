@@ -95,9 +95,13 @@ values.
    only a public official documentation URL and asks for compact agent-ready
    public-reference knowledge without repo linkage. This path must not require
    a workspace; it infers the supported source identity from the URL, emits
-   grouped `fact`, `guidance`, `example`, `diagnostic`, and `recipe` units, and
-   remains read-only. Use `knowledge resource` instead when the caller needs
-   repo targets, suggested files, cache posture, or local usage linkage.
+   grouped compact `fact`, `guidance`, `example`, `diagnostic`, and `recipe`
+   units, reports `summary.qualityStatus`, and includes a
+   `centralLibraryCandidate` for reviewed public-reference reuse. Treat
+   `quality.status: "ready"` plus complete unit types as the acceptance signal
+   for URL-only public knowledge. Use `knowledge resource` instead when the
+   caller needs repo targets, suggested files, cache posture, or local usage
+   linkage.
    Use the lower-level `sources`, `pack`, and `index` commands when debugging
    one stage or preparing an explicit prefetch.
    Use `knowledge index --resource <identity> --field-path <field> --json`

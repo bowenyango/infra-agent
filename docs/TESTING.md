@@ -145,11 +145,18 @@ infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp
 The output should be an `infra-agent.public-knowledge-url-report` with
 `mutationAllowed: false`, `domain: "terraform"`, source identity
 `resource:aws_s3_bucket`, `summary.unitTypeComplete: true`, all five
-`includedUnitTypes`, an empty `missingUnitTypes` array, grouped `unitsByType`
-entries for `fact`, `guidance`, `example`, `diagnostic`, and `recipe`, and no
-raw source content. This path can fetch the URL live; tests should continue to
-use offline fixtures through the internal `--content <file>` helper so default
-CI does not require network access.
+`includedUnitTypes`, an empty `missingUnitTypes` array,
+`summary.qualityStatus: "ready"`, grouped compact `unitsByType` entries for
+`fact`, `guidance`, `example`, `diagnostic`, and `recipe`, and no raw source
+content. Compact units should carry `sourceId` and `sourceLocator` instead of
+duplicating the full source object, strip Markdown links from summaries and
+steps, exclude example facts from `fact`, and avoid default-budget
+`recipe.markdown.*` entries when a domain workflow recipe is available. The
+report should also expose a `centralLibraryCandidate` with public-reference
+scope, quality metadata, unit counts, and `unitRef: "report.unitsByType"`.
+This path can fetch the URL live; tests should continue to use offline
+fixtures through the internal `--content <file>` helper so default CI does not
+require network access.
 
 ## Layout
 
