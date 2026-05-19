@@ -156,7 +156,10 @@ steps, exclude example facts from `fact`, and avoid default-budget
 report should also expose a `centralLibraryCandidate` with public-reference
 scope, quality metadata, unit counts, `unitRef: "report.unitsByType"`, a
 hub-style `classification.coordinates` value, and an `llmRefinementInput`
-contract that points to structured report fields instead of raw docs. Live
+contract that points to structured report fields instead of raw docs. The LLM
+input should include a deterministic review packet with classification,
+source hash, download evidence, unit counts, quality signals, review checks,
+and rejection criteria so future refinement starts from bounded evidence. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
 can prove Registry JavaScript-shell pages fall back to provider raw docs. With
@@ -167,10 +170,10 @@ units, public-reference classification, download trace, quality summary,
 credentials, upload commands, or backend URLs. `knowledge validate` should
 accept that artifact and reject drifted coordinates, inconsistent source
 metadata, malformed download traces, mismatched unit counts, bad
-`unitPayloadHash`, embedded raw content, or secret-like compact unit text. This
-path can fetch the URL live; tests should continue to use offline fixtures
-through the internal `--content <file>` helper so default CI does not require
-network access.
+`unitPayloadHash`, drifted LLM review packet fields, embedded raw content, or
+secret-like compact unit text. This path can fetch the URL live; tests should
+continue to use offline fixtures through the internal `--content <file>` helper
+so default CI does not require network access.
 
 ## Layout
 

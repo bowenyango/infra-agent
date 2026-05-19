@@ -279,18 +279,21 @@ Current behavior is intentionally runtime-foundation oriented:
   `centralLibraryCandidate` for public-reference reuse. The report also records
   a compact `download` trace and a hub-style central-library coordinate such as
   `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus an
-  `llmRefinementInput` contract for explicit offline LLM review. Default
-  selection favors reusable facts and identity/replacement guidance over
-  generic Markdown sections. Use `--library-out` to write a standalone
+  `llmRefinementInput` contract for explicit offline LLM review. That input
+  includes a deterministic `reviewPacket` with classification, source hash,
+  download evidence, unit counts, quality signals, review checks, and rejection
+  criteria so a future model receives structured evidence instead of raw docs.
+  Default selection favors reusable facts and identity/replacement guidance
+  over generic Markdown sections. Use `--library-out` to write a standalone
   `infra-agent.public-knowledge-library-artifact` with the same compact units,
   download trace, classification, quality, unit hash, and offline LLM review
   contract for future registry/download workflows. Validate that artifact with
   `knowledge validate <library-artifact.json> --json` before handing it to a
   registry, downloader, or LLM refinement step; validation checks coordinate
-  coherence, download trace shape, unit counts, `unitPayloadHash`, and raw
-  content omission. This is the public-reference path to use when another
-  agent gives a documentation link such as `aws_s3_bucket` and needs compact
-  JSON rather than repo linkage.
+  coherence, download trace shape, unit counts, `unitPayloadHash`, LLM review
+  packet drift, and raw content omission. This is the public-reference path to
+  use when another agent gives a documentation link such as `aws_s3_bucket` and
+  needs compact JSON rather than repo linkage.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

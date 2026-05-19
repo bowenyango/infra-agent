@@ -6,6 +6,72 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-19 Public Knowledge LLM Review Packet
+
+Status:
+
+- Strengthened URL-only public-reference artifacts for future central-library
+  and optional LLM-refinement workflows. `llmRefinementInput` now carries a
+  deterministic `reviewPacket` instead of only pointer-style metadata.
+- The review packet includes the source id, source content hash, hub
+  coordinates, artifact kind, source name, download mode/strategy/used role,
+  fallback posture, unit budget, unit counts, missing unit types, compact byte
+  length, and quality status/score/warnings.
+- Added explicit review checklist and rejection criteria so a future LLM
+  receives bounded evidence and review rules without raw provider docs,
+  credentials, backend URLs, upload commands, or publication authority.
+- `knowledge validate` now cross-checks the LLM review packet against the
+  artifact classification, download summary, quality summary, selected compact
+  units, source hash, and compact byte length.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` adds the structured LLM review packet,
+  checklist, and rejection criteria to central-library candidates and
+  standalone public library artifacts.
+- `src/knowledge/validate.ts` validates review-packet coherence and rejects
+  drifted LLM input metadata before registry staging, download reuse, or
+  future LLM refinement.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers the new
+  review packet in local-content and live-fallback paths.
+- `test/unit/knowledge-public-library-artifact-validation.test.mjs` covers
+  validator rejection for drifted review-packet source hash, coordinates,
+  unit count, missing input refs, and weak review checklist.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`, and
+  `skills/infra-configuration/SKILL.md` document the review packet as the
+  bounded evidence input for future LLM refinement.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+- Live smoke:
+  `node bin/infra-agent.js knowledge from-url
+  https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+  --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json
+  --library-out /tmp/infra-agent-s3-library-artifact.json` passed with
+  `download.mode="live-fetch"`, fallback enabled, and 20 selected units.
+- Live artifact validation:
+  `node bin/infra-agent.js knowledge validate
+  /tmp/infra-agent-s3-library-artifact.json --json` passed with
+  `inputKind="infra-agent.public-knowledge-library-artifact"`,
+  `valid=true`, `unitCount=20`, `factCount=10`, and `issueCount=0`.
+
+Residual risks:
+
+- This is still deterministic preparation for future LLM refinement; no model
+  call, remote registry transport, or central index download command exists in
+  this slice.
+- The review packet is generated from selected compact units. It improves
+  refinement input quality but does not replace source validation or human
+  review before public-library publication.
+
 ## 2026-05-19 Public Knowledge Library Artifact Validation
 
 Status:

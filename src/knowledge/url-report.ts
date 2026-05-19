@@ -88,11 +88,34 @@ export interface PublicKnowledgeLlmRefinementInput {
   inputRefs: [
     'report.centralLibraryCandidate.classification',
     'report.download',
+    'report.summary',
     'report.unitsByType',
     'report.quality'
   ];
+  reviewPacket: {
+    sourceId: string;
+    sourceContentHash: string;
+    coordinates: string;
+    ecosystem: 'terraform';
+    artifactKind: PublicKnowledgeCentralLibraryClassification['artifactKind'];
+    sourceName: string;
+    downloadMode: PublicKnowledgeDownloadMode;
+    downloadStrategy: PublicKnowledgeDownloadSummary['strategy'];
+    usedRole: PublicKnowledgeDownloadSummary['usedRole'];
+    fallbackUsed: boolean;
+    unitBudget: number;
+    unitCount: number;
+    unitCounts: KnowledgeUnitCountByType;
+    missingUnitTypes: KnowledgeUnitType[];
+    compactByteLength: number;
+    qualityStatus: PublicKnowledgeQualityStatus;
+    qualityScore: number;
+    qualityWarnings: string[];
+  };
   objective: string;
   unitTypes: KnowledgeUnitType[];
+  reviewChecklist: string[];
+  rejectionCriteria: string[];
   constraints: string[];
   outputContract: 'infra-agent.public-knowledge-url-report';
 }
@@ -1082,18 +1105,63 @@ function libraryClassification(
   throw new Error('Unsupported public knowledge source classification.');
 }
 
-function llmRefinementInput(): PublicKnowledgeLlmRefinementInput {
+function llmRefinementInput(input: {
+  sourceId: string;
+  sourceContentHash: string;
+  classification: PublicKnowledgeCentralLibraryClassification;
+  download: PublicKnowledgeDownloadSummary;
+  maxUnits: number;
+  counts: KnowledgeUnitCountByType;
+  selectedUnitCount: number;
+  missingUnitTypes: KnowledgeUnitType[];
+  compactByteLength: number;
+  quality: PublicKnowledgeQualitySummary;
+}): PublicKnowledgeLlmRefinementInput {
   return {
     status: 'not-run',
     mode: 'offline-review',
     inputRefs: [
       'report.centralLibraryCandidate.classification',
       'report.download',
+      'report.summary',
       'report.unitsByType',
       'report.quality'
     ],
+    reviewPacket: {
+      sourceId: input.sourceId,
+      sourceContentHash: input.sourceContentHash,
+      coordinates: input.classification.coordinates,
+      ecosystem: input.classification.ecosystem,
+      artifactKind: input.classification.artifactKind,
+      sourceName: input.classification.sourceName,
+      downloadMode: input.download.mode,
+      downloadStrategy: input.download.strategy,
+      usedRole: input.download.usedRole,
+      fallbackUsed: input.download.fallbackUsed,
+      unitBudget: input.maxUnits,
+      unitCount: input.selectedUnitCount,
+      unitCounts: input.counts,
+      missingUnitTypes: input.missingUnitTypes,
+      compactByteLength: input.compactByteLength,
+      qualityStatus: input.quality.status,
+      qualityScore: input.quality.score,
+      qualityWarnings: input.quality.warnings
+    },
     objective: 'Review and refine compact public-reference IaC knowledge units for central-library reuse without expanding raw documentation into the artifact.',
     unitTypes: [...KNOWLEDGE_UNIT_TYPES],
+    reviewChecklist: [
+      'Confirm the hub coordinate matches the official source identity and artifact kind.',
+      'Confirm the download trace selected extractable official or provider-repository documentation.',
+      'Confirm every retained unit is supported by its sourceLocator and remains useful to an IaC editing agent.',
+      'Confirm facts, guidance, examples, diagnostics, and recipes stay distinct and compact.',
+      'Confirm identity-sensitive and replacement-sensitive details are prioritized over generic prose.'
+    ],
+    rejectionCriteria: [
+      'Reject output that introduces fields, defaults, enum values, replacement behavior, or safety claims not present in the selected units.',
+      'Reject output that embeds raw documentation, sensitive authentication material, or backend URLs.',
+      'Reject output that changes coordinates, sourceId, sourceContentHash, privacyScope, or mutationAllowed posture without deterministic evidence.',
+      'Reject output that collapses the five unit types into one prose summary.'
+    ],
     constraints: [
       'Do not invent provider fields, defaults, enum values, or safety claims not supported by selected units or source locators.',
       'Keep the five unit types distinct: facts are machine-readable evidence, guidance is advisory explanation, examples are bounded edit shapes, diagnostics explain failures, and recipes are review workflows.',
@@ -1120,10 +1188,15 @@ function buildCentralLibraryCandidate(input: {
   sourceId: string;
   sourceContentHash: string;
   maxUnits: number;
+  download: PublicKnowledgeDownloadSummary;
   quality: PublicKnowledgeQualitySummary;
   counts: KnowledgeUnitCountByType;
   selectedUnitCount: number;
+  missingUnitTypes: KnowledgeUnitType[];
+  compactByteLength: number;
 }): PublicKnowledgeCentralLibraryCandidate {
+  const classification = libraryClassification(input.resolution);
+
   return {
     kind: 'infra-agent.central-knowledge-candidate',
     schemaVersion: 1,
@@ -1142,8 +1215,19 @@ function buildCentralLibraryCandidate(input: {
     unitCount: input.selectedUnitCount,
     unitCounts: input.counts,
     unitRef: 'report.unitsByType',
-    classification: libraryClassification(input.resolution),
-    llmRefinementInput: llmRefinementInput()
+    classification,
+    llmRefinementInput: llmRefinementInput({
+      sourceId: input.sourceId,
+      sourceContentHash: input.sourceContentHash,
+      classification,
+      download: input.download,
+      maxUnits: input.maxUnits,
+      counts: input.counts,
+      selectedUnitCount: input.selectedUnitCount,
+      missingUnitTypes: input.missingUnitTypes,
+      compactByteLength: input.compactByteLength,
+      quality: input.quality
+    })
   };
 }
 
@@ -1181,9 +1265,12 @@ export async function buildPublicKnowledgeUrlReport(
     sourceId: entry.id,
     sourceContentHash: entry.contentHash,
     maxUnits,
+    download,
     quality,
     counts,
-    selectedUnitCount: selectedUnits.length
+    selectedUnitCount: selectedUnits.length,
+    missingUnitTypes,
+    compactByteLength
   });
 
   return {

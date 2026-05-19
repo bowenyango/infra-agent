@@ -171,6 +171,22 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.ok(report.centralLibraryCandidate.classification.tags.includes('aws_s3_bucket'));
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.status, 'not-run');
     assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.unitsByType'));
+    assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.summary'));
+    assert.equal(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.coordinates,
+      report.centralLibraryCandidate.classification.coordinates
+    );
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash, report.sourceContentHash);
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount, report.summary.includedUnitCount);
+    assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCounts, report.summary.unitCounts);
+    assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.missingUnitTypes, report.summary.missingUnitTypes);
+    assert.ok(report.centralLibraryCandidate.llmRefinementInput.reviewChecklist.some(check =>
+      /download trace/.test(check)
+    ));
+    assert.ok(report.centralLibraryCandidate.llmRefinementInput.rejectionCriteria.some(criterion =>
+      /raw documentation/.test(criterion)
+    ));
     assert.ok(report.centralLibraryCandidate.llmRefinementInput.constraints.some(constraint =>
       /Do not invent provider fields/.test(constraint)
     ));
@@ -189,6 +205,8 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.deepEqual(libraryArtifact.unitsByType, report.unitsByType);
     assert.equal(libraryArtifact.download.mode, 'local-content');
     assert.equal(libraryArtifact.llmRefinementInput.status, 'not-run');
+    assert.equal(libraryArtifact.llmRefinementInput.reviewPacket.coordinates, libraryArtifact.coordinates);
+    assert.equal(libraryArtifact.llmRefinementInput.reviewPacket.unitCount, libraryArtifact.summary.unitCount);
     assert.equal(libraryArtifact.publication.downloadable, true);
     assert.equal(libraryArtifact.publication.uploadRequired, false);
     assert.equal(typeof libraryArtifact.unitPayloadHash, 'string');
@@ -297,6 +315,9 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
     'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket'
   );
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.mode, 'offline-review');
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.usedRole, 'fallback');
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.fallbackUsed, true);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
   assert.equal(report.summary.unitTypeComplete, true);
   assert.equal(report.summary.qualityStatus, 'ready');
   assert.deepEqual(report.summary.missingUnitTypes, []);

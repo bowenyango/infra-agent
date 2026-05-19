@@ -97,6 +97,17 @@ test('public knowledge library artifact validation rejects drifted hashes classi
         ...artifact.classification,
         coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong'
       },
+      llmRefinementInput: {
+        ...artifact.llmRefinementInput,
+        inputRefs: artifact.llmRefinementInput.inputRefs.filter(ref => ref !== 'report.summary'),
+        reviewPacket: {
+          ...artifact.llmRefinementInput.reviewPacket,
+          sourceContentHash: 'c'.repeat(64),
+          coordinates: `${artifact.coordinates}/llm-drift`,
+          unitCount: artifact.llmRefinementInput.reviewPacket.unitCount + 1
+        },
+        reviewChecklist: ['single check']
+      },
       summary: {
         ...artifact.summary,
         unitCount: artifact.summary.unitCount + 1
@@ -124,6 +135,11 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       '$.summary.unitCount',
       '$.summary.unitCounts.fact',
       '$.summary.compactByteLength',
+      '$.llmRefinementInput.inputRefs',
+      '$.llmRefinementInput.reviewPacket.sourceContentHash',
+      '$.llmRefinementInput.reviewPacket.coordinates',
+      '$.llmRefinementInput.reviewPacket.unitCount',
+      '$.llmRefinementInput.reviewChecklist',
       '$.unitsByType.fact[0].summary'
     ]) {
       assert.ok(validation.issues.some(issue => issue.path === path), path);

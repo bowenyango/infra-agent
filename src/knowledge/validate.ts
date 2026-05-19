@@ -162,6 +162,23 @@ const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_ROLES = ['primary', 'fallback'] as const
 const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_STATUSES = ['used', 'rejected', 'failed'] as const;
 const PUBLIC_KNOWLEDGE_QUALITY_STATUSES = ['ready', 'needs-refinement'] as const;
 
+interface PublicKnowledgeLlmReviewExpected {
+  sourceId: string | null;
+  sourceContentHash: string | null;
+  classification: {
+    ecosystem: string | null;
+    artifactKind: string | null;
+    sourceName: string | null;
+    coordinates: string | null;
+  };
+  download: unknown;
+  quality: unknown;
+  unitCount: number;
+  unitCounts: Record<KnowledgeUnitType, number>;
+  missingUnitTypes: KnowledgeUnitType[];
+  compactByteLength: number | null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -381,6 +398,11 @@ function readStringArray(value: unknown, path: string, issues: KnowledgeValidati
   });
 
   return strings;
+}
+
+function stringArraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length
+    && left.every((entry, index) => entry === right[index]);
 }
 
 function validateOptionalStringArray(
@@ -1689,6 +1711,7 @@ function validatePublicKnowledgeClassification(
 ): {
   coordinates: string | null;
   ecosystem: string | null;
+  artifactKind: string | null;
   sourceName: string | null;
   providerAddress: string | null;
   version: string | null;
@@ -1698,6 +1721,7 @@ function validatePublicKnowledgeClassification(
     return {
       coordinates: null,
       ecosystem: null,
+      artifactKind: null,
       sourceName: null,
       providerAddress: null,
       version: null
@@ -1788,6 +1812,7 @@ function validatePublicKnowledgeClassification(
   return {
     coordinates,
     ecosystem: typeof value.ecosystem === 'string' ? value.ecosystem : null,
+    artifactKind: typeof value.artifactKind === 'string' ? value.artifactKind : null,
     sourceName,
     providerAddress,
     version
@@ -1971,10 +1996,114 @@ function validatePublicKnowledgeQuality(
   }
 }
 
+function validatePublicKnowledgeLlmReviewPacket(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  expected: PublicKnowledgeLlmReviewExpected
+): void {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Public knowledge library artifact LLM reviewPacket must be an object.'));
+    return;
+  }
+
+  const sourceId = readNonEmptyString(value.sourceId, `${path}.sourceId`, issues);
+  if (sourceId !== null && expected.sourceId !== null && sourceId !== expected.sourceId) {
+    issues.push(error(`${path}.sourceId`, 'Public knowledge library artifact LLM reviewPacket sourceId must match artifact sourceId.'));
+  }
+
+  const sourceContentHash = readNonEmptyString(value.sourceContentHash, `${path}.sourceContentHash`, issues);
+  if (sourceContentHash !== null) {
+    if (!SHA256_HEX_PATTERN.test(sourceContentHash)) {
+      issues.push(error(`${path}.sourceContentHash`, 'Public knowledge library artifact LLM reviewPacket sourceContentHash must be a SHA-256 hex string.'));
+    } else if (expected.sourceContentHash !== null && sourceContentHash !== expected.sourceContentHash) {
+      issues.push(error(`${path}.sourceContentHash`, 'Public knowledge library artifact LLM reviewPacket sourceContentHash must match artifact sourceContentHash.'));
+    }
+  }
+
+  const coordinates = readNonEmptyString(value.coordinates, `${path}.coordinates`, issues);
+  if (coordinates !== null) {
+    validateNoSecretLikeValue(coordinates, `${path}.coordinates`, issues);
+    if (expected.classification.coordinates !== null && coordinates !== expected.classification.coordinates) {
+      issues.push(error(`${path}.coordinates`, 'Public knowledge library artifact LLM reviewPacket coordinates must match classification.coordinates.'));
+    }
+  }
+  if (expected.classification.ecosystem !== null && value.ecosystem !== expected.classification.ecosystem) {
+    issues.push(error(`${path}.ecosystem`, 'Public knowledge library artifact LLM reviewPacket ecosystem must match classification ecosystem.'));
+  }
+  if (expected.classification.artifactKind !== null && value.artifactKind !== expected.classification.artifactKind) {
+    issues.push(error(`${path}.artifactKind`, 'Public knowledge library artifact LLM reviewPacket artifactKind must match classification artifactKind.'));
+  }
+  if (expected.classification.sourceName !== null && value.sourceName !== expected.classification.sourceName) {
+    issues.push(error(`${path}.sourceName`, 'Public knowledge library artifact LLM reviewPacket sourceName must match classification sourceName.'));
+  }
+
+  if (isRecord(expected.download)) {
+    if (value.downloadMode !== expected.download.mode) {
+      issues.push(error(`${path}.downloadMode`, 'Public knowledge library artifact LLM reviewPacket downloadMode must match download.mode.'));
+    }
+    if (value.downloadStrategy !== expected.download.strategy) {
+      issues.push(error(`${path}.downloadStrategy`, 'Public knowledge library artifact LLM reviewPacket downloadStrategy must match download.strategy.'));
+    }
+    if (value.usedRole !== expected.download.usedRole) {
+      issues.push(error(`${path}.usedRole`, 'Public knowledge library artifact LLM reviewPacket usedRole must match download.usedRole.'));
+    }
+    if (value.fallbackUsed !== expected.download.fallbackUsed) {
+      issues.push(error(`${path}.fallbackUsed`, 'Public knowledge library artifact LLM reviewPacket fallbackUsed must match download.fallbackUsed.'));
+    }
+  }
+
+  const unitBudget = readPositiveInteger(value.unitBudget, `${path}.unitBudget`, issues);
+  if (unitBudget !== null && unitBudget < expected.unitCount) {
+    issues.push(error(`${path}.unitBudget`, 'Public knowledge library artifact LLM reviewPacket unitBudget must be at least the selected unit count.'));
+  }
+  const unitCount = readNonNegativeInteger(value.unitCount, `${path}.unitCount`, issues);
+  if (unitCount !== null && unitCount !== expected.unitCount) {
+    issues.push(error(`${path}.unitCount`, 'Public knowledge library artifact LLM reviewPacket unitCount must match selected units.'));
+  }
+  const unitCounts = validatePublicKnowledgeUnitCounts(value.unitCounts, `${path}.unitCounts`, issues);
+  if (unitCounts !== null) {
+    for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+      if (unitCounts[unitType] !== expected.unitCounts[unitType]) {
+        issues.push(error(`${path}.unitCounts.${unitType}`, 'Public knowledge library artifact LLM reviewPacket unitCounts must match selected units.'));
+      }
+    }
+  }
+  const missingUnitTypes = readStringArray(value.missingUnitTypes, `${path}.missingUnitTypes`, issues);
+  if (missingUnitTypes !== null && !stringArraysEqual(missingUnitTypes, expected.missingUnitTypes)) {
+    issues.push(error(`${path}.missingUnitTypes`, 'Public knowledge library artifact LLM reviewPacket missingUnitTypes must match selected unit coverage.'));
+  }
+  const compactByteLength = readNonNegativeInteger(value.compactByteLength, `${path}.compactByteLength`, issues);
+  if (
+    compactByteLength !== null
+    && expected.compactByteLength !== null
+    && compactByteLength !== expected.compactByteLength
+  ) {
+    issues.push(error(`${path}.compactByteLength`, 'Public knowledge library artifact LLM reviewPacket compactByteLength must match compact units.'));
+  }
+
+  if (isRecord(expected.quality)) {
+    if (value.qualityStatus !== expected.quality.status) {
+      issues.push(error(`${path}.qualityStatus`, 'Public knowledge library artifact LLM reviewPacket qualityStatus must match quality.status.'));
+    }
+    if (value.qualityScore !== expected.quality.score) {
+      issues.push(error(`${path}.qualityScore`, 'Public knowledge library artifact LLM reviewPacket qualityScore must match quality.score.'));
+    }
+    const qualityWarnings = readStringArray(value.qualityWarnings, `${path}.qualityWarnings`, issues);
+    const expectedWarnings = Array.isArray(expected.quality.warnings)
+      ? expected.quality.warnings.filter((entry): entry is string => typeof entry === 'string')
+      : [];
+    if (qualityWarnings !== null && !stringArraysEqual(qualityWarnings, expectedWarnings)) {
+      issues.push(error(`${path}.qualityWarnings`, 'Public knowledge library artifact LLM reviewPacket qualityWarnings must match quality.warnings.'));
+    }
+  }
+}
+
 function validatePublicKnowledgeLlmRefinementInput(
   value: unknown,
   path: string,
-  issues: KnowledgeValidationIssue[]
+  issues: KnowledgeValidationIssue[],
+  expected: PublicKnowledgeLlmReviewExpected
 ): void {
   if (!isRecord(value)) {
     issues.push(error(path, 'Public knowledge library artifact llmRefinementInput must be an object.'));
@@ -1992,6 +2121,7 @@ function validatePublicKnowledgeLlmRefinementInput(
     for (const requiredRef of [
       'report.centralLibraryCandidate.classification',
       'report.download',
+      'report.summary',
       'report.unitsByType',
       'report.quality'
     ]) {
@@ -2001,6 +2131,7 @@ function validatePublicKnowledgeLlmRefinementInput(
       }
     }
   }
+  validatePublicKnowledgeLlmReviewPacket(value.reviewPacket, `${path}.reviewPacket`, issues, expected);
   const objective = readNonEmptyString(value.objective, `${path}.objective`, issues);
   if (objective !== null) {
     validateNoSecretLikeValue(objective, `${path}.objective`, issues);
@@ -2013,6 +2144,20 @@ function validatePublicKnowledgeLlmRefinementInput(
         break;
       }
     }
+  }
+  const reviewChecklist = readStringArray(value.reviewChecklist, `${path}.reviewChecklist`, issues);
+  if (reviewChecklist !== null) {
+    if (reviewChecklist.length < 3) {
+      issues.push(error(`${path}.reviewChecklist`, 'Public knowledge library artifact LLM reviewChecklist must include multiple review checks.'));
+    }
+    reviewChecklist.forEach((entry, index) => validateNoSecretLikeValue(entry, `${path}.reviewChecklist[${index}]`, issues));
+  }
+  const rejectionCriteria = readStringArray(value.rejectionCriteria, `${path}.rejectionCriteria`, issues);
+  if (rejectionCriteria !== null) {
+    if (rejectionCriteria.length < 3) {
+      issues.push(error(`${path}.rejectionCriteria`, 'Public knowledge library artifact LLM rejectionCriteria must include multiple rejection checks.'));
+    }
+    rejectionCriteria.forEach((entry, index) => validateNoSecretLikeValue(entry, `${path}.rejectionCriteria[${index}]`, issues));
   }
   const constraints = readStringArray(value.constraints, `${path}.constraints`, issues);
   if (constraints !== null) {
@@ -2122,7 +2267,6 @@ function validatePublicKnowledgeLibraryArtifactPayload(
 
   validatePublicKnowledgeDownloadSummary(payload.download, '$.download', issues);
   validatePublicKnowledgeQuality(payload.quality, '$.quality', issues);
-  validatePublicKnowledgeLlmRefinementInput(payload.llmRefinementInput, '$.llmRefinementInput', issues);
 
   let actualUnitCount = 0;
   const actualCounts = emptyKnowledgeUnitCountByType();
@@ -2176,6 +2320,7 @@ function validatePublicKnowledgeLibraryArtifactPayload(
     }
   }
 
+  let actualCompactByteLength: number | null = null;
   if (!isRecord(payload.summary)) {
     issues.push(error('$.summary', 'Public knowledge library artifact summary must be an object.'));
   } else {
@@ -2199,10 +2344,25 @@ function validatePublicKnowledgeLibraryArtifactPayload(
       }
     }
     const compactByteLength = readNonNegativeInteger(payload.summary.compactByteLength, '$.summary.compactByteLength', issues);
-    if (compactByteLength !== null && isRecord(payload.unitsByType) && compactByteLength !== JSON.stringify(payload.unitsByType).length) {
-      issues.push(error('$.summary.compactByteLength', 'Public knowledge library artifact compactByteLength must match unitsByType JSON length.'));
+    if (isRecord(payload.unitsByType)) {
+      actualCompactByteLength = JSON.stringify(payload.unitsByType).length;
+      if (compactByteLength !== null && compactByteLength !== actualCompactByteLength) {
+        issues.push(error('$.summary.compactByteLength', 'Public knowledge library artifact compactByteLength must match unitsByType JSON length.'));
+      }
     }
   }
+
+  validatePublicKnowledgeLlmRefinementInput(payload.llmRefinementInput, '$.llmRefinementInput', issues, {
+    sourceId,
+    sourceContentHash,
+    classification,
+    download: payload.download,
+    quality: payload.quality,
+    unitCount: actualUnitCount,
+    unitCounts: actualCounts,
+    missingUnitTypes: KNOWLEDGE_UNIT_TYPES.filter(unitType => actualCounts[unitType] === 0),
+    compactByteLength: actualCompactByteLength
+  });
 
   if (!isRecord(payload.publication)) {
     issues.push(error('$.publication', 'Public knowledge library artifact publication must be an object.'));

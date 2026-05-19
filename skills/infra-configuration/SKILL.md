@@ -102,13 +102,17 @@ values.
    produced the selected source, use
    `centralLibraryCandidate.classification.coordinates` as the stable
    downloadable-library coordinate, and treat `llmRefinementInput` as the
-   explicit offline LLM review contract. Add `--library-out <artifact.json>`
-   when preparing a downloadable central-library artifact; the artifact is a
-   local, review-required `infra-agent.public-knowledge-library-artifact`, not
-   an upload or approval to publish. Run
+   explicit offline LLM review contract. Its `reviewPacket` is the bounded
+   evidence packet for future model refinement: classification, source hash,
+   download evidence, unit counts, quality signals, review checks, and
+   rejection criteria. Add `--library-out <artifact.json>` when preparing a
+   downloadable central-library artifact; the artifact is a local,
+   review-required `infra-agent.public-knowledge-library-artifact`, not an
+   upload or approval to publish. Run
    `knowledge validate <artifact.json> --json` before registry staging,
    download reuse, or LLM refinement; validation checks coordinate coherence,
-   download trace shape, unit counts, unit hash, and raw-content omission.
+   download trace shape, unit counts, unit hash, review packet drift, and
+   raw-content omission.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage
