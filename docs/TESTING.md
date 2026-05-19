@@ -179,14 +179,16 @@ content-addressed local store, and update an
 `infra-agent.public-knowledge-library-registry` entry keyed by the stable
 coordinate. It must refuse malformed registries rather than overwriting them
 and must not perform remote upload, credential reads, backend probes, or
-publication approval. When the staged registry is configured under
-`knowledgeSources.publicLibraryRegistries`, `knowledge sources`, `extract`,
-`pack`, and `resource` should discover the matching
+publication approval. When a staged local registry path or secret-free registry
+URL is configured under `knowledgeSources.publicLibraryRegistries`,
+`knowledge prefetch` should cache URL registries first, then `knowledge
+sources`, `extract`, `pack`, and `resource` should discover the matching
 `public-knowledge-library-artifact` by Terraform provider/resource usage,
-verify the registered SHA-256, preserve `public-reference` storage policy, and
-emit compact units without raw Markdown sections. This path can fetch the URL
-live; tests should continue to use offline fixtures through the internal
-`--content <file>` helper so default CI does not require network access.
+expand artifact URLs or relative artifact paths, verify the registered
+SHA-256, preserve `public-reference` storage policy, and emit compact units
+without raw Markdown sections. This path can fetch the URL live; tests should
+continue to use offline fetcher fixtures and the internal `--content <file>`
+helper so default CI does not require network access.
 
 ## Layout
 

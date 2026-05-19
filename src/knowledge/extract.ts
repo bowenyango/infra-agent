@@ -90,6 +90,7 @@ function localContentType(source: KnowledgeSource): KnowledgeContentType {
     || source.kind === 'terraform-module'
     || source.kind === 'internal-knowledge'
     || source.kind === 'knowledge-unit-artifact'
+    || source.kind === 'public-knowledge-library-registry'
     || source.kind === 'public-knowledge-library-artifact'
   ) {
     return 'application/json';

@@ -21,6 +21,7 @@ const PUBLIC_REFERENCE_KINDS = new Set<KnowledgeSourceKind>([
   'pulumi-docs',
   'helm-docs',
   'chart-docs',
+  'public-knowledge-library-registry',
   'public-knowledge-library-artifact'
 ]);
 
@@ -46,13 +47,18 @@ export function isKnowledgeStoragePolicyCompatibleWithSourceKind(
 }
 
 export function resolveKnowledgeStoragePolicy(source: KnowledgeSource): KnowledgeStoragePolicy {
-  if (source.kind === 'public-knowledge-library-artifact') {
+  if (
+    source.kind === 'public-knowledge-library-registry'
+    || source.kind === 'public-knowledge-library-artifact'
+  ) {
     return {
       scope: 'public-reference',
       defaultStore: 'local-or-explicit-team-cache',
       shareableByDefault: true,
       requiresExplicitOptIn: false,
-      reason: 'Source is a reviewed public-reference library artifact staged for local reuse.'
+      reason: source.kind === 'public-knowledge-library-registry'
+        ? 'Source is a public-reference library registry used for read-only artifact discovery.'
+        : 'Source is a reviewed public-reference library artifact staged for reuse.'
     };
   }
 

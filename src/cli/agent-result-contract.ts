@@ -109,6 +109,7 @@ const KNOWLEDGE_FACT_SOURCE_KINDS = [
   'internal-knowledge',
   'knowledge-unit-registry',
   'knowledge-unit-artifact',
+  'public-knowledge-library-registry',
   'public-knowledge-library-artifact'
 ] as const;
 const KNOWLEDGE_FACT_KINDS = [

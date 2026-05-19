@@ -3,10 +3,12 @@ import { join } from 'node:path';
 import {
   isInfraDomain,
   isSafeWorkspaceRelativePath,
+  isSecretSafeKnowledgeUrl,
   isSha256Hex,
   targetAllowed
 } from './source-config.ts';
 import { buildTerraformRegistryKnowledgeSources } from '../domain/terraform-registry-context.ts';
+import type { KnowledgeStore } from './knowledge-store.ts';
 import type { KnowledgePrefetchCandidate } from './prefetch.ts';
 import type {
   InfraDomainId,
@@ -25,7 +27,8 @@ interface PublicLibraryRegistryEntry {
   sourceName: string;
   tags: string[];
   artifact: {
-    path: string;
+    path?: string;
+    url?: string;
     contentHash: string;
     mediaType: 'application/vnd.infra-agent.public-knowledge-library-artifact+json';
     artifactId: string;
@@ -66,8 +69,38 @@ function configuredPublicLibraryRegistries(
       return false;
     }
 
-    return typeof configuredSource.path === 'string' && isSafeWorkspaceRelativePath(configuredSource.path);
+    const localPath = typeof configuredSource.path === 'string' && isSafeWorkspaceRelativePath(configuredSource.path);
+    const url = typeof configuredSource.url === 'string' && isSecretSafeKnowledgeUrl(configuredSource.url);
+
+    return localPath !== url;
   });
+}
+
+function registrySourceFromConfig(configuredSource: WorkspacePublicKnowledgeLibraryRegistrySourceConfig): KnowledgeSource | null {
+  const localPath = typeof configuredSource.path === 'string' && isSafeWorkspaceRelativePath(configuredSource.path)
+    ? configuredSource.path
+    : null;
+  const url = typeof configuredSource.url === 'string' && isSecretSafeKnowledgeUrl(configuredSource.url)
+    ? configuredSource.url
+    : null;
+  if ((localPath === null && url === null) || (localPath !== null && url !== null)) {
+    return null;
+  }
+
+  return {
+    kind: 'public-knowledge-library-registry',
+    name: typeof configuredSource.name === 'string' && configuredSource.name.length > 0
+      ? configuredSource.name
+      : `public-library-registry:${localPath ?? url}`,
+    ...(localPath !== null ? { localPath } : {}),
+    ...(url !== null ? { url } : {}),
+    ...(typeof configuredSource.version === 'string' && configuredSource.version.length > 0
+      ? { version: configuredSource.version }
+      : {}),
+    ...(typeof configuredSource.provider === 'string' && configuredSource.provider.length > 0
+      ? { provider: configuredSource.provider }
+      : {})
+  };
 }
 
 function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEntry | null {
@@ -75,6 +108,8 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
     return null;
   }
 
+  const artifactLocalPath = typeof value.artifact.path === 'string' && isSafeWorkspaceRelativePath(value.artifact.path);
+  const artifactUrl = typeof value.artifact.url === 'string' && isSecretSafeKnowledgeUrl(value.artifact.url);
   if (
     typeof value.coordinates !== 'string'
     || value.ecosystem !== 'terraform'
@@ -87,8 +122,7 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
     || typeof value.sourceName !== 'string'
     || !Array.isArray(value.tags)
     || !value.tags.every(tag => typeof tag === 'string')
-    || typeof value.artifact.path !== 'string'
-    || !isSafeWorkspaceRelativePath(value.artifact.path)
+    || artifactLocalPath === artifactUrl
     || !isSha256Hex(value.artifact.contentHash)
     || value.artifact.mediaType !== PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE
     || typeof value.artifact.artifactId !== 'string'
@@ -125,14 +159,22 @@ function parsePublicLibraryRegistryEntries(value: unknown): PublicLibraryRegistr
 
 async function readConfiguredRegistryEntries(
   inspection: WorkspaceInspection,
-  configuredSource: WorkspacePublicKnowledgeLibraryRegistrySourceConfig
+  configuredSource: WorkspacePublicKnowledgeLibraryRegistrySourceConfig,
+  store: KnowledgeStore
 ): Promise<PublicLibraryRegistryEntry[]> {
-  if (typeof configuredSource.path !== 'string' || !isSafeWorkspaceRelativePath(configuredSource.path)) {
+  const source = registrySourceFromConfig(configuredSource);
+  if (source === null) {
     return [];
   }
 
   try {
-    const content = await readFile(join(inspection.workspaceRoot, configuredSource.path), 'utf8');
+    const content = source.localPath
+      ? await readFile(join(inspection.workspaceRoot, source.localPath), 'utf8')
+      : (await store.read(source))?.content;
+    if (content === undefined) {
+      return [];
+    }
+
     return parsePublicLibraryRegistryEntries(JSON.parse(content) as unknown);
   } catch {
     return [];
@@ -155,12 +197,35 @@ function configuredSourceAllowsEntry(
 }
 
 function publicLibrarySourceFromEntry(
-  entry: PublicLibraryRegistryEntry
-): KnowledgeSource {
+  entry: PublicLibraryRegistryEntry,
+  registrySource: KnowledgeSource
+): KnowledgeSource | null {
+  const localPath = typeof entry.artifact.path === 'string' && isSafeWorkspaceRelativePath(entry.artifact.path)
+    ? entry.artifact.path
+    : null;
+  const explicitUrl = typeof entry.artifact.url === 'string' && isSecretSafeKnowledgeUrl(entry.artifact.url)
+    ? entry.artifact.url
+    : null;
+  const relativeUrl = localPath !== null && registrySource.url !== undefined
+    ? new URL(localPath, registrySource.url).toString()
+    : null;
+  const url = explicitUrl ?? (
+    relativeUrl !== null && isSecretSafeKnowledgeUrl(relativeUrl)
+      ? relativeUrl
+      : null
+  );
+  if (registrySource.localPath && localPath === null) {
+    return null;
+  }
+  if (registrySource.url && url === null) {
+    return null;
+  }
+
   return {
     kind: 'public-knowledge-library-artifact',
     name: entry.sourceName,
-    localPath: entry.artifact.path,
+    ...(registrySource.localPath && localPath !== null ? { localPath } : {}),
+    ...(registrySource.url && url !== null ? { url } : {}),
     version: entry.version,
     provider: entry.providerAddress,
     artifactContentHash: entry.artifact.contentHash
@@ -215,11 +280,17 @@ async function targetPathsForPublicLibraryEntry(
 export async function collectConfiguredPublicLibraryRegistrySources(
   inspection: WorkspaceInspection,
   requestedDomains: Set<InfraDomainId>,
-  targetPaths: Set<string>
+  targetPaths: Set<string>,
+  store: KnowledgeStore
 ): Promise<KnowledgePrefetchCandidate[]> {
   const candidates: KnowledgePrefetchCandidate[] = [];
   for (const configuredSource of configuredPublicLibraryRegistries(inspection, requestedDomains, targetPaths)) {
-    const entries = await readConfiguredRegistryEntries(inspection, configuredSource);
+    const registrySource = registrySourceFromConfig(configuredSource);
+    if (registrySource === null) {
+      continue;
+    }
+
+    const entries = await readConfiguredRegistryEntries(inspection, configuredSource, store);
     for (const entry of entries) {
       if (!configuredSourceAllowsEntry(configuredSource, entry)) {
         continue;
@@ -235,10 +306,31 @@ export async function collectConfiguredPublicLibraryRegistrySources(
       candidates.push(...resolvedTargetPaths.map(targetPath => ({
         domain: 'terraform' as const,
         targetPath,
-        source: publicLibrarySourceFromEntry(entry)
-      })));
+        source: publicLibrarySourceFromEntry(entry, registrySource)
+      })).filter((candidate): candidate is KnowledgePrefetchCandidate => candidate.source !== null));
     }
   }
 
   return candidates;
+}
+
+export function configuredPublicLibraryRegistrySources(
+  inspection: WorkspaceInspection,
+  requestedDomains: Set<InfraDomainId>,
+  targetPaths: Set<string>
+): KnowledgePrefetchCandidate[] {
+  return configuredPublicLibraryRegistries(inspection, requestedDomains, targetPaths)
+    .map(configuredSource => {
+      const source = registrySourceFromConfig(configuredSource);
+      if (source === null) {
+        return null;
+      }
+
+      return {
+        domain: 'terraform' as const,
+        targetPath: typeof configuredSource.targetPath === 'string' ? configuredSource.targetPath : '',
+        source
+      };
+    })
+    .filter((candidate): candidate is KnowledgePrefetchCandidate => candidate !== null);
 }

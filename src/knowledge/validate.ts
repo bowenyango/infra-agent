@@ -126,6 +126,7 @@ const KNOWLEDGE_SOURCE_KINDS = [
   'internal-knowledge',
   'knowledge-unit-registry',
   'knowledge-unit-artifact',
+  'public-knowledge-library-registry',
   'public-knowledge-library-artifact'
 ] as const satisfies readonly KnowledgeSourceKind[];
 const KNOWLEDGE_SOURCE_STALE_REASONS = [

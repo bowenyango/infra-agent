@@ -625,14 +625,17 @@ Implemented initial CLI surfaces:
     central-library workflows. It must not call a cloud client, read
     credentials, probe a backend, create upload commands, or approve
     publication.
-  - Workspaces can opt into read-only reuse by adding the staged registry under
-    `infra-agent.config.json` -> `knowledgeSources.publicLibraryRegistries`.
-    `knowledge sources`, `knowledge extract`, `knowledge pack`, and
-    `knowledge resource` then discover matching Terraform provider/resource
-    entries from repo usage, verify the artifact SHA-256 from the registry, and
-    expose the compact units as `public-knowledge-library-artifact` sources in
-    the `public-reference` storage scope. This is local registry consumption,
-    not remote download or publication trust.
+  - Workspaces can opt into read-only reuse by adding a staged local registry
+    path or a secret-free registry URL under `infra-agent.config.json` ->
+    `knowledgeSources.publicLibraryRegistries`. URL registries must be fetched
+    by `knowledge prefetch` into the local cache before source discovery can
+    expand them. `knowledge sources`, `knowledge extract`, `knowledge pack`,
+    and `knowledge resource` then discover matching Terraform
+    provider/resource entries from repo usage, expand artifact URLs or relative
+    artifact paths, verify the artifact SHA-256 from the registry, and expose
+    the compact units as `public-knowledge-library-artifact` sources in the
+    `public-reference` storage scope. This is read-only registry
+    download/reuse, not remote upload or publication trust.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

@@ -62,6 +62,7 @@ export interface WorkspacePublicKnowledgeLibraryRegistrySourceConfig {
   domain?: InfraDomainId;
   targetPath?: string;
   path?: string;
+  url?: string;
   name?: string;
   version?: string;
   provider?: string;

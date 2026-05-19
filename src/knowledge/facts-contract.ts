@@ -27,6 +27,7 @@ const KNOWLEDGE_SOURCE_KINDS: KnowledgeSourceKind[] = [
   'internal-knowledge',
   'knowledge-unit-registry',
   'knowledge-unit-artifact',
+  'public-knowledge-library-registry',
   'public-knowledge-library-artifact'
 ];
 const RETRIEVED_CONTEXT_CONFIDENCES = ['low', 'medium', 'high'] as const;

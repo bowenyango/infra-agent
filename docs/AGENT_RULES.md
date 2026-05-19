@@ -326,14 +326,15 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   expanded artifacts through the same `knowledge-unit-artifact` path.
 - Public library registries belong under
   `infra-agent.config.json` -> `knowledgeSources.publicLibraryRegistries`.
-  Each entry points at a safe workspace-relative
-  `infra-agent.public-knowledge-library-registry` JSON file created by
-  `knowledge library-stage`. Registry entries expand into
-  `public-knowledge-library-artifact` sources only when repo Terraform usage
-  matches the provider/resource identity, and extraction must verify the
-  staged artifact SHA-256 before using its compact units. Treat this as
-  read-only local central-library reuse with `public-reference` storage scope,
-  not upload, publication approval, or remote trust.
+  Each entry must use exactly one safe workspace-relative
+  `infra-agent.public-knowledge-library-registry` JSON `path` or secret-free
+  registry `url`. URL registries must be downloaded by the read-only
+  `knowledge prefetch` path before artifact discovery. Registry entries expand
+  into `public-knowledge-library-artifact` sources only when repo Terraform
+  usage matches the provider/resource identity, and extraction must verify the
+  registered artifact SHA-256 before using its compact units. Treat this as
+  read-only central-library download/reuse with `public-reference` storage
+  scope, not upload, publication approval, or remote trust.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

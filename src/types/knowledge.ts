@@ -17,6 +17,7 @@ export type KnowledgeSourceKind =
   | 'internal-knowledge'
   | 'knowledge-unit-registry'
   | 'knowledge-unit-artifact'
+  | 'public-knowledge-library-registry'
   | 'public-knowledge-library-artifact';
 
 export type KnowledgeContentType =

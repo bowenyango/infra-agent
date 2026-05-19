@@ -6,6 +6,60 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-19 URL-Backed Public Knowledge Library Registries
+
+Status:
+
+- Added read-only URL support for
+  `knowledgeSources.publicLibraryRegistries`. A registry config now accepts
+  exactly one safe workspace-relative `path` or secret-free `url`.
+- `knowledge prefetch` now downloads URL-backed public library registries
+  before collecting source candidates. Once cached, matching registry entries
+  expand into `public-knowledge-library-artifact` sources with artifact URLs or
+  registry-relative artifact paths, then the existing artifact prefetch,
+  content-hash verification, extraction, ranking, pack, and resource flows
+  consume the compact five-type units.
+- The registry source kind is treated as `public-reference`, read-only
+  discovery metadata. This slice does not add upload, publication approval,
+  backend probing, hidden credentials, or LLM execution.
+
+Files changed:
+
+- `src/knowledge/public-library-registry.ts` accepts local or URL registries,
+  reads URL registries from the knowledge cache, expands safe artifact URLs,
+  and rejects ambiguous path-plus-url entries.
+- `src/knowledge/prefetch.ts` prefetches public library registries before
+  artifact discovery and passes the knowledge store into registry expansion.
+- Source-kind contracts, storage policy, ranking, extraction content-type
+  handling, and repository config types now recognize
+  `public-knowledge-library-registry`.
+- `test/unit/knowledge-public-library-registry-url.test.mjs` covers URL
+  registry prefetch, artifact expansion, five-unit extraction, compact pack
+  reuse, and registry content-hash drift refusal.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  the cache-first URL registry reuse contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-unit-artifact-sources.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+
+Residual risks:
+
+- URL registry reuse currently matches Terraform provider resource/data-source
+  usage only. Pulumi and Helm public-library artifact reuse still need their
+  own registry classification and matching rules.
+- Public-library artifacts remain reviewed JSON inputs. Optional LLM
+  refinement should be added as an explicit offline review step that consumes
+  `llmRefinementInput`, not as an uncontrolled fetch/extract side effect.
+
 ## 2026-05-19 Public Knowledge Library Registry Reuse
 
 Status:

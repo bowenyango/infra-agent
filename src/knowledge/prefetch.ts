@@ -18,7 +18,10 @@ import {
   configuredRegistrySources,
   registryPrefetchCandidate
 } from './unit-artifact-registry.ts';
-import { collectConfiguredPublicLibraryRegistrySources } from './public-library-registry.ts';
+import {
+  collectConfiguredPublicLibraryRegistrySources,
+  configuredPublicLibraryRegistrySources
+} from './public-library-registry.ts';
 import { buildScopedPackReport } from '../domain/scoped-pack.ts';
 import { buildHelmChartKnowledgeSources } from '../domain/helm-chart-context.ts';
 import { buildPulumiConfigKnowledgeSources } from '../domain/pulumi-config-knowledge.ts';
@@ -528,7 +531,8 @@ export async function collectWorkspaceKnowledgeSources(
   candidates.push(...await collectConfiguredPublicLibraryRegistrySources(
     inspection,
     requestedDomains,
-    targetPaths
+    targetPaths,
+    store
   ));
 
   return filterResourceScopedCandidates(inspection, candidates, selection.resource);
@@ -635,6 +639,73 @@ async function prefetchConfiguredUnitArtifactRegistries(input: {
   };
 }
 
+async function prefetchConfiguredPublicLibraryRegistries(input: {
+  inspection: WorkspaceInspection;
+  requestedDomains: InfraDomainId[];
+  targetPaths: string[];
+  maxSources: number;
+  fetcher: KnowledgeFetcher;
+  store: KnowledgeStore;
+  now?: Date;
+  externalSourceCount: number;
+}): Promise<{
+  sources: KnowledgePrefetchSourceResult[];
+  externalSourceCount: number;
+}> {
+  const requestedDomainSet = new Set(input.requestedDomains);
+  const targetPathSet = new Set(input.targetPaths);
+  const storeBuildId = (source: KnowledgeSource) => input.store.buildId(source);
+  const sources: KnowledgePrefetchSourceResult[] = [];
+  let externalSourceCount = input.externalSourceCount;
+
+  for (const candidate of configuredPublicLibraryRegistrySources(input.inspection, requestedDomainSet, targetPathSet)) {
+    if (!candidate.source.url) {
+      sources.push(sourceResult(candidate, 'local', 'local', {
+        message: 'Local public knowledge library registry does not require prefetch.'
+      }, storeBuildId));
+      continue;
+    }
+
+    const previousCacheStatus = await resolveKnowledgeSourceCacheStatus(candidate.source, input.store, input.now);
+    if (externalSourceCount >= input.maxSources) {
+      sources.push(sourceResult(candidate, 'skipped', previousCacheStatus, {
+        message: `Skipped because maxSources=${input.maxSources} was reached.`
+      }, storeBuildId));
+      continue;
+    }
+
+    externalSourceCount += 1;
+    const packet = await retrieveKnowledgeContextPacket({
+      store: input.store,
+      source: candidate.source,
+      reason: `Prefetch public knowledge library registry ${candidate.source.name}`,
+      fetcher: input.fetcher,
+      now: input.now
+    });
+
+    if (!packet) {
+      sources.push(sourceResult(candidate, 'failed', previousCacheStatus, {
+        message: 'No cached public library registry was available and fetch returned no content.'
+      }, storeBuildId));
+      continue;
+    }
+
+    sources.push(sourceResult(candidate, previousCacheStatus === 'fresh'
+      ? 'cached'
+      : packet.confidence === 'medium'
+        ? 'stale-cache'
+        : 'fetched', previousCacheStatus, {
+      confidence: packet.confidence,
+      contentType: packet.contentType
+    }, storeBuildId));
+  }
+
+  return {
+    sources,
+    externalSourceCount
+  };
+}
+
 export async function prefetchWorkspaceKnowledge(
   inspection: WorkspaceInspection,
   options: KnowledgePrefetchOptions = {}
@@ -658,14 +729,27 @@ export async function prefetchWorkspaceKnowledge(
         now: options.now,
         externalSourceCount: 0
       });
+  const publicLibraryRegistryPrefetch = await prefetchConfiguredPublicLibraryRegistries({
+    inspection,
+    requestedDomains,
+    targetPaths,
+    maxSources,
+    fetcher,
+    store,
+    now: options.now,
+    externalSourceCount: registryPrefetch.externalSourceCount
+  });
   const candidates = await collectWorkspaceKnowledgeSources(inspection, {
     domains: requestedDomains,
     targetPaths,
     resource: selection.resource,
     store
   });
-  const sources: KnowledgePrefetchSourceResult[] = [...registryPrefetch.sources];
-  let externalSourceCount = registryPrefetch.externalSourceCount;
+  const sources: KnowledgePrefetchSourceResult[] = [
+    ...registryPrefetch.sources,
+    ...publicLibraryRegistryPrefetch.sources
+  ];
+  let externalSourceCount = publicLibraryRegistryPrefetch.externalSourceCount;
 
   for (const candidate of candidates) {
     if (!candidate.source.url) {

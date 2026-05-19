@@ -241,10 +241,13 @@ Current behavior is intentionally runtime-foundation oriented:
   `artifactContentHash` / `contentHash` so extraction rejects drifted unit
   payloads before planner use. URL-extracted public-reference artifacts can be
   staged with `knowledge library-stage` and then consumed through
-  `knowledgeSources.publicLibraryRegistries`, which points at a local
-  `infra-agent.public-knowledge-library-registry`. Matching registry entries
-  are discovered by Terraform provider/resource usage, content-hash checked,
-  converted back into compact five-type units, and kept in the
+  `knowledgeSources.publicLibraryRegistries`, which may point at either a safe
+  workspace-relative `infra-agent.public-knowledge-library-registry` `path` or
+  a secret-free registry `url`. URL registries are downloaded only through the
+  explicit read-only `knowledge prefetch` path; after the registry is cached,
+  matching entries are discovered by Terraform provider/resource usage, their
+  artifact URLs or relative artifact paths are expanded, artifact content
+  hashes are checked, and compact five-type units remain in the
   `public-reference` storage scope.
   `validate` checks facts, extraction reports, compact packs, unit artifacts,
   indexes, and plan-only artifact manifests before use. `pack` ranks and emits a
@@ -308,11 +311,14 @@ Current behavior is intentionally runtime-foundation oriented:
   coordinate. This is the local downloadable-registry shape for future central
   library workflows. It writes only local files under the requested workspace;
   it does not contact a remote backend, read credentials, create upload
-  commands, or approve publication. Add the resulting registry under
+  commands, or approve publication. Add the resulting registry, or a
+  secret-free URL for an equivalent reviewed public registry, under
   `infra-agent.config.json` -> `knowledgeSources.publicLibraryRegistries` when
   a workspace should reuse reviewed public-reference artifacts through
   `knowledge sources`, `knowledge extract`, `knowledge pack`, or
-  `knowledge resource` without re-downloading the public docs.
+  `knowledge resource` without re-downloading the public docs. URL-backed
+  registries must be cached with `knowledge prefetch` before their artifact
+  entries can be discovered and reused.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

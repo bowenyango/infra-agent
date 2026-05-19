@@ -35,6 +35,7 @@ const SOURCE_KIND_SCORE: Record<KnowledgePackSource['kind'], number> = {
   'internal-knowledge': 33,
   'knowledge-unit-registry': 10,
   'knowledge-unit-artifact': 34,
+  'public-knowledge-library-registry': 10,
   'public-knowledge-library-artifact': 34,
   'repo-example': 24,
   'terraform-registry': 20,
