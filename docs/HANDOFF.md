@@ -6,6 +6,79 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-19 Public Knowledge Library Local Staging
+
+Status:
+
+- Added a local, content-addressed staging path for validated public knowledge
+  library artifacts. `knowledge library-stage` now stores
+  `infra-agent.public-knowledge-library-artifact` JSON under a workspace-local
+  public library directory and updates a downloadable registry keyed by hub
+  coordinates.
+- The registry envelope is
+  `infra-agent.public-knowledge-library-registry` and records artifact path,
+  SHA-256 content hash, media type, artifact id, unit payload hash, source
+  content hash, unit count, quality status, review-required posture, tags, and
+  download trace metadata.
+- The staging command validates the input artifact first, rejects non-public
+  artifact inputs, refuses malformed registries, and stays local-only. It does
+  not upload, probe a backend, read credentials, generate publication commands,
+  or decide trust.
+
+Files changed:
+
+- `src/knowledge/public-library-stage.ts` implements local staging and registry
+  upsert behavior.
+- `src/cli/main.ts` adds `knowledge library-stage` argument parsing and command
+  routing.
+- `src/cli/output.ts` adds text output for public library staging reports.
+- `test/integration/cli-public-library-stage-main.test.mjs` covers staging,
+  registry creation, idempotent upsert, artifact validation, and malformed
+  registry refusal.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers the CLI argument
+  contract.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`, and
+  `skills/infra-configuration/SKILL.md` document the local public-library
+  staging flow.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+- Live smoke:
+  `node bin/infra-agent.js knowledge from-url
+  https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+  --max-units 20
+  --out /tmp/infra-agent-s3-url-knowledge-stage-20260519.json
+  --library-out /tmp/infra-agent-s3-library-artifact-stage-20260519.json
+  --json` passed with `download.mode="live-fetch"`, fallback enabled, and all
+  five unit types present.
+- Live artifact validation:
+  `node bin/infra-agent.js knowledge validate
+  /tmp/infra-agent-s3-library-artifact-stage-20260519.json --json` passed with
+  `inputKind="infra-agent.public-knowledge-library-artifact"`, `valid=true`,
+  `unitCount=20`, and `issueCount=0`.
+- Live local staging:
+  `node bin/infra-agent.js knowledge library-stage
+  /tmp/infra-agent-s3-library-artifact-stage-20260519.json
+  --workspace /tmp/infra-agent-public-library-stage-smoke-20260519
+  --store-dir knowledge/public-library
+  --registry knowledge/public-library-registry.json --json` passed with a
+  content-addressed stored artifact and one registry entry.
+
+Residual risks:
+
+- The local registry is now shaped for future download/reuse, but retrieval
+  from this public-library registry is not implemented in this slice.
+- This slice still does not perform LLM refinement. It prepares validated,
+  source-backed, review-required artifacts that can become LLM inputs later.
+
 ## 2026-05-19 Public Knowledge LLM Review Packet
 
 Status:

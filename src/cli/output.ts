@@ -53,6 +53,7 @@ import type { KnowledgePack } from '../knowledge/pack.ts';
 import type { ResourceKnowledgeReport } from '../knowledge/resource-report.ts';
 import type { PublicKnowledgeUrlReport } from '../knowledge/url-report.ts';
 import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-artifact-publish.ts';
+import type { PublicKnowledgeLibraryStageReport } from '../knowledge/public-library-stage.ts';
 import type {
   KnowledgeUnitIndexEntry,
   KnowledgeUnitMetadataIndex
@@ -3792,6 +3793,28 @@ export function printKnowledgeSharedArtifactPublishReport(
   process.stdout.write(`updated existing entry: ${report.registry.updatedExistingEntry ? 'yes' : 'no'}\n`);
   process.stdout.write(`domain: ${report.entry.domain}\n`);
   process.stdout.write(`target: ${report.entry.targetPath ?? 'all'}\n`);
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
+}
+
+export function printPublicKnowledgeLibraryStageReport(
+  report: PublicKnowledgeLibraryStageReport
+): void {
+  printHeader('Public knowledge library stage');
+  process.stdout.write(`mode: ${report.executionMode}\n`);
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`coordinates: ${report.artifact.coordinates}\n`);
+  process.stdout.write(`units: ${report.artifact.unitCount}\n`);
+  process.stdout.write(`quality: ${report.artifact.qualityStatus}\n`);
+  process.stdout.write(`stored: ${report.artifact.registryPath}\n`);
+  process.stdout.write(`sha256: ${report.artifact.sha256}\n`);
+  process.stdout.write(`registry: ${report.registry.path}\n`);
+  process.stdout.write(`registry entries: ${report.registry.entryCount}\n`);
+  process.stdout.write(`updated existing entry: ${report.registry.updatedExistingEntry ? 'yes' : 'no'}\n`);
+  process.stdout.write(`download: ${report.entry.download.mode} strategy=${report.entry.download.strategy} fallback=${report.entry.download.fallbackUsed ? 'yes' : 'no'}\n`);
   if (report.warnings.length > 0) {
     process.stdout.write('\n');
     printHeader('Warnings');

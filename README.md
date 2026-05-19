@@ -125,6 +125,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge resource [workspace] --domain <helm|pulumi|terraform> --resource <identity> [--max-units <n>] [--out <report.json>] [--json]`
 - `infra-agent knowledge from-url <url> [--max-units <n>] [--out <url-knowledge.json>] [--library-out <library-artifact.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
+- `infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -294,6 +295,14 @@ Current behavior is intentionally runtime-foundation oriented:
   packet drift, and raw content omission. This is the public-reference path to
   use when another agent gives a documentation link such as `aws_s3_bucket` and
   needs compact JSON rather than repo linkage.
+- `knowledge library-stage` stages a validated
+  `infra-agent.public-knowledge-library-artifact` into a workspace-relative
+  content-addressed public-library store and updates an
+  `infra-agent.public-knowledge-library-registry` JSON file keyed by the stable
+  coordinate. This is the local downloadable-registry shape for future central
+  library workflows. It writes only local files under the requested workspace;
+  it does not contact a remote backend, read credentials, create upload
+  commands, or approve publication.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

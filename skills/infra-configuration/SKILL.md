@@ -73,6 +73,7 @@ values.
    infra-agent knowledge index <workspace>
    infra-agent knowledge index <workspace> --resource <identity> --field-path <field> --json
    infra-agent knowledge validate <artifact> --workspace <workspace>
+   infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> --json
    ```
 
    Use `--resource <identity>` instead of `--target <path>` when the user names
@@ -113,6 +114,12 @@ values.
    download reuse, or LLM refinement; validation checks coordinate coherence,
    download trace shape, unit counts, unit hash, review packet drift, and
    raw-content omission.
+   Use `knowledge library-stage <artifact.json> --workspace <workspace>
+   --store-dir <dir> --registry <registry.json> --json` only after validation
+   when preparing local downloadable-registry metadata. It writes a
+   content-addressed artifact and an
+   `infra-agent.public-knowledge-library-registry` file under the workspace;
+   it is not a remote upload, trust decision, or publication approval.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage

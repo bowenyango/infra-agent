@@ -401,6 +401,32 @@ test('knowledge publish CLI args accept lean shared artifact staging flags', () 
   assert.equal(parsed.json, true);
 });
 
+test('knowledge library-stage CLI args accept public library registry staging flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-stage',
+    'artifacts/aws-s3-library.json',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--store-dir',
+    'knowledge/public-library',
+    '--registry',
+    'knowledge/public-library-registry.json',
+    '--out',
+    'artifacts/library-stage-report.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-stage');
+  assert.equal(parsed.inputPath, 'artifacts/aws-s3-library.json');
+  assert.equal(parsed.workspace, resolve(process.cwd(), 'fixtures/sample-workspace'));
+  assert.equal(parsed.publishStoreDir, 'knowledge/public-library');
+  assert.equal(parsed.publishRegistryPath, 'knowledge/public-library-registry.json');
+  assert.equal(parsed.outputPath, 'artifacts/library-stage-report.json');
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge index filters are rejected for other knowledge actions', () => {
   const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'pack', 'fixtures/sample-workspace', '--unit-type', 'fact']);";
   const result = spawnSync(process.execPath, [

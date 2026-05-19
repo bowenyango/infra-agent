@@ -141,6 +141,7 @@ workspace-scoped report, use the URL-only extraction path:
 ```sh
 infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --library-out /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
+infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 ```
 
 The output should be an `infra-agent.public-knowledge-url-report` with
@@ -171,9 +172,15 @@ credentials, upload commands, or backend URLs. `knowledge validate` should
 accept that artifact and reject drifted coordinates, inconsistent source
 metadata, malformed download traces, mismatched unit counts, bad
 `unitPayloadHash`, drifted LLM review packet fields, embedded raw content, or
-secret-like compact unit text. This path can fetch the URL live; tests should
-continue to use offline fixtures through the internal `--content <file>` helper
-so default CI does not require network access.
+secret-like compact unit text. `knowledge library-stage` should only accept a
+valid public library artifact, copy it into a workspace-relative
+content-addressed local store, and update an
+`infra-agent.public-knowledge-library-registry` entry keyed by the stable
+coordinate. It must refuse malformed registries rather than overwriting them
+and must not perform remote upload, credential reads, backend probes, or
+publication approval. This path can fetch the URL live; tests should continue
+to use offline fixtures through the internal `--content <file>` helper so
+default CI does not require network access.
 
 ## Layout
 

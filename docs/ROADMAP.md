@@ -616,6 +616,15 @@ Implemented initial CLI surfaces:
     review input for deterministic central-library download/reuse workflows.
     Validate the artifact with `knowledge validate <artifact.json> --json`
     before registry staging, download reuse, or LLM refinement.
+- `infra-agent knowledge library-stage <library-artifact.json> --workspace
+  <workspace> --store-dir <dir> --registry <registry.json> ...`
+  - validates a public library artifact, stores it by SHA-256 under a
+    workspace-relative public-library directory, and updates an
+    `infra-agent.public-knowledge-library-registry` JSON file keyed by stable
+    coordinates. This is a local downloadable-registry staging path for future
+    central-library workflows. It must not call a cloud client, read
+    credentials, probe a backend, create upload commands, or approve
+    publication.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by
