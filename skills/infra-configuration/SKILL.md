@@ -149,8 +149,10 @@ values.
    reviewed public-reference artifacts through `knowledge sources`, `extract`,
    `pack`, or `resource`. Run `knowledge prefetch <workspace>` first for
    URL-backed registries so the registry and matching artifacts enter the local
-   cache. Extraction verifies the registered artifact content hash before
-   exposing units as `public-knowledge-library-artifact` sources. Use
+   cache. Public-library registry matching covers Terraform provider/resource
+   usage, Pulumi package/resource tokens, and Helm chart names. Extraction
+   verifies the registered artifact content hash before exposing units as
+   `public-knowledge-library-artifact` sources. Use
    `knowledge validate <registry.json> --json` before sharing or configuring a
    public registry; validation checks coordinates, artifact locations, hashes,
    media type, quality status, and review-required posture.

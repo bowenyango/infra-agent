@@ -11,7 +11,9 @@ import { buildTerraformRegistryKnowledgeSources } from '../domain/terraform-regi
 import type { KnowledgeStore } from './knowledge-store.ts';
 import type { KnowledgePrefetchCandidate } from './prefetch.ts';
 import type {
+  HelmChartSummary,
   InfraDomainId,
+  PulumiProjectSummary,
   TerraformRootSummary,
   WorkspaceInspection,
   WorkspacePublicKnowledgeLibraryRegistrySourceConfig
@@ -20,8 +22,12 @@ import type { KnowledgeSource } from '../types/knowledge.ts';
 
 interface PublicLibraryRegistryEntry {
   coordinates: string;
-  ecosystem: 'terraform';
-  artifactKind: 'terraform-provider-resource' | 'terraform-provider-data-source';
+  ecosystem: 'terraform' | 'pulumi' | 'helm';
+  artifactKind:
+    | 'terraform-provider-resource'
+    | 'terraform-provider-data-source'
+    | 'pulumi-package-resource'
+    | 'helm-chart-docs';
   providerAddress: string;
   version: string;
   versionRef: {
@@ -41,6 +47,9 @@ interface PublicLibraryRegistryEntry {
     reason?: 'content-fixture-no-network' | 'http-error' | 'invalid-response' | 'no-semver-version' | 'fetch-error';
   };
   sourceName: string;
+  resourceToken?: string;
+  repository?: string;
+  chart?: string;
   tags: string[];
   artifact: {
     path?: string;
@@ -114,18 +123,47 @@ function isVersionResolution(value: unknown, version: string): boolean {
     );
 }
 
+function artifactKindMatchesEcosystem(ecosystem: unknown, artifactKind: unknown): boolean {
+  if (ecosystem === 'terraform') {
+    return artifactKind === 'terraform-provider-resource'
+      || artifactKind === 'terraform-provider-data-source';
+  }
+
+  if (ecosystem === 'pulumi') {
+    return artifactKind === 'pulumi-package-resource';
+  }
+
+  if (ecosystem === 'helm') {
+    return artifactKind === 'helm-chart-docs';
+  }
+
+  return false;
+}
+
+function requiredMetadataMatchesEcosystem(value: Record<string, unknown>): boolean {
+  if (value.ecosystem === 'pulumi') {
+    return typeof value.resourceToken === 'string' && value.resourceToken.length > 0;
+  }
+
+  if (value.ecosystem === 'helm') {
+    return typeof value.chart === 'string' && value.chart.length > 0;
+  }
+
+  return true;
+}
+
 function configuredPublicLibraryRegistries(
   inspection: WorkspaceInspection,
   requestedDomains: Set<InfraDomainId>,
   targetPaths: Set<string>
 ): WorkspacePublicKnowledgeLibraryRegistrySourceConfig[] {
   const configuredSources = inspection.config?.knowledgeSources?.publicLibraryRegistries;
-  if (!Array.isArray(configuredSources) || !requestedDomains.has('terraform')) {
+  if (!Array.isArray(configuredSources)) {
     return [];
   }
 
   return configuredSources.filter(configuredSource => {
-    if (configuredSource.domain !== undefined && (!isInfraDomain(configuredSource.domain) || configuredSource.domain !== 'terraform')) {
+    if (configuredSource.domain !== undefined && (!isInfraDomain(configuredSource.domain) || !requestedDomains.has(configuredSource.domain))) {
       return false;
     }
 
@@ -167,6 +205,12 @@ function registrySourceFromConfig(configuredSource: WorkspacePublicKnowledgeLibr
       : {}),
     ...(typeof configuredSource.provider === 'string' && configuredSource.provider.length > 0
       ? { provider: configuredSource.provider }
+      : {}),
+    ...(typeof configuredSource.packageName === 'string' && configuredSource.packageName.length > 0
+      ? { packageName: configuredSource.packageName }
+      : {}),
+    ...(typeof configuredSource.chart === 'string' && configuredSource.chart.length > 0
+      ? { chart: configuredSource.chart }
       : {})
   };
 }
@@ -180,16 +224,23 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
   const artifactUrl = typeof value.artifact.url === 'string' && isSecretSafeKnowledgeUrl(value.artifact.url);
   if (
     typeof value.coordinates !== 'string'
-    || value.ecosystem !== 'terraform'
+    || (value.ecosystem !== 'terraform' && value.ecosystem !== 'pulumi' && value.ecosystem !== 'helm')
     || (
       value.artifactKind !== 'terraform-provider-resource'
       && value.artifactKind !== 'terraform-provider-data-source'
+      && value.artifactKind !== 'pulumi-package-resource'
+      && value.artifactKind !== 'helm-chart-docs'
     )
+    || !artifactKindMatchesEcosystem(value.ecosystem, value.artifactKind)
     || typeof value.providerAddress !== 'string'
     || typeof value.version !== 'string'
     || !isVersionRef(value.versionRef, value.version)
     || !isVersionResolution(value.versionResolution, value.version)
     || typeof value.sourceName !== 'string'
+    || (value.resourceToken !== undefined && typeof value.resourceToken !== 'string')
+    || (value.repository !== undefined && typeof value.repository !== 'string')
+    || (value.chart !== undefined && typeof value.chart !== 'string')
+    || !requiredMetadataMatchesEcosystem(value)
     || !Array.isArray(value.tags)
     || !value.tags.every(tag => typeof tag === 'string')
     || artifactLocalPath === artifactUrl
@@ -257,7 +308,19 @@ function configuredSourceAllowsEntry(
   configuredSource: WorkspacePublicKnowledgeLibraryRegistrySourceConfig,
   entry: PublicLibraryRegistryEntry
 ): boolean {
+  if (isInfraDomain(configuredSource.domain) && configuredSource.domain !== entry.ecosystem) {
+    return false;
+  }
+
   if (typeof configuredSource.provider === 'string' && configuredSource.provider !== entry.providerAddress) {
+    return false;
+  }
+
+  if (typeof configuredSource.packageName === 'string' && configuredSource.packageName !== entry.providerAddress) {
+    return false;
+  }
+
+  if (typeof configuredSource.chart === 'string' && configuredSource.chart !== entry.chart) {
     return false;
   }
 
@@ -299,7 +362,10 @@ function publicLibrarySourceFromEntry(
     ...(registrySource.localPath && localPath !== null ? { localPath } : {}),
     ...(registrySource.url && url !== null ? { url } : {}),
     version: entry.version,
-    provider: entry.providerAddress,
+    ...(entry.ecosystem === 'terraform' ? { provider: entry.providerAddress } : {}),
+    ...(entry.ecosystem === 'pulumi' ? { packageName: entry.providerAddress } : {}),
+    ...(entry.ecosystem === 'pulumi' && entry.resourceToken ? { module: entry.resourceToken } : {}),
+    ...(entry.ecosystem === 'helm' && entry.chart ? { chart: entry.chart } : {}),
     artifactContentHash: entry.artifact.contentHash
   };
 }
@@ -316,6 +382,55 @@ async function terraformTargetUsesPublicLibraryEntry(
   );
 }
 
+function pulumiTargetUsesPublicLibraryEntry(
+  project: PulumiProjectSummary,
+  entry: PublicLibraryRegistryEntry
+): boolean {
+  if (entry.resourceToken) {
+    return project.resourceTokens.some(token => token.type === entry.resourceToken);
+  }
+
+  return project.resourceTokens.some(token => `@pulumi/${token.packageName}` === entry.providerAddress);
+}
+
+function helmTargetUsesPublicLibraryEntry(
+  chart: HelmChartSummary,
+  entry: PublicLibraryRegistryEntry
+): boolean {
+  return entry.chart !== undefined
+    && (chart.chartName === entry.chart || chart.chartMetadata.chartName === entry.chart);
+}
+
+function targetDomainPaths(inspection: WorkspaceInspection, domain: InfraDomainId): string[] {
+  switch (domain) {
+    case 'terraform':
+      return inspection.terraformRoots.map(root => root.rootPath);
+    case 'pulumi':
+      return inspection.pulumiProjects.map(project => project.projectRoot);
+    case 'helm':
+      return inspection.helmCharts.map(chart => chart.chartRoot);
+  }
+}
+
+async function targetUsesPublicLibraryEntry(
+  inspection: WorkspaceInspection,
+  targetPath: string,
+  entry: PublicLibraryRegistryEntry
+): Promise<boolean> {
+  if (entry.ecosystem === 'terraform') {
+    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === targetPath);
+    return root ? terraformTargetUsesPublicLibraryEntry(inspection, root, entry) : false;
+  }
+
+  if (entry.ecosystem === 'pulumi') {
+    const project = inspection.pulumiProjects.find(candidate => candidate.projectRoot === targetPath);
+    return project ? pulumiTargetUsesPublicLibraryEntry(project, entry) : false;
+  }
+
+  const chart = inspection.helmCharts.find(candidate => candidate.chartRoot === targetPath);
+  return chart ? helmTargetUsesPublicLibraryEntry(chart, entry) : false;
+}
+
 async function targetPathsForPublicLibraryEntry(
   inspection: WorkspaceInspection,
   configuredSource: WorkspacePublicKnowledgeLibraryRegistrySourceConfig,
@@ -323,26 +438,24 @@ async function targetPathsForPublicLibraryEntry(
   requestedTargetPaths: Set<string>
 ): Promise<string[]> {
   if (typeof configuredSource.targetPath === 'string' && configuredSource.targetPath.length > 0) {
-    const root = inspection.terraformRoots.find(candidate => candidate.rootPath === configuredSource.targetPath);
     if (
-      root
-      && targetAllowed(root.rootPath, requestedTargetPaths)
-      && await terraformTargetUsesPublicLibraryEntry(inspection, root, entry)
+      targetAllowed(configuredSource.targetPath, requestedTargetPaths)
+      && await targetUsesPublicLibraryEntry(inspection, configuredSource.targetPath, entry)
     ) {
-      return [root.rootPath];
+      return [configuredSource.targetPath];
     }
 
     return [];
   }
 
   const matchedTargets: string[] = [];
-  for (const root of inspection.terraformRoots) {
-    if (!targetAllowed(root.rootPath, requestedTargetPaths)) {
+  for (const targetPath of targetDomainPaths(inspection, entry.ecosystem)) {
+    if (!targetAllowed(targetPath, requestedTargetPaths)) {
       continue;
     }
 
-    if (await terraformTargetUsesPublicLibraryEntry(inspection, root, entry)) {
-      matchedTargets.push(root.rootPath);
+    if (await targetUsesPublicLibraryEntry(inspection, targetPath, entry)) {
+      matchedTargets.push(targetPath);
     }
   }
 
@@ -376,7 +489,7 @@ export async function collectConfiguredPublicLibraryRegistrySources(
       );
 
       candidates.push(...resolvedTargetPaths.map(targetPath => ({
-        domain: 'terraform' as const,
+        domain: entry.ecosystem,
         targetPath,
         source: publicLibrarySourceFromEntry(entry, registrySource)
       })).filter((candidate): candidate is KnowledgePrefetchCandidate => candidate.source !== null));
@@ -399,7 +512,9 @@ export function configuredPublicLibraryRegistrySources(
       }
 
       return {
-        domain: 'terraform' as const,
+        domain: isInfraDomain(configuredSource.domain)
+          ? configuredSource.domain
+          : requestedDomains.values().next().value ?? 'terraform',
         targetPath: typeof configuredSource.targetPath === 'string' ? configuredSource.targetPath : '',
         source
       };

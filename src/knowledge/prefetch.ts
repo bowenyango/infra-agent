@@ -227,7 +227,13 @@ function pulumiSourceAllowedForResource(input: {
   resource: string;
   source: KnowledgeSource;
 }): boolean {
-  if (input.source.kind !== 'pulumi-docs' || !input.source.name.startsWith('pulumi-docs:resource:')) {
+  if (
+    input.source.kind !== 'pulumi-docs'
+    && input.source.kind !== 'public-knowledge-library-artifact'
+  ) {
+    return false;
+  }
+  if (input.source.kind === 'pulumi-docs' && !input.source.name.startsWith('pulumi-docs:resource:')) {
     return false;
   }
 

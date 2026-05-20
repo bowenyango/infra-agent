@@ -331,8 +331,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   registry `url`. URL registries must be downloaded by the read-only
   `knowledge prefetch` path before artifact discovery. Registry entries expand
   into `public-knowledge-library-artifact` sources only when repo Terraform
-  usage matches the provider/resource identity, and extraction must verify the
-  registered artifact SHA-256 before using its compact units. Treat this as
+  usage, Pulumi package/resource-token usage, or Helm chart identity matches
+  the artifact metadata, and extraction must verify the registered artifact
+  SHA-256 before using its compact units. Treat this as
   read-only central-library download/reuse with `public-reference` storage
   scope, not upload, publication approval, or remote trust. Run
   `knowledge validate <registry.json> --json` on public library registries

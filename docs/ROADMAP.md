@@ -665,10 +665,11 @@ Implemented initial CLI surfaces:
     `knowledgeSources.publicLibraryRegistries`. URL registries must be fetched
     by `knowledge prefetch` into the local cache before source discovery can
     expand them. `knowledge sources`, `knowledge extract`, `knowledge pack`,
-    and `knowledge resource` then discover matching Terraform
-    provider/resource entries from repo usage, expand artifact URLs or relative
-    artifact paths, verify the artifact SHA-256 from the registry, and expose
-    the compact units as `public-knowledge-library-artifact` sources in the
+    and `knowledge resource` then discover matching Terraform provider/resource
+    entries, Pulumi package/resource-token entries, and Helm chart-doc entries
+    from repo usage, expand artifact URLs or relative artifact paths, verify
+    the artifact SHA-256 from the registry, and expose the compact units as
+    `public-knowledge-library-artifact` sources in the
     `public-reference` storage scope. This is read-only registry
     download/reuse, not remote upload or publication trust. `knowledge
     validate` accepts `infra-agent.public-knowledge-library-registry` payloads

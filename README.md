@@ -353,7 +353,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `knowledge sources`, `knowledge extract`, `knowledge pack`, or
   `knowledge resource` without re-downloading the public docs. URL-backed
   registries must be cached with `knowledge prefetch` before their artifact
-  entries can be discovered and reused. `knowledge validate
+  entries can be discovered and reused. Registry matching covers Terraform
+  provider/resource usage, Pulumi package/resource tokens, and Helm chart
+  names. `knowledge validate
   <public-library-registry.json> --json` validates registry coordinates,
   artifact locations, media type, hashes, unit counts, quality status, and
   review-required posture before a registry is shared or configured.

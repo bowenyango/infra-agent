@@ -6,6 +6,59 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Pulumi And Helm Public Library Registry Reuse
+
+Status:
+
+- Extended `knowledgeSources.publicLibraryRegistries` reuse beyond Terraform.
+- Public-library registry entries can now expand reviewed
+  `public-knowledge-library-artifact` sources for Terraform provider/resource
+  usage, Pulumi package/resource tokens, and Helm chart docs matched by chart
+  identity.
+- Pulumi artifacts carry `packageName` and resource token metadata into the
+  expanded source; Helm artifacts carry chart metadata. Resource-scoped Pulumi
+  selection now accepts public-library artifacts alongside Pulumi docs.
+
+Files changed:
+
+- `src/knowledge/public-library-registry.ts` accepts Terraform, Pulumi, and
+  Helm public-library registry entries, applies optional config filters for
+  provider/package/chart/version, maps each entry to domain-specific source
+  metadata, rejects mismatched ecosystem/artifact-kind metadata, and matches
+  entries to detected workspace targets.
+- `src/knowledge/prefetch.ts` lets Pulumi resource-scoped selection include
+  matching `public-knowledge-library-artifact` sources.
+- `src/types/repository.ts` adds optional public-library registry config
+  filters for `packageName` and `chart`.
+- `test/integration/cli-public-library-registry-main.test.mjs` covers staged
+  Pulumi and Helm public-library artifacts flowing through `knowledge sources`
+  and `knowledge pack`, plus malformed ecosystem/artifact-kind registry
+  entries being ignored.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  cross-domain public-library registry reuse.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Helm markdown extraction can still emit low-value chart-value facts for
+  non-values sections such as `Example Values`; a future quality slice should
+  keep examples as `example` units without duplicating code-fence headings into
+  facts.
+- URL-backed public-library registry reuse should still be verified with
+  domain-specific remote Pulumi and Helm fixtures before treating a remote
+  central library as production-ready.
+
 ## 2026-05-20 Helm URL Public Knowledge Extraction
 
 Status:
@@ -56,10 +109,9 @@ Validation:
 
 Residual risks:
 
-- Helm public-library artifacts can be produced, validated, and staged, but
-  workspace registry reuse still only matches Terraform provider/resource
-  usage. Pulumi and Helm registry-backed workspace reuse should be separate
-  slices.
+- Helm public-library artifacts can be produced, validated, staged, and reused
+  from configured public-library registries when the workspace chart identity
+  matches the artifact metadata.
 - Artifact Hub chart URLs without an explicit version are classified as
   `unversioned` and rely on content hashes and review before public reuse.
 
@@ -112,10 +164,11 @@ Validation:
 
 Residual risks:
 
-- Pulumi public-library artifacts can be produced, validated, and staged, but
-  workspace registry reuse still only matches Terraform provider/resource
-  usage. Pulumi registry-backed workspace reuse should be a separate slice.
-- Helm URL-only public extraction remains future work.
+- Pulumi public-library artifacts can be produced, validated, staged, and
+  reused from configured public-library registries when workspace package and
+  resource-token metadata matches the artifact.
+- Helm URL-only public extraction is implemented in the later Helm URL public
+  knowledge extraction slice.
 
 ## 2026-05-20 Public Knowledge Discovery Tag Validation
 

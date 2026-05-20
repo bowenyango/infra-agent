@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
+  readFile,
   rm,
   writeFile
 } from 'node:fs/promises';
@@ -22,6 +23,8 @@ import {
 import { writeKnowledgeCacheEntry } from '../../src/knowledge/cache.ts';
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket';
+const PULUMI_AWS_BUCKET_URL = 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/';
+const HELM_KUBE_PROMETHEUS_STACK_URL = 'https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack/';
 const REMOTE_PUBLIC_LIBRARY_REGISTRY_URL = 'https://knowledge.example.com/public/public-library-registry.json';
 
 const S3_BUCKET_MARKDOWN = [
@@ -51,6 +54,63 @@ const S3_BUCKET_MARKDOWN = [
   '',
   '1. Run terraform plan.',
   '2. Review replacement output before merge.',
+  ''
+].join('\n');
+
+const PULUMI_AWS_BUCKET_MARKDOWN = [
+  '# Bucket',
+  '',
+  '## Inputs',
+  '',
+  '| Name | Type | Description |',
+  '| --- | --- | --- |',
+  '| `bucket` | string | Name of the bucket to create. |',
+  '',
+  '## Example Usage',
+  '',
+  '```typescript',
+  'const bucket = new aws.s3.Bucket("site", {',
+  '  bucket: "site-bucket",',
+  '});',
+  '```',
+  '',
+  '## Migration Workflow',
+  '',
+  '1. Confirm whether the physical bucket name is changing.',
+  '2. Run pulumi preview and inspect replacements.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`BucketAlreadyExists` usually means another stack or account owns the requested bucket name.',
+  ''
+].join('\n');
+
+const HELM_KUBE_PROMETHEUS_STACK_MARKDOWN = [
+  '# kube-prometheus-stack',
+  '',
+  'Installs core components of the kube-prometheus stack.',
+  '',
+  '## Values',
+  '',
+  '| Key | Type | Default | Description |',
+  '| --- | --- | --- | --- |',
+  '| `grafana.enabled` | bool | `true` | Whether to deploy Grafana with the chart. |',
+  '',
+  '## Example Values',
+  '',
+  '```yaml',
+  'grafana:',
+  '  enabled: true',
+  '```',
+  '',
+  '## Upgrade Workflow',
+  '',
+  '1. Render the chart with helm template.',
+  '2. Review CRD and ownership changes before merge.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`rendered manifests contain a resource that already exists` usually means an object is owned by a different release.',
   ''
 ].join('\n');
 
@@ -271,6 +331,97 @@ async function writeTerraformRegistryCache(root) {
   });
 }
 
+async function stagePublicLibraryFixture(root, input) {
+  const contentPath = join(root, 'knowledge', input.contentFile);
+  const artifactInputPath = join(root, 'knowledge', input.artifactFile);
+  await writeFile(contentPath, input.markdown, 'utf8');
+  const report = await buildPublicKnowledgeUrlReport({
+    url: input.url,
+    contentPath,
+    maxUnits: 20,
+    now: new Date('2026-05-19T00:00:00.000Z')
+  });
+  const artifact = buildPublicKnowledgeLibraryArtifact(report);
+  await writeFile(artifactInputPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
+  await stagePublicKnowledgeLibraryArtifact({
+    workspaceRoot: root,
+    artifactPath: artifactInputPath,
+    storeDir: 'knowledge/public-library',
+    registryPath: 'knowledge/public-library-registry.json',
+    createdAt: '2026-05-19T00:00:00.000Z'
+  });
+
+  return artifact;
+}
+
+async function writeMixedPublicLibraryWorkspace(root) {
+  await mkdir(join(root, 'pulumi/service'), { recursive: true });
+  await mkdir(join(root, 'charts/platform'), { recursive: true });
+  await mkdir(join(root, 'knowledge'), { recursive: true });
+
+  await writeFile(
+    join(root, 'infra-agent.config.json'),
+    `${JSON.stringify({
+      knowledgeCache: {
+        root: '.infra-agent/knowledge-cache'
+      },
+      knowledgeSources: {
+        publicLibraryRegistries: [
+          {
+            path: 'knowledge/public-library-registry.json',
+            name: 'local-public-library'
+          }
+        ]
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'pulumi/service/Pulumi.yaml'),
+    [
+      'name: service',
+      'runtime: yaml',
+      'resources:',
+      '  bucket:',
+      '    type: aws:s3/bucket:Bucket',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'pulumi/service/package.json'),
+    `${JSON.stringify({
+      dependencies: {
+        '@pulumi/aws': '^7.0.0'
+      }
+    }, null, 2)}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'charts/platform/Chart.yaml'),
+    ['apiVersion: v2', 'name: kube-prometheus-stack', 'version: 1.0.0', ''].join('\n'),
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'charts/platform/values.yaml'),
+    ['grafana:', '  enabled: true', ''].join('\n'),
+    'utf8'
+  );
+
+  await stagePublicLibraryFixture(root, {
+    url: PULUMI_AWS_BUCKET_URL,
+    contentFile: 'pulumi_aws_bucket.md',
+    artifactFile: 'pulumi_aws_bucket.library.json',
+    markdown: PULUMI_AWS_BUCKET_MARKDOWN
+  });
+  await stagePublicLibraryFixture(root, {
+    url: HELM_KUBE_PROMETHEUS_STACK_URL,
+    contentFile: 'kube-prometheus-stack.md',
+    artifactFile: 'kube-prometheus-stack.library.json',
+    markdown: HELM_KUBE_PROMETHEUS_STACK_MARKDOWN
+  });
+}
+
 test('knowledge pack consumes staged public library registry artifacts as public-reference units', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-registry-'));
 
@@ -361,6 +512,147 @@ test('knowledge pack consumes staged public library registry artifacts as public
     assert.doesNotMatch(packOutput, /Provides an S3 bucket resource/);
     assert.doesNotMatch(packOutput, /## Troubleshooting/);
     assert.doesNotMatch(packOutput, /```hcl/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge pack consumes staged Pulumi and Helm public library registry artifacts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-registry-mixed-'));
+
+  try {
+    await writeMixedPublicLibraryWorkspace(tempRoot);
+
+    const pulumiSourcesOutput = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--resource',
+      'aws:s3/bucket:Bucket',
+      '--json'
+    ]));
+    const pulumiSources = parseJsonOutput(pulumiSourcesOutput);
+    const pulumiPublicSource = pulumiSources.sources.find(source =>
+      source.source.kind === 'public-knowledge-library-artifact'
+    );
+
+    assert.ok(pulumiPublicSource);
+    assert.equal(pulumiPublicSource.domain, 'pulumi');
+    assert.equal(pulumiPublicSource.targetPath, 'pulumi/service');
+    assert.equal(pulumiPublicSource.requiresFetch, false);
+    assert.equal(pulumiPublicSource.cacheStatus, 'local');
+    assert.equal(pulumiPublicSource.storagePolicy.scope, 'public-reference');
+    assert.equal(pulumiPublicSource.source.name, 'pulumi-docs:resource:aws:s3/bucket');
+    assert.equal(pulumiPublicSource.source.packageName, '@pulumi/aws');
+    assert.equal(pulumiPublicSource.source.module, 'aws:s3/bucket:Bucket');
+
+    const pulumiPackOutput = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--resource',
+      'aws:s3/bucket:Bucket',
+      '--source',
+      pulumiPublicSource.id,
+      '--max-units',
+      '8',
+      '--json'
+    ]));
+    const pulumiPack = parseJsonOutput(pulumiPackOutput);
+
+    assert.equal(pulumiPack.sourceCount, 1);
+    assert.equal(pulumiPack.storagePolicy.publicReference, 1);
+    assert.ok(pulumiPack.units.some(unit =>
+      unit.unitType === 'fact'
+      && unit.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+    ));
+    assert.ok(pulumiPack.units.some(unit => unit.unitType === 'recipe'));
+    assert.doesNotMatch(pulumiPackOutput, /## Troubleshooting/);
+    assert.doesNotMatch(pulumiPackOutput, /```typescript/);
+
+    const helmSourcesOutput = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--resource',
+      'kube-prometheus-stack',
+      '--json'
+    ]));
+    const helmSources = parseJsonOutput(helmSourcesOutput);
+    const helmPublicSource = helmSources.sources.find(source =>
+      source.source.kind === 'public-knowledge-library-artifact'
+    );
+
+    assert.ok(helmPublicSource);
+    assert.equal(helmPublicSource.domain, 'helm');
+    assert.equal(helmPublicSource.targetPath, 'charts/platform');
+    assert.equal(helmPublicSource.requiresFetch, false);
+    assert.equal(helmPublicSource.cacheStatus, 'local');
+    assert.equal(helmPublicSource.storagePolicy.scope, 'public-reference');
+    assert.equal(helmPublicSource.source.name, 'chart-docs:prometheus-community/kube-prometheus-stack');
+    assert.equal(helmPublicSource.source.chart, 'kube-prometheus-stack');
+
+    const helmPackOutput = await captureStdout(() => main([
+      'knowledge',
+      'pack',
+      tempRoot,
+      '--domain',
+      'helm',
+      '--resource',
+      'kube-prometheus-stack',
+      '--source',
+      helmPublicSource.id,
+      '--max-units',
+      '8',
+      '--json'
+    ]));
+    const helmPack = parseJsonOutput(helmPackOutput);
+
+    assert.equal(helmPack.sourceCount, 1);
+    assert.equal(helmPack.storagePolicy.publicReference, 1);
+    assert.ok(helmPack.units.some(unit =>
+      unit.unitType === 'fact'
+      && unit.path === 'chart.kube-prometheus-stack.grafana.enabled'
+    ));
+    assert.ok(helmPack.units.some(unit => unit.unitType === 'recipe'));
+    assert.doesNotMatch(helmPackOutput, /## Troubleshooting/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge sources ignore public library entries with mismatched ecosystem artifact kind', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-registry-mismatched-kind-'));
+
+  try {
+    await writeMixedPublicLibraryWorkspace(tempRoot);
+
+    const registryPath = join(tempRoot, 'knowledge/public-library-registry.json');
+    const registry = JSON.parse(await readFile(registryPath, 'utf8'));
+    registry.entries[0].artifactKind = 'terraform-provider-resource';
+    await writeFile(registryPath, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
+
+    const pulumiSourcesOutput = await captureStdout(() => main([
+      'knowledge',
+      'sources',
+      tempRoot,
+      '--domain',
+      'pulumi',
+      '--resource',
+      'aws:s3/bucket:Bucket',
+      '--json'
+    ]));
+    const pulumiSources = parseJsonOutput(pulumiSourcesOutput);
+
+    assert.equal(pulumiSources.sources.some(source =>
+      source.source.kind === 'public-knowledge-library-artifact'
+    ), false);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

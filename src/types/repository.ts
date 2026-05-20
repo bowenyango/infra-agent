@@ -66,6 +66,8 @@ export interface WorkspacePublicKnowledgeLibraryRegistrySourceConfig {
   name?: string;
   version?: string;
   provider?: string;
+  packageName?: string;
+  chart?: string;
 }
 
 export interface WorkspaceApprovalPathRule {
