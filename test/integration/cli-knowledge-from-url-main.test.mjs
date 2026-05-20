@@ -212,6 +212,16 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(typeof libraryArtifact.unitPayloadHash, 'string');
     assert.equal(libraryArtifact.unitPayloadHash.length, 64);
     assert.doesNotMatch(JSON.stringify(libraryArtifact), /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
+    const reportValidation = parseJsonOutput(await captureStdout(() => main([
+      'knowledge',
+      'validate',
+      outputPath,
+      '--json'
+    ])));
+    assert.equal(reportValidation.inputKind, 'infra-agent.public-knowledge-url-report');
+    assert.equal(reportValidation.valid, true);
+    assert.equal(reportValidation.unitCount, report.summary.includedUnitCount);
+    assert.equal(reportValidation.factCount, report.summary.unitCounts.fact);
     const validation = parseJsonOutput(await captureStdout(() => main([
       'knowledge',
       'validate',

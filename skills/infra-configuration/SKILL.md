@@ -110,10 +110,11 @@ values.
    downloadable central-library artifact; the artifact is a local,
    review-required `infra-agent.public-knowledge-library-artifact`, not an
    upload or approval to publish. Run
-   `knowledge validate <artifact.json> --json` before registry staging,
-   download reuse, or LLM refinement; validation checks coordinate coherence,
-   download trace shape, unit counts, unit hash, review packet drift, and
-   raw-content omission.
+   `knowledge validate <url-knowledge.json> --json` before LLM refinement, and
+   `knowledge validate <artifact.json> --json` before registry staging or
+   download reuse; validation checks source identity, coordinate coherence,
+   download trace shape, unit counts, unit hash when present, review packet
+   drift, and raw-content omission.
    Use `knowledge library-stage <artifact.json> --workspace <workspace>
    --store-dir <dir> --registry <registry.json> --json` only after validation
    when preparing local downloadable-registry metadata. It writes a

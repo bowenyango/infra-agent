@@ -140,6 +140,7 @@ workspace-scoped report, use the URL-only extraction path:
 
 ```sh
 infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --library-out /tmp/infra-agent-s3-library-artifact.json --json
+infra-agent knowledge validate /tmp/infra-agent-s3-url-knowledge.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge pack <workspace> --domain terraform --resource aws_s3_bucket --json
@@ -170,11 +171,15 @@ can prove Registry JavaScript-shell pages fall back to provider raw docs. With
 units, public-reference classification, download trace, quality summary,
 `unitPayloadHash`, and `llmRefinementInput`, without raw source content,
 credentials, upload commands, or backend URLs. `knowledge validate` should
-accept that artifact and reject drifted coordinates, inconsistent source
-metadata, malformed download traces, mismatched unit counts, bad
-`unitPayloadHash`, drifted LLM review packet fields, embedded raw content, or
-secret-like compact unit text. `knowledge library-stage` should only accept a
-valid public library artifact, copy it into a workspace-relative
+accept both the URL report and the library artifact. Report validation should
+reject drifted source IDs, inconsistent summary counts, candidate
+classification drift, LLM review packet drift, embedded raw content, and
+secret-like compact unit text. Artifact validation should reject drifted
+coordinates, inconsistent source metadata, malformed download traces,
+mismatched unit counts, bad `unitPayloadHash`, drifted LLM review packet
+fields, embedded raw content, or secret-like compact unit text.
+`knowledge library-stage` should only accept a valid public library artifact,
+copy it into a workspace-relative
 content-addressed local store, and update an
 `infra-agent.public-knowledge-library-registry` entry keyed by the stable
 coordinate. It must refuse malformed registries rather than overwriting them

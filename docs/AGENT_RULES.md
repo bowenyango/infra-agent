@@ -339,6 +339,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   before configuring or sharing them; validation must reject coordinate drift,
   unsafe artifact locations, malformed hashes, unsupported media types,
   invalid quality states, missing review posture, and raw content.
+- URL-only public documentation extraction must validate the
+  `infra-agent.public-knowledge-url-report` before LLM refinement or
+  central-library artifact preparation. The report validator is the boundary
+  for source identity, summary/unit count coherence, compact five-type unit
+  grouping, central-library candidate classification, download evidence, LLM
+  review packet drift, raw content omission, and secret-like text rejection.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

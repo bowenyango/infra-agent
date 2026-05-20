@@ -152,10 +152,12 @@ writes a standalone `infra-agent.public-knowledge-library-artifact` for future
 downloadable central-library workflows. That artifact is local,
 review-required, raw-content-free, and publication-ready in shape only; it is
 not an upload, approval, or remote execution path. `knowledge validate` must
-accept this artifact kind before it is used by registry, download, or
-LLM-refinement workflows and must reject coordinate drift, malformed download
-traces, mismatched unit counts, bad unit hashes, drifted LLM review packet
-fields, raw content, and secret-like compact unit text.
+accept both the URL report and this artifact kind before either is used by
+registry, download, or LLM-refinement workflows. URL report validation must
+reject source identity drift, mismatched summary/unit counts, central-library
+candidate drift, malformed download traces, drifted LLM review packet fields,
+raw content, and secret-like compact unit text. Artifact validation must also
+reject coordinate drift and bad unit payload hashes.
 
 Agent-2 reset policy:
 

@@ -297,13 +297,15 @@ Current behavior is intentionally runtime-foundation oriented:
   over generic Markdown sections. Use `--library-out` to write a standalone
   `infra-agent.public-knowledge-library-artifact` with the same compact units,
   download trace, classification, quality, unit hash, and offline LLM review
-  contract for future registry/download workflows. Validate that artifact with
+  contract for future registry/download workflows. Validate the URL report with
+  `knowledge validate <url-knowledge.json> --json` before LLM refinement, and
+  validate the artifact with
   `knowledge validate <library-artifact.json> --json` before handing it to a
-  registry, downloader, or LLM refinement step; validation checks coordinate
-  coherence, download trace shape, unit counts, `unitPayloadHash`, LLM review
-  packet drift, and raw content omission. This is the public-reference path to
-  use when another agent gives a documentation link such as `aws_s3_bucket` and
-  needs compact JSON rather than repo linkage.
+  registry or downloader; validation checks source identity, coordinate
+  coherence, download trace shape, unit counts, `unitPayloadHash` when present,
+  LLM review packet drift, and raw content omission. This is the
+  public-reference path to use when another agent gives a documentation link
+  such as `aws_s3_bucket` and needs compact JSON rather than repo linkage.
 - `knowledge library-stage` stages a validated
   `infra-agent.public-knowledge-library-artifact` into a workspace-relative
   content-addressed public-library store and updates an

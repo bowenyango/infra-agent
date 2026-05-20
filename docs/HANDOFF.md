@@ -6,6 +6,60 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Public Knowledge URL Report Validation
+
+Status:
+
+- Added `knowledge validate` support for
+  `infra-agent.public-knowledge-url-report` payloads emitted by
+  `knowledge from-url`.
+- The validator treats the URL report as the deterministic boundary before
+  offline LLM refinement or central-library artifact preparation. It checks
+  source URL safety, source ID coherence, SHA-256 source content hashes,
+  download trace shape, quality posture, grouped compact five-type units,
+  summary/unit-count coherence, central-library candidate metadata, Terraform
+  hub coordinates, and `llmRefinementInput` review packet drift.
+- The existing public-library artifact and registry flows remain read-only.
+  This slice does not add LLM execution, upload, publication approval, or
+  remote trust decisions.
+
+Files changed:
+
+- `src/knowledge/validate.ts` validates
+  `infra-agent.public-knowledge-url-report` payloads and shared compact
+  public-reference unit invariants.
+- `test/unit/knowledge-public-library-artifact-validation.test.mjs` covers
+  valid URL report validation plus rejection of source drift, summary drift,
+  candidate drift, LLM review packet drift, raw content, and secret-like unit
+  text.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers CLI-level
+  `knowledge from-url --out ...` followed by
+  `knowledge validate <url-report.json> --json`.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  URL report validation before LLM refinement and artifact validation before
+  registry/download reuse.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- URL report validation proves deterministic coherence of the downloaded
+  compact report; it does not prove the public documentation itself is current
+  beyond the recorded download trace and source content hash.
+- Optional LLM refinement remains future work. It should consume validated
+  `llmRefinementInput` packets and produce a deterministically validated
+  refined artifact before any central-library reuse.
+
 ## 2026-05-19 Public Library Registry CLI Validation And Fetch Smoke
 
 Status:

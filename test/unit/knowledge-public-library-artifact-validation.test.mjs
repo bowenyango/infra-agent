@@ -123,6 +123,94 @@ test('public knowledge library artifacts validate as downloadable central-librar
   }
 });
 
+test('public knowledge URL reports validate as bounded LLM review inputs', async () => {
+  const { tempRoot, report } = await buildArtifactFixture();
+
+  try {
+    const validation = validateKnowledgePayload(report, 'inline');
+
+    assert.equal(validation.kind, 'infra-agent.knowledge-validation');
+    assert.equal(validation.inputKind, 'infra-agent.public-knowledge-url-report');
+    assert.equal(validation.valid, true);
+    assert.equal(validation.factSetCount, 0);
+    assert.equal(validation.factCount, report.summary.unitCounts.fact);
+    assert.equal(validation.unitSetCount, 1);
+    assert.equal(validation.unitCount, report.summary.includedUnitCount);
+    assert.deepEqual(validation.issues, []);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('public knowledge URL report validation rejects drifted summary candidate and LLM review input', async () => {
+  const { tempRoot, report } = await buildArtifactFixture();
+
+  try {
+    const invalidReport = {
+      ...report,
+      sourceId: 'wrong-source-id',
+      sourceContentHash: 'c'.repeat(64),
+      summary: {
+        ...report.summary,
+        includedUnitCount: report.summary.includedUnitCount + 1,
+        unitCounts: {
+          ...report.summary.unitCounts,
+          fact: report.summary.unitCounts.fact + 1
+        },
+        compactByteLength: report.summary.compactByteLength + 1
+      },
+      centralLibraryCandidate: {
+        ...report.centralLibraryCandidate,
+        sourceId: 'wrong-candidate-source-id',
+        classification: {
+          ...report.centralLibraryCandidate.classification,
+          coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong'
+        },
+        llmRefinementInput: {
+          ...report.centralLibraryCandidate.llmRefinementInput,
+          reviewPacket: {
+            ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket,
+            sourceContentHash: 'd'.repeat(64),
+            unitCount: report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount + 1
+          }
+        }
+      },
+      unitsByType: {
+        ...report.unitsByType,
+        fact: [
+          {
+            ...report.unitsByType.fact[0],
+            summary: 'contains bearer token material'
+          }
+        ]
+      },
+      rawContent: '# raw provider docs should never be embedded'
+    };
+
+    const validation = validateKnowledgePayload(invalidReport, 'inline');
+
+    assert.equal(validation.valid, false);
+    for (const path of [
+      '$.rawContent',
+      '$.sourceId',
+      '$.summary.includedUnitCount',
+      '$.summary.unitCounts.fact',
+      '$.summary.compactByteLength',
+      '$.centralLibraryCandidate.sourceId',
+      '$.centralLibraryCandidate.sourceContentHash',
+      '$.centralLibraryCandidate.candidateId',
+      '$.centralLibraryCandidate.classification.coordinates',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount',
+      '$.unitsByType.fact[0].summary'
+    ]) {
+      assert.ok(validation.issues.some(issue => issue.path === path), path);
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('public knowledge library artifact validation rejects drifted hashes classification and raw content', async () => {
   const { tempRoot, artifact } = await buildArtifactFixture();
 

@@ -2179,6 +2179,441 @@ function validatePublicKnowledgeLlmRefinementInput(
   }
 }
 
+function validatePublicKnowledgeQualityMatches(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  expected: unknown,
+  label: string
+): void {
+  if (!isRecord(value) || !isRecord(expected)) {
+    return;
+  }
+
+  if (value.status !== expected.status) {
+    issues.push(error(`${path}.status`, `${label} quality status must match the report quality.`));
+  }
+  if (value.score !== expected.score) {
+    issues.push(error(`${path}.score`, `${label} quality score must match the report quality.`));
+  }
+  const warnings = readStringArray(value.warnings, `${path}.warnings`, issues);
+  const expectedWarnings = Array.isArray(expected.warnings)
+    ? expected.warnings.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  if (warnings !== null && !stringArraysEqual(warnings, expectedWarnings)) {
+    issues.push(error(`${path}.warnings`, `${label} quality warnings must match the report quality.`));
+  }
+}
+
+function validateCompactPublicKnowledgeUnits(
+  value: unknown,
+  path: string,
+  sourceId: string | null,
+  issues: KnowledgeValidationIssue[],
+  label: string
+): {
+  actualUnitCount: number;
+  actualCounts: Record<KnowledgeUnitType, number>;
+  actualCompactByteLength: number | null;
+} {
+  let actualUnitCount = 0;
+  const actualCounts = emptyKnowledgeUnitCountByType();
+  const sourceIds = new Set<string>();
+  if (sourceId !== null) {
+    sourceIds.add(sourceId);
+  }
+
+  if (!isRecord(value)) {
+    issues.push(error(path, `${label} unitsByType must be an object.`));
+    return {
+      actualUnitCount,
+      actualCounts,
+      actualCompactByteLength: null
+    };
+  }
+
+  const keys = new Set(Object.keys(value));
+  for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+    keys.delete(unitType);
+    const groupedUnits = value[unitType];
+    if (!Array.isArray(groupedUnits)) {
+      issues.push(error(`${path}.${unitType}`, `${label} unit group must be an array.`));
+      continue;
+    }
+    for (const [index, unit] of groupedUnits.entries()) {
+      const unitPath = `${path}.${unitType}[${index}]`;
+      const validated = validateKnowledgePackUnit(unit, unitPath, sourceIds, issues);
+      if (isRecord(unit)) {
+        if (Object.hasOwn(unit, 'source')) {
+          issues.push(error(`${unitPath}.source`, `${label} compact units must not embed full source objects.`));
+        }
+        if (unit.unitType !== unitType) {
+          issues.push(error(`${unitPath}.unitType`, `${label} compact unitType must match its unit group.`));
+        }
+        if (unit.privacyScope !== 'public-reference') {
+          issues.push(error(`${unitPath}.privacyScope`, `${label} units must remain public-reference.`));
+        }
+      }
+      if (validated !== null) {
+        actualCounts[validated.unitType] += 1;
+        actualUnitCount += 1;
+      }
+    }
+  }
+  for (const extraKey of keys) {
+    issues.push(error(`${path}.${extraKey}`, `${label} unitsByType must only include supported unit types.`));
+  }
+
+  return {
+    actualUnitCount,
+    actualCounts,
+    actualCompactByteLength: JSON.stringify(value).length
+  };
+}
+
+function validatePublicKnowledgeCentralLibraryCandidate(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  expected: {
+    domain: string | null;
+    source: KnowledgeSource | null;
+    sourceId: string | null;
+    sourceContentHash: string | null;
+    maxUnits: number | null;
+    download: unknown;
+    quality: unknown;
+    unitCount: number;
+    unitCounts: Record<KnowledgeUnitType, number>;
+    missingUnitTypes: KnowledgeUnitType[];
+    compactByteLength: number | null;
+  }
+): ReturnType<typeof validatePublicKnowledgeClassification> {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Public knowledge URL report centralLibraryCandidate must be an object.'));
+    return {
+      coordinates: null,
+      ecosystem: null,
+      artifactKind: null,
+      sourceName: null,
+      providerAddress: null,
+      version: null
+    };
+  }
+
+  if (value.kind !== 'infra-agent.central-knowledge-candidate') {
+    issues.push(error(`${path}.kind`, 'Public knowledge URL report centralLibraryCandidate kind must be infra-agent.central-knowledge-candidate.'));
+  }
+  if (value.schemaVersion !== 1) {
+    issues.push(error(`${path}.schemaVersion`, 'Public knowledge URL report centralLibraryCandidate schemaVersion must be 1.'));
+  }
+  if (value.mutationAllowed !== false) {
+    issues.push(error(`${path}.mutationAllowed`, 'Public knowledge URL report centralLibraryCandidate mutationAllowed must be false.'));
+  }
+  if (value.storageScope !== 'public-reference') {
+    issues.push(error(`${path}.storageScope`, 'Public knowledge URL report centralLibraryCandidate storageScope must be public-reference.'));
+  }
+  if (value.privacyScope !== 'public-reference') {
+    issues.push(error(`${path}.privacyScope`, 'Public knowledge URL report centralLibraryCandidate privacyScope must be public-reference.'));
+  }
+
+  const candidateId = readNonEmptyString(value.candidateId, `${path}.candidateId`, issues);
+  if (candidateId !== null) {
+    if (!PACK_ID_PATTERN.test(candidateId)) {
+      issues.push(error(`${path}.candidateId`, 'Public knowledge URL report centralLibraryCandidate candidateId must be a 24-character hex string.'));
+    } else if (
+      expected.sourceId !== null
+      && expected.sourceContentHash !== null
+      && expected.maxUnits !== null
+      && candidateId !== sha256Hex(`${expected.sourceId}:${expected.sourceContentHash}:${expected.maxUnits}`).slice(0, 24)
+    ) {
+      issues.push(error(`${path}.candidateId`, 'Public knowledge URL report centralLibraryCandidate candidateId must match sourceId, sourceContentHash, and maxUnits.'));
+    }
+  }
+
+  const sourceId = readNonEmptyString(value.sourceId, `${path}.sourceId`, issues);
+  if (sourceId !== null && expected.sourceId !== null && sourceId !== expected.sourceId) {
+    issues.push(error(`${path}.sourceId`, 'Public knowledge URL report centralLibraryCandidate sourceId must match report sourceId.'));
+  }
+  const sourceContentHash = readNonEmptyString(value.sourceContentHash, `${path}.sourceContentHash`, issues);
+  if (sourceContentHash !== null) {
+    if (!SHA256_HEX_PATTERN.test(sourceContentHash)) {
+      issues.push(error(`${path}.sourceContentHash`, 'Public knowledge URL report centralLibraryCandidate sourceContentHash must be a SHA-256 hex string.'));
+    } else if (expected.sourceContentHash !== null && sourceContentHash !== expected.sourceContentHash) {
+      issues.push(error(`${path}.sourceContentHash`, 'Public knowledge URL report centralLibraryCandidate sourceContentHash must match report sourceContentHash.'));
+    }
+  }
+
+  const { source: candidateSource, domain: candidateDomain } = validatePublicKnowledgeSource(value.source, `${path}.source`, issues);
+  if (candidateDomain !== null && expected.domain !== null && candidateDomain !== expected.domain) {
+    issues.push(error(`${path}.source.domain`, 'Public knowledge URL report centralLibraryCandidate source domain must match report domain.'));
+  }
+  if (candidateSource !== null && expected.source !== null) {
+    for (const field of ['kind', 'name', 'provider', 'version', 'url'] as const) {
+      if (
+        expected.source[field] !== undefined
+        && candidateSource[field] !== expected.source[field]
+      ) {
+        issues.push(error(`${path}.source.${field}`, `Public knowledge URL report centralLibraryCandidate source ${field} must match report source.`));
+      }
+    }
+  }
+
+  validatePublicKnowledgeQuality(value.quality, `${path}.quality`, issues);
+  validatePublicKnowledgeQualityMatches(
+    value.quality,
+    `${path}.quality`,
+    issues,
+    expected.quality,
+    'Public knowledge URL report centralLibraryCandidate'
+  );
+
+  const unitCount = readNonNegativeInteger(value.unitCount, `${path}.unitCount`, issues);
+  if (unitCount !== null && unitCount !== expected.unitCount) {
+    issues.push(error(`${path}.unitCount`, 'Public knowledge URL report centralLibraryCandidate unitCount must match selected units.'));
+  }
+  const unitCounts = validatePublicKnowledgeUnitCounts(value.unitCounts, `${path}.unitCounts`, issues);
+  if (unitCounts !== null) {
+    for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+      if (unitCounts[unitType] !== expected.unitCounts[unitType]) {
+        issues.push(error(`${path}.unitCounts.${unitType}`, 'Public knowledge URL report centralLibraryCandidate unitCounts must match selected units.'));
+      }
+    }
+  }
+  if (value.unitRef !== 'report.unitsByType') {
+    issues.push(error(`${path}.unitRef`, 'Public knowledge URL report centralLibraryCandidate unitRef must point to report.unitsByType.'));
+  }
+
+  const classification = validatePublicKnowledgeClassification(value.classification, `${path}.classification`, issues);
+  if (expected.domain !== null && classification.ecosystem !== null && expected.domain !== classification.ecosystem) {
+    issues.push(error(`${path}.classification.ecosystem`, 'Public knowledge URL report centralLibraryCandidate classification ecosystem must match report domain.'));
+  }
+  if (
+    expected.source !== null
+    && classification.sourceName !== null
+    && expected.source.name !== classification.sourceName
+  ) {
+    issues.push(error(`${path}.classification.sourceName`, 'Public knowledge URL report centralLibraryCandidate classification sourceName must match report source name.'));
+  }
+  if (
+    expected.source !== null
+    && classification.providerAddress !== null
+    && expected.source.provider !== undefined
+    && expected.source.provider !== classification.providerAddress
+  ) {
+    issues.push(error(`${path}.classification.providerAddress`, 'Public knowledge URL report centralLibraryCandidate classification providerAddress must match report source provider.'));
+  }
+  if (
+    expected.source !== null
+    && classification.version !== null
+    && expected.source.version !== undefined
+    && expected.source.version !== classification.version
+  ) {
+    issues.push(error(`${path}.classification.version`, 'Public knowledge URL report centralLibraryCandidate classification version must match report source version.'));
+  }
+
+  validatePublicKnowledgeLlmRefinementInput(value.llmRefinementInput, `${path}.llmRefinementInput`, issues, {
+    sourceId: expected.sourceId,
+    sourceContentHash: expected.sourceContentHash,
+    classification,
+    download: expected.download,
+    quality: expected.quality,
+    unitCount: expected.unitCount,
+    unitCounts: expected.unitCounts,
+    missingUnitTypes: expected.missingUnitTypes,
+    compactByteLength: expected.compactByteLength
+  });
+
+  return classification;
+}
+
+function validatePublicKnowledgeUrlReportPayload(
+  payload: Record<string, unknown>,
+  inputPath: string,
+  inputKind: string
+): KnowledgeValidationReport {
+  const issues: KnowledgeValidationIssue[] = [];
+
+  validateNoRawContentKeys(payload, '$', issues);
+
+  if (payload.schemaVersion !== 1) {
+    issues.push(error('$.schemaVersion', 'Public knowledge URL report schemaVersion must be 1.'));
+  }
+  if (payload.mutationAllowed !== false) {
+    issues.push(error('$.mutationAllowed', 'Public knowledge URL report mutationAllowed must be false.'));
+  }
+
+  const sourceUrl = readNonEmptyString(payload.sourceUrl, '$.sourceUrl', issues);
+  if (sourceUrl !== null) {
+    validateSecretSafeUrl(sourceUrl, '$.sourceUrl', issues);
+    if (!isSecretSafeKnowledgeUrl(sourceUrl)) {
+      issues.push(error('$.sourceUrl', 'Public knowledge URL report sourceUrl must be a secret-free http(s) URL without query or fragment.'));
+    }
+  }
+  const domain = typeof payload.domain === 'string' ? payload.domain : null;
+  if (domain === null || !INFRA_DOMAINS.includes(domain as typeof INFRA_DOMAINS[number])) {
+    issues.push(error('$.domain', 'Public knowledge URL report domain must be supported.'));
+  }
+  const source = validateKnowledgeUnitSource(payload.source, '$.source', issues);
+  if (sourceUrl !== null && source?.url !== undefined && source.url !== sourceUrl) {
+    issues.push(error('$.source.url', 'Public knowledge URL report source url must match sourceUrl.'));
+  }
+
+  const sourceId = readNonEmptyString(payload.sourceId, '$.sourceId', issues);
+  if (sourceId !== null && source !== null && sourceId !== buildKnowledgeCacheId(source)) {
+    issues.push(error('$.sourceId', 'Public knowledge URL report sourceId must match source.'));
+  }
+  const sourceContentHash = readNonEmptyString(payload.sourceContentHash, '$.sourceContentHash', issues);
+  if (sourceContentHash !== null && !SHA256_HEX_PATTERN.test(sourceContentHash)) {
+    issues.push(error('$.sourceContentHash', 'Public knowledge URL report sourceContentHash must be a SHA-256 hex string.'));
+  }
+  validateIsoDateString(payload.fetchedAt, '$.fetchedAt', issues);
+  readBoolean(payload.sourceStale, '$.sourceStale', issues);
+  validatePublicKnowledgeDownloadSummary(payload.download, '$.download', issues);
+  const maxUnits = readPositiveInteger(payload.maxUnits, '$.maxUnits', issues);
+  validatePublicKnowledgeQuality(payload.quality, '$.quality', issues);
+
+  const {
+    actualUnitCount,
+    actualCounts,
+    actualCompactByteLength
+  } = validateCompactPublicKnowledgeUnits(
+    payload.unitsByType,
+    '$.unitsByType',
+    sourceId,
+    issues,
+    'Public knowledge URL report'
+  );
+  const expectedIncludedUnitTypes = KNOWLEDGE_UNIT_TYPES.filter(unitType => actualCounts[unitType] > 0);
+  const expectedMissingUnitTypes = KNOWLEDGE_UNIT_TYPES.filter(unitType => actualCounts[unitType] === 0);
+
+  let summaryUnitCount: number | null = null;
+  let summaryIncludedUnitCount: number | null = null;
+  if (!isRecord(payload.summary)) {
+    issues.push(error('$.summary', 'Public knowledge URL report summary must be an object.'));
+  } else {
+    const factCount = readNonNegativeInteger(payload.summary.factCount, '$.summary.factCount', issues);
+    if (factCount !== null && factCount < actualCounts.fact) {
+      issues.push(error('$.summary.factCount', 'Public knowledge URL report summary factCount must cover selected fact units.'));
+    }
+    summaryUnitCount = readNonNegativeInteger(payload.summary.unitCount, '$.summary.unitCount', issues);
+    if (summaryUnitCount !== null && summaryUnitCount < actualUnitCount) {
+      issues.push(error('$.summary.unitCount', 'Public knowledge URL report summary unitCount must not be less than selected units.'));
+    }
+    summaryIncludedUnitCount = readNonNegativeInteger(payload.summary.includedUnitCount, '$.summary.includedUnitCount', issues);
+    if (summaryIncludedUnitCount !== null && summaryIncludedUnitCount !== actualUnitCount) {
+      issues.push(error('$.summary.includedUnitCount', 'Public knowledge URL report summary includedUnitCount must match selected units.'));
+    }
+    const omittedUnitCount = readNonNegativeInteger(payload.summary.omittedUnitCount, '$.summary.omittedUnitCount', issues);
+    if (
+      omittedUnitCount !== null
+      && summaryUnitCount !== null
+      && omittedUnitCount !== Math.max(0, summaryUnitCount - actualUnitCount)
+    ) {
+      issues.push(error('$.summary.omittedUnitCount', 'Public knowledge URL report summary omittedUnitCount must match unitCount - selected units.'));
+    }
+    const unitCounts = validatePublicKnowledgeUnitCounts(payload.summary.unitCounts, '$.summary.unitCounts', issues);
+    if (unitCounts !== null) {
+      for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+        if (unitCounts[unitType] !== actualCounts[unitType]) {
+          issues.push(error(`$.summary.unitCounts.${unitType}`, 'Public knowledge URL report summary unitCounts must match unitsByType.'));
+        }
+      }
+    }
+    const includedUnitTypes = readStringArray(payload.summary.includedUnitTypes, '$.summary.includedUnitTypes', issues);
+    if (includedUnitTypes !== null && !stringArraysEqual(includedUnitTypes, expectedIncludedUnitTypes)) {
+      issues.push(error('$.summary.includedUnitTypes', 'Public knowledge URL report summary includedUnitTypes must match non-empty unit groups in canonical order.'));
+    }
+    const missingUnitTypes = readStringArray(payload.summary.missingUnitTypes, '$.summary.missingUnitTypes', issues);
+    if (missingUnitTypes !== null && !stringArraysEqual(missingUnitTypes, expectedMissingUnitTypes)) {
+      issues.push(error('$.summary.missingUnitTypes', 'Public knowledge URL report summary missingUnitTypes must match empty unit groups in canonical order.'));
+    }
+    const unitTypeComplete = readBoolean(payload.summary.unitTypeComplete, '$.summary.unitTypeComplete', issues);
+    if (unitTypeComplete !== null && unitTypeComplete !== (expectedMissingUnitTypes.length === 0)) {
+      issues.push(error('$.summary.unitTypeComplete', 'Public knowledge URL report summary unitTypeComplete must match missingUnitTypes.'));
+    }
+    if (isRecord(payload.quality)) {
+      if (payload.summary.qualityStatus !== payload.quality.status) {
+        issues.push(error('$.summary.qualityStatus', 'Public knowledge URL report summary qualityStatus must match quality.status.'));
+      }
+      if (payload.summary.qualityScore !== payload.quality.score) {
+        issues.push(error('$.summary.qualityScore', 'Public knowledge URL report summary qualityScore must match quality.score.'));
+      }
+      const qualityWarnings = readStringArray(payload.summary.qualityWarnings, '$.summary.qualityWarnings', issues);
+      const expectedWarnings = Array.isArray(payload.quality.warnings)
+        ? payload.quality.warnings.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+      if (qualityWarnings !== null && !stringArraysEqual(qualityWarnings, expectedWarnings)) {
+        issues.push(error('$.summary.qualityWarnings', 'Public knowledge URL report summary qualityWarnings must match quality.warnings.'));
+      }
+    }
+    const compactByteLength = readNonNegativeInteger(payload.summary.compactByteLength, '$.summary.compactByteLength', issues);
+    if (
+      compactByteLength !== null
+      && actualCompactByteLength !== null
+      && compactByteLength !== actualCompactByteLength
+    ) {
+      issues.push(error('$.summary.compactByteLength', 'Public knowledge URL report summary compactByteLength must match unitsByType JSON length.'));
+    }
+  }
+
+  if (maxUnits !== null && actualUnitCount > maxUnits) {
+    issues.push(error('$.maxUnits', 'Public knowledge URL report maxUnits must be at least the selected unit count.'));
+  }
+
+  const classification = validatePublicKnowledgeCentralLibraryCandidate(
+    payload.centralLibraryCandidate,
+    '$.centralLibraryCandidate',
+    issues,
+    {
+      domain,
+      source,
+      sourceId,
+      sourceContentHash,
+      maxUnits,
+      download: payload.download,
+      quality: payload.quality,
+      unitCount: actualUnitCount,
+      unitCounts: actualCounts,
+      missingUnitTypes: expectedMissingUnitTypes,
+      compactByteLength: actualCompactByteLength
+    }
+  );
+  if (
+    sourceUrl !== null
+    && isRecord(payload.centralLibraryCandidate)
+    && isRecord(payload.centralLibraryCandidate.source)
+    && typeof payload.centralLibraryCandidate.source.url === 'string'
+    && payload.centralLibraryCandidate.source.url !== sourceUrl
+  ) {
+    issues.push(error('$.centralLibraryCandidate.source.url', 'Public knowledge URL report centralLibraryCandidate source url must match sourceUrl.'));
+  }
+  if (domain !== null && classification.ecosystem !== null && domain !== classification.ecosystem) {
+    issues.push(error('$.domain', 'Public knowledge URL report domain must match central library classification ecosystem.'));
+  }
+
+  return createReport(
+    inputPath,
+    inputKind,
+    issues,
+    [],
+    {},
+    {
+      staleSourceIds: new Set(),
+      uncheckedLocalSourceCount: 0,
+      staleSourceDetails: [],
+      uncheckedLocalSourceDetails: []
+    },
+    {
+      factSetCount: 0,
+      factCount: actualCounts.fact,
+      unitSetCount: 1,
+      unitCount: summaryIncludedUnitCount ?? actualUnitCount,
+      staleSourceCount: 0
+    }
+  );
+}
+
 function validateNoRawContentKeys(value: unknown, path: string, issues: KnowledgeValidationIssue[]): void {
   if (Array.isArray(value)) {
     value.forEach((entry, index) => validateNoRawContentKeys(entry, `${path}[${index}]`, issues));
@@ -2873,6 +3308,10 @@ export function validateKnowledgePayload(payload: unknown, inputPath = 'inline')
 
   if (inputKind === 'infra-agent.knowledge-pack') {
     return validateKnowledgePackPayload(payload, inputPath, inputKind);
+  }
+
+  if (inputKind === 'infra-agent.public-knowledge-url-report') {
+    return validatePublicKnowledgeUrlReportPayload(payload, inputPath, inputKind);
   }
 
   if (inputKind === 'infra-agent.public-knowledge-library-artifact') {
