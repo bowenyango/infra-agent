@@ -1797,9 +1797,15 @@ function qualitySummary(input: {
   compactByteLength: number;
 }): PublicKnowledgeQualitySummary {
   const warnings: string[] = [];
+  const selectedGuidanceUnits = input.selectedUnits.filter(unit => unit.unitType === 'guidance');
+  const weakGuidanceOnly = selectedGuidanceUnits.length > 0
+    && selectedGuidanceUnits.every(isWeakDefaultBudgetUnit);
 
   if (input.missingUnitTypes.length > 0) {
     warnings.push(`missing unit types: ${input.missingUnitTypes.join(', ')}`);
+  }
+  if (weakGuidanceOnly) {
+    warnings.push('guidance coverage is only weak reference-section fallback; run refinement before publication');
   }
   if (input.selectedUnits.some(isExampleFactUnit)) {
     warnings.push('example fact units should be represented only as example units');
@@ -1813,6 +1819,7 @@ function qualitySummary(input: {
 
   const score = Math.max(0, 100
     - (input.missingUnitTypes.length * 20)
+    - (weakGuidanceOnly ? 15 : 0)
     - (input.selectedUnits.some(isExampleFactUnit) ? 20 : 0)
     - (input.selectedUnits.some(isDeprecatedUnit) ? 10 : 0)
     - (input.compactByteLength > 16000 ? 10 : 0));

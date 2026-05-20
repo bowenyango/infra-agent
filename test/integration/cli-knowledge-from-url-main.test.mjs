@@ -92,6 +92,38 @@ const S3_BUCKET_DATA_SOURCE_MARKDOWN = [
   ''
 ].join('\n');
 
+const S3_BUCKET_WEAK_GUIDANCE_MARKDOWN = [
+  '# aws_s3_bucket',
+  '',
+  'Provides an S3 bucket resource.',
+  '',
+  '## Example Usage',
+  '',
+  '```hcl',
+  'resource "aws_s3_bucket" "example" {',
+  '  acl = "private"',
+  '}',
+  '```',
+  '',
+  '## Argument Reference',
+  '',
+  '- `acl` - (Optional) Canned ACL to apply to the bucket.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`InvalidBucketAclWithObjectOwnership` error usually means ACL configuration conflicts with ownership controls.',
+  '',
+  '- Review ownership controls before editing ACL settings.',
+  '- Rerun terraform plan after changing bucket ACL-related arguments.',
+  '',
+  '## Migration Workflow',
+  '',
+  '1. Review current ACL usage before editing bucket access settings.',
+  '2. Prefer policy or ownership-control changes when ACLs are disabled.',
+  '3. Run terraform plan and review replacement output before merge.',
+  ''
+].join('\n');
+
 const S3_BUCKET_INLINE_MARKDOWN = S3_BUCKET_MARKDOWN
   .replace(/\n+/g, ' ')
   .replace(/- `bucket`/g, '* `bucket`')
@@ -372,6 +404,60 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(Object.hasOwn(writtenReport, 'unitSet'), false);
     assert.doesNotMatch(serialized, /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
     assert.ok(Buffer.byteLength(serialized) < 16000);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge from-url marks weak reference-section guidance for LLM refinement before publication', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-from-url-weak-guidance-'));
+
+  try {
+    const contentPath = join(tempRoot, 'aws_s3_bucket_weak_guidance.md');
+    await writeFile(contentPath, S3_BUCKET_WEAK_GUIDANCE_MARKDOWN, 'utf8');
+
+    const report = await buildPublicKnowledgeUrlReport({
+      url: S3_BUCKET_URL,
+      contentPath,
+      maxUnits: 20
+    });
+    const artifact = buildPublicKnowledgeLibraryArtifact(report);
+    const reportValidation = validateKnowledgePayload(report, 'inline');
+    const artifactValidation = validateKnowledgePayload(artifact, 'inline');
+
+    assert.equal(report.summary.unitTypeComplete, true);
+    assert.deepEqual(report.summary.includedUnitTypes, ['fact', 'guidance', 'example', 'diagnostic', 'recipe']);
+    assert.equal(report.summary.qualityStatus, 'needs-refinement');
+    assert.equal(report.summary.qualityScore, 85);
+    assert.deepEqual(report.summary.qualityWarnings, [
+      'guidance coverage is only weak reference-section fallback; run refinement before publication'
+    ]);
+    assert.deepEqual(report.quality, {
+      status: 'needs-refinement',
+      score: 85,
+      warnings: [
+        'guidance coverage is only weak reference-section fallback; run refinement before publication'
+      ],
+      llmUsed: false,
+      refinementMode: 'deterministic'
+    });
+    assert.ok(report.unitsByType.guidance.every(unit =>
+      unit.path.startsWith('guidance.markdown.')
+      && unit.topic === 'argument-reference'
+    ));
+    assert.equal(report.centralLibraryCandidate.quality.status, 'needs-refinement');
+    assert.equal(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.qualityStatus,
+      'needs-refinement'
+    );
+    assert.deepEqual(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.qualityWarnings,
+      report.summary.qualityWarnings
+    );
+    assert.equal(artifact.quality.status, 'needs-refinement');
+    assert.deepEqual(artifact.llmRefinementInput.reviewPacket.qualityWarnings, report.summary.qualityWarnings);
+    assert.equal(reportValidation.valid, true);
+    assert.equal(artifactValidation.valid, true);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

@@ -6,6 +6,48 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Weak Public Guidance Quality Gate
+
+Status:
+
+- Tightened URL-only public knowledge quality so a report is not considered
+  publication-ready merely because all five unit types are present.
+- When selected guidance units are only weak Markdown fallback extracted from
+  reference sections such as `Argument Reference`, the report, central-library
+  candidate, library artifact, and LLM review packet now carry
+  `needs-refinement` with an explicit quality warning.
+- This preserves deterministic extraction while giving future LLM refinement a
+  clean signal to replace generic reference-section guidance with useful
+  agent-facing guidance before central-library publication.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` adds the weak guidance-only quality warning and
+  score penalty.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers a Terraform
+  URL fixture where all five unit types are present but guidance coverage is
+  only weak reference-section fallback.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-helm.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The gate currently targets weak guidance coverage. Weak recipes from generic
+  workflow sections can still be selected when they are the only recipe
+  evidence; recipe-quality scoring should be tightened in a later slice after
+  we define concrete recipe usefulness signals.
+
 ## 2026-05-20 Helm Example Values Classification
 
 Status:
