@@ -166,6 +166,7 @@ const PUBLIC_KNOWLEDGE_DOWNLOAD_MODES = ['live-fetch', 'local-content'] as const
 const PUBLIC_KNOWLEDGE_DOWNLOAD_STRATEGIES = [
   'local-content-fixture',
   'terraform-registry-primary-then-provider-repo-raw',
+  'artifacthub-page-then-package-api-readme',
   'official-url-primary-only'
 ] as const;
 const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_ROLES = ['primary', 'fallback'] as const;
@@ -2417,6 +2418,7 @@ function validatePublicKnowledgeDownloadSummary(
   if (value.mode === 'live-fetch') {
     if (
       value.strategy !== 'terraform-registry-primary-then-provider-repo-raw'
+      && value.strategy !== 'artifacthub-page-then-package-api-readme'
       && value.strategy !== 'official-url-primary-only'
     ) {
       issues.push(error(`${path}.strategy`, 'Live public knowledge downloads must use a supported official-doc fallback strategy.'));

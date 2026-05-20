@@ -192,8 +192,12 @@ Artifact Hub Helm chart URL tests should prove the output has
 such as `helm/chart/prometheus-community/kube-prometheus-stack/unversioned`,
 all five unit types, `sourceOutline` signals for values/examples, chart value
 facts such as `chart.kube-prometheus-stack.grafana.enabled`, and
-`download.strategy: "official-url-primary-only"` with no Terraform fallback
-attempts.
+either `download.strategy: "official-url-primary-only"` for directly
+extractable chart docs or
+`download.strategy: "artifacthub-page-then-package-api-readme"` when the chart
+page is not extractable and the official Artifact Hub package API README is
+selected. Helm URL tests must still prove no Terraform fallback attempts are
+used.
 With
 `--library-out`, the command should also write an
 `infra-agent.public-knowledge-library-artifact` containing the same compact

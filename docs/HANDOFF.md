@@ -17,37 +17,41 @@ Status:
   tags, unversioned chart-doc version posture when the URL has no concrete
   version, compact download evidence, source-outline values/example signals,
   five-unit extraction, and an offline LLM review packet.
-- Live Helm URL fetches use the `official-url-primary-only` strategy and do not
-  attempt Terraform provider raw-doc fallbacks.
+- Live Helm URL fetches try the Artifact Hub package page first. If the page is
+  not extractable, they fall back to the official Artifact Hub package API
+  README with `artifacthub-page-then-package-api-readme`; they do not attempt
+  Terraform provider raw-doc fallbacks.
 
 Files changed:
 
 - `src/knowledge/url-report.ts` resolves Artifact Hub Helm chart URLs, derives
-  Helm chart classification, records primary-only download strategy, and carries
-  chart identity into compact public-library artifacts.
+  Helm chart classification, records package-page/API-readme download evidence,
+  and carries chart identity into compact public-library artifacts.
 - `src/knowledge/validate.ts` validates Helm public-library classification,
-  discovery tags, primary-only download traces, report/artifact source chart
-  identity, and registry metadata shape.
+  discovery tags, package-page/API-readme fallback traces, report/artifact
+  source chart identity, and registry metadata shape.
 - `src/knowledge/public-library-stage.ts` carries Helm repository/chart
   metadata into local public-library registry entries.
-- `test/integration/cli-knowledge-from-url-main.test.mjs` covers Helm chart URL
-  local-content extraction and mocked live primary download.
+- `test/integration/cli-knowledge-from-url-helm.test.mjs` covers Helm chart URL
+  local-content extraction, mocked live primary download, and mocked Artifact
+  Hub package API README fallback.
 - `test/unit/knowledge-public-library-artifact-validation.test.mjs` covers Helm
   public-library registry validation.
 - `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
   `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
-  Helm URL support and primary-only download posture.
+  Helm URL support and package-page/API-readme fallback posture.
 
 Validation:
 
 - `npm run test:focused --
+  test/integration/cli-knowledge-from-url-helm.test.mjs` passed.
+- `npm run test:focused --
   test/integration/cli-knowledge-from-url-main.test.mjs` passed.
 - `npm run test:focused --
   test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
-- `npm run test:focused --
-  test/integration/cli-public-library-stage-main.test.mjs` passed.
 - `npm run lint` passed.
 - `npm run test:structure` passed.
+- `git diff --check` passed.
 - `npm run verify` passed.
 
 Residual risks:

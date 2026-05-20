@@ -112,9 +112,12 @@ values.
    Artifact Hub Helm chart URLs are supported as chart-docs public references
    with coordinates such as
    `helm/chart/prometheus-community/kube-prometheus-stack/unversioned`.
-   Pulumi and Helm URL inputs should use
-   `download.strategy: "official-url-primary-only"`, not Terraform
-   raw-provider fallbacks. Treat
+   Pulumi URL inputs should use
+   `download.strategy: "official-url-primary-only"`. Artifact Hub Helm chart
+   URL inputs may use
+   `download.strategy: "artifacthub-page-then-package-api-readme"` when the
+   page itself is not extractable, but must not use Terraform raw-provider
+   fallbacks. Treat
    `llmRefinementInput` as the
    explicit offline LLM review contract. Its `reviewPacket` is the bounded
    evidence packet for future model refinement: classification,

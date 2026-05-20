@@ -62,6 +62,7 @@ export interface PublicKnowledgeDownloadSummary {
   strategy:
     | 'local-content-fixture'
     | 'terraform-registry-primary-then-provider-repo-raw'
+    | 'artifacthub-page-then-package-api-readme'
     | 'official-url-primary-only';
   attemptedCount: number;
   fallbackUsed: boolean;
@@ -431,6 +432,14 @@ function publicKnowledgeDownloadEvidence(
 
 function terraformProviderVersionsUrl(source: TerraformRegistryUrlSource): string {
   return `https://registry.terraform.io/v1/providers/${source.namespace}/${source.providerName}/versions`;
+}
+
+function artifactHubPackageApiUrl(source: HelmChartUrlSource): string {
+  return [
+    'https://artifacthub.io/api/v1/packages/helm',
+    encodeURIComponent(source.repositoryName),
+    encodeURIComponent(source.chartName)
+  ].join('/');
 }
 
 function parseSemver(value: string): SemverParts | null {
@@ -933,6 +942,15 @@ function terraformRegistryRawDocCandidates(
   ));
 }
 
+function artifactHubPackageReadmeFromJson(value: unknown): string | null {
+  if (!isRecord(value) || typeof value.readme !== 'string') {
+    return null;
+  }
+
+  const readme = value.readme.trim();
+  return readme.length > 0 ? readme : null;
+}
+
 function hasExtractableKnowledgeContent(content: string): boolean {
   const trimmed = content.trim();
   if (trimmed.length === 0) {
@@ -1065,6 +1083,100 @@ async function downloadOfficialKnowledgeSource(input: {
   };
 }
 
+async function downloadArtifactHubPackageReadme(input: {
+  source: KnowledgeSource;
+  helmChart: HelmChartUrlSource;
+  role: PublicKnowledgeDownloadAttemptRole;
+  fetchedAt?: string;
+  fetchImpl?: OfficialKnowledgeFetchImpl;
+}): Promise<{
+  write: KnowledgeCacheWrite;
+  attempt: PublicKnowledgeDownloadAttempt;
+}> {
+  const url = artifactHubPackageApiUrl(input.helmChart);
+  const fetchImpl = input.fetchImpl ?? (fetch as unknown as OfficialKnowledgeFetchImpl);
+  const response = await fetchImpl(url);
+  const contentTypeHeader = response.headers.get('content-type');
+  const contentType = contentTypeFromHeader(contentTypeHeader);
+
+  if (!response.ok) {
+    throw Object.assign(new Error(`${response.status} ${response.statusText}`), {
+      attempt: {
+        role: input.role,
+        url,
+        status: 'failed' as const,
+        reason: 'http-error',
+        httpStatus: response.status,
+        statusText: response.statusText,
+        contentType
+      }
+    });
+  }
+
+  const rawContent = await response.text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawContent) as unknown;
+  } catch {
+    throw Object.assign(new Error('Artifact Hub package API returned invalid JSON.'), {
+      attempt: {
+        role: input.role,
+        url,
+        status: 'failed' as const,
+        reason: 'invalid-json',
+        httpStatus: response.status,
+        statusText: response.statusText,
+        contentType
+      }
+    });
+  }
+
+  const readme = artifactHubPackageReadmeFromJson(parsed);
+  if (readme === null) {
+    throw Object.assign(new Error('Artifact Hub package API response did not include readme content.'), {
+      attempt: {
+        role: input.role,
+        url,
+        status: 'failed' as const,
+        reason: 'readme-missing',
+        httpStatus: response.status,
+        statusText: response.statusText,
+        contentType
+      }
+    });
+  }
+
+  const normalized = normalizeOfficialKnowledgeContent({
+    content: readme,
+    contentType: 'text/markdown'
+  });
+  const fetchedAt = input.fetchedAt ?? new Date().toISOString();
+  const write: KnowledgeCacheWrite = {
+    source: input.source,
+    contentType: normalized.contentType,
+    content: normalized.content,
+    fetchedAt,
+    staleAfter: staleAfterForPublicSource(fetchedAt),
+    metadata: {
+      retrieval: 'artifacthub-package-api-readme',
+      ...(normalized.normalization ? { normalization: normalized.normalization } : {})
+    }
+  };
+
+  return {
+    write,
+    attempt: {
+      role: input.role,
+      url,
+      status: 'used',
+      httpStatus: response.status,
+      statusText: response.statusText,
+      contentType: normalized.contentType,
+      byteLength: Buffer.byteLength(normalized.content)
+    }
+  };
+}
+
 async function fetchEntry(input: {
   resolution: PublicKnowledgeSourceResolution;
   versionResolution: PublicKnowledgeVersionResolution;
@@ -1130,6 +1242,60 @@ async function fetchEntry(input: {
     if (attempt && attempt.status === 'used') {
       attempt.status = 'rejected';
       attempt.reason = 'content-not-extractable';
+    }
+  }
+
+  if (input.resolution.helmChart) {
+    try {
+      const downloaded = await downloadArtifactHubPackageReadme({
+        source: input.resolution.source,
+        helmChart: input.resolution.helmChart,
+        role: 'fallback',
+        fetchedAt,
+        fetchImpl: input.fetchImpl
+      });
+      const fallback = downloaded.write;
+      attempts.push(downloaded.attempt);
+
+      if (fallback && hasExtractableKnowledgeContent(fallback.content)) {
+        const entry = buildCacheEntry({
+          source: input.resolution.source,
+          contentType: normalizeContentTypeForSource(input.resolution.source, fallback.contentType),
+          content: normalizeContentForSource(input.resolution.source, fallback.content),
+          fetchedAt: fallback.fetchedAt,
+          staleAfter: fallback.staleAfter,
+          now: input.now
+        });
+
+        return {
+          entry,
+          download: {
+            mode: 'live-fetch',
+            strategy: 'artifacthub-page-then-package-api-readme',
+            attemptedCount: attempts.length,
+            fallbackUsed: true,
+            usedRole: 'fallback',
+            usedUrl: artifactHubPackageApiUrl(input.resolution.helmChart),
+            usedContentType: entry.contentType,
+            attempts
+          }
+        };
+      }
+
+      const attempt = attempts[attempts.length - 1];
+      if (attempt && attempt.status === 'used') {
+        attempt.status = 'rejected';
+        attempt.reason = 'content-not-extractable';
+      }
+    } catch (error) {
+      const fallbackError = error instanceof Error ? error : new Error(String(error));
+      const attempt = (fallbackError as Error & { attempt?: PublicKnowledgeDownloadAttempt }).attempt;
+      attempts.push(attempt ?? {
+        role: 'fallback',
+        url: artifactHubPackageApiUrl(input.resolution.helmChart),
+        status: 'failed',
+        reason: fallbackError.message
+      });
     }
   }
 

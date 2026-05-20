@@ -308,9 +308,10 @@ Current behavior is intentionally runtime-foundation oriented:
   raw-doc fallback and the concrete provider version was resolved, fallback
   download attempts prefer the resolved version tag before `main` or `master`
   so the central-library evidence is closer to the published provider release.
-  Pulumi Registry resource URLs and Artifact Hub Helm chart URLs use a primary
-  official-URL download strategy and do not attempt Terraform provider
-  repository fallbacks.
+  Pulumi Registry resource URLs use a primary official-URL download strategy.
+  Artifact Hub Helm chart URLs try the package page first and, when that page
+  is not extractable, fall back to the official Artifact Hub package API README
+  without attempting Terraform provider repository fallbacks.
   The
   `llmRefinementInput` contract is for explicit offline LLM review. That input
   includes a deterministic `reviewPacket` with classification, version

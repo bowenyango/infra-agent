@@ -160,9 +160,10 @@ unversioned public docs when their URL does not carry a concrete version. If
 the primary Registry page is not extractable and raw provider repository docs
 are needed, resolved `latest` metadata should make the fallback prefer the
 concrete provider version tag before `main` or `master`. Pulumi Registry
-resource URLs and Artifact Hub Helm chart URLs should use a primary
-official-URL download strategy without Terraform raw-provider fallback
-attempts.
+resource URLs should use a primary official-URL download strategy. Artifact
+Hub Helm chart URLs should try the package page first and fall back to the
+official Artifact Hub package API README when the page is not extractable,
+without Terraform raw-provider fallback attempts.
 Validation should reject fallback traces that do not start with a rejected or
 failed primary attempt. Continue
 treating this as public-reference extraction, not repo topology, plan, upload,
