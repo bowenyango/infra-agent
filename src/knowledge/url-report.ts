@@ -90,6 +90,29 @@ export interface PublicKnowledgeVersionRef {
   source: 'url-path';
 }
 
+export type PublicKnowledgeVersionResolutionStatus = 'pinned' | 'resolved' | 'unavailable';
+export type PublicKnowledgeVersionResolutionSource =
+  | 'url-path'
+  | 'terraform-registry-provider-versions'
+  | 'not-attempted-local-content';
+export type PublicKnowledgeVersionResolutionReason =
+  | 'content-fixture-no-network'
+  | 'http-error'
+  | 'invalid-response'
+  | 'no-semver-version'
+  | 'fetch-error';
+
+export interface PublicKnowledgeVersionResolution {
+  requestedVersion: string;
+  resolvedVersion?: string;
+  status: PublicKnowledgeVersionResolutionStatus;
+  mutable: boolean;
+  source: PublicKnowledgeVersionResolutionSource;
+  url?: string;
+  fetchedAt?: string;
+  reason?: PublicKnowledgeVersionResolutionReason;
+}
+
 export interface PublicKnowledgeCentralLibraryClassification {
   registry: 'infra-agent-public-reference';
   ecosystem: 'terraform';
@@ -99,6 +122,7 @@ export interface PublicKnowledgeCentralLibraryClassification {
   providerAddress: string;
   version: string;
   versionRef: PublicKnowledgeVersionRef;
+  versionResolution: PublicKnowledgeVersionResolution;
   sourceName: string;
   slug: string;
   coordinates: string;
@@ -123,6 +147,7 @@ export interface PublicKnowledgeLlmRefinementInput {
     artifactKind: PublicKnowledgeCentralLibraryClassification['artifactKind'];
     version: string;
     versionRef: PublicKnowledgeVersionRef;
+    versionResolution: PublicKnowledgeVersionResolution;
     sourceName: string;
     downloadMode: PublicKnowledgeDownloadMode;
     downloadStrategy: PublicKnowledgeDownloadSummary['strategy'];
@@ -278,8 +303,20 @@ interface PublicKnowledgeEntryResult {
   download: PublicKnowledgeDownloadSummary;
 }
 
+interface SemverParts {
+  version: string;
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+}
+
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function canonicalDownloadTrace(download: PublicKnowledgeDownloadSummary): string {
@@ -321,6 +358,187 @@ function publicKnowledgeDownloadEvidence(
     rejectedAttemptCount: download.attempts.filter(attempt => attempt.status === 'rejected').length,
     failedAttemptCount: download.attempts.filter(attempt => attempt.status === 'failed').length
   };
+}
+
+function terraformProviderVersionsUrl(source: TerraformRegistryUrlSource): string {
+  return `https://registry.terraform.io/v1/providers/${source.namespace}/${source.providerName}/versions`;
+}
+
+function parseSemver(value: string): SemverParts | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    version: value,
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] ?? null
+  };
+}
+
+function compareSemver(left: SemverParts, right: SemverParts): number {
+  for (const key of ['major', 'minor', 'patch'] as const) {
+    const delta = left[key] - right[key];
+    if (delta !== 0) {
+      return delta;
+    }
+  }
+
+  if (left.prerelease === null && right.prerelease !== null) {
+    return 1;
+  }
+  if (left.prerelease !== null && right.prerelease === null) {
+    return -1;
+  }
+
+  return (left.prerelease ?? '').localeCompare(right.prerelease ?? '');
+}
+
+function latestSemverVersion(versions: string[]): string | null {
+  const parsed = versions
+    .map(parseSemver)
+    .filter((version): version is SemverParts => version !== null);
+  if (parsed.length === 0) {
+    return null;
+  }
+
+  return parsed.sort(compareSemver).at(-1)?.version ?? null;
+}
+
+function unavailableVersionResolution(input: {
+  requestedVersion: string;
+  mutable: boolean;
+  source: PublicKnowledgeVersionResolutionSource;
+  reason: PublicKnowledgeVersionResolutionReason;
+  url?: string;
+  fetchedAt?: string;
+}): PublicKnowledgeVersionResolution {
+  return {
+    requestedVersion: input.requestedVersion,
+    status: 'unavailable',
+    mutable: input.mutable,
+    source: input.source,
+    ...(input.url ? { url: input.url } : {}),
+    ...(input.fetchedAt ? { fetchedAt: input.fetchedAt } : {}),
+    reason: input.reason
+  };
+}
+
+async function resolveTerraformRegistryVersion(input: {
+  source: TerraformRegistryUrlSource;
+  contentPath?: string;
+  now?: Date;
+  fetchImpl?: OfficialKnowledgeFetchImpl;
+}): Promise<PublicKnowledgeVersionResolution> {
+  const requestedVersion = input.source.version;
+  const mutable = requestedVersion === 'latest';
+  if (!mutable) {
+    return {
+      requestedVersion,
+      resolvedVersion: requestedVersion,
+      status: 'pinned',
+      mutable: false,
+      source: 'url-path'
+    };
+  }
+
+  const url = terraformProviderVersionsUrl(input.source);
+  if (input.contentPath !== undefined) {
+    return unavailableVersionResolution({
+      requestedVersion,
+      mutable: true,
+      source: 'not-attempted-local-content',
+      reason: 'content-fixture-no-network',
+      url
+    });
+  }
+
+  const fetchedAt = input.now?.toISOString() ?? new Date().toISOString();
+  try {
+    const fetchImpl = input.fetchImpl ?? (fetch as unknown as OfficialKnowledgeFetchImpl);
+    const response = await fetchImpl(url);
+    if (!response.ok) {
+      return unavailableVersionResolution({
+        requestedVersion,
+        mutable: true,
+        source: 'terraform-registry-provider-versions',
+        reason: 'http-error',
+        url,
+        fetchedAt
+      });
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await response.text()) as unknown;
+    } catch {
+      return unavailableVersionResolution({
+        requestedVersion,
+        mutable: true,
+        source: 'terraform-registry-provider-versions',
+        reason: 'invalid-response',
+        url,
+        fetchedAt
+      });
+    }
+
+    const versions = isRecord(parsed) && Array.isArray(parsed.versions)
+      ? parsed.versions
+        .map(version => isRecord(version) && typeof version.version === 'string' ? version.version : null)
+        .filter((version): version is string => version !== null)
+      : [];
+    const resolvedVersion = latestSemverVersion(versions);
+    if (resolvedVersion === null) {
+      return unavailableVersionResolution({
+        requestedVersion,
+        mutable: true,
+        source: 'terraform-registry-provider-versions',
+        reason: 'no-semver-version',
+        url,
+        fetchedAt
+      });
+    }
+
+    return {
+      requestedVersion,
+      resolvedVersion,
+      status: 'resolved',
+      mutable: true,
+      source: 'terraform-registry-provider-versions',
+      url,
+      fetchedAt
+    };
+  } catch {
+    return unavailableVersionResolution({
+      requestedVersion,
+      mutable: true,
+      source: 'terraform-registry-provider-versions',
+      reason: 'fetch-error',
+      url,
+      fetchedAt
+    });
+  }
+}
+
+async function resolvePublicKnowledgeVersion(input: {
+  resolution: PublicKnowledgeSourceResolution;
+  contentPath?: string;
+  now?: Date;
+  fetchImpl?: OfficialKnowledgeFetchImpl;
+}): Promise<PublicKnowledgeVersionResolution> {
+  if (input.resolution.terraformRegistry) {
+    return resolveTerraformRegistryVersion({
+      source: input.resolution.terraformRegistry,
+      contentPath: input.contentPath,
+      now: input.now,
+      fetchImpl: input.fetchImpl
+    });
+  }
+
+  throw new Error('Unsupported public knowledge source version resolution.');
 }
 
 function normalizeMaxUnits(value: number | undefined): number {
@@ -1120,7 +1338,8 @@ function compactSource(source: KnowledgeSource, domain: InfraDomainId): PublicKn
 }
 
 function terraformLibraryClassification(
-  source: TerraformRegistryUrlSource
+  source: TerraformRegistryUrlSource,
+  versionResolution: PublicKnowledgeVersionResolution
 ): PublicKnowledgeCentralLibraryClassification {
   const typeName = `${source.providerName}_${source.slug}`;
   const artifactKind = source.docKind === 'resources'
@@ -1149,6 +1368,7 @@ function terraformLibraryClassification(
     providerAddress: `${source.namespace}/${source.providerName}`,
     version: source.version,
     versionRef,
+    versionResolution,
     sourceName,
     slug: source.slug,
     coordinates,
@@ -1176,10 +1396,11 @@ function publicKnowledgeVersionRef(version: string): PublicKnowledgeVersionRef {
 }
 
 function libraryClassification(
-  resolution: PublicKnowledgeSourceResolution
+  resolution: PublicKnowledgeSourceResolution,
+  versionResolution: PublicKnowledgeVersionResolution
 ): PublicKnowledgeCentralLibraryClassification {
   if (resolution.terraformRegistry) {
-    return terraformLibraryClassification(resolution.terraformRegistry);
+    return terraformLibraryClassification(resolution.terraformRegistry, versionResolution);
   }
 
   throw new Error('Unsupported public knowledge source classification.');
@@ -1215,6 +1436,7 @@ function llmRefinementInput(input: {
       artifactKind: input.classification.artifactKind,
       version: input.classification.version,
       versionRef: input.classification.versionRef,
+      versionResolution: input.classification.versionResolution,
       sourceName: input.classification.sourceName,
       downloadMode: input.download.mode,
       downloadStrategy: input.download.strategy,
@@ -1272,13 +1494,14 @@ function buildCentralLibraryCandidate(input: {
   sourceContentHash: string;
   maxUnits: number;
   download: PublicKnowledgeDownloadSummary;
+  versionResolution: PublicKnowledgeVersionResolution;
   quality: PublicKnowledgeQualitySummary;
   counts: KnowledgeUnitCountByType;
   selectedUnitCount: number;
   missingUnitTypes: KnowledgeUnitType[];
   compactByteLength: number;
 }): PublicKnowledgeCentralLibraryCandidate {
-  const classification = libraryClassification(input.resolution);
+  const classification = libraryClassification(input.resolution, input.versionResolution);
 
   return {
     kind: 'infra-agent.central-knowledge-candidate',
@@ -1324,6 +1547,12 @@ export async function buildPublicKnowledgeUrlReport(
     ? await readEntryFromContentPath({ source, contentPath: options.contentPath, now: options.now })
     : await fetchEntry({ resolution, now: options.now, fetchImpl: options.fetchImpl });
   const { entry, download } = entryResult;
+  const versionResolution = await resolvePublicKnowledgeVersion({
+    resolution,
+    contentPath: options.contentPath,
+    now: options.now,
+    fetchImpl: options.fetchImpl
+  });
   const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
     now: options.now
   });
@@ -1349,6 +1578,7 @@ export async function buildPublicKnowledgeUrlReport(
     sourceContentHash: entry.contentHash,
     maxUnits,
     download,
+    versionResolution,
     quality,
     counts,
     selectedUnitCount: selectedUnits.length,

@@ -168,6 +168,19 @@ const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_ROLES = ['primary', 'fallback'] as const
 const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_STATUSES = ['used', 'rejected', 'failed'] as const;
 const PUBLIC_KNOWLEDGE_QUALITY_STATUSES = ['ready', 'needs-refinement'] as const;
 const PUBLIC_KNOWLEDGE_VERSION_REF_KINDS = ['pinned-version', 'floating-alias'] as const;
+const PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_STATUSES = ['pinned', 'resolved', 'unavailable'] as const;
+const PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_SOURCES = [
+  'url-path',
+  'terraform-registry-provider-versions',
+  'not-attempted-local-content'
+] as const;
+const PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_REASONS = [
+  'content-fixture-no-network',
+  'http-error',
+  'invalid-response',
+  'no-semver-version',
+  'fetch-error'
+] as const;
 const PUBLIC_LIBRARY_ARTIFACT_KINDS = ['terraform-provider-resource', 'terraform-provider-data-source'] as const;
 const PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE = 'application/vnd.infra-agent.public-knowledge-library-artifact+json';
 
@@ -184,6 +197,16 @@ interface PublicKnowledgeLlmReviewExpected {
       value: string | null;
       kind: string | null;
       mutable: boolean | null;
+    } | null;
+    versionResolution: {
+      requestedVersion: string | null;
+      resolvedVersion: string | null;
+      status: string | null;
+      mutable: boolean | null;
+      source: string | null;
+      url: string | null;
+      fetchedAt: string | null;
+      reason: string | null;
     } | null;
   };
   download: unknown;
@@ -1751,6 +1774,134 @@ function validatePublicKnowledgeVersionRef(
   };
 }
 
+function validatePublicKnowledgeVersionResolution(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  expectedVersion: string | null,
+  expectedMutable: boolean | null
+): {
+  requestedVersion: string | null;
+  resolvedVersion: string | null;
+  status: string | null;
+  mutable: boolean | null;
+  source: string | null;
+  url: string | null;
+  fetchedAt: string | null;
+  reason: string | null;
+} | null {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Public knowledge library artifact versionResolution must be an object.'));
+    return null;
+  }
+
+  const requestedVersion = readNonEmptyString(value.requestedVersion, `${path}.requestedVersion`, issues);
+  if (requestedVersion !== null) {
+    validateNoSecretLikeValue(requestedVersion, `${path}.requestedVersion`, issues);
+    if (expectedVersion !== null && requestedVersion !== expectedVersion) {
+      issues.push(error(`${path}.requestedVersion`, 'Public knowledge library artifact versionResolution requestedVersion must match version.'));
+    }
+  }
+
+  let resolvedVersion: string | null = null;
+  if (value.resolvedVersion !== undefined) {
+    resolvedVersion = readNonEmptyString(value.resolvedVersion, `${path}.resolvedVersion`, issues);
+    if (resolvedVersion !== null) {
+      validateNoSecretLikeValue(resolvedVersion, `${path}.resolvedVersion`, issues);
+    }
+  }
+
+  if (
+    typeof value.status !== 'string'
+    || !PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_STATUSES.includes(value.status as typeof PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_STATUSES[number])
+  ) {
+    issues.push(error(`${path}.status`, 'Public knowledge library artifact versionResolution status must be supported.'));
+  }
+  const mutable = readBoolean(value.mutable, `${path}.mutable`, issues);
+  if (expectedMutable !== null && mutable !== null && mutable !== expectedMutable) {
+    issues.push(error(`${path}.mutable`, 'Public knowledge library artifact versionResolution mutable flag must match versionRef.'));
+  }
+  if (
+    typeof value.source !== 'string'
+    || !PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_SOURCES.includes(value.source as typeof PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_SOURCES[number])
+  ) {
+    issues.push(error(`${path}.source`, 'Public knowledge library artifact versionResolution source must be supported.'));
+  }
+
+  if (typeof value.url === 'string') {
+    validateSecretSafeUrl(value.url, `${path}.url`, issues);
+  } else if (value.url !== undefined) {
+    issues.push(error(`${path}.url`, 'Public knowledge library artifact versionResolution url must be a string when present.'));
+  }
+  validateOptionalString(value.fetchedAt, `${path}.fetchedAt`, issues);
+  if (typeof value.reason === 'string') {
+    if (!PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_REASONS.includes(value.reason as typeof PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_REASONS[number])) {
+      issues.push(error(`${path}.reason`, 'Public knowledge library artifact versionResolution reason must be supported.'));
+    }
+  } else if (value.reason !== undefined) {
+    issues.push(error(`${path}.reason`, 'Public knowledge library artifact versionResolution reason must be a string when present.'));
+  }
+
+  if (requestedVersion !== null && typeof value.status === 'string' && mutable !== null && typeof value.source === 'string') {
+    const floating = requestedVersion === 'latest';
+    if (mutable !== floating) {
+      issues.push(error(`${path}.mutable`, 'Public knowledge library artifact versionResolution mutable flag must match the requested version.'));
+    }
+
+    if (!floating) {
+      if (value.status !== 'pinned') {
+        issues.push(error(`${path}.status`, 'Pinned public knowledge versions must use versionResolution status pinned.'));
+      }
+      if (value.source !== 'url-path') {
+        issues.push(error(`${path}.source`, 'Pinned public knowledge versions must resolve from url-path.'));
+      }
+      if (resolvedVersion === null) {
+        issues.push(error(`${path}.resolvedVersion`, 'Pinned public knowledge versions must include resolvedVersion.'));
+      }
+      if (resolvedVersion !== null && resolvedVersion !== requestedVersion) {
+        issues.push(error(`${path}.resolvedVersion`, 'Pinned public knowledge versions must resolve to the requested version.'));
+      }
+    } else if (value.status === 'resolved') {
+      if (resolvedVersion === null) {
+        issues.push(error(`${path}.resolvedVersion`, 'Resolved floating public knowledge versions must include resolvedVersion.'));
+      }
+      if (value.source !== 'terraform-registry-provider-versions') {
+        issues.push(error(`${path}.source`, 'Resolved floating public knowledge versions must use Terraform Registry provider versions metadata.'));
+      }
+      if (typeof value.url !== 'string') {
+        issues.push(error(`${path}.url`, 'Resolved floating public knowledge versions must include the provider versions URL.'));
+      }
+      if (typeof value.fetchedAt !== 'string') {
+        issues.push(error(`${path}.fetchedAt`, 'Resolved floating public knowledge versions must include fetchedAt.'));
+      }
+    } else if (value.status === 'unavailable') {
+      if (resolvedVersion !== null) {
+        issues.push(error(`${path}.resolvedVersion`, 'Unavailable floating public knowledge versions must not include resolvedVersion.'));
+      }
+      if (
+        value.source !== 'terraform-registry-provider-versions'
+        && value.source !== 'not-attempted-local-content'
+      ) {
+        issues.push(error(`${path}.source`, 'Unavailable floating public knowledge versions must record the attempted or skipped metadata source.'));
+      }
+      if (typeof value.reason !== 'string') {
+        issues.push(error(`${path}.reason`, 'Unavailable floating public knowledge versions must include a reason.'));
+      }
+    }
+  }
+
+  return {
+    requestedVersion,
+    resolvedVersion,
+    status: typeof value.status === 'string' ? value.status : null,
+    mutable,
+    source: typeof value.source === 'string' ? value.source : null,
+    url: typeof value.url === 'string' ? value.url : null,
+    fetchedAt: typeof value.fetchedAt === 'string' ? value.fetchedAt : null,
+    reason: typeof value.reason === 'string' ? value.reason : null
+  };
+}
+
 function validatePublicKnowledgeSource(
   value: unknown,
   path: string,
@@ -1786,6 +1937,16 @@ function validatePublicKnowledgeClassification(
     kind: string | null;
     mutable: boolean | null;
   } | null;
+  versionResolution: {
+    requestedVersion: string | null;
+    resolvedVersion: string | null;
+    status: string | null;
+    mutable: boolean | null;
+    source: string | null;
+    url: string | null;
+    fetchedAt: string | null;
+    reason: string | null;
+  } | null;
 } {
   if (!isRecord(value)) {
     issues.push(error(path, 'Public knowledge library artifact classification must be an object.'));
@@ -1796,7 +1957,8 @@ function validatePublicKnowledgeClassification(
       sourceName: null,
       providerAddress: null,
       version: null,
-      versionRef: null
+      versionRef: null,
+      versionResolution: null
     };
   }
 
@@ -1818,6 +1980,13 @@ function validatePublicKnowledgeClassification(
   const providerAddress = readNonEmptyString(value.providerAddress, `${path}.providerAddress`, issues);
   const version = readNonEmptyString(value.version, `${path}.version`, issues);
   const versionRef = validatePublicKnowledgeVersionRef(value.versionRef, `${path}.versionRef`, issues, version);
+  const versionResolution = validatePublicKnowledgeVersionResolution(
+    value.versionResolution,
+    `${path}.versionResolution`,
+    issues,
+    version,
+    versionRef?.mutable ?? null
+  );
   const sourceName = readNonEmptyString(value.sourceName, `${path}.sourceName`, issues);
   const slug = readNonEmptyString(value.slug, `${path}.slug`, issues);
   const coordinates = readNonEmptyString(value.coordinates, `${path}.coordinates`, issues);
@@ -1889,7 +2058,8 @@ function validatePublicKnowledgeClassification(
     sourceName,
     providerAddress,
     version,
-    versionRef
+    versionRef,
+    versionResolution
   };
 }
 
@@ -2305,6 +2475,20 @@ function validatePublicKnowledgeLlmReviewPacket(
       issues.push(error(`${path}.versionRef.mutable`, 'Public knowledge library artifact LLM reviewPacket versionRef mutable flag must match classification versionRef.'));
     }
   }
+  const reviewPacketVersionResolution = validatePublicKnowledgeVersionResolution(
+    value.versionResolution,
+    `${path}.versionResolution`,
+    issues,
+    expected.classification.version,
+    expected.classification.versionRef?.mutable ?? null
+  );
+  if (reviewPacketVersionResolution !== null && expected.classification.versionResolution !== null) {
+    for (const key of ['requestedVersion', 'resolvedVersion', 'status', 'mutable', 'source', 'url', 'fetchedAt', 'reason'] as const) {
+      if (reviewPacketVersionResolution[key] !== expected.classification.versionResolution[key]) {
+        issues.push(error(`${path}.versionResolution.${key}`, 'Public knowledge library artifact LLM reviewPacket versionResolution must match classification versionResolution.'));
+      }
+    }
+  }
   if (expected.classification.sourceName !== null && value.sourceName !== expected.classification.sourceName) {
     issues.push(error(`${path}.sourceName`, 'Public knowledge library artifact LLM reviewPacket sourceName must match classification sourceName.'));
   }
@@ -2567,7 +2751,8 @@ function validatePublicKnowledgeCentralLibraryCandidate(
       sourceName: null,
       providerAddress: null,
       version: null,
-      versionRef: null
+      versionRef: null,
+      versionResolution: null
     };
   }
 
@@ -3169,7 +3354,14 @@ function validatePublicKnowledgeLibraryRegistryPayload(
         validateNoSecretLikeValue(providerAddress, `${path}.providerAddress`, issues);
       }
       const version = readNonEmptyString(entry.version, `${path}.version`, issues);
-      validatePublicKnowledgeVersionRef(entry.versionRef, `${path}.versionRef`, issues, version);
+      const versionRef = validatePublicKnowledgeVersionRef(entry.versionRef, `${path}.versionRef`, issues, version);
+      const versionResolution = validatePublicKnowledgeVersionResolution(
+        entry.versionResolution,
+        `${path}.versionResolution`,
+        issues,
+        version,
+        versionRef?.mutable ?? null
+      );
       const sourceName = readNonEmptyString(entry.sourceName, `${path}.sourceName`, issues);
       if (sourceName !== null) {
         validateNoSecretLikeValue(sourceName, `${path}.sourceName`, issues);
@@ -3252,7 +3444,21 @@ function validatePublicKnowledgeLibraryRegistryPayload(
       if (unitCount !== null) {
         totalUnitCount += unitCount;
       }
-      validatePublicKnowledgeVersionRef(entry.artifact.versionRef, `${path}.artifact.versionRef`, issues, version);
+      const artifactVersionRef = validatePublicKnowledgeVersionRef(entry.artifact.versionRef, `${path}.artifact.versionRef`, issues, version);
+      const artifactVersionResolution = validatePublicKnowledgeVersionResolution(
+        entry.artifact.versionResolution,
+        `${path}.artifact.versionResolution`,
+        issues,
+        version,
+        artifactVersionRef?.mutable ?? versionRef?.mutable ?? null
+      );
+      if (versionResolution !== null && artifactVersionResolution !== null) {
+        for (const key of ['requestedVersion', 'resolvedVersion', 'status', 'mutable', 'source', 'url', 'fetchedAt', 'reason'] as const) {
+          if (versionResolution[key] !== artifactVersionResolution[key]) {
+            issues.push(error(`${path}.artifact.versionResolution.${key}`, 'Public knowledge library registry artifact versionResolution must match the entry versionResolution.'));
+          }
+        }
+      }
       if (
         typeof entry.artifact.qualityStatus !== 'string'
         || !PUBLIC_KNOWLEDGE_QUALITY_STATUSES.includes(entry.artifact.qualityStatus as typeof PUBLIC_KNOWLEDGE_QUALITY_STATUSES[number])

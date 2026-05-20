@@ -159,12 +159,15 @@ steps, exclude example facts from `fact`, and avoid default-budget
 report should also expose a `centralLibraryCandidate` with public-reference
 scope, quality metadata, unit counts, `unitRef: "report.unitsByType"`, a
 hub-style `classification.coordinates` value, a `classification.versionRef`
-value that marks `latest` as a mutable `floating-alias`, and an
-`llmRefinementInput` contract that points to structured report fields instead
-of raw docs. The LLM input should include a deterministic review packet with
-classification, version-reference stability, source hash, compact
-`downloadEvidence` with a trace hash, unit counts, quality signals, review
-checks, and rejection criteria so future refinement starts from bounded
+value that marks `latest` as a mutable `floating-alias`, an explicit
+`classification.versionResolution` value that resolves live `latest`
+metadata when provider versions metadata is available and marks local-content
+fixture runs unresolved without fetching, and an `llmRefinementInput` contract
+that points to structured report fields instead of raw docs. The LLM input
+should include a deterministic review packet with
+classification, version-reference stability, version resolution, source hash,
+compact `downloadEvidence` with a trace hash, unit counts, quality signals,
+review checks, and rejection criteria so future refinement starts from bounded
 evidence. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
@@ -173,13 +176,14 @@ a rejected or failed primary attempt. With
 `--library-out`, the command should also write an
 `infra-agent.public-knowledge-library-artifact` containing the same compact
 units, public-reference classification, download trace, quality summary,
-`unitPayloadHash`, and `llmRefinementInput`, without raw source content,
-credentials, upload commands, or backend URLs. `knowledge validate` should
-accept both the URL report and the library artifact. Report validation should
+version resolution, `unitPayloadHash`, and `llmRefinementInput`, without raw
+source content, credentials, upload commands, or backend URLs.
+`knowledge validate` should accept both the URL report and the library
+artifact. Report validation should
 reject drifted source IDs, inconsistent summary counts, candidate
-classification drift, version-reference drift, LLM review packet drift,
-embedded raw content, and secret-like compact unit text. Artifact validation
-should reject drifted coordinates, inconsistent source metadata, malformed
+classification drift, version-reference drift, version-resolution drift, LLM
+review packet drift, embedded raw content, and secret-like compact unit text.
+Artifact validation should reject drifted coordinates, inconsistent source metadata, malformed
 download traces, drifted LLM download evidence, mismatched unit counts, bad
 `unitPayloadHash`, drifted LLM review packet fields, embedded raw content, or
 secret-like compact unit text.

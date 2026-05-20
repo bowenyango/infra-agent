@@ -3768,6 +3768,7 @@ export function printPublicKnowledgeUrlReport(report: PublicKnowledgeUrlReport):
   process.stdout.write(`quality: ${report.quality.status} score=${report.quality.score} compactBytes=${report.summary.compactByteLength}\n\n`);
   process.stdout.write(`download: ${report.download.mode} strategy=${report.download.strategy} attempts=${report.download.attemptedCount} fallback=${report.download.fallbackUsed ? 'yes' : 'no'}\n`);
   process.stdout.write(`library: ${report.centralLibraryCandidate.classification.coordinates}\n`);
+  process.stdout.write(`version resolution: ${report.centralLibraryCandidate.classification.versionResolution.status}${report.centralLibraryCandidate.classification.versionResolution.resolvedVersion ? ` resolved=${report.centralLibraryCandidate.classification.versionResolution.resolvedVersion}` : ''}\n`);
   process.stdout.write(`llm refinement: ${report.centralLibraryCandidate.llmRefinementInput.status}\n\n`);
 
   printHeader('Knowledge units');
@@ -3809,6 +3810,7 @@ export function printPublicKnowledgeLibraryStageReport(
   process.stdout.write(`coordinates: ${report.artifact.coordinates}\n`);
   process.stdout.write(`units: ${report.artifact.unitCount}\n`);
   process.stdout.write(`quality: ${report.artifact.qualityStatus}\n`);
+  process.stdout.write(`version resolution: ${report.artifact.versionResolution.status}${report.artifact.versionResolution.resolvedVersion ? ` resolved=${report.artifact.versionResolution.resolvedVersion}` : ''}\n`);
   process.stdout.write(`stored: ${report.artifact.registryPath}\n`);
   process.stdout.write(`sha256: ${report.artifact.sha256}\n`);
   process.stdout.write(`registry: ${report.registry.path}\n`);

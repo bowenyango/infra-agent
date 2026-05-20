@@ -227,6 +227,7 @@ async function buildRemotePublicLibraryPayload(root) {
         providerAddress: classification.providerAddress,
         version: classification.version,
         versionRef: classification.versionRef,
+        versionResolution: classification.versionResolution,
         sourceName: classification.sourceName,
         tags: classification.tags,
         artifact: {
@@ -239,6 +240,7 @@ async function buildRemotePublicLibraryPayload(root) {
           unitCount: artifact.summary.unitCount,
           qualityStatus: artifact.quality.status,
           versionRef: classification.versionRef,
+          versionResolution: classification.versionResolution,
           reviewRequired: true
         }
       }

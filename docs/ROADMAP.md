@@ -142,12 +142,16 @@ and a `centralLibraryCandidate` with public-reference scope and a
 classification coordinates, search tags, and an explicit offline
 `llmRefinementInput` contract. That LLM input must include a deterministic
 review packet with classification, source hash, compact download evidence with
-a trace hash, unit counts, quality signals, review checks, and rejection
-criteria so future refinement receives bounded evidence rather than raw
-documentation. The root report should expose download trace metadata so future
-agents can verify whether the primary URL or a documented fallback produced the
-selected source content, and validation should reject fallback traces that do
-not start with a rejected or failed primary attempt. Continue
+a trace hash, version resolution, unit counts, quality signals, review checks,
+and rejection criteria so future refinement receives bounded evidence rather
+than raw documentation. The root report should expose download trace metadata
+so future agents can verify whether the primary URL or a documented fallback
+produced the selected source content. It should also expose
+`classification.versionResolution` so mutable aliases such as `latest` can be
+resolved to a concrete provider version when live Terraform provider metadata
+is available, while local-content runs remain explicitly marked unresolved.
+Validation should reject fallback traces that do not start with a rejected or
+failed primary attempt. Continue
 treating this as public-reference extraction, not repo topology, plan, upload,
 or safety-boundary work. `knowledge from-url --library-out <artifact.json>`
 writes a standalone `infra-agent.public-knowledge-library-artifact` for future
@@ -158,9 +162,9 @@ accept both the URL report and this artifact kind before either is used by
 registry, download, or LLM-refinement workflows. URL report validation must
 reject source identity drift, mismatched summary/unit counts, central-library
 candidate drift, malformed download traces, drifted LLM download evidence,
-drifted LLM review packet fields, raw content, and secret-like compact unit
-text. Artifact validation must also reject coordinate drift and bad unit
-payload hashes.
+drifted version resolution, drifted LLM review packet fields, raw content, and
+secret-like compact unit text. Artifact validation must also reject coordinate
+drift and bad unit payload hashes.
 
 Agent-2 reset policy:
 
@@ -614,15 +618,16 @@ Implemented initial CLI surfaces:
     one bounded example, concise diagnostics, and one domain workflow recipe
     over generic Markdown section recipes. Its report should preserve download
     trace, compact LLM `downloadEvidence` with a trace hash, central-library
-    coordinates, version-reference stability metadata, and explicit LLM
-    offline-review constraints before any future publication flow. With
+    coordinates, version-reference stability metadata, version-resolution
+    metadata for mutable aliases, and explicit LLM offline-review constraints
+    before any future publication flow. With
     `--library-out`, it
     also writes a standalone
     `infra-agent.public-knowledge-library-artifact` that carries compact units,
-    classification, `versionRef`, quality, download trace and evidence,
-    `unitPayloadHash`, and offline LLM review input for deterministic
-    central-library download/reuse workflows. Validate the URL report before
-    LLM refinement and validate the artifact with
+    classification, `versionRef`, version resolution, quality, download trace
+    and evidence, `unitPayloadHash`, and offline LLM review input for
+    deterministic central-library download/reuse workflows. Validate the URL
+    report before LLM refinement and validate the artifact with
     `knowledge validate <artifact.json> --json` before registry staging or
     download reuse.
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace

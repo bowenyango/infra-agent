@@ -6,6 +6,71 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Public Knowledge Version Resolution Metadata
+
+Status:
+
+- Added `classification.versionResolution` to URL-only public knowledge
+  reports, public-library artifacts, staged public-library registries, and the
+  offline LLM review packet.
+- Pinned Terraform Registry URL versions now resolve locally as
+  `status: "pinned"` with `resolvedVersion` equal to the requested version.
+  Mutable `latest` URLs attempt a bounded live lookup against Terraform
+  provider versions metadata only when the command is already doing live
+  retrieval. `--content` fixture runs do not fetch metadata; they record
+  `status: "unavailable"` with `reason: "content-fixture-no-network"`.
+- Successful live metadata lookup records the resolved provider version,
+  metadata URL, fetch timestamp, mutable posture, and source
+  `terraform-registry-provider-versions`. Failed metadata lookup records an
+  explicit unavailable reason without failing the compact knowledge report.
+- `knowledge validate` now checks version-resolution shape, drift between
+  classification and LLM review packet, drift between registry entry and
+  nested artifact metadata, and coherence with `versionRef.mutable`.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` resolves live Terraform `latest` metadata and
+  emits `versionResolution` in classification and LLM review packets.
+- `src/knowledge/validate.ts` validates version-resolution status/source/reason
+  contracts across URL reports, public-library artifacts, and registries.
+- `src/knowledge/public-library-stage.ts` and
+  `src/knowledge/public-library-registry.ts` preserve and require
+  `versionResolution` in downloadable registry entries.
+- `src/cli/output.ts` summarizes version-resolution status in text output.
+- URL report, artifact validation, public-library registry, and stage tests
+  cover local-content unresolved metadata, live resolved metadata, and
+  version-resolution drift.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  the version-resolution contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Version resolution uses a bounded provider versions metadata lookup for
+  Terraform Registry provider URLs only. Pulumi package versions, Helm chart
+  versions, and Terraform module versions remain future work.
+- A resolved version records evidence for central-library review, but the
+  hub coordinate intentionally remains based on the requested URL path, so
+  `latest` artifacts still require content hashes and review before public
+  reuse.
+
 ## 2026-05-20 Public Knowledge Download Evidence
 
 Status:

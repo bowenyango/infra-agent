@@ -106,12 +106,15 @@ test('knowledge library-stage stores a public library artifact and updates a dow
     assert.equal(stageReport.artifact.unitCount, artifact.summary.unitCount);
     assert.equal(stageReport.artifact.qualityStatus, 'ready');
     assert.deepEqual(stageReport.artifact.versionRef, artifact.classification.versionRef);
+    assert.deepEqual(stageReport.artifact.versionResolution, artifact.classification.versionResolution);
     assert.match(stageReport.artifact.registryPath, /^knowledge\/public-library\/[a-f0-9]{64}\.public-knowledge-library-artifact\.json$/);
     assert.equal(stageReport.entry.coordinates, artifact.coordinates);
     assert.deepEqual(stageReport.entry.versionRef, artifact.classification.versionRef);
+    assert.deepEqual(stageReport.entry.versionResolution, artifact.classification.versionResolution);
     assert.equal(stageReport.entry.artifact.contentHash, stageReport.artifact.sha256);
     assert.equal(stageReport.entry.artifact.mediaType, 'application/vnd.infra-agent.public-knowledge-library-artifact+json');
     assert.deepEqual(stageReport.entry.artifact.versionRef, artifact.classification.versionRef);
+    assert.deepEqual(stageReport.entry.artifact.versionResolution, artifact.classification.versionResolution);
     assert.equal(stageReport.entry.artifact.reviewRequired, true);
     assert.equal(stageReport.entry.download.mode, 'local-content');
     assert.equal(stageReport.registry.entryCount, 1);
@@ -131,8 +134,10 @@ test('knowledge library-stage stores a public library artifact and updates a dow
     assert.equal(registry.entries.length, 1);
     assert.equal(registry.entries[0].coordinates, artifact.coordinates);
     assert.deepEqual(registry.entries[0].versionRef, artifact.classification.versionRef);
+    assert.deepEqual(registry.entries[0].versionResolution, artifact.classification.versionResolution);
     assert.equal(registry.entries[0].artifact.path, stageReport.artifact.registryPath);
     assert.deepEqual(registry.entries[0].artifact.versionRef, artifact.classification.versionRef);
+    assert.deepEqual(registry.entries[0].artifact.versionResolution, artifact.classification.versionResolution);
     assert.equal(registry.entries[0].artifact.contentHash, stageReport.artifact.sha256);
 
     const validationOutput = await captureStdout(() => main([

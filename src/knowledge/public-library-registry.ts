@@ -30,6 +30,16 @@ interface PublicLibraryRegistryEntry {
     mutable: boolean;
     source: 'url-path';
   };
+  versionResolution: {
+    requestedVersion: string;
+    resolvedVersion?: string;
+    status: 'pinned' | 'resolved' | 'unavailable';
+    mutable: boolean;
+    source: 'url-path' | 'terraform-registry-provider-versions' | 'not-attempted-local-content';
+    url?: string;
+    fetchedAt?: string;
+    reason?: 'content-fixture-no-network' | 'http-error' | 'invalid-response' | 'no-semver-version' | 'fetch-error';
+  };
   sourceName: string;
   tags: string[];
   artifact: {
@@ -43,6 +53,7 @@ interface PublicLibraryRegistryEntry {
     unitCount: number;
     qualityStatus: 'ready' | 'needs-refinement';
     versionRef: PublicLibraryRegistryEntry['versionRef'];
+    versionResolution: PublicLibraryRegistryEntry['versionResolution'];
     reviewRequired: true;
   };
 }
@@ -60,6 +71,47 @@ function isVersionRef(value: unknown, version: string): boolean {
     && value.kind === (floating ? 'floating-alias' : 'pinned-version')
     && value.mutable === floating
     && value.source === 'url-path';
+}
+
+function isVersionResolution(value: unknown, version: string): boolean {
+  const floating = version === 'latest';
+  if (!isRecord(value)
+    || value.requestedVersion !== version
+    || value.mutable !== floating
+    || typeof value.status !== 'string'
+    || typeof value.source !== 'string'
+  ) {
+    return false;
+  }
+
+  if (value.url !== undefined && typeof value.url !== 'string') {
+    return false;
+  }
+  if (value.fetchedAt !== undefined && typeof value.fetchedAt !== 'string') {
+    return false;
+  }
+  if (value.reason !== undefined && typeof value.reason !== 'string') {
+    return false;
+  }
+
+  if (!floating) {
+    return value.status === 'pinned'
+      && value.resolvedVersion === version
+      && value.source === 'url-path';
+  }
+
+  if (value.status === 'resolved') {
+    return typeof value.resolvedVersion === 'string'
+      && value.resolvedVersion.length > 0
+      && value.source === 'terraform-registry-provider-versions';
+  }
+
+  return value.status === 'unavailable'
+    && value.resolvedVersion === undefined
+    && (
+      value.source === 'terraform-registry-provider-versions'
+      || value.source === 'not-attempted-local-content'
+    );
 }
 
 function configuredPublicLibraryRegistries(
@@ -136,6 +188,7 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
     || typeof value.providerAddress !== 'string'
     || typeof value.version !== 'string'
     || !isVersionRef(value.versionRef, value.version)
+    || !isVersionResolution(value.versionResolution, value.version)
     || typeof value.sourceName !== 'string'
     || !Array.isArray(value.tags)
     || !value.tags.every(tag => typeof tag === 'string')
@@ -147,6 +200,7 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
     || !isSha256Hex(value.artifact.sourceContentHash)
     || !Number.isInteger(value.artifact.unitCount)
     || !isVersionRef(value.artifact.versionRef, value.version)
+    || !isVersionResolution(value.artifact.versionResolution, value.version)
     || (
       value.artifact.qualityStatus !== 'ready'
       && value.artifact.qualityStatus !== 'needs-refinement'

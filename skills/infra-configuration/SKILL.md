@@ -102,12 +102,15 @@ values.
    `download` trace to confirm whether the primary URL or a documented fallback
    produced the selected source, use
    `centralLibraryCandidate.classification.coordinates` as the stable
-   downloadable-library coordinate, and treat `llmRefinementInput` as the
+   downloadable-library coordinate, check
+   `centralLibraryCandidate.classification.versionResolution` to see whether a
+   mutable alias such as `latest` was resolved to a concrete provider version,
+   and treat `llmRefinementInput` as the
    explicit offline LLM review contract. Its `reviewPacket` is the bounded
    evidence packet for future model refinement: classification,
-   version-reference stability, source hash, compact download evidence with a
-   trace hash, unit counts, quality signals, review checks, and rejection
-   criteria. Add
+   version-reference stability, version resolution, source hash, compact
+   download evidence with a trace hash, unit counts, quality signals, review
+   checks, and rejection criteria. Add
    `--library-out <artifact.json>` when preparing a
    downloadable central-library artifact; the artifact is a local,
    review-required `infra-agent.public-knowledge-library-artifact`, not an
@@ -115,9 +118,9 @@ values.
    `knowledge validate <url-knowledge.json> --json` before LLM refinement, and
    `knowledge validate <artifact.json> --json` before registry staging or
    download reuse; validation checks source identity, coordinate coherence,
-   version-reference drift, download trace shape, fallback ordering, LLM
-   download evidence drift, unit counts, unit hash when present, review packet
-   drift, and raw-content omission.
+   version-reference drift, version-resolution drift, download trace shape,
+   fallback ordering, LLM download evidence drift, unit counts, unit hash when
+   present, review packet drift, and raw-content omission.
    Use `knowledge library-stage <artifact.json> --workspace <workspace>
    --store-dir <dir> --registry <registry.json> --json` only after validation
    when preparing local downloadable-registry metadata. It writes a

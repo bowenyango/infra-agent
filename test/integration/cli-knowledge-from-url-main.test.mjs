@@ -174,6 +174,14 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
       mutable: true,
       source: 'url-path'
     });
+    assert.deepEqual(report.centralLibraryCandidate.classification.versionResolution, {
+      requestedVersion: 'latest',
+      status: 'unavailable',
+      mutable: true,
+      source: 'not-attempted-local-content',
+      url: 'https://registry.terraform.io/v1/providers/hashicorp/aws/versions',
+      reason: 'content-fixture-no-network'
+    });
     assert.ok(report.centralLibraryCandidate.classification.tags.includes('aws_s3_bucket'));
     assert.ok(report.centralLibraryCandidate.classification.tags.includes('floating-alias'));
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.status, 'not-run');
@@ -187,6 +195,10 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.deepEqual(
       report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef,
       report.centralLibraryCandidate.classification.versionRef
+    );
+    assert.deepEqual(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionResolution,
+      report.centralLibraryCandidate.classification.versionResolution
     );
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash, report.sourceContentHash);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
@@ -221,6 +233,7 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(libraryArtifact.artifactId, report.centralLibraryCandidate.candidateId);
     assert.equal(libraryArtifact.coordinates, report.centralLibraryCandidate.classification.coordinates);
     assert.deepEqual(libraryArtifact.classification.versionRef, report.centralLibraryCandidate.classification.versionRef);
+    assert.deepEqual(libraryArtifact.classification.versionResolution, report.centralLibraryCandidate.classification.versionResolution);
     assert.equal(libraryArtifact.sourceContentHash, report.sourceContentHash);
     assert.equal(libraryArtifact.summary.unitCount, report.summary.includedUnitCount);
     assert.deepEqual(libraryArtifact.summary.unitCounts, report.summary.unitCounts);
@@ -352,11 +365,19 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
   );
   assert.equal(report.centralLibraryCandidate.classification.versionRef.kind, 'floating-alias');
   assert.equal(report.centralLibraryCandidate.classification.versionRef.mutable, true);
+  assert.equal(report.centralLibraryCandidate.classification.versionResolution.status, 'unavailable');
+  assert.equal(report.centralLibraryCandidate.classification.versionResolution.source, 'terraform-registry-provider-versions');
+  assert.equal(report.centralLibraryCandidate.classification.versionResolution.reason, 'http-error');
+  assert.equal(report.centralLibraryCandidate.classification.versionResolution.url, 'https://registry.terraform.io/v1/providers/hashicorp/aws/versions');
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.mode, 'offline-review');
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.usedRole, 'fallback');
   assert.deepEqual(
     report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef,
     report.centralLibraryCandidate.classification.versionRef
+  );
+  assert.deepEqual(
+    report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionResolution,
+    report.centralLibraryCandidate.classification.versionResolution
   );
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.fallbackUsed, true);
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
@@ -377,4 +398,76 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
   assert.ok(report.unitsByType.example.some(unit => unit.exampleType === 'terraform-resource-snippet'));
   assert.ok(report.unitsByType.diagnostic.some(unit => /resource\.aws_s3_bucket\.bucket/.test(unit.signature)));
   assert.equal(report.unitsByType.fact.some(unit => unit.factKind === 'example'), false);
+});
+
+test('knowledge from-url resolves latest Terraform provider version metadata when live fetch succeeds', async () => {
+  const versionsUrl = 'https://registry.terraform.io/v1/providers/hashicorp/aws/versions';
+  const requestedUrls = [];
+  const fetchImpl = async url => {
+    requestedUrls.push(url);
+    if (url === S3_BUCKET_URL) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get(name) {
+            return name.toLowerCase() === 'content-type' ? 'text/plain' : null;
+          }
+        },
+        async text() {
+          return S3_BUCKET_MARKDOWN;
+        }
+      };
+    }
+
+    if (url === versionsUrl) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get(name) {
+            return name.toLowerCase() === 'content-type' ? 'application/json' : null;
+          }
+        },
+        async text() {
+          return JSON.stringify({
+            versions: [
+              { version: '6.2.0' },
+              { version: '6.10.1-beta.1' },
+              { version: '5.99.0' },
+              { version: '6.10.1' }
+            ]
+          });
+        }
+      };
+    }
+
+    throw new Error(`unexpected URL: ${url}`);
+  };
+
+  const report = await buildPublicKnowledgeUrlReport({
+    url: S3_BUCKET_URL,
+    fetchImpl,
+    maxUnits: 20,
+    now: new Date('2026-05-18T00:00:00.000Z')
+  });
+  const validation = validateKnowledgePayload(report, 'inline');
+
+  assert.deepEqual(requestedUrls, [S3_BUCKET_URL, versionsUrl]);
+  assert.deepEqual(report.centralLibraryCandidate.classification.versionResolution, {
+    requestedVersion: 'latest',
+    resolvedVersion: '6.10.1',
+    status: 'resolved',
+    mutable: true,
+    source: 'terraform-registry-provider-versions',
+    url: versionsUrl,
+    fetchedAt: '2026-05-18T00:00:00.000Z'
+  });
+  assert.deepEqual(
+    report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionResolution,
+    report.centralLibraryCandidate.classification.versionResolution
+  );
+  assert.equal(validation.valid, true);
 });

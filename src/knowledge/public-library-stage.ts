@@ -14,6 +14,7 @@ import type {
   PublicKnowledgeDownloadSummary,
   PublicKnowledgeLibraryArtifact,
   PublicKnowledgeQualityStatus,
+  PublicKnowledgeVersionResolution,
   PublicKnowledgeVersionRef
 } from './url-report.ts';
 
@@ -24,6 +25,7 @@ export interface PublicKnowledgeLibraryRegistryEntry {
   providerAddress: string;
   version: string;
   versionRef: PublicKnowledgeVersionRef;
+  versionResolution: PublicKnowledgeVersionResolution;
   sourceName: string;
   tags: string[];
   artifact: {
@@ -36,6 +38,7 @@ export interface PublicKnowledgeLibraryRegistryEntry {
     unitCount: number;
     qualityStatus: PublicKnowledgeQualityStatus;
     versionRef: PublicKnowledgeVersionRef;
+    versionResolution: PublicKnowledgeVersionResolution;
     reviewRequired: true;
   };
   download: Pick<PublicKnowledgeDownloadSummary, 'mode' | 'strategy' | 'usedRole' | 'fallbackUsed'>;
@@ -67,6 +70,7 @@ export interface PublicKnowledgeLibraryStageReport {
     unitCount: number;
     qualityStatus: PublicKnowledgeQualityStatus;
     versionRef: PublicKnowledgeVersionRef;
+    versionResolution: PublicKnowledgeVersionResolution;
   };
   registry: {
     path: string;
@@ -125,6 +129,47 @@ function isVersionRef(value: unknown, version: string): value is PublicKnowledge
     && value.source === 'url-path';
 }
 
+function isVersionResolution(value: unknown, version: string): value is PublicKnowledgeVersionResolution {
+  const floating = version === 'latest';
+  if (!isRecord(value)
+    || value.requestedVersion !== version
+    || value.mutable !== floating
+    || typeof value.status !== 'string'
+    || typeof value.source !== 'string'
+  ) {
+    return false;
+  }
+
+  if (value.url !== undefined && typeof value.url !== 'string') {
+    return false;
+  }
+  if (value.fetchedAt !== undefined && typeof value.fetchedAt !== 'string') {
+    return false;
+  }
+  if (value.reason !== undefined && typeof value.reason !== 'string') {
+    return false;
+  }
+
+  if (!floating) {
+    return value.status === 'pinned'
+      && value.resolvedVersion === version
+      && value.source === 'url-path';
+  }
+
+  if (value.status === 'resolved') {
+    return typeof value.resolvedVersion === 'string'
+      && value.resolvedVersion.length > 0
+      && value.source === 'terraform-registry-provider-versions';
+  }
+
+  return value.status === 'unavailable'
+    && value.resolvedVersion === undefined
+    && (
+      value.source === 'terraform-registry-provider-versions'
+      || value.source === 'not-attempted-local-content'
+    );
+}
+
 function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistryEntry {
   return isRecord(value)
     && typeof value.coordinates === 'string'
@@ -136,6 +181,7 @@ function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistr
     && typeof value.providerAddress === 'string'
     && typeof value.version === 'string'
     && isVersionRef(value.versionRef, value.version)
+    && isVersionResolution(value.versionResolution, value.version)
     && typeof value.sourceName === 'string'
     && Array.isArray(value.tags)
     && value.tags.every(tag => typeof tag === 'string')
@@ -148,6 +194,7 @@ function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistr
     && SHA256_HEX_PATTERN.test(String(value.artifact.sourceContentHash))
     && Number.isInteger(value.artifact.unitCount)
     && isVersionRef(value.artifact.versionRef, value.version)
+    && isVersionResolution(value.artifact.versionResolution, value.version)
     && value.artifact.reviewRequired === true
     && isRecord(value.download)
     && typeof value.download.mode === 'string'
@@ -219,6 +266,7 @@ function buildRegistryEntry(input: {
     providerAddress: artifact.classification.providerAddress,
     version: artifact.classification.version,
     versionRef: artifact.classification.versionRef,
+    versionResolution: artifact.classification.versionResolution,
     sourceName: artifact.classification.sourceName,
     tags: artifact.classification.tags,
     artifact: {
@@ -231,6 +279,7 @@ function buildRegistryEntry(input: {
       unitCount: artifact.summary.unitCount,
       qualityStatus: artifact.quality.status,
       versionRef: artifact.classification.versionRef,
+      versionResolution: artifact.classification.versionResolution,
       reviewRequired: artifact.publication.reviewRequired
     },
     download: {
@@ -294,7 +343,8 @@ export async function stagePublicKnowledgeLibraryArtifact(
       sourceContentHash: artifact.sourceContentHash,
       unitCount: artifact.summary.unitCount,
       qualityStatus: artifact.quality.status,
-      versionRef: artifact.classification.versionRef
+      versionRef: artifact.classification.versionRef,
+      versionResolution: artifact.classification.versionResolution
     },
     registry: {
       path: registryAbsolutePath,

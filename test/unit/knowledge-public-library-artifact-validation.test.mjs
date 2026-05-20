@@ -87,6 +87,7 @@ function buildRegistryFixture(artifact) {
         providerAddress: classification.providerAddress,
         version: classification.version,
         versionRef: classification.versionRef,
+        versionResolution: classification.versionResolution,
         sourceName: classification.sourceName,
         tags: classification.tags,
         artifact: {
@@ -99,6 +100,7 @@ function buildRegistryFixture(artifact) {
           unitCount: artifact.summary.unitCount,
           qualityStatus: artifact.quality.status,
           versionRef: classification.versionRef,
+          versionResolution: classification.versionResolution,
           reviewRequired: true
         }
       }
@@ -170,6 +172,11 @@ test('public knowledge URL report validation rejects drifted summary candidate a
           versionRef: {
             ...report.centralLibraryCandidate.classification.versionRef,
             value: '5.0.0'
+          },
+          versionResolution: {
+            ...report.centralLibraryCandidate.classification.versionResolution,
+            status: 'resolved',
+            resolvedVersion: '6.10.1'
           }
         },
         llmRefinementInput: {
@@ -180,6 +187,10 @@ test('public knowledge URL report validation rejects drifted summary candidate a
             versionRef: {
               ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef,
               kind: 'pinned-version'
+            },
+            versionResolution: {
+              ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionResolution,
+              source: 'url-path'
             },
             downloadEvidence: {
               ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence,
@@ -215,8 +226,10 @@ test('public knowledge URL report validation rejects drifted summary candidate a
       '$.centralLibraryCandidate.candidateId',
       '$.centralLibraryCandidate.classification.coordinates',
       '$.centralLibraryCandidate.classification.versionRef.value',
+      '$.centralLibraryCandidate.classification.versionResolution.source',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef.kind',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionResolution.source',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.traceHash',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount',
       '$.unitsByType.fact[0].summary'
@@ -272,7 +285,11 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       coordinates: `${artifact.coordinates}/drift`,
       classification: {
         ...artifact.classification,
-        coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong'
+        coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong',
+        versionResolution: {
+          ...artifact.classification.versionResolution,
+          mutable: false
+        }
       },
       llmRefinementInput: {
         ...artifact.llmRefinementInput,
@@ -281,6 +298,10 @@ test('public knowledge library artifact validation rejects drifted hashes classi
           ...artifact.llmRefinementInput.reviewPacket,
           sourceContentHash: 'c'.repeat(64),
           coordinates: `${artifact.coordinates}/llm-drift`,
+          versionResolution: {
+            ...artifact.llmRefinementInput.reviewPacket.versionResolution,
+            reason: 'http-error'
+          },
           downloadEvidence: {
             ...artifact.llmRefinementInput.reviewPacket.downloadEvidence,
             attemptedCount: artifact.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount + 1
@@ -312,6 +333,7 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       '$.rawContent',
       '$.unitPayloadHash',
       '$.classification.coordinates',
+      '$.classification.versionResolution.mutable',
       '$.coordinates',
       '$.summary.unitCount',
       '$.summary.unitCounts.fact',
@@ -319,6 +341,7 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       '$.llmRefinementInput.inputRefs',
       '$.llmRefinementInput.reviewPacket.sourceContentHash',
       '$.llmRefinementInput.reviewPacket.coordinates',
+      '$.llmRefinementInput.reviewPacket.versionResolution.reason',
       '$.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount',
       '$.llmRefinementInput.reviewPacket.unitCount',
       '$.llmRefinementInput.reviewChecklist',
@@ -348,7 +371,9 @@ test('public knowledge library registry validation checks coordinates hashes and
     const invalidRegistry = JSON.parse(JSON.stringify(registry));
     invalidRegistry.entries[0].coordinates = `${artifact.coordinates}/drift`;
     invalidRegistry.entries[0].versionRef.value = '5.0.0';
+    invalidRegistry.entries[0].versionResolution.requestedVersion = '5.0.0';
     invalidRegistry.entries[0].artifact.versionRef.kind = 'pinned-version';
+    invalidRegistry.entries[0].artifact.versionResolution.source = 'url-path';
     invalidRegistry.entries[0].tags.push('https://example.invalid/raw-doc');
     invalidRegistry.entries[0].artifact.path = 'public/aws-s3-bucket.public-knowledge-library-artifact.json';
     invalidRegistry.entries[0].artifact.url = 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json';
@@ -361,7 +386,9 @@ test('public knowledge library registry validation checks coordinates hashes and
     for (const path of [
       '$.entries[0].coordinates',
       '$.entries[0].versionRef.value',
+      '$.entries[0].versionResolution.requestedVersion',
       '$.entries[0].artifact.versionRef.kind',
+      '$.entries[0].artifact.versionResolution.source',
       '$.entries[0].tags[8]',
       '$.entries[0].artifact',
       '$.entries[0].artifact.contentHash',

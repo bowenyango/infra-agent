@@ -293,24 +293,31 @@ Current behavior is intentionally runtime-foundation oriented:
   a compact `download` trace and a hub-style central-library coordinate such as
   `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus a
   `classification.versionRef` marker that records whether the URL path used a
-  pinned version or a mutable alias such as `latest`. The
+  pinned version or a mutable alias such as `latest`. The companion
+  `classification.versionResolution` records whether a pinned version was
+  already concrete, whether a live `latest` lookup resolved to a specific
+  Terraform provider version through provider versions metadata, or whether
+  resolution was unavailable because the command used local content or the
+  metadata lookup failed. The
   `llmRefinementInput` contract is for explicit offline LLM review. That input
   includes a deterministic `reviewPacket` with classification, version
-  reference stability, source hash, compact `downloadEvidence` including a
-  trace hash, unit counts, quality signals, review checks, and rejection
-  criteria so a future model receives structured evidence instead of raw docs.
+  reference stability, version resolution, source hash, compact
+  `downloadEvidence` including a trace hash, unit counts, quality signals,
+  review checks, and rejection criteria so a future model receives structured
+  evidence instead of raw docs.
   Default selection favors reusable facts and identity/replacement guidance
   over generic Markdown sections. Use `--library-out` to write a standalone
   `infra-agent.public-knowledge-library-artifact` with the same compact units,
-  download trace, classification, quality, unit hash, and offline LLM review
-  contract for future registry/download workflows. Validate the URL report with
+  download trace, classification, version resolution, quality, unit hash, and
+  offline LLM review contract for future registry/download workflows. Validate
+  the URL report with
   `knowledge validate <url-knowledge.json> --json` before LLM refinement, and
   validate the artifact with
   `knowledge validate <library-artifact.json> --json` before handing it to a
   registry or downloader; validation checks source identity, coordinate
   coherence, download trace shape, fallback ordering, LLM download evidence
-  drift, unit counts, `unitPayloadHash` when present, LLM review packet drift,
-  and raw content omission. This is the
+  drift, version-resolution drift, unit counts, `unitPayloadHash` when present,
+  LLM review packet drift, and raw content omission. This is the
   public-reference path to use when another agent gives a documentation link
   such as `aws_s3_bucket` and needs compact JSON rather than repo linkage.
 - `knowledge library-stage` stages a validated
