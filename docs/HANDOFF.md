@@ -6,6 +6,52 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Resolved Terraform Raw-Doc Fallback
+
+Status:
+
+- `knowledge from-url` now resolves Terraform Registry `latest` provider
+  metadata before live documentation download. When the primary Registry page
+  is not extractable and provider repository raw docs are needed, the raw-doc
+  fallback now tries the resolved provider version tag before branch refs such
+  as `main` or `master`.
+- The compact download trace and LLM review packet still record the actual
+  selected URL, so central-library reviewers can see whether the artifact came
+  from the Registry page, a resolved-version raw doc, or a branch fallback.
+- Local `--content` fixture runs remain network-free and continue to mark
+  version resolution as unavailable.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` threads `versionResolution` into live fetch
+  fallback selection and prefers resolved Terraform provider version refs when
+  available.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers the updated
+  request order and the resolved-version raw-doc fallback path.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  the fallback ordering contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The resolved-version fallback currently applies to Terraform Registry
+  provider resource/data-source URLs only. Pulumi package docs, Helm chart
+  docs, and Terraform module docs still need their own version-aware fallback
+  strategies.
+- A branch fallback is still allowed when provider version metadata is
+  unavailable or the resolved tag docs are missing; reviewers must use the
+  recorded `download.usedUrl`, content hash, and version-resolution metadata
+  before promoting artifacts to a shared public library.
+
 ## 2026-05-20 Public Knowledge Version Resolution Metadata
 
 Status:

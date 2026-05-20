@@ -105,7 +105,10 @@ values.
    downloadable-library coordinate, check
    `centralLibraryCandidate.classification.versionResolution` to see whether a
    mutable alias such as `latest` was resolved to a concrete provider version,
-   and treat `llmRefinementInput` as the
+   and check `download.usedUrl` when fallback was used. For Terraform Registry
+   `latest` URLs, a resolved provider version should make raw provider docs
+   come from the resolved version tag before `main` or `master`. Treat
+   `llmRefinementInput` as the
    explicit offline LLM review contract. Its `reviewPacket` is the bounded
    evidence packet for future model refinement: classification,
    version-reference stability, version resolution, source hash, compact

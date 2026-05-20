@@ -350,6 +350,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   stability, version-resolution drift for mutable aliases, compact download
   evidence trace hash, fallback attempt ordering, LLM review packet drift, raw
   content omission, and secret-like text rejection.
+- For Terraform Registry `latest` URLs, a successful provider version metadata
+  lookup must influence raw provider-repository fallback ordering. Prefer the
+  resolved provider version tag before branch refs such as `main` or `master`
+  so downloaded central-library evidence stays aligned with a concrete
+  published provider version when possible.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

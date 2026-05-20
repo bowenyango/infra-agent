@@ -149,7 +149,10 @@ so future agents can verify whether the primary URL or a documented fallback
 produced the selected source content. It should also expose
 `classification.versionResolution` so mutable aliases such as `latest` can be
 resolved to a concrete provider version when live Terraform provider metadata
-is available, while local-content runs remain explicitly marked unresolved.
+is available, while local-content runs remain explicitly marked unresolved. If
+the primary Registry page is not extractable and raw provider repository docs
+are needed, resolved `latest` metadata should make the fallback prefer the
+concrete provider version tag before `main` or `master`.
 Validation should reject fallback traces that do not start with a rejected or
 failed primary attempt. Continue
 treating this as public-reference extraction, not repo topology, plan, upload,

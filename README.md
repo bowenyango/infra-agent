@@ -298,7 +298,11 @@ Current behavior is intentionally runtime-foundation oriented:
   already concrete, whether a live `latest` lookup resolved to a specific
   Terraform provider version through provider versions metadata, or whether
   resolution was unavailable because the command used local content or the
-  metadata lookup failed. The
+  metadata lookup failed. When a live `latest` URL needs provider repository
+  raw-doc fallback and the concrete provider version was resolved, fallback
+  download attempts prefer the resolved version tag before `main` or `master`
+  so the central-library evidence is closer to the published provider release.
+  The
   `llmRefinementInput` contract is for explicit offline LLM review. That input
   includes a deterministic `reviewPacket` with classification, version
   reference stability, version resolution, source hash, compact

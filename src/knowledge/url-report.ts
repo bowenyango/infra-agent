@@ -693,10 +693,24 @@ function publicKnowledgeSourceFromUrl(rawUrl: string): PublicKnowledgeSourceReso
   throw new Error('Unsupported public knowledge URL. Supported v0 URLs are Terraform Registry provider resource and data source docs.');
 }
 
-function terraformRegistryRawDocCandidates(source: TerraformRegistryUrlSource): string[] {
-  const refs = source.version === 'latest'
+function terraformRegistryRawDocRefs(
+  source: TerraformRegistryUrlSource,
+  versionResolution?: PublicKnowledgeVersionResolution
+): string[] {
+  if (source.version === 'latest' && versionResolution?.status === 'resolved' && versionResolution.resolvedVersion) {
+    return [`v${versionResolution.resolvedVersion}`, versionResolution.resolvedVersion, 'main', 'master'];
+  }
+
+  return source.version === 'latest'
     ? ['main', 'master']
     : [`v${source.version}`, source.version, 'main', 'master'];
+}
+
+function terraformRegistryRawDocCandidates(
+  source: TerraformRegistryUrlSource,
+  versionResolution?: PublicKnowledgeVersionResolution
+): string[] {
+  const refs = terraformRegistryRawDocRefs(source, versionResolution);
   const docDir = source.docKind === 'resources' ? 'r' : 'd';
   const fileNames = [
     `${source.slug}.html.markdown`,
@@ -844,6 +858,7 @@ async function downloadOfficialKnowledgeSource(input: {
 
 async function fetchEntry(input: {
   resolution: PublicKnowledgeSourceResolution;
+  versionResolution: PublicKnowledgeVersionResolution;
   now?: Date;
   fetchImpl?: OfficialKnowledgeFetchImpl;
 }): Promise<PublicKnowledgeEntryResult> {
@@ -908,7 +923,10 @@ async function fetchEntry(input: {
   }
 
   if (input.resolution.terraformRegistry) {
-    for (const url of terraformRegistryRawDocCandidates(input.resolution.terraformRegistry)) {
+    for (const url of terraformRegistryRawDocCandidates(
+      input.resolution.terraformRegistry,
+      input.versionResolution
+    )) {
       try {
         const downloaded = await downloadOfficialKnowledgeSource({
           source: {
@@ -1543,16 +1561,21 @@ export async function buildPublicKnowledgeUrlReport(
   const maxUnits = normalizeMaxUnits(options.maxUnits);
   const resolution = publicKnowledgeSourceFromUrl(options.url);
   const { domain, source } = resolution;
-  const entryResult = options.contentPath
-    ? await readEntryFromContentPath({ source, contentPath: options.contentPath, now: options.now })
-    : await fetchEntry({ resolution, now: options.now, fetchImpl: options.fetchImpl });
-  const { entry, download } = entryResult;
   const versionResolution = await resolvePublicKnowledgeVersion({
     resolution,
     contentPath: options.contentPath,
     now: options.now,
     fetchImpl: options.fetchImpl
   });
+  const entryResult = options.contentPath
+    ? await readEntryFromContentPath({ source, contentPath: options.contentPath, now: options.now })
+    : await fetchEntry({
+      resolution,
+      versionResolution,
+      now: options.now,
+      fetchImpl: options.fetchImpl
+    });
+  const { entry, download } = entryResult;
   const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
     now: options.now
   });

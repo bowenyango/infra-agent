@@ -172,7 +172,10 @@ evidence. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
 can prove Registry JavaScript-shell pages fall back to provider raw docs after
-a rejected or failed primary attempt. With
+a rejected or failed primary attempt. When live `latest` metadata resolves to
+a concrete Terraform provider version, tests should prove raw-doc fallback
+tries the resolved provider tag before branch refs such as `main` or `master`.
+With
 `--library-out`, the command should also write an
 `infra-agent.public-knowledge-library-artifact` containing the same compact
 units, public-reference classification, download trace, quality summary,

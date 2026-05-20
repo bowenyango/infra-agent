@@ -281,6 +281,7 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
 
 test('knowledge from-url falls back to Terraform provider repository docs when Registry returns a JavaScript shell', async () => {
   const requestedUrls = [];
+  const versionsUrl = 'https://registry.terraform.io/v1/providers/hashicorp/aws/versions';
   const rawDocsUrl = 'https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/s3_bucket.html.markdown';
   const fetchImpl = async url => {
     requestedUrls.push(url);
@@ -340,7 +341,7 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
   const libraryArtifact = buildPublicKnowledgeLibraryArtifact(report);
   const validation = validateKnowledgePayload(libraryArtifact, 'inline');
 
-  assert.deepEqual(requestedUrls.slice(0, 2), [S3_BUCKET_URL, rawDocsUrl]);
+  assert.deepEqual(requestedUrls.slice(0, 3), [versionsUrl, S3_BUCKET_URL, rawDocsUrl]);
   assert.equal(report.sourceUrl, S3_BUCKET_URL);
   assert.equal(report.source.url, S3_BUCKET_URL);
   assert.equal(report.source.name, 'resource:aws_s3_bucket');
@@ -455,7 +456,7 @@ test('knowledge from-url resolves latest Terraform provider version metadata whe
   });
   const validation = validateKnowledgePayload(report, 'inline');
 
-  assert.deepEqual(requestedUrls, [S3_BUCKET_URL, versionsUrl]);
+  assert.deepEqual(requestedUrls, [versionsUrl, S3_BUCKET_URL]);
   assert.deepEqual(report.centralLibraryCandidate.classification.versionResolution, {
     requestedVersion: 'latest',
     resolvedVersion: '6.10.1',
@@ -468,6 +469,101 @@ test('knowledge from-url resolves latest Terraform provider version metadata whe
   assert.deepEqual(
     report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionResolution,
     report.centralLibraryCandidate.classification.versionResolution
+  );
+  assert.equal(validation.valid, true);
+});
+
+test('knowledge from-url prefers resolved Terraform provider version for raw-doc fallback', async () => {
+  const versionsUrl = 'https://registry.terraform.io/v1/providers/hashicorp/aws/versions';
+  const resolvedRawDocsUrl = 'https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/v6.10.1/website/docs/r/s3_bucket.html.markdown';
+  const requestedUrls = [];
+  const fetchImpl = async url => {
+    requestedUrls.push(url);
+    if (url === versionsUrl) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get(name) {
+            return name.toLowerCase() === 'content-type' ? 'application/json' : null;
+          }
+        },
+        async text() {
+          return JSON.stringify({
+            versions: [
+              { version: '6.2.0' },
+              { version: '6.10.1' }
+            ]
+          });
+        }
+      };
+    }
+
+    if (url === S3_BUCKET_URL) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get(name) {
+            return name.toLowerCase() === 'content-type' ? 'text/html' : null;
+          }
+        },
+        async text() {
+          return '<html><body>Please enable Javascript to use this application</body></html>';
+        }
+      };
+    }
+
+    if (url === resolvedRawDocsUrl) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get(name) {
+            return name.toLowerCase() === 'content-type' ? 'text/plain' : null;
+          }
+        },
+        async text() {
+          return S3_BUCKET_INLINE_MARKDOWN;
+        }
+      };
+    }
+
+    return {
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      headers: {
+        get() {
+          return null;
+        }
+      },
+      async text() {
+        return 'not found';
+      }
+    };
+  };
+
+  const report = await buildPublicKnowledgeUrlReport({
+    url: S3_BUCKET_URL,
+    fetchImpl,
+    maxUnits: 20,
+    now: new Date('2026-05-18T00:00:00.000Z')
+  });
+  const validation = validateKnowledgePayload(report, 'inline');
+
+  assert.deepEqual(requestedUrls, [versionsUrl, S3_BUCKET_URL, resolvedRawDocsUrl]);
+  assert.equal(report.download.usedRole, 'fallback');
+  assert.equal(report.download.usedUrl, resolvedRawDocsUrl);
+  assert.equal(report.download.attemptedCount, 2);
+  assert.equal(report.centralLibraryCandidate.classification.versionResolution.status, 'resolved');
+  assert.equal(report.centralLibraryCandidate.classification.versionResolution.resolvedVersion, '6.10.1');
+  assert.equal(
+    report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.usedUrl,
+    resolvedRawDocsUrl
   );
   assert.equal(validation.valid, true);
 });
