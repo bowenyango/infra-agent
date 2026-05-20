@@ -25,6 +25,7 @@ function parseJsonOutput(output) {
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket';
 const S3_BUCKET_DATA_SOURCE_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_bucket';
+const PULUMI_AWS_BUCKET_URL = 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/';
 
 const S3_BUCKET_MARKDOWN = [
   '# aws_s3_bucket',
@@ -96,6 +97,47 @@ const S3_BUCKET_INLINE_MARKDOWN = S3_BUCKET_MARKDOWN
   .replace(/- `bucket`/g, '* `bucket`')
   .replace(/- `tags`/g, '* `tags`')
   .replace(/- `arn`/g, '* `arn`');
+
+const PULUMI_AWS_BUCKET_MARKDOWN = [
+  '# Bucket',
+  '',
+  '## Inputs',
+  '',
+  '| Name | Type | Description |',
+  '| --- | --- | --- |',
+  '| `bucket` | string | Name of the bucket to create. |',
+  '',
+  '## Example Usage',
+  '',
+  '```typescript',
+  'const bucket = new aws.s3.Bucket("site", {',
+  '  bucket: "site-bucket",',
+  '});',
+  '```',
+  '',
+  '## Compatibility Warnings',
+  '',
+  'Bucket names are globally unique and incompatible replacements should be reviewed before changing identity fields.',
+  '',
+  '## Migration Workflow',
+  '',
+  '1. Confirm whether the bucket name is changing or only the Pulumi logical name is changing.',
+  '2. Add aliases or import/state review when preserving the physical bucket.',
+  '3. Run pulumi preview and inspect replacements.',
+  '',
+  '## Importing resources',
+  '',
+  '1. Review the existing cloud resource and matching Pulumi type.',
+  '2. Run pulumi import with the provider ID before previewing updates.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`BucketAlreadyExists` usually means another stack or account owns the requested bucket name.',
+  '',
+  '- Confirm the owning account and region.',
+  '- Use import or aliases when preserving an existing bucket.',
+  ''
+].join('\n');
 
 test('knowledge from-url emits five compact unit types from a Terraform Registry resource URL', async () => {
   const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-from-url-'));
@@ -367,6 +409,131 @@ test('knowledge from-url classifies Terraform Registry data source URLs', async 
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('knowledge from-url emits Pulumi Registry resource URL public-library context', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-from-url-pulumi-'));
+
+  try {
+    const contentPath = join(tempRoot, 'pulumi_aws_bucket.md');
+    await writeFile(contentPath, PULUMI_AWS_BUCKET_MARKDOWN, 'utf8');
+
+    const report = await buildPublicKnowledgeUrlReport({
+      url: PULUMI_AWS_BUCKET_URL,
+      contentPath,
+      maxUnits: 20
+    });
+    const artifact = buildPublicKnowledgeLibraryArtifact(report);
+    const reportValidation = validateKnowledgePayload(report, 'inline');
+    const artifactValidation = validateKnowledgePayload(artifact, 'inline');
+
+    assert.equal(report.domain, 'pulumi');
+    assert.equal(report.source.kind, 'pulumi-docs');
+    assert.equal(report.source.name, 'pulumi-docs:resource:aws:s3/bucket');
+    assert.equal(report.source.packageName, '@pulumi/aws');
+    assert.equal(report.source.module, 'aws:s3/bucket:Bucket');
+    assert.equal(report.source.version, 'unversioned');
+    assert.equal(report.download.mode, 'local-content');
+    assert.deepEqual(report.sourceOutline.signals, [
+      'argument-reference',
+      'example-usage',
+      'import'
+    ]);
+    assert.equal(report.centralLibraryCandidate.classification.ecosystem, 'pulumi');
+    assert.equal(report.centralLibraryCandidate.classification.artifactKind, 'pulumi-package-resource');
+    assert.equal(
+      report.centralLibraryCandidate.classification.coordinates,
+      'pulumi/package/@pulumi/aws/unversioned/resource/aws:s3/bucket:Bucket'
+    );
+    assert.equal(report.centralLibraryCandidate.classification.providerAddress, '@pulumi/aws');
+    assert.equal(report.centralLibraryCandidate.classification.resourceToken, 'aws:s3/bucket:Bucket');
+    assert.ok(report.centralLibraryCandidate.classification.tags.includes('package-docs'));
+    assert.ok(report.centralLibraryCandidate.classification.tags.includes('@pulumi/aws'));
+    assert.ok(report.centralLibraryCandidate.classification.tags.includes('aws:s3/bucket:Bucket'));
+    assert.deepEqual(report.centralLibraryCandidate.classification.versionRef, {
+      value: 'unversioned',
+      kind: 'pinned-version',
+      mutable: false,
+      source: 'url-path'
+    });
+    assert.deepEqual(report.centralLibraryCandidate.classification.versionResolution, {
+      requestedVersion: 'unversioned',
+      resolvedVersion: 'unversioned',
+      status: 'pinned',
+      mutable: false,
+      source: 'url-path'
+    });
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.ecosystem, 'pulumi');
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.artifactKind, 'pulumi-package-resource');
+    assert.ok(report.unitsByType.fact.some(unit =>
+      unit.path === 'pulumi.resource.aws.s3.bucket.Bucket.bucket'
+      && unit.factKind === 'argument'
+    ));
+    assert.ok(report.unitsByType.example.some(unit =>
+      unit.exampleType === 'pulumi-docs-example'
+      && unit.language === 'typescript'
+      && /new aws\.s3\.Bucket/.test(unit.snippet)
+    ));
+    assert.ok(report.unitsByType.diagnostic.some(unit =>
+      unit.engine === 'pulumi'
+      && unit.signature === 'BucketAlreadyExists'
+    ));
+    assert.ok(report.unitsByType.recipe.some(unit =>
+      unit.name === 'Migration Workflow'
+      && unit.mutationAllowed === false
+    ));
+    assert.equal(report.summary.unitTypeComplete, true);
+    assert.equal(report.summary.qualityStatus, 'ready');
+    assert.equal(artifact.classification.artifactKind, 'pulumi-package-resource');
+    assert.equal(reportValidation.valid, true);
+    assert.equal(artifactValidation.valid, true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge from-url fetches Pulumi Registry resources through primary official URL only', async () => {
+  const requestedUrls = [];
+  const fetchImpl = async url => {
+    requestedUrls.push(url);
+    assert.equal(url, PULUMI_AWS_BUCKET_URL);
+
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        get(name) {
+          return name.toLowerCase() === 'content-type' ? 'text/markdown' : null;
+        }
+      },
+      async text() {
+        return PULUMI_AWS_BUCKET_MARKDOWN;
+      }
+    };
+  };
+
+  const report = await buildPublicKnowledgeUrlReport({
+    url: PULUMI_AWS_BUCKET_URL,
+    fetchImpl,
+    maxUnits: 20,
+    now: new Date('2026-05-18T00:00:00.000Z')
+  });
+  const validation = validateKnowledgePayload(report, 'inline');
+
+  assert.deepEqual(requestedUrls, [PULUMI_AWS_BUCKET_URL]);
+  assert.equal(report.download.mode, 'live-fetch');
+  assert.equal(report.download.strategy, 'official-url-primary-only');
+  assert.equal(report.download.usedRole, 'primary');
+  assert.equal(report.download.fallbackUsed, false);
+  assert.equal(report.download.usedUrl, PULUMI_AWS_BUCKET_URL);
+  assert.equal(report.download.attemptedCount, 1);
+  assert.equal(report.download.attempts[0].role, 'primary');
+  assert.equal(report.download.attempts[0].status, 'used');
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, 'official-url-primary-only');
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.selectedAttemptIndex, 0);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.usedUrl, PULUMI_AWS_BUCKET_URL);
+  assert.equal(validation.valid, true);
 });
 
 test('knowledge from-url falls back to Terraform provider repository docs when Registry returns a JavaScript shell', async () => {

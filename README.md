@@ -286,22 +286,28 @@ Current behavior is intentionally runtime-foundation oriented:
   `infra-agent.public-knowledge-url-report` directly from a public official
   documentation URL without requiring a workspace. It infers the source identity
   from supported URLs such as Terraform Registry provider resource/data-source
-  docs, extracts the same five unit types, groups compact source-referenced
+  docs and Pulumi Registry resource docs, extracts the same five unit types,
+  groups compact source-referenced
   units under `unitsByType`, and reports `unitTypeComplete`, quality status,
   compact byte length, missing/included unit types, and a
   `centralLibraryCandidate` for public-reference reuse. The report also records
   a compact `download` trace and a hub-style central-library coordinate such as
-  `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus a
+  `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket` or
+  `pulumi/package/@pulumi/aws/unversioned/resource/aws:s3/bucket:Bucket`,
+  plus a
   `classification.versionRef` marker that records whether the URL path used a
   pinned version or a mutable alias such as `latest`. The companion
   `classification.versionResolution` records whether a pinned version was
   already concrete, whether a live `latest` lookup resolved to a specific
-  Terraform provider version through provider versions metadata, or whether
-  resolution was unavailable because the command used local content or the
-  metadata lookup failed. When a live `latest` URL needs provider repository
+  Terraform provider version through provider versions metadata, whether the
+  public docs are explicitly unversioned, or whether resolution was unavailable
+  because the command used local content or the metadata lookup failed. When a
+  live `latest` URL needs provider repository
   raw-doc fallback and the concrete provider version was resolved, fallback
   download attempts prefer the resolved version tag before `main` or `master`
   so the central-library evidence is closer to the published provider release.
+  Pulumi Registry resource URLs use a primary official-URL download strategy
+  and do not attempt Terraform provider repository fallbacks.
   The
   `llmRefinementInput` contract is for explicit offline LLM review. That input
   includes a deterministic `reviewPacket` with classification, version

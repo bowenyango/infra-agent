@@ -18,6 +18,7 @@ import {
 import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket';
+const PULUMI_AWS_BUCKET_URL = 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/';
 
 const S3_BUCKET_MARKDOWN = [
   '# aws_s3_bucket',
@@ -48,6 +49,41 @@ const S3_BUCKET_MARKDOWN = [
   ''
 ].join('\n');
 
+const PULUMI_AWS_BUCKET_MARKDOWN = [
+  '# Bucket',
+  '',
+  '## Inputs',
+  '',
+  '| Name | Type | Description |',
+  '| --- | --- | --- |',
+  '| `bucket` | string | Name of the bucket to create. |',
+  '',
+  '## Example Usage',
+  '',
+  '```typescript',
+  'const bucket = new aws.s3.Bucket("site", {',
+  '  bucket: "site-bucket",',
+  '});',
+  '```',
+  '',
+  '## Compatibility Warnings',
+  '',
+  'Bucket names are globally unique and incompatible replacements should be reviewed before changing identity fields.',
+  '',
+  '## Migration Workflow',
+  '',
+  '1. Confirm whether the bucket name is changing.',
+  '2. Run pulumi preview and inspect replacements.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`BucketAlreadyExists` usually means another stack owns the requested bucket name.',
+  '',
+  '- Confirm the owning account and region.',
+  '- Use import or aliases when preserving an existing bucket.',
+  ''
+].join('\n');
+
 function sha256Hex(value) {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -59,6 +95,25 @@ async function buildArtifactFixture() {
 
   const report = await buildPublicKnowledgeUrlReport({
     url: S3_BUCKET_URL,
+    contentPath,
+    maxUnits: 20
+  });
+  const artifact = buildPublicKnowledgeLibraryArtifact(report);
+
+  return {
+    tempRoot,
+    report,
+    artifact
+  };
+}
+
+async function buildPulumiArtifactFixture() {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-pulumi-artifact-'));
+  const contentPath = join(tempRoot, 'pulumi_aws_bucket.md');
+  await writeFile(contentPath, PULUMI_AWS_BUCKET_MARKDOWN, 'utf8');
+
+  const report = await buildPublicKnowledgeUrlReport({
+    url: PULUMI_AWS_BUCKET_URL,
     contentPath,
     maxUnits: 20
   });
@@ -89,6 +144,7 @@ function buildRegistryFixture(artifact) {
         versionRef: classification.versionRef,
         versionResolution: classification.versionResolution,
         sourceName: classification.sourceName,
+        ...(classification.resourceToken ? { resourceToken: classification.resourceToken } : {}),
         tags: classification.tags,
         artifact: {
           url: 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json',
@@ -449,6 +505,27 @@ test('public knowledge library registry validation checks coordinates hashes and
 
     assert.equal(unsafeUrl.valid, false);
     assert.ok(unsafeUrl.issues.some(issue => issue.path === '$.entries[0].artifact.url'));
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('public knowledge library registry validation accepts Pulumi package resource entries', async () => {
+  const { tempRoot, report, artifact } = await buildPulumiArtifactFixture();
+
+  try {
+    const registry = buildRegistryFixture(artifact);
+    registry.entries[0].artifact.url = 'https://knowledge.example.com/public/pulumi-aws-bucket.public-knowledge-library-artifact.json';
+    const validation = validateKnowledgePayload(registry, 'inline');
+
+    assert.equal(report.domain, 'pulumi');
+    assert.equal(registry.entries[0].ecosystem, 'pulumi');
+    assert.equal(registry.entries[0].artifactKind, 'pulumi-package-resource');
+    assert.equal(registry.entries[0].providerAddress, '@pulumi/aws');
+    assert.equal(registry.entries[0].resourceToken, 'aws:s3/bucket:Bucket');
+    assert.equal(validation.inputKind, 'infra-agent.public-knowledge-library-registry');
+    assert.equal(validation.valid, true);
+    assert.equal(validation.unitCount, artifact.summary.unitCount);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

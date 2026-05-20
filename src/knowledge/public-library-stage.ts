@@ -20,13 +20,17 @@ import type {
 
 export interface PublicKnowledgeLibraryRegistryEntry {
   coordinates: string;
-  ecosystem: 'terraform';
-  artifactKind: 'terraform-provider-resource' | 'terraform-provider-data-source';
+  ecosystem: 'terraform' | 'pulumi';
+  artifactKind:
+    | 'terraform-provider-resource'
+    | 'terraform-provider-data-source'
+    | 'pulumi-package-resource';
   providerAddress: string;
   version: string;
   versionRef: PublicKnowledgeVersionRef;
   versionResolution: PublicKnowledgeVersionResolution;
   sourceName: string;
+  resourceToken?: string;
   tags: string[];
   artifact: {
     path: string;
@@ -173,16 +177,18 @@ function isVersionResolution(value: unknown, version: string): value is PublicKn
 function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistryEntry {
   return isRecord(value)
     && typeof value.coordinates === 'string'
-    && value.ecosystem === 'terraform'
+    && (value.ecosystem === 'terraform' || value.ecosystem === 'pulumi')
     && (
       value.artifactKind === 'terraform-provider-resource'
       || value.artifactKind === 'terraform-provider-data-source'
+      || value.artifactKind === 'pulumi-package-resource'
     )
     && typeof value.providerAddress === 'string'
     && typeof value.version === 'string'
     && isVersionRef(value.versionRef, value.version)
     && isVersionResolution(value.versionResolution, value.version)
     && typeof value.sourceName === 'string'
+    && (value.resourceToken === undefined || typeof value.resourceToken === 'string')
     && Array.isArray(value.tags)
     && value.tags.every(tag => typeof tag === 'string')
     && isRecord(value.artifact)
@@ -268,6 +274,7 @@ function buildRegistryEntry(input: {
     versionRef: artifact.classification.versionRef,
     versionResolution: artifact.classification.versionResolution,
     sourceName: artifact.classification.sourceName,
+    ...(artifact.classification.resourceToken ? { resourceToken: artifact.classification.resourceToken } : {}),
     tags: artifact.classification.tags,
     artifact: {
       path: input.storedRelativePath,

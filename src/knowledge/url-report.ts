@@ -59,7 +59,10 @@ export interface PublicKnowledgeDownloadAttempt {
 
 export interface PublicKnowledgeDownloadSummary {
   mode: PublicKnowledgeDownloadMode;
-  strategy: 'local-content-fixture' | 'terraform-registry-primary-then-provider-repo-raw';
+  strategy:
+    | 'local-content-fixture'
+    | 'terraform-registry-primary-then-provider-repo-raw'
+    | 'official-url-primary-only';
   attemptedCount: number;
   fallbackUsed: boolean;
   usedRole: PublicKnowledgeDownloadAttemptRole | 'local-content';
@@ -149,8 +152,11 @@ export interface PublicKnowledgeVersionResolution {
 
 export interface PublicKnowledgeCentralLibraryClassification {
   registry: 'infra-agent-public-reference';
-  ecosystem: 'terraform';
-  artifactKind: 'terraform-provider-resource' | 'terraform-provider-data-source';
+  ecosystem: 'terraform' | 'pulumi';
+  artifactKind:
+    | 'terraform-provider-resource'
+    | 'terraform-provider-data-source'
+    | 'pulumi-package-resource';
   namespace: string;
   providerName: string;
   providerAddress: string;
@@ -159,6 +165,7 @@ export interface PublicKnowledgeCentralLibraryClassification {
   versionResolution: PublicKnowledgeVersionResolution;
   sourceName: string;
   slug: string;
+  resourceToken?: string;
   coordinates: string;
   tags: string[];
 }
@@ -178,7 +185,7 @@ export interface PublicKnowledgeLlmRefinementInput {
     sourceId: string;
     sourceContentHash: string;
     coordinates: string;
-    ecosystem: 'terraform';
+    ecosystem: PublicKnowledgeCentralLibraryClassification['ecosystem'];
     artifactKind: PublicKnowledgeCentralLibraryClassification['artifactKind'];
     version: string;
     versionRef: PublicKnowledgeVersionRef;
@@ -231,6 +238,8 @@ export interface PublicKnowledgeCentralLibraryCandidate {
     kind: KnowledgeSource['kind'];
     name: string;
     provider?: string;
+    module?: string;
+    packageName?: string;
     version?: string;
     url?: string;
   };
@@ -331,10 +340,19 @@ interface TerraformRegistryUrlSource {
   slug: string;
 }
 
+interface PulumiRegistryUrlSource {
+  packageSlug: string;
+  packageName: string;
+  docsPath: string;
+  resourceToken: string;
+  typeName: string;
+}
+
 interface PublicKnowledgeSourceResolution {
   domain: InfraDomainId;
   source: KnowledgeSource;
   terraformRegistry?: TerraformRegistryUrlSource;
+  pulumiRegistry?: PulumiRegistryUrlSource;
 }
 
 interface PublicKnowledgeEntryResult {
@@ -577,6 +595,16 @@ async function resolvePublicKnowledgeVersion(input: {
     });
   }
 
+  if (input.resolution.pulumiRegistry) {
+    return {
+      requestedVersion: 'unversioned',
+      resolvedVersion: 'unversioned',
+      status: 'pinned',
+      mutable: false,
+      source: 'url-path'
+    };
+  }
+
   throw new Error('Unsupported public knowledge source version resolution.');
 }
 
@@ -722,14 +750,80 @@ function terraformResourceSourceFromUrl(parsed: URL): PublicKnowledgeSourceResol
   };
 }
 
+function pascalCaseFromPulumiDocsSegment(value: string): string {
+  return value
+    .split(/[-_]/)
+    .filter(segment => segment.length > 0)
+    .map(segment => `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`)
+    .join('');
+}
+
+function pulumiResourceSourceFromUrl(parsed: URL): PublicKnowledgeSourceResolution | null {
+  if (parsed.hostname !== 'www.pulumi.com' && parsed.hostname !== 'pulumi.com') {
+    return null;
+  }
+
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (
+    parts[0] !== 'registry'
+    || parts[1] !== 'packages'
+    || parts[3] !== 'api-docs'
+    || parts.length < 6
+  ) {
+    return null;
+  }
+
+  const packageSlug = parts[2] ?? '';
+  const docsSegments = parts.slice(4);
+  if (
+    !/^[a-z0-9][a-z0-9-]*$/.test(packageSlug)
+    || docsSegments.some(segment => !/^[a-z0-9][a-z0-9.-]*$/.test(segment))
+  ) {
+    return null;
+  }
+
+  const docsPath = docsSegments.join('/');
+  const typeName = pascalCaseFromPulumiDocsSegment(docsSegments.at(-1) ?? '');
+  if (!typeName) {
+    return null;
+  }
+
+  const packageName = `@pulumi/${packageSlug}`;
+  const resourceToken = `${packageSlug}:${docsPath}:${typeName}`;
+  const sourceName = `pulumi-docs:resource:${packageSlug}:${docsPath}`;
+
+  return {
+    domain: 'pulumi',
+    source: {
+      kind: 'pulumi-docs',
+      name: sourceName,
+      packageName,
+      module: resourceToken,
+      version: 'unversioned',
+      url: parsed.toString()
+    },
+    pulumiRegistry: {
+      packageSlug,
+      packageName,
+      docsPath,
+      resourceToken,
+      typeName
+    }
+  };
+}
+
 function publicKnowledgeSourceFromUrl(rawUrl: string): PublicKnowledgeSourceResolution {
   const parsed = normalizePublicUrl(rawUrl);
   const terraformSource = terraformResourceSourceFromUrl(parsed);
   if (terraformSource) {
     return terraformSource;
   }
+  const pulumiSource = pulumiResourceSourceFromUrl(parsed);
+  if (pulumiSource) {
+    return pulumiSource;
+  }
 
-  throw new Error('Unsupported public knowledge URL. Supported v0 URLs are Terraform Registry provider resource and data source docs.');
+  throw new Error('Unsupported public knowledge URL. Supported v0 URLs are Terraform Registry provider resource/data source docs and Pulumi Registry resource docs.');
 }
 
 function terraformRegistryRawDocRefs(
@@ -942,7 +1036,9 @@ async function fetchEntry(input: {
       entry,
       download: {
         mode: 'live-fetch',
-        strategy: 'terraform-registry-primary-then-provider-repo-raw',
+        strategy: input.resolution.terraformRegistry
+          ? 'terraform-registry-primary-then-provider-repo-raw'
+          : 'official-url-primary-only',
         attemptedCount: attempts.length,
         fallbackUsed: false,
         usedRole: 'primary',
@@ -1058,13 +1154,13 @@ function sourceOutlineSignalForHeading(title: string): PublicKnowledgeSourceOutl
   if (/^(example usage|basic usage|examples?)\b/.test(normalized)) {
     return 'example-usage';
   }
-  if (/\b(arguments?|argument reference|arguments reference)\b/.test(normalized)) {
+  if (/\b(inputs?|arguments?|argument reference|arguments reference)\b/.test(normalized)) {
     return 'argument-reference';
   }
   if (/\b(attributes?|attribute reference|attributes reference)\b/.test(normalized)) {
     return 'attribute-reference';
   }
-  if (/^import\b/.test(normalized)) {
+  if (/^import(?:ing)?\b/.test(normalized)) {
     return 'import';
   }
   if (/^timeouts?\b/.test(normalized)) {
@@ -1494,6 +1590,8 @@ function compactSource(source: KnowledgeSource, domain: InfraDomainId): PublicKn
     kind: source.kind,
     name: source.name,
     ...(source.provider ? { provider: source.provider } : {}),
+    ...(source.module ? { module: source.module } : {}),
+    ...(source.packageName ? { packageName: source.packageName } : {}),
     ...(source.version ? { version: source.version } : {}),
     ...(source.url ? { url: source.url } : {})
   };
@@ -1547,6 +1645,50 @@ function terraformLibraryClassification(
   };
 }
 
+function pulumiLibraryClassification(
+  source: PulumiRegistryUrlSource,
+  versionResolution: PublicKnowledgeVersionResolution
+): PublicKnowledgeCentralLibraryClassification {
+  const version = 'unversioned';
+  const versionRef = publicKnowledgeVersionRef(version);
+  const coordinates = [
+    'pulumi',
+    'package',
+    source.packageName,
+    version,
+    'resource',
+    source.resourceToken
+  ].join('/');
+
+  return {
+    registry: 'infra-agent-public-reference',
+    ecosystem: 'pulumi',
+    artifactKind: 'pulumi-package-resource',
+    namespace: 'pulumi',
+    providerName: source.packageSlug,
+    providerAddress: source.packageName,
+    version,
+    versionRef,
+    versionResolution,
+    sourceName: `pulumi-docs:resource:${source.packageSlug}:${source.docsPath}`,
+    slug: source.docsPath,
+    resourceToken: source.resourceToken,
+    coordinates,
+    tags: [
+      'public-reference',
+      'pulumi',
+      'package-docs',
+      source.packageName,
+      source.packageSlug,
+      source.docsPath,
+      source.resourceToken,
+      'resource',
+      version,
+      versionRef.kind
+    ]
+  };
+}
+
 function publicKnowledgeVersionRef(version: string): PublicKnowledgeVersionRef {
   const floating = version === 'latest';
   return {
@@ -1563,6 +1705,9 @@ function libraryClassification(
 ): PublicKnowledgeCentralLibraryClassification {
   if (resolution.terraformRegistry) {
     return terraformLibraryClassification(resolution.terraformRegistry, versionResolution);
+  }
+  if (resolution.pulumiRegistry) {
+    return pulumiLibraryClassification(resolution.pulumiRegistry, versionResolution);
   }
 
   throw new Error('Unsupported public knowledge source classification.');

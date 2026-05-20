@@ -140,13 +140,14 @@ workspace-scoped report, use the URL-only extraction path:
 
 ```sh
 infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --library-out /tmp/infra-agent-s3-library-artifact.json --json
+infra-agent knowledge from-url https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/ --max-units 20 --out /tmp/infra-agent-pulumi-bucket-url-knowledge.json --library-out /tmp/infra-agent-pulumi-bucket-library-artifact.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-url-knowledge.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge pack <workspace> --domain terraform --resource aws_s3_bucket --json
 ```
 
-The output should be an `infra-agent.public-knowledge-url-report` with
+The Terraform output should be an `infra-agent.public-knowledge-url-report` with
 `mutationAllowed: false`, `domain: "terraform"`, source identity
 `resource:aws_s3_bucket`, `summary.unitTypeComplete: true`, all five
 `includedUnitTypes`, an empty `missingUnitTypes` array,
@@ -177,6 +178,13 @@ can prove Registry JavaScript-shell pages fall back to provider raw docs after
 a rejected or failed primary attempt. When live `latest` metadata resolves to
 a concrete Terraform provider version, tests should prove raw-doc fallback
 tries the resolved provider tag before branch refs such as `main` or `master`.
+Pulumi Registry resource URL tests should prove the output has
+`domain: "pulumi"`, source identity such as
+`pulumi-docs:resource:aws:s3/bucket`, a stable coordinate such as
+`pulumi/package/@pulumi/aws/unversioned/resource/aws:s3/bucket:Bucket`, all
+five unit types, `sourceOutline` signals for inputs/examples/imports, and
+`download.strategy: "official-url-primary-only"` with no Terraform fallback
+attempts.
 With
 `--library-out`, the command should also write an
 `infra-agent.public-knowledge-library-artifact` containing the same compact

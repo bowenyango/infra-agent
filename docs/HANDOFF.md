@@ -6,6 +6,60 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Pulumi URL Public Knowledge Extraction
+
+Status:
+
+- Extended `knowledge from-url` beyond Terraform Registry docs to Pulumi
+  Registry resource URLs such as
+  `https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/`.
+- Pulumi URL reports now classify public-reference artifacts as
+  `pulumi-package-resource`, with stable hub coordinates, package/resource
+  discovery tags, an unversioned public-doc version posture, compact download
+  evidence, source-outline signals, five-unit extraction, and an offline LLM
+  review packet.
+- Live Pulumi URL fetches use an `official-url-primary-only` strategy and do
+  not attempt Terraform provider raw-doc fallbacks.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` resolves Pulumi Registry resource URLs,
+  derives Pulumi package/resource classification, records primary-only
+  download strategy, and includes Pulumi source identity in compact artifacts.
+- `src/knowledge/validate.ts` validates Pulumi public-library classification,
+  discovery tags, primary-only download traces, and registry metadata shape.
+- `src/knowledge/public-library-stage.ts` carries Pulumi artifact metadata into
+  local public-library registry entries.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers Pulumi
+  resource URL local-content extraction and mocked live primary download.
+- `test/unit/knowledge-public-library-artifact-validation.test.mjs` carries
+  optional Pulumi resource tokens through registry fixtures.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  Pulumi URL support and primary-only download posture.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Pulumi public-library artifacts can be produced, validated, and staged, but
+  workspace registry reuse still only matches Terraform provider/resource
+  usage. Pulumi registry-backed workspace reuse should be a separate slice.
+- Helm URL-only public extraction remains future work.
+
 ## 2026-05-20 Public Knowledge Discovery Tag Validation
 
 Status:

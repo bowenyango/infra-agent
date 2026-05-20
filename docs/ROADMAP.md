@@ -132,7 +132,8 @@ The first acceptance clarification showed a second required entrypoint: when
 the user provides only a public documentation URL, the tool must not require a
 workspace. `knowledge from-url <url>` is the URL-only public-reference path. It
 infers supported source identity directly from the URL, currently Terraform
-Registry provider resource/data-source docs, and emits a compact
+Registry provider resource/data-source docs and Pulumi Registry resource docs,
+and emits a compact
 `infra-agent.public-knowledge-url-report` with the same five unit types grouped
 for agent consumption. The report should stay central-library friendly:
 compact units under `unitsByType`, per-unit `sourceId`/`sourceLocator` instead
@@ -152,10 +153,13 @@ URL or a documented fallback produced the selected source content and whether
 the selected document contains expected sections. It should also expose
 `classification.versionResolution` so mutable aliases such as `latest` can be
 resolved to a concrete provider version when live Terraform provider metadata
-is available, while local-content runs remain explicitly marked unresolved. If
+is available, while local-content runs remain explicitly marked unresolved and
+Pulumi Registry resource docs are marked as unversioned public docs. If
 the primary Registry page is not extractable and raw provider repository docs
 are needed, resolved `latest` metadata should make the fallback prefer the
-concrete provider version tag before `main` or `master`.
+concrete provider version tag before `main` or `master`. Pulumi Registry
+resource URLs should use a primary official-URL download strategy without
+Terraform raw-provider fallback attempts.
 Validation should reject fallback traces that do not start with a rejected or
 failed primary attempt. Continue
 treating this as public-reference extraction, not repo topology, plan, upload,
@@ -165,8 +169,9 @@ downloadable central-library workflows. That artifact is local,
 review-required, raw-content-free, and publication-ready in shape only; it is
 not an upload, approval, or remote execution path. Public-reference
 classification tags are part of the downloadable search contract and must
-include core discovery terms such as public-reference, ecosystem, provider-docs,
-provider identity, artifact type, source type, and version-reference posture.
+include core discovery terms such as public-reference, ecosystem, provider-docs
+or package-docs, provider or package identity, artifact type, source type, and
+version-reference posture.
 `knowledge validate` must accept both the URL report and this artifact kind
 before either is used by registry, download, or LLM-refinement workflows. URL
 report validation must

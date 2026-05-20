@@ -163,7 +163,11 @@ const SHORT_HEX_PATTERN = /^[a-f0-9]{8,32}$/;
 const PACK_ID_PATTERN = /^[a-f0-9]{24}$/;
 const MANIFEST_ID_PATTERN = PACK_ID_PATTERN;
 const PUBLIC_KNOWLEDGE_DOWNLOAD_MODES = ['live-fetch', 'local-content'] as const;
-const PUBLIC_KNOWLEDGE_DOWNLOAD_STRATEGIES = ['local-content-fixture', 'terraform-registry-primary-then-provider-repo-raw'] as const;
+const PUBLIC_KNOWLEDGE_DOWNLOAD_STRATEGIES = [
+  'local-content-fixture',
+  'terraform-registry-primary-then-provider-repo-raw',
+  'official-url-primary-only'
+] as const;
 const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_ROLES = ['primary', 'fallback'] as const;
 const PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_STATUSES = ['used', 'rejected', 'failed'] as const;
 const PUBLIC_KNOWLEDGE_QUALITY_STATUSES = ['ready', 'needs-refinement'] as const;
@@ -188,7 +192,11 @@ const PUBLIC_KNOWLEDGE_SOURCE_OUTLINE_SIGNALS = [
   'import',
   'timeouts'
 ] as const;
-const PUBLIC_LIBRARY_ARTIFACT_KINDS = ['terraform-provider-resource', 'terraform-provider-data-source'] as const;
+const PUBLIC_LIBRARY_ARTIFACT_KINDS = [
+  'terraform-provider-resource',
+  'terraform-provider-data-source',
+  'pulumi-package-resource'
+] as const;
 const PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE = 'application/vnd.infra-agent.public-knowledge-library-artifact+json';
 
 interface PublicKnowledgeLlmReviewExpected {
@@ -2031,12 +2039,13 @@ function validatePublicKnowledgeClassification(
   if (value.registry !== 'infra-agent-public-reference') {
     issues.push(error(`${path}.registry`, 'Public knowledge library artifact registry must be infra-agent-public-reference.'));
   }
-  if (value.ecosystem !== 'terraform') {
-    issues.push(error(`${path}.ecosystem`, 'Public knowledge library artifact ecosystem must be terraform for v0.'));
+  if (value.ecosystem !== 'terraform' && value.ecosystem !== 'pulumi') {
+    issues.push(error(`${path}.ecosystem`, 'Public knowledge library artifact ecosystem must be supported.'));
   }
   if (
     value.artifactKind !== 'terraform-provider-resource'
     && value.artifactKind !== 'terraform-provider-data-source'
+    && value.artifactKind !== 'pulumi-package-resource'
   ) {
     issues.push(error(`${path}.artifactKind`, 'Public knowledge library artifact artifactKind must be supported.'));
   }
@@ -2055,6 +2064,9 @@ function validatePublicKnowledgeClassification(
   );
   const sourceName = readNonEmptyString(value.sourceName, `${path}.sourceName`, issues);
   const slug = readNonEmptyString(value.slug, `${path}.slug`, issues);
+  const resourceToken = value.resourceToken === undefined
+    ? null
+    : readNonEmptyString(value.resourceToken, `${path}.resourceToken`, issues);
   const coordinates = readNonEmptyString(value.coordinates, `${path}.coordinates`, issues);
   const tags = validatePublicKnowledgeTags(
     value.tags,
@@ -2070,6 +2082,7 @@ function validatePublicKnowledgeClassification(
     [`${path}.version`, version],
     [`${path}.sourceName`, sourceName],
     [`${path}.slug`, slug],
+    [`${path}.resourceToken`, resourceToken],
     [`${path}.coordinates`, coordinates]
   ] as const) {
     if (fieldValue !== null) {
@@ -2077,7 +2090,12 @@ function validatePublicKnowledgeClassification(
     }
   }
 
-  if (namespace !== null && providerName !== null && providerAddress !== null) {
+  if (
+    value.ecosystem === 'terraform'
+    && namespace !== null
+    && providerName !== null
+    && providerAddress !== null
+  ) {
     const expectedProviderAddress = `${namespace}/${providerName}`;
     if (providerAddress !== expectedProviderAddress) {
       issues.push(error(`${path}.providerAddress`, 'Public knowledge library artifact providerAddress must match namespace/providerName.'));
@@ -2132,6 +2150,64 @@ function validatePublicKnowledgeClassification(
         providerName,
         typeName,
         kindSegment,
+        versionRef?.kind ?? ''
+      ].filter((tag): tag is string => tag.length > 0)
+    );
+  }
+
+  if (
+    namespace !== null
+    && providerName !== null
+    && providerAddress !== null
+    && version !== null
+    && sourceName !== null
+    && slug !== null
+    && coordinates !== null
+    && value.ecosystem === 'pulumi'
+    && value.artifactKind === 'pulumi-package-resource'
+  ) {
+    const expectedProviderAddress = `@pulumi/${providerName}`;
+    const expectedSourceName = `pulumi-docs:resource:${providerName}:${slug}`;
+    const expectedResourceTokenPrefix = `${providerName}:${slug}:`;
+    const expectedCoordinates = [
+      'pulumi',
+      'package',
+      expectedProviderAddress,
+      version,
+      'resource',
+      resourceToken ?? ''
+    ].join('/');
+
+    if (namespace !== 'pulumi') {
+      issues.push(error(`${path}.namespace`, 'Pulumi public knowledge classification namespace must be pulumi.'));
+    }
+    if (providerAddress !== expectedProviderAddress) {
+      issues.push(error(`${path}.providerAddress`, 'Pulumi public knowledge classification providerAddress must match @pulumi/<provider>.'));
+    }
+    if (sourceName !== expectedSourceName) {
+      issues.push(error(`${path}.sourceName`, 'Pulumi public knowledge classification sourceName must match package resource docs identity.'));
+    }
+    if (resourceToken === null || !resourceToken.startsWith(expectedResourceTokenPrefix)) {
+      issues.push(error(`${path}.resourceToken`, 'Pulumi public knowledge classification resourceToken must match provider, docs path, and type.'));
+    }
+    if (coordinates !== expectedCoordinates) {
+      issues.push(error(`${path}.coordinates`, 'Pulumi public knowledge classification coordinates must match ecosystem/package/version/resource token.'));
+    }
+    requirePublicKnowledgeTags(
+      tags,
+      `${path}.tags`,
+      issues,
+      'Public knowledge library artifact classification',
+      [
+        'public-reference',
+        'pulumi',
+        'package-docs',
+        expectedProviderAddress,
+        providerName,
+        slug,
+        resourceToken ?? '',
+        'resource',
+        version,
         versionRef?.kind ?? ''
       ].filter((tag): tag is string => tag.length > 0)
     );
@@ -2271,7 +2347,10 @@ function validatePublicKnowledgeDownloadSummary(
   }
 
   if (value.mode === 'live-fetch') {
-    if (value.strategy !== 'terraform-registry-primary-then-provider-repo-raw') {
+    if (
+      value.strategy !== 'terraform-registry-primary-then-provider-repo-raw'
+      && value.strategy !== 'official-url-primary-only'
+    ) {
       issues.push(error(`${path}.strategy`, 'Live public knowledge downloads must use a supported official-doc fallback strategy.'));
     }
     if (value.usedRole !== 'primary' && value.usedRole !== 'fallback') {
@@ -2299,7 +2378,13 @@ function validatePublicKnowledgeDownloadSummary(
         if (value.attempts.length !== 1 || usedAttempts[0].index !== 0) {
           issues.push(error(`${path}.attempts`, 'Primary live public knowledge downloads must stop after the primary used attempt.'));
         }
+        if (value.strategy === 'official-url-primary-only' && fallbackUsed !== false) {
+          issues.push(error(`${path}.fallbackUsed`, 'Primary-only public knowledge downloads must not report fallback usage.'));
+        }
       } else if (value.usedRole === 'fallback') {
+        if (value.strategy === 'official-url-primary-only') {
+          issues.push(error(`${path}.strategy`, 'Primary-only public knowledge downloads must not use fallback attempts.'));
+        }
         const firstAttempt = value.attempts[0];
         if (
           value.attempts.length < 2
@@ -3662,8 +3747,8 @@ function validatePublicKnowledgeLibraryRegistryPayload(
         seenCoordinates.add(coordinates);
       }
 
-      if (entry.ecosystem !== 'terraform') {
-        issues.push(error(`${path}.ecosystem`, 'Public knowledge library registry entry ecosystem must be terraform.'));
+      if (entry.ecosystem !== 'terraform' && entry.ecosystem !== 'pulumi') {
+        issues.push(error(`${path}.ecosystem`, 'Public knowledge library registry entry ecosystem must be supported.'));
       }
       if (
         typeof entry.artifactKind !== 'string'
@@ -3699,6 +3784,18 @@ function validatePublicKnowledgeLibraryRegistryPayload(
         ) {
           issues.push(error(`${path}.sourceName`, 'Terraform data-source public library entries must use a data-source: sourceName.'));
         }
+        if (
+          entry.artifactKind === 'pulumi-package-resource'
+          && !sourceName.startsWith('pulumi-docs:resource:')
+        ) {
+          issues.push(error(`${path}.sourceName`, 'Pulumi resource public library entries must use a pulumi-docs:resource: sourceName.'));
+        }
+      }
+      const resourceToken = entry.resourceToken === undefined
+        ? null
+        : readNonEmptyString(entry.resourceToken, `${path}.resourceToken`, issues);
+      if (resourceToken !== null) {
+        validateNoSecretLikeValue(resourceToken, `${path}.resourceToken`, issues);
       }
 
       if (
@@ -3718,6 +3815,29 @@ function validatePublicKnowledgeLibraryRegistryPayload(
         const expectedCoordinates = `terraform/provider/${providerAddress}/${version}/${kindSegment}/${typeName}`;
         if (coordinates !== expectedCoordinates) {
           issues.push(error(`${path}.coordinates`, 'Public knowledge library registry coordinates must match provider, version, artifactKind, and sourceName.'));
+        }
+      }
+      if (
+        coordinates !== null
+        && providerAddress !== null
+        && version !== null
+        && sourceName !== null
+        && resourceToken !== null
+        && entry.artifactKind === 'pulumi-package-resource'
+      ) {
+        const sourceParts = sourceName.split(':');
+        const providerName = sourceParts[2] ?? '';
+        const docsPath = sourceParts[3] ?? '';
+        const expectedProviderAddress = `@pulumi/${providerName}`;
+        const expectedCoordinates = `pulumi/package/${expectedProviderAddress}/${version}/resource/${resourceToken}`;
+        if (providerAddress !== expectedProviderAddress) {
+          issues.push(error(`${path}.providerAddress`, 'Pulumi public library registry providerAddress must match @pulumi/<provider>.'));
+        }
+        if (!resourceToken.startsWith(`${providerName}:${docsPath}:`)) {
+          issues.push(error(`${path}.resourceToken`, 'Pulumi public library registry resourceToken must match sourceName provider and docs path.'));
+        }
+        if (coordinates !== expectedCoordinates) {
+          issues.push(error(`${path}.coordinates`, 'Pulumi public library registry coordinates must match package, version, and resource token.'));
         }
       }
 
@@ -3757,6 +3877,40 @@ function validatePublicKnowledgeLibraryRegistryPayload(
               providerName,
               typeName,
               kindSegment,
+              versionRef.kind
+            ]
+          );
+        }
+      }
+      if (
+        tags !== null
+        && providerAddress !== null
+        && version !== null
+        && versionRef !== null
+        && versionRef.kind !== null
+        && sourceName !== null
+        && resourceToken !== null
+        && entry.artifactKind === 'pulumi-package-resource'
+      ) {
+        const sourceParts = sourceName.split(':');
+        const providerName = sourceParts[2] ?? '';
+        const docsPath = sourceParts[3] ?? '';
+        if (providerName && docsPath) {
+          requirePublicKnowledgeTags(
+            tags,
+            `${path}.tags`,
+            issues,
+            'Public knowledge library registry',
+            [
+              'public-reference',
+              'pulumi',
+              'package-docs',
+              providerAddress,
+              providerName,
+              docsPath,
+              resourceToken,
+              'resource',
+              version,
               versionRef.kind
             ]
           );
