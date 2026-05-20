@@ -13,7 +13,8 @@ import { isSafeWorkspaceRelativePath } from './source-config.ts';
 import type {
   PublicKnowledgeDownloadSummary,
   PublicKnowledgeLibraryArtifact,
-  PublicKnowledgeQualityStatus
+  PublicKnowledgeQualityStatus,
+  PublicKnowledgeVersionRef
 } from './url-report.ts';
 
 export interface PublicKnowledgeLibraryRegistryEntry {
@@ -22,6 +23,7 @@ export interface PublicKnowledgeLibraryRegistryEntry {
   artifactKind: 'terraform-provider-resource' | 'terraform-provider-data-source';
   providerAddress: string;
   version: string;
+  versionRef: PublicKnowledgeVersionRef;
   sourceName: string;
   tags: string[];
   artifact: {
@@ -63,6 +65,7 @@ export interface PublicKnowledgeLibraryStageReport {
     sourceContentHash: string;
     unitCount: number;
     qualityStatus: PublicKnowledgeQualityStatus;
+    versionRef: PublicKnowledgeVersionRef;
   };
   registry: {
     path: string;
@@ -112,6 +115,15 @@ function parsePublicKnowledgeLibraryArtifact(value: unknown): PublicKnowledgeLib
   return value as unknown as PublicKnowledgeLibraryArtifact;
 }
 
+function isVersionRef(value: unknown, version: string): value is PublicKnowledgeVersionRef {
+  const floating = version === 'latest';
+  return isRecord(value)
+    && value.value === version
+    && value.kind === (floating ? 'floating-alias' : 'pinned-version')
+    && value.mutable === floating
+    && value.source === 'url-path';
+}
+
 function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistryEntry {
   return isRecord(value)
     && typeof value.coordinates === 'string'
@@ -122,6 +134,7 @@ function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistr
     )
     && typeof value.providerAddress === 'string'
     && typeof value.version === 'string'
+    && isVersionRef(value.versionRef, value.version)
     && typeof value.sourceName === 'string'
     && Array.isArray(value.tags)
     && value.tags.every(tag => typeof tag === 'string')
@@ -203,6 +216,7 @@ function buildRegistryEntry(input: {
     artifactKind: artifact.classification.artifactKind,
     providerAddress: artifact.classification.providerAddress,
     version: artifact.classification.version,
+    versionRef: artifact.classification.versionRef,
     sourceName: artifact.classification.sourceName,
     tags: artifact.classification.tags,
     artifact: {
@@ -214,6 +228,7 @@ function buildRegistryEntry(input: {
       sourceContentHash: artifact.sourceContentHash,
       unitCount: artifact.summary.unitCount,
       qualityStatus: artifact.quality.status,
+      versionRef: artifact.classification.versionRef,
       reviewRequired: artifact.publication.reviewRequired
     },
     download: {
@@ -276,7 +291,8 @@ export async function stagePublicKnowledgeLibraryArtifact(
       unitPayloadHash: artifact.unitPayloadHash,
       sourceContentHash: artifact.sourceContentHash,
       unitCount: artifact.summary.unitCount,
-      qualityStatus: artifact.quality.status
+      qualityStatus: artifact.quality.status,
+      versionRef: artifact.classification.versionRef
     },
     registry: {
       path: registryAbsolutePath,
@@ -284,8 +300,13 @@ export async function stagePublicKnowledgeLibraryArtifact(
       updatedExistingEntry
     },
     entry,
-    warnings: artifact.publication.reviewRequired
-      ? ['Artifact remains review-required before any remote or public registry publication.']
-      : []
+    warnings: [
+      ...(artifact.publication.reviewRequired
+        ? ['Artifact remains review-required before any remote or public registry publication.']
+        : []),
+      ...(artifact.classification.versionRef.mutable
+        ? ['Artifact was built from a floating version alias; consumers must rely on content hashes and review before public reuse.']
+        : [])
+    ]
   };
 }

@@ -6,6 +6,67 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Public Knowledge Version Reference Metadata
+
+Status:
+
+- Added explicit `versionRef` metadata to URL-only public knowledge reports,
+  public-library artifacts, staged public-library registries, and the offline
+  LLM review packet.
+- Terraform Registry URLs that use `latest` are now marked as
+  `kind: "floating-alias"` with `mutable: true`; pinned URL path versions are
+  marked as `kind: "pinned-version"` with `mutable: false`. This keeps central
+  library coordinates usable while making mutable aliases explicit and
+  content-hash verification mandatory for reproducible reuse.
+- `knowledge validate` now checks `versionRef` coherence across
+  classification, report summary/candidate metadata, artifact registry
+  entries, nested artifact metadata, and LLM review packet fields.
+- `knowledge library-stage` preserves `versionRef` metadata in registry
+  entries and emits a warning when the artifact was built from a floating
+  version alias.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` emits `classification.versionRef` and includes
+  the same version-reference stability data in `llmRefinementInput`.
+- `src/knowledge/validate.ts` validates version-reference shape and rejects
+  drift in URL reports, public-library artifacts, registries, and LLM review
+  packets.
+- `src/knowledge/public-library-stage.ts` and
+  `src/knowledge/public-library-registry.ts` preserve and require `versionRef`
+  metadata for staged/downloadable public-library registry entries.
+- Public-library unit and integration tests now assert `latest` is represented
+  as a mutable floating alias and that version-reference drift is rejected.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  the pinned-versus-floating version contract for central-library and LLM
+  refinement workflows.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- `versionRef` makes mutable aliases explicit but does not resolve `latest` to
+  a provider release version. A future explicit live metadata lookup can add a
+  resolved version field after deterministic validation and cache rules exist.
+- Optional LLM refinement remains future work and should preserve or validate
+  `versionRef` before producing refined public-library artifacts.
+
 ## 2026-05-20 Public Knowledge URL Report Validation
 
 Status:

@@ -610,21 +610,24 @@ Implemented initial CLI surfaces:
     selection should favor reusable field facts, identity/replacement guidance,
     one bounded example, concise diagnostics, and one domain workflow recipe
     over generic Markdown section recipes. Its report should preserve download
-    trace, central-library coordinates, and explicit LLM offline-review
-    constraints before any future publication flow. With `--library-out`, it
+    trace, central-library coordinates, version-reference stability metadata,
+    and explicit LLM offline-review constraints before any future publication
+    flow. With `--library-out`, it
     also writes a standalone
     `infra-agent.public-knowledge-library-artifact` that carries compact units,
-    classification, quality, download trace, `unitPayloadHash`, and offline LLM
-    review input for deterministic central-library download/reuse workflows.
-    Validate the artifact with `knowledge validate <artifact.json> --json`
-    before registry staging, download reuse, or LLM refinement.
+    classification, `versionRef`, quality, download trace, `unitPayloadHash`,
+    and offline LLM review input for deterministic central-library
+    download/reuse workflows. Validate the URL report before LLM refinement and
+    validate the artifact with `knowledge validate <artifact.json> --json`
+    before registry staging or download reuse.
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace
   <workspace> --store-dir <dir> --registry <registry.json> ...`
   - validates a public library artifact, stores it by SHA-256 under a
     workspace-relative public-library directory, and updates an
     `infra-agent.public-knowledge-library-registry` JSON file keyed by stable
-    coordinates. This is a local downloadable-registry staging path for future
-    central-library workflows. It must not call a cloud client, read
+    coordinates plus content hashes and `versionRef` metadata. This is a local
+    downloadable-registry staging path for future central-library workflows. It
+    must not call a cloud client, read
     credentials, probe a backend, create upload commands, or approve
     publication.
   - Workspaces can opt into read-only reuse by adding a staged local registry
@@ -640,9 +643,9 @@ Implemented initial CLI surfaces:
     download/reuse, not remote upload or publication trust. `knowledge
     validate` accepts `infra-agent.public-knowledge-library-registry` payloads
     so central-library registries can be checked for coordinate coherence,
-    secret-safe artifact locations, hash shape, media type, unit counts,
-    quality status, and review-required posture before sharing or
-    configuration.
+    version-reference stability, secret-safe artifact locations, hash shape,
+    media type, unit counts, quality status, and review-required posture before
+    sharing or configuration.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

@@ -168,13 +168,25 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
       'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket'
     );
     assert.equal(report.centralLibraryCandidate.classification.artifactKind, 'terraform-provider-resource');
+    assert.deepEqual(report.centralLibraryCandidate.classification.versionRef, {
+      value: 'latest',
+      kind: 'floating-alias',
+      mutable: true,
+      source: 'url-path'
+    });
     assert.ok(report.centralLibraryCandidate.classification.tags.includes('aws_s3_bucket'));
+    assert.ok(report.centralLibraryCandidate.classification.tags.includes('floating-alias'));
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.status, 'not-run');
     assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.unitsByType'));
     assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.summary'));
     assert.equal(
       report.centralLibraryCandidate.llmRefinementInput.reviewPacket.coordinates,
       report.centralLibraryCandidate.classification.coordinates
+    );
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.version, 'latest');
+    assert.deepEqual(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef,
+      report.centralLibraryCandidate.classification.versionRef
     );
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash, report.sourceContentHash);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
@@ -199,6 +211,7 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(libraryArtifact.privacyScope, 'public-reference');
     assert.equal(libraryArtifact.artifactId, report.centralLibraryCandidate.candidateId);
     assert.equal(libraryArtifact.coordinates, report.centralLibraryCandidate.classification.coordinates);
+    assert.deepEqual(libraryArtifact.classification.versionRef, report.centralLibraryCandidate.classification.versionRef);
     assert.equal(libraryArtifact.sourceContentHash, report.sourceContentHash);
     assert.equal(libraryArtifact.summary.unitCount, report.summary.includedUnitCount);
     assert.deepEqual(libraryArtifact.summary.unitCounts, report.summary.unitCounts);
@@ -324,8 +337,14 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
     report.centralLibraryCandidate.classification.coordinates,
     'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket'
   );
+  assert.equal(report.centralLibraryCandidate.classification.versionRef.kind, 'floating-alias');
+  assert.equal(report.centralLibraryCandidate.classification.versionRef.mutable, true);
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.mode, 'offline-review');
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.usedRole, 'fallback');
+  assert.deepEqual(
+    report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef,
+    report.centralLibraryCandidate.classification.versionRef
+  );
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.fallbackUsed, true);
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
   assert.equal(report.summary.unitTypeComplete, true);

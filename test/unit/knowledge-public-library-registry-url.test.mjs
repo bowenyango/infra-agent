@@ -126,6 +126,7 @@ async function buildPublicLibraryFixture(root, artifactContentHashOverride) {
         artifactKind: classification.artifactKind,
         providerAddress: classification.providerAddress,
         version: classification.version,
+        versionRef: classification.versionRef,
         sourceName: classification.sourceName,
         tags: classification.tags,
         artifact: {
@@ -137,6 +138,7 @@ async function buildPublicLibraryFixture(root, artifactContentHashOverride) {
           sourceContentHash: artifact.sourceContentHash,
           unitCount: artifact.summary.unitCount,
           qualityStatus: artifact.quality.status,
+          versionRef: classification.versionRef,
           reviewRequired: true
         }
       }

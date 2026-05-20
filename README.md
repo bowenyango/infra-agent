@@ -248,7 +248,10 @@ Current behavior is intentionally runtime-foundation oriented:
   matching entries are discovered by Terraform provider/resource usage, their
   artifact URLs or relative artifact paths are expanded, artifact content
   hashes are checked, and compact five-type units remain in the
-  `public-reference` storage scope.
+  `public-reference` storage scope. Registry entries also carry `versionRef`
+  metadata so a central library can distinguish pinned provider versions from
+  mutable aliases such as `latest` while still relying on content hashes for
+  reproducible reuse.
   `validate` checks facts, extraction reports, compact packs, unit artifacts,
   indexes, and plan-only artifact manifests before use. `pack` ranks and emits a
   bounded planner-safe `infra-agent.knowledge-pack` without raw source content;
@@ -288,11 +291,14 @@ Current behavior is intentionally runtime-foundation oriented:
   compact byte length, missing/included unit types, and a
   `centralLibraryCandidate` for public-reference reuse. The report also records
   a compact `download` trace and a hub-style central-library coordinate such as
-  `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus an
-  `llmRefinementInput` contract for explicit offline LLM review. That input
-  includes a deterministic `reviewPacket` with classification, source hash,
-  download evidence, unit counts, quality signals, review checks, and rejection
-  criteria so a future model receives structured evidence instead of raw docs.
+  `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket`, plus a
+  `classification.versionRef` marker that records whether the URL path used a
+  pinned version or a mutable alias such as `latest`. The
+  `llmRefinementInput` contract is for explicit offline LLM review. That input
+  includes a deterministic `reviewPacket` with classification, version
+  reference stability, source hash, download evidence, unit counts, quality
+  signals, review checks, and rejection criteria so a future model receives
+  structured evidence instead of raw docs.
   Default selection favors reusable facts and identity/replacement guidance
   over generic Markdown sections. Use `--library-out` to write a standalone
   `infra-agent.public-knowledge-library-artifact` with the same compact units,
@@ -310,8 +316,9 @@ Current behavior is intentionally runtime-foundation oriented:
   `infra-agent.public-knowledge-library-artifact` into a workspace-relative
   content-addressed public-library store and updates an
   `infra-agent.public-knowledge-library-registry` JSON file keyed by the stable
-  coordinate. This is the local downloadable-registry shape for future central
-  library workflows. It writes only local files under the requested workspace;
+  coordinate plus content hashes and `versionRef` stability metadata. This is
+  the local downloadable-registry shape for future central library workflows.
+  It writes only local files under the requested workspace;
   it does not contact a remote backend, read credentials, create upload
   commands, or approve publication. Add the resulting registry, or a
   secret-free URL for an equivalent reviewed public registry, under

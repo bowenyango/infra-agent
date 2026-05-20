@@ -24,6 +24,12 @@ interface PublicLibraryRegistryEntry {
   artifactKind: 'terraform-provider-resource' | 'terraform-provider-data-source';
   providerAddress: string;
   version: string;
+  versionRef: {
+    value: string;
+    kind: 'pinned-version' | 'floating-alias';
+    mutable: boolean;
+    source: 'url-path';
+  };
   sourceName: string;
   tags: string[];
   artifact: {
@@ -36,6 +42,7 @@ interface PublicLibraryRegistryEntry {
     sourceContentHash: string;
     unitCount: number;
     qualityStatus: 'ready' | 'needs-refinement';
+    versionRef: PublicLibraryRegistryEntry['versionRef'];
     reviewRequired: true;
   };
 }
@@ -44,6 +51,15 @@ const PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE = 'application/vnd.infra-agent.public-k
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isVersionRef(value: unknown, version: string): boolean {
+  const floating = version === 'latest';
+  return isRecord(value)
+    && value.value === version
+    && value.kind === (floating ? 'floating-alias' : 'pinned-version')
+    && value.mutable === floating
+    && value.source === 'url-path';
 }
 
 function configuredPublicLibraryRegistries(
@@ -119,6 +135,7 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
     )
     || typeof value.providerAddress !== 'string'
     || typeof value.version !== 'string'
+    || !isVersionRef(value.versionRef, value.version)
     || typeof value.sourceName !== 'string'
     || !Array.isArray(value.tags)
     || !value.tags.every(tag => typeof tag === 'string')
@@ -129,6 +146,7 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
     || !isSha256Hex(value.artifact.unitPayloadHash)
     || !isSha256Hex(value.artifact.sourceContentHash)
     || !Number.isInteger(value.artifact.unitCount)
+    || !isVersionRef(value.artifact.versionRef, value.version)
     || (
       value.artifact.qualityStatus !== 'ready'
       && value.artifact.qualityStatus !== 'needs-refinement'

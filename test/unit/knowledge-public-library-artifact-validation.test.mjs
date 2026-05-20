@@ -86,6 +86,7 @@ function buildRegistryFixture(artifact) {
         artifactKind: classification.artifactKind,
         providerAddress: classification.providerAddress,
         version: classification.version,
+        versionRef: classification.versionRef,
         sourceName: classification.sourceName,
         tags: classification.tags,
         artifact: {
@@ -97,6 +98,7 @@ function buildRegistryFixture(artifact) {
           sourceContentHash: artifact.sourceContentHash,
           unitCount: artifact.summary.unitCount,
           qualityStatus: artifact.quality.status,
+          versionRef: classification.versionRef,
           reviewRequired: true
         }
       }
@@ -164,13 +166,21 @@ test('public knowledge URL report validation rejects drifted summary candidate a
         sourceId: 'wrong-candidate-source-id',
         classification: {
           ...report.centralLibraryCandidate.classification,
-          coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong'
+          coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong',
+          versionRef: {
+            ...report.centralLibraryCandidate.classification.versionRef,
+            value: '5.0.0'
+          }
         },
         llmRefinementInput: {
           ...report.centralLibraryCandidate.llmRefinementInput,
           reviewPacket: {
             ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket,
             sourceContentHash: 'd'.repeat(64),
+            versionRef: {
+              ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef,
+              kind: 'pinned-version'
+            },
             unitCount: report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount + 1
           }
         }
@@ -200,7 +210,9 @@ test('public knowledge URL report validation rejects drifted summary candidate a
       '$.centralLibraryCandidate.sourceContentHash',
       '$.centralLibraryCandidate.candidateId',
       '$.centralLibraryCandidate.classification.coordinates',
+      '$.centralLibraryCandidate.classification.versionRef.value',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef.kind',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount',
       '$.unitsByType.fact[0].summary'
     ]) {
@@ -291,6 +303,8 @@ test('public knowledge library registry validation checks coordinates hashes and
 
     const invalidRegistry = JSON.parse(JSON.stringify(registry));
     invalidRegistry.entries[0].coordinates = `${artifact.coordinates}/drift`;
+    invalidRegistry.entries[0].versionRef.value = '5.0.0';
+    invalidRegistry.entries[0].artifact.versionRef.kind = 'pinned-version';
     invalidRegistry.entries[0].tags.push('https://example.invalid/raw-doc');
     invalidRegistry.entries[0].artifact.path = 'public/aws-s3-bucket.public-knowledge-library-artifact.json';
     invalidRegistry.entries[0].artifact.url = 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json';
@@ -302,7 +316,9 @@ test('public knowledge library registry validation checks coordinates hashes and
     assert.equal(invalid.valid, false);
     for (const path of [
       '$.entries[0].coordinates',
-      '$.entries[0].tags[7]',
+      '$.entries[0].versionRef.value',
+      '$.entries[0].artifact.versionRef.kind',
+      '$.entries[0].tags[8]',
       '$.entries[0].artifact',
       '$.entries[0].artifact.contentHash',
       '$.entries[0].artifact.reviewRequired'

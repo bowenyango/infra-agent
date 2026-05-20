@@ -158,11 +158,13 @@ steps, exclude example facts from `fact`, and avoid default-budget
 `recipe.markdown.*` entries when a domain workflow recipe is available. The
 report should also expose a `centralLibraryCandidate` with public-reference
 scope, quality metadata, unit counts, `unitRef: "report.unitsByType"`, a
-hub-style `classification.coordinates` value, and an `llmRefinementInput`
-contract that points to structured report fields instead of raw docs. The LLM
-input should include a deterministic review packet with classification,
-source hash, download evidence, unit counts, quality signals, review checks,
-and rejection criteria so future refinement starts from bounded evidence. Live
+hub-style `classification.coordinates` value, a `classification.versionRef`
+value that marks `latest` as a mutable `floating-alias`, and an
+`llmRefinementInput` contract that points to structured report fields instead
+of raw docs. The LLM input should include a deterministic review packet with
+classification, version-reference stability, source hash, download evidence,
+unit counts, quality signals, review checks, and rejection criteria so future
+refinement starts from bounded evidence. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
 can prove Registry JavaScript-shell pages fall back to provider raw docs. With
@@ -173,17 +175,19 @@ units, public-reference classification, download trace, quality summary,
 credentials, upload commands, or backend URLs. `knowledge validate` should
 accept both the URL report and the library artifact. Report validation should
 reject drifted source IDs, inconsistent summary counts, candidate
-classification drift, LLM review packet drift, embedded raw content, and
-secret-like compact unit text. Artifact validation should reject drifted
-coordinates, inconsistent source metadata, malformed download traces,
+classification drift, version-reference drift, LLM review packet drift,
+embedded raw content, and secret-like compact unit text. Artifact validation
+should reject drifted coordinates, inconsistent source metadata, malformed
+download traces,
 mismatched unit counts, bad `unitPayloadHash`, drifted LLM review packet
 fields, embedded raw content, or secret-like compact unit text.
 `knowledge library-stage` should only accept a valid public library artifact,
 copy it into a workspace-relative
 content-addressed local store, and update an
 `infra-agent.public-knowledge-library-registry` entry keyed by the stable
-coordinate. It must refuse malformed registries rather than overwriting them
-and must not perform remote upload, credential reads, backend probes, or
+coordinate, content hashes, and `versionRef` metadata. It must refuse
+malformed registries rather than overwriting them and must not perform remote
+upload, credential reads, backend probes, or
 publication approval. When a staged local registry path or secret-free registry
 URL is configured under `knowledgeSources.publicLibraryRegistries`,
 `knowledge prefetch` should cache URL registries first, then `knowledge
@@ -193,8 +197,9 @@ expand artifact URLs or relative artifact paths, verify the registered
 SHA-256, preserve `public-reference` storage policy, and emit compact units
 without raw Markdown sections. `knowledge validate` should accept valid
 `infra-agent.public-knowledge-library-registry` payloads and reject coordinate
-drift, unsafe artifact URLs, malformed hashes, unsupported media types, bad
-quality states, missing review posture, and raw content. This path can fetch
+drift, version-reference drift, unsafe artifact URLs, malformed hashes,
+unsupported media types, bad quality states, missing review posture, and raw
+content. This path can fetch
 the URL live; tests should continue to use offline fetcher fixtures, mocked
 fetch, and the internal `--content <file>` helper so default CI does not
 require network access or socket listeners.

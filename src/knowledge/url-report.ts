@@ -68,6 +68,15 @@ export interface PublicKnowledgeDownloadSummary {
   attempts: PublicKnowledgeDownloadAttempt[];
 }
 
+export type PublicKnowledgeVersionRefKind = 'pinned-version' | 'floating-alias';
+
+export interface PublicKnowledgeVersionRef {
+  value: string;
+  kind: PublicKnowledgeVersionRefKind;
+  mutable: boolean;
+  source: 'url-path';
+}
+
 export interface PublicKnowledgeCentralLibraryClassification {
   registry: 'infra-agent-public-reference';
   ecosystem: 'terraform';
@@ -76,6 +85,7 @@ export interface PublicKnowledgeCentralLibraryClassification {
   providerName: string;
   providerAddress: string;
   version: string;
+  versionRef: PublicKnowledgeVersionRef;
   sourceName: string;
   slug: string;
   coordinates: string;
@@ -98,6 +108,8 @@ export interface PublicKnowledgeLlmRefinementInput {
     coordinates: string;
     ecosystem: 'terraform';
     artifactKind: PublicKnowledgeCentralLibraryClassification['artifactKind'];
+    version: string;
+    versionRef: PublicKnowledgeVersionRef;
     sourceName: string;
     downloadMode: PublicKnowledgeDownloadMode;
     downloadStrategy: PublicKnowledgeDownloadSummary['strategy'];
@@ -1063,6 +1075,7 @@ function terraformLibraryClassification(
     ? `resource:${typeName}`
     : `data-source:${typeName}`;
   const kindSegment = source.docKind === 'resources' ? 'resource' : 'data-source';
+  const versionRef = publicKnowledgeVersionRef(source.version);
   const coordinates = [
     'terraform',
     'provider',
@@ -1080,6 +1093,7 @@ function terraformLibraryClassification(
     providerName: source.providerName,
     providerAddress: `${source.namespace}/${source.providerName}`,
     version: source.version,
+    versionRef,
     sourceName,
     slug: source.slug,
     coordinates,
@@ -1090,8 +1104,19 @@ function terraformLibraryClassification(
       source.namespace,
       source.providerName,
       typeName,
-      kindSegment
+      kindSegment,
+      versionRef.kind
     ]
+  };
+}
+
+function publicKnowledgeVersionRef(version: string): PublicKnowledgeVersionRef {
+  const floating = version === 'latest';
+  return {
+    value: version,
+    kind: floating ? 'floating-alias' : 'pinned-version',
+    mutable: floating,
+    source: 'url-path'
   };
 }
 
@@ -1133,6 +1158,8 @@ function llmRefinementInput(input: {
       coordinates: input.classification.coordinates,
       ecosystem: input.classification.ecosystem,
       artifactKind: input.classification.artifactKind,
+      version: input.classification.version,
+      versionRef: input.classification.versionRef,
       sourceName: input.classification.sourceName,
       downloadMode: input.download.mode,
       downloadStrategy: input.download.strategy,
