@@ -181,6 +181,10 @@ test('public knowledge URL report validation rejects drifted summary candidate a
               ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef,
               kind: 'pinned-version'
             },
+            downloadEvidence: {
+              ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence,
+              traceHash: 'e'.repeat(64)
+            },
             unitCount: report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount + 1
           }
         }
@@ -213,11 +217,46 @@ test('public knowledge URL report validation rejects drifted summary candidate a
       '$.centralLibraryCandidate.classification.versionRef.value',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef.kind',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.traceHash',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount',
       '$.unitsByType.fact[0].summary'
     ]) {
       assert.ok(validation.issues.some(issue => issue.path === path), path);
     }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('public knowledge URL report validation rejects invalid fallback download order', async () => {
+  const { tempRoot, report } = await buildArtifactFixture();
+
+  try {
+    const invalidReport = JSON.parse(JSON.stringify(report));
+    invalidReport.download = {
+      mode: 'live-fetch',
+      strategy: 'terraform-registry-primary-then-provider-repo-raw',
+      attemptedCount: 1,
+      fallbackUsed: true,
+      usedRole: 'fallback',
+      usedUrl: S3_BUCKET_URL,
+      usedContentType: 'text/markdown',
+      attempts: [
+        {
+          role: 'fallback',
+          url: S3_BUCKET_URL,
+          status: 'used',
+          contentType: 'text/markdown',
+          byteLength: 100
+        }
+      ]
+    };
+
+    const validation = validateKnowledgePayload(invalidReport, 'inline');
+
+    assert.equal(validation.valid, false);
+    assert.ok(validation.issues.some(issue => issue.path === '$.download.attempts'));
+    assert.ok(validation.issues.some(issue => issue.path === '$.download.attempts[0]'));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -242,6 +281,10 @@ test('public knowledge library artifact validation rejects drifted hashes classi
           ...artifact.llmRefinementInput.reviewPacket,
           sourceContentHash: 'c'.repeat(64),
           coordinates: `${artifact.coordinates}/llm-drift`,
+          downloadEvidence: {
+            ...artifact.llmRefinementInput.reviewPacket.downloadEvidence,
+            attemptedCount: artifact.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount + 1
+          },
           unitCount: artifact.llmRefinementInput.reviewPacket.unitCount + 1
         },
         reviewChecklist: ['single check']
@@ -276,6 +319,7 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       '$.llmRefinementInput.inputRefs',
       '$.llmRefinementInput.reviewPacket.sourceContentHash',
       '$.llmRefinementInput.reviewPacket.coordinates',
+      '$.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount',
       '$.llmRefinementInput.reviewPacket.unitCount',
       '$.llmRefinementInput.reviewChecklist',
       '$.unitsByType.fact[0].summary'

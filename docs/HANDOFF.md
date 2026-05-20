@@ -6,6 +6,63 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Public Knowledge Download Evidence
+
+Status:
+
+- Added compact `downloadEvidence` to the offline LLM review packet emitted by
+  `knowledge from-url`. The evidence records a SHA-256 trace hash, selected
+  attempt index, used role/URL/content type, attempted roles, rejected/failed
+  attempt counts, and fallback posture without embedding raw documentation.
+- Strengthened `knowledge validate` for
+  `infra-agent.public-knowledge-url-report` and
+  `infra-agent.public-knowledge-library-artifact` payloads so LLM download
+  evidence must match `report.download` and fallback live fetches must begin
+  with a rejected or failed primary attempt before selecting the final fallback
+  attempt.
+- Tightened public-library staging registry entry parsing to require nested
+  artifact `versionRef` metadata, matching the downloadable registry contract.
+- Updated docs and the infra-configuration skill so future agents treat
+  download evidence and fallback ordering as part of the deterministic boundary
+  before optional LLM refinement or central-library reuse.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` emits compact `downloadEvidence` in
+  `llmRefinementInput.reviewPacket`.
+- `src/knowledge/validate.ts` recomputes download trace hashes, validates LLM
+  download evidence drift, and rejects invalid primary/fallback attempt order.
+- `src/knowledge/public-library-stage.ts` validates nested artifact
+  `versionRef` in staged registry entries.
+- URL report, artifact validation, and public-library stage tests cover the new
+  evidence fields and fallback-order guard.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  compact LLM download evidence and fallback-order validation.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The trace hash proves that the compact LLM packet matches the recorded
+  download trace, but it does not independently prove that public documentation
+  is the latest upstream version. Resolving mutable aliases such as `latest`
+  to concrete provider releases remains a future explicit metadata lookup.
+- Optional LLM refinement is still not executed by the CLI. A future refinement
+  path should consume the validated review packet and then emit a separate,
+  validated refined artifact.
+
 ## 2026-05-20 Public Knowledge Version Reference Metadata
 
 Status:

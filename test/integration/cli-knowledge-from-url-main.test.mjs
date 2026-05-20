@@ -190,6 +190,15 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     );
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash, report.sourceContentHash);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
+    assert.match(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.traceHash, /^[a-f0-9]{64}$/);
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount, 0);
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.selectedAttemptIndex, null);
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.usedRole, 'local-content');
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.usedContentType, 'text/markdown');
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.fallbackUsed, false);
+    assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.attemptedRoles, []);
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.rejectedAttemptCount, 0);
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.failedAttemptCount, 0);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount, report.summary.includedUnitCount);
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCounts, report.summary.unitCounts);
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.missingUnitTypes, report.summary.missingUnitTypes);
@@ -219,6 +228,10 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(libraryArtifact.download.mode, 'local-content');
     assert.equal(libraryArtifact.llmRefinementInput.status, 'not-run');
     assert.equal(libraryArtifact.llmRefinementInput.reviewPacket.coordinates, libraryArtifact.coordinates);
+    assert.deepEqual(
+      libraryArtifact.llmRefinementInput.reviewPacket.downloadEvidence,
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence
+    );
     assert.equal(libraryArtifact.llmRefinementInput.reviewPacket.unitCount, libraryArtifact.summary.unitCount);
     assert.equal(libraryArtifact.publication.downloadable, true);
     assert.equal(libraryArtifact.publication.uploadRequired, false);
@@ -347,6 +360,16 @@ test('knowledge from-url falls back to Terraform provider repository docs when R
   );
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.fallbackUsed, true);
   assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadStrategy, report.download.strategy);
+  assert.match(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.traceHash, /^[a-f0-9]{64}$/);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount, 2);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.selectedAttemptIndex, 1);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.usedRole, 'fallback');
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.usedUrl, rawDocsUrl);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.usedContentType, 'text/markdown');
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.fallbackUsed, true);
+  assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.attemptedRoles, ['primary', 'fallback']);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.rejectedAttemptCount, 1);
+  assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.failedAttemptCount, 0);
   assert.equal(report.summary.unitTypeComplete, true);
   assert.equal(report.summary.qualityStatus, 'ready');
   assert.deepEqual(report.summary.missingUnitTypes, []);

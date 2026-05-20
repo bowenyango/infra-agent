@@ -35,6 +35,7 @@ export interface PublicKnowledgeLibraryRegistryEntry {
     sourceContentHash: string;
     unitCount: number;
     qualityStatus: PublicKnowledgeQualityStatus;
+    versionRef: PublicKnowledgeVersionRef;
     reviewRequired: true;
   };
   download: Pick<PublicKnowledgeDownloadSummary, 'mode' | 'strategy' | 'usedRole' | 'fallbackUsed'>;
@@ -146,6 +147,7 @@ function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistr
     && SHA256_HEX_PATTERN.test(String(value.artifact.unitPayloadHash))
     && SHA256_HEX_PATTERN.test(String(value.artifact.sourceContentHash))
     && Number.isInteger(value.artifact.unitCount)
+    && isVersionRef(value.artifact.versionRef, value.version)
     && value.artifact.reviewRequired === true
     && isRecord(value.download)
     && typeof value.download.mode === 'string'

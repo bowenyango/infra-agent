@@ -68,6 +68,19 @@ export interface PublicKnowledgeDownloadSummary {
   attempts: PublicKnowledgeDownloadAttempt[];
 }
 
+export interface PublicKnowledgeDownloadEvidence {
+  traceHash: string;
+  attemptedCount: number;
+  selectedAttemptIndex: number | null;
+  usedRole: PublicKnowledgeDownloadSummary['usedRole'];
+  usedUrl?: string;
+  usedContentType: KnowledgeContentType;
+  fallbackUsed: boolean;
+  attemptedRoles: PublicKnowledgeDownloadAttemptRole[];
+  rejectedAttemptCount: number;
+  failedAttemptCount: number;
+}
+
 export type PublicKnowledgeVersionRefKind = 'pinned-version' | 'floating-alias';
 
 export interface PublicKnowledgeVersionRef {
@@ -115,6 +128,7 @@ export interface PublicKnowledgeLlmRefinementInput {
     downloadStrategy: PublicKnowledgeDownloadSummary['strategy'];
     usedRole: PublicKnowledgeDownloadSummary['usedRole'];
     fallbackUsed: boolean;
+    downloadEvidence: PublicKnowledgeDownloadEvidence;
     unitBudget: number;
     unitCount: number;
     unitCounts: KnowledgeUnitCountByType;
@@ -266,6 +280,47 @@ interface PublicKnowledgeEntryResult {
 
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalDownloadTrace(download: PublicKnowledgeDownloadSummary): string {
+  return JSON.stringify({
+    mode: download.mode,
+    strategy: download.strategy,
+    attemptedCount: download.attemptedCount,
+    fallbackUsed: download.fallbackUsed,
+    usedRole: download.usedRole,
+    usedUrl: download.usedUrl ?? null,
+    usedContentType: download.usedContentType,
+    attempts: download.attempts.map(attempt => ({
+      role: attempt.role,
+      url: attempt.url,
+      status: attempt.status,
+      reason: attempt.reason ?? null,
+      httpStatus: attempt.httpStatus ?? null,
+      statusText: attempt.statusText ?? null,
+      contentType: attempt.contentType ?? null,
+      byteLength: attempt.byteLength ?? null
+    }))
+  });
+}
+
+function publicKnowledgeDownloadEvidence(
+  download: PublicKnowledgeDownloadSummary
+): PublicKnowledgeDownloadEvidence {
+  const selectedAttemptIndex = download.attempts.findIndex(attempt => attempt.status === 'used');
+
+  return {
+    traceHash: sha256Hex(canonicalDownloadTrace(download)),
+    attemptedCount: download.attemptedCount,
+    selectedAttemptIndex: selectedAttemptIndex >= 0 ? selectedAttemptIndex : null,
+    usedRole: download.usedRole,
+    ...(download.usedUrl ? { usedUrl: download.usedUrl } : {}),
+    usedContentType: download.usedContentType,
+    fallbackUsed: download.fallbackUsed,
+    attemptedRoles: download.attempts.map(attempt => attempt.role),
+    rejectedAttemptCount: download.attempts.filter(attempt => attempt.status === 'rejected').length,
+    failedAttemptCount: download.attempts.filter(attempt => attempt.status === 'failed').length
+  };
 }
 
 function normalizeMaxUnits(value: number | undefined): number {
@@ -1165,6 +1220,7 @@ function llmRefinementInput(input: {
       downloadStrategy: input.download.strategy,
       usedRole: input.download.usedRole,
       fallbackUsed: input.download.fallbackUsed,
+      downloadEvidence: publicKnowledgeDownloadEvidence(input.download),
       unitBudget: input.maxUnits,
       unitCount: input.selectedUnitCount,
       unitCounts: input.counts,

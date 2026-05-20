@@ -347,8 +347,9 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   central-library artifact preparation. The report validator is the boundary
   for source identity, summary/unit count coherence, compact five-type unit
   grouping, central-library candidate classification, version-reference
-  stability, download evidence, LLM review packet drift, raw content omission,
-  and secret-like text rejection.
+  stability, compact download evidence trace hash, fallback attempt ordering,
+  LLM review packet drift, raw content omission, and secret-like text
+  rejection.
 - Do not commit generated public-provider or chart cache data into user
   repositories by default. Use the resolved local cache or an explicit team
   cache. Commit only small curated packs when the team deliberately wants

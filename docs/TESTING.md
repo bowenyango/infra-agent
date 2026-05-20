@@ -162,12 +162,14 @@ hub-style `classification.coordinates` value, a `classification.versionRef`
 value that marks `latest` as a mutable `floating-alias`, and an
 `llmRefinementInput` contract that points to structured report fields instead
 of raw docs. The LLM input should include a deterministic review packet with
-classification, version-reference stability, source hash, download evidence,
-unit counts, quality signals, review checks, and rejection criteria so future
-refinement starts from bounded evidence. Live
+classification, version-reference stability, source hash, compact
+`downloadEvidence` with a trace hash, unit counts, quality signals, review
+checks, and rejection criteria so future refinement starts from bounded
+evidence. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
-can prove Registry JavaScript-shell pages fall back to provider raw docs. With
+can prove Registry JavaScript-shell pages fall back to provider raw docs after
+a rejected or failed primary attempt. With
 `--library-out`, the command should also write an
 `infra-agent.public-knowledge-library-artifact` containing the same compact
 units, public-reference classification, download trace, quality summary,
@@ -178,9 +180,9 @@ reject drifted source IDs, inconsistent summary counts, candidate
 classification drift, version-reference drift, LLM review packet drift,
 embedded raw content, and secret-like compact unit text. Artifact validation
 should reject drifted coordinates, inconsistent source metadata, malformed
-download traces,
-mismatched unit counts, bad `unitPayloadHash`, drifted LLM review packet
-fields, embedded raw content, or secret-like compact unit text.
+download traces, drifted LLM download evidence, mismatched unit counts, bad
+`unitPayloadHash`, drifted LLM review packet fields, embedded raw content, or
+secret-like compact unit text.
 `knowledge library-stage` should only accept a valid public library artifact,
 copy it into a workspace-relative
 content-addressed local store, and update an

@@ -296,9 +296,9 @@ Current behavior is intentionally runtime-foundation oriented:
   pinned version or a mutable alias such as `latest`. The
   `llmRefinementInput` contract is for explicit offline LLM review. That input
   includes a deterministic `reviewPacket` with classification, version
-  reference stability, source hash, download evidence, unit counts, quality
-  signals, review checks, and rejection criteria so a future model receives
-  structured evidence instead of raw docs.
+  reference stability, source hash, compact `downloadEvidence` including a
+  trace hash, unit counts, quality signals, review checks, and rejection
+  criteria so a future model receives structured evidence instead of raw docs.
   Default selection favors reusable facts and identity/replacement guidance
   over generic Markdown sections. Use `--library-out` to write a standalone
   `infra-agent.public-knowledge-library-artifact` with the same compact units,
@@ -308,8 +308,9 @@ Current behavior is intentionally runtime-foundation oriented:
   validate the artifact with
   `knowledge validate <library-artifact.json> --json` before handing it to a
   registry or downloader; validation checks source identity, coordinate
-  coherence, download trace shape, unit counts, `unitPayloadHash` when present,
-  LLM review packet drift, and raw content omission. This is the
+  coherence, download trace shape, fallback ordering, LLM download evidence
+  drift, unit counts, `unitPayloadHash` when present, LLM review packet drift,
+  and raw content omission. This is the
   public-reference path to use when another agent gives a documentation link
   such as `aws_s3_bucket` and needs compact JSON rather than repo linkage.
 - `knowledge library-stage` stages a validated

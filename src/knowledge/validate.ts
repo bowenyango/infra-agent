@@ -1938,7 +1938,7 @@ function validatePublicKnowledgeDownloadSummary(
     issues.push(error(`${path}.usedUrl`, 'Public knowledge library artifact download usedUrl must be a string when present.'));
   }
 
-  const usedAttempts: Array<{ role: unknown; url: unknown; contentType: unknown }> = [];
+  const usedAttempts: Array<{ index: number; role: unknown; url: unknown; contentType: unknown }> = [];
   if (!Array.isArray(value.attempts)) {
     issues.push(error(`${path}.attempts`, 'Public knowledge library artifact download attempts must be an array.'));
   } else {
@@ -1984,6 +1984,7 @@ function validatePublicKnowledgeDownloadSummary(
 
       if (attempt.status === 'used') {
         usedAttempts.push({
+          index,
           role: attempt.role,
           url: attempt.url,
           contentType: attempt.contentType
@@ -2037,6 +2038,185 @@ function validatePublicKnowledgeDownloadSummary(
     if (fallbackUsed !== (value.usedRole === 'fallback')) {
       issues.push(error(`${path}.fallbackUsed`, 'Live public knowledge fallbackUsed must match usedRole=fallback.'));
     }
+    if (Array.isArray(value.attempts) && usedAttempts.length === 1) {
+      if (value.usedRole === 'primary') {
+        if (value.attempts.length !== 1 || usedAttempts[0].index !== 0) {
+          issues.push(error(`${path}.attempts`, 'Primary live public knowledge downloads must stop after the primary used attempt.'));
+        }
+      } else if (value.usedRole === 'fallback') {
+        const firstAttempt = value.attempts[0];
+        if (
+          value.attempts.length < 2
+          || usedAttempts[0].index === 0
+          || usedAttempts[0].index !== value.attempts.length - 1
+        ) {
+          issues.push(error(`${path}.attempts`, 'Fallback live public knowledge downloads must select the final fallback attempt after a primary miss.'));
+        }
+        if (
+          !isRecord(firstAttempt)
+          || firstAttempt.role !== 'primary'
+          || firstAttempt.status === 'used'
+        ) {
+          issues.push(error(`${path}.attempts[0]`, 'Fallback live public knowledge downloads must begin with a rejected or failed primary attempt.'));
+        }
+      }
+    }
+  }
+}
+
+function canonicalPublicKnowledgeDownloadTrace(download: Record<string, unknown>): string {
+  const attempts = Array.isArray(download.attempts)
+    ? download.attempts.map(attempt => {
+      if (!isRecord(attempt)) {
+        return null;
+      }
+
+      return {
+        role: typeof attempt.role === 'string' ? attempt.role : null,
+        url: typeof attempt.url === 'string' ? attempt.url : null,
+        status: typeof attempt.status === 'string' ? attempt.status : null,
+        reason: typeof attempt.reason === 'string' ? attempt.reason : null,
+        httpStatus: Number.isInteger(attempt.httpStatus) ? attempt.httpStatus : null,
+        statusText: typeof attempt.statusText === 'string' ? attempt.statusText : null,
+        contentType: typeof attempt.contentType === 'string' ? attempt.contentType : null,
+        byteLength: Number.isInteger(attempt.byteLength) ? attempt.byteLength : null
+      };
+    })
+    : [];
+
+  return JSON.stringify({
+    mode: typeof download.mode === 'string' ? download.mode : null,
+    strategy: typeof download.strategy === 'string' ? download.strategy : null,
+    attemptedCount: Number.isInteger(download.attemptedCount) ? download.attemptedCount : null,
+    fallbackUsed: typeof download.fallbackUsed === 'boolean' ? download.fallbackUsed : null,
+    usedRole: typeof download.usedRole === 'string' ? download.usedRole : null,
+    usedUrl: typeof download.usedUrl === 'string' ? download.usedUrl : null,
+    usedContentType: typeof download.usedContentType === 'string' ? download.usedContentType : null,
+    attempts
+  });
+}
+
+function publicKnowledgeDownloadEvidenceFromRecord(
+  download: Record<string, unknown>
+): {
+  traceHash: string;
+  attemptedCount: number | null;
+  selectedAttemptIndex: number | null;
+  usedRole: string | null;
+  usedUrl: string | null;
+  usedContentType: string | null;
+  fallbackUsed: boolean | null;
+  attemptedRoles: string[];
+  rejectedAttemptCount: number;
+  failedAttemptCount: number;
+} {
+  const attempts = Array.isArray(download.attempts)
+    ? download.attempts.filter(isRecord)
+    : [];
+  const selectedAttemptIndex = attempts.findIndex(attempt => attempt.status === 'used');
+
+  return {
+    traceHash: sha256Hex(canonicalPublicKnowledgeDownloadTrace(download)),
+    attemptedCount: Number.isInteger(download.attemptedCount) ? download.attemptedCount : null,
+    selectedAttemptIndex: selectedAttemptIndex >= 0 ? selectedAttemptIndex : null,
+    usedRole: typeof download.usedRole === 'string' ? download.usedRole : null,
+    usedUrl: typeof download.usedUrl === 'string' ? download.usedUrl : null,
+    usedContentType: typeof download.usedContentType === 'string' ? download.usedContentType : null,
+    fallbackUsed: typeof download.fallbackUsed === 'boolean' ? download.fallbackUsed : null,
+    attemptedRoles: attempts
+      .map(attempt => attempt.role)
+      .filter((role): role is string => typeof role === 'string'),
+    rejectedAttemptCount: attempts.filter(attempt => attempt.status === 'rejected').length,
+    failedAttemptCount: attempts.filter(attempt => attempt.status === 'failed').length
+  };
+}
+
+function validatePublicKnowledgeDownloadEvidence(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  expectedDownload: Record<string, unknown>
+): void {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Public knowledge library artifact LLM reviewPacket downloadEvidence must be an object.'));
+    return;
+  }
+
+  const expectedEvidence = publicKnowledgeDownloadEvidenceFromRecord(expectedDownload);
+  const traceHash = readNonEmptyString(value.traceHash, `${path}.traceHash`, issues);
+  if (traceHash !== null) {
+    if (!SHA256_HEX_PATTERN.test(traceHash)) {
+      issues.push(error(`${path}.traceHash`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence traceHash must be a SHA-256 hex string.'));
+    } else if (traceHash !== expectedEvidence.traceHash) {
+      issues.push(error(`${path}.traceHash`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence traceHash must match report.download.'));
+    }
+  }
+
+  const attemptedCount = readNonNegativeInteger(value.attemptedCount, `${path}.attemptedCount`, issues);
+  if (
+    attemptedCount !== null
+    && expectedEvidence.attemptedCount !== null
+    && attemptedCount !== expectedEvidence.attemptedCount
+  ) {
+    issues.push(error(`${path}.attemptedCount`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence attemptedCount must match report.download.'));
+  }
+
+  if (value.selectedAttemptIndex !== null) {
+    const selectedAttemptIndex = readNonNegativeInteger(value.selectedAttemptIndex, `${path}.selectedAttemptIndex`, issues);
+    if (selectedAttemptIndex !== null && selectedAttemptIndex !== expectedEvidence.selectedAttemptIndex) {
+      issues.push(error(`${path}.selectedAttemptIndex`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence selectedAttemptIndex must match report.download.'));
+    }
+  } else if (expectedEvidence.selectedAttemptIndex !== null) {
+    issues.push(error(`${path}.selectedAttemptIndex`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence selectedAttemptIndex must match report.download.'));
+  }
+
+  const usedRole = readNonEmptyString(value.usedRole, `${path}.usedRole`, issues);
+  if (usedRole !== null && expectedEvidence.usedRole !== null && usedRole !== expectedEvidence.usedRole) {
+    issues.push(error(`${path}.usedRole`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence usedRole must match report.download.'));
+  }
+  if (typeof value.usedUrl === 'string') {
+    validateSecretSafeUrl(value.usedUrl, `${path}.usedUrl`, issues);
+    if (expectedEvidence.usedUrl !== null && value.usedUrl !== expectedEvidence.usedUrl) {
+      issues.push(error(`${path}.usedUrl`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence usedUrl must match report.download.'));
+    }
+  } else if (value.usedUrl !== undefined) {
+    issues.push(error(`${path}.usedUrl`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence usedUrl must be a string when present.'));
+  } else if (expectedEvidence.usedUrl !== null) {
+    issues.push(error(`${path}.usedUrl`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence usedUrl must match report.download.'));
+  }
+
+  const usedContentType = readNonEmptyString(value.usedContentType, `${path}.usedContentType`, issues);
+  if (
+    usedContentType !== null
+    && expectedEvidence.usedContentType !== null
+    && usedContentType !== expectedEvidence.usedContentType
+  ) {
+    issues.push(error(`${path}.usedContentType`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence usedContentType must match report.download.'));
+  }
+  const fallbackUsed = readBoolean(value.fallbackUsed, `${path}.fallbackUsed`, issues);
+  if (fallbackUsed !== null && expectedEvidence.fallbackUsed !== null && fallbackUsed !== expectedEvidence.fallbackUsed) {
+    issues.push(error(`${path}.fallbackUsed`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence fallbackUsed must match report.download.'));
+  }
+
+  const attemptedRoles = readStringArray(value.attemptedRoles, `${path}.attemptedRoles`, issues);
+  if (attemptedRoles !== null) {
+    for (const [index, role] of attemptedRoles.entries()) {
+      if (!PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_ROLES.includes(role as typeof PUBLIC_KNOWLEDGE_DOWNLOAD_ATTEMPT_ROLES[number])) {
+        issues.push(error(`${path}.attemptedRoles[${index}]`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence attemptedRoles must only include supported roles.'));
+      }
+    }
+    if (!stringArraysEqual(attemptedRoles, expectedEvidence.attemptedRoles)) {
+      issues.push(error(`${path}.attemptedRoles`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence attemptedRoles must match report.download.'));
+    }
+  }
+
+  const rejectedAttemptCount = readNonNegativeInteger(value.rejectedAttemptCount, `${path}.rejectedAttemptCount`, issues);
+  if (rejectedAttemptCount !== null && rejectedAttemptCount !== expectedEvidence.rejectedAttemptCount) {
+    issues.push(error(`${path}.rejectedAttemptCount`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence rejectedAttemptCount must match report.download.'));
+  }
+  const failedAttemptCount = readNonNegativeInteger(value.failedAttemptCount, `${path}.failedAttemptCount`, issues);
+  if (failedAttemptCount !== null && failedAttemptCount !== expectedEvidence.failedAttemptCount) {
+    issues.push(error(`${path}.failedAttemptCount`, 'Public knowledge library artifact LLM reviewPacket downloadEvidence failedAttemptCount must match report.download.'));
   }
 }
 
@@ -2142,6 +2322,12 @@ function validatePublicKnowledgeLlmReviewPacket(
     if (value.fallbackUsed !== expected.download.fallbackUsed) {
       issues.push(error(`${path}.fallbackUsed`, 'Public knowledge library artifact LLM reviewPacket fallbackUsed must match download.fallbackUsed.'));
     }
+    validatePublicKnowledgeDownloadEvidence(
+      value.downloadEvidence,
+      `${path}.downloadEvidence`,
+      issues,
+      expected.download
+    );
   }
 
   const unitBudget = readPositiveInteger(value.unitBudget, `${path}.unitBudget`, issues);
