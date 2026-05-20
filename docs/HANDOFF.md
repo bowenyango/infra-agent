@@ -6,6 +6,59 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Helm URL Public Knowledge Extraction
+
+Status:
+
+- Extended `knowledge from-url` to Artifact Hub Helm chart URLs such as
+  `https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack/`.
+- Helm URL reports now classify public-reference artifacts as
+  `helm-chart-docs`, with stable hub coordinates, repository/chart discovery
+  tags, unversioned chart-doc version posture when the URL has no concrete
+  version, compact download evidence, source-outline values/example signals,
+  five-unit extraction, and an offline LLM review packet.
+- Live Helm URL fetches use the `official-url-primary-only` strategy and do not
+  attempt Terraform provider raw-doc fallbacks.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` resolves Artifact Hub Helm chart URLs, derives
+  Helm chart classification, records primary-only download strategy, and carries
+  chart identity into compact public-library artifacts.
+- `src/knowledge/validate.ts` validates Helm public-library classification,
+  discovery tags, primary-only download traces, report/artifact source chart
+  identity, and registry metadata shape.
+- `src/knowledge/public-library-stage.ts` carries Helm repository/chart
+  metadata into local public-library registry entries.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers Helm chart URL
+  local-content extraction and mocked live primary download.
+- `test/unit/knowledge-public-library-artifact-validation.test.mjs` covers Helm
+  public-library registry validation.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  Helm URL support and primary-only download posture.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Helm public-library artifacts can be produced, validated, and staged, but
+  workspace registry reuse still only matches Terraform provider/resource
+  usage. Pulumi and Helm registry-backed workspace reuse should be separate
+  slices.
+- Artifact Hub chart URLs without an explicit version are classified as
+  `unversioned` and rely on content hashes and review before public reuse.
+
 ## 2026-05-20 Pulumi URL Public Knowledge Extraction
 
 Status:

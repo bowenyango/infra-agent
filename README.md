@@ -286,14 +286,16 @@ Current behavior is intentionally runtime-foundation oriented:
   `infra-agent.public-knowledge-url-report` directly from a public official
   documentation URL without requiring a workspace. It infers the source identity
   from supported URLs such as Terraform Registry provider resource/data-source
-  docs and Pulumi Registry resource docs, extracts the same five unit types,
+  docs, Pulumi Registry resource docs, and Artifact Hub Helm chart docs,
+  extracts the same five unit types,
   groups compact source-referenced
   units under `unitsByType`, and reports `unitTypeComplete`, quality status,
   compact byte length, missing/included unit types, and a
   `centralLibraryCandidate` for public-reference reuse. The report also records
   a compact `download` trace and a hub-style central-library coordinate such as
   `terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket` or
-  `pulumi/package/@pulumi/aws/unversioned/resource/aws:s3/bucket:Bucket`,
+  `pulumi/package/@pulumi/aws/unversioned/resource/aws:s3/bucket:Bucket` or
+  `helm/chart/prometheus-community/kube-prometheus-stack/unversioned`,
   plus a
   `classification.versionRef` marker that records whether the URL path used a
   pinned version or a mutable alias such as `latest`. The companion
@@ -306,8 +308,9 @@ Current behavior is intentionally runtime-foundation oriented:
   raw-doc fallback and the concrete provider version was resolved, fallback
   download attempts prefer the resolved version tag before `main` or `master`
   so the central-library evidence is closer to the published provider release.
-  Pulumi Registry resource URLs use a primary official-URL download strategy
-  and do not attempt Terraform provider repository fallbacks.
+  Pulumi Registry resource URLs and Artifact Hub Helm chart URLs use a primary
+  official-URL download strategy and do not attempt Terraform provider
+  repository fallbacks.
   The
   `llmRefinementInput` contract is for explicit offline LLM review. That input
   includes a deterministic `reviewPacket` with classification, version

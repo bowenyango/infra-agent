@@ -195,7 +195,8 @@ const PUBLIC_KNOWLEDGE_SOURCE_OUTLINE_SIGNALS = [
 const PUBLIC_LIBRARY_ARTIFACT_KINDS = [
   'terraform-provider-resource',
   'terraform-provider-data-source',
-  'pulumi-package-resource'
+  'pulumi-package-resource',
+  'helm-chart-docs'
 ] as const;
 const PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE = 'application/vnd.infra-agent.public-knowledge-library-artifact+json';
 
@@ -2039,13 +2040,14 @@ function validatePublicKnowledgeClassification(
   if (value.registry !== 'infra-agent-public-reference') {
     issues.push(error(`${path}.registry`, 'Public knowledge library artifact registry must be infra-agent-public-reference.'));
   }
-  if (value.ecosystem !== 'terraform' && value.ecosystem !== 'pulumi') {
+  if (value.ecosystem !== 'terraform' && value.ecosystem !== 'pulumi' && value.ecosystem !== 'helm') {
     issues.push(error(`${path}.ecosystem`, 'Public knowledge library artifact ecosystem must be supported.'));
   }
   if (
     value.artifactKind !== 'terraform-provider-resource'
     && value.artifactKind !== 'terraform-provider-data-source'
     && value.artifactKind !== 'pulumi-package-resource'
+    && value.artifactKind !== 'helm-chart-docs'
   ) {
     issues.push(error(`${path}.artifactKind`, 'Public knowledge library artifact artifactKind must be supported.'));
   }
@@ -2067,6 +2069,12 @@ function validatePublicKnowledgeClassification(
   const resourceToken = value.resourceToken === undefined
     ? null
     : readNonEmptyString(value.resourceToken, `${path}.resourceToken`, issues);
+  const repository = value.repository === undefined
+    ? null
+    : readNonEmptyString(value.repository, `${path}.repository`, issues);
+  const chart = value.chart === undefined
+    ? null
+    : readNonEmptyString(value.chart, `${path}.chart`, issues);
   const coordinates = readNonEmptyString(value.coordinates, `${path}.coordinates`, issues);
   const tags = validatePublicKnowledgeTags(
     value.tags,
@@ -2083,6 +2091,8 @@ function validatePublicKnowledgeClassification(
     [`${path}.sourceName`, sourceName],
     [`${path}.slug`, slug],
     [`${path}.resourceToken`, resourceToken],
+    [`${path}.repository`, repository],
+    [`${path}.chart`, chart],
     [`${path}.coordinates`, coordinates]
   ] as const) {
     if (fieldValue !== null) {
@@ -2207,6 +2217,64 @@ function validatePublicKnowledgeClassification(
         slug,
         resourceToken ?? '',
         'resource',
+        version,
+        versionRef?.kind ?? ''
+      ].filter((tag): tag is string => tag.length > 0)
+    );
+  }
+
+  if (
+    namespace !== null
+    && providerName !== null
+    && providerAddress !== null
+    && version !== null
+    && sourceName !== null
+    && slug !== null
+    && coordinates !== null
+    && value.ecosystem === 'helm'
+    && value.artifactKind === 'helm-chart-docs'
+  ) {
+    const chartName = chart ?? slug.split('/')[1] ?? '';
+    const repositoryName = repository ?? providerName;
+    const expectedSlug = `${repositoryName}/${chartName}`;
+    const expectedCoordinates = [
+      'helm',
+      'chart',
+      repositoryName,
+      chartName,
+      version
+    ].join('/');
+
+    if (namespace !== 'helm') {
+      issues.push(error(`${path}.namespace`, 'Helm public knowledge classification namespace must be helm.'));
+    }
+    if (providerName !== repositoryName) {
+      issues.push(error(`${path}.providerName`, 'Helm public knowledge classification providerName must match repository.'));
+    }
+    if (providerAddress !== expectedSlug) {
+      issues.push(error(`${path}.providerAddress`, 'Helm public knowledge classification providerAddress must match repository/chart.'));
+    }
+    if (sourceName !== `chart-docs:${expectedSlug}`) {
+      issues.push(error(`${path}.sourceName`, 'Helm public knowledge classification sourceName must match chart docs identity.'));
+    }
+    if (slug !== expectedSlug) {
+      issues.push(error(`${path}.slug`, 'Helm public knowledge classification slug must match repository/chart.'));
+    }
+    if (coordinates !== expectedCoordinates) {
+      issues.push(error(`${path}.coordinates`, 'Helm public knowledge classification coordinates must match ecosystem/chart/version.'));
+    }
+    requirePublicKnowledgeTags(
+      tags,
+      `${path}.tags`,
+      issues,
+      'Public knowledge library artifact classification',
+      [
+        'public-reference',
+        'helm',
+        'chart-docs',
+        repositoryName,
+        chartName,
+        expectedSlug,
         version,
         versionRef?.kind ?? ''
       ].filter((tag): tag is string => tag.length > 0)
@@ -3201,7 +3269,7 @@ function validatePublicKnowledgeCentralLibraryCandidate(
     issues.push(error(`${path}.source.domain`, 'Public knowledge URL report centralLibraryCandidate source domain must match report domain.'));
   }
   if (candidateSource !== null && expected.source !== null) {
-    for (const field of ['kind', 'name', 'provider', 'version', 'url'] as const) {
+    for (const field of ['kind', 'name', 'provider', 'module', 'packageName', 'chart', 'version', 'url'] as const) {
       if (
         expected.source[field] !== undefined
         && candidateSource[field] !== expected.source[field]
@@ -3564,6 +3632,16 @@ function validatePublicKnowledgeLibraryArtifactPayload(
     ) {
       issues.push(error('$.source.version', 'Public knowledge library artifact source version must match classification version.'));
     }
+    if (
+      classification.artifactKind === 'helm-chart-docs'
+      && typeof payload.source.chart === 'string'
+      && typeof payload.classification === 'object'
+      && payload.classification !== null
+      && 'chart' in payload.classification
+      && payload.source.chart !== (payload.classification as Record<string, unknown>).chart
+    ) {
+      issues.push(error('$.source.chart', 'Public knowledge library artifact source chart must match classification chart.'));
+    }
   }
 
   validatePublicKnowledgeDownloadSummary(payload.download, '$.download', issues);
@@ -3747,7 +3825,7 @@ function validatePublicKnowledgeLibraryRegistryPayload(
         seenCoordinates.add(coordinates);
       }
 
-      if (entry.ecosystem !== 'terraform' && entry.ecosystem !== 'pulumi') {
+      if (entry.ecosystem !== 'terraform' && entry.ecosystem !== 'pulumi' && entry.ecosystem !== 'helm') {
         issues.push(error(`${path}.ecosystem`, 'Public knowledge library registry entry ecosystem must be supported.'));
       }
       if (
@@ -3790,12 +3868,30 @@ function validatePublicKnowledgeLibraryRegistryPayload(
         ) {
           issues.push(error(`${path}.sourceName`, 'Pulumi resource public library entries must use a pulumi-docs:resource: sourceName.'));
         }
+        if (
+          entry.artifactKind === 'helm-chart-docs'
+          && !sourceName.startsWith('chart-docs:')
+        ) {
+          issues.push(error(`${path}.sourceName`, 'Helm chart public library entries must use a chart-docs: sourceName.'));
+        }
       }
       const resourceToken = entry.resourceToken === undefined
         ? null
         : readNonEmptyString(entry.resourceToken, `${path}.resourceToken`, issues);
       if (resourceToken !== null) {
         validateNoSecretLikeValue(resourceToken, `${path}.resourceToken`, issues);
+      }
+      const repository = entry.repository === undefined
+        ? null
+        : readNonEmptyString(entry.repository, `${path}.repository`, issues);
+      if (repository !== null) {
+        validateNoSecretLikeValue(repository, `${path}.repository`, issues);
+      }
+      const chart = entry.chart === undefined
+        ? null
+        : readNonEmptyString(entry.chart, `${path}.chart`, issues);
+      if (chart !== null) {
+        validateNoSecretLikeValue(chart, `${path}.chart`, issues);
       }
 
       if (
@@ -3840,6 +3936,28 @@ function validatePublicKnowledgeLibraryRegistryPayload(
           issues.push(error(`${path}.coordinates`, 'Pulumi public library registry coordinates must match package, version, and resource token.'));
         }
       }
+      if (
+        coordinates !== null
+        && providerAddress !== null
+        && version !== null
+        && sourceName !== null
+        && entry.artifactKind === 'helm-chart-docs'
+      ) {
+        const [repositoryName, chartName] = providerAddress.split('/');
+        const expectedRepository = repository ?? repositoryName ?? '';
+        const expectedChart = chart ?? chartName ?? '';
+        const expectedProviderAddress = `${expectedRepository}/${expectedChart}`;
+        const expectedCoordinates = `helm/chart/${expectedRepository}/${expectedChart}/${version}`;
+        if (!repositoryName || !chartName || providerAddress !== expectedProviderAddress) {
+          issues.push(error(`${path}.providerAddress`, 'Helm public library registry providerAddress must match repository/chart.'));
+        }
+        if (sourceName !== `chart-docs:${expectedProviderAddress}`) {
+          issues.push(error(`${path}.sourceName`, 'Helm public library registry sourceName must match chart docs identity.'));
+        }
+        if (coordinates !== expectedCoordinates) {
+          issues.push(error(`${path}.coordinates`, 'Helm public library registry coordinates must match chart, repository, and version.'));
+        }
+      }
 
       const tags = validatePublicKnowledgeTags(
         entry.tags,
@@ -3877,6 +3995,34 @@ function validatePublicKnowledgeLibraryRegistryPayload(
               providerName,
               typeName,
               kindSegment,
+              versionRef.kind
+            ]
+          );
+        }
+      }
+      if (
+        tags !== null
+        && providerAddress !== null
+        && version !== null
+        && versionRef !== null
+        && versionRef.kind !== null
+        && entry.artifactKind === 'helm-chart-docs'
+      ) {
+        const [repositoryName, chartName] = providerAddress.split('/');
+        if (repositoryName && chartName) {
+          requirePublicKnowledgeTags(
+            tags,
+            `${path}.tags`,
+            issues,
+            'Public knowledge library registry',
+            [
+              'public-reference',
+              'helm',
+              'chart-docs',
+              repositoryName,
+              chartName,
+              providerAddress,
+              version,
               versionRef.kind
             ]
           );

@@ -152,11 +152,12 @@ export interface PublicKnowledgeVersionResolution {
 
 export interface PublicKnowledgeCentralLibraryClassification {
   registry: 'infra-agent-public-reference';
-  ecosystem: 'terraform' | 'pulumi';
+  ecosystem: 'terraform' | 'pulumi' | 'helm';
   artifactKind:
     | 'terraform-provider-resource'
     | 'terraform-provider-data-source'
-    | 'pulumi-package-resource';
+    | 'pulumi-package-resource'
+    | 'helm-chart-docs';
   namespace: string;
   providerName: string;
   providerAddress: string;
@@ -166,6 +167,8 @@ export interface PublicKnowledgeCentralLibraryClassification {
   sourceName: string;
   slug: string;
   resourceToken?: string;
+  repository?: string;
+  chart?: string;
   coordinates: string;
   tags: string[];
 }
@@ -240,6 +243,7 @@ export interface PublicKnowledgeCentralLibraryCandidate {
     provider?: string;
     module?: string;
     packageName?: string;
+    chart?: string;
     version?: string;
     url?: string;
   };
@@ -348,11 +352,19 @@ interface PulumiRegistryUrlSource {
   typeName: string;
 }
 
+interface HelmChartUrlSource {
+  repositoryName: string;
+  chartName: string;
+  version: string;
+  slug: string;
+}
+
 interface PublicKnowledgeSourceResolution {
   domain: InfraDomainId;
   source: KnowledgeSource;
   terraformRegistry?: TerraformRegistryUrlSource;
   pulumiRegistry?: PulumiRegistryUrlSource;
+  helmChart?: HelmChartUrlSource;
 }
 
 interface PublicKnowledgeEntryResult {
@@ -605,6 +617,16 @@ async function resolvePublicKnowledgeVersion(input: {
     };
   }
 
+  if (input.resolution.helmChart) {
+    return {
+      requestedVersion: input.resolution.helmChart.version,
+      resolvedVersion: input.resolution.helmChart.version,
+      status: 'pinned',
+      mutable: false,
+      source: 'url-path'
+    };
+  }
+
   throw new Error('Unsupported public knowledge source version resolution.');
 }
 
@@ -812,6 +834,56 @@ function pulumiResourceSourceFromUrl(parsed: URL): PublicKnowledgeSourceResoluti
   };
 }
 
+function helmChartSourceFromUrl(parsed: URL): PublicKnowledgeSourceResolution | null {
+  if (parsed.hostname !== 'artifacthub.io' && parsed.hostname !== 'www.artifacthub.io') {
+    return null;
+  }
+
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (
+    parts[0] !== 'packages'
+    || parts[1] !== 'helm'
+    || parts.length < 4
+    || parts.length > 5
+  ) {
+    return null;
+  }
+
+  const repositoryName = parts[2] ?? '';
+  const chartName = parts[3] ?? '';
+  const versionSegment = parts[4];
+  const version = versionSegment === undefined || versionSegment === 'latest'
+    ? 'unversioned'
+    : versionSegment;
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(repositoryName)
+    || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(chartName)
+    || !/^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(version)
+  ) {
+    return null;
+  }
+
+  const slug = `${repositoryName}/${chartName}`;
+  const sourceName = `chart-docs:${slug}`;
+
+  return {
+    domain: 'helm',
+    source: {
+      kind: 'chart-docs',
+      name: sourceName,
+      chart: chartName,
+      version,
+      url: parsed.toString()
+    },
+    helmChart: {
+      repositoryName,
+      chartName,
+      version,
+      slug
+    }
+  };
+}
+
 function publicKnowledgeSourceFromUrl(rawUrl: string): PublicKnowledgeSourceResolution {
   const parsed = normalizePublicUrl(rawUrl);
   const terraformSource = terraformResourceSourceFromUrl(parsed);
@@ -822,8 +894,12 @@ function publicKnowledgeSourceFromUrl(rawUrl: string): PublicKnowledgeSourceReso
   if (pulumiSource) {
     return pulumiSource;
   }
+  const helmSource = helmChartSourceFromUrl(parsed);
+  if (helmSource) {
+    return helmSource;
+  }
 
-  throw new Error('Unsupported public knowledge URL. Supported v0 URLs are Terraform Registry provider resource/data source docs and Pulumi Registry resource docs.');
+  throw new Error('Unsupported public knowledge URL. Supported v0 URLs are Terraform Registry provider resource/data source docs, Pulumi Registry resource docs, and Artifact Hub Helm chart docs.');
 }
 
 function terraformRegistryRawDocRefs(
@@ -1154,7 +1230,7 @@ function sourceOutlineSignalForHeading(title: string): PublicKnowledgeSourceOutl
   if (/^(example usage|basic usage|examples?)\b/.test(normalized)) {
     return 'example-usage';
   }
-  if (/\b(inputs?|arguments?|argument reference|arguments reference)\b/.test(normalized)) {
+  if (/\b(inputs?|arguments?|argument reference|arguments reference|values?)\b/.test(normalized)) {
     return 'argument-reference';
   }
   if (/\b(attributes?|attribute reference|attributes reference)\b/.test(normalized)) {
@@ -1592,6 +1668,7 @@ function compactSource(source: KnowledgeSource, domain: InfraDomainId): PublicKn
     ...(source.provider ? { provider: source.provider } : {}),
     ...(source.module ? { module: source.module } : {}),
     ...(source.packageName ? { packageName: source.packageName } : {}),
+    ...(source.chart ? { chart: source.chart } : {}),
     ...(source.version ? { version: source.version } : {}),
     ...(source.url ? { url: source.url } : {})
   };
@@ -1689,6 +1766,47 @@ function pulumiLibraryClassification(
   };
 }
 
+function helmLibraryClassification(
+  source: HelmChartUrlSource,
+  versionResolution: PublicKnowledgeVersionResolution
+): PublicKnowledgeCentralLibraryClassification {
+  const versionRef = publicKnowledgeVersionRef(source.version);
+  const coordinates = [
+    'helm',
+    'chart',
+    source.repositoryName,
+    source.chartName,
+    source.version
+  ].join('/');
+
+  return {
+    registry: 'infra-agent-public-reference',
+    ecosystem: 'helm',
+    artifactKind: 'helm-chart-docs',
+    namespace: 'helm',
+    providerName: source.repositoryName,
+    providerAddress: source.slug,
+    version: source.version,
+    versionRef,
+    versionResolution,
+    sourceName: `chart-docs:${source.slug}`,
+    slug: source.slug,
+    repository: source.repositoryName,
+    chart: source.chartName,
+    coordinates,
+    tags: [
+      'public-reference',
+      'helm',
+      'chart-docs',
+      source.repositoryName,
+      source.chartName,
+      source.slug,
+      source.version,
+      versionRef.kind
+    ]
+  };
+}
+
 function publicKnowledgeVersionRef(version: string): PublicKnowledgeVersionRef {
   const floating = version === 'latest';
   return {
@@ -1708,6 +1826,9 @@ function libraryClassification(
   }
   if (resolution.pulumiRegistry) {
     return pulumiLibraryClassification(resolution.pulumiRegistry, versionResolution);
+  }
+  if (resolution.helmChart) {
+    return helmLibraryClassification(resolution.helmChart, versionResolution);
   }
 
   throw new Error('Unsupported public knowledge source classification.');

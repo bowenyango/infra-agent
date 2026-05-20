@@ -19,6 +19,7 @@ import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket';
 const PULUMI_AWS_BUCKET_URL = 'https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/';
+const HELM_KUBE_PROMETHEUS_STACK_URL = 'https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack/';
 
 const S3_BUCKET_MARKDOWN = [
   '# aws_s3_bucket',
@@ -84,6 +85,43 @@ const PULUMI_AWS_BUCKET_MARKDOWN = [
   ''
 ].join('\n');
 
+const HELM_KUBE_PROMETHEUS_STACK_MARKDOWN = [
+  '# kube-prometheus-stack',
+  '',
+  'Installs core components of the kube-prometheus stack.',
+  '',
+  '## Values',
+  '',
+  '| Key | Type | Default | Description |',
+  '| --- | --- | --- | --- |',
+  '| `grafana.enabled` | bool | `true` | Whether to deploy Grafana with the chart. |',
+  '| `prometheus.prometheusSpec.retention` | string | `10d` | Retention period for Prometheus data. |',
+  '',
+  '## Example Values',
+  '',
+  '```yaml',
+  'grafana:',
+  '  enabled: true',
+  '```',
+  '',
+  '## Compatibility Warnings',
+  '',
+  'CRDs must be reviewed during chart upgrades because ownership and API compatibility can affect rendered manifests.',
+  '',
+  '## Upgrade Workflow',
+  '',
+  '1. Render the chart with helm template.',
+  '2. Review CRD and ownership changes before merge.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`rendered manifests contain a resource that already exists` usually means a Kubernetes object is owned by a different release.',
+  '',
+  '- Review Helm ownership annotations.',
+  '- Confirm the release name and destination namespace.',
+  ''
+].join('\n');
+
 function sha256Hex(value) {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -126,6 +164,25 @@ async function buildPulumiArtifactFixture() {
   };
 }
 
+async function buildHelmArtifactFixture() {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-helm-artifact-'));
+  const contentPath = join(tempRoot, 'kube-prometheus-stack.md');
+  await writeFile(contentPath, HELM_KUBE_PROMETHEUS_STACK_MARKDOWN, 'utf8');
+
+  const report = await buildPublicKnowledgeUrlReport({
+    url: HELM_KUBE_PROMETHEUS_STACK_URL,
+    contentPath,
+    maxUnits: 20
+  });
+  const artifact = buildPublicKnowledgeLibraryArtifact(report);
+
+  return {
+    tempRoot,
+    report,
+    artifact
+  };
+}
+
 function buildRegistryFixture(artifact) {
   const artifactContent = JSON.stringify(artifact);
   const { classification } = artifact;
@@ -145,6 +202,8 @@ function buildRegistryFixture(artifact) {
         versionResolution: classification.versionResolution,
         sourceName: classification.sourceName,
         ...(classification.resourceToken ? { resourceToken: classification.resourceToken } : {}),
+        ...(classification.repository ? { repository: classification.repository } : {}),
+        ...(classification.chart ? { chart: classification.chart } : {}),
         tags: classification.tags,
         artifact: {
           url: 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json',
@@ -523,6 +582,29 @@ test('public knowledge library registry validation accepts Pulumi package resour
     assert.equal(registry.entries[0].artifactKind, 'pulumi-package-resource');
     assert.equal(registry.entries[0].providerAddress, '@pulumi/aws');
     assert.equal(registry.entries[0].resourceToken, 'aws:s3/bucket:Bucket');
+    assert.equal(validation.inputKind, 'infra-agent.public-knowledge-library-registry');
+    assert.equal(validation.valid, true);
+    assert.equal(validation.unitCount, artifact.summary.unitCount);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('public knowledge library registry validation accepts Helm chart docs entries', async () => {
+  const { tempRoot, report, artifact } = await buildHelmArtifactFixture();
+
+  try {
+    const registry = buildRegistryFixture(artifact);
+    registry.entries[0].artifact.url = 'https://knowledge.example.com/public/helm-kube-prometheus-stack.public-knowledge-library-artifact.json';
+    const validation = validateKnowledgePayload(registry, 'inline');
+
+    assert.equal(report.domain, 'helm');
+    assert.equal(registry.entries[0].ecosystem, 'helm');
+    assert.equal(registry.entries[0].artifactKind, 'helm-chart-docs');
+    assert.equal(registry.entries[0].providerAddress, 'prometheus-community/kube-prometheus-stack');
+    assert.equal(registry.entries[0].repository, 'prometheus-community');
+    assert.equal(registry.entries[0].chart, 'kube-prometheus-stack');
+    assert.equal(registry.entries[0].sourceName, 'chart-docs:prometheus-community/kube-prometheus-stack');
     assert.equal(validation.inputKind, 'infra-agent.public-knowledge-library-registry');
     assert.equal(validation.valid, true);
     assert.equal(validation.unitCount, artifact.summary.unitCount);

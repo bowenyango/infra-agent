@@ -108,8 +108,12 @@ values.
    and check `download.usedUrl` when fallback was used. For Terraform Registry
    `latest` URLs, a resolved provider version should make raw provider docs
    come from the resolved version tag before `main` or `master`. Pulumi
-   Registry resource URLs are supported as unversioned public package docs and
-   should use `download.strategy: "official-url-primary-only"`, not Terraform
+   Registry resource URLs are supported as unversioned public package docs, and
+   Artifact Hub Helm chart URLs are supported as chart-docs public references
+   with coordinates such as
+   `helm/chart/prometheus-community/kube-prometheus-stack/unversioned`.
+   Pulumi and Helm URL inputs should use
+   `download.strategy: "official-url-primary-only"`, not Terraform
    raw-provider fallbacks. Treat
    `llmRefinementInput` as the
    explicit offline LLM review contract. Its `reviewPacket` is the bounded

@@ -20,17 +20,20 @@ import type {
 
 export interface PublicKnowledgeLibraryRegistryEntry {
   coordinates: string;
-  ecosystem: 'terraform' | 'pulumi';
+  ecosystem: 'terraform' | 'pulumi' | 'helm';
   artifactKind:
     | 'terraform-provider-resource'
     | 'terraform-provider-data-source'
-    | 'pulumi-package-resource';
+    | 'pulumi-package-resource'
+    | 'helm-chart-docs';
   providerAddress: string;
   version: string;
   versionRef: PublicKnowledgeVersionRef;
   versionResolution: PublicKnowledgeVersionResolution;
   sourceName: string;
   resourceToken?: string;
+  repository?: string;
+  chart?: string;
   tags: string[];
   artifact: {
     path: string;
@@ -177,11 +180,12 @@ function isVersionResolution(value: unknown, version: string): value is PublicKn
 function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistryEntry {
   return isRecord(value)
     && typeof value.coordinates === 'string'
-    && (value.ecosystem === 'terraform' || value.ecosystem === 'pulumi')
+    && (value.ecosystem === 'terraform' || value.ecosystem === 'pulumi' || value.ecosystem === 'helm')
     && (
       value.artifactKind === 'terraform-provider-resource'
       || value.artifactKind === 'terraform-provider-data-source'
       || value.artifactKind === 'pulumi-package-resource'
+      || value.artifactKind === 'helm-chart-docs'
     )
     && typeof value.providerAddress === 'string'
     && typeof value.version === 'string'
@@ -189,6 +193,8 @@ function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistr
     && isVersionResolution(value.versionResolution, value.version)
     && typeof value.sourceName === 'string'
     && (value.resourceToken === undefined || typeof value.resourceToken === 'string')
+    && (value.repository === undefined || typeof value.repository === 'string')
+    && (value.chart === undefined || typeof value.chart === 'string')
     && Array.isArray(value.tags)
     && value.tags.every(tag => typeof tag === 'string')
     && isRecord(value.artifact)
@@ -275,6 +281,8 @@ function buildRegistryEntry(input: {
     versionResolution: artifact.classification.versionResolution,
     sourceName: artifact.classification.sourceName,
     ...(artifact.classification.resourceToken ? { resourceToken: artifact.classification.resourceToken } : {}),
+    ...(artifact.classification.repository ? { repository: artifact.classification.repository } : {}),
+    ...(artifact.classification.chart ? { chart: artifact.classification.chart } : {}),
     tags: artifact.classification.tags,
     artifact: {
       path: input.storedRelativePath,

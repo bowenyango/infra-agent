@@ -141,6 +141,7 @@ workspace-scoped report, use the URL-only extraction path:
 ```sh
 infra-agent knowledge from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --out /tmp/infra-agent-s3-url-knowledge.json --library-out /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge from-url https://www.pulumi.com/registry/packages/aws/api-docs/s3/bucket/ --max-units 20 --out /tmp/infra-agent-pulumi-bucket-url-knowledge.json --library-out /tmp/infra-agent-pulumi-bucket-library-artifact.json --json
+infra-agent knowledge from-url https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack/ --max-units 20 --out /tmp/infra-agent-helm-kube-prometheus-stack-url-knowledge.json --library-out /tmp/infra-agent-helm-kube-prometheus-stack-library-artifact.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-url-knowledge.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
@@ -183,6 +184,14 @@ Pulumi Registry resource URL tests should prove the output has
 `pulumi-docs:resource:aws:s3/bucket`, a stable coordinate such as
 `pulumi/package/@pulumi/aws/unversioned/resource/aws:s3/bucket:Bucket`, all
 five unit types, `sourceOutline` signals for inputs/examples/imports, and
+`download.strategy: "official-url-primary-only"` with no Terraform fallback
+attempts.
+Artifact Hub Helm chart URL tests should prove the output has
+`domain: "helm"`, source identity such as
+`chart-docs:prometheus-community/kube-prometheus-stack`, a stable coordinate
+such as `helm/chart/prometheus-community/kube-prometheus-stack/unversioned`,
+all five unit types, `sourceOutline` signals for values/examples, chart value
+facts such as `chart.kube-prometheus-stack.grafana.enabled`, and
 `download.strategy: "official-url-primary-only"` with no Terraform fallback
 attempts.
 With

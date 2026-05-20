@@ -355,9 +355,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   section signals, path samples, and identity/replacement counts, but must not
   include raw documentation bodies or URLs. Classification and registry tags
   must remain URL-free, unique, and sufficient for public-reference discovery.
-  Terraform Registry resource/data-source URLs and Pulumi Registry resource
-  URLs are supported public-reference URL inputs; Pulumi Registry resources are
-  classified as unversioned package docs and must use a primary official-URL
+  Terraform Registry resource/data-source URLs, Pulumi Registry resource URLs,
+  and Artifact Hub Helm chart URLs are supported public-reference URL inputs.
+  Pulumi Registry resources are classified as unversioned package docs; Artifact
+  Hub chart URLs without a concrete chart version are classified as unversioned
+  chart docs. Both non-Terraform URL families must use a primary official-URL
   download strategy rather than Terraform raw-provider fallback attempts.
 - For Terraform Registry `latest` URLs, a successful provider version metadata
   lookup must influence raw provider-repository fallback ordering. Prefer the
