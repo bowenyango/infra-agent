@@ -204,6 +204,10 @@ test('public knowledge URL report validation rejects drifted summary candidate a
               ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline,
               signals: ['example-usage', 'argument-reference']
             },
+            unitDigest: {
+              ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest,
+              omittedPathCount: report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest.omittedPathCount + 1
+            },
             unitCount: report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount + 1
           }
         }
@@ -242,6 +246,7 @@ test('public knowledge URL report validation rejects drifted summary candidate a
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.traceHash',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline.signals',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest.omittedPathCount',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount',
       '$.unitsByType.fact[0].summary'
     ]) {
@@ -328,6 +333,13 @@ test('public knowledge library artifact validation rejects drifted hashes classi
             ...artifact.llmRefinementInput.reviewPacket.sourceOutline,
             byteLength: artifact.llmRefinementInput.reviewPacket.sourceOutline.byteLength + 1
           },
+          unitDigest: {
+            ...artifact.llmRefinementInput.reviewPacket.unitDigest,
+            signals: {
+              ...artifact.llmRefinementInput.reviewPacket.unitDigest.signals,
+              argumentCount: artifact.llmRefinementInput.reviewPacket.unitDigest.signals.argumentCount + 1
+            }
+          },
           unitCount: artifact.llmRefinementInput.reviewPacket.unitCount + 1
         },
         reviewChecklist: ['single check']
@@ -369,6 +381,7 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       '$.llmRefinementInput.reviewPacket.versionResolution.reason',
       '$.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount',
       '$.llmRefinementInput.reviewPacket.sourceOutline',
+      '$.llmRefinementInput.reviewPacket.unitDigest.signals.argumentCount',
       '$.llmRefinementInput.reviewPacket.unitCount',
       '$.llmRefinementInput.reviewChecklist',
       '$.unitsByType.fact[0].summary'

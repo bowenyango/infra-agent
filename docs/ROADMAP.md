@@ -143,9 +143,10 @@ classification coordinates, search tags, and an explicit offline
 `llmRefinementInput` contract. That LLM input must include a deterministic
 review packet with classification, source hash, compact download evidence with
 a trace hash, version resolution, a compact source outline with headings and
-section signals, unit counts, quality signals, review checks, and rejection
-criteria so future refinement receives bounded evidence rather than raw
-documentation. The root report should expose download trace metadata and a
+section signals, a compact unit digest with high-signal path samples and
+identity/replacement counts, unit counts, quality signals, review checks, and
+rejection criteria so future refinement receives bounded evidence rather than
+raw documentation. The root report should expose download trace metadata and a
 raw-content-free source outline so future agents can verify whether the primary
 URL or a documented fallback produced the selected source content and whether
 the selected document contains expected sections. It should also expose
@@ -168,8 +169,8 @@ registry, download, or LLM-refinement workflows. URL report validation must
 reject source identity drift, mismatched summary/unit counts, central-library
 candidate drift, malformed download traces, drifted LLM download evidence,
 drifted version resolution, drifted source outlines, drifted LLM review packet
-fields, raw content, and secret-like compact unit text. Artifact validation
-must also reject coordinate drift and bad unit payload hashes.
+unit digest fields, raw content, and secret-like compact unit text. Artifact
+validation must also reject coordinate drift and bad unit payload hashes.
 
 Agent-2 reset policy:
 

@@ -167,8 +167,10 @@ that points to structured report fields instead of raw docs. The LLM input
 should include a deterministic review packet with
 classification, version-reference stability, version resolution, source hash,
 compact `downloadEvidence` with a trace hash, compact `sourceOutline`
-headings/signals, unit counts, quality signals, review checks, and rejection
-criteria so future refinement starts from bounded evidence. Live
+headings/signals, compact `unitDigest` path samples and
+identity/replacement signal counts, unit counts, quality signals, review
+checks, and rejection criteria so future refinement starts from bounded
+evidence. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
 can prove Registry JavaScript-shell pages fall back to provider raw docs after
@@ -186,12 +188,12 @@ or backend URLs.
 artifact. Report validation should
 reject drifted source IDs, inconsistent summary counts, candidate
 classification drift, version-reference drift, version-resolution drift,
-source-outline drift, LLM review packet drift, embedded raw content, and
-secret-like compact unit text.
+source-outline drift, unit-digest drift, LLM review packet drift, embedded raw
+content, and secret-like compact unit text.
 Artifact validation should reject drifted coordinates, inconsistent source metadata, malformed
 download traces, drifted LLM download evidence, mismatched unit counts, bad
-`unitPayloadHash`, drifted LLM review packet fields, embedded raw content, or
-secret-like compact unit text.
+`unitPayloadHash`, drifted LLM review packet fields including unit digest,
+embedded raw content, or secret-like compact unit text.
 `knowledge library-stage` should only accept a valid public library artifact,
 copy it into a workspace-relative
 content-addressed local store, and update an

@@ -226,6 +226,17 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.rejectedAttemptCount, 0);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.failedAttemptCount, 0);
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline, report.sourceOutline);
+    assert.equal(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest.pathSamples[0],
+      'resource.aws_s3_bucket.bucket'
+    );
+    assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest.omittedPathCount > 0, true);
+    assert.ok(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest.signals.argumentCount > 0
+    );
+    assert.ok(
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest.signals.replacementCount > 0
+    );
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount, report.summary.includedUnitCount);
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCounts, report.summary.unitCounts);
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.missingUnitTypes, report.summary.missingUnitTypes);
@@ -258,6 +269,10 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(libraryArtifact.llmRefinementInput.status, 'not-run');
     assert.equal(libraryArtifact.llmRefinementInput.reviewPacket.coordinates, libraryArtifact.coordinates);
     assert.deepEqual(libraryArtifact.llmRefinementInput.reviewPacket.sourceOutline, report.sourceOutline);
+    assert.deepEqual(
+      libraryArtifact.llmRefinementInput.reviewPacket.unitDigest,
+      report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitDigest
+    );
     assert.deepEqual(
       libraryArtifact.llmRefinementInput.reviewPacket.downloadEvidence,
       report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence

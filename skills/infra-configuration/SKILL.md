@@ -113,7 +113,8 @@ values.
    evidence packet for future model refinement: classification,
    version-reference stability, version resolution, source hash, compact
    download evidence with a trace hash, compact source-outline headings and
-   section signals, unit counts, quality signals, review checks, and rejection
+   section signals, compact unit-digest path samples and identity/replacement
+   counts, unit counts, quality signals, review checks, and rejection
    criteria. Add
    `--library-out <artifact.json>` when preparing a
    downloadable central-library artifact; the artifact is a local,
@@ -124,8 +125,8 @@ values.
    download reuse; validation checks source identity, coordinate coherence,
    version-reference drift, version-resolution drift, download trace shape,
    source-outline drift, fallback ordering, LLM download evidence drift, unit
-   counts, unit hash when present, review packet drift, and raw-content
-   omission.
+   counts, unit hash when present, unit-digest drift, review packet drift, and
+   raw-content omission.
    Use `knowledge library-stage <artifact.json> --workspace <workspace>
    --store-dir <dir> --registry <registry.json> --json` only after validation
    when preparing local downloadable-registry metadata. It writes a

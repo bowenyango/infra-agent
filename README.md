@@ -307,9 +307,10 @@ Current behavior is intentionally runtime-foundation oriented:
   includes a deterministic `reviewPacket` with classification, version
   reference stability, version resolution, source hash, compact
   `downloadEvidence` including a trace hash, a compact `sourceOutline` with
-  headings and section signals, unit counts, quality signals, review checks,
-  and rejection criteria so a future model receives structured evidence
-  instead of raw docs.
+  headings and section signals, a compact `unitDigest` with high-signal path
+  samples and identity/replacement counts, unit counts, quality signals,
+  review checks, and rejection criteria so a future model receives structured
+  evidence instead of raw docs.
   Default selection favors reusable facts and identity/replacement guidance
   over generic Markdown sections. Use `--library-out` to write a standalone
   `infra-agent.public-knowledge-library-artifact` with the same compact units,

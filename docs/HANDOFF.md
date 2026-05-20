@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Public Knowledge Unit Digest Evidence
+
+Status:
+
+- Added compact `unitDigest` evidence to the offline LLM review packet emitted
+  by URL-only public knowledge extraction and public-library artifacts.
+- The digest is derived from selected compact units, not raw docs. It records
+  up to three high-signal unit path samples, omitted path count, and
+  argument/attribute/identity/replacement/diagnostic/recipe signal counts so a
+  future LLM reviewer can see unit coverage before inspecting `unitsByType`.
+- `knowledge validate` now recomputes the digest from `unitsByType` and
+  rejects drift in reports or artifacts.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` computes `unitDigest` from selected public
+  knowledge units and carries it into `llmRefinementInput.reviewPacket`.
+- `src/knowledge/validate.ts` validates digest shape, compactness, path
+  samples, signal counts, and drift against report/artifact `unitsByType`.
+- URL report and public-library artifact validation tests cover digest
+  propagation and drift rejection.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  the digest as bounded LLM review evidence for central-library workflows.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- `unitDigest` is deliberately summary evidence. Reviewers and future LLM
+  refinement must still inspect the selected compact units in `unitsByType`
+  before changing or publishing refined artifacts.
+- The digest signal set is tuned for Terraform Registry provider docs. Pulumi
+  and Helm URL-only extraction should extend signals when those source types
+  get first-class URL report support.
+
 ## 2026-05-20 Public Knowledge Source Outline Evidence
 
 Status:

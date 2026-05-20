@@ -102,6 +102,19 @@ export interface PublicKnowledgeSourceOutline {
   signals: PublicKnowledgeSourceOutlineSignal[];
 }
 
+export interface PublicKnowledgeUnitDigest {
+  pathSamples: string[];
+  omittedPathCount: number;
+  signals: {
+    argumentCount: number;
+    attributeCount: number;
+    identityCount: number;
+    replacementCount: number;
+    diagnosticCount: number;
+    recipeCount: number;
+  };
+}
+
 export type PublicKnowledgeVersionRefKind = 'pinned-version' | 'floating-alias';
 
 export interface PublicKnowledgeVersionRef {
@@ -177,6 +190,7 @@ export interface PublicKnowledgeLlmRefinementInput {
     fallbackUsed: boolean;
     downloadEvidence: PublicKnowledgeDownloadEvidence;
     sourceOutline: PublicKnowledgeSourceOutline;
+    unitDigest: PublicKnowledgeUnitDigest;
     unitBudget: number;
     unitCount: number;
     unitCounts: KnowledgeUnitCountByType;
@@ -1154,6 +1168,53 @@ function compactUnitsByType(
   };
 }
 
+function unitDigestPathSamples(units: KnowledgeUnit[]): Pick<PublicKnowledgeUnitDigest, 'pathSamples' | 'omittedPathCount'> {
+  const pathSamples: string[] = [];
+  let omittedPathCount = 0;
+
+  for (const unitType of ['fact', 'guidance', 'diagnostic', 'example', 'recipe'] as const satisfies KnowledgeUnitType[]) {
+    const groupedUnits = units.filter(unit => unit.unitType === unitType);
+    const distinctPaths = [...new Set(groupedUnits.map(unit => compactPublicText(unit.path, 120)))];
+    const [samplePath] = distinctPaths;
+    if (!samplePath) {
+      continue;
+    }
+    if (pathSamples.length < 3) {
+      pathSamples.push(samplePath);
+      omittedPathCount += Math.max(0, distinctPaths.length - 1);
+    } else {
+      omittedPathCount += distinctPaths.length;
+    }
+  }
+
+  return {
+    pathSamples,
+    omittedPathCount
+  };
+}
+
+function unitDigest(units: KnowledgeUnit[]): PublicKnowledgeUnitDigest {
+  const pathSummary = unitDigestPathSamples(units);
+
+  return {
+    ...pathSummary,
+    signals: {
+      argumentCount: units.filter(unit => unit.unitType === 'fact' && unit.factKind === 'argument').length,
+      attributeCount: units.filter(unit => unit.unitType === 'fact' && unit.factKind === 'attribute').length,
+      identityCount: units.filter(unit =>
+        (unit.unitType === 'fact' && unit.factKind === 'identity-field')
+        || (unit.unitType === 'guidance' && unit.topic === 'provider-identity-field')
+      ).length,
+      replacementCount: units.filter(unit =>
+        (unit.unitType === 'fact' && unit.factKind === 'replacement-sensitive-field')
+        || (unit.unitType === 'guidance' && unit.topic === 'replacement-sensitive-field')
+      ).length,
+      diagnosticCount: units.filter(unit => unit.unitType === 'diagnostic').length,
+      recipeCount: units.filter(unit => unit.unitType === 'recipe').length
+    }
+  };
+}
+
 function unitPathLeaf(path: string): string {
   const parts = path.split('.');
   return parts[parts.length - 1] ?? path;
@@ -1513,6 +1574,7 @@ function llmRefinementInput(input: {
   classification: PublicKnowledgeCentralLibraryClassification;
   download: PublicKnowledgeDownloadSummary;
   sourceOutline: PublicKnowledgeSourceOutline;
+  unitDigest: PublicKnowledgeUnitDigest;
   maxUnits: number;
   counts: KnowledgeUnitCountByType;
   selectedUnitCount: number;
@@ -1547,6 +1609,7 @@ function llmRefinementInput(input: {
       fallbackUsed: input.download.fallbackUsed,
       downloadEvidence: publicKnowledgeDownloadEvidence(input.download),
       sourceOutline: input.sourceOutline,
+      unitDigest: input.unitDigest,
       unitBudget: input.maxUnits,
       unitCount: input.selectedUnitCount,
       unitCounts: input.counts,
@@ -1599,6 +1662,7 @@ function buildCentralLibraryCandidate(input: {
   maxUnits: number;
   download: PublicKnowledgeDownloadSummary;
   sourceOutline: PublicKnowledgeSourceOutline;
+  unitDigest: PublicKnowledgeUnitDigest;
   versionResolution: PublicKnowledgeVersionResolution;
   quality: PublicKnowledgeQualitySummary;
   counts: KnowledgeUnitCountByType;
@@ -1633,6 +1697,7 @@ function buildCentralLibraryCandidate(input: {
       classification,
       download: input.download,
       sourceOutline: input.sourceOutline,
+      unitDigest: input.unitDigest,
       maxUnits: input.maxUnits,
       counts: input.counts,
       selectedUnitCount: input.selectedUnitCount,
@@ -1672,6 +1737,7 @@ export async function buildPublicKnowledgeUrlReport(
   const extractedUnitSet = extractKnowledgeUnitSetFromFactSet(factSet, markdownUnits);
   const selectedUnits = selectUnitsForAgent(extractedUnitSet.units, maxUnits);
   const counts = unitCounts(selectedUnits);
+  const selectedUnitDigest = unitDigest(selectedUnits);
   const includedUnitTypes = KNOWLEDGE_UNIT_TYPES.filter(unitType => counts[unitType] > 0);
   const missingUnitTypes = KNOWLEDGE_UNIT_TYPES.filter(unitType => counts[unitType] === 0);
   const compactGroupedUnits = compactUnitsByType(selectedUnits);
@@ -1691,6 +1757,7 @@ export async function buildPublicKnowledgeUrlReport(
     maxUnits,
     download,
     sourceOutline: outline,
+    unitDigest: selectedUnitDigest,
     versionResolution,
     quality,
     counts,

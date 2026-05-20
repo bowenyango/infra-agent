@@ -218,11 +218,25 @@ interface PublicKnowledgeLlmReviewExpected {
   };
   download: unknown;
   sourceOutline: unknown;
+  unitDigest: PublicKnowledgeUnitDigestExpected | null;
   quality: unknown;
   unitCount: number;
   unitCounts: Record<KnowledgeUnitType, number>;
   missingUnitTypes: KnowledgeUnitType[];
   compactByteLength: number | null;
+}
+
+interface PublicKnowledgeUnitDigestExpected {
+  pathSamples: string[];
+  omittedPathCount: number;
+  signals: {
+    argumentCount: number;
+    attributeCount: number;
+    identityCount: number;
+    replacementCount: number;
+    diagnosticCount: number;
+    recipeCount: number;
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2505,6 +2519,140 @@ function publicKnowledgeSourceOutlineEquals(left: unknown, right: unknown): bool
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function compactPublicKnowledgeUnitDigestPath(value: string): string {
+  return value
+    .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
+function compactPublicKnowledgeUnitDigestFromUnitsByType(value: unknown): PublicKnowledgeUnitDigestExpected | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const unitsByType = {} as Record<KnowledgeUnitType, Record<string, unknown>[]>;
+  const pathSamples: string[] = [];
+  let omittedPathCount = 0;
+  for (const unitType of ['fact', 'guidance', 'diagnostic', 'example', 'recipe'] as const satisfies KnowledgeUnitType[]) {
+    const groupedUnits = Array.isArray(value[unitType])
+      ? value[unitType].filter(isRecord)
+      : [];
+    unitsByType[unitType] = groupedUnits;
+
+    const paths = [...new Set(groupedUnits
+      .map(unit => typeof unit.path === 'string' ? compactPublicKnowledgeUnitDigestPath(unit.path) : null)
+      .filter((unitPath): unitPath is string => unitPath !== null && unitPath.length > 0))];
+
+    const [samplePath] = paths;
+    if (!samplePath) {
+      continue;
+    }
+    if (pathSamples.length < 3) {
+      pathSamples.push(samplePath);
+      omittedPathCount += Math.max(0, paths.length - 1);
+    } else {
+      omittedPathCount += paths.length;
+    }
+  }
+
+  return {
+    pathSamples,
+    omittedPathCount,
+    signals: {
+      argumentCount: unitsByType.fact.filter(unit => unit.factKind === 'argument').length,
+      attributeCount: unitsByType.fact.filter(unit => unit.factKind === 'attribute').length,
+      identityCount: unitsByType.fact.filter(unit => unit.factKind === 'identity-field').length
+        + unitsByType.guidance.filter(unit => unit.topic === 'provider-identity-field').length,
+      replacementCount: unitsByType.fact.filter(unit => unit.factKind === 'replacement-sensitive-field').length
+        + unitsByType.guidance.filter(unit => unit.topic === 'replacement-sensitive-field').length,
+      diagnosticCount: unitsByType.diagnostic.length,
+      recipeCount: unitsByType.recipe.length
+    }
+  };
+}
+
+function validatePublicKnowledgeUnitDigestStringArray(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  label: string
+): string[] | null {
+  const values = readStringArray(value, path, issues);
+  if (values === null) {
+    return null;
+  }
+
+  for (const [index, entry] of values.entries()) {
+    validateNoSecretLikeValue(entry, `${path}[${index}]`, issues);
+    if (FULL_URL_PATTERN.test(entry)) {
+      issues.push(error(`${path}[${index}]`, `${label} must not include raw URLs.`));
+    }
+    if (entry.length > 140) {
+      issues.push(error(`${path}[${index}]`, `${label} must stay compact.`));
+    }
+  }
+
+  return values;
+}
+
+function validatePublicKnowledgeUnitDigest(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  expected: PublicKnowledgeUnitDigestExpected | null
+): void {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Public knowledge library artifact LLM reviewPacket unitDigest must be an object.'));
+    return;
+  }
+
+  const pathSamples = validatePublicKnowledgeUnitDigestStringArray(
+    value.pathSamples,
+    `${path}.pathSamples`,
+    issues,
+    'Public knowledge library artifact LLM reviewPacket unitDigest path'
+  );
+  if (pathSamples !== null) {
+    if (pathSamples.length > 3) {
+      issues.push(error(`${path}.pathSamples`, 'Public knowledge library artifact LLM reviewPacket unitDigest pathSamples must stay compact.'));
+    }
+    if (expected !== null && !stringArraysEqual(pathSamples, expected.pathSamples)) {
+      issues.push(error(`${path}.pathSamples`, 'Public knowledge library artifact LLM reviewPacket unitDigest pathSamples must match selected unit paths.'));
+    }
+  }
+
+  const omittedPathCount = readNonNegativeInteger(value.omittedPathCount, `${path}.omittedPathCount`, issues);
+  if (
+    omittedPathCount !== null
+    && expected !== null
+    && omittedPathCount !== expected.omittedPathCount
+  ) {
+    issues.push(error(`${path}.omittedPathCount`, 'Public knowledge library artifact LLM reviewPacket unitDigest omittedPathCount must match selected unit paths.'));
+  }
+
+  if (!isRecord(value.signals)) {
+    issues.push(error(`${path}.signals`, 'Public knowledge library artifact LLM reviewPacket unitDigest signals must be an object.'));
+    return;
+  }
+
+  for (const key of [
+    'argumentCount',
+    'attributeCount',
+    'identityCount',
+    'replacementCount',
+    'diagnosticCount',
+    'recipeCount'
+  ] as const) {
+    const count = readNonNegativeInteger(value.signals[key], `${path}.signals.${key}`, issues);
+    if (count !== null && expected !== null && count !== expected.signals[key]) {
+      issues.push(error(`${path}.signals.${key}`, 'Public knowledge library artifact LLM reviewPacket unitDigest signal must match selected units.'));
+    }
+  }
+}
+
 function validatePublicKnowledgeLlmReviewPacket(
   value: unknown,
   path: string,
@@ -2606,6 +2754,7 @@ function validatePublicKnowledgeLlmReviewPacket(
   ) {
     issues.push(error(`${path}.sourceOutline`, 'Public knowledge library artifact LLM reviewPacket sourceOutline must match report sourceOutline.'));
   }
+  validatePublicKnowledgeUnitDigest(value.unitDigest, `${path}.unitDigest`, issues, expected.unitDigest);
 
   const unitBudget = readPositiveInteger(value.unitBudget, `${path}.unitBudget`, issues);
   if (unitBudget !== null && unitBudget < expected.unitCount) {
@@ -2762,6 +2911,7 @@ function validateCompactPublicKnowledgeUnits(
   actualUnitCount: number;
   actualCounts: Record<KnowledgeUnitType, number>;
   actualCompactByteLength: number | null;
+  actualUnitDigest: PublicKnowledgeUnitDigestExpected | null;
 } {
   let actualUnitCount = 0;
   const actualCounts = emptyKnowledgeUnitCountByType();
@@ -2775,7 +2925,8 @@ function validateCompactPublicKnowledgeUnits(
     return {
       actualUnitCount,
       actualCounts,
-      actualCompactByteLength: null
+      actualCompactByteLength: null,
+      actualUnitDigest: null
     };
   }
 
@@ -2814,7 +2965,8 @@ function validateCompactPublicKnowledgeUnits(
   return {
     actualUnitCount,
     actualCounts,
-    actualCompactByteLength: JSON.stringify(value).length
+    actualCompactByteLength: JSON.stringify(value).length,
+    actualUnitDigest: compactPublicKnowledgeUnitDigestFromUnitsByType(value)
   };
 }
 
@@ -2830,6 +2982,7 @@ function validatePublicKnowledgeCentralLibraryCandidate(
     maxUnits: number | null;
     download: unknown;
     sourceOutline: unknown;
+    unitDigest: PublicKnowledgeUnitDigestExpected | null;
     quality: unknown;
     unitCount: number;
     unitCounts: Record<KnowledgeUnitType, number>;
@@ -2968,6 +3121,7 @@ function validatePublicKnowledgeCentralLibraryCandidate(
     classification,
     download: expected.download,
     sourceOutline: expected.sourceOutline,
+    unitDigest: expected.unitDigest,
     quality: expected.quality,
     unitCount: expected.unitCount,
     unitCounts: expected.unitCounts,
@@ -3028,7 +3182,8 @@ function validatePublicKnowledgeUrlReportPayload(
   const {
     actualUnitCount,
     actualCounts,
-    actualCompactByteLength
+    actualCompactByteLength,
+    actualUnitDigest
   } = validateCompactPublicKnowledgeUnits(
     payload.unitsByType,
     '$.unitsByType',
@@ -3129,7 +3284,8 @@ function validatePublicKnowledgeUrlReportPayload(
       unitCount: actualUnitCount,
       unitCounts: actualCounts,
       missingUnitTypes: expectedMissingUnitTypes,
-      compactByteLength: actualCompactByteLength
+      compactByteLength: actualCompactByteLength,
+      unitDigest: actualUnitDigest
     }
   );
   if (
@@ -3349,12 +3505,14 @@ function validatePublicKnowledgeLibraryArtifactPayload(
     }
   }
 
+  const actualUnitDigest = compactPublicKnowledgeUnitDigestFromUnitsByType(payload.unitsByType);
   validatePublicKnowledgeLlmRefinementInput(payload.llmRefinementInput, '$.llmRefinementInput', issues, {
     sourceId,
     sourceContentHash,
     classification,
     download: payload.download,
     sourceOutline: payload.sourceOutline,
+    unitDigest: actualUnitDigest,
     quality: payload.quality,
     unitCount: actualUnitCount,
     unitCounts: actualCounts,
