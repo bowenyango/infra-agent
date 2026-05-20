@@ -348,8 +348,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   for source identity, summary/unit count coherence, compact five-type unit
   grouping, central-library candidate classification, version-reference
   stability, version-resolution drift for mutable aliases, compact download
-  evidence trace hash, fallback attempt ordering, LLM review packet drift, raw
-  content omission, and secret-like text rejection.
+  evidence trace hash, compact source-outline shape and drift, fallback attempt
+  ordering, LLM review packet drift, raw content omission, and secret-like text
+  rejection. Source outlines may include bounded headings and section signals,
+  but must not include raw documentation bodies or URLs.
 - For Terraform Registry `latest` URLs, a successful provider version metadata
   lookup must influence raw provider-repository fallback ordering. Prefer the
   resolved provider version tag before branch refs such as `main` or `master`

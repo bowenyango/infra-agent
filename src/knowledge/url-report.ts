@@ -81,6 +81,27 @@ export interface PublicKnowledgeDownloadEvidence {
   failedAttemptCount: number;
 }
 
+export type PublicKnowledgeSourceOutlineSignal =
+  | 'example-usage'
+  | 'argument-reference'
+  | 'attribute-reference'
+  | 'import'
+  | 'timeouts';
+
+export interface PublicKnowledgeSourceOutlineHeading {
+  level: number;
+  title: string;
+}
+
+export interface PublicKnowledgeSourceOutline {
+  contentType: KnowledgeContentType;
+  byteLength: number;
+  headingCount: number;
+  headings: PublicKnowledgeSourceOutlineHeading[];
+  omittedHeadingCount: number;
+  signals: PublicKnowledgeSourceOutlineSignal[];
+}
+
 export type PublicKnowledgeVersionRefKind = 'pinned-version' | 'floating-alias';
 
 export interface PublicKnowledgeVersionRef {
@@ -135,6 +156,7 @@ export interface PublicKnowledgeLlmRefinementInput {
   inputRefs: [
     'report.centralLibraryCandidate.classification',
     'report.download',
+    'report.sourceOutline',
     'report.summary',
     'report.unitsByType',
     'report.quality'
@@ -154,6 +176,7 @@ export interface PublicKnowledgeLlmRefinementInput {
     usedRole: PublicKnowledgeDownloadSummary['usedRole'];
     fallbackUsed: boolean;
     downloadEvidence: PublicKnowledgeDownloadEvidence;
+    sourceOutline: PublicKnowledgeSourceOutline;
     unitBudget: number;
     unitCount: number;
     unitCounts: KnowledgeUnitCountByType;
@@ -220,6 +243,7 @@ export interface PublicKnowledgeLibraryArtifact {
   source: PublicKnowledgeCentralLibraryCandidate['source'];
   classification: PublicKnowledgeCentralLibraryClassification;
   download: PublicKnowledgeDownloadSummary;
+  sourceOutline: PublicKnowledgeSourceOutline;
   quality: PublicKnowledgeQualitySummary;
   summary: {
     unitCount: number;
@@ -249,6 +273,7 @@ export interface PublicKnowledgeUrlReport {
   fetchedAt: string;
   sourceStale: boolean;
   download: PublicKnowledgeDownloadSummary;
+  sourceOutline: PublicKnowledgeSourceOutline;
   maxUnits: number;
   summary: {
     factCount: number;
@@ -1013,6 +1038,64 @@ function unitCounts(units: KnowledgeUnit[]): KnowledgeUnitCountByType {
   return counts;
 }
 
+function sourceOutlineSignalForHeading(title: string): PublicKnowledgeSourceOutlineSignal | null {
+  const normalized = title.toLowerCase();
+
+  if (/^(example usage|basic usage|examples?)\b/.test(normalized)) {
+    return 'example-usage';
+  }
+  if (/\b(arguments?|argument reference|arguments reference)\b/.test(normalized)) {
+    return 'argument-reference';
+  }
+  if (/\b(attributes?|attribute reference|attributes reference)\b/.test(normalized)) {
+    return 'attribute-reference';
+  }
+  if (/^import\b/.test(normalized)) {
+    return 'import';
+  }
+  if (/^timeouts?\b/.test(normalized)) {
+    return 'timeouts';
+  }
+
+  return null;
+}
+
+function sourceOutline(entry: KnowledgeCacheEntry): PublicKnowledgeSourceOutline {
+  const headings: PublicKnowledgeSourceOutlineHeading[] = [];
+  const signals = new Set<PublicKnowledgeSourceOutlineSignal>();
+  const headingPattern = /^(#{1,6})\s+(.+)$/gm;
+  let headingCount = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = headingPattern.exec(entry.content)) !== null) {
+    const title = compactPublicText(match[2] ?? '', 120);
+    if (title.length === 0) {
+      continue;
+    }
+
+    headingCount += 1;
+    const signal = sourceOutlineSignalForHeading(title);
+    if (signal) {
+      signals.add(signal);
+    }
+    if (headings.length < 16) {
+      headings.push({
+        level: match[1]?.length ?? 1,
+        title
+      });
+    }
+  }
+
+  return {
+    contentType: entry.contentType,
+    byteLength: Buffer.byteLength(entry.content),
+    headingCount,
+    headings,
+    omittedHeadingCount: Math.max(0, headingCount - headings.length),
+    signals: [...signals].sort()
+  };
+}
+
 function compactPublicText(value: string, maxLength = 220): string {
   const compacted = value
     .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
@@ -1429,6 +1512,7 @@ function llmRefinementInput(input: {
   sourceContentHash: string;
   classification: PublicKnowledgeCentralLibraryClassification;
   download: PublicKnowledgeDownloadSummary;
+  sourceOutline: PublicKnowledgeSourceOutline;
   maxUnits: number;
   counts: KnowledgeUnitCountByType;
   selectedUnitCount: number;
@@ -1442,6 +1526,7 @@ function llmRefinementInput(input: {
     inputRefs: [
       'report.centralLibraryCandidate.classification',
       'report.download',
+      'report.sourceOutline',
       'report.summary',
       'report.unitsByType',
       'report.quality'
@@ -1461,6 +1546,7 @@ function llmRefinementInput(input: {
       usedRole: input.download.usedRole,
       fallbackUsed: input.download.fallbackUsed,
       downloadEvidence: publicKnowledgeDownloadEvidence(input.download),
+      sourceOutline: input.sourceOutline,
       unitBudget: input.maxUnits,
       unitCount: input.selectedUnitCount,
       unitCounts: input.counts,
@@ -1512,6 +1598,7 @@ function buildCentralLibraryCandidate(input: {
   sourceContentHash: string;
   maxUnits: number;
   download: PublicKnowledgeDownloadSummary;
+  sourceOutline: PublicKnowledgeSourceOutline;
   versionResolution: PublicKnowledgeVersionResolution;
   quality: PublicKnowledgeQualitySummary;
   counts: KnowledgeUnitCountByType;
@@ -1545,6 +1632,7 @@ function buildCentralLibraryCandidate(input: {
       sourceContentHash: input.sourceContentHash,
       classification,
       download: input.download,
+      sourceOutline: input.sourceOutline,
       maxUnits: input.maxUnits,
       counts: input.counts,
       selectedUnitCount: input.selectedUnitCount,
@@ -1576,6 +1664,7 @@ export async function buildPublicKnowledgeUrlReport(
       fetchImpl: options.fetchImpl
     });
   const { entry, download } = entryResult;
+  const outline = sourceOutline(entry);
   const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
     now: options.now
   });
@@ -1601,6 +1690,7 @@ export async function buildPublicKnowledgeUrlReport(
     sourceContentHash: entry.contentHash,
     maxUnits,
     download,
+    sourceOutline: outline,
     versionResolution,
     quality,
     counts,
@@ -1621,6 +1711,7 @@ export async function buildPublicKnowledgeUrlReport(
     fetchedAt: entry.fetchedAt,
     sourceStale: isKnowledgeCacheEntryStale(entry, options.now),
     download,
+    sourceOutline: outline,
     maxUnits,
     summary: {
       factCount: factSet.factCount,
@@ -1663,6 +1754,7 @@ export function buildPublicKnowledgeLibraryArtifact(
     source: centralLibraryCandidate.source,
     classification: centralLibraryCandidate.classification,
     download: report.download,
+    sourceOutline: report.sourceOutline,
     quality: report.quality,
     summary: {
       unitCount: report.summary.includedUnitCount,

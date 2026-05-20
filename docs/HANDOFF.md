@@ -6,6 +6,58 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Public Knowledge Source Outline Evidence
+
+Status:
+
+- Added compact `sourceOutline` evidence to URL-only public knowledge reports,
+  public-library artifacts, and the offline LLM review packet.
+- The outline records content type, byte length, capped heading metadata,
+  omitted heading count, and supported section signals such as example usage,
+  arguments, attributes, import, and timeouts. It is intentionally
+  raw-content-free and URL-free so future LLM refinement gets document
+  structure without full documentation bodies.
+- `knowledge validate` now checks source-outline shape and rejects drift
+  between the report/artifact outline and the LLM review packet outline.
+
+Files changed:
+
+- `src/knowledge/url-report.ts` derives `sourceOutline` from normalized
+  public documentation and carries it into reports, artifacts, and LLM review
+  packets.
+- `src/knowledge/validate.ts` validates compact source-outline headings,
+  signals, omitted counts, and LLM review packet drift.
+- URL report, artifact validation, stage, and registry tests cover the new
+  outline field and preserve downloadable registry reuse.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  `sourceOutline` as structured LLM evidence, not raw docs.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The outline is structural evidence only; it does not prove that all
+  provider-specific sections were semantically extracted correctly.
+- Source-outline signals currently cover common Terraform Registry sections.
+  Pulumi and Helm-specific signals should be added when URL-only extraction
+  expands beyond Terraform provider resource/data-source docs.
+
 ## 2026-05-20 Resolved Terraform Raw-Doc Fallback
 
 Status:

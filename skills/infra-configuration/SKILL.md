@@ -112,8 +112,9 @@ values.
    explicit offline LLM review contract. Its `reviewPacket` is the bounded
    evidence packet for future model refinement: classification,
    version-reference stability, version resolution, source hash, compact
-   download evidence with a trace hash, unit counts, quality signals, review
-   checks, and rejection criteria. Add
+   download evidence with a trace hash, compact source-outline headings and
+   section signals, unit counts, quality signals, review checks, and rejection
+   criteria. Add
    `--library-out <artifact.json>` when preparing a
    downloadable central-library artifact; the artifact is a local,
    review-required `infra-agent.public-knowledge-library-artifact`, not an
@@ -122,8 +123,9 @@ values.
    `knowledge validate <artifact.json> --json` before registry staging or
    download reuse; validation checks source identity, coordinate coherence,
    version-reference drift, version-resolution drift, download trace shape,
-   fallback ordering, LLM download evidence drift, unit counts, unit hash when
-   present, review packet drift, and raw-content omission.
+   source-outline drift, fallback ordering, LLM download evidence drift, unit
+   counts, unit hash when present, review packet drift, and raw-content
+   omission.
    Use `knowledge library-stage <artifact.json> --workspace <workspace>
    --store-dir <dir> --registry <registry.json> --json` only after validation
    when preparing local downloadable-registry metadata. It writes a

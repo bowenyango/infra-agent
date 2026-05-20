@@ -121,6 +121,19 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(report.download.fallbackUsed, false);
     assert.equal(report.download.usedRole, 'local-content');
     assert.equal(report.download.usedContentType, 'text/markdown');
+    assert.equal(report.sourceOutline.contentType, 'text/markdown');
+    assert.equal(report.sourceOutline.headingCount, 7);
+    assert.equal(report.sourceOutline.omittedHeadingCount, 0);
+    assert.deepEqual(report.sourceOutline.signals, [
+      'argument-reference',
+      'attribute-reference',
+      'example-usage'
+    ]);
+    assert.deepEqual(report.sourceOutline.headings.slice(0, 3), [
+      { level: 1, title: 'aws_s3_bucket' },
+      { level: 2, title: 'Basic Usage' },
+      { level: 4, title: 'Arguments' }
+    ]);
     assert.deepEqual(report.summary.includedUnitTypes, ['fact', 'guidance', 'example', 'diagnostic', 'recipe']);
     assert.deepEqual(report.summary.missingUnitTypes, []);
     assert.ok(report.summary.unitCounts.fact > 0);
@@ -186,6 +199,7 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.ok(report.centralLibraryCandidate.classification.tags.includes('floating-alias'));
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.status, 'not-run');
     assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.unitsByType'));
+    assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.sourceOutline'));
     assert.ok(report.centralLibraryCandidate.llmRefinementInput.inputRefs.includes('report.summary'));
     assert.equal(
       report.centralLibraryCandidate.llmRefinementInput.reviewPacket.coordinates,
@@ -211,6 +225,7 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.attemptedRoles, []);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.rejectedAttemptCount, 0);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.failedAttemptCount, 0);
+    assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline, report.sourceOutline);
     assert.equal(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount, report.summary.includedUnitCount);
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCounts, report.summary.unitCounts);
     assert.deepEqual(report.centralLibraryCandidate.llmRefinementInput.reviewPacket.missingUnitTypes, report.summary.missingUnitTypes);
@@ -239,8 +254,10 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.deepEqual(libraryArtifact.summary.unitCounts, report.summary.unitCounts);
     assert.deepEqual(libraryArtifact.unitsByType, report.unitsByType);
     assert.equal(libraryArtifact.download.mode, 'local-content');
+    assert.deepEqual(libraryArtifact.sourceOutline, report.sourceOutline);
     assert.equal(libraryArtifact.llmRefinementInput.status, 'not-run');
     assert.equal(libraryArtifact.llmRefinementInput.reviewPacket.coordinates, libraryArtifact.coordinates);
+    assert.deepEqual(libraryArtifact.llmRefinementInput.reviewPacket.sourceOutline, report.sourceOutline);
     assert.deepEqual(
       libraryArtifact.llmRefinementInput.reviewPacket.downloadEvidence,
       report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence

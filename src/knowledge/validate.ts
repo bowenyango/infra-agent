@@ -181,6 +181,13 @@ const PUBLIC_KNOWLEDGE_VERSION_RESOLUTION_REASONS = [
   'no-semver-version',
   'fetch-error'
 ] as const;
+const PUBLIC_KNOWLEDGE_SOURCE_OUTLINE_SIGNALS = [
+  'example-usage',
+  'argument-reference',
+  'attribute-reference',
+  'import',
+  'timeouts'
+] as const;
 const PUBLIC_LIBRARY_ARTIFACT_KINDS = ['terraform-provider-resource', 'terraform-provider-data-source'] as const;
 const PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE = 'application/vnd.infra-agent.public-knowledge-library-artifact+json';
 
@@ -210,6 +217,7 @@ interface PublicKnowledgeLlmReviewExpected {
     } | null;
   };
   download: unknown;
+  sourceOutline: unknown;
   quality: unknown;
   unitCount: number;
   unitCounts: Record<KnowledgeUnitType, number>;
@@ -2420,6 +2428,83 @@ function validatePublicKnowledgeQuality(
   }
 }
 
+function validatePublicKnowledgeSourceOutline(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[]
+): void {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Public knowledge sourceOutline must be an object.'));
+    return;
+  }
+
+  if (
+    typeof value.contentType !== 'string'
+    || !KNOWLEDGE_CONTENT_TYPES.includes(value.contentType as KnowledgeContentType)
+  ) {
+    issues.push(error(`${path}.contentType`, 'Public knowledge sourceOutline contentType must be supported.'));
+  }
+  readNonNegativeInteger(value.byteLength, `${path}.byteLength`, issues);
+  const headingCount = readNonNegativeInteger(value.headingCount, `${path}.headingCount`, issues);
+  const omittedHeadingCount = readNonNegativeInteger(value.omittedHeadingCount, `${path}.omittedHeadingCount`, issues);
+
+  if (!Array.isArray(value.headings)) {
+    issues.push(error(`${path}.headings`, 'Public knowledge sourceOutline headings must be an array.'));
+  } else {
+    if (value.headings.length > 16) {
+      issues.push(error(`${path}.headings`, 'Public knowledge sourceOutline headings must stay compact.'));
+    }
+    for (const [index, heading] of value.headings.entries()) {
+      const headingPath = `${path}.headings[${index}]`;
+      if (!isRecord(heading)) {
+        issues.push(error(headingPath, 'Public knowledge sourceOutline heading must be an object.'));
+        continue;
+      }
+      const level = readPositiveInteger(heading.level, `${headingPath}.level`, issues);
+      if (level !== null && level > 6) {
+        issues.push(error(`${headingPath}.level`, 'Public knowledge sourceOutline heading level must be between 1 and 6.'));
+      }
+      const title = readNonEmptyString(heading.title, `${headingPath}.title`, issues);
+      if (title !== null) {
+        validateNoSecretLikeValue(title, `${headingPath}.title`, issues);
+        if (FULL_URL_PATTERN.test(title)) {
+          issues.push(error(`${headingPath}.title`, 'Public knowledge sourceOutline heading title must not include raw URLs.'));
+        }
+        if (title.length > 140) {
+          issues.push(error(`${headingPath}.title`, 'Public knowledge sourceOutline heading title must stay compact.'));
+        }
+      }
+    }
+    if (headingCount !== null && value.headings.length > headingCount) {
+      issues.push(error(`${path}.headings`, 'Public knowledge sourceOutline headings cannot exceed headingCount.'));
+    }
+    if (
+      headingCount !== null
+      && omittedHeadingCount !== null
+      && omittedHeadingCount !== Math.max(0, headingCount - value.headings.length)
+    ) {
+      issues.push(error(`${path}.omittedHeadingCount`, 'Public knowledge sourceOutline omittedHeadingCount must match headingCount minus included headings.'));
+    }
+  }
+
+  const signals = readStringArray(value.signals, `${path}.signals`, issues);
+  if (signals !== null) {
+    const sortedSignals = [...signals].sort();
+    if (!stringArraysEqual(signals, sortedSignals)) {
+      issues.push(error(`${path}.signals`, 'Public knowledge sourceOutline signals must be sorted.'));
+    }
+    for (const [index, signal] of signals.entries()) {
+      if (!PUBLIC_KNOWLEDGE_SOURCE_OUTLINE_SIGNALS.includes(signal as typeof PUBLIC_KNOWLEDGE_SOURCE_OUTLINE_SIGNALS[number])) {
+        issues.push(error(`${path}.signals[${index}]`, 'Public knowledge sourceOutline signal must be supported.'));
+      }
+    }
+  }
+}
+
+function publicKnowledgeSourceOutlineEquals(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function validatePublicKnowledgeLlmReviewPacket(
   value: unknown,
   path: string,
@@ -2513,6 +2598,14 @@ function validatePublicKnowledgeLlmReviewPacket(
       expected.download
     );
   }
+  validatePublicKnowledgeSourceOutline(value.sourceOutline, `${path}.sourceOutline`, issues);
+  if (
+    isRecord(value.sourceOutline)
+    && isRecord(expected.sourceOutline)
+    && !publicKnowledgeSourceOutlineEquals(value.sourceOutline, expected.sourceOutline)
+  ) {
+    issues.push(error(`${path}.sourceOutline`, 'Public knowledge library artifact LLM reviewPacket sourceOutline must match report sourceOutline.'));
+  }
 
   const unitBudget = readPositiveInteger(value.unitBudget, `${path}.unitBudget`, issues);
   if (unitBudget !== null && unitBudget < expected.unitCount) {
@@ -2582,6 +2675,7 @@ function validatePublicKnowledgeLlmRefinementInput(
     for (const requiredRef of [
       'report.centralLibraryCandidate.classification',
       'report.download',
+      'report.sourceOutline',
       'report.summary',
       'report.unitsByType',
       'report.quality'
@@ -2735,6 +2829,7 @@ function validatePublicKnowledgeCentralLibraryCandidate(
     sourceContentHash: string | null;
     maxUnits: number | null;
     download: unknown;
+    sourceOutline: unknown;
     quality: unknown;
     unitCount: number;
     unitCounts: Record<KnowledgeUnitType, number>;
@@ -2872,6 +2967,7 @@ function validatePublicKnowledgeCentralLibraryCandidate(
     sourceContentHash: expected.sourceContentHash,
     classification,
     download: expected.download,
+    sourceOutline: expected.sourceOutline,
     quality: expected.quality,
     unitCount: expected.unitCount,
     unitCounts: expected.unitCounts,
@@ -2925,6 +3021,7 @@ function validatePublicKnowledgeUrlReportPayload(
   validateIsoDateString(payload.fetchedAt, '$.fetchedAt', issues);
   readBoolean(payload.sourceStale, '$.sourceStale', issues);
   validatePublicKnowledgeDownloadSummary(payload.download, '$.download', issues);
+  validatePublicKnowledgeSourceOutline(payload.sourceOutline, '$.sourceOutline', issues);
   const maxUnits = readPositiveInteger(payload.maxUnits, '$.maxUnits', issues);
   validatePublicKnowledgeQuality(payload.quality, '$.quality', issues);
 
@@ -3027,6 +3124,7 @@ function validatePublicKnowledgeUrlReportPayload(
       sourceContentHash,
       maxUnits,
       download: payload.download,
+      sourceOutline: payload.sourceOutline,
       quality: payload.quality,
       unitCount: actualUnitCount,
       unitCounts: actualCounts,
@@ -3164,6 +3262,7 @@ function validatePublicKnowledgeLibraryArtifactPayload(
   }
 
   validatePublicKnowledgeDownloadSummary(payload.download, '$.download', issues);
+  validatePublicKnowledgeSourceOutline(payload.sourceOutline, '$.sourceOutline', issues);
   validatePublicKnowledgeQuality(payload.quality, '$.quality', issues);
 
   let actualUnitCount = 0;
@@ -3255,6 +3354,7 @@ function validatePublicKnowledgeLibraryArtifactPayload(
     sourceContentHash,
     classification,
     download: payload.download,
+    sourceOutline: payload.sourceOutline,
     quality: payload.quality,
     unitCount: actualUnitCount,
     unitCounts: actualCounts,

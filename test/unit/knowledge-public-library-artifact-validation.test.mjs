@@ -154,6 +154,10 @@ test('public knowledge URL report validation rejects drifted summary candidate a
       ...report,
       sourceId: 'wrong-source-id',
       sourceContentHash: 'c'.repeat(64),
+      sourceOutline: {
+        ...report.sourceOutline,
+        headingCount: report.sourceOutline.headingCount + 1
+      },
       summary: {
         ...report.summary,
         includedUnitCount: report.summary.includedUnitCount + 1,
@@ -196,6 +200,10 @@ test('public knowledge URL report validation rejects drifted summary candidate a
               ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence,
               traceHash: 'e'.repeat(64)
             },
+            sourceOutline: {
+              ...report.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline,
+              signals: ['example-usage', 'argument-reference']
+            },
             unitCount: report.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount + 1
           }
         }
@@ -218,6 +226,7 @@ test('public knowledge URL report validation rejects drifted summary candidate a
     for (const path of [
       '$.rawContent',
       '$.sourceId',
+      '$.sourceOutline.omittedHeadingCount',
       '$.summary.includedUnitCount',
       '$.summary.unitCounts.fact',
       '$.summary.compactByteLength',
@@ -231,6 +240,8 @@ test('public knowledge URL report validation rejects drifted summary candidate a
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionRef.kind',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.versionResolution.source',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.downloadEvidence.traceHash',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline',
+      '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceOutline.signals',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.unitCount',
       '$.unitsByType.fact[0].summary'
     ]) {
@@ -283,6 +294,13 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       ...artifact,
       unitPayloadHash: 'b'.repeat(64),
       coordinates: `${artifact.coordinates}/drift`,
+      sourceOutline: {
+        ...artifact.sourceOutline,
+        headings: [
+          ...artifact.sourceOutline.headings,
+          { level: 7, title: 'https://example.invalid/raw-doc' }
+        ]
+      },
       classification: {
         ...artifact.classification,
         coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong',
@@ -305,6 +323,10 @@ test('public knowledge library artifact validation rejects drifted hashes classi
           downloadEvidence: {
             ...artifact.llmRefinementInput.reviewPacket.downloadEvidence,
             attemptedCount: artifact.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount + 1
+          },
+          sourceOutline: {
+            ...artifact.llmRefinementInput.reviewPacket.sourceOutline,
+            byteLength: artifact.llmRefinementInput.reviewPacket.sourceOutline.byteLength + 1
           },
           unitCount: artifact.llmRefinementInput.reviewPacket.unitCount + 1
         },
@@ -332,6 +354,9 @@ test('public knowledge library artifact validation rejects drifted hashes classi
     for (const path of [
       '$.rawContent',
       '$.unitPayloadHash',
+      '$.sourceOutline.headings',
+      '$.sourceOutline.headings[5].level',
+      '$.sourceOutline.headings[5].title',
       '$.classification.coordinates',
       '$.classification.versionResolution.mutable',
       '$.coordinates',
@@ -343,6 +368,7 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       '$.llmRefinementInput.reviewPacket.coordinates',
       '$.llmRefinementInput.reviewPacket.versionResolution.reason',
       '$.llmRefinementInput.reviewPacket.downloadEvidence.attemptedCount',
+      '$.llmRefinementInput.reviewPacket.sourceOutline',
       '$.llmRefinementInput.reviewPacket.unitCount',
       '$.llmRefinementInput.reviewChecklist',
       '$.unitsByType.fact[0].summary'

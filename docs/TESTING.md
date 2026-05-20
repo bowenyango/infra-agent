@@ -166,9 +166,9 @@ fixture runs unresolved without fetching, and an `llmRefinementInput` contract
 that points to structured report fields instead of raw docs. The LLM input
 should include a deterministic review packet with
 classification, version-reference stability, version resolution, source hash,
-compact `downloadEvidence` with a trace hash, unit counts, quality signals,
-review checks, and rejection criteria so future refinement starts from bounded
-evidence. Live
+compact `downloadEvidence` with a trace hash, compact `sourceOutline`
+headings/signals, unit counts, quality signals, review checks, and rejection
+criteria so future refinement starts from bounded evidence. Live
 download behavior should expose `download.mode`, `download.strategy`,
 `download.attempts`, `download.usedUrl`, and `download.fallbackUsed` so tests
 can prove Registry JavaScript-shell pages fall back to provider raw docs after
@@ -179,13 +179,15 @@ With
 `--library-out`, the command should also write an
 `infra-agent.public-knowledge-library-artifact` containing the same compact
 units, public-reference classification, download trace, quality summary,
-version resolution, `unitPayloadHash`, and `llmRefinementInput`, without raw
-source content, credentials, upload commands, or backend URLs.
+source outline, version resolution, `unitPayloadHash`, and
+`llmRefinementInput`, without raw source content, credentials, upload commands,
+or backend URLs.
 `knowledge validate` should accept both the URL report and the library
 artifact. Report validation should
 reject drifted source IDs, inconsistent summary counts, candidate
-classification drift, version-reference drift, version-resolution drift, LLM
-review packet drift, embedded raw content, and secret-like compact unit text.
+classification drift, version-reference drift, version-resolution drift,
+source-outline drift, LLM review packet drift, embedded raw content, and
+secret-like compact unit text.
 Artifact validation should reject drifted coordinates, inconsistent source metadata, malformed
 download traces, drifted LLM download evidence, mismatched unit counts, bad
 `unitPayloadHash`, drifted LLM review packet fields, embedded raw content, or
