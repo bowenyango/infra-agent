@@ -10,6 +10,7 @@ const GENERIC_HEADING_NAMES = new Set([
   'configuration',
   'default values',
   'examples',
+  'example values',
   'helm values',
   'installation',
   'parameters',
@@ -17,6 +18,7 @@ const GENERIC_HEADING_NAMES = new Set([
   'usage',
   'values'
 ]);
+const EXAMPLE_SECTION_PATTERN = /\b(example|examples|sample|samples|usage)\b/i;
 
 function factSource(entry: KnowledgeCacheEntry, locator: string): KnowledgeFactSourceRef {
   return {
@@ -50,6 +52,45 @@ function firstSentence(value: string): string {
 function looksLikeHtmlDocument(markdown: string): boolean {
   const trimmed = markdown.trimStart().toLowerCase();
   return trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html');
+}
+
+function contentForChartFactExtraction(markdown: string): string {
+  const lines = markdown.split(/\r?\n/);
+  const filteredLines: string[] = [];
+  let inCodeFence = false;
+  let skippedSectionDepth: number | null = null;
+
+  for (const line of lines) {
+    const heading = line.match(/^(#{2,6})\s+(.+?)\s*$/);
+    const headingDepth = heading?.[1]?.length ?? 0;
+    if (heading && skippedSectionDepth !== null && headingDepth <= skippedSectionDepth) {
+      skippedSectionDepth = null;
+    }
+
+    if (/^\s*```/.test(line)) {
+      inCodeFence = !inCodeFence;
+      filteredLines.push('');
+      continue;
+    }
+
+    if (inCodeFence) {
+      filteredLines.push('');
+      continue;
+    }
+
+    if (heading) {
+      const title = stripMarkdown(heading[2] ?? '');
+      if (EXAMPLE_SECTION_PATTERN.test(title)) {
+        skippedSectionDepth = headingDepth;
+        filteredLines.push('');
+        continue;
+      }
+    }
+
+    filteredLines.push(skippedSectionDepth === null ? line : '');
+  }
+
+  return filteredLines.join('\n');
 }
 
 function chartName(entry: KnowledgeCacheEntry): string {
@@ -183,11 +224,12 @@ function pushChartDocsFact(params: {
 
 function collectChartDocsTableFacts(
   entry: KnowledgeCacheEntry,
+  content: string,
   chart: string,
   facts: KnowledgeFact[],
   emittedPaths: Set<string>
 ): void {
-  const lines = entry.content.split(/\r?\n/);
+  const lines = content.split(/\r?\n/);
 
   for (let index = 0; index < lines.length && facts.length < MAX_CHART_DOCS_FACTS; index += 1) {
     const header = splitMarkdownTableRow(lines[index] ?? '');
@@ -231,12 +273,13 @@ function collectChartDocsTableFacts(
 
 function collectChartDocsBulletFacts(
   entry: KnowledgeCacheEntry,
+  content: string,
   chart: string,
   facts: KnowledgeFact[],
   emittedPaths: Set<string>
 ): void {
   const bulletPattern = /(?:^|\n)\s*[-*]\s+(?:`([^`]{1,120})`|\*\*([^*]{1,120})\*\*|([A-Za-z0-9_.[\]-]{1,120}))\s*[-–:]\s*([^\n]+)/g;
-  for (const match of entry.content.matchAll(bulletPattern)) {
+  for (const match of content.matchAll(bulletPattern)) {
     if (facts.length >= MAX_CHART_DOCS_FACTS) {
       break;
     }
@@ -254,12 +297,13 @@ function collectChartDocsBulletFacts(
 
 function collectChartDocsHeadingFacts(
   entry: KnowledgeCacheEntry,
+  content: string,
   chart: string,
   facts: KnowledgeFact[],
   emittedPaths: Set<string>
 ): void {
   const headingPattern = /(?:^|\n)#{2,5}\s+`?([^`\n#]{1,120})`?\s*\n+([^\n#][^\n]+)/g;
-  for (const match of entry.content.matchAll(headingPattern)) {
+  for (const match of content.matchAll(headingPattern)) {
     if (facts.length >= MAX_CHART_DOCS_FACTS) {
       break;
     }
@@ -283,9 +327,10 @@ export function extractChartDocsMarkdownFacts(entry: KnowledgeCacheEntry): Knowl
   const facts: KnowledgeFact[] = [];
   const emittedPaths = new Set<string>();
   const chart = chartName(entry);
-  collectChartDocsTableFacts(entry, chart, facts, emittedPaths);
-  collectChartDocsBulletFacts(entry, chart, facts, emittedPaths);
-  collectChartDocsHeadingFacts(entry, chart, facts, emittedPaths);
+  const content = contentForChartFactExtraction(entry.content);
+  collectChartDocsTableFacts(entry, content, chart, facts, emittedPaths);
+  collectChartDocsBulletFacts(entry, content, chart, facts, emittedPaths);
+  collectChartDocsHeadingFacts(entry, content, chart, facts, emittedPaths);
 
   return facts;
 }

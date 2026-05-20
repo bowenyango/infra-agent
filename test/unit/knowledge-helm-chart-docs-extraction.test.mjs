@@ -18,6 +18,7 @@ import { parseKnowledgeFactSet } from '../../src/knowledge/facts-contract.ts';
 import { extractKnowledgeFactSetFromCacheEntry } from '../../src/knowledge/facts.ts';
 import { extractWorkspaceKnowledgeFacts } from '../../src/knowledge/extract.ts';
 import { createFileKnowledgeStore } from '../../src/knowledge/knowledge-store.ts';
+import { extractMarkdownKnowledgeUnitsFromCacheEntry } from '../../src/knowledge/markdown-units.ts';
 import { buildKnowledgePack } from '../../src/knowledge/pack.ts';
 
 const API_CHART_DOCS_MARKDOWN = [
@@ -34,6 +35,30 @@ const API_CHART_DOCS_MARKDOWN = [
   '## resources.requests.cpu',
   '',
   'CPU request for the deployment.',
+  ''
+].join('\n');
+
+const API_CHART_DOCS_WITH_EXAMPLE_VALUES_MARKDOWN = [
+  '# API chart',
+  '',
+  '## Values',
+  '',
+  '| Key | Type | Default | Description |',
+  '| --- | --- | --- | --- |',
+  '| `image.repository` | string | `ghcr.io/example/api` | Container image repository. |',
+  '',
+  '## Example Values',
+  '',
+  '```yaml',
+  'image:',
+  '  repository: ghcr.io/example/api',
+  'example:',
+  '  enabled: true',
+  '```',
+  '',
+  '## Usage',
+  '',
+  '- `example.enabled` - Example-only value that should not become a chart fact.',
   ''
 ].join('\n');
 
@@ -88,6 +113,50 @@ test('knowledge fact extractor summarizes cached Helm chart docs markdown', asyn
       /secretToken|Secret token/i.test(JSON.stringify(fact))
     ), false);
     assert.equal(parseKnowledgeFactSet(factSet).factCount, factSet.facts.length);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('Helm chart docs keep example values as example units instead of chart facts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-facts-chart-docs-example-values-'));
+
+  try {
+    const entry = await writeKnowledgeCacheEntry(tempRoot, {
+      source: {
+        kind: 'chart-docs',
+        name: 'api:home',
+        chart: 'api',
+        version: '0.2.0',
+        url: 'https://charts.example.test/api/'
+      },
+      contentType: 'text/markdown',
+      content: API_CHART_DOCS_WITH_EXAMPLE_VALUES_MARKDOWN,
+      fetchedAt: '2026-05-05T00:00:00.000Z',
+      staleAfter: '2026-06-05T00:00:00.000Z'
+    });
+
+    const factSet = extractKnowledgeFactSetFromCacheEntry(entry, {
+      now: new Date('2026-05-06T00:00:00.000Z')
+    });
+    const units = extractMarkdownKnowledgeUnitsFromCacheEntry(entry, factSet);
+
+    assert.ok(factSet.facts.some(fact =>
+      fact.kind === 'chart-value'
+      && fact.path === 'chart.api.image.repository'
+      && fact.summary === 'Container image repository.'
+    ));
+    assert.equal(factSet.facts.some(fact =>
+      fact.path === 'chart.api.example_values'
+      || fact.path === 'chart.api.example.enabled'
+      || fact.summary.includes('```yaml')
+    ), false);
+    assert.ok(units.some(unit =>
+      unit.unitType === 'example'
+      && unit.path === 'example.api-home.example-values'
+      && unit.language === 'yaml'
+      && unit.snippet.includes('example:')
+    ));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

@@ -622,6 +622,7 @@ test('knowledge pack consumes staged Pulumi and Helm public library registry art
     ));
     assert.ok(helmPack.units.some(unit => unit.unitType === 'recipe'));
     assert.doesNotMatch(helmPackOutput, /## Troubleshooting/);
+    assert.doesNotMatch(helmPackOutput, /```yaml/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

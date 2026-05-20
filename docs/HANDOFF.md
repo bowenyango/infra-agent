@@ -6,6 +6,49 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Helm Example Values Classification
+
+Status:
+
+- Tightened Helm chart docs fact extraction so example-oriented sections and
+  fenced code blocks do not become `chart-value` facts.
+- `## Example Values`, `Usage`, and sample sections can still produce
+  Markdown-derived `example` units, preserving concrete edit shapes without
+  polluting fact units or LLM review packets with code-fence headings.
+- Public-library registry Helm pack coverage now asserts that YAML fences are
+  absent from compact JSON output while recipe and fact units remain available.
+
+Files changed:
+
+- `src/knowledge/fact-extractors/chart-docs-markdown.ts` filters chart-docs
+  Markdown before fact extraction by blanking code fences and example/sample/
+  usage sections, while leaving the original content available for example
+  unit extraction.
+- `test/unit/knowledge-helm-chart-docs-extraction.test.mjs` covers the
+  `Example Values` boundary: values tables remain facts, example YAML remains
+  an `example` unit, and example-only values are not chart facts.
+- `test/integration/cli-public-library-registry-main.test.mjs` guards staged
+  Helm public-library artifact packs against leaking YAML code fences as facts.
+
+Validation:
+
+- `npm run test:focused --
+  test/unit/knowledge-helm-chart-docs-extraction.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-helm.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The filter is intentionally deterministic and section-heading based. Chart
+  docs with unconventional headings may still need later extractor tuning, but
+  the common Artifact Hub `Example Values` path no longer pollutes facts.
+
 ## 2026-05-20 Pulumi And Helm Public Library Registry Reuse
 
 Status:
