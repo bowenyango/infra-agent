@@ -1943,6 +1943,50 @@ function validatePublicKnowledgeSource(
   return { source, domain };
 }
 
+function validatePublicKnowledgeTags(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  label: string
+): string[] | null {
+  const tags = readStringArray(value, path, issues);
+  if (tags === null) {
+    return null;
+  }
+
+  const seen = new Set<string>();
+  for (const [index, tag] of tags.entries()) {
+    validateNoSecretLikeValue(tag, `${path}[${index}]`, issues);
+    if (FULL_URL_PATTERN.test(tag)) {
+      issues.push(error(`${path}[${index}]`, `${label} tags must not contain URLs.`));
+    }
+    if (seen.has(tag)) {
+      issues.push(error(path, `${label} tags must be unique.`));
+    }
+    seen.add(tag);
+  }
+
+  return tags;
+}
+
+function requirePublicKnowledgeTags(
+  tags: string[] | null,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  label: string,
+  requiredTags: string[]
+): void {
+  if (tags === null) {
+    return;
+  }
+
+  for (const requiredTag of requiredTags) {
+    if (!tags.includes(requiredTag)) {
+      issues.push(error(path, `${label} tags must include ${requiredTag}.`));
+    }
+  }
+}
+
 function validatePublicKnowledgeClassification(
   value: unknown,
   path: string,
@@ -2012,7 +2056,12 @@ function validatePublicKnowledgeClassification(
   const sourceName = readNonEmptyString(value.sourceName, `${path}.sourceName`, issues);
   const slug = readNonEmptyString(value.slug, `${path}.slug`, issues);
   const coordinates = readNonEmptyString(value.coordinates, `${path}.coordinates`, issues);
-  const tags = readStringArray(value.tags, `${path}.tags`, issues);
+  const tags = validatePublicKnowledgeTags(
+    value.tags,
+    `${path}.tags`,
+    issues,
+    'Public knowledge library artifact classification'
+  );
 
   for (const [fieldPath, fieldValue] of [
     [`${path}.namespace`, namespace],
@@ -2027,7 +2076,6 @@ function validatePublicKnowledgeClassification(
       validateNoSecretLikeValue(fieldValue, fieldPath, issues);
     }
   }
-  tags?.forEach((tag, index) => validateNoSecretLikeValue(tag, `${path}.tags[${index}]`, issues));
 
   if (namespace !== null && providerName !== null && providerAddress !== null) {
     const expectedProviderAddress = `${namespace}/${providerName}`;
@@ -2071,6 +2119,22 @@ function validatePublicKnowledgeClassification(
     if (tags !== null && !tags.includes(typeName)) {
       issues.push(error(`${path}.tags`, 'Public knowledge library artifact tags must include the resource or data-source type name.'));
     }
+    requirePublicKnowledgeTags(
+      tags,
+      `${path}.tags`,
+      issues,
+      'Public knowledge library artifact classification',
+      [
+        'public-reference',
+        'terraform',
+        'provider-docs',
+        namespace,
+        providerName,
+        typeName,
+        kindSegment,
+        versionRef?.kind ?? ''
+      ].filter((tag): tag is string => tag.length > 0)
+    );
   }
 
   return {
@@ -3657,14 +3721,46 @@ function validatePublicKnowledgeLibraryRegistryPayload(
         }
       }
 
-      const tags = readStringArray(entry.tags, `${path}.tags`, issues);
-      if (tags !== null) {
-        tags.forEach((tag, tagIndex) => {
-          validateNoSecretLikeValue(tag, `${path}.tags[${tagIndex}]`, issues);
-          if (FULL_URL_PATTERN.test(tag)) {
-            issues.push(error(`${path}.tags[${tagIndex}]`, 'Public knowledge library registry tags must not contain URLs.'));
-          }
-        });
+      const tags = validatePublicKnowledgeTags(
+        entry.tags,
+        `${path}.tags`,
+        issues,
+        'Public knowledge library registry'
+      );
+      if (
+        tags !== null
+        && providerAddress !== null
+        && versionRef !== null
+        && versionRef.kind !== null
+        && sourceName !== null
+        && (
+          entry.artifactKind === 'terraform-provider-resource'
+          || entry.artifactKind === 'terraform-provider-data-source'
+        )
+      ) {
+        const [namespace, providerName] = providerAddress.split('/');
+        const typeName = sourceName.split(':')[1] ?? '';
+        const kindSegment = entry.artifactKind === 'terraform-provider-resource'
+          ? 'resource'
+          : 'data-source';
+        if (namespace && providerName && typeName) {
+          requirePublicKnowledgeTags(
+            tags,
+            `${path}.tags`,
+            issues,
+            'Public knowledge library registry',
+            [
+              'public-reference',
+              'terraform',
+              'provider-docs',
+              namespace,
+              providerName,
+              typeName,
+              kindSegment,
+              versionRef.kind
+            ]
+          );
+        }
       }
 
       if (!isRecord(entry.artifact)) {

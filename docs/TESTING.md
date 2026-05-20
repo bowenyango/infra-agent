@@ -188,12 +188,13 @@ or backend URLs.
 artifact. Report validation should
 reject drifted source IDs, inconsistent summary counts, candidate
 classification drift, version-reference drift, version-resolution drift,
-source-outline drift, unit-digest drift, LLM review packet drift, embedded raw
-content, and secret-like compact unit text.
+source-outline drift, unit-digest drift, missing or unsafe discovery tags, LLM
+review packet drift, embedded raw content, and secret-like compact unit text.
 Artifact validation should reject drifted coordinates, inconsistent source metadata, malformed
 download traces, drifted LLM download evidence, mismatched unit counts, bad
 `unitPayloadHash`, drifted LLM review packet fields including unit digest,
-embedded raw content, or secret-like compact unit text.
+missing or unsafe discovery tags, embedded raw content, or secret-like compact
+unit text.
 `knowledge library-stage` should only accept a valid public library artifact,
 copy it into a workspace-relative
 content-addressed local store, and update an

@@ -349,11 +349,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   grouping, central-library candidate classification, version-reference
   stability, version-resolution drift for mutable aliases, compact download
   evidence trace hash, compact source-outline shape and drift, compact
-  unit-digest shape and drift, fallback attempt ordering, LLM review packet
-  drift, raw content omission, and secret-like text rejection. Source outlines
-  and unit digests may include bounded headings, section signals, path samples,
-  and identity/replacement counts, but must not include raw documentation
-  bodies or URLs.
+  unit-digest shape and drift, required discovery tags, fallback attempt
+  ordering, LLM review packet drift, raw content omission, and secret-like text
+  rejection. Source outlines and unit digests may include bounded headings,
+  section signals, path samples, and identity/replacement counts, but must not
+  include raw documentation bodies or URLs. Classification and registry tags
+  must remain URL-free, unique, and sufficient for public-reference discovery.
 - For Terraform Registry `latest` URLs, a successful provider version metadata
   lookup must influence raw provider-repository fallback ordering. Prefer the
   resolved provider version tag before branch refs such as `main` or `master`

@@ -125,8 +125,8 @@ values.
    download reuse; validation checks source identity, coordinate coherence,
    version-reference drift, version-resolution drift, download trace shape,
    source-outline drift, fallback ordering, LLM download evidence drift, unit
-   counts, unit hash when present, unit-digest drift, review packet drift, and
-   raw-content omission.
+   counts, required discovery tags, unit hash when present, unit-digest drift,
+   review packet drift, and raw-content omission.
    Use `knowledge library-stage <artifact.json> --workspace <workspace>
    --store-dir <dir> --registry <registry.json> --json` only after validation
    when preparing local downloadable-registry metadata. It writes a

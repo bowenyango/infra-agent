@@ -163,14 +163,19 @@ or safety-boundary work. `knowledge from-url --library-out <artifact.json>`
 writes a standalone `infra-agent.public-knowledge-library-artifact` for future
 downloadable central-library workflows. That artifact is local,
 review-required, raw-content-free, and publication-ready in shape only; it is
-not an upload, approval, or remote execution path. `knowledge validate` must
-accept both the URL report and this artifact kind before either is used by
-registry, download, or LLM-refinement workflows. URL report validation must
+not an upload, approval, or remote execution path. Public-reference
+classification tags are part of the downloadable search contract and must
+include core discovery terms such as public-reference, ecosystem, provider-docs,
+provider identity, artifact type, source type, and version-reference posture.
+`knowledge validate` must accept both the URL report and this artifact kind
+before either is used by registry, download, or LLM-refinement workflows. URL
+report validation must
 reject source identity drift, mismatched summary/unit counts, central-library
 candidate drift, malformed download traces, drifted LLM download evidence,
 drifted version resolution, drifted source outlines, drifted LLM review packet
-unit digest fields, raw content, and secret-like compact unit text. Artifact
-validation must also reject coordinate drift and bad unit payload hashes.
+unit digest fields, discovery-tag drift, raw content, and secret-like compact
+unit text. Artifact validation must also reject coordinate drift and bad unit
+payload hashes.
 
 Agent-2 reset policy:
 

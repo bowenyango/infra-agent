@@ -173,6 +173,7 @@ test('public knowledge URL report validation rejects drifted summary candidate a
         classification: {
           ...report.centralLibraryCandidate.classification,
           coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong',
+          tags: report.centralLibraryCandidate.classification.tags.filter(tag => tag !== 'provider-docs'),
           versionRef: {
             ...report.centralLibraryCandidate.classification.versionRef,
             value: '5.0.0'
@@ -238,6 +239,7 @@ test('public knowledge URL report validation rejects drifted summary candidate a
       '$.centralLibraryCandidate.sourceContentHash',
       '$.centralLibraryCandidate.candidateId',
       '$.centralLibraryCandidate.classification.coordinates',
+      '$.centralLibraryCandidate.classification.tags',
       '$.centralLibraryCandidate.classification.versionRef.value',
       '$.centralLibraryCandidate.classification.versionResolution.source',
       '$.centralLibraryCandidate.llmRefinementInput.reviewPacket.sourceContentHash',
@@ -309,6 +311,10 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       classification: {
         ...artifact.classification,
         coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket_wrong',
+        tags: [
+          ...artifact.classification.tags,
+          'https://example.invalid/raw-doc'
+        ],
         versionResolution: {
           ...artifact.classification.versionResolution,
           mutable: false
@@ -370,6 +376,7 @@ test('public knowledge library artifact validation rejects drifted hashes classi
       '$.sourceOutline.headings[5].level',
       '$.sourceOutline.headings[5].title',
       '$.classification.coordinates',
+      '$.classification.tags[8]',
       '$.classification.versionResolution.mutable',
       '$.coordinates',
       '$.summary.unitCount',

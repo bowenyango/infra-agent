@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-20 Public Knowledge Discovery Tag Validation
+
+Status:
+
+- Hardened public-reference classification and registry tag validation for the
+  downloadable central-library path.
+- URL reports, library artifacts, and public-library registry entries now
+  require URL-free, unique discovery tags that include public-reference,
+  ecosystem, provider-docs, provider identity, Terraform source type, resource
+  or data-source identity, and version-reference posture.
+- Added explicit coverage for Terraform Registry data-source URLs so
+  `knowledge from-url` proves both provider resource and data-source docs
+  produce correct hub coordinates and five-unit compact context.
+
+Files changed:
+
+- `src/knowledge/validate.ts` validates required public discovery tags for
+  central-library classification and registry entries.
+- `test/integration/cli-knowledge-from-url-main.test.mjs` covers Terraform
+  Registry data-source URL classification and compact extraction.
+- `test/unit/knowledge-public-library-artifact-validation.test.mjs` covers
+  missing or unsafe classification tags.
+- `README.md`, `docs/ROADMAP.md`, `docs/TESTING.md`,
+  `docs/AGENT_RULES.md`, and `skills/infra-configuration/SKILL.md` document
+  discovery tags as part of the central-library validation boundary.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-knowledge-from-url-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Tag requirements currently model Terraform Registry provider resource and
+  data-source artifacts. Pulumi package docs and Helm chart docs will need
+  their own required discovery-tag sets when URL-only extraction supports them.
+- This slice validates local downloadable-registry metadata; it still does not
+  implement remote publication, trust, ranking, or upload workflows.
+
 ## 2026-05-20 Public Knowledge Unit Digest Evidence
 
 Status:

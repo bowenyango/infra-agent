@@ -24,6 +24,7 @@ function parseJsonOutput(output) {
 }
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket';
+const S3_BUCKET_DATA_SOURCE_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_bucket';
 
 const S3_BUCKET_MARKDOWN = [
   '# aws_s3_bucket',
@@ -64,6 +65,29 @@ const S3_BUCKET_MARKDOWN = [
   '',
   '- Check whether this is a logical rename or a new physical bucket.',
   '- Consider import or moved-block review before replacing the bucket.',
+  ''
+].join('\n');
+
+const S3_BUCKET_DATA_SOURCE_MARKDOWN = [
+  '# aws_s3_bucket',
+  '',
+  'Provides information about an S3 bucket.',
+  '',
+  '## Example Usage',
+  '',
+  '```hcl',
+  'data "aws_s3_bucket" "selected" {',
+  '  bucket = "example-bucket"',
+  '}',
+  '```',
+  '',
+  '## Argument Reference',
+  '',
+  '- `bucket` - (Required) Name of the bucket.',
+  '',
+  '## Attribute Reference',
+  '',
+  '- `arn` - ARN of the bucket.',
   ''
 ].join('\n');
 
@@ -306,6 +330,40 @@ test('knowledge from-url emits five compact unit types from a Terraform Registry
     assert.equal(Object.hasOwn(writtenReport, 'unitSet'), false);
     assert.doesNotMatch(serialized, /"content"\s*:|"rawContent"\s*:|example-bucket-password|authorization|bearer/);
     assert.ok(Buffer.byteLength(serialized) < 16000);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge from-url classifies Terraform Registry data source URLs', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-knowledge-from-url-data-source-'));
+
+  try {
+    const contentPath = join(tempRoot, 'aws_s3_bucket_data_source.md');
+    await writeFile(contentPath, S3_BUCKET_DATA_SOURCE_MARKDOWN, 'utf8');
+
+    const report = await buildPublicKnowledgeUrlReport({
+      url: S3_BUCKET_DATA_SOURCE_URL,
+      contentPath,
+      maxUnits: 20
+    });
+    const artifact = buildPublicKnowledgeLibraryArtifact(report);
+    const validation = validateKnowledgePayload(artifact, 'inline');
+
+    assert.equal(report.source.name, 'data-source:aws_s3_bucket');
+    assert.equal(report.centralLibraryCandidate.classification.artifactKind, 'terraform-provider-data-source');
+    assert.equal(
+      report.centralLibraryCandidate.classification.coordinates,
+      'terraform/provider/hashicorp/aws/latest/data-source/aws_s3_bucket'
+    );
+    assert.ok(report.centralLibraryCandidate.classification.tags.includes('data-source'));
+    assert.ok(report.unitsByType.fact.some(unit =>
+      unit.path === 'data.aws_s3_bucket.bucket'
+      && unit.factKind === 'argument'
+    ));
+    assert.equal(report.summary.unitTypeComplete, true);
+    assert.equal(artifact.classification.artifactKind, 'terraform-provider-data-source');
+    assert.equal(validation.valid, true);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

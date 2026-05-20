@@ -322,10 +322,10 @@ Current behavior is intentionally runtime-foundation oriented:
   validate the artifact with
   `knowledge validate <library-artifact.json> --json` before handing it to a
   registry or downloader; validation checks source identity, coordinate
-  coherence, download trace shape, source-outline drift, fallback ordering,
-  LLM download evidence drift, version-resolution drift, unit counts,
-  `unitPayloadHash` when present, LLM review packet drift, and raw content
-  omission. This is the
+  coherence, required discovery tags, download trace shape, source-outline
+  drift, fallback ordering, LLM download evidence drift, version-resolution
+  drift, unit counts, `unitPayloadHash` when present, LLM review packet drift,
+  and raw content omission. This is the
   public-reference path to use when another agent gives a documentation link
   such as `aws_s3_bucket` and needs compact JSON rather than repo linkage.
 - `knowledge library-stage` stages a validated
