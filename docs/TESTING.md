@@ -148,6 +148,7 @@ infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
 infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --json
 infra-agent knowledge library-refinement-review <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-library-refinement-review.json --json
+infra-agent knowledge library-refinement-apply <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --refined /tmp/infra-agent-refined-url-report.json --out /tmp/infra-agent-updated-library-artifact.json --json
 infra-agent knowledge pack <workspace> --domain terraform --resource aws_s3_bucket --json
 ```
 
@@ -263,6 +264,14 @@ quality, review-packet hash, resolved compact inputs, prompt contract,
 `llmPrompt.rawContentIncluded: false`, and no raw Markdown headings or fences.
 It must not call a live model, fetch docs, mutate the artifact, upload, or
 approve publication.
+`knowledge library-refinement-apply` should validate the original artifact and
+the model-refined URL report, reject source identity, classification, version,
+download, or source-outline drift, recompute the output artifact's
+`unitPayloadHash`, summary, quality, and LLM review packet metadata, and leave
+`publication.reviewRequired: true`. Tests should prove the written artifact
+passes `knowledge validate`, compact unit changes are preserved, drifted
+coordinates are rejected, and raw content or secret-like model output remains
+blocked by existing URL report and artifact validators.
 This path can fetch
 the URL live; tests should continue to use offline fetcher fixtures, mocked
 fetch, and the internal `--content <file>` helper so default CI does not

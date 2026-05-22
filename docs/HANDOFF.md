@@ -6,6 +6,57 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-22 Public Library Refinement Apply
+
+Status:
+
+- Added `knowledge library-refinement-apply <library-artifact.json> --refined
+  <url-report.json> --out <updated-library-artifact.json>` as the deterministic
+  bridge from model-refined URL reports back into downloadable public-library
+  artifacts.
+- The command validates the original
+  `infra-agent.public-knowledge-library-artifact` and refined
+  `infra-agent.public-knowledge-url-report`, rejects coordinate, source,
+  source-content hash, classification, download, source-outline, and version
+  drift, then writes a rebuilt artifact.
+- The updated artifact preserves the original artifact ID and public-reference
+  posture, recomputes unit payload hash, summary, quality, compact byte length,
+  and LLM review packet metadata, and keeps `publication.reviewRequired: true`.
+- This enables later LLM runners to produce a refined URL report without
+  letting model output directly mutate registries, upload, or approve trust.
+
+Files changed:
+
+- `src/knowledge/public-library-refinement-apply.ts` validates both inputs,
+  enforces identity/evidence drift checks, rebuilds the artifact, and returns a
+  compact apply report.
+- `src/cli/main.ts` parses and routes `knowledge library-refinement-apply`.
+- `src/cli/output.ts` prints the refinement-apply text summary.
+- `test/integration/cli-public-library-refinement-apply-main.test.mjs` covers
+  a valid refined report, validated output artifact, preserved artifact ID,
+  recomputed unit payload hash, and coordinate drift rejection.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers apply command
+  arguments, required `--refined`/`--out`, and rejected unrelated flags.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  new apply command.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "library-refinement-apply"
+  test/integration/cli-public-library-refinement-apply-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-refinement-apply"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- This slice still does not call a live LLM. The next model-runner slice should
+  use mocked transports in tests and feed its output through
+  `library-refinement-apply`.
+- The apply report is intentionally compact and does not persist a separate
+  review log artifact; `--out` writes the updated library artifact.
+
 ## 2026-05-22 Public Library Refinement Review
 
 Status:

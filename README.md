@@ -129,6 +129,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge library-download <public-library-registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]`
 - `infra-agent knowledge library-catalog <public-library-registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]`
 - `infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]`
+- `infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -275,6 +276,13 @@ Current behavior is intentionally runtime-foundation oriented:
   quality signals, review-packet hash, and a bounded prompt contract for
   model-based refinement. It does not call a model, mutate the artifact,
   upload, or approve publication.
+  `knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json>
+  --out <updated-library-artifact.json>` accepts a validated model-refined URL
+  report, checks that source identity, classification, version evidence,
+  download evidence, and source outline still match the original artifact, then
+  writes a rebuilt public-library artifact with recomputed unit hash, summary,
+  quality, and LLM review packet metadata. It is the deterministic handoff
+  from model output back into the downloadable artifact flow.
   `validate` checks facts, extraction reports, compact packs, unit artifacts,
   indexes, and plan-only artifact manifests before use. `pack` ranks and emits a
   bounded planner-safe `infra-agent.knowledge-pack` without raw source content;
@@ -407,6 +415,13 @@ Current behavior is intentionally runtime-foundation oriented:
   summary, quality, and compact-unit inputs, includes the review-packet hash
   and prompt contract, and keeps `mutationAllowed=false` with no raw docs or
   model execution.
+- `knowledge library-refinement-apply` accepts a validated original
+  public-library artifact plus a refined
+  `infra-agent.public-knowledge-url-report`, rejects identity or evidence
+  drift, rebuilds the output artifact with recomputed compact-unit hashes and
+  LLM review metadata, and leaves `publication.reviewRequired=true`. Use the
+  updated artifact with `knowledge validate`, then `library-stage`, `catalog`,
+  and `download` like any other central-library artifact.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

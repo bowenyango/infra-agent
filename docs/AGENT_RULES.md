@@ -366,6 +366,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   inputs, the review-packet hash, and a bounded prompt contract from
   `artifact.llmRefinementInput` without calling a model, fetching more docs,
   mutating the artifact, or embedding raw documentation.
+  Use `knowledge library-refinement-apply <artifact.json> --refined
+  <url-report.json> --out <updated-artifact.json> --json` to accept reviewed
+  model output back into the central-library artifact flow. It must validate
+  both inputs, reject source/classification/version/download/source-outline
+  drift, recompute unit hashes and review metadata, and keep
+  `publication.reviewRequired: true`; it must not update a registry in place,
+  upload, publish, or turn model output into trust approval.
 - URL-only public documentation extraction must validate the
   `infra-agent.public-knowledge-url-report` before LLM refinement or
   central-library artifact preparation. The report validator is the boundary

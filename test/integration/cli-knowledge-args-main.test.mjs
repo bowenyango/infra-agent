@@ -541,6 +541,86 @@ test('knowledge library-refinement-review rejects unrelated selector and downloa
   }
 });
 
+test('knowledge library-refinement-apply CLI args accept refined report and output artifact flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-refinement-apply',
+    'artifacts/aws-s3-library.json',
+    '--refined',
+    'artifacts/aws-s3-refined-url-report.json',
+    '--out',
+    'artifacts/aws-s3-updated-library.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-refinement-apply');
+  assert.equal(parsed.inputPath, 'artifacts/aws-s3-library.json');
+  assert.equal(parsed.publicLibraryRefinedPath, 'artifacts/aws-s3-refined-url-report.json');
+  assert.equal(parsed.outputPath, 'artifacts/aws-s3-updated-library.json');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.json, true);
+});
+
+test('knowledge library-refinement-apply requires refined input and output artifact flags', () => {
+  for (const args of [
+    ['knowledge', 'library-refinement-apply', 'artifacts/aws-s3-library.json', '--out', 'artifacts/aws-s3-updated-library.json'],
+    ['knowledge', 'library-refinement-apply', 'artifacts/aws-s3-library.json', '--refined', 'artifacts/aws-s3-refined-url-report.json']
+  ]) {
+    const script = [
+      "import { parseArgs } from './src/cli/main.ts';",
+      `parseArgs(${JSON.stringify(args)});`
+    ].join(' ');
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      script
+    ], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 1);
+  }
+});
+
+test('knowledge library-refinement-apply rejects unrelated selector and registry flags', () => {
+  const rejectedArgs = [
+    ['--domain', 'terraform'],
+    ['--resource', 'aws_s3_bucket'],
+    ['--workspace', 'fixtures/sample-workspace'],
+    ['--registry', 'knowledge/public-library-registry.json']
+  ];
+
+  for (const args of rejectedArgs) {
+    const script = [
+      "import { parseArgs } from './src/cli/main.ts';",
+      `parseArgs(${JSON.stringify([
+        'knowledge',
+        'library-refinement-apply',
+        'artifacts/aws-s3-library.json',
+        '--refined',
+        'artifacts/aws-s3-refined-url-report.json',
+        '--out',
+        'artifacts/aws-s3-updated-library.json',
+        ...args
+      ])});`
+    ].join(' ');
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      script
+    ], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 1);
+  }
+});
+
 test('knowledge index filters are rejected for other knowledge actions', () => {
   const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'pack', 'fixtures/sample-workspace', '--unit-type', 'fact']);";
   const result = spawnSync(process.execPath, [

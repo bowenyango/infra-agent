@@ -717,6 +717,15 @@ Implemented initial CLI surfaces:
     packet hash, and includes a bounded prompt contract. It must not call a
     model, rewrite the artifact, fetch more docs, upload, approve publication,
     or embed raw documentation.
+- `infra-agent knowledge library-refinement-apply <library-artifact.json>
+  --refined <url-report.json> --out <updated-library-artifact.json> --json`
+  - accepts a validated original public-library artifact and a model-refined
+    `infra-agent.public-knowledge-url-report`, rejects source, classification,
+    version, download, or source-outline drift, and writes a rebuilt
+    `infra-agent.public-knowledge-library-artifact` with recomputed unit hash,
+    summary, quality, and LLM review packet metadata. This is the deterministic
+    bridge from LLM output back into registry staging; it is not publication
+    approval, remote upload, or a live model runner.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

@@ -57,6 +57,7 @@ import type { PublicKnowledgeLibraryStageReport } from '../knowledge/public-libr
 import type { PublicKnowledgeLibraryDownloadReport } from '../knowledge/public-library-download.ts';
 import type { PublicKnowledgeLibraryCatalogReport } from '../knowledge/public-library-catalog.ts';
 import type { PublicKnowledgeLibraryRefinementReviewReport } from '../knowledge/public-library-refinement-review.ts';
+import type { PublicKnowledgeLibraryRefinementApplyReport } from '../knowledge/public-library-refinement-apply.ts';
 import type {
   KnowledgeUnitIndexEntry,
   KnowledgeUnitMetadataIndex
@@ -3911,6 +3912,30 @@ export function printPublicKnowledgeLibraryRefinementReviewReport(
   process.stdout.write(`llm mode: ${report.review.mode} status=${report.review.status}\n`);
   process.stdout.write(`output contract: ${report.review.outputContract}\n`);
   process.stdout.write('raw content included: no\n');
+
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
+}
+
+export function printPublicKnowledgeLibraryRefinementApplyReport(
+  report: PublicKnowledgeLibraryRefinementApplyReport
+): void {
+  printHeader('Public knowledge library refinement apply');
+  process.stdout.write(`input: ${report.inputPath}\n`);
+  process.stdout.write(`refined: ${report.refinedReportPath}\n`);
+  process.stdout.write(`coordinates: ${report.coordinates}\n`);
+  process.stdout.write(`status: ${report.refinement.status}\n`);
+  process.stdout.write(`units: ${report.artifact.unitCount}\n`);
+  process.stdout.write(`unit types: ${report.artifact.includedUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`missing unit types: ${report.refinement.missingUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`quality: ${report.artifact.qualityStatus} score=${report.artifact.qualityScore}\n`);
+  process.stdout.write(`previous unit hash: ${report.artifact.previousUnitPayloadHash.slice(0, 12)}\n`);
+  process.stdout.write(`updated unit hash: ${report.artifact.unitPayloadHash.slice(0, 12)}\n`);
+  process.stdout.write(`review packet: ${report.refinement.reviewPacketHash.slice(0, 12)} complete=${report.refinement.unitTypeComplete ? 'yes' : 'no'}\n`);
+  process.stdout.write('review required: yes\n');
 
   if (report.warnings.length > 0) {
     process.stdout.write('\n');

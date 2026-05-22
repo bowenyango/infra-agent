@@ -45,6 +45,7 @@ import {
   type PublicKnowledgeLibraryCatalogQualityStatus
 } from '../knowledge/public-library-catalog.ts';
 import { buildPublicKnowledgeLibraryRefinementReviewReport } from '../knowledge/public-library-refinement-review.ts';
+import { applyPublicKnowledgeLibraryRefinement } from '../knowledge/public-library-refinement-apply.ts';
 import {
   buildKnowledgeArtifactManifest,
   hashKnowledgeArtifactFile
@@ -90,6 +91,7 @@ import {
   printPublicKnowledgeLibraryDownloadReport,
   printPublicKnowledgeLibraryCatalogReport,
   printPublicKnowledgeLibraryRefinementReviewReport,
+  printPublicKnowledgeLibraryRefinementApplyReport,
   printKnowledgeUnitMetadataIndex,
   printPlannerProviderCatalogReport,
   printRunPreflight,
@@ -114,7 +116,7 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 
 export interface ParsedArgs {
   command: 'inspect' | 'inventory' | 'pack' | 'refs' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'cache' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'resource' | 'from-url' | 'publish' | 'library-stage' | 'library-download' | 'library-catalog' | 'library-refinement-review' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'resource' | 'from-url' | 'publish' | 'library-stage' | 'library-download' | 'library-catalog' | 'library-refinement-review' | 'library-refinement-apply' | null;
   cacheAction?: 'status' | null;
   task: string | null;
   workspace: string;
@@ -122,6 +124,7 @@ export interface ParsedArgs {
   outputPath?: string | null;
   libraryOutputPath?: string | null;
   contentPath?: string | null;
+  publicLibraryRefinedPath?: string | null;
   unitOutputDir?: string | null;
   manifestOutputPath?: string | null;
   publishStoreDir?: string | null;
@@ -202,6 +205,7 @@ function printUsage(): void {
       '  infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]',
       '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]',
       '  infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]',
+      '  infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -1309,8 +1313,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'library-download'
       && knowledgeAction !== 'library-catalog'
       && knowledgeAction !== 'library-refinement-review'
+      && knowledgeAction !== 'library-refinement-apply'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, resource, from-url, publish, library-stage, library-download, library-catalog, or library-refinement-review.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, resource, from-url, publish, library-stage, library-download, library-catalog, library-refinement-review, or library-refinement-apply.');
     }
 
     let workspace = cwd();
@@ -1323,6 +1328,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let outputPath: string | null = null;
     let libraryOutputPath: string | null = null;
     let contentPath: string | null = null;
+    let publicLibraryRefinedPath: string | null = null;
     let unitOutputDir: string | null = null;
     let manifestOutputPath: string | null = null;
     let validationWorkspace: string | null = null;
@@ -1347,8 +1353,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review') {
-          fail('--domain is not supported for knowledge validate, knowledge library-stage, knowledge library-download, or knowledge library-refinement-review.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply') {
+          fail('--domain is not supported for knowledge validate, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, or knowledge library-refinement-apply.');
         }
         if (knowledgeAction === 'from-url') {
           fail('--domain is inferred for knowledge from-url.');
@@ -1364,8 +1370,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review') {
-          fail('--target is not supported for knowledge validate, knowledge library-stage, knowledge library-download, knowledge library-catalog, or knowledge library-refinement-review.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply') {
+          fail('--target is not supported for knowledge validate, knowledge library-stage, knowledge library-download, knowledge library-catalog, knowledge library-refinement-review, or knowledge library-refinement-apply.');
         }
         if (knowledgeAction === 'from-url') {
           fail('--target is not supported for knowledge from-url.');
@@ -1388,8 +1394,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!resourceValue) {
           fail('Missing value for --resource.');
         }
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review') {
-          fail('--resource is not supported for knowledge validate, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, or knowledge library-refinement-review.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply') {
+          fail('--resource is not supported for knowledge validate, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, or knowledge library-refinement-apply.');
         }
         if (knowledgeResource !== null) {
           fail('--resource can be provided at most once.');
@@ -1670,8 +1676,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'library-download'
           && knowledgeAction !== 'library-catalog'
           && knowledgeAction !== 'library-refinement-review'
+          && knowledgeAction !== 'library-refinement-apply'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, knowledge resource, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-catalog, or knowledge library-refinement-review.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, knowledge resource, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-catalog, knowledge library-refinement-review, or knowledge library-refinement-apply.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -1695,6 +1702,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         libraryOutputPath = outputValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--refined') {
+        const refinedValue = actionArgs[index + 1]?.trim();
+        if (!refinedValue) {
+          fail('Missing value for --refined.');
+        }
+        if (knowledgeAction !== 'library-refinement-apply') {
+          fail('--refined is only supported for knowledge library-refinement-apply.');
+        }
+        if (publicLibraryRefinedPath !== null) {
+          fail('--refined can be provided at most once.');
+        }
+
+        publicLibraryRefinedPath = refinedValue;
         index += 1;
         continue;
       }
@@ -1943,6 +1967,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'library-refinement-review' && positionalArgs.length !== 1) {
       fail('knowledge library-refinement-review requires exactly one public library artifact JSON path.');
     }
+    if (knowledgeAction === 'library-refinement-apply' && positionalArgs.length !== 1) {
+      fail('knowledge library-refinement-apply requires exactly one public library artifact JSON path.');
+    }
+    if (knowledgeAction === 'library-refinement-apply' && publicLibraryRefinedPath === null) {
+      fail('knowledge library-refinement-apply requires --refined.');
+    }
+    if (knowledgeAction === 'library-refinement-apply' && outputPath === null) {
+      fail('knowledge library-refinement-apply requires --out.');
+    }
     if ((knowledgeAction === 'publish' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download') && publishStoreDir === null) {
       fail(`knowledge ${knowledgeAction} requires --store-dir.`);
     }
@@ -1982,7 +2015,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
 
-    if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish' && knowledgeAction !== 'from-url' && knowledgeAction !== 'library-stage' && knowledgeAction !== 'library-download' && knowledgeAction !== 'library-catalog' && knowledgeAction !== 'library-refinement-review') {
+    if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish' && knowledgeAction !== 'from-url' && knowledgeAction !== 'library-stage' && knowledgeAction !== 'library-download' && knowledgeAction !== 'library-catalog' && knowledgeAction !== 'library-refinement-review' && knowledgeAction !== 'library-refinement-apply') {
       workspace = positionalArgs[0] ?? workspace;
     }
 
@@ -1991,12 +2024,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       knowledgeAction,
       task: null,
       workspace: knowledgeAction === 'validate' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review'
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply'
         ? positionalArgs[0]
         : null,
       outputPath,
       libraryOutputPath,
       contentPath,
+      publicLibraryRefinedPath,
       unitOutputDir,
       manifestOutputPath,
       publishStoreDir,
@@ -2713,6 +2747,60 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'library-refinement-apply') {
+    if (!parsed.inputPath || !parsed.publicLibraryRefinedPath || !parsed.outputPath) {
+      fail('knowledge library-refinement-apply requires a public library artifact JSON path, --refined, and --out.');
+    }
+
+    const artifactValidationReport = await loadKnowledgeValidationReport(parsed.inputPath, cwd(), {});
+    if (!artifactValidationReport.valid) {
+      if (parsed.json) {
+        process.stdout.write(`${JSON.stringify(artifactValidationReport, null, 2)}\n`);
+      } else {
+        printKnowledgeValidationReport(artifactValidationReport);
+      }
+      process.exitCode = 1;
+      return;
+    }
+    if (artifactValidationReport.inputKind !== 'infra-agent.public-knowledge-library-artifact') {
+      fail('knowledge library-refinement-apply requires an infra-agent.public-knowledge-library-artifact input.');
+    }
+
+    const refinedValidationReport = await loadKnowledgeValidationReport(parsed.publicLibraryRefinedPath, cwd(), {});
+    if (!refinedValidationReport.valid) {
+      if (parsed.json) {
+        process.stdout.write(`${JSON.stringify(refinedValidationReport, null, 2)}\n`);
+      } else {
+        printKnowledgeValidationReport(refinedValidationReport);
+      }
+      process.exitCode = 1;
+      return;
+    }
+    if (refinedValidationReport.inputKind !== 'infra-agent.public-knowledge-url-report') {
+      fail('knowledge library-refinement-apply --refined requires an infra-agent.public-knowledge-url-report input.');
+    }
+
+    const { report, artifact } = await applyPublicKnowledgeLibraryRefinement({
+      artifactPath: parsed.inputPath,
+      refinedReportPath: parsed.publicLibraryRefinedPath,
+      baseDir: cwd()
+    });
+    const writtenPath = await writeJsonArtifact(parsed.outputPath, cwd(), artifact);
+    const reportPayload = {
+      ...report,
+      outputPath: writtenPath
+    };
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(reportPayload, null, 2)}\n`);
+      return;
+    }
+
+    printPublicKnowledgeLibraryRefinementApplyReport(reportPayload);
+    process.stdout.write(`\nupdated artifact: ${writtenPath}\n`);
     return;
   }
 

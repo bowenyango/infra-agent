@@ -77,6 +77,7 @@ values.
    infra-agent knowledge library-catalog <registry.json|registry-url> --domain <helm|pulumi|terraform> --resource <identity> --json
    infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
    infra-agent knowledge library-refinement-review <library-artifact.json> --json
+   infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> --json
    ```
 
    Use `--resource <identity>` instead of `--target <path>` when the user names
@@ -184,6 +185,12 @@ values.
    resolved compact inputs, the review-packet hash, and a bounded prompt
    contract from `artifact.llmRefinementInput` without calling a model,
    fetching more docs, mutating the artifact, or embedding raw documentation.
+   Use `knowledge library-refinement-apply <artifact.json> --refined
+   <url-report.json> --out <updated-artifact.json> --json` after model review
+   returns a refined public URL report. It validates both inputs, rejects
+   source/classification/version/download/source-outline drift, recomputes
+   unit hashes and review metadata, and keeps review-required posture before
+   registry staging.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage
