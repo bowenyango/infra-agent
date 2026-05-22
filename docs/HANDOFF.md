@@ -6,6 +6,58 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-22 Public Library Refinement Review
+
+Status:
+
+- Added `knowledge library-refinement-review <library-artifact.json>` as the
+  offline LLM handoff for downloaded or locally generated public-library
+  artifacts.
+- The command validates the input as an
+  `infra-agent.public-knowledge-library-artifact`, then emits a read-only
+  `infra-agent.public-knowledge-library-refinement-review` report with
+  `mutationAllowed: false`.
+- The report resolves `artifact.llmRefinementInput` into compact inputs for
+  classification, download evidence, source outline, summary, quality, and
+  compact units, plus the review-packet hash and a bounded prompt contract.
+- This keeps the central-library path ready for later model-based refinement
+  without calling a model, fetching more docs, mutating artifacts, uploading,
+  or approving publication.
+
+Files changed:
+
+- `src/knowledge/public-library-refinement-review.ts` builds the validated
+  review report and prompt contract from a public-library artifact.
+- `src/cli/main.ts` parses and routes `knowledge library-refinement-review`.
+- `src/cli/output.ts` prints the human-readable refinement review summary.
+- `test/integration/cli-public-library-refinement-review-main.test.mjs` covers
+  the JSON report, persisted `--out` artifact, validation-failure JSON, and
+  raw-content guards.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers argument parsing
+  and rejection of unrelated selector/download flags.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  command contract.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "library-refinement-review"
+  test/integration/cli-public-library-refinement-review-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-refinement-review"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:integration` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The command prepares a high-quality LLM input packet but intentionally does
+  not execute model calls or apply model output. A later slice should add an
+  explicit refinement runner with mocked transports in tests.
+- It accepts local artifacts only. Registry browse and download selection stay
+  in `knowledge library-catalog` and `knowledge library-download`.
+
 ## 2026-05-22 Public Library URL Registry Intake
 
 Status:

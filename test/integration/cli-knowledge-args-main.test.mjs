@@ -496,6 +496,51 @@ test('knowledge library-catalog CLI args accept public registry filter flags', (
   assert.equal(parsed.json, true);
 });
 
+test('knowledge library-refinement-review CLI args accept artifact input and output flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-refinement-review',
+    'artifacts/aws-s3-library.json',
+    '--out',
+    'artifacts/refinement-review.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-refinement-review');
+  assert.equal(parsed.inputPath, 'artifacts/aws-s3-library.json');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.outputPath, 'artifacts/refinement-review.json');
+  assert.equal(parsed.json, true);
+});
+
+test('knowledge library-refinement-review rejects unrelated selector and download flags', () => {
+  const rejectedArgs = [
+    ['--domain', 'terraform'],
+    ['--resource', 'aws_s3_bucket'],
+    ['--coordinate', 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket'],
+    ['--workspace', 'fixtures/sample-workspace']
+  ];
+
+  for (const args of rejectedArgs) {
+    const script = [
+      "import { parseArgs } from './src/cli/main.ts';",
+      `parseArgs(${JSON.stringify(['knowledge', 'library-refinement-review', 'artifacts/aws-s3-library.json', ...args])});`
+    ].join(' ');
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      script
+    ], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 1);
+  }
+});
+
 test('knowledge index filters are rejected for other knowledge actions', () => {
   const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'pack', 'fixtures/sample-workspace', '--unit-type', 'fact']);";
   const result = spawnSync(process.execPath, [

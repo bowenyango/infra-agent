@@ -56,6 +56,7 @@ import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-a
 import type { PublicKnowledgeLibraryStageReport } from '../knowledge/public-library-stage.ts';
 import type { PublicKnowledgeLibraryDownloadReport } from '../knowledge/public-library-download.ts';
 import type { PublicKnowledgeLibraryCatalogReport } from '../knowledge/public-library-catalog.ts';
+import type { PublicKnowledgeLibraryRefinementReviewReport } from '../knowledge/public-library-refinement-review.ts';
 import type {
   KnowledgeUnitIndexEntry,
   KnowledgeUnitMetadataIndex
@@ -3884,6 +3885,32 @@ export function printPublicKnowledgeLibraryCatalogReport(
       location
     ].join(' ');
   }), 'No public library entries matched.');
+
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
+}
+
+export function printPublicKnowledgeLibraryRefinementReviewReport(
+  report: PublicKnowledgeLibraryRefinementReviewReport
+): void {
+  printHeader('Public knowledge library refinement review');
+  process.stdout.write(`input: ${report.inputPath}\n`);
+  process.stdout.write(`coordinates: ${report.artifact.coordinates}\n`);
+  process.stdout.write(`domain: ${report.classification.ecosystem}\n`);
+  process.stdout.write(`artifact kind: ${report.classification.artifactKind}\n`);
+  process.stdout.write(`source: ${report.classification.sourceName}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`units: ${report.artifact.unitCount}\n`);
+  process.stdout.write(`unit types: ${report.artifact.includedUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`missing unit types: ${report.review.missingUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`quality: ${report.review.qualityStatus} score=${report.review.qualityScore}\n`);
+  process.stdout.write(`review packet: ${report.review.reviewPacketHash.slice(0, 12)} complete=${report.review.unitTypeComplete ? 'yes' : 'no'}\n`);
+  process.stdout.write(`llm mode: ${report.review.mode} status=${report.review.status}\n`);
+  process.stdout.write(`output contract: ${report.review.outputContract}\n`);
+  process.stdout.write('raw content included: no\n');
 
   if (report.warnings.length > 0) {
     process.stdout.write('\n');

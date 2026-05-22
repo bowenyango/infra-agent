@@ -360,6 +360,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   workspace-relative content-addressed artifact. Treat the result as local
   download/reuse; it must not upload, publish, approve trust, or embed raw
   documentation in the report.
+  Use `knowledge library-refinement-review <library-artifact.json> --json`
+  after generating or downloading an artifact when a model needs a focused
+  refinement handoff. It validates the artifact and emits resolved compact
+  inputs, the review-packet hash, and a bounded prompt contract from
+  `artifact.llmRefinementInput` without calling a model, fetching more docs,
+  mutating the artifact, or embedding raw documentation.
 - URL-only public documentation extraction must validate the
   `infra-agent.public-knowledge-url-report` before LLM refinement or
   central-library artifact preparation. The report validator is the boundary

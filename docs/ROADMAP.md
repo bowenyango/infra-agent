@@ -707,6 +707,16 @@ Implemented initial CLI surfaces:
     raw-content-free. This is manual download/reuse for a central-library
     artifact, not upload, publication approval, credential access, or a remote
     trust model.
+- `infra-agent knowledge library-refinement-review <library-artifact.json>
+  [--out <review.json>] --json`
+  - validates a public-library artifact and emits a read-only
+    `infra-agent.public-knowledge-library-refinement-review` report for
+    offline LLM refinement. The report resolves the artifact's
+    `llmRefinementInput` references into compact classification, download,
+    source-outline, summary, quality, and unit inputs, carries the review
+    packet hash, and includes a bounded prompt contract. It must not call a
+    model, rewrite the artifact, fetch more docs, upload, approve publication,
+    or embed raw documentation.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

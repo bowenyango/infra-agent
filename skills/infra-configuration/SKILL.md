@@ -76,6 +76,7 @@ values.
    infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> --json
    infra-agent knowledge library-catalog <registry.json|registry-url> --domain <helm|pulumi|terraform> --resource <identity> --json
    infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
+   infra-agent knowledge library-refinement-review <library-artifact.json> --json
    ```
 
    Use `--resource <identity>` instead of `--target <path>` when the user names
@@ -177,6 +178,12 @@ values.
    rejects identity/version/unit/quality/LLM-review drift, and writes a
    workspace-relative content-addressed artifact. Treat it as local
    download/reuse, not upload, publication approval, or a trust decision.
+   Use `knowledge library-refinement-review <library-artifact.json> --json`
+   after generating or downloading a public-library artifact when a model
+   needs a focused refinement handoff. It validates the artifact and emits
+   resolved compact inputs, the review-packet hash, and a bounded prompt
+   contract from `artifact.llmRefinementInput` without calling a model,
+   fetching more docs, mutating the artifact, or embedding raw documentation.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage

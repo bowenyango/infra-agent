@@ -147,6 +147,7 @@ infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
 infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --json
+infra-agent knowledge library-refinement-review <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-library-refinement-review.json --json
 infra-agent knowledge pack <workspace> --domain terraform --resource aws_s3_bucket --json
 ```
 
@@ -254,6 +255,14 @@ payload, reject identity/version/unit/quality/LLM-review metadata drift, and
 write the verified artifact into a workspace-relative content-addressed store.
 Its report must stay raw-content-free and must not upload, publish, or approve
 trust.
+`knowledge library-refinement-review` should validate a downloaded or locally
+generated public-library artifact and emit a read-only
+`infra-agent.public-knowledge-library-refinement-review` report. Tests should
+assert `mutationAllowed: false`, the artifact coordinates, unit counts,
+quality, review-packet hash, resolved compact inputs, prompt contract,
+`llmPrompt.rawContentIncluded: false`, and no raw Markdown headings or fences.
+It must not call a live model, fetch docs, mutate the artifact, upload, or
+approve publication.
 This path can fetch
 the URL live; tests should continue to use offline fetcher fixtures, mocked
 fetch, and the internal `--content <file>` helper so default CI does not
