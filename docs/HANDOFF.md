@@ -6,6 +6,59 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-22 Public Library URL Registry Intake
+
+Status:
+
+- `knowledge library-catalog` and `knowledge library-download` now accept
+  either a local registry JSON file or a secret-free HTTP(S) public-library
+  registry URL.
+- A shared registry loader validates downloaded registry JSON, records registry
+  location/status/content hash in the compact reports, and keeps URL handling
+  bounded to query-free, fragment-free HTTP(S) URLs.
+- URL registries may use relative artifact paths. Catalog resolves those paths
+  to artifact URLs for browse/search output, and download resolves the same
+  paths before fetching and verifying the selected artifact hash.
+- This makes the central-library flow closer to a Hub-style browse/download
+  model while preserving the existing artifact hash and metadata drift checks.
+
+Files changed:
+
+- `src/knowledge/public-library-registry-loader.ts` centralizes local/URL
+  registry loading and relative artifact URL resolution.
+- `src/knowledge/public-library-catalog.ts` uses the loader and reports
+  registry source metadata.
+- `src/knowledge/public-library-download.ts` uses the loader for URL registries
+  and relative artifact paths.
+- `src/cli/main.ts` accepts registry URLs for catalog/download and rejects
+  unsafe HTTP(S) registry URLs before local-file validation.
+- `src/cli/output.ts` prints registry source location and status.
+- `test/integration/cli-public-library-catalog-main.test.mjs` covers URL
+  registry cataloging and relative artifact URL resolution.
+- `test/integration/cli-public-library-download-main.test.mjs` covers URL
+  registry download with relative artifact paths.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  URL registry intake contract.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge library-catalog"
+  test/integration/cli-public-library-catalog-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "knowledge library-download"
+  test/integration/cli-public-library-download-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:integration` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- URL registry intake is direct fetch only for catalog/download. Configured
+  workspace reuse still uses the existing `knowledge prefetch` cache path.
+- The command validates and surfaces LLM review metadata but still does not run
+  model-based artifact refinement.
+
 ## 2026-05-22 Public Library Download
 
 Status:

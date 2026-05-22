@@ -1,10 +1,10 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import type { PublicLibraryRegistryEntry } from './public-library-registry.ts';
 import {
-  parsePublicLibraryRegistryEntries,
-  type PublicLibraryRegistryEntry
-} from './public-library-registry.ts';
-import { validateKnowledgePayload } from './validate.ts';
+  loadPublicLibraryRegistry,
+  resolvePublicLibraryArtifactLocation,
+  type PublicLibraryFetchImpl,
+  type LoadedPublicLibraryRegistry
+} from './public-library-registry-loader.ts';
 import {
   KNOWLEDGE_UNIT_TYPES,
   type KnowledgeUnitType
@@ -30,6 +30,13 @@ export interface PublicKnowledgeLibraryCatalogReport {
   schemaVersion: 1;
   mutationAllowed: false;
   registryPath: string;
+  registry: {
+    locationKind: 'workspace-path' | 'url';
+    path?: string;
+    url?: string;
+    contentHash: string;
+    status: 'read' | 'downloaded';
+  };
   summary: {
     entryCount: number;
     matchedEntryCount: number;
@@ -112,10 +119,7 @@ export interface PublicKnowledgeLibraryCatalogEntry {
 interface PublicKnowledgeLibraryCatalogOptions {
   registryPath: string;
   filter?: PublicKnowledgeLibraryCatalogFilter;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  fetchImpl?: PublicLibraryFetchImpl;
 }
 
 function normalizeFilter(filter: PublicKnowledgeLibraryCatalogFilter = {}): PublicKnowledgeLibraryCatalogFilter {
@@ -187,26 +191,29 @@ function entryMatchesFilter(entry: PublicLibraryRegistryEntry, filter: PublicKno
   return true;
 }
 
-function artifactLocation(entry: PublicLibraryRegistryEntry): PublicKnowledgeLibraryCatalogEntry['artifact']['location'] {
-  if (typeof entry.artifact.url === 'string') {
+function artifactLocation(
+  entry: PublicLibraryRegistryEntry,
+  registry: LoadedPublicLibraryRegistry
+): PublicKnowledgeLibraryCatalogEntry['artifact']['location'] {
+  const location = resolvePublicLibraryArtifactLocation(entry, registry);
+  if (location.kind === 'url') {
     return {
       kind: 'url',
-      url: entry.artifact.url
+      url: location.url
     };
   }
 
-  if (typeof entry.artifact.path === 'string') {
-    return {
-      kind: 'workspace-path',
-      path: entry.artifact.path
-    };
-  }
-
-  throw new Error(`Public knowledge library registry entry ${entry.coordinates} has no downloadable artifact location.`);
+  return {
+    kind: 'workspace-path',
+    path: location.path
+  };
 }
 
-function catalogEntryFromRegistryEntry(entry: PublicLibraryRegistryEntry): PublicKnowledgeLibraryCatalogEntry {
-  const location = artifactLocation(entry);
+function catalogEntryFromRegistryEntry(
+  entry: PublicLibraryRegistryEntry,
+  registry: LoadedPublicLibraryRegistry
+): PublicKnowledgeLibraryCatalogEntry {
+  const location = artifactLocation(entry, registry);
   const unitTypeComplete = entry.llmRefinement.missingUnitTypes.length === 0;
 
   return {
@@ -334,44 +341,33 @@ function buildSummary(
   };
 }
 
-function registryEntryCount(payload: unknown): number {
-  if (!isRecord(payload) || !Array.isArray(payload.entries)) {
-    return 0;
-  }
-
-  return payload.entries.length;
-}
-
 export async function buildPublicKnowledgeLibraryCatalogReport(
   options: PublicKnowledgeLibraryCatalogOptions
 ): Promise<PublicKnowledgeLibraryCatalogReport> {
-  const registryPath = resolve(options.registryPath);
-  const payload = JSON.parse(await readFile(registryPath, 'utf8')) as unknown;
-  const validation = validateKnowledgePayload(payload, registryPath);
-  if (!validation.valid || validation.inputKind !== 'infra-agent.public-knowledge-library-registry') {
-    const firstIssue = validation.issues[0];
-    throw new Error(firstIssue
-      ? `Public knowledge library registry is invalid: ${firstIssue.path} ${firstIssue.message}`
-      : 'Public knowledge library registry is invalid.');
-  }
-
-  const rawEntryCount = registryEntryCount(payload);
-  const registryEntries = parsePublicLibraryRegistryEntries(payload);
-  if (registryEntries.length !== rawEntryCount) {
-    throw new Error('Public knowledge library registry contains entries that could not be parsed for catalog output.');
-  }
+  const registry = await loadPublicLibraryRegistry({
+    registryPath: options.registryPath,
+    fetchImpl: options.fetchImpl
+  });
+  const rawEntryCount = registry.entries.length;
 
   const filters = normalizeFilter(options.filter);
-  const entries = registryEntries
+  const entries = registry.entries
     .filter(entry => entryMatchesFilter(entry, filters))
-    .map(catalogEntryFromRegistryEntry)
+    .map(entry => catalogEntryFromRegistryEntry(entry, registry))
     .sort((left, right) => left.coordinates.localeCompare(right.coordinates));
 
   return {
     kind: 'infra-agent.public-knowledge-library-catalog',
     schemaVersion: 1,
     mutationAllowed: false,
-    registryPath,
+    registryPath: registry.registryPath,
+    registry: {
+      locationKind: registry.locationKind,
+      ...(registry.path ? { path: registry.path } : {}),
+      ...(registry.url ? { url: registry.url } : {}),
+      contentHash: registry.contentHash,
+      status: registry.status
+    },
     summary: buildSummary(rawEntryCount, entries),
     filters,
     entries,

@@ -24,6 +24,9 @@ import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/5.37.0/docs/resources/s3_bucket';
 const REMOTE_ARTIFACT_URL = 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json';
+const REMOTE_REGISTRY_URL = 'https://knowledge.example.com/public/public-library-registry.json';
+const REMOTE_RELATIVE_ARTIFACT_PATH = 'artifacts/aws-s3-bucket.public-knowledge-library-artifact.json';
+const REMOTE_RELATIVE_ARTIFACT_URL = 'https://knowledge.example.com/public/artifacts/aws-s3-bucket.public-knowledge-library-artifact.json';
 
 const S3_BUCKET_MARKDOWN = [
   '# aws_s3_bucket',
@@ -264,6 +267,57 @@ test('knowledge library-download fetches a URL artifact and verifies the registr
     assert.equal(report.artifact.sha256, sha256Hex(artifactContent));
     const storedContent = await readFile(report.artifact.storedPath, 'utf8');
     assert.equal(storedContent, artifactContent);
+    assert.equal((await readValidatedArtifact(report.artifact.storedPath)).coordinates, artifact.coordinates);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge library-download fetches URL registries and relative artifact paths', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-download-registry-url-'));
+
+  try {
+    const artifact = await buildLibraryArtifact(tempRoot);
+    const artifactContent = `${JSON.stringify(artifact, null, 2)}\n`;
+    const registry = registryPayload(registryEntryFromArtifact(
+      artifact,
+      { path: REMOTE_RELATIVE_ARTIFACT_PATH },
+      artifactContent
+    ));
+    const registryContent = `${JSON.stringify(registry, null, 2)}\n`;
+
+    const output = await withMockFetch(new Map([
+      [REMOTE_REGISTRY_URL, {
+        contentType: 'application/vnd.infra-agent.public-knowledge-library-registry+json',
+        content: registryContent
+      }],
+      [REMOTE_RELATIVE_ARTIFACT_URL, {
+        contentType: 'application/vnd.infra-agent.public-knowledge-library-artifact+json',
+        content: artifactContent
+      }]
+    ]), () => captureStdout(() => main([
+      'knowledge',
+      'library-download',
+      REMOTE_REGISTRY_URL,
+      '--coordinate',
+      artifact.coordinates,
+      '--workspace',
+      tempRoot,
+      '--store-dir',
+      'knowledge/downloaded-public-library',
+      '--json'
+    ])));
+    const report = parseJsonOutput(output);
+
+    assert.equal(report.registryPath, REMOTE_REGISTRY_URL);
+    assert.equal(report.registry.locationKind, 'url');
+    assert.equal(report.registry.status, 'downloaded');
+    assert.equal(report.registry.contentHash, sha256Hex(registryContent));
+    assert.equal(report.source.locationKind, 'url');
+    assert.equal(report.source.path, REMOTE_RELATIVE_ARTIFACT_PATH);
+    assert.equal(report.source.url, REMOTE_RELATIVE_ARTIFACT_URL);
+    assert.equal(report.source.status, 'downloaded');
+    assert.equal(report.artifact.sha256, sha256Hex(artifactContent));
     assert.equal((await readValidatedArtifact(report.artifact.storedPath)).coordinates, artifact.coordinates);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

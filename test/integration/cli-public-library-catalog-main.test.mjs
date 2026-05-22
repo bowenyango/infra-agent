@@ -23,6 +23,8 @@ import {
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket';
 const HELM_KUBE_PROMETHEUS_STACK_URL = 'https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack/';
+const REMOTE_PUBLIC_LIBRARY_REGISTRY_URL = 'https://knowledge.example.com/public/public-library-registry.json';
+const REMOTE_PUBLIC_LIBRARY_ARTIFACT_URL = 'https://knowledge.example.com/public/artifacts/aws-s3-bucket.public-knowledge-library-artifact.json';
 
 const S3_BUCKET_MARKDOWN = [
   '# aws_s3_bucket',
@@ -88,6 +90,40 @@ function parseJsonOutput(output) {
 
 function sha256Hex(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+async function withMockFetch(routes, action) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async url => {
+    const route = routes.get(String(url));
+    if (!route) {
+      return {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        headers: {
+          get: () => 'text/plain'
+        },
+        text: async () => 'not found'
+      };
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        get: name => name.toLowerCase() === 'content-type' ? route.contentType : null
+      },
+      text: async () => route.content
+    };
+  };
+
+  try {
+    return await action();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 }
 
 async function buildLibraryArtifact(root, input) {
@@ -261,6 +297,58 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     const writtenReport = JSON.parse(await readFile(reportPath, 'utf8'));
     assert.equal(writtenReport.kind, 'infra-agent.public-knowledge-library-catalog');
     assert.equal(writtenReport.entries.length, 1);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge library-catalog reads URL registries and resolves relative artifact URLs', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-catalog-url-'));
+
+  try {
+    const terraformArtifact = await buildLibraryArtifact(tempRoot, {
+      url: S3_BUCKET_URL,
+      contentFile: 'aws_s3_bucket.md',
+      artifactFile: 'aws_s3_bucket.library.json',
+      markdown: S3_BUCKET_MARKDOWN
+    });
+    const registry = {
+      kind: 'infra-agent.public-knowledge-library-registry',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      entries: [
+        registryEntryFromArtifact(terraformArtifact.artifact, {
+          path: 'artifacts/aws-s3-bucket.public-knowledge-library-artifact.json'
+        })
+      ]
+    };
+    const registryContent = `${JSON.stringify(registry, null, 2)}\n`;
+
+    const output = await withMockFetch(new Map([
+      [REMOTE_PUBLIC_LIBRARY_REGISTRY_URL, {
+        contentType: 'application/vnd.infra-agent.public-knowledge-library-registry+json',
+        content: registryContent
+      }]
+    ]), () => captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
+      '--coordinate',
+      terraformArtifact.artifact.coordinates,
+      '--json'
+    ])));
+    const catalog = parseJsonOutput(output);
+
+    assert.equal(catalog.registryPath, REMOTE_PUBLIC_LIBRARY_REGISTRY_URL);
+    assert.equal(catalog.registry.locationKind, 'url');
+    assert.equal(catalog.registry.status, 'downloaded');
+    assert.equal(catalog.registry.contentHash, sha256Hex(registryContent));
+    assert.equal(catalog.summary.entryCount, 1);
+    assert.equal(catalog.summary.matchedEntryCount, 1);
+    assert.equal(catalog.entries[0].artifact.location.kind, 'url');
+    assert.equal(catalog.entries[0].artifact.location.url, REMOTE_PUBLIC_LIBRARY_ARTIFACT_URL);
+    assert.equal(catalog.entries[0].artifactDownload.requiresPrefetch, true);
+    assert.doesNotMatch(output, /Provides an S3 bucket resource/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

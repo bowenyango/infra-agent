@@ -17,6 +17,7 @@ import type { KnowledgeStorageScope } from '../knowledge/storage-policy.ts';
 import { prefetchWorkspaceKnowledge } from '../knowledge/prefetch.ts';
 import { buildKnowledgeSourcesReport } from '../knowledge/sources.ts';
 import { buildKnowledgeCacheStatusReportFromSources } from '../knowledge/cache-status.ts';
+import { isSecretSafeKnowledgeUrl } from '../knowledge/source-config.ts';
 import { extractWorkspaceKnowledgeFacts } from '../knowledge/extract.ts';
 import {
   loadKnowledgeValidationReport,
@@ -196,8 +197,8 @@ function printUsage(): void {
       '  infra-agent knowledge from-url <url> [--max-units <n>] [--content <markdown-or-html-file>] [--out <url-knowledge.json>] [--library-out <library-artifact.json>] [--json]',
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]',
-      '  infra-agent knowledge library-download <registry.json> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]',
-      '  infra-agent knowledge library-catalog <registry.json> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]',
+      '  infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]',
+      '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
       ''
@@ -1929,10 +1930,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       fail('knowledge library-stage requires exactly one public library artifact JSON path.');
     }
     if (knowledgeAction === 'library-download' && positionalArgs.length !== 1) {
-      fail('knowledge library-download requires exactly one public library registry JSON path.');
+      fail('knowledge library-download requires exactly one public library registry JSON path or URL.');
     }
     if (knowledgeAction === 'library-catalog' && positionalArgs.length !== 1) {
-      fail('knowledge library-catalog requires exactly one public library registry JSON path.');
+      fail('knowledge library-catalog requires exactly one public library registry JSON path or URL.');
     }
     if ((knowledgeAction === 'publish' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download') && publishStoreDir === null) {
       fail(`knowledge ${knowledgeAction} requires --store-dir.`);
@@ -2665,21 +2666,27 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'library-catalog') {
     if (!parsed.inputPath) {
-      fail('knowledge library-catalog requires exactly one public library registry JSON path.');
+      fail('knowledge library-catalog requires exactly one public library registry JSON path or URL.');
     }
 
-    const validationReport = await loadKnowledgeValidationReport(parsed.inputPath, cwd(), {});
-    if (!validationReport.valid) {
-      if (parsed.json) {
-        process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
-      } else {
-        printKnowledgeValidationReport(validationReport);
-      }
-      process.exitCode = 1;
-      return;
+    const catalogInputLooksLikeUrl = /^https?:\/\//i.test(parsed.inputPath);
+    if (catalogInputLooksLikeUrl && !isSecretSafeKnowledgeUrl(parsed.inputPath)) {
+      fail('knowledge library-catalog registry URL must be secret-free http(s) without query or fragment.');
     }
-    if (validationReport.inputKind !== 'infra-agent.public-knowledge-library-registry') {
-      fail('knowledge library-catalog requires an infra-agent.public-knowledge-library-registry input.');
+    if (!catalogInputLooksLikeUrl) {
+      const validationReport = await loadKnowledgeValidationReport(parsed.inputPath, cwd(), {});
+      if (!validationReport.valid) {
+        if (parsed.json) {
+          process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
+        } else {
+          printKnowledgeValidationReport(validationReport);
+        }
+        process.exitCode = 1;
+        return;
+      }
+      if (validationReport.inputKind !== 'infra-agent.public-knowledge-library-registry') {
+        fail('knowledge library-catalog requires an infra-agent.public-knowledge-library-registry input.');
+      }
     }
 
     const report = await buildPublicKnowledgeLibraryCatalogReport({
@@ -2709,7 +2716,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'library-download') {
     if (!parsed.inputPath || !parsed.publishStoreDir || !parsed.publicLibraryDownloadCoordinate) {
-      fail('knowledge library-download requires a public library registry JSON path, --workspace, --store-dir, and --coordinate.');
+      fail('knowledge library-download requires a public library registry JSON path or URL, --workspace, --store-dir, and --coordinate.');
     }
 
     const report = await downloadPublicKnowledgeLibraryArtifact({

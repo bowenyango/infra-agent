@@ -3833,6 +3833,7 @@ export function printPublicKnowledgeLibraryDownloadReport(
   process.stdout.write(`mode: ${report.executionMode}\n`);
   process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
   process.stdout.write(`registry: ${report.registryPath}\n`);
+  process.stdout.write(`registry source: ${report.registry.locationKind} ${report.registry.status}\n`);
   process.stdout.write(`coordinates: ${report.coordinates}\n`);
   process.stdout.write(`source: ${report.source.locationKind} ${report.source.status}\n`);
   process.stdout.write(`units: ${report.artifact.unitCount}\n`);
@@ -3853,6 +3854,7 @@ export function printPublicKnowledgeLibraryCatalogReport(
 ): void {
   printHeader('Public knowledge library catalog');
   process.stdout.write(`registry: ${report.registryPath}\n`);
+  process.stdout.write(`registry source: ${report.registry.locationKind} ${report.registry.status}\n`);
   process.stdout.write(`entries: ${report.summary.matchedEntryCount}/${report.summary.entryCount}\n`);
   process.stdout.write(`downloadable: ${report.summary.downloadableEntryCount}\n`);
   process.stdout.write(`quality: ready=${report.summary.readyEntryCount} needs-refinement=${report.summary.needsRefinementEntryCount}\n`);

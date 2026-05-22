@@ -345,20 +345,21 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   with the review-packet hash, unit-type coverage, quality score, and missing
   unit types so consumers can distinguish pinned versions from mutable aliases
   such as `latest` and choose useful artifacts before downloading them. Use
-  `knowledge library-catalog <registry.json> --json` as the read-only
-  browse/search layer before download reuse. It must validate the registry
-  first, keep output raw-content-free, support filters by domain, provider,
-  package, chart, resource, version, tag, coordinate, and quality, and report
-  artifact path or URL plus hashes and LLM review metadata without fetching,
-  uploading, or approving publication.
-  Use `knowledge library-download <registry.json> --coordinate <coordinate>
-  --workspace <workspace> --store-dir <dir> --json` only after choosing a
-  coordinate. It must validate the registry, fetch or copy the selected
-  artifact, verify the registry SHA-256 content hash, validate the artifact
-  payload, check identity/version/unit/quality/LLM-review metadata drift, and
-  write only a workspace-relative content-addressed artifact. Treat the result
-  as local download/reuse; it must not upload, publish, approve trust, or embed
-  raw documentation in the report.
+  `knowledge library-catalog <registry.json|registry-url> --json` as the
+  read-only browse/search layer before download reuse. It must validate the
+  registry first, keep output raw-content-free, support filters by domain,
+  provider, package, chart, resource, version, tag, coordinate, and quality,
+  and report resolved artifact path or URL plus hashes and LLM review metadata
+  without fetching artifacts, uploading, or approving publication.
+  Use `knowledge library-download <registry.json|registry-url> --coordinate
+  <coordinate> --workspace <workspace> --store-dir <dir> --json` only after
+  choosing a coordinate. It must validate the registry, fetch or copy the
+  selected artifact, resolve relative artifact paths from URL registries, verify
+  the registry SHA-256 content hash, validate the artifact payload, check
+  identity/version/unit/quality/LLM-review metadata drift, and write only a
+  workspace-relative content-addressed artifact. Treat the result as local
+  download/reuse; it must not upload, publish, approve trust, or embed raw
+  documentation in the report.
 - URL-only public documentation extraction must validate the
   `infra-agent.public-knowledge-url-report` before LLM refinement or
   central-library artifact preparation. The report validator is the boundary

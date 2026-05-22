@@ -10,10 +10,14 @@ import {
   resolve
 } from 'node:path';
 import { validateKnowledgePayload } from './validate.ts';
+import type { PublicLibraryRegistryEntry } from './public-library-registry.ts';
 import {
-  parsePublicLibraryRegistryEntries,
-  type PublicLibraryRegistryEntry
-} from './public-library-registry.ts';
+  fetchPublicLibraryJsonBytes,
+  loadPublicLibraryRegistry,
+  resolvePublicLibraryArtifactLocation,
+  type LoadedPublicLibraryRegistry,
+  type PublicLibraryFetchImpl
+} from './public-library-registry-loader.ts';
 import { isSafeWorkspaceRelativePath } from './source-config.ts';
 import {
   KNOWLEDGE_UNIT_TYPES,
@@ -26,22 +30,12 @@ import type {
   PublicKnowledgeVersionResolution
 } from './url-report.ts';
 
-type PublicKnowledgeLibraryArtifactFetchImpl = (url: string) => Promise<{
-  ok: boolean;
-  status: number;
-  statusText: string;
-  headers: {
-    get(name: string): string | null;
-  };
-  text(): Promise<string>;
-}>;
-
 export interface PublicKnowledgeLibraryDownloadOptions {
   registryPath: string;
   workspaceRoot: string;
   storeDir: string;
   coordinates: string;
-  fetchImpl?: PublicKnowledgeLibraryArtifactFetchImpl;
+  fetchImpl?: PublicLibraryFetchImpl;
 }
 
 export interface PublicKnowledgeLibraryDownloadReport {
@@ -51,6 +45,13 @@ export interface PublicKnowledgeLibraryDownloadReport {
   executionMode: 'local-file-store';
   workspaceRoot: string;
   registryPath: string;
+  registry: {
+    locationKind: 'workspace-path' | 'url';
+    path?: string;
+    url?: string;
+    contentHash: string;
+    status: 'read' | 'downloaded';
+  };
   coordinates: string;
   source: {
     locationKind: 'workspace-path' | 'url';
@@ -133,49 +134,23 @@ function sameJson(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-async function loadRegistryEntries(registryPath: string): Promise<{
-  registryAbsolutePath: string;
-  entries: PublicLibraryRegistryEntry[];
-}> {
-  const registryAbsolutePath = resolve(registryPath);
-  const payload = JSON.parse(await readFile(registryAbsolutePath, 'utf8')) as unknown;
-  const validation = validateKnowledgePayload(payload, registryAbsolutePath);
-  if (!validation.valid || validation.inputKind !== 'infra-agent.public-knowledge-library-registry') {
-    const firstIssue = validation.issues[0];
-    throw new Error(firstIssue
-      ? `Public knowledge library registry is invalid: ${firstIssue.path} ${firstIssue.message}`
-      : 'Public knowledge library registry is invalid.');
-  }
-
-  const entries = parsePublicLibraryRegistryEntries(payload);
-  const rawEntryCount = isRecord(payload) && Array.isArray(payload.entries)
-    ? payload.entries.length
-    : 0;
-  if (entries.length !== rawEntryCount) {
-    throw new Error('Public knowledge library registry contains entries that could not be parsed for download.');
-  }
-
-  return {
-    registryAbsolutePath,
-    entries
-  };
-}
-
 async function readArtifactBytes(
   entry: PublicLibraryRegistryEntry,
+  registry: LoadedPublicLibraryRegistry,
   workspaceRoot: string,
   fetchImpl: PublicKnowledgeLibraryDownloadOptions['fetchImpl']
 ): Promise<{
   bytes: Buffer;
   source: PublicKnowledgeLibraryDownloadReport['source'];
 }> {
-  if (typeof entry.artifact.path === 'string') {
-    const bytes = await readFile(resolve(workspaceRoot, entry.artifact.path));
+  const location = resolvePublicLibraryArtifactLocation(entry, registry);
+  if (location.kind === 'workspace-path') {
+    const bytes = await readFile(resolve(workspaceRoot, location.path));
     return {
       bytes,
       source: {
         locationKind: 'workspace-path',
-        path: entry.artifact.path,
+        path: location.path,
         contentHash: entry.artifact.contentHash,
         mediaType: entry.artifact.mediaType,
         requiresFetch: false,
@@ -184,32 +159,22 @@ async function readArtifactBytes(
     };
   }
 
-  if (typeof entry.artifact.url === 'string') {
-    const resolvedFetch = fetchImpl ?? (fetch as unknown as PublicKnowledgeLibraryArtifactFetchImpl);
-    const response = await resolvedFetch(entry.artifact.url);
-    if (!response.ok) {
-      throw new Error(`Failed to download public library artifact ${entry.artifact.url}: ${response.status} ${response.statusText}`);
+  return {
+    bytes: await fetchPublicLibraryJsonBytes({
+      url: location.url,
+      fetchImpl,
+      label: 'public library artifact'
+    }),
+    source: {
+      locationKind: 'url',
+      ...(location.path ? { path: location.path } : {}),
+      url: location.url,
+      contentHash: entry.artifact.contentHash,
+      mediaType: entry.artifact.mediaType,
+      requiresFetch: true,
+      status: 'downloaded'
     }
-
-    const contentType = response.headers.get('content-type') ?? '';
-    if (contentType.length > 0 && !contentType.toLowerCase().includes('json')) {
-      throw new Error(`Public library artifact ${entry.artifact.url} returned unsupported content type ${contentType}.`);
-    }
-
-    return {
-      bytes: Buffer.from(await response.text(), 'utf8'),
-      source: {
-        locationKind: 'url',
-        url: entry.artifact.url,
-        contentHash: entry.artifact.contentHash,
-        mediaType: entry.artifact.mediaType,
-        requiresFetch: true,
-        status: 'downloaded'
-      }
-    };
-  }
-
-  throw new Error(`Public knowledge library registry entry ${entry.coordinates} has no downloadable artifact location.`);
+  };
 }
 
 function assertArtifactMatchesRegistry(
@@ -327,13 +292,16 @@ export async function downloadPublicKnowledgeLibraryArtifact(
 ): Promise<PublicKnowledgeLibraryDownloadReport> {
   assertSafeRelativePath(options.storeDir, '--store-dir');
 
-  const { registryAbsolutePath, entries } = await loadRegistryEntries(options.registryPath);
-  const entry = entries.find(candidate => candidate.coordinates === options.coordinates);
+  const registry = await loadPublicLibraryRegistry({
+    registryPath: options.registryPath,
+    fetchImpl: options.fetchImpl
+  });
+  const entry = registry.entries.find(candidate => candidate.coordinates === options.coordinates);
   if (!entry) {
     throw new Error(`Public knowledge library registry does not contain coordinate ${options.coordinates}.`);
   }
 
-  const { bytes, source } = await readArtifactBytes(entry, options.workspaceRoot, options.fetchImpl);
+  const { bytes, source } = await readArtifactBytes(entry, registry, options.workspaceRoot, options.fetchImpl);
   const artifactHash = sha256(bytes);
   if (artifactHash !== entry.artifact.contentHash) {
     throw new Error(`Downloaded public library artifact content hash mismatch for ${entry.coordinates}: expected ${entry.artifact.contentHash}, got ${artifactHash}.`);
@@ -364,7 +332,14 @@ export async function downloadPublicKnowledgeLibraryArtifact(
     mutationAllowed: true,
     executionMode: 'local-file-store',
     workspaceRoot: options.workspaceRoot,
-    registryPath: registryAbsolutePath,
+    registryPath: registry.registryPath,
+    registry: {
+      locationKind: registry.locationKind,
+      ...(registry.path ? { path: registry.path } : {}),
+      ...(registry.url ? { url: registry.url } : {}),
+      contentHash: registry.contentHash,
+      status: registry.status
+    },
     coordinates: entry.coordinates,
     source,
     artifact: {

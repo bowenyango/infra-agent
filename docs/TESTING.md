@@ -240,17 +240,20 @@ unsupported media types, bad quality states, malformed `llmRefinement` index
 summaries, missing review posture, and raw content before catalog or reuse.
 `knowledge library-catalog` should validate the registry first, then report
 only raw-content-free directory metadata:
-classification, coordinates, versionRef/versionResolution, artifact path or
-URL, content hash, quality status, unit-type coverage, missing unit types, and
-LLM review-packet hash. It must support filters for domain,
-provider/package/chart, resource, version, tag, coordinate, and quality, and it
-must not fetch artifacts, upload metadata, or include raw docs.
-`knowledge library-download` should validate the registry, select one
-coordinate, copy a workspace-path artifact or download a URL artifact, verify
-the registered SHA-256 content hash, validate the artifact payload, reject
-identity/version/unit/quality/LLM-review metadata drift, and write the verified
-artifact into a workspace-relative content-addressed store. Its report must
-stay raw-content-free and must not upload, publish, or approve trust.
+classification, coordinates, versionRef/versionResolution, resolved artifact
+path or URL, content hash, quality status, unit-type coverage, missing unit
+types, and LLM review-packet hash. It must support local registry files and
+secret-free registry URLs, filters for domain, provider/package/chart,
+resource, version, tag, coordinate, and quality, and it must not fetch
+artifacts, upload metadata, or include raw docs.
+`knowledge library-download` should validate a local registry file or
+secret-free registry URL, select one coordinate, copy a workspace-path artifact
+or download a URL artifact, resolve relative artifact paths from URL
+registries, verify the registered SHA-256 content hash, validate the artifact
+payload, reject identity/version/unit/quality/LLM-review metadata drift, and
+write the verified artifact into a workspace-relative content-addressed store.
+Its report must stay raw-content-free and must not upload, publish, or approve
+trust.
 This path can fetch
 the URL live; tests should continue to use offline fetcher fixtures, mocked
 fetch, and the internal `--content <file>` helper so default CI does not

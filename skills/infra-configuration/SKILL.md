@@ -74,8 +74,8 @@ values.
    infra-agent knowledge index <workspace> --resource <identity> --field-path <field> --json
    infra-agent knowledge validate <artifact> --workspace <workspace>
    infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> --json
-   infra-agent knowledge library-catalog <registry.json> --domain <helm|pulumi|terraform> --resource <identity> --json
-   infra-agent knowledge library-download <registry.json> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
+   infra-agent knowledge library-catalog <registry.json|registry-url> --domain <helm|pulumi|terraform> --resource <identity> --json
+   infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
    ```
 
    Use `--resource <identity>` instead of `--target <path>` when the user names
@@ -161,19 +161,21 @@ values.
    review-required posture. Registry entries preserve the offline review-packet
    hash, unit-type coverage, missing unit types, and quality score so an agent
    can decide whether the artifact is useful enough to download or refine.
-   Use `knowledge library-catalog <registry.json> --json` as the read-only
-   central-library browse/search surface before artifact reuse. It validates
-   the registry, supports filters for domain, provider/package/chart, resource,
-   version, tag, coordinate, and quality, and reports classification,
-   artifact path or URL, content hash, quality, unit-type coverage, missing
-   unit types, and the LLM review-packet hash without fetching artifacts or
-   embedding raw documentation.
-   Use `knowledge library-download <registry.json> --coordinate <coordinate>
-   --workspace <workspace> --store-dir <dir> --json` after choosing one
-   catalog coordinate. It validates the registry, copies or downloads the
-   artifact, verifies the registry SHA-256 content hash, validates the artifact
-   payload, rejects identity/version/unit/quality/LLM-review drift, and writes
-   a workspace-relative content-addressed artifact. Treat it as local
+   Use `knowledge library-catalog <registry.json|registry-url> --json` as the
+   read-only central-library browse/search surface before artifact reuse. It
+   validates a local registry file or secret-free registry URL, supports filters
+   for domain, provider/package/chart, resource, version, tag, coordinate, and
+   quality, and reports classification, resolved artifact path or URL, content
+   hash, quality, unit-type coverage, missing unit types, and the LLM
+   review-packet hash without fetching artifacts or embedding raw
+   documentation.
+   Use `knowledge library-download <registry.json|registry-url> --coordinate
+   <coordinate> --workspace <workspace> --store-dir <dir> --json` after
+   choosing one catalog coordinate. It validates the registry, copies or
+   downloads the artifact, resolves relative artifact paths from URL registries,
+   verifies the registry SHA-256 content hash, validates the artifact payload,
+   rejects identity/version/unit/quality/LLM-review drift, and writes a
+   workspace-relative content-addressed artifact. Treat it as local
    download/reuse, not upload, publication approval, or a trust decision.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
