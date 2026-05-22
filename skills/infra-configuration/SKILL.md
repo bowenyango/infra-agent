@@ -75,6 +75,7 @@ values.
    infra-agent knowledge validate <artifact> --workspace <workspace>
    infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> --json
    infra-agent knowledge library-catalog <registry.json> --domain <helm|pulumi|terraform> --resource <identity> --json
+   infra-agent knowledge library-download <registry.json> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
    ```
 
    Use `--resource <identity>` instead of `--target <path>` when the user names
@@ -167,6 +168,13 @@ values.
    artifact path or URL, content hash, quality, unit-type coverage, missing
    unit types, and the LLM review-packet hash without fetching artifacts or
    embedding raw documentation.
+   Use `knowledge library-download <registry.json> --coordinate <coordinate>
+   --workspace <workspace> --store-dir <dir> --json` after choosing one
+   catalog coordinate. It validates the registry, copies or downloads the
+   artifact, verifies the registry SHA-256 content hash, validates the artifact
+   payload, rejects identity/version/unit/quality/LLM-review drift, and writes
+   a workspace-relative content-addressed artifact. Treat it as local
+   download/reuse, not upload, publication approval, or a trust decision.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage

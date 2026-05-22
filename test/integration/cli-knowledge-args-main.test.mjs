@@ -186,6 +186,32 @@ test('knowledge from-url CLI args accept public documentation URL extraction fla
   assert.equal(parsed.json, true);
 });
 
+test('knowledge library-download CLI args require a coordinate and local store target', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-download',
+    'knowledge/public-library-registry.json',
+    '--coordinate',
+    'terraform/provider/hashicorp/aws/5.37.0/resource/aws_s3_bucket',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--store-dir',
+    'knowledge/downloaded-public-library',
+    '--out',
+    'artifacts/public-library-download.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-download');
+  assert.equal(parsed.inputPath, 'knowledge/public-library-registry.json');
+  assert.equal(parsed.publicLibraryDownloadCoordinate, 'terraform/provider/hashicorp/aws/5.37.0/resource/aws_s3_bucket');
+  assert.equal(parsed.workspace, resolve(process.cwd(), 'fixtures/sample-workspace'));
+  assert.equal(parsed.publishStoreDir, 'knowledge/downloaded-public-library');
+  assert.equal(parsed.outputPath, 'artifacts/public-library-download.json');
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge extract CLI args accept source filters and bounded targets', () => {
   const parsed = parseArgs([
     'knowledge',

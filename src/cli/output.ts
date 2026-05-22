@@ -54,6 +54,7 @@ import type { ResourceKnowledgeReport } from '../knowledge/resource-report.ts';
 import type { PublicKnowledgeUrlReport } from '../knowledge/url-report.ts';
 import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-artifact-publish.ts';
 import type { PublicKnowledgeLibraryStageReport } from '../knowledge/public-library-stage.ts';
+import type { PublicKnowledgeLibraryDownloadReport } from '../knowledge/public-library-download.ts';
 import type { PublicKnowledgeLibraryCatalogReport } from '../knowledge/public-library-catalog.ts';
 import type {
   KnowledgeUnitIndexEntry,
@@ -3818,6 +3819,28 @@ export function printPublicKnowledgeLibraryStageReport(
   process.stdout.write(`registry entries: ${report.registry.entryCount}\n`);
   process.stdout.write(`updated existing entry: ${report.registry.updatedExistingEntry ? 'yes' : 'no'}\n`);
   process.stdout.write(`download: ${report.entry.download.mode} strategy=${report.entry.download.strategy} fallback=${report.entry.download.fallbackUsed ? 'yes' : 'no'}\n`);
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
+}
+
+export function printPublicKnowledgeLibraryDownloadReport(
+  report: PublicKnowledgeLibraryDownloadReport
+): void {
+  printHeader('Public knowledge library download');
+  process.stdout.write(`mode: ${report.executionMode}\n`);
+  process.stdout.write(`workspace: ${report.workspaceRoot}\n`);
+  process.stdout.write(`registry: ${report.registryPath}\n`);
+  process.stdout.write(`coordinates: ${report.coordinates}\n`);
+  process.stdout.write(`source: ${report.source.locationKind} ${report.source.status}\n`);
+  process.stdout.write(`units: ${report.artifact.unitCount}\n`);
+  process.stdout.write(`quality: ${report.artifact.qualityStatus}\n`);
+  process.stdout.write(`version resolution: ${report.artifact.versionResolution.status}${report.artifact.versionResolution.resolvedVersion ? ` resolved=${report.artifact.versionResolution.resolvedVersion}` : ''}\n`);
+  process.stdout.write(`stored: ${report.artifact.registryPath}\n`);
+  process.stdout.write(`sha256: ${report.artifact.sha256}\n`);
+  process.stdout.write(`llm packet: ${report.llmRefinement.reviewPacketHash.slice(0, 12)} complete=${report.llmRefinement.unitTypeComplete ? 'yes' : 'no'}\n`);
   if (report.warnings.length > 0) {
     process.stdout.write('\n');
     printHeader('Warnings');

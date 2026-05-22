@@ -146,6 +146,7 @@ infra-agent knowledge validate /tmp/infra-agent-s3-url-knowledge.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
+infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --json
 infra-agent knowledge pack <workspace> --domain terraform --resource aws_s3_bucket --json
 ```
 
@@ -244,6 +245,12 @@ URL, content hash, quality status, unit-type coverage, missing unit types, and
 LLM review-packet hash. It must support filters for domain,
 provider/package/chart, resource, version, tag, coordinate, and quality, and it
 must not fetch artifacts, upload metadata, or include raw docs.
+`knowledge library-download` should validate the registry, select one
+coordinate, copy a workspace-path artifact or download a URL artifact, verify
+the registered SHA-256 content hash, validate the artifact payload, reject
+identity/version/unit/quality/LLM-review metadata drift, and write the verified
+artifact into a workspace-relative content-addressed store. Its report must
+stay raw-content-free and must not upload, publish, or approve trust.
 This path can fetch
 the URL live; tests should continue to use offline fetcher fixtures, mocked
 fetch, and the internal `--content <file>` helper so default CI does not

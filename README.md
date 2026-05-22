@@ -126,6 +126,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge from-url <url> [--max-units <n>] [--out <url-knowledge.json>] [--library-out <library-artifact.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]`
+- `infra-agent knowledge library-download <public-library-registry.json> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]`
 - `infra-agent knowledge library-catalog <public-library-registry.json> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
@@ -258,7 +259,13 @@ Current behavior is intentionally runtime-foundation oriented:
   or quality, and emits raw-content-free classification, artifact download
   location, hash, quality, unit-type coverage, and LLM review-packet metadata
   so another agent can decide what to download or refine before loading the
-  full artifact.
+  full artifact. `knowledge library-download <registry.json> --coordinate ...`
+  is the manual Hub-style artifact fetch path: it validates the registry,
+  selects exactly one coordinate, copies a workspace-path artifact or downloads
+  a URL artifact, verifies the registered SHA-256 content hash, validates that
+  the artifact payload still matches the registry metadata, and writes it into
+  a workspace-relative content-addressed store without embedding raw content in
+  the report.
   `validate` checks facts, extraction reports, compact packs, unit artifacts,
   indexes, and plan-only artifact manifests before use. `pack` ranks and emits a
   bounded planner-safe `infra-agent.knowledge-pack` without raw source content;
@@ -376,6 +383,13 @@ Current behavior is intentionally runtime-foundation oriented:
   version metadata, artifact path or URL, SHA-256 content hash, quality status,
   missing unit types, and LLM review-packet hash without embedding raw docs or
   compact unit bodies.
+- `knowledge library-download` resolves one catalog coordinate from a validated
+  public-library registry, copies or downloads the artifact, checks the exact
+  SHA-256 content hash from the registry, validates the downloaded
+  `infra-agent.public-knowledge-library-artifact`, checks identity and
+  LLM-review metadata drift against the registry entry, and stores the verified
+  artifact by content hash under a workspace-relative directory. It is local
+  artifact download/reuse, not upload or publication approval.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

@@ -693,6 +693,18 @@ Implemented initial CLI surfaces:
     counts, quality status, missing unit types, and the LLM review-packet hash.
     It must remain raw-content-free and must not fetch artifacts, upload
     metadata, approve publication, or trust unvalidated registries.
+- `infra-agent knowledge library-download <registry.json> --coordinate
+  <coordinate> --workspace <workspace> --store-dir <dir> ...`
+  - validates the registry, resolves exactly one hub coordinate, copies a
+    workspace-path artifact or fetches a URL artifact, verifies the registry
+    SHA-256 content hash, validates the
+    `infra-agent.public-knowledge-library-artifact` payload, checks artifact
+    identity, version metadata, unit counts, quality, and LLM review-packet
+    metadata against the registry entry, then writes the verified bytes into a
+    workspace-relative content-addressed store. The report is compact and
+    raw-content-free. This is manual download/reuse for a central-library
+    artifact, not upload, publication approval, credential access, or a remote
+    trust model.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by

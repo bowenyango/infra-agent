@@ -351,6 +351,14 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   package, chart, resource, version, tag, coordinate, and quality, and report
   artifact path or URL plus hashes and LLM review metadata without fetching,
   uploading, or approving publication.
+  Use `knowledge library-download <registry.json> --coordinate <coordinate>
+  --workspace <workspace> --store-dir <dir> --json` only after choosing a
+  coordinate. It must validate the registry, fetch or copy the selected
+  artifact, verify the registry SHA-256 content hash, validate the artifact
+  payload, check identity/version/unit/quality/LLM-review metadata drift, and
+  write only a workspace-relative content-addressed artifact. Treat the result
+  as local download/reuse; it must not upload, publish, approve trust, or embed
+  raw documentation in the report.
 - URL-only public documentation extraction must validate the
   `infra-agent.public-knowledge-url-report` before LLM refinement or
   central-library artifact preparation. The report validator is the boundary

@@ -6,6 +6,59 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-22 Public Library Download
+
+Status:
+
+- Added `knowledge library-download <registry.json> --coordinate <coordinate>
+  --workspace <workspace> --store-dir <dir>` as the manual Hub-style artifact
+  download path for public-library registries.
+- The command validates the registry, resolves exactly one coordinate, copies a
+  workspace-path artifact or downloads a URL artifact, verifies the registry
+  SHA-256 content hash, validates the
+  `infra-agent.public-knowledge-library-artifact` payload, checks identity,
+  version, unit-count, quality, and LLM review-packet metadata drift against
+  the registry entry, then writes verified bytes into a workspace-relative
+  content-addressed store.
+- The output report is raw-content-free and includes source location/status,
+  artifact hash and storage path, classification, unit coverage, quality, and
+  LLM review metadata. This is local download/reuse, not upload or publication
+  approval.
+
+Files changed:
+
+- `src/knowledge/public-library-download.ts` implements validated artifact
+  selection, fetch/copy, hash verification, payload validation, registry drift
+  checks, and local content-addressed writes.
+- `src/cli/main.ts` parses and routes `knowledge library-download`.
+- `src/cli/output.ts` prints the text download summary.
+- `test/integration/cli-public-library-download-main.test.mjs` covers local
+  artifact copy, URL artifact fetch, and content-hash mismatch rejection.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers the new CLI
+  arguments.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  download contract.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge library-download"
+  test/integration/cli-public-library-download-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "knowledge library-download CLI
+  args" test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:integration` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- `library-download` reads a local registry JSON file. Remote registry discovery
+  still goes through `knowledge prefetch` and the existing cache path before a
+  local registry artifact can be selected for manual download.
+- The command surfaces LLM review packet metadata but does not run an LLM
+  refinement step yet.
+
 ## 2026-05-22 Public Library Catalog
 
 Status:
