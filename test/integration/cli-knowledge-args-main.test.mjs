@@ -427,6 +427,49 @@ test('knowledge library-stage CLI args accept public library registry staging fl
   assert.equal(parsed.json, true);
 });
 
+test('knowledge library-catalog CLI args accept public registry filter flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-catalog',
+    'artifacts/public-library-registry.json',
+    '--domain',
+    'terraform',
+    '--provider',
+    'hashicorp/aws',
+    '--resource',
+    'aws_s3_bucket',
+    '--version',
+    'latest',
+    '--tag',
+    'resource-docs',
+    '--quality',
+    'ready',
+    '--coordinate',
+    'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket',
+    '--out',
+    'artifacts/public-library-catalog.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-catalog');
+  assert.equal(parsed.inputPath, 'artifacts/public-library-registry.json');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.deepEqual(parsed.domains, ['terraform']);
+  assert.equal(parsed.knowledgeResource, 'aws_s3_bucket');
+  assert.deepEqual(parsed.publicLibraryCatalogFilter, {
+    provider: 'hashicorp/aws',
+    version: 'latest',
+    tags: ['resource-docs'],
+    qualityStatus: 'ready',
+    coordinates: 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket',
+    domains: ['terraform'],
+    resource: 'aws_s3_bucket'
+  });
+  assert.equal(parsed.outputPath, 'artifacts/public-library-catalog.json');
+  assert.equal(parsed.json, true);
+});
+
 test('knowledge index filters are rejected for other knowledge actions', () => {
   const script = "import { parseArgs } from './src/cli/main.ts'; parseArgs(['knowledge', 'pack', 'fixtures/sample-workspace', '--unit-type', 'fact']);";
   const result = spawnSync(process.execPath, [

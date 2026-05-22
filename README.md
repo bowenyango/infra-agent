@@ -126,6 +126,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge from-url <url> [--max-units <n>] [--out <url-knowledge.json>] [--library-out <library-artifact.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]`
+- `infra-agent knowledge library-catalog <public-library-registry.json> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
 
@@ -251,7 +252,13 @@ Current behavior is intentionally runtime-foundation oriented:
   `public-reference` storage scope. Registry entries also carry `versionRef`
   metadata so a central library can distinguish pinned provider versions from
   mutable aliases such as `latest` while still relying on content hashes for
-  reproducible reuse.
+  reproducible reuse. `knowledge library-catalog <registry.json>` is the
+  read-only directory view for this shape: it validates the registry, filters
+  entries by domain, provider/package/chart, resource, version, tag, coordinate,
+  or quality, and emits raw-content-free classification, artifact download
+  location, hash, quality, unit-type coverage, and LLM review-packet metadata
+  so another agent can decide what to download or refine before loading the
+  full artifact.
   `validate` checks facts, extraction reports, compact packs, unit artifacts,
   indexes, and plan-only artifact manifests before use. `pack` ranks and emits a
   bounded planner-safe `infra-agent.knowledge-pack` without raw source content;
@@ -362,6 +369,13 @@ Current behavior is intentionally runtime-foundation oriented:
   artifact locations, media type, hashes, unit counts, LLM-refinement index
   shape, quality status, and review-required posture before a registry is
   shared or configured.
+- `knowledge library-catalog` emits a read-only
+  `infra-agent.public-knowledge-library-catalog` report from a validated public
+  library registry. Use it as the central-library browse/search surface before
+  download reuse: the report keeps hub coordinates, domain classification,
+  version metadata, artifact path or URL, SHA-256 content hash, quality status,
+  missing unit types, and LLM review-packet hash without embedding raw docs or
+  compact unit bodies.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

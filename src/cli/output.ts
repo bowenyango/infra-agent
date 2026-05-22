@@ -54,6 +54,7 @@ import type { ResourceKnowledgeReport } from '../knowledge/resource-report.ts';
 import type { PublicKnowledgeUrlReport } from '../knowledge/url-report.ts';
 import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-artifact-publish.ts';
 import type { PublicKnowledgeLibraryStageReport } from '../knowledge/public-library-stage.ts';
+import type { PublicKnowledgeLibraryCatalogReport } from '../knowledge/public-library-catalog.ts';
 import type {
   KnowledgeUnitIndexEntry,
   KnowledgeUnitMetadataIndex
@@ -3817,6 +3818,48 @@ export function printPublicKnowledgeLibraryStageReport(
   process.stdout.write(`registry entries: ${report.registry.entryCount}\n`);
   process.stdout.write(`updated existing entry: ${report.registry.updatedExistingEntry ? 'yes' : 'no'}\n`);
   process.stdout.write(`download: ${report.entry.download.mode} strategy=${report.entry.download.strategy} fallback=${report.entry.download.fallbackUsed ? 'yes' : 'no'}\n`);
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
+}
+
+export function printPublicKnowledgeLibraryCatalogReport(
+  report: PublicKnowledgeLibraryCatalogReport
+): void {
+  printHeader('Public knowledge library catalog');
+  process.stdout.write(`registry: ${report.registryPath}\n`);
+  process.stdout.write(`entries: ${report.summary.matchedEntryCount}/${report.summary.entryCount}\n`);
+  process.stdout.write(`downloadable: ${report.summary.downloadableEntryCount}\n`);
+  process.stdout.write(`quality: ready=${report.summary.readyEntryCount} needs-refinement=${report.summary.needsRefinementEntryCount}\n`);
+  process.stdout.write(`unit type complete: ${report.summary.unitTypeCompleteEntryCount}\n`);
+  process.stdout.write(`units: ${report.summary.totalUnitCount}\n`);
+  const filters = Object.entries(report.filters).map(([key, value]) =>
+    `${key}=${Array.isArray(value) ? value.join(',') : value}`
+  );
+  if (filters.length > 0) {
+    process.stdout.write(`filters: ${filters.join(' ')}\n`);
+  }
+
+  process.stdout.write('\n');
+  printHeader('Entries');
+  printList(report.entries.map(entry => {
+    const location = entry.artifact.location.kind === 'url'
+      ? entry.artifact.location.url
+      : entry.artifact.location.path;
+    return [
+      entry.coordinates,
+      `${entry.classification.ecosystem}/${entry.classification.artifactKind}`,
+      `quality=${entry.quality.status}`,
+      `score=${entry.quality.score}`,
+      `units=${entry.artifact.unitCount}`,
+      `download=${entry.artifact.location.kind}`,
+      `hash=${entry.artifact.contentHash.slice(0, 12)}`,
+      location
+    ].join(' ');
+  }), 'No public library entries matched.');
+
   if (report.warnings.length > 0) {
     process.stdout.write('\n');
     printHeader('Warnings');

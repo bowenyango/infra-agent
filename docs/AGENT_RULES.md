@@ -344,7 +344,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   must preserve `versionRef` metadata and a compact offline LLM review index
   with the review-packet hash, unit-type coverage, quality score, and missing
   unit types so consumers can distinguish pinned versions from mutable aliases
-  such as `latest` and choose useful artifacts before downloading them.
+  such as `latest` and choose useful artifacts before downloading them. Use
+  `knowledge library-catalog <registry.json> --json` as the read-only
+  browse/search layer before download reuse. It must validate the registry
+  first, keep output raw-content-free, support filters by domain, provider,
+  package, chart, resource, version, tag, coordinate, and quality, and report
+  artifact path or URL plus hashes and LLM review metadata without fetching,
+  uploading, or approving publication.
 - URL-only public documentation extraction must validate the
   `infra-agent.public-knowledge-url-report` before LLM refinement or
   central-library artifact preparation. The report validator is the boundary

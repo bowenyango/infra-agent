@@ -24,7 +24,7 @@ import {
   type KnowledgeUnitType
 } from '../types/knowledge.ts';
 
-interface PublicLibraryRegistryEntry {
+export interface PublicLibraryRegistryEntry {
   coordinates: string;
   ecosystem: 'terraform' | 'pulumi' | 'helm';
   artifactKind:
@@ -260,7 +260,7 @@ function registrySourceFromConfig(configuredSource: WorkspacePublicKnowledgeLibr
   };
 }
 
-function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEntry | null {
+export function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEntry | null {
   if (!isRecord(value) || !isRecord(value.artifact)) {
     return null;
   }
@@ -310,7 +310,7 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
   return value as unknown as PublicLibraryRegistryEntry;
 }
 
-function parsePublicLibraryRegistryEntries(value: unknown): PublicLibraryRegistryEntry[] {
+export function parsePublicLibraryRegistryEntries(value: unknown): PublicLibraryRegistryEntry[] {
   if (
     !isRecord(value)
     || value.kind !== 'infra-agent.public-knowledge-library-registry'

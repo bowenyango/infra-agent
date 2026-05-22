@@ -74,6 +74,7 @@ values.
    infra-agent knowledge index <workspace> --resource <identity> --field-path <field> --json
    infra-agent knowledge validate <artifact> --workspace <workspace>
    infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> --json
+   infra-agent knowledge library-catalog <registry.json> --domain <helm|pulumi|terraform> --resource <identity> --json
    ```
 
    Use `--resource <identity>` instead of `--target <path>` when the user names
@@ -159,6 +160,13 @@ values.
    review-required posture. Registry entries preserve the offline review-packet
    hash, unit-type coverage, missing unit types, and quality score so an agent
    can decide whether the artifact is useful enough to download or refine.
+   Use `knowledge library-catalog <registry.json> --json` as the read-only
+   central-library browse/search surface before artifact reuse. It validates
+   the registry, supports filters for domain, provider/package/chart, resource,
+   version, tag, coordinate, and quality, and reports classification,
+   artifact path or URL, content hash, quality, unit-type coverage, missing
+   unit types, and the LLM review-packet hash without fetching artifacts or
+   embedding raw documentation.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage

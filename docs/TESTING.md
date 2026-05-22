@@ -145,6 +145,7 @@ infra-agent knowledge from-url https://artifacthub.io/packages/helm/prometheus-c
 infra-agent knowledge validate /tmp/infra-agent-s3-url-knowledge.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
+infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
 infra-agent knowledge pack <workspace> --domain terraform --resource aws_s3_bucket --json
 ```
 
@@ -235,7 +236,15 @@ sections. `knowledge validate` should accept valid
 `infra-agent.public-knowledge-library-registry` payloads and reject coordinate
 drift, version-reference drift, unsafe artifact URLs, malformed hashes,
 unsupported media types, bad quality states, malformed `llmRefinement` index
-summaries, missing review posture, and raw content. This path can fetch
+summaries, missing review posture, and raw content before catalog or reuse.
+`knowledge library-catalog` should validate the registry first, then report
+only raw-content-free directory metadata:
+classification, coordinates, versionRef/versionResolution, artifact path or
+URL, content hash, quality status, unit-type coverage, missing unit types, and
+LLM review-packet hash. It must support filters for domain,
+provider/package/chart, resource, version, tag, coordinate, and quality, and it
+must not fetch artifacts, upload metadata, or include raw docs.
+This path can fetch
 the URL live; tests should continue to use offline fetcher fixtures, mocked
 fetch, and the internal `--content <file>` helper so default CI does not
 require network access or socket listeners.

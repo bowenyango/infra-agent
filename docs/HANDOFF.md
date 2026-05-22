@@ -6,6 +6,61 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-22 Public Library Catalog
+
+Status:
+
+- Added a read-only `knowledge library-catalog <registry.json>` command for
+  hub-style inspection of validated public-library registries before artifact
+  download or LLM refinement.
+- The catalog report preserves raw-content-free classification, coordinates,
+  versionRef/versionResolution, artifact path or URL, SHA-256 hash, media type,
+  quality status, unit-type coverage, missing unit types, and LLM
+  review-packet hash.
+- Filters cover domain, provider, package, chart, resource, version, tag,
+  coordinate, and quality so agents can choose useful public-reference
+  artifacts without loading full artifact bodies.
+- URL artifact entries are marked as requiring prefetch while workspace-path
+  entries are marked as local, keeping download intent explicit without adding
+  upload or publication boundary code.
+
+Files changed:
+
+- `src/knowledge/public-library-catalog.ts` builds the validated catalog
+  report.
+- `src/knowledge/public-library-registry.ts` exports the registry entry parser
+  used by both reuse and catalog paths.
+- `src/cli/main.ts` parses and routes `knowledge library-catalog`.
+- `src/cli/output.ts` prints the text catalog summary.
+- `test/integration/cli-public-library-catalog-main.test.mjs` covers local and
+  URL artifact catalog entries, filters, output persistence, and raw-content
+  omission.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers the new CLI
+  arguments.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  catalog contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-public-library-catalog-main.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:integration` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The catalog reads a local registry file only. URL-backed registries still
+  enter the local cache through the existing `knowledge prefetch` path before
+  cataloging or reuse.
+- The command surfaces LLM review input metadata but does not execute an LLM
+  refinement workflow yet.
+
 ## 2026-05-22 Public Library Registry LLM Index
 
 Status:

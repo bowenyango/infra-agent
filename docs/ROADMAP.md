@@ -681,6 +681,18 @@ Implemented initial CLI surfaces:
     media type, unit counts, LLM-refinement index shape, quality status, and
     review-required posture before
     sharing or configuration.
+- `infra-agent knowledge library-catalog <registry.json>
+  [--domain ...] [--provider ...] [--package ...] [--chart ...]
+  [--resource ...] [--version ...] [--tag ...] [--quality ...]
+  [--coordinate ...] --json`
+  - validates a public-library registry and emits a read-only
+    `infra-agent.public-knowledge-library-catalog` directory report. The report
+    is the hub-style browse/search layer before artifact download: it preserves
+    coordinates, ecosystem/artifact-kind classification, versionRef and
+    versionResolution, artifact path or URL, content hash, media type, unit
+    counts, quality status, missing unit types, and the LLM review-packet hash.
+    It must remain raw-content-free and must not fetch artifacts, upload
+    metadata, approve publication, or trust unvalidated registries.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`
   - validates a standalone `infra-agent.knowledge-units` artifact, stores it by
