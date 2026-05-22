@@ -3788,6 +3788,106 @@ function validatePublicKnowledgeLibraryArtifactPayload(
   );
 }
 
+function validatePublicLibraryRegistryLlmRefinement(
+  value: unknown,
+  path: string,
+  issues: KnowledgeValidationIssue[],
+  expected: {
+    artifactUnitCount: number | null;
+    artifactQualityStatus: string | null;
+    artifactReviewRequired: boolean | null;
+  }
+): void {
+  if (!isRecord(value)) {
+    issues.push(error(path, 'Public knowledge library registry llmRefinement must be an object.'));
+    return;
+  }
+
+  if (value.status !== 'not-run') {
+    issues.push(error(`${path}.status`, 'Public knowledge library registry LLM refinement status must be not-run.'));
+  }
+  if (value.mode !== 'offline-review') {
+    issues.push(error(`${path}.mode`, 'Public knowledge library registry LLM refinement mode must be offline-review.'));
+  }
+  if (value.inputRef !== 'artifact.llmRefinementInput') {
+    issues.push(error(`${path}.inputRef`, 'Public knowledge library registry LLM inputRef must point to artifact.llmRefinementInput.'));
+  }
+  const reviewPacketHash = readNonEmptyString(value.reviewPacketHash, `${path}.reviewPacketHash`, issues);
+  if (reviewPacketHash !== null && !SHA256_HEX_PATTERN.test(reviewPacketHash)) {
+    issues.push(error(`${path}.reviewPacketHash`, 'Public knowledge library registry LLM reviewPacketHash must be a SHA-256 hex string.'));
+  }
+  if (value.outputContract !== 'infra-agent.public-knowledge-url-report') {
+    issues.push(error(`${path}.outputContract`, 'Public knowledge library registry LLM outputContract must remain the URL report contract.'));
+  }
+
+  const unitTypes = readStringArray(value.unitTypes, `${path}.unitTypes`, issues);
+  if (unitTypes !== null) {
+    for (const unitType of unitTypes) {
+      if (!KNOWLEDGE_UNIT_TYPES.includes(unitType as KnowledgeUnitType)) {
+        issues.push(error(`${path}.unitTypes`, 'Public knowledge library registry LLM unitTypes must only include supported knowledge unit types.'));
+        break;
+      }
+    }
+    for (const unitType of KNOWLEDGE_UNIT_TYPES) {
+      if (!unitTypes.includes(unitType)) {
+        issues.push(error(`${path}.unitTypes`, 'Public knowledge library registry LLM unitTypes must include all five knowledge unit types.'));
+        break;
+      }
+    }
+  }
+
+  const unitCounts = validatePublicKnowledgeUnitCounts(value.unitCounts, `${path}.unitCounts`, issues);
+  if (unitCounts !== null) {
+    const total = KNOWLEDGE_UNIT_TYPES.reduce((sum, unitType) => sum + unitCounts[unitType], 0);
+    if (expected.artifactUnitCount !== null && total !== expected.artifactUnitCount) {
+      issues.push(error(`${path}.unitCounts`, 'Public knowledge library registry LLM unitCounts must sum to artifact.unitCount.'));
+    }
+  }
+
+  const missingUnitTypes = readStringArray(value.missingUnitTypes, `${path}.missingUnitTypes`, issues);
+  if (missingUnitTypes !== null) {
+    for (const unitType of missingUnitTypes) {
+      if (!KNOWLEDGE_UNIT_TYPES.includes(unitType as KnowledgeUnitType)) {
+        issues.push(error(`${path}.missingUnitTypes`, 'Public knowledge library registry LLM missingUnitTypes must only include supported knowledge unit types.'));
+        break;
+      }
+    }
+    if (unitCounts !== null) {
+      const expectedMissing = KNOWLEDGE_UNIT_TYPES.filter(unitType => unitCounts[unitType] === 0);
+      if (!stringArraysEqual(missingUnitTypes, expectedMissing)) {
+        issues.push(error(`${path}.missingUnitTypes`, 'Public knowledge library registry LLM missingUnitTypes must match zero-count unit types.'));
+      }
+    }
+  }
+
+  if (
+    typeof value.qualityStatus !== 'string'
+    || !PUBLIC_KNOWLEDGE_QUALITY_STATUSES.includes(value.qualityStatus as typeof PUBLIC_KNOWLEDGE_QUALITY_STATUSES[number])
+  ) {
+    issues.push(error(`${path}.qualityStatus`, 'Public knowledge library registry LLM qualityStatus must be supported.'));
+  } else if (expected.artifactQualityStatus !== null && value.qualityStatus !== expected.artifactQualityStatus) {
+    issues.push(error(`${path}.qualityStatus`, 'Public knowledge library registry LLM qualityStatus must match artifact.qualityStatus.'));
+  }
+  const qualityScore = readNonNegativeInteger(value.qualityScore, `${path}.qualityScore`, issues);
+  if (qualityScore !== null && qualityScore > 100) {
+    issues.push(error(`${path}.qualityScore`, 'Public knowledge library registry LLM qualityScore must be between 0 and 100.'));
+  }
+  const qualityWarningCount = readNonNegativeInteger(value.qualityWarningCount, `${path}.qualityWarningCount`, issues);
+  if (qualityWarningCount !== null) {
+    if (value.qualityStatus === 'ready' && qualityWarningCount !== 0) {
+      issues.push(error(`${path}.qualityWarningCount`, 'Public knowledge library registry LLM qualityWarningCount must be zero when qualityStatus is ready.'));
+    }
+    if (value.qualityStatus === 'needs-refinement' && qualityWarningCount === 0) {
+      issues.push(error(`${path}.qualityWarningCount`, 'Public knowledge library registry LLM qualityWarningCount must be positive when qualityStatus needs refinement.'));
+    }
+  }
+  if (value.reviewRequired !== true) {
+    issues.push(error(`${path}.reviewRequired`, 'Public knowledge library registry LLM refinement must require review.'));
+  } else if (expected.artifactReviewRequired !== null && value.reviewRequired !== expected.artifactReviewRequired) {
+    issues.push(error(`${path}.reviewRequired`, 'Public knowledge library registry LLM reviewRequired must match artifact.reviewRequired.'));
+  }
+}
+
 function validatePublicKnowledgeLibraryRegistryPayload(
   payload: Record<string, unknown>,
   inputPath: string,
@@ -4124,6 +4224,20 @@ function validatePublicKnowledgeLibraryRegistryPayload(
       if (entry.artifact.reviewRequired !== true) {
         issues.push(error(`${path}.artifact.reviewRequired`, 'Public knowledge library registry artifact must require review.'));
       }
+      validatePublicLibraryRegistryLlmRefinement(
+        entry.llmRefinement,
+        `${path}.llmRefinement`,
+        issues,
+        {
+          artifactUnitCount: unitCount,
+          artifactQualityStatus: typeof entry.artifact.qualityStatus === 'string'
+            ? entry.artifact.qualityStatus
+            : null,
+          artifactReviewRequired: typeof entry.artifact.reviewRequired === 'boolean'
+            ? entry.artifact.reviewRequired
+            : null
+        }
+      );
     });
   }
 

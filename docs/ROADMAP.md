@@ -655,9 +655,12 @@ Implemented initial CLI surfaces:
   - validates a public library artifact, stores it by SHA-256 under a
     workspace-relative public-library directory, and updates an
     `infra-agent.public-knowledge-library-registry` JSON file keyed by stable
-    coordinates plus content hashes and `versionRef` metadata. This is a local
-    downloadable-registry staging path for future central-library workflows. It
-    must not call a cloud client, read
+    coordinates plus content hashes, `versionRef` metadata, and a compact
+    `llmRefinement` index summary that records offline-review status, the LLM
+    review-packet hash, unit-type coverage, quality score, missing unit types,
+    and review-required posture. This is a local downloadable-registry staging
+    path for future central-library workflows. It must not call a cloud client,
+    read
     credentials, probe a backend, create upload commands, or approve
     publication.
   - Workspaces can opt into read-only reuse by adding a staged local registry
@@ -675,7 +678,8 @@ Implemented initial CLI surfaces:
     validate` accepts `infra-agent.public-knowledge-library-registry` payloads
     so central-library registries can be checked for coordinate coherence,
     version-reference stability, secret-safe artifact locations, hash shape,
-    media type, unit counts, quality status, and review-required posture before
+    media type, unit counts, LLM-refinement index shape, quality status, and
+    review-required posture before
     sharing or configuration.
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace>
   --store-dir <dir> --registry <registry.json> ...`

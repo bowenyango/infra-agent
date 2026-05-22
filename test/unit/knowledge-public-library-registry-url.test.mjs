@@ -115,6 +115,20 @@ async function buildPublicLibraryFixture(root, artifactContentHashOverride) {
   const artifactContent = JSON.stringify(artifact);
   const artifactContentHash = artifactContentHashOverride ?? sha256Hex(artifactContent);
   const { classification } = artifact;
+  const llmRefinement = {
+    status: artifact.llmRefinementInput.status,
+    mode: artifact.llmRefinementInput.mode,
+    inputRef: 'artifact.llmRefinementInput',
+    reviewPacketHash: sha256Hex(JSON.stringify(artifact.llmRefinementInput.reviewPacket)),
+    outputContract: artifact.llmRefinementInput.outputContract,
+    unitTypes: artifact.llmRefinementInput.unitTypes,
+    unitCounts: artifact.summary.unitCounts,
+    missingUnitTypes: artifact.llmRefinementInput.reviewPacket.missingUnitTypes,
+    qualityStatus: artifact.quality.status,
+    qualityScore: artifact.quality.score,
+    qualityWarningCount: artifact.quality.warnings.length,
+    reviewRequired: true
+  };
   const registry = {
     kind: 'infra-agent.public-knowledge-library-registry',
     schemaVersion: 1,
@@ -130,6 +144,7 @@ async function buildPublicLibraryFixture(root, artifactContentHashOverride) {
         versionResolution: classification.versionResolution,
         sourceName: classification.sourceName,
         tags: classification.tags,
+        llmRefinement,
         artifact: {
           url: PUBLIC_ARTIFACT_URL,
           contentHash: artifactContentHash,

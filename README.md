@@ -342,8 +342,10 @@ Current behavior is intentionally runtime-foundation oriented:
   `infra-agent.public-knowledge-library-artifact` into a workspace-relative
   content-addressed public-library store and updates an
   `infra-agent.public-knowledge-library-registry` JSON file keyed by the stable
-  coordinate plus content hashes and `versionRef` stability metadata. This is
-  the local downloadable-registry shape for future central library workflows.
+  coordinate plus content hashes, `versionRef` stability metadata, and a compact
+  `llmRefinement` index summary with the offline review-packet hash, unit-type
+  coverage, quality score, and review-required posture. This is the local
+  downloadable-registry shape for future central library workflows.
   It writes only local files under the requested workspace;
   it does not contact a remote backend, read credentials, create upload
   commands, or approve publication. Add the resulting registry, or a
@@ -357,8 +359,9 @@ Current behavior is intentionally runtime-foundation oriented:
   provider/resource usage, Pulumi package/resource tokens, and Helm chart
   names. `knowledge validate
   <public-library-registry.json> --json` validates registry coordinates,
-  artifact locations, media type, hashes, unit counts, quality status, and
-  review-required posture before a registry is shared or configured.
+  artifact locations, media type, hashes, unit counts, LLM-refinement index
+  shape, quality status, and review-required posture before a registry is
+  shared or configured.
 - `agent` loads bounded knowledge facts from cache/local sources for selected
   targets, injects only compact `knowledgeFacts` summaries into planner prompts,
   and exposes the same summary in `agent --json`. `--context-fact-limit`

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
@@ -52,6 +53,10 @@ const S3_BUCKET_MARKDOWN = [
 
 function parseJsonOutput(output) {
   return JSON.parse(output.slice(output.indexOf('{')));
+}
+
+function sha256Hex(value) {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 async function writeLibraryArtifactFixture(tempRoot) {
@@ -111,6 +116,21 @@ test('knowledge library-stage stores a public library artifact and updates a dow
     assert.equal(stageReport.entry.coordinates, artifact.coordinates);
     assert.deepEqual(stageReport.entry.versionRef, artifact.classification.versionRef);
     assert.deepEqual(stageReport.entry.versionResolution, artifact.classification.versionResolution);
+    assert.equal(stageReport.entry.llmRefinement.status, 'not-run');
+    assert.equal(stageReport.entry.llmRefinement.mode, 'offline-review');
+    assert.equal(stageReport.entry.llmRefinement.inputRef, 'artifact.llmRefinementInput');
+    assert.equal(
+      stageReport.entry.llmRefinement.reviewPacketHash,
+      sha256Hex(JSON.stringify(artifact.llmRefinementInput.reviewPacket))
+    );
+    assert.equal(stageReport.entry.llmRefinement.outputContract, 'infra-agent.public-knowledge-url-report');
+    assert.deepEqual(stageReport.entry.llmRefinement.unitTypes, artifact.llmRefinementInput.unitTypes);
+    assert.deepEqual(stageReport.entry.llmRefinement.unitCounts, artifact.summary.unitCounts);
+    assert.deepEqual(stageReport.entry.llmRefinement.missingUnitTypes, artifact.llmRefinementInput.reviewPacket.missingUnitTypes);
+    assert.equal(stageReport.entry.llmRefinement.qualityStatus, artifact.quality.status);
+    assert.equal(stageReport.entry.llmRefinement.qualityScore, artifact.quality.score);
+    assert.equal(stageReport.entry.llmRefinement.qualityWarningCount, artifact.quality.warnings.length);
+    assert.equal(stageReport.entry.llmRefinement.reviewRequired, true);
     assert.equal(stageReport.entry.artifact.contentHash, stageReport.artifact.sha256);
     assert.equal(stageReport.entry.artifact.mediaType, 'application/vnd.infra-agent.public-knowledge-library-artifact+json');
     assert.deepEqual(stageReport.entry.artifact.versionRef, artifact.classification.versionRef);
@@ -135,6 +155,9 @@ test('knowledge library-stage stores a public library artifact and updates a dow
     assert.equal(registry.entries[0].coordinates, artifact.coordinates);
     assert.deepEqual(registry.entries[0].versionRef, artifact.classification.versionRef);
     assert.deepEqual(registry.entries[0].versionResolution, artifact.classification.versionResolution);
+    assert.equal(registry.entries[0].llmRefinement.reviewPacketHash, stageReport.entry.llmRefinement.reviewPacketHash);
+    assert.deepEqual(registry.entries[0].llmRefinement.unitCounts, artifact.summary.unitCounts);
+    assert.deepEqual(registry.entries[0].llmRefinement.missingUnitTypes, artifact.llmRefinementInput.reviewPacket.missingUnitTypes);
     assert.equal(registry.entries[0].artifact.path, stageReport.artifact.registryPath);
     assert.deepEqual(registry.entries[0].artifact.versionRef, artifact.classification.versionRef);
     assert.deepEqual(registry.entries[0].artifact.versionResolution, artifact.classification.versionResolution);

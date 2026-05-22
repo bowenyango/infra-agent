@@ -186,6 +186,20 @@ async function buildHelmArtifactFixture() {
 function buildRegistryFixture(artifact) {
   const artifactContent = JSON.stringify(artifact);
   const { classification } = artifact;
+  const llmRefinement = {
+    status: artifact.llmRefinementInput.status,
+    mode: artifact.llmRefinementInput.mode,
+    inputRef: 'artifact.llmRefinementInput',
+    reviewPacketHash: sha256Hex(JSON.stringify(artifact.llmRefinementInput.reviewPacket)),
+    outputContract: artifact.llmRefinementInput.outputContract,
+    unitTypes: artifact.llmRefinementInput.unitTypes,
+    unitCounts: artifact.summary.unitCounts,
+    missingUnitTypes: artifact.llmRefinementInput.reviewPacket.missingUnitTypes,
+    qualityStatus: artifact.quality.status,
+    qualityScore: artifact.quality.score,
+    qualityWarningCount: artifact.quality.warnings.length,
+    reviewRequired: true
+  };
 
   return {
     kind: 'infra-agent.public-knowledge-library-registry',
@@ -205,6 +219,7 @@ function buildRegistryFixture(artifact) {
         ...(classification.repository ? { repository: classification.repository } : {}),
         ...(classification.chart ? { chart: classification.chart } : {}),
         tags: classification.tags,
+        llmRefinement,
         artifact: {
           url: 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json',
           contentHash: sha256Hex(artifactContent),
@@ -540,6 +555,12 @@ test('public knowledge library registry validation checks coordinates hashes and
     invalidRegistry.entries[0].artifact.url = 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json';
     invalidRegistry.entries[0].artifact.contentHash = 'not-a-sha';
     invalidRegistry.entries[0].artifact.reviewRequired = false;
+    invalidRegistry.entries[0].llmRefinement.reviewPacketHash = 'bad-hash';
+    invalidRegistry.entries[0].llmRefinement.unitCounts.fact += 1;
+    invalidRegistry.entries[0].llmRefinement.missingUnitTypes = ['fact'];
+    invalidRegistry.entries[0].llmRefinement.qualityStatus = 'needs-refinement';
+    invalidRegistry.entries[0].llmRefinement.qualityScore = 101;
+    invalidRegistry.entries[0].llmRefinement.reviewRequired = false;
 
     const invalid = validateKnowledgePayload(invalidRegistry, 'inline');
 
@@ -553,7 +574,14 @@ test('public knowledge library registry validation checks coordinates hashes and
       '$.entries[0].tags[8]',
       '$.entries[0].artifact',
       '$.entries[0].artifact.contentHash',
-      '$.entries[0].artifact.reviewRequired'
+      '$.entries[0].artifact.reviewRequired',
+      '$.entries[0].llmRefinement.reviewPacketHash',
+      '$.entries[0].llmRefinement.unitCounts',
+      '$.entries[0].llmRefinement.missingUnitTypes',
+      '$.entries[0].llmRefinement.qualityStatus',
+      '$.entries[0].llmRefinement.qualityScore',
+      '$.entries[0].llmRefinement.qualityWarningCount',
+      '$.entries[0].llmRefinement.reviewRequired'
     ]) {
       assert.ok(invalid.issues.some(issue => issue.path === path), path);
     }

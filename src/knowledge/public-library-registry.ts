@@ -18,7 +18,11 @@ import type {
   WorkspaceInspection,
   WorkspacePublicKnowledgeLibraryRegistrySourceConfig
 } from '../types/repository.ts';
-import type { KnowledgeSource } from '../types/knowledge.ts';
+import {
+  KNOWLEDGE_UNIT_TYPES,
+  type KnowledgeSource,
+  type KnowledgeUnitType
+} from '../types/knowledge.ts';
 
 interface PublicLibraryRegistryEntry {
   coordinates: string;
@@ -51,6 +55,20 @@ interface PublicLibraryRegistryEntry {
   repository?: string;
   chart?: string;
   tags: string[];
+  llmRefinement: {
+    status: 'not-run';
+    mode: 'offline-review';
+    inputRef: 'artifact.llmRefinementInput';
+    reviewPacketHash: string;
+    outputContract: 'infra-agent.public-knowledge-url-report';
+    unitTypes: KnowledgeUnitType[];
+    unitCounts: Record<KnowledgeUnitType, number>;
+    missingUnitTypes: KnowledgeUnitType[];
+    qualityStatus: 'ready' | 'needs-refinement';
+    qualityScore: number;
+    qualityWarningCount: number;
+    reviewRequired: true;
+  };
   artifact: {
     path?: string;
     url?: string;
@@ -152,6 +170,33 @@ function requiredMetadataMatchesEcosystem(value: Record<string, unknown>): boole
   return true;
 }
 
+function isLlmRefinementSummary(value: unknown): boolean {
+  return isRecord(value)
+    && value.status === 'not-run'
+    && value.mode === 'offline-review'
+    && value.inputRef === 'artifact.llmRefinementInput'
+    && isSha256Hex(value.reviewPacketHash)
+    && value.outputContract === 'infra-agent.public-knowledge-url-report'
+    && Array.isArray(value.unitTypes)
+    && KNOWLEDGE_UNIT_TYPES.every(unitType => value.unitTypes.includes(unitType))
+    && isRecord(value.unitCounts)
+    && KNOWLEDGE_UNIT_TYPES.every(unitType =>
+      Number.isInteger(value.unitCounts[unitType])
+      && Number(value.unitCounts[unitType]) >= 0
+    )
+    && Array.isArray(value.missingUnitTypes)
+    && value.missingUnitTypes.every(unitType =>
+      KNOWLEDGE_UNIT_TYPES.includes(unitType as KnowledgeUnitType)
+    )
+    && (value.qualityStatus === 'ready' || value.qualityStatus === 'needs-refinement')
+    && Number.isInteger(value.qualityScore)
+    && Number(value.qualityScore) >= 0
+    && Number(value.qualityScore) <= 100
+    && Number.isInteger(value.qualityWarningCount)
+    && Number(value.qualityWarningCount) >= 0
+    && value.reviewRequired === true;
+}
+
 function configuredPublicLibraryRegistries(
   inspection: WorkspaceInspection,
   requestedDomains: Set<InfraDomainId>,
@@ -243,6 +288,7 @@ function readPublicLibraryRegistryEntry(value: unknown): PublicLibraryRegistryEn
     || !requiredMetadataMatchesEcosystem(value)
     || !Array.isArray(value.tags)
     || !value.tags.every(tag => typeof tag === 'string')
+    || !isLlmRefinementSummary(value.llmRefinement)
     || artifactLocalPath === artifactUrl
     || !isSha256Hex(value.artifact.contentHash)
     || value.artifact.mediaType !== PUBLIC_LIBRARY_ARTIFACT_MEDIA_TYPE

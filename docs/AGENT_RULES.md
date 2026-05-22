@@ -339,10 +339,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   `knowledge validate <registry.json> --json` on public library registries
   before configuring or sharing them; validation must reject coordinate drift,
   version-reference drift, unsafe artifact locations, malformed hashes,
-  unsupported media types, invalid quality states, missing review posture, and
-  raw content. Registry entries must preserve `versionRef` metadata so
-  consumers can distinguish pinned versions from mutable aliases such as
-  `latest`.
+  unsupported media types, invalid quality states, malformed `llmRefinement`
+  index summaries, missing review posture, and raw content. Registry entries
+  must preserve `versionRef` metadata and a compact offline LLM review index
+  with the review-packet hash, unit-type coverage, quality score, and missing
+  unit types so consumers can distinguish pinned versions from mutable aliases
+  such as `latest` and choose useful artifacts before downloading them.
 - URL-only public documentation extraction must validate the
   `infra-agent.public-knowledge-url-report` before LLM refinement or
   central-library artifact preparation. The report validator is the boundary

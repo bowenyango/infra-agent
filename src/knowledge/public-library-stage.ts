@@ -10,6 +10,10 @@ import {
   resolve
 } from 'node:path';
 import { isSafeWorkspaceRelativePath } from './source-config.ts';
+import {
+  KNOWLEDGE_UNIT_TYPES,
+  type KnowledgeUnitType
+} from '../types/knowledge.ts';
 import type {
   PublicKnowledgeDownloadSummary,
   PublicKnowledgeLibraryArtifact,
@@ -35,6 +39,20 @@ export interface PublicKnowledgeLibraryRegistryEntry {
   repository?: string;
   chart?: string;
   tags: string[];
+  llmRefinement: {
+    status: 'not-run';
+    mode: 'offline-review';
+    inputRef: 'artifact.llmRefinementInput';
+    reviewPacketHash: string;
+    outputContract: 'infra-agent.public-knowledge-url-report';
+    unitTypes: KnowledgeUnitType[];
+    unitCounts: Record<KnowledgeUnitType, number>;
+    missingUnitTypes: KnowledgeUnitType[];
+    qualityStatus: PublicKnowledgeQualityStatus;
+    qualityScore: number;
+    qualityWarningCount: number;
+    reviewRequired: true;
+  };
   artifact: {
     path: string;
     contentHash: string;
@@ -197,6 +215,33 @@ function isRegistryEntry(value: unknown): value is PublicKnowledgeLibraryRegistr
     && (value.chart === undefined || typeof value.chart === 'string')
     && Array.isArray(value.tags)
     && value.tags.every(tag => typeof tag === 'string')
+    && isRecord(value.llmRefinement)
+    && value.llmRefinement.status === 'not-run'
+    && value.llmRefinement.mode === 'offline-review'
+    && value.llmRefinement.inputRef === 'artifact.llmRefinementInput'
+    && SHA256_HEX_PATTERN.test(String(value.llmRefinement.reviewPacketHash))
+    && value.llmRefinement.outputContract === 'infra-agent.public-knowledge-url-report'
+    && Array.isArray(value.llmRefinement.unitTypes)
+    && KNOWLEDGE_UNIT_TYPES.every(unitType => value.llmRefinement.unitTypes.includes(unitType))
+    && isRecord(value.llmRefinement.unitCounts)
+    && KNOWLEDGE_UNIT_TYPES.every(unitType =>
+      Number.isInteger(value.llmRefinement.unitCounts[unitType])
+      && Number(value.llmRefinement.unitCounts[unitType]) >= 0
+    )
+    && Array.isArray(value.llmRefinement.missingUnitTypes)
+    && value.llmRefinement.missingUnitTypes.every(unitType =>
+      KNOWLEDGE_UNIT_TYPES.includes(unitType as KnowledgeUnitType)
+    )
+    && (
+      value.llmRefinement.qualityStatus === 'ready'
+      || value.llmRefinement.qualityStatus === 'needs-refinement'
+    )
+    && Number.isInteger(value.llmRefinement.qualityScore)
+    && Number(value.llmRefinement.qualityScore) >= 0
+    && Number(value.llmRefinement.qualityScore) <= 100
+    && Number.isInteger(value.llmRefinement.qualityWarningCount)
+    && Number(value.llmRefinement.qualityWarningCount) >= 0
+    && value.llmRefinement.reviewRequired === true
     && isRecord(value.artifact)
     && typeof value.artifact.path === 'string'
     && SHA256_HEX_PATTERN.test(String(value.artifact.contentHash))
@@ -284,6 +329,20 @@ function buildRegistryEntry(input: {
     ...(artifact.classification.repository ? { repository: artifact.classification.repository } : {}),
     ...(artifact.classification.chart ? { chart: artifact.classification.chart } : {}),
     tags: artifact.classification.tags,
+    llmRefinement: {
+      status: artifact.llmRefinementInput.status,
+      mode: artifact.llmRefinementInput.mode,
+      inputRef: 'artifact.llmRefinementInput',
+      reviewPacketHash: sha256(JSON.stringify(artifact.llmRefinementInput.reviewPacket)),
+      outputContract: artifact.llmRefinementInput.outputContract,
+      unitTypes: artifact.llmRefinementInput.unitTypes,
+      unitCounts: artifact.summary.unitCounts,
+      missingUnitTypes: artifact.llmRefinementInput.reviewPacket.missingUnitTypes,
+      qualityStatus: artifact.quality.status,
+      qualityScore: artifact.quality.score,
+      qualityWarningCount: artifact.quality.warnings.length,
+      reviewRequired: artifact.publication.reviewRequired
+    },
     artifact: {
       path: input.storedRelativePath,
       contentHash: input.artifactHash,

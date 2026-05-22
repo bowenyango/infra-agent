@@ -155,7 +155,10 @@ values.
    `public-knowledge-library-artifact` sources. Use
    `knowledge validate <registry.json> --json` before sharing or configuring a
    public registry; validation checks coordinates, artifact locations, hashes,
-   media type, quality status, and review-required posture.
+   media type, the compact `llmRefinement` index summary, quality status, and
+   review-required posture. Registry entries preserve the offline review-packet
+   hash, unit-type coverage, missing unit types, and quality score so an agent
+   can decide whether the artifact is useful enough to download or refine.
    Treat `quality.status: "ready"` plus complete unit types as the acceptance
    signal for URL-only public knowledge. Use `knowledge resource` instead when
    the caller needs repo targets, suggested files, cache posture, or local usage

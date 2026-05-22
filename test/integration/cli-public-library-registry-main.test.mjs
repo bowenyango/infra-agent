@@ -275,6 +275,20 @@ async function buildRemotePublicLibraryPayload(root) {
   const artifactPath = 'artifacts/aws-s3-bucket.public-knowledge-library-artifact.json';
   const artifactContent = JSON.stringify(artifact);
   const { classification } = artifact;
+  const llmRefinement = {
+    status: artifact.llmRefinementInput.status,
+    mode: artifact.llmRefinementInput.mode,
+    inputRef: 'artifact.llmRefinementInput',
+    reviewPacketHash: sha256Hex(JSON.stringify(artifact.llmRefinementInput.reviewPacket)),
+    outputContract: artifact.llmRefinementInput.outputContract,
+    unitTypes: artifact.llmRefinementInput.unitTypes,
+    unitCounts: artifact.summary.unitCounts,
+    missingUnitTypes: artifact.llmRefinementInput.reviewPacket.missingUnitTypes,
+    qualityStatus: artifact.quality.status,
+    qualityScore: artifact.quality.score,
+    qualityWarningCount: artifact.quality.warnings.length,
+    reviewRequired: true
+  };
   const registry = {
     kind: 'infra-agent.public-knowledge-library-registry',
     schemaVersion: 1,
@@ -290,6 +304,7 @@ async function buildRemotePublicLibraryPayload(root) {
         versionResolution: classification.versionResolution,
         sourceName: classification.sourceName,
         tags: classification.tags,
+        llmRefinement,
         artifact: {
           path: artifactPath,
           contentHash: sha256Hex(artifactContent),

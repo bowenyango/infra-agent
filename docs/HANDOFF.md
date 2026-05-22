@@ -6,6 +6,65 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-22 Public Library Registry LLM Index
+
+Status:
+
+- Public-library registry entries now preserve a compact `llmRefinement`
+  index summary from the staged artifact.
+- The summary records offline-review status, an SHA-256 hash of
+  `artifact.llmRefinementInput.reviewPacket`, supported unit types, unit
+  counts, missing unit types, quality status/score, quality warning count, and
+  review-required posture.
+- Registry parsing and `knowledge validate` now reject entries with malformed
+  LLM-refinement index metadata, count drift against the artifact unit count,
+  missing-unit drift against zero-count unit types, quality-status drift, or
+  disabled review posture.
+- This improves the central-library directory shape for future downloadable
+  public references: consumers can inspect classification, quality, and LLM
+  review readiness before downloading the full artifact, without embedding raw
+  documentation.
+
+Files changed:
+
+- `src/knowledge/public-library-stage.ts` writes the registry
+  `llmRefinement` summary when staging public-library artifacts.
+- `src/knowledge/public-library-registry.ts` requires the summary before
+  expanding configured public-library registry entries.
+- `src/knowledge/validate.ts` validates the summary and its drift against
+  artifact metadata.
+- `test/integration/cli-public-library-stage-main.test.mjs`,
+  `test/integration/cli-public-library-registry-main.test.mjs`,
+  `test/unit/knowledge-public-library-artifact-validation.test.mjs`, and
+  `test/unit/knowledge-public-library-registry-url.test.mjs` cover local and
+  URL-backed registry flows.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  central-library registry LLM index contract.
+
+Validation:
+
+- `npm run test:focused --
+  test/integration/cli-public-library-stage-main.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-artifact-validation.test.mjs` passed.
+- `npm run test:focused --
+  test/unit/knowledge-public-library-registry-url.test.mjs` passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-registry-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- The summary indexes the offline review packet but does not execute an LLM
+  refinement workflow yet. A later explicit refinement command should consume
+  and rewrite validated artifacts under a deterministic output contract.
+- Existing pre-change registries without `llmRefinement` need to be regenerated
+  with `knowledge library-stage` before validation or download reuse.
+
 ## 2026-05-20 Weak Public Guidance Quality Gate
 
 Status:
