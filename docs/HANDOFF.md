@@ -6,6 +6,60 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-24 Public Library Catalog Facets
+
+Status:
+
+- Added optional browse facets for `knowledge library-catalog` via `--facets`
+  and `--facet-limit <n>`.
+- Facets are computed from entries that match existing exact selectors and
+  optional metadata search before `--limit` truncates returned entries. The
+  JSON contract marks this explicitly as `scope: "matched-before-limit"`.
+- Facet buckets cover ecosystem, artifact kind, provider/package address,
+  version reference and resolution status, source name, resource token,
+  repository, chart, tags, quality status, unit coverage, included unit types,
+  and missing unit types.
+- Bucket ordering is deterministic: count descending, then value ascending.
+  Each field reports total, returned, and omitted bucket counts.
+- Catalog facets remain metadata-only. URL registries still fetch only the
+  registry JSON; catalog does not download artifacts, approve trust, upload, or
+  embed raw docs.
+
+Files changed:
+
+- `src/knowledge/public-library-catalog.ts` adds the optional facets contract
+  and matched-before-limit bucket computation.
+- `src/cli/main.ts` parses catalog-only `--facets` and `--facet-limit`.
+- `src/cli/output.ts` prints compact facet lines in text catalog output only
+  when facets are requested.
+- `test/integration/cli-public-library-catalog-main.test.mjs` covers facet
+  JSON, facet limit truncation, pre-limit scope, raw-doc omission, text output,
+  and URL registry behavior without artifact fetches.
+- `test/integration/cli-public-library-catalog-args.test.mjs` covers parser
+  acceptance and rejection for catalog-only facet flags.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, `docs/TESTING.md`,
+  and `skills/infra-configuration/SKILL.md` document facets as browse and
+  selection metadata.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge library-catalog"
+  test/integration/cli-public-library-catalog-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-catalog"
+  test/integration/cli-public-library-catalog-args.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `git diff --check` passed.
+- `npm run verify` passed after the parser-order fix for
+  `--facet-limit ... --facets`.
+
+Residual risks:
+
+- Facets are deterministic metadata buckets, not semantic search, popularity
+  ranking, or artifact trust proof.
+- High-cardinality registries may need additional server-side/paginated browse
+  UX later; this slice only adds bounded local CLI facets.
+
 ## 2026-05-24 Public Library Catalog Metadata Search
 
 Status:

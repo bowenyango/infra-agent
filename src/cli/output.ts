@@ -3922,6 +3922,16 @@ export function printPublicKnowledgeLibraryCatalogReport(
   if (filters.length > 0) {
     process.stdout.write(`filters: ${filters.join(' ')}\n`);
   }
+  if (report.facets) {
+    process.stdout.write(`facets scope: ${report.facets.scope} matched=${report.facets.matchedEntryCount} limit=${report.facets.limit}\n`);
+    for (const [field, summary] of Object.entries(report.facets.fields)) {
+      if (summary.returnedValueCount === 0) {
+        continue;
+      }
+      const values = summary.values.map(value => `${value.value}=${value.count}`).join(',');
+      process.stdout.write(`facet ${field}: ${values} omitted=${summary.omittedValueCount}\n`);
+    }
+  }
 
   process.stdout.write('\n');
   printHeader('Entries');

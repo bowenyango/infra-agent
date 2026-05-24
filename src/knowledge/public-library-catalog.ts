@@ -32,6 +32,41 @@ export type PublicKnowledgeLibraryCatalogSearchableField =
   | 'tags'
   | 'qualityStatus'
   | 'unitTypes';
+export type PublicKnowledgeLibraryCatalogFacetField =
+  | 'ecosystem'
+  | 'artifactKind'
+  | 'providerAddress'
+  | 'version'
+  | 'versionReferenceKind'
+  | 'versionResolutionStatus'
+  | 'sourceName'
+  | 'resourceToken'
+  | 'repository'
+  | 'chart'
+  | 'tags'
+  | 'qualityStatus'
+  | 'unitTypeCoverage'
+  | 'unitTypes'
+  | 'missingUnitTypes';
+
+export interface PublicKnowledgeLibraryCatalogFacetValue {
+  value: string;
+  count: number;
+}
+
+export interface PublicKnowledgeLibraryCatalogFacetSummary {
+  totalValueCount: number;
+  returnedValueCount: number;
+  omittedValueCount: number;
+  values: PublicKnowledgeLibraryCatalogFacetValue[];
+}
+
+export interface PublicKnowledgeLibraryCatalogFacets {
+  scope: 'matched-before-limit';
+  matchedEntryCount: number;
+  limit: number;
+  fields: Record<PublicKnowledgeLibraryCatalogFacetField, PublicKnowledgeLibraryCatalogFacetSummary>;
+}
 
 export interface PublicKnowledgeLibraryCatalogSearchSummary {
   query: string;
@@ -82,6 +117,7 @@ export interface PublicKnowledgeLibraryCatalogReport {
   filters: PublicKnowledgeLibraryCatalogFilter;
   search?: PublicKnowledgeLibraryCatalogSearchSummary;
   limit?: PublicKnowledgeLibraryCatalogLimitSummary;
+  facets?: PublicKnowledgeLibraryCatalogFacets;
   entries: PublicKnowledgeLibraryCatalogEntry[];
   warnings: string[];
 }
@@ -153,8 +189,12 @@ interface PublicKnowledgeLibraryCatalogOptions {
   filter?: PublicKnowledgeLibraryCatalogFilter;
   query?: string;
   limit?: number;
+  includeFacets?: boolean;
+  facetLimit?: number;
   fetchImpl?: PublicLibraryFetchImpl;
 }
+
+const DEFAULT_CATALOG_FACET_LIMIT = 10;
 
 const CATALOG_SEARCHABLE_FIELDS: PublicKnowledgeLibraryCatalogSearchableField[] = [
   'coordinates',
@@ -171,7 +211,26 @@ const CATALOG_SEARCHABLE_FIELDS: PublicKnowledgeLibraryCatalogSearchableField[] 
   'unitTypes'
 ];
 
+const CATALOG_FACET_FIELDS: PublicKnowledgeLibraryCatalogFacetField[] = [
+  'ecosystem',
+  'artifactKind',
+  'providerAddress',
+  'version',
+  'versionReferenceKind',
+  'versionResolutionStatus',
+  'sourceName',
+  'resourceToken',
+  'repository',
+  'chart',
+  'tags',
+  'qualityStatus',
+  'unitTypeCoverage',
+  'unitTypes',
+  'missingUnitTypes'
+];
+
 type CatalogSearchFieldValues = Record<PublicKnowledgeLibraryCatalogSearchableField, string[]>;
+type CatalogFacetFieldValues = Record<PublicKnowledgeLibraryCatalogFacetField, string[]>;
 
 interface CatalogScoredEntry {
   entry: PublicLibraryRegistryEntry;
@@ -213,6 +272,83 @@ function catalogSearchValues(entry: PublicLibraryRegistryEntry): CatalogSearchFi
     tags: entry.tags,
     qualityStatus: [entry.llmRefinement.qualityStatus],
     unitTypes: entry.llmRefinement.unitTypes
+  };
+}
+
+function catalogFacetValues(entry: PublicLibraryRegistryEntry): CatalogFacetFieldValues {
+  const includedUnitTypes = KNOWLEDGE_UNIT_TYPES.filter(unitType =>
+    (entry.llmRefinement.unitCounts[unitType] ?? 0) > 0
+  );
+
+  return {
+    ecosystem: [entry.ecosystem],
+    artifactKind: [entry.artifactKind],
+    providerAddress: [entry.providerAddress],
+    version: [entry.version],
+    versionReferenceKind: [entry.versionRef.kind],
+    versionResolutionStatus: [entry.versionResolution.status],
+    sourceName: [entry.sourceName],
+    resourceToken: entry.resourceToken ? [entry.resourceToken] : [],
+    repository: entry.repository ? [entry.repository] : [],
+    chart: entry.chart ? [entry.chart] : [],
+    tags: entry.tags,
+    qualityStatus: [entry.llmRefinement.qualityStatus],
+    unitTypeCoverage: [entry.llmRefinement.missingUnitTypes.length === 0 ? 'complete' : 'partial'],
+    unitTypes: includedUnitTypes,
+    missingUnitTypes: entry.llmRefinement.missingUnitTypes
+  };
+}
+
+function buildCatalogFacetSummary(
+  counts: Map<string, number>,
+  limit: number
+): PublicKnowledgeLibraryCatalogFacetSummary {
+  const orderedValues = [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((left, right) => {
+      const countDifference = right.count - left.count;
+      if (countDifference !== 0) {
+        return countDifference;
+      }
+
+      return left.value.localeCompare(right.value);
+    });
+  const values = orderedValues.slice(0, limit);
+
+  return {
+    totalValueCount: orderedValues.length,
+    returnedValueCount: values.length,
+    omittedValueCount: Math.max(0, orderedValues.length - values.length),
+    values
+  };
+}
+
+function buildCatalogFacets(
+  entries: CatalogRankedEntry[],
+  limit: number
+): PublicKnowledgeLibraryCatalogFacets {
+  const countsByField = Object.fromEntries(
+    CATALOG_FACET_FIELDS.map(field => [field, new Map<string, number>()])
+  ) as Record<PublicKnowledgeLibraryCatalogFacetField, Map<string, number>>;
+
+  for (const rankedEntry of entries) {
+    const valuesByField = catalogFacetValues(rankedEntry.entry);
+    for (const field of CATALOG_FACET_FIELDS) {
+      for (const value of new Set(valuesByField[field])) {
+        countsByField[field].set(value, (countsByField[field].get(value) ?? 0) + 1);
+      }
+    }
+  }
+
+  const fields = Object.fromEntries(
+    CATALOG_FACET_FIELDS.map(field => [field, buildCatalogFacetSummary(countsByField[field], limit)])
+  ) as PublicKnowledgeLibraryCatalogFacets['fields'];
+
+  return {
+    scope: 'matched-before-limit',
+    matchedEntryCount: entries.length,
+    limit,
+    fields
   };
 }
 
@@ -483,6 +619,7 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
         }
       : {})
   }));
+  const facetLimit = options.facetLimit ?? DEFAULT_CATALOG_FACET_LIMIT;
   const limitedEntries = options.limit !== undefined
     ? rankedEntries.slice(0, options.limit)
     : rankedEntries;
@@ -522,6 +659,11 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
             returnedEntryCount: entries.length,
             omittedEntryCount: Math.max(0, matchedEntryCount - entries.length)
           }
+        }
+      : {}),
+    ...(options.includeFacets
+      ? {
+          facets: buildCatalogFacets(rankedEntries, facetLimit)
         }
       : {}),
     entries,

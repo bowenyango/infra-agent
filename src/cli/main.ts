@@ -175,6 +175,8 @@ export interface ParsedArgs {
   publicLibraryCatalogFilter?: PublicKnowledgeLibraryCatalogFilter;
   publicLibraryCatalogQuery?: string | null;
   publicLibraryCatalogLimit?: number | null;
+  publicLibraryCatalogFacets?: boolean;
+  publicLibraryCatalogFacetLimit?: number | null;
   publicLibraryDownloadCoordinate?: string | null;
   publicLibraryFromUrlRefine?: boolean;
   maxSources: number | null;
@@ -219,7 +221,7 @@ function printUsage(): void {
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]',
       '  infra-agent knowledge library-download <registry.json|registry-url> (--coordinate <coordinate>|[--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement]) --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]',
-      '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--query <text>|--search <text>] [--limit <n>] [--out <catalog.json>] [--json]',
+      '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--query <text>|--search <text>] [--limit <n>] [--facets [--facet-limit <n>]] [--out <catalog.json>] [--json]',
       '  infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]',
       '  infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]',
       '  infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> [--json]',
@@ -1368,6 +1370,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const publicLibraryCatalogFilter: PublicKnowledgeLibraryCatalogFilter = {};
     let publicLibraryCatalogQuery: string | null = null;
     let publicLibraryCatalogLimit: number | null = null;
+    let publicLibraryCatalogFacets = false;
+    let publicLibraryCatalogFacetLimit: number | null = null;
     let publicLibraryDownloadCoordinate: string | null = null;
     let publicLibraryFromUrlRefine = false;
     let llmProvider: LLMProvider | null = null;
@@ -2090,6 +2094,34 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--facets') {
+        if (knowledgeAction !== 'library-catalog') {
+          fail('--facets is only supported for knowledge library-catalog.');
+        }
+        if (publicLibraryCatalogFacets) {
+          fail('--facets can be provided at most once.');
+        }
+        publicLibraryCatalogFacets = true;
+        continue;
+      }
+
+      if (arg === '--facet-limit') {
+        const rawFacetLimit = actionArgs[index + 1];
+        const parsedFacetLimit = Number(rawFacetLimit);
+        if (!Number.isInteger(parsedFacetLimit) || parsedFacetLimit < 1) {
+          fail('Missing or invalid value for --facet-limit. Expected a positive integer.');
+        }
+        if (knowledgeAction !== 'library-catalog') {
+          fail('--facet-limit is only supported for knowledge library-catalog.');
+        }
+        if (publicLibraryCatalogFacetLimit !== null) {
+          fail('--facet-limit can be provided at most once.');
+        }
+        publicLibraryCatalogFacetLimit = parsedFacetLimit;
+        index += 1;
+        continue;
+      }
+
       if (arg.startsWith('--')) {
         fail(`Unknown knowledge ${knowledgeAction} option: ${arg}`);
       }
@@ -2143,6 +2175,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
     if (knowledgeAction === 'library-catalog' && positionalArgs.length !== 1) {
       fail('knowledge library-catalog requires exactly one public library registry JSON path or URL.');
+    }
+    if (knowledgeAction === 'library-catalog' && publicLibraryCatalogFacetLimit !== null && !publicLibraryCatalogFacets) {
+      fail('knowledge library-catalog --facet-limit requires --facets.');
     }
     if (knowledgeAction === 'library-refinement-review' && positionalArgs.length !== 1) {
       fail('knowledge library-refinement-review requires exactly one public library artifact JSON path.');
@@ -2257,6 +2292,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       publicLibraryCatalogFilter: Object.keys(publicLibraryCatalogFilter).length > 0 ? publicLibraryCatalogFilter : undefined,
       publicLibraryCatalogQuery,
       publicLibraryCatalogLimit,
+      publicLibraryCatalogFacets,
+      publicLibraryCatalogFacetLimit,
       publicLibraryDownloadCoordinate,
       publicLibraryFromUrlRefine,
       maxSources,
@@ -3149,7 +3186,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       registryPath: parsed.inputPath,
       ...(parsed.publicLibraryCatalogFilter ? { filter: parsed.publicLibraryCatalogFilter } : {}),
       ...(parsed.publicLibraryCatalogQuery ? { query: parsed.publicLibraryCatalogQuery } : {}),
-      ...(parsed.publicLibraryCatalogLimit ? { limit: parsed.publicLibraryCatalogLimit } : {})
+      ...(parsed.publicLibraryCatalogLimit ? { limit: parsed.publicLibraryCatalogLimit } : {}),
+      ...(parsed.publicLibraryCatalogFacets ? { includeFacets: true } : {}),
+      ...(parsed.publicLibraryCatalogFacetLimit ? { facetLimit: parsed.publicLibraryCatalogFacetLimit } : {})
     });
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), report)

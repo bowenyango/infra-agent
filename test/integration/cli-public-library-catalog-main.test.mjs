@@ -92,6 +92,10 @@ function sha256Hex(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function catalogFacetValue(catalog, field, value) {
+  return catalog.facets.fields[field].values.find(entry => entry.value === value);
+}
+
 async function withMockFetch(routes, action) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async url => {
@@ -251,6 +255,7 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(catalog.summary.ecosystemCounts.helm, 1);
     assert.equal(catalog.summary.artifactKindCounts['terraform-provider-resource'], 1);
     assert.equal(catalog.summary.artifactKindCounts['helm-chart-docs'], 1);
+    assert.equal(catalog.facets, undefined);
 
     const helmEntry = catalog.entries.find(entry => entry.classification.ecosystem === 'helm');
     assert.ok(helmEntry);
@@ -259,6 +264,34 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(helmEntry.classification.chart, 'kube-prometheus-stack');
     assert.equal(helmEntry.quality.status, 'needs-refinement');
     assert.ok(catalog.warnings.some(warning => /LLM refinement/.test(warning)));
+
+    const facetedOutput = await captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      registryPath,
+      '--facets',
+      '--json'
+    ]));
+    const faceted = parseJsonOutput(facetedOutput);
+
+    assert.equal(faceted.facets.scope, 'matched-before-limit');
+    assert.equal(faceted.facets.matchedEntryCount, 2);
+    assert.equal(faceted.facets.limit, 10);
+    assert.deepEqual(faceted.facets.fields.ecosystem.values, [
+      { value: 'helm', count: 1 },
+      { value: 'terraform', count: 1 }
+    ]);
+    assert.equal(catalogFacetValue(faceted, 'artifactKind', 'terraform-provider-resource').count, 1);
+    assert.equal(catalogFacetValue(faceted, 'artifactKind', 'helm-chart-docs').count, 1);
+    assert.equal(catalogFacetValue(faceted, 'providerAddress', 'hashicorp/aws').count, 1);
+    assert.equal(catalogFacetValue(faceted, 'providerAddress', 'prometheus-community/kube-prometheus-stack').count, 1);
+    assert.equal(catalogFacetValue(faceted, 'chart', 'kube-prometheus-stack').count, 1);
+    assert.equal(catalogFacetValue(faceted, 'tags', 'public-reference').count, 2);
+    assert.equal(catalogFacetValue(faceted, 'qualityStatus', 'ready').count, 1);
+    assert.equal(catalogFacetValue(faceted, 'qualityStatus', 'needs-refinement').count, 1);
+    assert.equal(faceted.facets.fields.resourceToken.totalValueCount, 0);
+    assert.doesNotMatch(facetedOutput, /Provides an S3 bucket resource/);
+    assert.doesNotMatch(facetedOutput, /```hcl/);
 
     const reportPath = join(tempRoot, 'reports/catalog-filtered.json');
     const filteredOutput = await captureStdout(() => main([
@@ -326,6 +359,9 @@ test('knowledge library-catalog lists and filters downloadable public registry e
       'public-reference',
       '--limit',
       '1',
+      '--facets',
+      '--facet-limit',
+      '1',
       '--json'
     ]));
     const limitedSearch = parseJsonOutput(limitedSearchOutput);
@@ -342,6 +378,17 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(limitedSearch.entries.length, 1);
     assert.equal(limitedSearch.entries[0].searchMatch.rank, 1);
     assert.ok(limitedSearch.entries[0].searchMatch.matchedFields.includes('tags'));
+    assert.equal(limitedSearch.facets.scope, 'matched-before-limit');
+    assert.equal(limitedSearch.facets.matchedEntryCount, 2);
+    assert.equal(limitedSearch.facets.limit, 1);
+    assert.deepEqual(limitedSearch.facets.fields.ecosystem.values, [
+      { value: 'helm', count: 1 }
+    ]);
+    assert.equal(limitedSearch.facets.fields.ecosystem.omittedValueCount, 1);
+    assert.deepEqual(limitedSearch.facets.fields.tags.values, [
+      { value: 'public-reference', count: 2 }
+    ]);
+    assert.ok(limitedSearch.facets.fields.tags.omittedValueCount > 0);
 
     const remoteRegistryContent = await readFile(registryPath, 'utf8');
     const remoteCatalogOutput = await withMockFetch(new Map([
@@ -355,6 +402,7 @@ test('knowledge library-catalog lists and filters downloadable public registry e
       REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
       '--query',
       'kube prometheus',
+      '--facets',
       '--json'
     ])));
     const remoteCatalog = parseJsonOutput(remoteCatalogOutput);
@@ -364,6 +412,8 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(remoteCatalog.entries[0].coordinates, helmArtifact.artifact.coordinates);
     assert.equal(remoteCatalog.entries[0].artifact.location.kind, 'url');
     assert.equal(remoteCatalog.entries[0].artifactDownload.requiresPrefetch, true);
+    assert.equal(remoteCatalog.facets.matchedEntryCount, 1);
+    assert.equal(catalogFacetValue(remoteCatalog, 'chart', 'kube-prometheus-stack').count, 1);
 
     const writtenReport = JSON.parse(await readFile(reportPath, 'utf8'));
     assert.equal(writtenReport.kind, 'infra-agent.public-knowledge-library-catalog');
@@ -408,10 +458,13 @@ test('knowledge library-catalog lists and filters downloadable public registry e
       'library-catalog',
       registryPath,
       '--query',
-      'aws_s3_bucket'
+      'aws_s3_bucket',
+      '--facets'
     ]));
 
     assert.match(textOutput, /query: aws_s3_bucket terms=aws_s3_bucket matched=1/);
+    assert.match(textOutput, /facets scope: matched-before-limit matched=1 limit=10/);
+    assert.match(textOutput, /facet ecosystem: terraform=1 omitted=0/);
     assert.match(textOutput, /rank=1/);
     assert.match(textOutput, /matchScore=\d+/);
     assert.match(textOutput, /matchFields=/);
@@ -455,6 +508,7 @@ test('knowledge library-catalog reads URL registries and resolves relative artif
       REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
       '--coordinate',
       terraformArtifact.artifact.coordinates,
+      '--facets',
       '--json'
     ])));
     const catalog = parseJsonOutput(output);
@@ -468,6 +522,8 @@ test('knowledge library-catalog reads URL registries and resolves relative artif
     assert.equal(catalog.entries[0].artifact.location.kind, 'url');
     assert.equal(catalog.entries[0].artifact.location.url, REMOTE_PUBLIC_LIBRARY_ARTIFACT_URL);
     assert.equal(catalog.entries[0].artifactDownload.requiresPrefetch, true);
+    assert.equal(catalog.facets.matchedEntryCount, 1);
+    assert.equal(catalogFacetValue(catalog, 'providerAddress', 'hashicorp/aws').count, 1);
     assert.doesNotMatch(output, /Provides an S3 bucket resource/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
