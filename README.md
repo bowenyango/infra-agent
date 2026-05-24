@@ -124,6 +124,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge index [workspace] [--domain helm|pulumi|terraform] [--target <path>] [--source <id>] [--max-units <n>] [--unit-type fact|guidance|example|diagnostic|recipe] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--version <version>] [--privacy-scope public-reference|workspace-private|internal-team|private-run] [--storage-scope public-reference|workspace-private] [--out <index.json>] [--json]`
 - `infra-agent knowledge resource [workspace] --domain <helm|pulumi|terraform> --resource <identity> [--max-units <n>] [--out <report.json>] [--json]`
 - `infra-agent knowledge from-url <url> [--max-units <n>] [--out <url-knowledge.json>] [--library-out <library-artifact.json>] [--json]`
+- `infra-agent knowledge library-from-url <url> --library-out <library-artifact.json> [--out <pipeline-report.json>] [--content <markdown-or-html-file>] [--max-units <n>] [--refine --refined-out <url-report.json>] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--workspace <workspace> --store-dir <dir> --registry <registry.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]`
 - `infra-agent knowledge library-download <public-library-registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]`
@@ -270,6 +271,15 @@ Current behavior is intentionally runtime-foundation oriented:
   registered SHA-256 content hash, validates that the artifact payload still
   matches the registry metadata, and writes it into a workspace-relative
   content-addressed store without embedding raw content in the report.
+  `knowledge library-from-url <url> --library-out <artifact.json>` is the
+  one-shot central-library build path from official public docs. It runs the
+  same URL download, version resolution, classification, compact extraction,
+  and artifact validation as `from-url`, writes the final downloadable artifact,
+  and can optionally run model refinement with `--refine --refined-out` before
+  writing the artifact. When `--workspace`, `--store-dir`, and `--registry` are
+  supplied together, it stages the final artifact into the local
+  content-addressed public-library registry. It does not upload, publish
+  remotely, approve trust, or fetch additional docs during refinement.
   `knowledge library-refinement-review <library-artifact.json>` is the
   offline LLM handoff for that downloaded artifact. It validates the artifact
   and emits a raw-content-free `infra-agent.public-knowledge-library-refinement-review`
@@ -418,6 +428,12 @@ Current behavior is intentionally runtime-foundation oriented:
   LLM-review metadata drift against the registry entry, and stores the verified
   artifact by content hash under a workspace-relative directory. It is local
   artifact download/reuse, not upload or publication approval.
+- `knowledge library-from-url` is the central-library producer shortcut. It
+  downloads or reads one supported official documentation URL, preserves
+  classification and download evidence, builds a validated
+  `infra-agent.public-knowledge-library-artifact`, optionally runs the bounded
+  model refinement step and persists the refined URL report, and can stage the
+  final artifact into a local registry when all staging flags are provided.
 - `knowledge library-refinement-review` validates a downloaded or locally
   generated `infra-agent.public-knowledge-library-artifact` and emits an
   offline LLM review input report. The report resolves the artifact's compact

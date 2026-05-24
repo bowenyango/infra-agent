@@ -73,6 +73,7 @@ values.
    infra-agent knowledge index <workspace>
    infra-agent knowledge index <workspace> --resource <identity> --field-path <field> --json
    infra-agent knowledge validate <artifact> --workspace <workspace>
+   infra-agent knowledge library-from-url <public-doc-url> --library-out <library-artifact.json> --json
    infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> --json
    infra-agent knowledge library-catalog <registry.json|registry-url> --domain <helm|pulumi|terraform> --resource <identity> --json
    infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
@@ -142,6 +143,17 @@ values.
    source-outline drift, fallback ordering, LLM download evidence drift, unit
    counts, required discovery tags, unit hash when present, unit-digest drift,
    review packet drift, and raw-content omission.
+   Use `knowledge library-from-url <url> --library-out <artifact.json> --json`
+   as the one-shot central-library producer path when the caller wants a
+   downloadable public-reference artifact directly from official docs. It
+   reuses URL download, version resolution, classification, compact extraction,
+   quality, and artifact validation; with `--refine --refined-out
+   <url-report.json>` it runs the bounded OpenAI-compatible model refinement
+   step and persists the model output for review before rebuilding the final
+   artifact. If `--workspace`, `--store-dir`, and `--registry` are supplied
+   together, it stages the final artifact into a local content-addressed
+   public-library registry. It must not upload, publish remotely, approve
+   trust, or fetch additional docs during refinement.
    Use `knowledge library-stage <artifact.json> --workspace <workspace>
    --store-dir <dir> --registry <registry.json> --json` only after validation
    when preparing local downloadable-registry metadata. It writes a

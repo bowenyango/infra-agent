@@ -360,6 +360,16 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   workspace-relative content-addressed artifact. Treat the result as local
   download/reuse; it must not upload, publish, approve trust, or embed raw
   documentation in the report.
+  Use `knowledge library-from-url <url> --library-out <artifact.json> --json`
+  when producing a central-library artifact directly from one supported
+  official public documentation URL. It must reuse `from-url` download,
+  version resolution, classification, compact extraction, quality, and
+  validation logic; optionally run the bounded model refinement step only when
+  `--refine --refined-out <url-report.json>` is supplied; and stage the final
+  artifact only when `--workspace`, `--store-dir`, and `--registry` are all
+  supplied. Persist the refined URL report when refinement runs so model output
+  remains reviewable. It must not upload, publish remotely, approve trust, or
+  fetch additional docs during refinement.
   Use `knowledge library-refinement-review <library-artifact.json> --json`
   after generating or downloading an artifact when a model needs a focused
   refinement handoff. It validates the artifact and emits resolved compact

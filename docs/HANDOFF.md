@@ -6,6 +6,84 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-24 Public Library From URL Pipeline
+
+Status:
+
+- Added `knowledge library-from-url <url> --library-out
+  <library-artifact.json>` as a one-shot public central-library build
+  pipeline.
+- The command reuses the existing URL extraction path for bounded download,
+  version resolution, classification, unit extraction, quality checks, and
+  artifact validation, then writes a final validated
+  `infra-agent.public-knowledge-library-artifact`.
+- Optional `--refine --refined-out <url-report.json>` runs the compact
+  model-refinement path in memory and rebuilds the final artifact from the
+  refined URL report while preserving the original artifact ID and public
+  reference posture.
+- Optional complete staging flags (`--workspace`, `--store-dir`, and
+  `--registry`) stage the final artifact bytes into the content-addressed
+  local public-library store, so the registry hash matches the final
+  deterministic or model-refined artifact.
+- The pipeline does not upload, publish, trust, or approve artifacts. LLM use
+  is limited to compact review/refinement inputs and never receives raw source
+  documents or secrets from the command report.
+
+Files changed:
+
+- `src/knowledge/public-library-build.ts` implements deterministic and optional
+  model-refined URL-to-library artifact builds, compact pipeline reporting,
+  quality snapshots, review-packet hashes, and optional local staging
+  metadata.
+- `src/knowledge/public-library-refinement-review.ts` exposes an in-memory
+  artifact review-packet builder so the pipeline can refine generated
+  artifacts without writing intermediate review files.
+- `src/cli/main.ts` parses and routes `knowledge library-from-url`, enforces
+  required artifact/refinement/staging flag combinations, resolves LLM config
+  only when refinement is requested, writes the final artifact, and stages only
+  the final bytes.
+- `src/cli/output.ts` prints the public-library build summary, including
+  download/classification, refinement status, input/final review hashes,
+  quality, artifact hash, output paths, staging target, and warnings.
+- `test/unit/knowledge-public-library-build.test.mjs` covers deterministic and
+  mocked model-refined helper behavior, report secrecy, quality metadata,
+  artifact ID preservation, and review-packet hash drift.
+- `test/integration/cli-public-library-from-url-main.test.mjs` covers CLI
+  artifact/report output, mocked LLM refinement, local staging, final-byte
+  registry hash matching, and secret/raw-content omission.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers accepted and
+  rejected `library-from-url` argument combinations.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  new build pipeline and its current central-library boundaries.
+
+Validation:
+
+- `npm run test:focused -- test/unit/knowledge-public-library-build.test.mjs`
+  passed.
+- `npm run test:focused --
+  test/integration/cli-public-library-from-url-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-from-url"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:unit` passed.
+- `npm run test:integration` passed.
+- `npm run smoke` passed.
+- `npm run e2e` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Normal tests use mocked/injected LLM transports and do not call a live
+  provider. Live quality still depends on an operator-provided
+  OpenAI-compatible endpoint and API key.
+- Semantic extraction quality is still mostly the deterministic URL extraction
+  path. This slice improves the central-library build orchestration and model
+  handoff, not deeper doc crawling or ranking by itself.
+- Final artifacts continue to require review (`publication.reviewRequired:
+  true`) and no remote hub publishing or trust promotion exists yet.
+
 ## 2026-05-24 Public Library Refinement Run
 
 Status:

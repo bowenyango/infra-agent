@@ -186,6 +186,90 @@ test('knowledge from-url CLI args accept public documentation URL extraction fla
   assert.equal(parsed.json, true);
 });
 
+test('knowledge library-from-url CLI args accept central-library build and refinement flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-from-url',
+    'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket',
+    '--content',
+    'fixtures/aws_s3_bucket.md',
+    '--max-units',
+    '20',
+    '--library-out',
+    'artifacts/aws-s3-library.json',
+    '--out',
+    'artifacts/aws-s3-library-build.json',
+    '--refine',
+    '--refined-out',
+    'artifacts/aws-s3-refined-url-report.json',
+    '--model',
+    'test-refinement-model',
+    '--openai-base-url',
+    'https://llm.example.test/v1',
+    '--llm-provider',
+    'openai-compatible',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--store-dir',
+    'knowledge/public-library',
+    '--registry',
+    'knowledge/public-library-registry.json',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-from-url');
+  assert.equal(parsed.inputPath, 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket');
+  assert.equal(parsed.contentPath, 'fixtures/aws_s3_bucket.md');
+  assert.equal(parsed.maxUnits, 20);
+  assert.equal(parsed.libraryOutputPath, 'artifacts/aws-s3-library.json');
+  assert.equal(parsed.outputPath, 'artifacts/aws-s3-library-build.json');
+  assert.equal(parsed.publicLibraryFromUrlRefine, true);
+  assert.equal(parsed.publicLibraryRefinedOutputPath, 'artifacts/aws-s3-refined-url-report.json');
+  assert.equal(parsed.llmModel, 'test-refinement-model');
+  assert.equal(parsed.llmBaseUrl, 'https://llm.example.test/v1');
+  assert.equal(parsed.llmProvider, 'openai-compatible');
+  assert.equal(parsed.workspace, resolve(process.cwd(), 'fixtures/sample-workspace'));
+  assert.equal(parsed.publishStoreDir, 'knowledge/public-library');
+  assert.equal(parsed.publishRegistryPath, 'knowledge/public-library-registry.json');
+  assert.equal(parsed.json, true);
+});
+
+test('knowledge library-from-url requires artifact and refinement output flags', () => {
+  const rejectedArgs = [
+    [],
+    ['--library-out', 'artifacts/aws-s3-library.json', '--refine'],
+    ['--library-out', 'artifacts/aws-s3-library.json', '--refined-out', 'artifacts/aws-s3-refined-url-report.json'],
+    ['--library-out', 'artifacts/aws-s3-library.json', '--model', 'test-refinement-model'],
+    ['--library-out', 'artifacts/aws-s3-library.json', '--workspace', 'fixtures/sample-workspace'],
+    ['--library-out', 'artifacts/aws-s3-library.json', '--store-dir', 'knowledge/public-library'],
+    ['--library-out', 'artifacts/aws-s3-library.json', '--registry', 'knowledge/public-library-registry.json']
+  ];
+
+  for (const args of rejectedArgs) {
+    const script = [
+      "import { parseArgs } from './src/cli/main.ts';",
+      `parseArgs(${JSON.stringify([
+        'knowledge',
+        'library-from-url',
+        'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket',
+        ...args
+      ])});`
+    ].join(' ');
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      script
+    ], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 1);
+  }
+});
+
 test('knowledge library-download CLI args require a coordinate and local store target', () => {
   const parsed = parseArgs([
     'knowledge',

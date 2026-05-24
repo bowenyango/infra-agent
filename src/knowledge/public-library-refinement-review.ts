@@ -25,6 +25,11 @@ export interface PublicKnowledgeLibraryRefinementReviewOptions {
   baseDir: string;
 }
 
+export interface PublicKnowledgeLibraryRefinementReviewFromArtifactOptions {
+  artifact: PublicKnowledgeLibraryArtifact;
+  inputPath?: string;
+}
+
 export interface PublicKnowledgeLibraryRefinementReviewReport {
   kind: 'infra-agent.public-knowledge-library-refinement-review';
   schemaVersion: 1;
@@ -167,6 +172,16 @@ export async function buildPublicKnowledgeLibraryRefinementReviewReport(
   }
 
   const artifact = parseLibraryArtifact(payload);
+  return buildPublicKnowledgeLibraryRefinementReviewReportFromArtifact({
+    artifact,
+    inputPath
+  });
+}
+
+export function buildPublicKnowledgeLibraryRefinementReviewReportFromArtifact(
+  options: PublicKnowledgeLibraryRefinementReviewFromArtifactOptions
+): PublicKnowledgeLibraryRefinementReviewReport {
+  const { artifact } = options;
   const refinement = artifact.llmRefinementInput;
   const reviewPacketHash = sha256(JSON.stringify(refinement.reviewPacket));
   const missingUnitTypes = refinement.reviewPacket.missingUnitTypes;
@@ -176,7 +191,7 @@ export async function buildPublicKnowledgeLibraryRefinementReviewReport(
     schemaVersion: 1,
     mutationAllowed: false,
     executionMode: 'offline-llm-review-input',
-    inputPath,
+    inputPath: options.inputPath ?? 'in-memory-public-library-artifact',
     artifact: {
       artifactId: artifact.artifactId,
       coordinates: artifact.coordinates,

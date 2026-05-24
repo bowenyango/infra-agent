@@ -144,6 +144,8 @@ infra-agent knowledge from-url https://www.pulumi.com/registry/packages/aws/api-
 infra-agent knowledge from-url https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack/ --max-units 20 --out /tmp/infra-agent-helm-kube-prometheus-stack-url-knowledge.json --library-out /tmp/infra-agent-helm-kube-prometheus-stack-library-artifact.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-url-knowledge.json --json
 infra-agent knowledge validate /tmp/infra-agent-s3-library-artifact.json --json
+infra-agent knowledge library-from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --library-out /tmp/infra-agent-s3-library-artifact.json --out /tmp/infra-agent-s3-library-build.json --json
+infra-agent knowledge library-from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --library-out /tmp/infra-agent-s3-refined-library-artifact.json --refine --refined-out /tmp/infra-agent-s3-refined-url-report.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
 infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --json
@@ -257,6 +259,15 @@ payload, reject identity/version/unit/quality/LLM-review metadata drift, and
 write the verified artifact into a workspace-relative content-addressed store.
 Its report must stay raw-content-free and must not upload, publish, or approve
 trust.
+`knowledge library-from-url` should run the central-library producer pipeline
+from one official public documentation URL: URL download or local content
+fixture, version resolution, classification, compact extraction, artifact
+validation, optional mocked LLM refinement with persisted `--refined-out`, and
+optional local registry staging when all staging flags are present. Tests must
+assert the final artifact validates, coordinates and download evidence are
+preserved through refinement, the artifact ID is stable while the unit payload
+hash can change, registry staging uses the final artifact bytes, and reports
+omit API keys, provider error bodies, and raw Markdown/HTML.
 `knowledge library-refinement-review` should validate a downloaded or locally
 generated public-library artifact and emit a read-only
 `infra-agent.public-knowledge-library-refinement-review` report. Tests should

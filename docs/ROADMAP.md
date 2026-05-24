@@ -650,6 +650,22 @@ Implemented initial CLI surfaces:
     report before LLM refinement and validate the artifact with
     `knowledge validate <artifact.json> --json` before registry staging or
     download reuse.
+- `infra-agent knowledge library-from-url <url> --library-out
+  <library-artifact.json> [--out <pipeline-report.json>]
+  [--content <markdown-or-html-file>] [--max-units <n>]
+  [--refine --refined-out <url-report.json>] [--model <name>]
+  [--openai-base-url <url>] [--llm-provider openai-compatible]
+  [--workspace <workspace> --store-dir <dir> --registry <registry.json>]
+  --json`
+  - is the central-library producer shortcut for one official public
+    documentation URL. It reuses `from-url` download, version resolution,
+    classification, compact unit extraction, quality scoring, and artifact
+    validation, writes the final
+    `infra-agent.public-knowledge-library-artifact`, optionally runs the
+    bounded model refinement step and persists the refined URL report for
+    review, and stages the final artifact only when all local registry flags
+    are supplied. It must not upload, publish remotely, approve trust, or fetch
+    additional docs during model refinement.
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace
   <workspace> --store-dir <dir> --registry <registry.json> ...`
   - validates a public library artifact, stores it by SHA-256 under a

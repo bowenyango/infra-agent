@@ -54,6 +54,7 @@ import type { ResourceKnowledgeReport } from '../knowledge/resource-report.ts';
 import type { PublicKnowledgeUrlReport } from '../knowledge/url-report.ts';
 import type { SharedKnowledgeArtifactPublishReport } from '../knowledge/shared-artifact-publish.ts';
 import type { PublicKnowledgeLibraryStageReport } from '../knowledge/public-library-stage.ts';
+import type { PublicKnowledgeLibraryBuildReport } from '../knowledge/public-library-build.ts';
 import type { PublicKnowledgeLibraryDownloadReport } from '../knowledge/public-library-download.ts';
 import type { PublicKnowledgeLibraryCatalogReport } from '../knowledge/public-library-catalog.ts';
 import type { PublicKnowledgeLibraryRefinementReviewReport } from '../knowledge/public-library-refinement-review.ts';
@@ -3822,6 +3823,50 @@ export function printPublicKnowledgeLibraryStageReport(
   process.stdout.write(`registry entries: ${report.registry.entryCount}\n`);
   process.stdout.write(`updated existing entry: ${report.registry.updatedExistingEntry ? 'yes' : 'no'}\n`);
   process.stdout.write(`download: ${report.entry.download.mode} strategy=${report.entry.download.strategy} fallback=${report.entry.download.fallbackUsed ? 'yes' : 'no'}\n`);
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
+}
+
+export function printPublicKnowledgeLibraryBuildReport(
+  report: PublicKnowledgeLibraryBuildReport & {
+    libraryOutputPath?: string;
+    refinedOutputPath?: string;
+    outputPath?: string;
+    stage?: PublicKnowledgeLibraryStageReport;
+  }
+): void {
+  printHeader('Public knowledge library from URL');
+  process.stdout.write(`url: ${report.sourceUrl}\n`);
+  process.stdout.write(`coordinates: ${report.coordinates}\n`);
+  process.stdout.write(`domain: ${report.classification.ecosystem}\n`);
+  process.stdout.write(`artifact kind: ${report.classification.artifactKind}\n`);
+  process.stdout.write(`source: ${report.classification.sourceName}\n`);
+  process.stdout.write(`download: ${report.download.mode} strategy=${report.download.strategy} fallback=${report.download.fallbackUsed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`mode: ${report.executionMode}\n`);
+  process.stdout.write(`mutation allowed: ${report.mutationAllowed ? 'yes' : 'no'}\n`);
+  process.stdout.write(`refinement: ${report.refinement.status}\n`);
+  process.stdout.write(`model input review packet: ${report.refinement.inputReviewPacketHash.slice(0, 12)}\n`);
+  process.stdout.write(`final review packet: ${report.refinement.finalReviewPacketHash.slice(0, 12)}\n`);
+  process.stdout.write(`units: ${report.unitCoverage.unitCount}\n`);
+  process.stdout.write(`unit types: ${report.unitCoverage.includedUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`missing unit types: ${report.unitCoverage.missingUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`quality: ${report.quality.final.status} score=${report.quality.final.score}\n`);
+  process.stdout.write(`artifact hash: ${report.artifact.unitPayloadHash.slice(0, 12)}\n`);
+  process.stdout.write('raw content included: no\n');
+
+  if (report.libraryOutputPath) {
+    process.stdout.write(`library artifact: ${report.libraryOutputPath}\n`);
+  }
+  if (report.refinedOutputPath) {
+    process.stdout.write(`refined report: ${report.refinedOutputPath}\n`);
+  }
+  if (report.stage) {
+    process.stdout.write(`staged: ${report.stage.artifact.registryPath}\n`);
+    process.stdout.write(`registry: ${report.stage.registry.path}\n`);
+  }
   if (report.warnings.length > 0) {
     process.stdout.write('\n');
     printHeader('Warnings');
