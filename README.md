@@ -129,6 +129,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge library-download <public-library-registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]`
 - `infra-agent knowledge library-catalog <public-library-registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]`
 - `infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]`
+- `infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]`
 - `infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> [--json]`
 - `infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>]`
 - `infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]`
@@ -276,6 +277,15 @@ Current behavior is intentionally runtime-foundation oriented:
   quality signals, review-packet hash, and a bounded prompt contract for
   model-based refinement. It does not call a model, mutate the artifact,
   upload, or approve publication.
+  `knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json>`
+  is the explicit model-backed step. It reuses the bounded review packet,
+  sends only compact inputs to the configured OpenAI-compatible JSON model,
+  validates the returned `infra-agent.public-knowledge-url-report`, rejects
+  source/classification/download/version drift, and writes the refined URL
+  report. Model execution provenance is kept in the run report while the
+  refined URL report remains inside the existing validated URL-report contract.
+  It does not fetch more docs, update registries, publish artifacts, or mark
+  the output trusted.
   `knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json>
   --out <updated-library-artifact.json>` accepts a validated model-refined URL
   report, checks that source identity, classification, version evidence,
@@ -415,6 +425,11 @@ Current behavior is intentionally runtime-foundation oriented:
   summary, quality, and compact-unit inputs, includes the review-packet hash
   and prompt contract, and keeps `mutationAllowed=false` with no raw docs or
   model execution.
+- `knowledge library-refinement-run` executes that prompt against the configured
+  OpenAI-compatible JSON model and writes a validated refined URL report. Its
+  run report records non-secret provider/model metadata, prompt/input hashes,
+  validation status, and unit coverage; it rejects drift against the original
+  artifact and does not mutate registries, publish, or approve trust.
 - `knowledge library-refinement-apply` accepts a validated original
   public-library artifact plus a refined
   `infra-agent.public-knowledge-url-report`, rejects identity or evidence

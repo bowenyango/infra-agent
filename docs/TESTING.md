@@ -148,6 +148,7 @@ infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
 infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --json
 infra-agent knowledge library-refinement-review <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-library-refinement-review.json --json
+infra-agent knowledge library-refinement-run <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-refined-url-report.json --json
 infra-agent knowledge library-refinement-apply <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --refined /tmp/infra-agent-refined-url-report.json --out /tmp/infra-agent-updated-library-artifact.json --json
 infra-agent knowledge pack <workspace> --domain terraform --resource aws_s3_bucket --json
 ```
@@ -264,6 +265,15 @@ quality, review-packet hash, resolved compact inputs, prompt contract,
 `llmPrompt.rawContentIncluded: false`, and no raw Markdown headings or fences.
 It must not call a live model, fetch docs, mutate the artifact, upload, or
 approve publication.
+`knowledge library-refinement-run` should validate the original artifact, call
+the configured OpenAI-compatible JSON model with only the bounded review packet
+and compact inputs, validate the returned
+`infra-agent.public-knowledge-url-report`, reject identity/evidence drift, and
+write the refined report to `--out`. Model execution provenance should stay in
+the run report while the refined URL report remains inside the existing
+validated URL-report contract. Tests must use injected or mocked transports,
+assert no API key, provider error body, or raw docs appear in the run report or
+failure messages, and avoid live provider/network dependencies.
 `knowledge library-refinement-apply` should validate the original artifact and
 the model-refined URL report, reject source identity, classification, version,
 download, or source-outline drift, recompute the output artifact's

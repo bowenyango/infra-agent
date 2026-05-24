@@ -77,6 +77,7 @@ values.
    infra-agent knowledge library-catalog <registry.json|registry-url> --domain <helm|pulumi|terraform> --resource <identity> --json
    infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
    infra-agent knowledge library-refinement-review <library-artifact.json> --json
+   infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> --json
    infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> --json
    ```
 
@@ -185,6 +186,15 @@ values.
    resolved compact inputs, the review-packet hash, and a bounded prompt
    contract from `artifact.llmRefinementInput` without calling a model,
    fetching more docs, mutating the artifact, or embedding raw documentation.
+   Use `knowledge library-refinement-run <artifact.json> --out
+   <refined-url-report.json> --json` when the operator wants the CLI to call
+   the configured OpenAI-compatible JSON model. It sends only the bounded
+   review packet and compact inputs, validates the returned public URL report,
+   rejects source/classification/download/source-outline/version drift, and
+   writes the refined report. Model execution provenance stays in the run
+   report while the refined URL report remains inside the existing validated
+   URL-report contract. It must not fetch more docs, update registries,
+   publish, or approve trust.
    Use `knowledge library-refinement-apply <artifact.json> --refined
    <url-report.json> --out <updated-artifact.json> --json` after model review
    returns a refined public URL report. It validates both inputs, rejects

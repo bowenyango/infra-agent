@@ -57,6 +57,7 @@ import type { PublicKnowledgeLibraryStageReport } from '../knowledge/public-libr
 import type { PublicKnowledgeLibraryDownloadReport } from '../knowledge/public-library-download.ts';
 import type { PublicKnowledgeLibraryCatalogReport } from '../knowledge/public-library-catalog.ts';
 import type { PublicKnowledgeLibraryRefinementReviewReport } from '../knowledge/public-library-refinement-review.ts';
+import type { PublicKnowledgeLibraryRefinementRunReport } from '../knowledge/public-library-refinement-run.ts';
 import type { PublicKnowledgeLibraryRefinementApplyReport } from '../knowledge/public-library-refinement-apply.ts';
 import type {
   KnowledgeUnitIndexEntry,
@@ -3911,6 +3912,35 @@ export function printPublicKnowledgeLibraryRefinementReviewReport(
   process.stdout.write(`review packet: ${report.review.reviewPacketHash.slice(0, 12)} complete=${report.review.unitTypeComplete ? 'yes' : 'no'}\n`);
   process.stdout.write(`llm mode: ${report.review.mode} status=${report.review.status}\n`);
   process.stdout.write(`output contract: ${report.review.outputContract}\n`);
+  process.stdout.write('raw content included: no\n');
+
+  if (report.warnings.length > 0) {
+    process.stdout.write('\n');
+    printHeader('Warnings');
+    printList(report.warnings);
+  }
+}
+
+export function printPublicKnowledgeLibraryRefinementRunReport(
+  report: PublicKnowledgeLibraryRefinementRunReport
+): void {
+  printHeader('Public knowledge library refinement run');
+  process.stdout.write(`input: ${report.inputPath}\n`);
+  process.stdout.write(`coordinates: ${report.coordinates}\n`);
+  process.stdout.write(`provider: ${report.provider.id}/${report.provider.model}\n`);
+  process.stdout.write(`transport: ${report.provider.transport} response=${report.provider.responseFormat}\n`);
+  process.stdout.write('mutation allowed: no\n');
+  process.stdout.write(`status: ${report.response.status}\n`);
+  process.stdout.write(`http status: ${report.response.httpStatus}\n`);
+  process.stdout.write(`prompt hash: ${report.request.promptHash.slice(0, 12)}\n`);
+  process.stdout.write(`compact input hash: ${report.request.compactInputHash.slice(0, 12)}\n`);
+  process.stdout.write(`review packet: ${report.request.reviewPacketHash.slice(0, 12)}\n`);
+  process.stdout.write(`response hash: ${report.response.contentHash.slice(0, 12)}\n`);
+  process.stdout.write(`units: ${report.refined.unitCount}\n`);
+  process.stdout.write(`unit types: ${report.refined.includedUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`missing unit types: ${report.refined.missingUnitTypes.join(', ') || 'none'}\n`);
+  process.stdout.write(`quality: ${report.refined.qualityStatus} score=${report.refined.qualityScore}\n`);
+  process.stdout.write(`validated: ${report.validation.valid ? 'yes' : 'no'} warnings=${report.validation.warningCount}\n`);
   process.stdout.write('raw content included: no\n');
 
   if (report.warnings.length > 0) {

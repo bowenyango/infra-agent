@@ -366,6 +366,17 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   inputs, the review-packet hash, and a bounded prompt contract from
   `artifact.llmRefinementInput` without calling a model, fetching more docs,
   mutating the artifact, or embedding raw documentation.
+  Use `knowledge library-refinement-run <library-artifact.json> --out
+  <refined-url-report.json> --json` when the operator explicitly wants the CLI
+  to call the configured OpenAI-compatible JSON model for central-library
+  refinement. It must send only the bounded review packet and compact inputs,
+  validate the returned `infra-agent.public-knowledge-url-report`, reject
+  source/classification/download/source-outline/version drift, and write only
+  the refined URL report. Record model execution provenance in the run report;
+  the refined URL report must still satisfy the existing public URL-report
+  validation contract before apply. It must not fetch more docs, update
+  registries, publish artifacts, approve trust, or weaken deterministic
+  validators.
   Use `knowledge library-refinement-apply <artifact.json> --refined
   <url-report.json> --out <updated-artifact.json> --json` to accept reviewed
   model output back into the central-library artifact flow. It must validate

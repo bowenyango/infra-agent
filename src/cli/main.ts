@@ -7,7 +7,12 @@ import { inspectWorkspace } from '../domain/inspect-workspace.ts';
 import { buildRunPreflight } from '../agent/build-run-preflight.ts';
 import { runSingleStep } from '../agent/run-single-step.ts';
 import { buildValidationPreflight } from '../validators/preflight.ts';
-import type { LLMClientConfigOverrides, LLMProvider, PlannerMode } from '../model/config.ts';
+import {
+  resolveLLMClientConfig,
+  type LLMClientConfigOverrides,
+  type LLMProvider,
+  type PlannerMode
+} from '../model/config.ts';
 import type { FileWriteRisk } from '../types/edit-plan.ts';
 import type { KnowledgeUnitPrivacyScope, KnowledgeUnitType } from '../types/knowledge.ts';
 import { KNOWLEDGE_UNIT_TYPES } from '../types/knowledge.ts';
@@ -46,6 +51,7 @@ import {
 } from '../knowledge/public-library-catalog.ts';
 import { buildPublicKnowledgeLibraryRefinementReviewReport } from '../knowledge/public-library-refinement-review.ts';
 import { applyPublicKnowledgeLibraryRefinement } from '../knowledge/public-library-refinement-apply.ts';
+import { runPublicKnowledgeLibraryRefinement } from '../knowledge/public-library-refinement-run.ts';
 import {
   buildKnowledgeArtifactManifest,
   hashKnowledgeArtifactFile
@@ -92,6 +98,7 @@ import {
   printPublicKnowledgeLibraryCatalogReport,
   printPublicKnowledgeLibraryRefinementReviewReport,
   printPublicKnowledgeLibraryRefinementApplyReport,
+  printPublicKnowledgeLibraryRefinementRunReport,
   printKnowledgeUnitMetadataIndex,
   printPlannerProviderCatalogReport,
   printRunPreflight,
@@ -116,7 +123,7 @@ const KNOWLEDGE_STORAGE_SCOPES = [
 
 export interface ParsedArgs {
   command: 'inspect' | 'inventory' | 'pack' | 'refs' | 'run' | 'agent' | 'validate' | 'prefetch' | 'knowledge' | 'cache' | 'graph' | 'changed' | 'impact-report' | 'identity-report' | 'doctor' | 'planner-providers' | 'version' | 'help';
-  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'resource' | 'from-url' | 'publish' | 'library-stage' | 'library-download' | 'library-catalog' | 'library-refinement-review' | 'library-refinement-apply' | null;
+  knowledgeAction?: 'sources' | 'prefetch' | 'extract' | 'validate' | 'pack' | 'index' | 'resource' | 'from-url' | 'publish' | 'library-stage' | 'library-download' | 'library-catalog' | 'library-refinement-review' | 'library-refinement-run' | 'library-refinement-apply' | null;
   cacheAction?: 'status' | null;
   task: string | null;
   workspace: string;
@@ -205,6 +212,7 @@ function printUsage(): void {
       '  infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]',
       '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]',
       '  infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]',
+      '  infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]',
       '  infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> [--json]',
       '  infra-agent agent "<task>" [--workspace <path>] [--planner auto|llm|rule-based] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--max-turns <n>] [--max-repair-attempts <n>] [--context-packet-limit <n>] [--context-token-budget <n>] [--context-fact-limit <n>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json] [--json-full]',
       '  infra-agent run "<task>" [--workspace <path>] [--approve-write-risk <low|medium|high>] [--approve-write-path <path>] [--approve-tool-category <category>] [--json]',
@@ -1313,9 +1321,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       && knowledgeAction !== 'library-download'
       && knowledgeAction !== 'library-catalog'
       && knowledgeAction !== 'library-refinement-review'
+      && knowledgeAction !== 'library-refinement-run'
       && knowledgeAction !== 'library-refinement-apply'
     ) {
-      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, resource, from-url, publish, library-stage, library-download, library-catalog, library-refinement-review, or library-refinement-apply.');
+      fail('knowledge requires a supported action: sources, prefetch, extract, validate, pack, index, resource, from-url, publish, library-stage, library-download, library-catalog, library-refinement-review, library-refinement-run, or library-refinement-apply.');
     }
 
     let workspace = cwd();
@@ -1346,6 +1355,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const knowledgeIndexFilter: KnowledgeUnitIndexEntryFilter = {};
     const publicLibraryCatalogFilter: PublicKnowledgeLibraryCatalogFilter = {};
     let publicLibraryDownloadCoordinate: string | null = null;
+    let llmProvider: LLMProvider | null = null;
+    let llmModel: string | null = null;
+    let llmBaseUrl: string | null = null;
     const positionalArgs: string[] = [];
     const actionArgs = cleanArgs.slice(1);
 
@@ -1353,8 +1365,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply') {
-          fail('--domain is not supported for knowledge validate, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, or knowledge library-refinement-apply.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply') {
+          fail('--domain is not supported for knowledge validate, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
         }
         if (knowledgeAction === 'from-url') {
           fail('--domain is inferred for knowledge from-url.');
@@ -1370,8 +1382,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
 
       if (arg === '--target') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply') {
-          fail('--target is not supported for knowledge validate, knowledge library-stage, knowledge library-download, knowledge library-catalog, knowledge library-refinement-review, or knowledge library-refinement-apply.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply') {
+          fail('--target is not supported for knowledge validate, knowledge library-stage, knowledge library-download, knowledge library-catalog, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
         }
         if (knowledgeAction === 'from-url') {
           fail('--target is not supported for knowledge from-url.');
@@ -1394,8 +1406,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!resourceValue) {
           fail('Missing value for --resource.');
         }
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply') {
-          fail('--resource is not supported for knowledge validate, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, or knowledge library-refinement-apply.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply') {
+          fail('--resource is not supported for knowledge validate, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
         }
         if (knowledgeResource !== null) {
           fail('--resource can be provided at most once.');
@@ -1676,9 +1688,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
           && knowledgeAction !== 'library-download'
           && knowledgeAction !== 'library-catalog'
           && knowledgeAction !== 'library-refinement-review'
+          && knowledgeAction !== 'library-refinement-run'
           && knowledgeAction !== 'library-refinement-apply'
         ) {
-          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, knowledge resource, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-catalog, knowledge library-refinement-review, or knowledge library-refinement-apply.');
+          fail('--out is only supported for knowledge extract, knowledge pack, knowledge index, knowledge resource, knowledge from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-catalog, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
         }
         if (outputPath !== null) {
           fail('Output path can be provided at most once.');
@@ -1719,6 +1732,57 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
 
         publicLibraryRefinedPath = refinedValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--model' || arg === '--llm-model') {
+        const modelValue = actionArgs[index + 1]?.trim();
+        if (!modelValue) {
+          fail(`Missing value for ${arg}.`);
+        }
+        if (knowledgeAction !== 'library-refinement-run') {
+          fail(`${arg} is only supported for knowledge library-refinement-run.`);
+        }
+        if (llmModel !== null) {
+          fail('LLM model can be provided at most once.');
+        }
+
+        llmModel = modelValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--openai-base-url' || arg === '--llm-base-url') {
+        const baseUrlValue = actionArgs[index + 1]?.trim();
+        if (!baseUrlValue) {
+          fail(`Missing value for ${arg}.`);
+        }
+        if (knowledgeAction !== 'library-refinement-run') {
+          fail(`${arg} is only supported for knowledge library-refinement-run.`);
+        }
+        if (llmBaseUrl !== null) {
+          fail('LLM base URL can be provided at most once.');
+        }
+
+        llmBaseUrl = baseUrlValue;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--llm-provider') {
+        const providerValue = actionArgs[index + 1];
+        if (providerValue !== 'openai-compatible') {
+          fail('Missing or invalid value for --llm-provider. Expected openai-compatible.');
+        }
+        if (knowledgeAction !== 'library-refinement-run') {
+          fail('--llm-provider is only supported for knowledge library-refinement-run.');
+        }
+        if (llmProvider !== null) {
+          fail('LLM provider can be provided at most once.');
+        }
+
+        llmProvider = providerValue;
         index += 1;
         continue;
       }
@@ -1967,8 +2031,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'library-refinement-review' && positionalArgs.length !== 1) {
       fail('knowledge library-refinement-review requires exactly one public library artifact JSON path.');
     }
+    if (knowledgeAction === 'library-refinement-run' && positionalArgs.length !== 1) {
+      fail('knowledge library-refinement-run requires exactly one public library artifact JSON path.');
+    }
     if (knowledgeAction === 'library-refinement-apply' && positionalArgs.length !== 1) {
       fail('knowledge library-refinement-apply requires exactly one public library artifact JSON path.');
+    }
+    if (knowledgeAction === 'library-refinement-run' && outputPath === null) {
+      fail('knowledge library-refinement-run requires --out.');
     }
     if (knowledgeAction === 'library-refinement-apply' && publicLibraryRefinedPath === null) {
       fail('knowledge library-refinement-apply requires --refined.');
@@ -2015,7 +2085,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       fail('--manifest-out requires --out so the manifest can reference a persisted artifact.');
     }
 
-    if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish' && knowledgeAction !== 'from-url' && knowledgeAction !== 'library-stage' && knowledgeAction !== 'library-download' && knowledgeAction !== 'library-catalog' && knowledgeAction !== 'library-refinement-review' && knowledgeAction !== 'library-refinement-apply') {
+    if (knowledgeAction !== 'validate' && knowledgeAction !== 'publish' && knowledgeAction !== 'from-url' && knowledgeAction !== 'library-stage' && knowledgeAction !== 'library-download' && knowledgeAction !== 'library-catalog' && knowledgeAction !== 'library-refinement-review' && knowledgeAction !== 'library-refinement-run' && knowledgeAction !== 'library-refinement-apply') {
       workspace = positionalArgs[0] ?? workspace;
     }
 
@@ -2024,7 +2094,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       knowledgeAction,
       task: null,
       workspace: knowledgeAction === 'validate' ? cwd() : workspace,
-      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-apply'
+      inputPath: knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-catalog' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply'
         ? positionalArgs[0]
         : null,
       outputPath,
@@ -2046,6 +2116,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       json,
       jsonFull,
       planner: 'auto',
+      llmProvider,
+      llmModel,
+      llmBaseUrl,
       approvedWritePaths: [],
       approvedWriteRisks: [],
       approvedToolCategories: [],
@@ -2747,6 +2820,51 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }
+    return;
+  }
+
+  if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'library-refinement-run') {
+    if (!parsed.inputPath || !parsed.outputPath) {
+      fail('knowledge library-refinement-run requires a public library artifact JSON path and --out.');
+    }
+
+    const validationReport = await loadKnowledgeValidationReport(parsed.inputPath, cwd(), {});
+    if (!validationReport.valid) {
+      if (parsed.json) {
+        process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
+      } else {
+        printKnowledgeValidationReport(validationReport);
+      }
+      process.exitCode = 1;
+      return;
+    }
+    if (validationReport.inputKind !== 'infra-agent.public-knowledge-library-artifact') {
+      fail('knowledge library-refinement-run requires an infra-agent.public-knowledge-library-artifact input.');
+    }
+
+    const llmConfig = resolveLLMClientConfig(process.env, buildLLMClientConfigOverrides(parsed));
+    if (!llmConfig) {
+      fail('knowledge library-refinement-run requires an LLM API key. Set INFRA_AGENT_OPENAI_API_KEY or OPENAI_API_KEY.');
+    }
+
+    const { report, refinedReport } = await runPublicKnowledgeLibraryRefinement({
+      artifactPath: parsed.inputPath,
+      baseDir: cwd(),
+      config: llmConfig
+    });
+    const writtenPath = await writeJsonArtifact(parsed.outputPath, cwd(), refinedReport);
+    const reportPayload = {
+      ...report,
+      outputPath: writtenPath
+    };
+
+    if (parsed.json) {
+      process.stdout.write(`${JSON.stringify(reportPayload, null, 2)}\n`);
+      return;
+    }
+
+    printPublicKnowledgeLibraryRefinementRunReport(reportPayload);
+    process.stdout.write(`\nrefined report: ${writtenPath}\n`);
     return;
   }
 

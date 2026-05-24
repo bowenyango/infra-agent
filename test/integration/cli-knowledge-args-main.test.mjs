@@ -541,6 +541,86 @@ test('knowledge library-refinement-review rejects unrelated selector and downloa
   }
 });
 
+test('knowledge library-refinement-run CLI args accept artifact output and LLM flags', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-refinement-run',
+    'artifacts/aws-s3-library.json',
+    '--out',
+    'artifacts/aws-s3-refined-url-report.json',
+    '--model',
+    'test-refinement-model',
+    '--openai-base-url',
+    'https://llm.example.test/v1',
+    '--llm-provider',
+    'openai-compatible',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-refinement-run');
+  assert.equal(parsed.inputPath, 'artifacts/aws-s3-library.json');
+  assert.equal(parsed.outputPath, 'artifacts/aws-s3-refined-url-report.json');
+  assert.equal(parsed.llmModel, 'test-refinement-model');
+  assert.equal(parsed.llmBaseUrl, 'https://llm.example.test/v1');
+  assert.equal(parsed.llmProvider, 'openai-compatible');
+  assert.equal(parsed.workspace, process.cwd());
+  assert.equal(parsed.json, true);
+});
+
+test('knowledge library-refinement-run requires output artifact flags', () => {
+  const script = [
+    "import { parseArgs } from './src/cli/main.ts';",
+    "parseArgs(['knowledge', 'library-refinement-run', 'artifacts/aws-s3-library.json']);"
+  ].join(' ');
+  const result = spawnSync(process.execPath, [
+    '--experimental-strip-types',
+    '--input-type=module',
+    '-e',
+    script
+  ], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  });
+
+  assert.equal(result.status, 1);
+});
+
+test('knowledge library-refinement-run rejects unrelated selector and registry flags', () => {
+  const rejectedArgs = [
+    ['--domain', 'terraform'],
+    ['--resource', 'aws_s3_bucket'],
+    ['--workspace', 'fixtures/sample-workspace'],
+    ['--registry', 'knowledge/public-library-registry.json'],
+    ['--refined', 'artifacts/aws-s3-refined-url-report.json']
+  ];
+
+  for (const args of rejectedArgs) {
+    const script = [
+      "import { parseArgs } from './src/cli/main.ts';",
+      `parseArgs(${JSON.stringify([
+        'knowledge',
+        'library-refinement-run',
+        'artifacts/aws-s3-library.json',
+        '--out',
+        'artifacts/aws-s3-refined-url-report.json',
+        ...args
+      ])});`
+    ].join(' ');
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      script
+    ], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 1);
+  }
+});
+
 test('knowledge library-refinement-apply CLI args accept refined report and output artifact flags', () => {
   const parsed = parseArgs([
     'knowledge',

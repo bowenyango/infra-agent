@@ -717,6 +717,18 @@ Implemented initial CLI surfaces:
     packet hash, and includes a bounded prompt contract. It must not call a
     model, rewrite the artifact, fetch more docs, upload, approve publication,
     or embed raw documentation.
+- `infra-agent knowledge library-refinement-run <library-artifact.json>
+  --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>]
+  [--llm-provider openai-compatible] --json`
+  - executes the bounded review packet against the configured
+    OpenAI-compatible JSON model, validates the returned
+    `infra-agent.public-knowledge-url-report`, rejects source identity,
+    classification, download, source-outline, and version drift against the
+    original artifact, and writes only the refined URL report. Model execution
+    provenance belongs in the run report while the refined URL report stays
+    inside the existing validated URL-report contract. It must not fetch
+    additional docs, update registries, publish artifacts, approve trust, or
+    treat model output as validator-grade authority.
 - `infra-agent knowledge library-refinement-apply <library-artifact.json>
   --refined <url-report.json> --out <updated-library-artifact.json> --json`
   - accepts a validated original public-library artifact and a model-refined

@@ -6,6 +6,78 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-24 Public Library Refinement Run
+
+Status:
+
+- Added `knowledge library-refinement-run <library-artifact.json> --out
+  <refined-url-report.json>` as the explicit model-backed central-library
+  refinement step between offline review and deterministic apply.
+- The command validates the original
+  `infra-agent.public-knowledge-library-artifact`, resolves its bounded review
+  packet, sends only compact inputs to the configured OpenAI-compatible JSON
+  model, validates the returned `infra-agent.public-knowledge-url-report`,
+  rejects source identity, source-content hash, classification, download,
+  source-outline, and version drift, then writes the refined URL report.
+- The run report is raw-content-free and API-key-free. It records non-secret
+  provider/model metadata, prompt/input/review-packet hashes, response hash,
+  validation status, unit coverage, and model execution provenance. Non-2xx
+  provider response bodies are deliberately omitted from thrown errors.
+- The runner does not fetch more docs, update registries, apply artifacts,
+  upload, publish, or approve trust. `library-refinement-apply` remains the
+  deterministic bridge from refined URL report to updated library artifact.
+
+Files changed:
+
+- `src/knowledge/public-library-refinement-run.ts` implements the injectable
+  model-backed refinement runner, response parsing, validation, drift checks,
+  compact run report, and provider-error body omission.
+- `src/cli/main.ts` parses and routes `knowledge library-refinement-run`,
+  resolves LLM config, requires `--out`, and writes the refined URL report.
+- `src/cli/output.ts` prints the refinement-run text summary.
+- `test/unit/knowledge-public-library-refinement-run.test.mjs` covers mocked
+  transport request shape, validated fenced JSON output, coordinate drift
+  rejection, no API-key/raw-doc leakage, and provider-error body omission.
+- `test/integration/cli-public-library-refinement-run-main.test.mjs` covers the
+  CLI entrypoint with mocked `fetch`, LLM flags, validated persisted refined
+  URL report, and raw-content/API-key omission.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers refinement-run
+  arguments, required `--out`, accepted LLM flags, and rejected unrelated
+  selector/registry flags.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`,
+  `docs/TESTING.md`, and `skills/infra-configuration/SKILL.md` document the
+  new run command and its boundaries.
+
+Validation:
+
+- `npm run test:focused -- test/unit/knowledge-public-library-refinement-run.test.mjs`
+  passed.
+- `npm run test:focused -- --test-name-pattern "library-refinement-run"
+  test/integration/cli-public-library-refinement-run-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-refinement-run"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run test:structure` passed.
+- `npm run test:unit` passed.
+- `npm run test:integration` passed.
+- `npm run smoke` passed.
+- `npm run e2e` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Normal tests use mocked/injected transports and do not call a live LLM
+  provider. Live model behavior still depends on an operator-provided
+  OpenAI-compatible endpoint and API key.
+- The refined URL report still must satisfy the existing
+  `infra-agent.public-knowledge-url-report` contract, whose quality fields are
+  deterministic extraction fields. Model execution provenance is intentionally
+  kept in the refinement-run report until a broader schema migration updates
+  URL reports, artifacts, registries, download, validate, and apply together.
+- The command writes only a refined URL report. Operators still need
+  `knowledge validate`, `library-refinement-apply`, and then registry staging
+  or download workflows before broad central-library reuse.
+
 ## 2026-05-22 Public Library Refinement Apply
 
 Status:
