@@ -148,6 +148,7 @@ infra-agent knowledge library-from-url https://registry.terraform.io/providers/h
 infra-agent knowledge library-from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --library-out /tmp/infra-agent-s3-refined-library-artifact.json --refine --refined-out /tmp/infra-agent-s3-refined-url-report.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
+infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --query "aws s3 bucket" --limit 5 --json
 infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --review-out /tmp/infra-agent-library-refinement-review.json --json
 infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --review-out /tmp/infra-agent-library-refinement-review.json --json
 infra-agent knowledge library-refinement-review <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-library-refinement-review.json --json
@@ -250,8 +251,11 @@ classification, coordinates, versionRef/versionResolution, resolved artifact
 path or URL, content hash, quality status, unit-type coverage, missing unit
 types, and LLM review-packet hash. It must support local registry files and
 secret-free registry URLs, filters for domain, provider/package/chart,
-resource, version, tag, coordinate, and quality, and it must not fetch
-artifacts, upload metadata, or include raw docs.
+resource, version, tag, coordinate, and quality, catalog-only deterministic
+`--query`/`--search` metadata search, and `--limit` result windows. Search
+results should report compact rank, score, matched fields, matched terms,
+matched count, and omitted count while still avoiding artifact fetches,
+uploads, raw docs, and compact unit bodies.
 `knowledge library-download` should validate a local registry file or
 secret-free registry URL, select one entry by exact `--coordinate` or by
 catalog-style selector filters that resolve exactly one entry, copy a

@@ -173,6 +173,8 @@ export interface ParsedArgs {
   sourceIds?: string[];
   knowledgeIndexFilter?: KnowledgeUnitIndexEntryFilter;
   publicLibraryCatalogFilter?: PublicKnowledgeLibraryCatalogFilter;
+  publicLibraryCatalogQuery?: string | null;
+  publicLibraryCatalogLimit?: number | null;
   publicLibraryDownloadCoordinate?: string | null;
   publicLibraryFromUrlRefine?: boolean;
   maxSources: number | null;
@@ -217,7 +219,7 @@ function printUsage(): void {
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]',
       '  infra-agent knowledge library-download <registry.json|registry-url> (--coordinate <coordinate>|[--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement]) --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]',
-      '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]',
+      '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--query <text>|--search <text>] [--limit <n>] [--out <catalog.json>] [--json]',
       '  infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]',
       '  infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]',
       '  infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> [--json]',
@@ -1364,6 +1366,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let knowledgeResource: string | null = null;
     const knowledgeIndexFilter: KnowledgeUnitIndexEntryFilter = {};
     const publicLibraryCatalogFilter: PublicKnowledgeLibraryCatalogFilter = {};
+    let publicLibraryCatalogQuery: string | null = null;
+    let publicLibraryCatalogLimit: number | null = null;
     let publicLibraryDownloadCoordinate: string | null = null;
     let publicLibraryFromUrlRefine = false;
     let llmProvider: LLMProvider | null = null;
@@ -2053,6 +2057,39 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--query' || arg === '--search') {
+        const query = actionArgs[index + 1]?.trim();
+        if (!query) {
+          fail(`Missing value for ${arg}.`);
+        }
+        if (knowledgeAction !== 'library-catalog') {
+          fail(`${arg} is only supported for knowledge library-catalog.`);
+        }
+        if (publicLibraryCatalogQuery !== null) {
+          fail('Catalog query can be provided at most once.');
+        }
+        publicLibraryCatalogQuery = query;
+        index += 1;
+        continue;
+      }
+
+      if (arg === '--limit') {
+        const rawLimit = actionArgs[index + 1];
+        const parsedLimit = Number(rawLimit);
+        if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+          fail('Missing or invalid value for --limit. Expected a positive integer.');
+        }
+        if (knowledgeAction !== 'library-catalog') {
+          fail('--limit is only supported for knowledge library-catalog.');
+        }
+        if (publicLibraryCatalogLimit !== null) {
+          fail('--limit can be provided at most once.');
+        }
+        publicLibraryCatalogLimit = parsedLimit;
+        index += 1;
+        continue;
+      }
+
       if (arg.startsWith('--')) {
         fail(`Unknown knowledge ${knowledgeAction} option: ${arg}`);
       }
@@ -2218,6 +2255,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       sourceIds,
       knowledgeIndexFilter: hasKnowledgeIndexFilter(knowledgeIndexFilter) ? knowledgeIndexFilter : undefined,
       publicLibraryCatalogFilter: Object.keys(publicLibraryCatalogFilter).length > 0 ? publicLibraryCatalogFilter : undefined,
+      publicLibraryCatalogQuery,
+      publicLibraryCatalogLimit,
       publicLibraryDownloadCoordinate,
       publicLibraryFromUrlRefine,
       maxSources,
@@ -3108,7 +3147,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
     const report = await buildPublicKnowledgeLibraryCatalogReport({
       registryPath: parsed.inputPath,
-      ...(parsed.publicLibraryCatalogFilter ? { filter: parsed.publicLibraryCatalogFilter } : {})
+      ...(parsed.publicLibraryCatalogFilter ? { filter: parsed.publicLibraryCatalogFilter } : {}),
+      ...(parsed.publicLibraryCatalogQuery ? { query: parsed.publicLibraryCatalogQuery } : {}),
+      ...(parsed.publicLibraryCatalogLimit ? { limit: parsed.publicLibraryCatalogLimit } : {})
     });
     const writtenPath = parsed.outputPath
       ? await writeJsonArtifact(parsed.outputPath, cwd(), report)

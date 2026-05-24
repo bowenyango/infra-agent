@@ -294,6 +294,77 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.doesNotMatch(filteredOutput, /Provides an S3 bucket resource/);
     assert.doesNotMatch(filteredOutput, /```hcl/);
 
+    const searchedOutput = await captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      registryPath,
+      '--search',
+      'aws s3 bucket',
+      '--json'
+    ]));
+    const searched = parseJsonOutput(searchedOutput);
+
+    assert.equal(searched.search.query, 'aws s3 bucket');
+    assert.deepEqual(searched.search.terms, ['aws', 's3', 'bucket']);
+    assert.ok(searched.search.searchableFields.includes('coordinates'));
+    assert.ok(searched.search.searchableFields.includes('tags'));
+    assert.equal(searched.search.matchedCount, 1);
+    assert.equal(searched.summary.matchedEntryCount, 1);
+    assert.equal(searched.entries[0].coordinates, terraformArtifact.artifact.coordinates);
+    assert.equal(searched.entries[0].searchMatch.rank, 1);
+    assert.equal(searched.entries[0].searchMatch.matchedTerms.join(','), 'aws,s3,bucket');
+    assert.ok(searched.entries[0].searchMatch.score > 0);
+    assert.ok(searched.entries[0].searchMatch.matchedFields.includes('sourceName'));
+    assert.doesNotMatch(searchedOutput, /Provides an S3 bucket resource/);
+    assert.doesNotMatch(searchedOutput, /```hcl/);
+
+    const limitedSearchOutput = await captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      registryPath,
+      '--query',
+      'public-reference',
+      '--limit',
+      '1',
+      '--json'
+    ]));
+    const limitedSearch = parseJsonOutput(limitedSearchOutput);
+
+    assert.equal(limitedSearch.search.query, 'public-reference');
+    assert.deepEqual(limitedSearch.search.terms, ['public-reference']);
+    assert.equal(limitedSearch.search.matchedCount, 2);
+    assert.equal(limitedSearch.limit.requested, 1);
+    assert.equal(limitedSearch.limit.matchedEntryCount, 2);
+    assert.equal(limitedSearch.limit.returnedEntryCount, 1);
+    assert.equal(limitedSearch.limit.omittedEntryCount, 1);
+    assert.equal(limitedSearch.summary.entryCount, 2);
+    assert.equal(limitedSearch.summary.matchedEntryCount, 1);
+    assert.equal(limitedSearch.entries.length, 1);
+    assert.equal(limitedSearch.entries[0].searchMatch.rank, 1);
+    assert.ok(limitedSearch.entries[0].searchMatch.matchedFields.includes('tags'));
+
+    const remoteRegistryContent = await readFile(registryPath, 'utf8');
+    const remoteCatalogOutput = await withMockFetch(new Map([
+      [REMOTE_PUBLIC_LIBRARY_REGISTRY_URL, {
+        contentType: 'application/vnd.infra-agent.public-knowledge-library-registry+json',
+        content: remoteRegistryContent
+      }]
+    ]), () => captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
+      '--query',
+      'kube prometheus',
+      '--json'
+    ])));
+    const remoteCatalog = parseJsonOutput(remoteCatalogOutput);
+
+    assert.equal(remoteCatalog.registry.locationKind, 'url');
+    assert.equal(remoteCatalog.search.matchedCount, 1);
+    assert.equal(remoteCatalog.entries[0].coordinates, helmArtifact.artifact.coordinates);
+    assert.equal(remoteCatalog.entries[0].artifact.location.kind, 'url');
+    assert.equal(remoteCatalog.entries[0].artifactDownload.requiresPrefetch, true);
+
     const writtenReport = JSON.parse(await readFile(reportPath, 'utf8'));
     assert.equal(writtenReport.kind, 'infra-agent.public-knowledge-library-catalog');
     assert.equal(writtenReport.entries.length, 1);
@@ -313,6 +384,39 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(helmFiltered.summary.matchedEntryCount, 1);
     assert.equal(helmFiltered.entries[0].coordinates, helmArtifact.artifact.coordinates);
     assert.equal(helmFiltered.entries[0].classification.chart, 'kube-prometheus-stack');
+
+    const limitedOutput = await captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      registryPath,
+      '--limit',
+      '1',
+      '--json'
+    ]));
+    const limited = parseJsonOutput(limitedOutput);
+
+    assert.equal(limited.search, undefined);
+    assert.equal(limited.limit.requested, 1);
+    assert.equal(limited.limit.matchedEntryCount, 2);
+    assert.equal(limited.limit.returnedEntryCount, 1);
+    assert.equal(limited.limit.omittedEntryCount, 1);
+    assert.equal(limited.entries.length, 1);
+    assert.equal(limited.entries[0].searchMatch, undefined);
+
+    const textOutput = await captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      registryPath,
+      '--query',
+      'aws_s3_bucket'
+    ]));
+
+    assert.match(textOutput, /query: aws_s3_bucket terms=aws_s3_bucket matched=1/);
+    assert.match(textOutput, /rank=1/);
+    assert.match(textOutput, /matchScore=\d+/);
+    assert.match(textOutput, /matchFields=/);
+    assert.match(textOutput, /matchTerms=aws_s3_bucket/);
+    assert.doesNotMatch(textOutput, /Provides an S3 bucket resource/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

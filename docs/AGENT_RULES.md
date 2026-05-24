@@ -349,8 +349,10 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   read-only browse/search layer before download reuse. It must validate the
   registry first, keep output raw-content-free, support filters by domain,
   provider, package, chart, resource, version, tag, coordinate, and quality,
-  and report resolved artifact path or URL plus hashes and LLM review metadata
-  without fetching artifacts, uploading, or approving publication.
+  support catalog-only `--query`/`--search` deterministic metadata search with
+  `--limit` result windows, and report resolved artifact path or URL plus
+  hashes, search rank/matched-field metadata when requested, and LLM review
+  metadata without fetching artifacts, uploading, or approving publication.
   Use `knowledge library-download <registry.json|registry-url> --coordinate
   <coordinate> --workspace <workspace> --store-dir <dir> --json` after
   choosing an exact coordinate, or omit `--coordinate` and pass catalog-style

@@ -3905,6 +3905,13 @@ export function printPublicKnowledgeLibraryCatalogReport(
   process.stdout.write(`registry: ${report.registryPath}\n`);
   process.stdout.write(`registry source: ${report.registry.locationKind} ${report.registry.status}\n`);
   process.stdout.write(`entries: ${report.summary.matchedEntryCount}/${report.summary.entryCount}\n`);
+  if (report.search) {
+    process.stdout.write(`query: ${report.search.query} terms=${report.search.terms.join(',') || 'none'} matched=${report.search.matchedCount}\n`);
+    process.stdout.write(`search fields: ${report.search.searchableFields.join(',')}\n`);
+  }
+  if (report.limit) {
+    process.stdout.write(`limit: ${report.limit.returnedEntryCount}/${report.limit.matchedEntryCount} requested=${report.limit.requested} omitted=${report.limit.omittedEntryCount}\n`);
+  }
   process.stdout.write(`downloadable: ${report.summary.downloadableEntryCount}\n`);
   process.stdout.write(`quality: ready=${report.summary.readyEntryCount} needs-refinement=${report.summary.needsRefinementEntryCount}\n`);
   process.stdout.write(`unit type complete: ${report.summary.unitTypeCompleteEntryCount}\n`);
@@ -3927,6 +3934,14 @@ export function printPublicKnowledgeLibraryCatalogReport(
       `${entry.classification.ecosystem}/${entry.classification.artifactKind}`,
       `quality=${entry.quality.status}`,
       `score=${entry.quality.score}`,
+      ...(entry.searchMatch
+        ? [
+            `rank=${entry.searchMatch.rank}`,
+            `matchScore=${entry.searchMatch.score}`,
+            `matchFields=${entry.searchMatch.matchedFields.join(',')}`,
+            `matchTerms=${entry.searchMatch.matchedTerms.join(',')}`
+          ]
+        : []),
       `units=${entry.artifact.unitCount}`,
       `download=${entry.artifact.location.kind}`,
       `hash=${entry.artifact.contentHash.slice(0, 12)}`,

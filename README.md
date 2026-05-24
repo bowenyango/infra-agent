@@ -128,7 +128,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]`
 - `infra-agent knowledge library-download <public-library-registry.json|registry-url> (--coordinate <coordinate>|[--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement]) --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]`
-- `infra-agent knowledge library-catalog <public-library-registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]`
+- `infra-agent knowledge library-catalog <public-library-registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--query <text>|--search <text>] [--limit <n>] [--out <catalog.json>] [--json]`
 - `infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]`
 - `infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]`
 - `infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> [--json]`
@@ -261,9 +261,13 @@ Current behavior is intentionally runtime-foundation oriented:
   is the read-only directory view for this shape: it validates a local registry
   file or secret-free registry URL, filters entries by domain,
   provider/package/chart, resource, version, tag, coordinate, or quality, and
-  emits raw-content-free classification, resolved artifact download location,
-  hash, quality, unit-type coverage, and LLM review-packet metadata so another
-  agent can decide what to download or refine before loading the full artifact.
+  supports catalog-only `--query`/`--search` metadata search with `--limit`
+  result windows. Search uses only validated registry metadata and reports
+  deterministic rank, score, matched fields, and matched terms; it does not
+  fetch artifacts. Catalog output emits raw-content-free classification,
+  resolved artifact download location, hash, quality, unit-type coverage, and
+  LLM review-packet metadata so another agent can decide what to download or
+  refine before loading the full artifact.
   `knowledge library-download <registry.json|registry-url> --coordinate ...`
   is the exact-coordinate Hub-style artifact fetch path. When `--coordinate`
   is omitted, the command accepts the same deterministic selector filters as
@@ -422,10 +426,14 @@ Current behavior is intentionally runtime-foundation oriented:
 - `knowledge library-catalog` emits a read-only
   `infra-agent.public-knowledge-library-catalog` report from a validated public
   library registry file or secret-free registry URL. Use it as the
-  central-library browse/search surface before download reuse: the report keeps
-  hub coordinates, domain classification, version metadata, resolved artifact
-  path or URL, SHA-256 content hash, quality status, missing unit types, and LLM
-  review-packet hash without embedding raw docs or compact unit bodies.
+  central-library browse/search surface before download reuse: exact filters can
+  be combined with `--query` or `--search` for deterministic metadata search,
+  and `--limit` returns a bounded result window with omitted counts. Search
+  output includes compact rank, score, matched fields, and matched terms while
+  keeping hub coordinates, domain classification, version metadata, resolved
+  artifact path or URL, SHA-256 content hash, quality status, missing unit
+  types, and LLM review-packet hash without embedding raw docs or compact unit
+  bodies.
 - `knowledge library-download` resolves one catalog coordinate from a validated
   public-library registry file or secret-free registry URL. Pass
   `--coordinate` for exact coordinate lookup, or omit it and pass catalog-style

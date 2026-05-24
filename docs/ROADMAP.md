@@ -700,16 +700,18 @@ Implemented initial CLI surfaces:
 - `infra-agent knowledge library-catalog <registry.json|registry-url>
   [--domain ...] [--provider ...] [--package ...] [--chart ...]
   [--resource ...] [--version ...] [--tag ...] [--quality ...]
-  [--coordinate ...] --json`
+  [--coordinate ...] [--query <text>|--search <text>] [--limit <n>] --json`
   - validates a local public-library registry file or secret-free registry URL
     and emits a read-only `infra-agent.public-knowledge-library-catalog`
     directory report. The report is the hub-style browse/search layer before
-    artifact download: it preserves coordinates, ecosystem/artifact-kind
-    classification, versionRef and versionResolution, resolved artifact path or
-    URL, content hash, media type, unit counts, quality status, missing unit
-    types, and the LLM review-packet hash. It must remain raw-content-free and
-    must not fetch artifacts, upload metadata, approve publication, or trust
-    unvalidated registries.
+    artifact download: exact filters can be combined with deterministic
+    metadata-only query search and bounded result windows, while preserving
+    coordinates, ecosystem/artifact-kind classification, versionRef and
+    versionResolution, resolved artifact path or URL, content hash, media type,
+    unit counts, quality status, missing unit types, search rank/matched-field
+    metadata when requested, and the LLM review-packet hash. It must remain
+    raw-content-free and must not fetch artifacts, upload metadata, approve
+    publication, or trust unvalidated registries.
 - `infra-agent knowledge library-download <registry.json|registry-url> --coordinate
   <coordinate> --workspace <workspace> --store-dir <dir> ...`
   - validates a local registry file or secret-free registry URL, resolves

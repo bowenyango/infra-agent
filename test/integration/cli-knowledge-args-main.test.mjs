@@ -636,6 +636,10 @@ test('knowledge library-catalog CLI args accept public registry filter flags', (
     'ready',
     '--coordinate',
     'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket',
+    '--query',
+    'aws s3 bucket',
+    '--limit',
+    '5',
     '--out',
     'artifacts/public-library-catalog.json',
     '--json'
@@ -647,6 +651,8 @@ test('knowledge library-catalog CLI args accept public registry filter flags', (
   assert.equal(parsed.workspace, process.cwd());
   assert.deepEqual(parsed.domains, ['terraform']);
   assert.equal(parsed.knowledgeResource, 'aws_s3_bucket');
+  assert.equal(parsed.publicLibraryCatalogQuery, 'aws s3 bucket');
+  assert.equal(parsed.publicLibraryCatalogLimit, 5);
   assert.deepEqual(parsed.publicLibraryCatalogFilter, {
     provider: 'hashicorp/aws',
     version: 'latest',
@@ -658,6 +664,50 @@ test('knowledge library-catalog CLI args accept public registry filter flags', (
   });
   assert.equal(parsed.outputPath, 'artifacts/public-library-catalog.json');
   assert.equal(parsed.json, true);
+});
+
+test('knowledge library-catalog CLI args accept --search alias and reject catalog-only flags elsewhere', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-catalog',
+    'artifacts/public-library-registry.json',
+    '--search',
+    '@pulumi/aws',
+    '--limit',
+    '3',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-catalog');
+  assert.equal(parsed.publicLibraryCatalogQuery, '@pulumi/aws');
+  assert.equal(parsed.publicLibraryCatalogLimit, 3);
+
+  const rejectedArgs = [
+    ['library-download', 'knowledge/public-library-registry.json', '--workspace', 'fixtures/sample-workspace', '--store-dir', 'knowledge/downloaded-public-library', '--query', 'aws'],
+    ['library-download', 'knowledge/public-library-registry.json', '--workspace', 'fixtures/sample-workspace', '--store-dir', 'knowledge/downloaded-public-library', '--search', 'aws'],
+    ['library-download', 'knowledge/public-library-registry.json', '--workspace', 'fixtures/sample-workspace', '--store-dir', 'knowledge/downloaded-public-library', '--limit', '1'],
+    ['index', 'fixtures/sample-workspace', '--query', 'aws'],
+    ['index', 'fixtures/sample-workspace', '--limit', '1']
+  ];
+
+  for (const args of rejectedArgs) {
+    const script = [
+      "import { parseArgs } from './src/cli/main.ts';",
+      `parseArgs(${JSON.stringify(['knowledge', ...args])});`
+    ].join(' ');
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      script
+    ], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 1);
+  }
 });
 
 test('knowledge library-refinement-review CLI args accept artifact input and output flags', () => {

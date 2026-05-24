@@ -19,6 +19,40 @@ import type { InfraDomainId } from '../types/repository.ts';
 
 export type PublicKnowledgeLibraryCatalogQualityStatus = PublicKnowledgeLibrarySelectorQualityStatus;
 export type PublicKnowledgeLibraryCatalogFilter = PublicKnowledgeLibrarySelectorFilter;
+export type PublicKnowledgeLibraryCatalogSearchableField =
+  | 'coordinates'
+  | 'ecosystem'
+  | 'artifactKind'
+  | 'providerAddress'
+  | 'version'
+  | 'sourceName'
+  | 'resourceToken'
+  | 'repository'
+  | 'chart'
+  | 'tags'
+  | 'qualityStatus'
+  | 'unitTypes';
+
+export interface PublicKnowledgeLibraryCatalogSearchSummary {
+  query: string;
+  terms: string[];
+  searchableFields: PublicKnowledgeLibraryCatalogSearchableField[];
+  matchedCount: number;
+}
+
+export interface PublicKnowledgeLibraryCatalogLimitSummary {
+  requested: number;
+  matchedEntryCount: number;
+  returnedEntryCount: number;
+  omittedEntryCount: number;
+}
+
+export interface PublicKnowledgeLibraryCatalogSearchMatch {
+  rank: number;
+  score: number;
+  matchedFields: PublicKnowledgeLibraryCatalogSearchableField[];
+  matchedTerms: string[];
+}
 
 export interface PublicKnowledgeLibraryCatalogReport {
   kind: 'infra-agent.public-knowledge-library-catalog';
@@ -46,6 +80,8 @@ export interface PublicKnowledgeLibraryCatalogReport {
     missingUnitTypeCounts: Record<KnowledgeUnitType, number>;
   };
   filters: PublicKnowledgeLibraryCatalogFilter;
+  search?: PublicKnowledgeLibraryCatalogSearchSummary;
+  limit?: PublicKnowledgeLibraryCatalogLimitSummary;
   entries: PublicKnowledgeLibraryCatalogEntry[];
   warnings: string[];
 }
@@ -109,12 +145,136 @@ export interface PublicKnowledgeLibraryCatalogEntry {
     contentHash: string;
     mediaType: PublicLibraryRegistryEntry['artifact']['mediaType'];
   };
+  searchMatch?: PublicKnowledgeLibraryCatalogSearchMatch;
 }
 
 interface PublicKnowledgeLibraryCatalogOptions {
   registryPath: string;
   filter?: PublicKnowledgeLibraryCatalogFilter;
+  query?: string;
+  limit?: number;
   fetchImpl?: PublicLibraryFetchImpl;
+}
+
+const CATALOG_SEARCHABLE_FIELDS: PublicKnowledgeLibraryCatalogSearchableField[] = [
+  'coordinates',
+  'ecosystem',
+  'artifactKind',
+  'providerAddress',
+  'version',
+  'sourceName',
+  'resourceToken',
+  'repository',
+  'chart',
+  'tags',
+  'qualityStatus',
+  'unitTypes'
+];
+
+type CatalogSearchFieldValues = Record<PublicKnowledgeLibraryCatalogSearchableField, string[]>;
+
+interface CatalogScoredEntry {
+  entry: PublicLibraryRegistryEntry;
+  searchMatch?: Omit<PublicKnowledgeLibraryCatalogSearchMatch, 'rank'>;
+}
+
+interface CatalogRankedEntry {
+  entry: PublicLibraryRegistryEntry;
+  searchMatch?: PublicKnowledgeLibraryCatalogSearchMatch;
+}
+
+function normalizeCatalogSearchTerms(query: string | undefined): string[] {
+  if (!query) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      query
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean)
+    )
+  ];
+}
+
+function catalogSearchValues(entry: PublicLibraryRegistryEntry): CatalogSearchFieldValues {
+  return {
+    coordinates: [entry.coordinates],
+    ecosystem: [entry.ecosystem],
+    artifactKind: [entry.artifactKind],
+    providerAddress: [entry.providerAddress],
+    version: [entry.version],
+    sourceName: [entry.sourceName],
+    resourceToken: entry.resourceToken ? [entry.resourceToken] : [],
+    repository: entry.repository ? [entry.repository] : [],
+    chart: entry.chart ? [entry.chart] : [],
+    tags: entry.tags,
+    qualityStatus: [entry.llmRefinement.qualityStatus],
+    unitTypes: entry.llmRefinement.unitTypes
+  };
+}
+
+function scoreSearchValue(value: string, term: string): number {
+  const normalized = value.toLowerCase();
+  if (normalized === term) {
+    return 20;
+  }
+  if (normalized.split(/[^a-z0-9@_/-]+/).includes(term)) {
+    return 12;
+  }
+  if (normalized.startsWith(term)) {
+    return 8;
+  }
+  if (normalized.includes(term)) {
+    return 4;
+  }
+
+  return 0;
+}
+
+function scoreCatalogEntrySearch(
+  entry: PublicLibraryRegistryEntry,
+  terms: string[]
+): Omit<PublicKnowledgeLibraryCatalogSearchMatch, 'rank'> | null {
+  const valuesByField = catalogSearchValues(entry);
+  const matchedFields = new Set<PublicKnowledgeLibraryCatalogSearchableField>();
+  const matchedTerms: string[] = [];
+  let score = 0;
+
+  for (const term of terms) {
+    let termScore = 0;
+    const termFields = new Set<PublicKnowledgeLibraryCatalogSearchableField>();
+
+    for (const field of CATALOG_SEARCHABLE_FIELDS) {
+      for (const value of valuesByField[field]) {
+        const valueScore = scoreSearchValue(value, term);
+        if (valueScore > 0) {
+          termScore = Math.max(termScore, valueScore);
+          termFields.add(field);
+        }
+      }
+    }
+
+    if (termScore === 0) {
+      return null;
+    }
+
+    matchedTerms.push(term);
+    score += termScore;
+    for (const field of termFields) {
+      matchedFields.add(field);
+    }
+  }
+
+  score += matchedFields.size;
+
+  return {
+    score,
+    matchedFields: CATALOG_SEARCHABLE_FIELDS.filter(field => matchedFields.has(field)),
+    matchedTerms
+  };
 }
 
 function artifactLocation(
@@ -137,7 +297,8 @@ function artifactLocation(
 
 function catalogEntryFromRegistryEntry(
   entry: PublicLibraryRegistryEntry,
-  registry: LoadedPublicLibraryRegistry
+  registry: LoadedPublicLibraryRegistry,
+  searchMatch?: PublicKnowledgeLibraryCatalogSearchMatch
 ): PublicKnowledgeLibraryCatalogEntry {
   const location = artifactLocation(entry, registry);
   const unitTypeComplete = entry.llmRefinement.missingUnitTypes.length === 0;
@@ -192,7 +353,8 @@ function catalogEntryFromRegistryEntry(
       requiresPrefetch: location.kind === 'url',
       contentHash: entry.artifact.contentHash,
       mediaType: entry.artifact.mediaType
-    }
+    },
+    ...(searchMatch ? { searchMatch } : {})
   };
 }
 
@@ -277,10 +439,56 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
   const rawEntryCount = registry.entries.length;
 
   const filters = normalizePublicKnowledgeLibrarySelectorFilter(options.filter);
-  const entries = registry.entries
+  const query = options.query?.trim() ?? '';
+  const searchTerms = normalizeCatalogSearchTerms(query);
+  const querySupplied = query.length > 0;
+  const filteredEntries = registry.entries
     .filter(entry => publicLibraryEntryMatchesSelector(entry, filters))
-    .map(entry => catalogEntryFromRegistryEntry(entry, registry))
-    .sort((left, right) => left.coordinates.localeCompare(right.coordinates));
+    .map((entry): CatalogScoredEntry | null => {
+      if (!querySupplied) {
+        return { entry };
+      }
+
+      const searchMatch = scoreCatalogEntrySearch(entry, searchTerms);
+      return searchMatch ? { entry, searchMatch } : null;
+    })
+    .filter((entry): entry is CatalogScoredEntry => entry !== null)
+    .sort((left, right) => {
+      if (querySupplied) {
+        const scoreDifference = (right.searchMatch?.score ?? 0) - (left.searchMatch?.score ?? 0);
+        if (scoreDifference !== 0) {
+          return scoreDifference;
+        }
+        const readyDifference = Number(right.entry.llmRefinement.qualityStatus === 'ready') - Number(left.entry.llmRefinement.qualityStatus === 'ready');
+        if (readyDifference !== 0) {
+          return readyDifference;
+        }
+        const completeDifference = Number(right.entry.llmRefinement.missingUnitTypes.length === 0) - Number(left.entry.llmRefinement.missingUnitTypes.length === 0);
+        if (completeDifference !== 0) {
+          return completeDifference;
+        }
+      }
+
+      return left.entry.coordinates.localeCompare(right.entry.coordinates);
+    });
+  const matchedEntryCount = filteredEntries.length;
+  const rankedEntries = filteredEntries.map((scoredEntry, index): CatalogRankedEntry => ({
+    entry: scoredEntry.entry,
+    ...(scoredEntry.searchMatch
+      ? {
+          searchMatch: {
+            rank: index + 1,
+            ...scoredEntry.searchMatch
+          }
+        }
+      : {})
+  }));
+  const limitedEntries = options.limit !== undefined
+    ? rankedEntries.slice(0, options.limit)
+    : rankedEntries;
+  const entries = limitedEntries.map(({ entry, searchMatch }) =>
+    catalogEntryFromRegistryEntry(entry, registry, searchMatch)
+  );
 
   return {
     kind: 'infra-agent.public-knowledge-library-catalog',
@@ -296,6 +504,26 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
     },
     summary: buildSummary(rawEntryCount, entries),
     filters,
+    ...(querySupplied
+      ? {
+          search: {
+            query,
+            terms: searchTerms,
+            searchableFields: CATALOG_SEARCHABLE_FIELDS,
+            matchedCount: matchedEntryCount
+          }
+        }
+      : {}),
+    ...(options.limit !== undefined
+      ? {
+          limit: {
+            requested: options.limit,
+            matchedEntryCount,
+            returnedEntryCount: entries.length,
+            omittedEntryCount: Math.max(0, matchedEntryCount - entries.length)
+          }
+        }
+      : {}),
     entries,
     warnings: entries.some(entry => entry.quality.status === 'needs-refinement')
       ? ['Some matched entries need LLM refinement before they should be promoted as ready public-reference artifacts.']

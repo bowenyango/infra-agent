@@ -6,6 +6,62 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-24 Public Library Catalog Metadata Search
+
+Status:
+
+- Added catalog-only hub-style metadata search for
+  `knowledge library-catalog` via `--query <text>` and `--search <text>`, plus
+  `--limit <n>` result windows.
+- Search applies after existing exact filters and uses only validated registry
+  metadata: coordinates, ecosystem, artifact kind, provider/package address,
+  version, source name, resource token, repository, chart, tags, quality status,
+  and unit type names.
+- Query matching is deterministic, case-insensitive, all-term matching. Ranked
+  results include compact `searchMatch.rank`, `score`, `matchedFields`, and
+  `matchedTerms`; ties prefer ready artifacts, then complete five-unit coverage,
+  then coordinate order.
+- `library-download` remains exact-coordinate or exact selector based. Query
+  and limit are rejected outside `library-catalog`, so browse/search cannot
+  bypass the existing exact-one download selection and hash/drift verification
+  path.
+- URL registry catalog search still fetches only the registry JSON. Artifact
+  paths and URLs are resolved for directory metadata, but artifacts are not
+  fetched by catalog search.
+
+Files changed:
+
+- `src/knowledge/public-library-catalog.ts` implements metadata query terms,
+  deterministic scoring/ranking, limit summaries, and per-entry search match
+  metadata.
+- `src/cli/main.ts` parses `--query`, `--search`, and `--limit` for
+  `library-catalog` only and rejects them for other knowledge actions.
+- `src/cli/output.ts` prints query, result-window, and match metadata in text
+  catalog output.
+- `test/integration/cli-public-library-catalog-main.test.mjs` covers metadata
+  search, limit windows, text output, raw-doc omission, and URL registry search
+  without artifact fetches.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers parser acceptance
+  and rejection for catalog-only search flags.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, `docs/TESTING.md`,
+  and `skills/infra-configuration/SKILL.md` document the new browse/search
+  contract.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge library-catalog"
+  test/integration/cli-public-library-catalog-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-catalog"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+
+Residual risks:
+
+- Search is deterministic metadata matching, not fuzzy ranking, semantic
+  search, popularity ranking, or vector retrieval.
+- Catalog search reports only directory metadata and cannot prove artifact
+  payload health by itself; `library-download` and `knowledge validate` remain
+  the verification steps before reuse or refinement.
+
 ## 2026-05-24 Public Library Selector Download
 
 Status:
