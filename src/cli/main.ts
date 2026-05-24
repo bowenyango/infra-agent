@@ -135,6 +135,7 @@ export interface ParsedArgs {
   contentPath?: string | null;
   publicLibraryRefinedPath?: string | null;
   publicLibraryRefinedOutputPath?: string | null;
+  publicLibraryReviewOutputPath?: string | null;
   unitOutputDir?: string | null;
   manifestOutputPath?: string | null;
   publishStoreDir?: string | null;
@@ -214,7 +215,7 @@ function printUsage(): void {
       '  infra-agent knowledge library-from-url <url> --library-out <library-artifact.json> [--out <pipeline-report.json>] [--content <markdown-or-html-file>] [--max-units <n>] [--refine --refined-out <url-report.json>] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--workspace <workspace> --store-dir <dir> --registry <registry.json>] [--json]',
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]',
-      '  infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]',
+      '  infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]',
       '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]',
       '  infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]',
       '  infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]',
@@ -1345,6 +1346,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     let contentPath: string | null = null;
     let publicLibraryRefinedPath: string | null = null;
     let publicLibraryRefinedOutputPath: string | null = null;
+    let publicLibraryReviewOutputPath: string | null = null;
     let unitOutputDir: string | null = null;
     let manifestOutputPath: string | null = null;
     let validationWorkspace: string | null = null;
@@ -1762,6 +1764,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
         continue;
       }
 
+      if (arg === '--review-out') {
+        const reviewValue = actionArgs[index + 1]?.trim();
+        if (!reviewValue) {
+          fail('Missing value for --review-out.');
+        }
+        if (knowledgeAction !== 'library-download') {
+          fail('--review-out is only supported for knowledge library-download.');
+        }
+        if (publicLibraryReviewOutputPath !== null) {
+          fail('--review-out can be provided at most once.');
+        }
+
+        publicLibraryReviewOutputPath = reviewValue;
+        index += 1;
+        continue;
+      }
+
       if (arg === '--refine') {
         if (knowledgeAction !== 'library-from-url') {
           fail('--refine is only supported for knowledge library-from-url.');
@@ -2161,6 +2180,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       contentPath,
       publicLibraryRefinedPath,
       publicLibraryRefinedOutputPath,
+      publicLibraryReviewOutputPath,
       unitOutputDir,
       manifestOutputPath,
       publishStoreDir,
@@ -3115,21 +3135,39 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       storeDir: parsed.publishStoreDir,
       coordinates: parsed.publicLibraryDownloadCoordinate
     });
+    const reviewReport = parsed.publicLibraryReviewOutputPath
+      ? await buildPublicKnowledgeLibraryRefinementReviewReport({
+          artifactPath: report.artifact.storedPath,
+          baseDir: cwd()
+        })
+      : null;
+    const reviewWrittenPath = parsed.publicLibraryReviewOutputPath && reviewReport
+      ? await writeJsonArtifact(parsed.publicLibraryReviewOutputPath, cwd(), reviewReport)
+      : null;
+    const reportPayload = reviewWrittenPath
+      ? {
+          ...report,
+          reviewOutputPath: reviewWrittenPath
+        }
+      : report;
     const writtenPath = parsed.outputPath
-      ? await writeJsonArtifact(parsed.outputPath, cwd(), report)
+      ? await writeJsonArtifact(parsed.outputPath, cwd(), reportPayload)
       : null;
 
     if (parsed.json) {
       process.stdout.write(`${JSON.stringify(writtenPath
         ? {
-            ...report,
+            ...reportPayload,
             outputPath: writtenPath
           }
-        : report, null, 2)}\n`);
+        : reportPayload, null, 2)}\n`);
       return;
     }
 
-    printPublicKnowledgeLibraryDownloadReport(report);
+    printPublicKnowledgeLibraryDownloadReport(reportPayload);
+    if (reviewWrittenPath) {
+      process.stdout.write(`\nreview report: ${reviewWrittenPath}\n`);
+    }
     if (writtenPath) {
       process.stdout.write(`\nwritten: ${writtenPath}\n`);
     }

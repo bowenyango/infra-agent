@@ -357,9 +357,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   selected artifact, resolve relative artifact paths from URL registries, verify
   the registry SHA-256 content hash, validate the artifact payload, check
   identity/version/unit/quality/LLM-review metadata drift, and write only a
-  workspace-relative content-addressed artifact. Treat the result as local
-  download/reuse; it must not upload, publish, approve trust, or embed raw
-  documentation in the report.
+  workspace-relative content-addressed artifact. When `--review-out` is
+  supplied, it may also emit the refinement-review handoff from that verified
+  stored artifact path after all download checks pass. Treat the result as
+  local download/reuse; it must not upload, publish, approve trust, or embed
+  raw documentation in the report.
   Use `knowledge library-from-url <url> --library-out <artifact.json> --json`
   when producing a central-library artifact directly from one supported
   official public documentation URL. It must reuse `from-url` download,

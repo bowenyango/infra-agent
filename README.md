@@ -127,7 +127,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge library-from-url <url> --library-out <library-artifact.json> [--out <pipeline-report.json>] [--content <markdown-or-html-file>] [--max-units <n>] [--refine --refined-out <url-report.json>] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--workspace <workspace> --store-dir <dir> --registry <registry.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]`
-- `infra-agent knowledge library-download <public-library-registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--out <report.json>] [--json]`
+- `infra-agent knowledge library-download <public-library-registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-catalog <public-library-registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]`
 - `infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]`
 - `infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]`
@@ -270,7 +270,10 @@ Current behavior is intentionally runtime-foundation oriented:
   artifact, resolves relative artifact paths from URL registries, verifies the
   registered SHA-256 content hash, validates that the artifact payload still
   matches the registry metadata, and writes it into a workspace-relative
-  content-addressed store without embedding raw content in the report.
+  content-addressed store without embedding raw content in the report. Add
+  `--review-out <review.json>` when the next step is model refinement; the
+  review report is generated only from the verified stored artifact and remains
+  raw-content-free.
   `knowledge library-from-url <url> --library-out <artifact.json>` is the
   one-shot central-library build path from official public docs. It runs the
   same URL download, version resolution, classification, compact extraction,
@@ -426,8 +429,10 @@ Current behavior is intentionally runtime-foundation oriented:
   validates the downloaded
   `infra-agent.public-knowledge-library-artifact`, checks identity and
   LLM-review metadata drift against the registry entry, and stores the verified
-  artifact by content hash under a workspace-relative directory. It is local
-  artifact download/reuse, not upload or publication approval.
+  artifact by content hash under a workspace-relative directory. With
+  `--review-out`, it also emits the offline LLM refinement review report from
+  that verified stored artifact path. It is local artifact download/reuse, not
+  upload or publication approval.
 - `knowledge library-from-url` is the central-library producer shortcut. It
   downloads or reads one supported official documentation URL, preserves
   classification and download evidence, builds a validated

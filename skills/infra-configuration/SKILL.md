@@ -76,7 +76,7 @@ values.
    infra-agent knowledge library-from-url <public-doc-url> --library-out <library-artifact.json> --json
    infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> --json
    infra-agent knowledge library-catalog <registry.json|registry-url> --domain <helm|pulumi|terraform> --resource <identity> --json
-   infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --json
+   infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> --review-out <review.json> --json
    infra-agent knowledge library-refinement-review <library-artifact.json> --json
    infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> --json
    infra-agent knowledge library-refinement-apply <library-artifact.json> --refined <url-report.json> --out <updated-library-artifact.json> --json
@@ -190,8 +190,11 @@ values.
    downloads the artifact, resolves relative artifact paths from URL registries,
    verifies the registry SHA-256 content hash, validates the artifact payload,
    rejects identity/version/unit/quality/LLM-review drift, and writes a
-   workspace-relative content-addressed artifact. Treat it as local
-   download/reuse, not upload, publication approval, or a trust decision.
+   workspace-relative content-addressed artifact. Add `--review-out
+   <review.json>` when the next step is model refinement; the review report is
+   built from the verified stored artifact path so the model handoff cannot
+   race ahead of download validation. Treat it as local download/reuse, not
+   upload, publication approval, or a trust decision.
    Use `knowledge library-refinement-review <library-artifact.json> --json`
    after generating or downloading a public-library artifact when a model
    needs a focused refinement handoff. It validates the artifact and emits

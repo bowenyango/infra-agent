@@ -281,6 +281,8 @@ test('knowledge library-download CLI args require a coordinate and local store t
     'fixtures/sample-workspace',
     '--store-dir',
     'knowledge/downloaded-public-library',
+    '--review-out',
+    'artifacts/public-library-review.json',
     '--out',
     'artifacts/public-library-download.json',
     '--json'
@@ -292,6 +294,7 @@ test('knowledge library-download CLI args require a coordinate and local store t
   assert.equal(parsed.publicLibraryDownloadCoordinate, 'terraform/provider/hashicorp/aws/5.37.0/resource/aws_s3_bucket');
   assert.equal(parsed.workspace, resolve(process.cwd(), 'fixtures/sample-workspace'));
   assert.equal(parsed.publishStoreDir, 'knowledge/downloaded-public-library');
+  assert.equal(parsed.publicLibraryReviewOutputPath, 'artifacts/public-library-review.json');
   assert.equal(parsed.outputPath, 'artifacts/public-library-download.json');
   assert.equal(parsed.json, true);
 });
@@ -603,7 +606,8 @@ test('knowledge library-refinement-review rejects unrelated selector and downloa
     ['--domain', 'terraform'],
     ['--resource', 'aws_s3_bucket'],
     ['--coordinate', 'terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket'],
-    ['--workspace', 'fixtures/sample-workspace']
+    ['--workspace', 'fixtures/sample-workspace'],
+    ['--review-out', 'artifacts/refinement-review.json']
   ];
 
   for (const args of rejectedArgs) {

@@ -148,7 +148,7 @@ infra-agent knowledge library-from-url https://registry.terraform.io/providers/h
 infra-agent knowledge library-from-url https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket --max-units 20 --library-out /tmp/infra-agent-s3-refined-library-artifact.json --refine --refined-out /tmp/infra-agent-s3-refined-url-report.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
-infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --json
+infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --review-out /tmp/infra-agent-library-refinement-review.json --json
 infra-agent knowledge library-refinement-review <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-library-refinement-review.json --json
 infra-agent knowledge library-refinement-run <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-refined-url-report.json --json
 infra-agent knowledge library-refinement-apply <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --refined /tmp/infra-agent-refined-url-report.json --out /tmp/infra-agent-updated-library-artifact.json --json
@@ -257,8 +257,9 @@ or download a URL artifact, resolve relative artifact paths from URL
 registries, verify the registered SHA-256 content hash, validate the artifact
 payload, reject identity/version/unit/quality/LLM-review metadata drift, and
 write the verified artifact into a workspace-relative content-addressed store.
-Its report must stay raw-content-free and must not upload, publish, or approve
-trust.
+With `--review-out`, it should emit a refinement-review report from the
+verified stored artifact path only after those checks pass. Its reports must
+stay raw-content-free and must not upload, publish, or approve trust.
 `knowledge library-from-url` should run the central-library producer pipeline
 from one official public documentation URL: URL download or local content
 fixture, version resolution, classification, compact extraction, artifact

@@ -192,20 +192,34 @@ test('knowledge library-download copies a local registry artifact into a content
 
     const registryPath = join(tempRoot, 'knowledge/public-library-registry.json');
     const reportPath = join(tempRoot, 'knowledge/download-report.json');
-    const output = await captureStdout(() => main([
-      'knowledge',
-      'library-download',
-      registryPath,
-      '--coordinate',
-      artifact.coordinates,
-      '--workspace',
-      tempRoot,
-      '--store-dir',
-      'knowledge/downloaded-public-library',
-      '--out',
-      reportPath,
-      '--json'
-    ]));
+    const reviewPath = join(tempRoot, 'knowledge/download-review.json');
+    const previousInfraAgentKey = process.env.INFRA_AGENT_OPENAI_API_KEY;
+    let output;
+    try {
+      process.env.INFRA_AGENT_OPENAI_API_KEY = 'test-api-key';
+      output = await captureStdout(() => main([
+        'knowledge',
+        'library-download',
+        registryPath,
+        '--coordinate',
+        artifact.coordinates,
+        '--workspace',
+        tempRoot,
+        '--store-dir',
+        'knowledge/downloaded-public-library',
+        '--review-out',
+        reviewPath,
+        '--out',
+        reportPath,
+        '--json'
+      ]));
+    } finally {
+      if (previousInfraAgentKey === undefined) {
+        delete process.env.INFRA_AGENT_OPENAI_API_KEY;
+      } else {
+        process.env.INFRA_AGENT_OPENAI_API_KEY = previousInfraAgentKey;
+      }
+    }
     const report = parseJsonOutput(output);
 
     assert.equal(report.kind, 'infra-agent.public-knowledge-library-download');
@@ -217,11 +231,71 @@ test('knowledge library-download copies a local registry artifact into a content
     assert.match(report.artifact.registryPath, /^knowledge\/downloaded-public-library\/[a-f0-9]{64}\.public-knowledge-library-artifact\.json$/);
     assert.equal(report.artifact.sha256, report.source.contentHash);
     assert.equal(report.artifact.unitPayloadHash, artifact.unitPayloadHash);
+    assert.equal(report.reviewOutputPath, reviewPath);
     assert.equal(report.outputPath, reportPath);
+
+    const writtenDownloadReport = JSON.parse(await readFile(reportPath, 'utf8'));
+    assert.equal(writtenDownloadReport.reviewOutputPath, reviewPath);
 
     const downloadedArtifact = await readValidatedArtifact(report.artifact.storedPath);
     assert.equal(downloadedArtifact.coordinates, artifact.coordinates);
     assert.equal(downloadedArtifact.unitPayloadHash, artifact.unitPayloadHash);
+
+    const review = JSON.parse(await readFile(reviewPath, 'utf8'));
+    assert.equal(review.kind, 'infra-agent.public-knowledge-library-refinement-review');
+    assert.equal(review.inputPath, report.artifact.storedPath);
+    assert.equal(review.mutationAllowed, false);
+    assert.equal(review.executionMode, 'offline-llm-review-input');
+    assert.equal(review.llmPrompt.rawContentIncluded, false);
+    assert.deepEqual(review.compactInputs.inputRefs, artifact.llmRefinementInput.inputRefs);
+    assert.equal(review.review.reviewPacketHash, report.llmRefinement.reviewPacketHash);
+    assert.equal(review.review.outputContract, 'infra-agent.public-knowledge-url-report');
+    assert.equal(review.compactInputs.unitsByType.fact.length > 0, true);
+
+    const reportSerialized = JSON.stringify(report);
+    const reviewSerialized = JSON.stringify(review);
+    assert.doesNotMatch(reportSerialized, /test-api-key/);
+    assert.doesNotMatch(reviewSerialized, /test-api-key/);
+    assert.equal(reviewSerialized.includes(S3_BUCKET_MARKDOWN), false);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge library-download prints the optional review report path in text output', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-download-review-text-'));
+
+  try {
+    const artifact = await buildLibraryArtifact(tempRoot);
+    const artifactInputPath = join(tempRoot, 'knowledge/aws_s3_bucket.library.json');
+    await writeFile(artifactInputPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
+    await stagePublicKnowledgeLibraryArtifact({
+      workspaceRoot: tempRoot,
+      artifactPath: artifactInputPath,
+      storeDir: 'knowledge/public-library',
+      registryPath: 'knowledge/public-library-registry.json',
+      createdAt: '2026-05-19T00:00:00.000Z'
+    });
+
+    const registryPath = join(tempRoot, 'knowledge/public-library-registry.json');
+    const reviewPath = join(tempRoot, 'knowledge/download-review.json');
+    const output = await captureStdout(() => main([
+      'knowledge',
+      'library-download',
+      registryPath,
+      '--coordinate',
+      artifact.coordinates,
+      '--workspace',
+      tempRoot,
+      '--store-dir',
+      'knowledge/downloaded-public-library',
+      '--review-out',
+      reviewPath
+    ]));
+
+    assert.equal(output.includes(`review report: ${reviewPath}`), true);
+    const review = JSON.parse(await readFile(reviewPath, 'utf8'));
+    assert.equal(review.kind, 'infra-agent.public-knowledge-library-refinement-review');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

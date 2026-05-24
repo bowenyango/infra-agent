@@ -6,6 +6,56 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-24 Public Library Download Review Output
+
+Status:
+
+- Added optional `knowledge library-download ... --review-out <review.json>`
+  so a downloaded central-library artifact can immediately produce the
+  offline LLM refinement-review handoff.
+- The review report is generated only after the registry is validated, the
+  selected artifact is copied or downloaded, the registered SHA-256 hash is
+  verified, the artifact payload validates, identity/version/unit/quality/LLM
+  metadata drift checks pass, and the verified artifact is written into the
+  workspace content-addressed store.
+- JSON stdout and persisted `--out` reports include `reviewOutputPath` when a
+  review report is written. Text output prints the review report path.
+- The command still does not call a model, fetch extra docs, upload, publish,
+  approve trust, or embed raw source documents. The review report remains the
+  existing `infra-agent.public-knowledge-library-refinement-review` contract.
+
+Files changed:
+
+- `src/cli/main.ts` parses `--review-out` for `library-download`, rejects it
+  elsewhere, builds the refinement-review report from
+  `report.artifact.storedPath`, and includes `reviewOutputPath` in JSON/text
+  output.
+- `test/integration/cli-knowledge-args-main.test.mjs` covers parser
+  acceptance and rejection.
+- `test/integration/cli-public-library-download-main.test.mjs` covers local
+  download plus review generation from the stored artifact path, JSON/text
+  output paths, compact LLM input shape, and raw-doc/API-key omission.
+- `README.md`, `docs/AGENT_RULES.md`, `docs/TESTING.md`, and
+  `skills/infra-configuration/SKILL.md` document the new optional review
+  handoff.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "library-download"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "knowledge library-download"
+  test/integration/cli-public-library-download-main.test.mjs` passed.
+- `npm run lint` passed.
+- `git diff --check` passed.
+
+Residual risks:
+
+- This slice improves the verified download-to-LLM handoff, but download still
+  requires an exact coordinate. The next Hub-like slice should add
+  selector-based `library-download` resolution from domain/provider/resource,
+  package, chart, version, quality, and tag filters while preserving the
+  existing hash and drift checks.
+
 ## 2026-05-24 Public Library From URL Pipeline
 
 Status:
