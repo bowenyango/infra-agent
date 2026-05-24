@@ -297,6 +297,22 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     const writtenReport = JSON.parse(await readFile(reportPath, 'utf8'));
     assert.equal(writtenReport.kind, 'infra-agent.public-knowledge-library-catalog');
     assert.equal(writtenReport.entries.length, 1);
+
+    const helmFilteredOutput = await captureStdout(() => main([
+      'knowledge',
+      'library-catalog',
+      registryPath,
+      '--domain',
+      'helm',
+      '--chart',
+      'kube-prometheus-stack',
+      '--json'
+    ]));
+    const helmFiltered = parseJsonOutput(helmFilteredOutput);
+
+    assert.equal(helmFiltered.summary.matchedEntryCount, 1);
+    assert.equal(helmFiltered.entries[0].coordinates, helmArtifact.artifact.coordinates);
+    assert.equal(helmFiltered.entries[0].classification.chart, 'kube-prometheus-stack');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

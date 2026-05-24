@@ -270,7 +270,7 @@ test('knowledge library-from-url requires artifact and refinement output flags',
   }
 });
 
-test('knowledge library-download CLI args require a coordinate and local store target', () => {
+test('knowledge library-download CLI args accept an exact coordinate and local store target', () => {
   const parsed = parseArgs([
     'knowledge',
     'library-download',
@@ -297,6 +297,83 @@ test('knowledge library-download CLI args require a coordinate and local store t
   assert.equal(parsed.publicLibraryReviewOutputPath, 'artifacts/public-library-review.json');
   assert.equal(parsed.outputPath, 'artifacts/public-library-download.json');
   assert.equal(parsed.json, true);
+});
+
+test('knowledge library-download CLI args accept selector filters', () => {
+  const parsed = parseArgs([
+    'knowledge',
+    'library-download',
+    'knowledge/public-library-registry.json',
+    '--domain',
+    'terraform',
+    '--provider',
+    'hashicorp/aws',
+    '--resource',
+    'aws_s3_bucket',
+    '--version',
+    '5.37.0',
+    '--tag',
+    'resource-docs',
+    '--quality',
+    'ready',
+    '--workspace',
+    'fixtures/sample-workspace',
+    '--store-dir',
+    'knowledge/downloaded-public-library',
+    '--json'
+  ]);
+
+  assert.equal(parsed.command, 'knowledge');
+  assert.equal(parsed.knowledgeAction, 'library-download');
+  assert.equal(parsed.inputPath, 'knowledge/public-library-registry.json');
+  assert.equal(parsed.publicLibraryDownloadCoordinate, null);
+  assert.equal(parsed.workspace, resolve(process.cwd(), 'fixtures/sample-workspace'));
+  assert.equal(parsed.publishStoreDir, 'knowledge/downloaded-public-library');
+  assert.deepEqual(parsed.publicLibraryCatalogFilter, {
+    provider: 'hashicorp/aws',
+    version: '5.37.0',
+    tags: ['resource-docs'],
+    qualityStatus: 'ready',
+    domains: ['terraform'],
+    resource: 'aws_s3_bucket'
+  });
+  assert.equal(parsed.json, true);
+});
+
+test('knowledge library-download rejects missing and mixed coordinate selectors', () => {
+  const rejectedArgs = [
+    [],
+    ['--coordinate', 'terraform/provider/hashicorp/aws/5.37.0/resource/aws_s3_bucket', '--domain', 'terraform'],
+    ['--coordinate', 'terraform/provider/hashicorp/aws/5.37.0/resource/aws_s3_bucket', '--resource', 'aws_s3_bucket'],
+    ['--coordinate', 'terraform/provider/hashicorp/aws/5.37.0/resource/aws_s3_bucket', '--tag', 'resource-docs']
+  ];
+
+  for (const args of rejectedArgs) {
+    const script = [
+      "import { parseArgs } from './src/cli/main.ts';",
+      `parseArgs(${JSON.stringify([
+        'knowledge',
+        'library-download',
+        'knowledge/public-library-registry.json',
+        '--workspace',
+        'fixtures/sample-workspace',
+        '--store-dir',
+        'knowledge/downloaded-public-library',
+        ...args
+      ])});`
+    ].join(' ');
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      script
+    ], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 1);
+  }
 });
 
 test('knowledge extract CLI args accept source filters and bounded targets', () => {

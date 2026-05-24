@@ -352,8 +352,11 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   and report resolved artifact path or URL plus hashes and LLM review metadata
   without fetching artifacts, uploading, or approving publication.
   Use `knowledge library-download <registry.json|registry-url> --coordinate
-  <coordinate> --workspace <workspace> --store-dir <dir> --json` only after
-  choosing a coordinate. It must validate the registry, fetch or copy the
+  <coordinate> --workspace <workspace> --store-dir <dir> --json` after
+  choosing an exact coordinate, or omit `--coordinate` and pass catalog-style
+  selector filters for domain, provider/package/chart, resource, version, tag,
+  and quality when they resolve exactly one entry. It must validate the
+  registry, resolve selection before artifact fetch or write, fetch or copy the
   selected artifact, resolve relative artifact paths from URL registries, verify
   the registry SHA-256 content hash, validate the artifact payload, check
   identity/version/unit/quality/LLM-review metadata drift, and write only a

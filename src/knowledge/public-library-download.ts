@@ -12,6 +12,11 @@ import {
 import { validateKnowledgePayload } from './validate.ts';
 import type { PublicLibraryRegistryEntry } from './public-library-registry.ts';
 import {
+  resolvePublicKnowledgeLibraryRegistryEntrySelection,
+  type PublicKnowledgeLibrarySelectionMetadata,
+  type PublicKnowledgeLibrarySelectorFilter
+} from './public-library-select.ts';
+import {
   fetchPublicLibraryJsonBytes,
   loadPublicLibraryRegistry,
   resolvePublicLibraryArtifactLocation,
@@ -34,7 +39,8 @@ export interface PublicKnowledgeLibraryDownloadOptions {
   registryPath: string;
   workspaceRoot: string;
   storeDir: string;
-  coordinates: string;
+  coordinates?: string | null;
+  selector?: PublicKnowledgeLibrarySelectorFilter;
   fetchImpl?: PublicLibraryFetchImpl;
 }
 
@@ -53,6 +59,7 @@ export interface PublicKnowledgeLibraryDownloadReport {
     status: 'read' | 'downloaded';
   };
   coordinates: string;
+  selection: PublicKnowledgeLibrarySelectionMetadata;
   source: {
     locationKind: 'workspace-path' | 'url';
     path?: string;
@@ -296,10 +303,11 @@ export async function downloadPublicKnowledgeLibraryArtifact(
     registryPath: options.registryPath,
     fetchImpl: options.fetchImpl
   });
-  const entry = registry.entries.find(candidate => candidate.coordinates === options.coordinates);
-  if (!entry) {
-    throw new Error(`Public knowledge library registry does not contain coordinate ${options.coordinates}.`);
-  }
+  const selection = resolvePublicKnowledgeLibraryRegistryEntrySelection(registry.entries, {
+    coordinates: options.coordinates,
+    filter: options.selector
+  });
+  const { entry } = selection;
 
   const { bytes, source } = await readArtifactBytes(entry, registry, options.workspaceRoot, options.fetchImpl);
   const artifactHash = sha256(bytes);
@@ -341,6 +349,7 @@ export async function downloadPublicKnowledgeLibraryArtifact(
       status: registry.status
     },
     coordinates: entry.coordinates,
+    selection: selection.metadata,
     source,
     artifact: {
       storedPath: storedAbsolutePath,

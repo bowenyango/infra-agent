@@ -50,6 +50,7 @@ import {
   type PublicKnowledgeLibraryCatalogFilter,
   type PublicKnowledgeLibraryCatalogQualityStatus
 } from '../knowledge/public-library-catalog.ts';
+import { hasPublicKnowledgeLibrarySelectorFilter } from '../knowledge/public-library-select.ts';
 import { buildPublicKnowledgeLibraryRefinementReviewReport } from '../knowledge/public-library-refinement-review.ts';
 import { applyPublicKnowledgeLibraryRefinement } from '../knowledge/public-library-refinement-apply.ts';
 import { runPublicKnowledgeLibraryRefinement } from '../knowledge/public-library-refinement-run.ts';
@@ -215,7 +216,7 @@ function printUsage(): void {
       '  infra-agent knowledge library-from-url <url> --library-out <library-artifact.json> [--out <pipeline-report.json>] [--content <markdown-or-html-file>] [--max-units <n>] [--refine --refined-out <url-report.json>] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--workspace <workspace> --store-dir <dir> --registry <registry.json>] [--json]',
       '  infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]',
       '  infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]',
-      '  infra-agent knowledge library-download <registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]',
+      '  infra-agent knowledge library-download <registry.json|registry-url> (--coordinate <coordinate>|[--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement]) --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]',
       '  infra-agent knowledge library-catalog <registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]',
       '  infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]',
       '  infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]',
@@ -1375,8 +1376,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const arg = actionArgs[index];
 
       if (arg === '--domain') {
-        if (knowledgeAction === 'validate' || knowledgeAction === 'library-from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply') {
-          fail('--domain is not supported for knowledge validate, knowledge library-from-url, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'library-from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply') {
+          fail('--domain is not supported for knowledge validate, knowledge library-from-url, knowledge library-stage, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
         }
         if (knowledgeAction === 'from-url') {
           fail('--domain is inferred for knowledge from-url.');
@@ -1416,8 +1417,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!resourceValue) {
           fail('Missing value for --resource.');
         }
-        if (knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-download' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply') {
-          fail('--resource is not supported for knowledge validate, knowledge from-url, knowledge library-from-url, knowledge publish, knowledge library-stage, knowledge library-download, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
+        if (knowledgeAction === 'validate' || knowledgeAction === 'publish' || knowledgeAction === 'from-url' || knowledgeAction === 'library-from-url' || knowledgeAction === 'library-stage' || knowledgeAction === 'library-refinement-review' || knowledgeAction === 'library-refinement-run' || knowledgeAction === 'library-refinement-apply') {
+          fail('--resource is not supported for knowledge validate, knowledge from-url, knowledge library-from-url, knowledge publish, knowledge library-stage, knowledge library-refinement-review, knowledge library-refinement-run, or knowledge library-refinement-apply.');
         }
         if (knowledgeResource !== null) {
           fail('--resource can be provided at most once.');
@@ -1504,7 +1505,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           index += 1;
           continue;
         }
-        if (knowledgeAction === 'library-catalog') {
+        if (knowledgeAction === 'library-catalog' || knowledgeAction === 'library-download') {
           if (publicLibraryCatalogFilter.provider !== undefined) {
             fail('--provider can be provided at most once.');
           }
@@ -1513,7 +1514,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           continue;
         }
         if (knowledgeAction !== 'index') {
-          fail('--provider is only supported for knowledge index, knowledge publish, or knowledge library-catalog.');
+          fail('--provider is only supported for knowledge index, knowledge publish, knowledge library-catalog, or knowledge library-download.');
         }
         if (knowledgeIndexFilter.provider !== undefined) {
           fail('--provider can be provided at most once.');
@@ -1537,7 +1538,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           index += 1;
           continue;
         }
-        if (knowledgeAction === 'library-catalog') {
+        if (knowledgeAction === 'library-catalog' || knowledgeAction === 'library-download') {
           if (publicLibraryCatalogFilter.packageName !== undefined) {
             fail('--package can be provided at most once.');
           }
@@ -1546,7 +1547,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           continue;
         }
         if (knowledgeAction !== 'index') {
-          fail('--package is only supported for knowledge index, knowledge publish, or knowledge library-catalog.');
+          fail('--package is only supported for knowledge index, knowledge publish, knowledge library-catalog, or knowledge library-download.');
         }
         if (knowledgeIndexFilter.packageName !== undefined) {
           fail('--package can be provided at most once.');
@@ -1570,7 +1571,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           index += 1;
           continue;
         }
-        if (knowledgeAction === 'library-catalog') {
+        if (knowledgeAction === 'library-catalog' || knowledgeAction === 'library-download') {
           if (publicLibraryCatalogFilter.chart !== undefined) {
             fail('--chart can be provided at most once.');
           }
@@ -1579,7 +1580,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           continue;
         }
         if (knowledgeAction !== 'index') {
-          fail('--chart is only supported for knowledge index, knowledge publish, or knowledge library-catalog.');
+          fail('--chart is only supported for knowledge index, knowledge publish, knowledge library-catalog, or knowledge library-download.');
         }
         if (knowledgeIndexFilter.chart !== undefined) {
           fail('--chart can be provided at most once.');
@@ -1628,7 +1629,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           index += 1;
           continue;
         }
-        if (knowledgeAction === 'library-catalog') {
+        if (knowledgeAction === 'library-catalog' || knowledgeAction === 'library-download') {
           if (publicLibraryCatalogFilter.version !== undefined) {
             fail('--version can be provided at most once.');
           }
@@ -1637,7 +1638,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           continue;
         }
         if (knowledgeAction !== 'index') {
-          fail('--version is only supported for knowledge index, knowledge publish, or knowledge library-catalog.');
+          fail('--version is only supported for knowledge index, knowledge publish, knowledge library-catalog, or knowledge library-download.');
         }
         if (knowledgeIndexFilter.version !== undefined) {
           fail('--version can be provided at most once.');
@@ -2001,8 +2002,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (!tag) {
           fail('Missing value for --tag.');
         }
-        if (knowledgeAction !== 'library-catalog') {
-          fail('--tag is only supported for knowledge library-catalog.');
+        if (knowledgeAction !== 'library-catalog' && knowledgeAction !== 'library-download') {
+          fail('--tag is only supported for knowledge library-catalog or knowledge library-download.');
         }
         publicLibraryCatalogFilter.tags = [
           ...(publicLibraryCatalogFilter.tags ?? []),
@@ -2017,8 +2018,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (quality !== 'ready' && quality !== 'needs-refinement') {
           fail('Missing or invalid value for --quality. Expected ready or needs-refinement.');
         }
-        if (knowledgeAction !== 'library-catalog') {
-          fail('--quality is only supported for knowledge library-catalog.');
+        if (knowledgeAction !== 'library-catalog' && knowledgeAction !== 'library-download') {
+          fail('--quality is only supported for knowledge library-catalog or knowledge library-download.');
         }
         if (publicLibraryCatalogFilter.qualityStatus !== undefined) {
           fail('--quality can be provided at most once.');
@@ -2136,9 +2137,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeAction === 'library-download' && !stageWorkspaceProvided) {
       fail('knowledge library-download requires --workspace.');
     }
-    if (knowledgeAction === 'library-download' && publicLibraryDownloadCoordinate === null) {
-      fail('knowledge library-download requires --coordinate.');
-    }
     if (knowledgeAction === 'publish' && domains.length > 1) {
       fail('knowledge publish accepts at most one --domain value.');
     }
@@ -2151,12 +2149,21 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (knowledgeResource !== null && targetPaths.length > 0) {
       fail(`knowledge ${knowledgeAction} accepts either --target or --resource, not both.`);
     }
-    if (knowledgeAction === 'library-catalog') {
+    if (knowledgeAction === 'library-catalog' || knowledgeAction === 'library-download') {
       if (domains.length > 0) {
         publicLibraryCatalogFilter.domains = domains;
       }
       if (knowledgeResource !== null) {
         publicLibraryCatalogFilter.resource = knowledgeResource;
+      }
+    }
+    if (knowledgeAction === 'library-download') {
+      const hasSelectorFilter = hasPublicKnowledgeLibrarySelectorFilter(publicLibraryCatalogFilter);
+      if (publicLibraryDownloadCoordinate !== null && hasSelectorFilter) {
+        fail('knowledge library-download accepts either --coordinate or selector filters, not both.');
+      }
+      if (publicLibraryDownloadCoordinate === null && !hasSelectorFilter) {
+        fail('knowledge library-download requires --coordinate or at least one selector filter.');
       }
     }
     if (manifestOutputPath !== null && outputPath === null) {
@@ -3125,15 +3132,16 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   if (parsed.command === 'knowledge' && parsed.knowledgeAction === 'library-download') {
-    if (!parsed.inputPath || !parsed.publishStoreDir || !parsed.publicLibraryDownloadCoordinate) {
-      fail('knowledge library-download requires a public library registry JSON path or URL, --workspace, --store-dir, and --coordinate.');
+    if (!parsed.inputPath || !parsed.publishStoreDir) {
+      fail('knowledge library-download requires a public library registry JSON path or URL, --workspace, --store-dir, and --coordinate or selector filters.');
     }
 
     const report = await downloadPublicKnowledgeLibraryArtifact({
       workspaceRoot: parsed.workspace,
       registryPath: parsed.inputPath,
       storeDir: parsed.publishStoreDir,
-      coordinates: parsed.publicLibraryDownloadCoordinate
+      ...(parsed.publicLibraryDownloadCoordinate ? { coordinates: parsed.publicLibraryDownloadCoordinate } : {}),
+      ...(parsed.publicLibraryCatalogFilter ? { selector: parsed.publicLibraryCatalogFilter } : {})
     });
     const reviewReport = parsed.publicLibraryReviewOutputPath
       ? await buildPublicKnowledgeLibraryRefinementReviewReport({

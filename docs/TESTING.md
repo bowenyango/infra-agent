@@ -149,6 +149,7 @@ infra-agent knowledge library-from-url https://registry.terraform.io/providers/h
 infra-agent knowledge library-stage /tmp/infra-agent-s3-library-artifact.json --workspace <workspace> --store-dir knowledge/public-library --registry knowledge/public-library-registry.json --json
 infra-agent knowledge library-catalog <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --quality ready --json
 infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --coordinate terraform/provider/hashicorp/aws/latest/resource/aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --review-out /tmp/infra-agent-library-refinement-review.json --json
+infra-agent knowledge library-download <workspace>/knowledge/public-library-registry.json --domain terraform --provider hashicorp/aws --resource aws_s3_bucket --workspace <workspace> --store-dir knowledge/downloaded-public-library --review-out /tmp/infra-agent-library-refinement-review.json --json
 infra-agent knowledge library-refinement-review <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-library-refinement-review.json --json
 infra-agent knowledge library-refinement-run <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --out /tmp/infra-agent-refined-url-report.json --json
 infra-agent knowledge library-refinement-apply <workspace>/knowledge/downloaded-public-library/<hash>.public-knowledge-library-artifact.json --refined /tmp/infra-agent-refined-url-report.json --out /tmp/infra-agent-updated-library-artifact.json --json
@@ -252,11 +253,14 @@ secret-free registry URLs, filters for domain, provider/package/chart,
 resource, version, tag, coordinate, and quality, and it must not fetch
 artifacts, upload metadata, or include raw docs.
 `knowledge library-download` should validate a local registry file or
-secret-free registry URL, select one coordinate, copy a workspace-path artifact
-or download a URL artifact, resolve relative artifact paths from URL
-registries, verify the registered SHA-256 content hash, validate the artifact
-payload, reject identity/version/unit/quality/LLM-review metadata drift, and
-write the verified artifact into a workspace-relative content-addressed store.
+secret-free registry URL, select one entry by exact `--coordinate` or by
+catalog-style selector filters that resolve exactly one entry, copy a
+workspace-path artifact or download a URL artifact, resolve relative artifact
+paths from URL registries, verify the registered SHA-256 content hash, validate
+the artifact payload, reject identity/version/unit/quality/LLM-review metadata
+drift, and write the verified artifact into a workspace-relative
+content-addressed store. Ambiguous or unmatched selectors must fail before
+artifact fetch or write and include candidate context when ambiguous.
 With `--review-out`, it should emit a refinement-review report from the
 verified stored artifact path only after those checks pass. Its reports must
 stay raw-content-free and must not upload, publish, or approve trust.

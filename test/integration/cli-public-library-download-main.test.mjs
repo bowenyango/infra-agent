@@ -23,6 +23,7 @@ import {
 import { validateKnowledgePayload } from '../../src/knowledge/validate.ts';
 
 const S3_BUCKET_URL = 'https://registry.terraform.io/providers/hashicorp/aws/5.37.0/docs/resources/s3_bucket';
+const S3_BUCKET_POLICY_URL = 'https://registry.terraform.io/providers/hashicorp/aws/5.37.0/docs/resources/s3_bucket_policy';
 const REMOTE_ARTIFACT_URL = 'https://knowledge.example.com/public/aws-s3-bucket.public-knowledge-library-artifact.json';
 const REMOTE_REGISTRY_URL = 'https://knowledge.example.com/public/public-library-registry.json';
 const REMOTE_RELATIVE_ARTIFACT_PATH = 'artifacts/aws-s3-bucket.public-knowledge-library-artifact.json';
@@ -55,6 +56,36 @@ const S3_BUCKET_MARKDOWN = [
   '',
   '1. Run terraform plan.',
   '2. Review replacement output before merge.',
+  ''
+].join('\n');
+
+const S3_BUCKET_POLICY_MARKDOWN = [
+  '# aws_s3_bucket_policy',
+  '',
+  'Attaches a bucket policy to an S3 bucket.',
+  '',
+  '## Basic Usage',
+  '',
+  '```hcl',
+  'resource "aws_s3_bucket_policy" "example" {',
+  '  bucket = aws_s3_bucket.example.id',
+  '  policy = data.aws_iam_policy_document.example.json',
+  '}',
+  '```',
+  '',
+  '#### Arguments',
+  '',
+  '- `bucket` - (Required, Forces new resource) Bucket name.',
+  '- `policy` - (Required) Policy JSON.',
+  '',
+  '## Troubleshooting',
+  '',
+  '`MalformedPolicy` usually means the generated JSON policy is invalid.',
+  '',
+  '## Upgrade Workflow',
+  '',
+  '1. Run terraform plan.',
+  '2. Review policy replacement output before merge.',
   ''
 ].join('\n');
 
@@ -100,12 +131,12 @@ async function withMockFetch(routes, action) {
   }
 }
 
-async function buildLibraryArtifact(root) {
+async function buildLibraryArtifact(root, input = {}) {
   await mkdir(join(root, 'knowledge'), { recursive: true });
-  const contentPath = join(root, 'knowledge/aws_s3_bucket.md');
-  await writeFile(contentPath, S3_BUCKET_MARKDOWN, 'utf8');
+  const contentPath = join(root, 'knowledge', input.contentFile ?? 'aws_s3_bucket.md');
+  await writeFile(contentPath, input.markdown ?? S3_BUCKET_MARKDOWN, 'utf8');
   const report = await buildPublicKnowledgeUrlReport({
-    url: S3_BUCKET_URL,
+    url: input.url ?? S3_BUCKET_URL,
     contentPath,
     maxUnits: 20,
     now: new Date('2026-05-19T00:00:00.000Z')
@@ -225,6 +256,9 @@ test('knowledge library-download copies a local registry artifact into a content
     assert.equal(report.kind, 'infra-agent.public-knowledge-library-download');
     assert.equal(report.mutationAllowed, true);
     assert.equal(report.coordinates, artifact.coordinates);
+    assert.equal(report.selection.mode, 'coordinate');
+    assert.equal(report.selection.selectedCoordinate, artifact.coordinates);
+    assert.equal(report.selection.candidateCount, 1);
     assert.equal(report.source.locationKind, 'workspace-path');
     assert.equal(report.source.status, 'copied');
     assert.equal(report.source.requiresFetch, false);
@@ -257,6 +291,40 @@ test('knowledge library-download copies a local registry artifact into a content
     assert.doesNotMatch(reportSerialized, /test-api-key/);
     assert.doesNotMatch(reviewSerialized, /test-api-key/);
     assert.equal(reviewSerialized.includes(S3_BUCKET_MARKDOWN), false);
+
+    const selectorOutput = await captureStdout(() => main([
+      'knowledge',
+      'library-download',
+      registryPath,
+      '--domain',
+      'terraform',
+      '--provider',
+      'hashicorp/aws',
+      '--resource',
+      'aws_s3_bucket',
+      '--workspace',
+      tempRoot,
+      '--store-dir',
+      'knowledge/downloaded-public-library-selector',
+      '--json'
+    ]));
+    const selectorReport = parseJsonOutput(selectorOutput);
+
+    assert.equal(selectorReport.kind, 'infra-agent.public-knowledge-library-download');
+    assert.equal(selectorReport.coordinates, artifact.coordinates);
+    assert.equal(selectorReport.selection.mode, 'selector');
+    assert.equal(selectorReport.selection.selectedCoordinate, artifact.coordinates);
+    assert.equal(selectorReport.selection.candidateCount, 1);
+    assert.deepEqual(selectorReport.selection.filter, {
+      provider: 'hashicorp/aws',
+      domains: ['terraform'],
+      resource: 'aws_s3_bucket'
+    });
+    assert.equal(selectorReport.artifact.sha256, report.artifact.sha256);
+    assert.equal(
+      await readFile(selectorReport.artifact.storedPath, 'utf8'),
+      await readFile(report.artifact.storedPath, 'utf8')
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -393,6 +461,145 @@ test('knowledge library-download fetches URL registries and relative artifact pa
     assert.equal(report.source.status, 'downloaded');
     assert.equal(report.artifact.sha256, sha256Hex(artifactContent));
     assert.equal((await readValidatedArtifact(report.artifact.storedPath)).coordinates, artifact.coordinates);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge library-download rejects ambiguous selectors before fetching artifacts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-download-ambiguous-'));
+
+  try {
+    const bucketArtifact = await buildLibraryArtifact(tempRoot);
+    const bucketArtifactContent = `${JSON.stringify(bucketArtifact, null, 2)}\n`;
+    const policyArtifact = await buildLibraryArtifact(tempRoot, {
+      url: S3_BUCKET_POLICY_URL,
+      contentFile: 'aws_s3_bucket_policy.md',
+      markdown: S3_BUCKET_POLICY_MARKDOWN
+    });
+    const policyArtifactContent = `${JSON.stringify(policyArtifact, null, 2)}\n`;
+    const registry = {
+      kind: 'infra-agent.public-knowledge-library-registry',
+      schemaVersion: 1,
+      mutationAllowed: false,
+      entries: [
+        registryEntryFromArtifact(bucketArtifact, {
+          url: REMOTE_ARTIFACT_URL
+        }, bucketArtifactContent),
+        registryEntryFromArtifact(policyArtifact, {
+          url: 'https://knowledge.example.com/public/aws-s3-bucket-policy.public-knowledge-library-artifact.json'
+        }, policyArtifactContent)
+      ]
+    };
+    const registryPath = join(tempRoot, 'knowledge/public-library-registry.json');
+    await writeFile(registryPath, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
+
+    let fetchCount = 0;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        headers: {
+          get: () => 'text/plain'
+        },
+        text: async () => 'not found'
+      };
+    };
+
+    try {
+      await assert.rejects(
+        () => captureStdout(() => main([
+          'knowledge',
+          'library-download',
+          registryPath,
+          '--domain',
+          'terraform',
+          '--provider',
+          'hashicorp/aws',
+          '--workspace',
+          tempRoot,
+          '--store-dir',
+          'knowledge/downloaded-public-library',
+          '--json'
+        ])),
+        error => {
+          assert.match(error.message, /selector matched 2 entries/);
+          assert.match(error.message, /aws_s3_bucket/);
+          assert.match(error.message, /aws_s3_bucket_policy/);
+          return true;
+        }
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(fetchCount, 0);
+    await assert.rejects(
+      () => readFile(join(tempRoot, 'knowledge/downloaded-public-library')),
+      /ENOENT/
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('knowledge library-download rejects unmatched selectors before fetching artifacts', async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), 'infra-agent-public-library-download-unmatched-'));
+
+  try {
+    const artifact = await buildLibraryArtifact(tempRoot);
+    const artifactContent = `${JSON.stringify(artifact, null, 2)}\n`;
+    const registry = registryPayload(registryEntryFromArtifact(
+      artifact,
+      { url: REMOTE_ARTIFACT_URL },
+      artifactContent
+    ));
+    const registryPath = join(tempRoot, 'knowledge/public-library-registry.json');
+    await writeFile(registryPath, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
+
+    let fetchCount = 0;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        headers: {
+          get: () => 'text/plain'
+        },
+        text: async () => 'not found'
+      };
+    };
+
+    try {
+      await assert.rejects(
+        () => captureStdout(() => main([
+          'knowledge',
+          'library-download',
+          registryPath,
+          '--domain',
+          'terraform',
+          '--provider',
+          'hashicorp/aws',
+          '--resource',
+          'aws_iam_role',
+          '--workspace',
+          tempRoot,
+          '--store-dir',
+          'knowledge/downloaded-public-library',
+          '--json'
+        ])),
+        /selector matched no entries: domains=terraform provider=hashicorp\/aws resource=aws_iam_role/
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(fetchCount, 0);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

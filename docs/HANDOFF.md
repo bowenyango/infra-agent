@@ -6,6 +6,77 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-24 Public Library Selector Download
+
+Status:
+
+- Added selector-based `knowledge library-download` resolution so users can
+  download by deterministic catalog filters instead of copying an exact hub
+  coordinate first.
+- `library-download` now accepts either `--coordinate <coordinate>` or
+  catalog-style selectors (`--domain`, `--provider`, `--package`, `--chart`,
+  `--resource`, `--version`, `--tag`, `--quality`), but rejects mixing exact
+  coordinate mode with selectors.
+- Selector mode validates the registry and resolves exactly one matching entry
+  before any artifact fetch or write. No-match and ambiguous matches fail
+  before artifact access; ambiguous errors include candidate coordinates and
+  compact metadata.
+- Catalog and download share the same selector implementation. The selector
+  includes deterministic Terraform resource aliases, Pulumi package/resource
+  aliases such as `aws`, `@pulumi/aws`, `s3/bucket`, and `Bucket`, and Helm
+  chart aliases such as chart name or `repository/chart`.
+- The existing post-selection artifact path is unchanged: verify registry
+  SHA-256, validate the artifact payload, reject identity/version/unit/quality
+  and LLM-review drift, then write the content-addressed local artifact.
+- Download reports now include `selection.mode`, `selection.selectedCoordinate`,
+  `selection.candidateCount`, and selector filters in selector mode.
+
+Files changed:
+
+- `src/knowledge/public-library-select.ts` adds the shared selector filter,
+  matching, formatting, and exact-one resolution helpers.
+- `src/knowledge/public-library-catalog.ts` now uses the shared selector
+  helpers for catalog filtering.
+- `src/knowledge/public-library-download.ts` accepts exact coordinate or
+  selector options and reports selection metadata while preserving existing
+  artifact verification.
+- `src/cli/main.ts` parses selector flags for `library-download`, enforces
+  coordinate-vs-selector exclusivity, and passes selector filters to download.
+- `src/cli/output.ts` prints download selection mode and candidate count.
+- `test/unit/knowledge-public-library-select.test.mjs` covers Terraform,
+  Pulumi, and Helm selector aliases plus ambiguous candidate reporting.
+- `test/integration/cli-knowledge-args-main.test.mjs`,
+  `test/integration/cli-public-library-download-main.test.mjs`, and
+  `test/integration/cli-public-library-catalog-main.test.mjs` cover parser,
+  selector download, ambiguous/no-match pre-fetch failures, and shared catalog
+  matching.
+- `README.md`, `docs/AGENT_RULES.md`, `docs/TESTING.md`, and
+  `skills/infra-configuration/SKILL.md` document selector download behavior.
+
+Validation:
+
+- `npm run test:focused -- test/unit/knowledge-public-library-select.test.mjs`
+  passed.
+- `npm run test:focused -- --test-name-pattern "knowledge library-download"
+  test/integration/cli-public-library-download-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "knowledge library-catalog"
+  test/integration/cli-public-library-catalog-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-download"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run test:focused -- --test-name-pattern "library-catalog"
+  test/integration/cli-knowledge-args-main.test.mjs` passed.
+- `npm run lint` passed.
+- `git diff --check` passed.
+
+Residual risks:
+
+- Selector matching is deterministic metadata matching, not fuzzy search.
+  Broader search ranking, pagination, popularity, or remote hub publishing
+  remain future work.
+- The selector report is compact and does not fetch artifacts until a single
+  entry is resolved; agents that want to inspect broader candidates should use
+  `knowledge library-catalog` first.
+
 ## 2026-05-24 Public Library Download Review Output
 
 Status:

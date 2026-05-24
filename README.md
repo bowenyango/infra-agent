@@ -127,7 +127,7 @@ The current repository includes a minimal TypeScript CLI skeleton with these com
 - `infra-agent knowledge library-from-url <url> --library-out <library-artifact.json> [--out <pipeline-report.json>] [--content <markdown-or-html-file>] [--max-units <n>] [--refine --refined-out <url-report.json>] [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--workspace <workspace> --store-dir <dir> --registry <registry.json>] [--json]`
 - `infra-agent knowledge publish <knowledge-units.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--domain helm|pulumi|terraform] [--target <path>] [--name <name>] [--version <version>] [--provider <addr>] [--package <name>] [--chart <name>] [--module <name>] [--allow-workspace-private] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-stage <library-artifact.json> --workspace <workspace> --store-dir <dir> --registry <registry.json> [--out <report.json>] [--json]`
-- `infra-agent knowledge library-download <public-library-registry.json|registry-url> --coordinate <coordinate> --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]`
+- `infra-agent knowledge library-download <public-library-registry.json|registry-url> (--coordinate <coordinate>|[--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement]) --workspace <workspace> --store-dir <dir> [--review-out <review.json>] [--out <report.json>] [--json]`
 - `infra-agent knowledge library-catalog <public-library-registry.json|registry-url> [--domain helm|pulumi|terraform] [--provider <addr>] [--package <name>] [--chart <name>] [--resource <identity>] [--version <version>] [--tag <tag>] [--quality ready|needs-refinement] [--coordinate <coordinate>] [--out <catalog.json>] [--json]`
 - `infra-agent knowledge library-refinement-review <library-artifact.json> [--out <review.json>] [--json]`
 - `infra-agent knowledge library-refinement-run <library-artifact.json> --out <refined-url-report.json> [--model <name>] [--openai-base-url <url>] [--llm-provider openai-compatible] [--json]`
@@ -264,13 +264,16 @@ Current behavior is intentionally runtime-foundation oriented:
   emits raw-content-free classification, resolved artifact download location,
   hash, quality, unit-type coverage, and LLM review-packet metadata so another
   agent can decide what to download or refine before loading the full artifact.
-  `knowledge library-download <registry.json|registry-url> --coordinate ...` is
-  the manual Hub-style artifact fetch path: it validates the registry, selects
-  exactly one coordinate, copies a workspace-path artifact or downloads a URL
-  artifact, resolves relative artifact paths from URL registries, verifies the
-  registered SHA-256 content hash, validates that the artifact payload still
-  matches the registry metadata, and writes it into a workspace-relative
-  content-addressed store without embedding raw content in the report. Add
+  `knowledge library-download <registry.json|registry-url> --coordinate ...`
+  is the exact-coordinate Hub-style artifact fetch path. When `--coordinate`
+  is omitted, the command accepts the same deterministic selector filters as
+  `library-catalog` and requires them to match exactly one entry before any
+  artifact fetch or write. After selection, it copies a workspace-path artifact
+  or downloads a URL artifact, resolves relative artifact paths from URL
+  registries, verifies the registered SHA-256 content hash, validates that the
+  artifact payload still matches the registry metadata, and writes it into a
+  workspace-relative content-addressed store without embedding raw content in
+  the report. Add
   `--review-out <review.json>` when the next step is model refinement; the
   review report is generated only from the verified stored artifact and remains
   raw-content-free.
@@ -424,8 +427,12 @@ Current behavior is intentionally runtime-foundation oriented:
   path or URL, SHA-256 content hash, quality status, missing unit types, and LLM
   review-packet hash without embedding raw docs or compact unit bodies.
 - `knowledge library-download` resolves one catalog coordinate from a validated
-  public-library registry file or secret-free registry URL, copies or downloads
-  the artifact, checks the exact SHA-256 content hash from the registry,
+  public-library registry file or secret-free registry URL. Pass
+  `--coordinate` for exact coordinate lookup, or omit it and pass catalog-style
+  selector filters for domain, provider/package/chart, resource, version, tag,
+  and quality; selector mode must resolve exactly one registry entry before any
+  artifact fetch or write. After selection, the command copies or downloads the
+  artifact, checks the exact SHA-256 content hash from the registry,
   validates the downloaded
   `infra-agent.public-knowledge-library-artifact`, checks identity and
   LLM-review metadata drift against the registry entry, and stores the verified

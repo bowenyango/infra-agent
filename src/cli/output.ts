@@ -3883,6 +3883,7 @@ export function printPublicKnowledgeLibraryDownloadReport(
   process.stdout.write(`registry: ${report.registryPath}\n`);
   process.stdout.write(`registry source: ${report.registry.locationKind} ${report.registry.status}\n`);
   process.stdout.write(`coordinates: ${report.coordinates}\n`);
+  process.stdout.write(`selection: ${report.selection.mode} candidates=${report.selection.candidateCount}\n`);
   process.stdout.write(`source: ${report.source.locationKind} ${report.source.status}\n`);
   process.stdout.write(`units: ${report.artifact.unitCount}\n`);
   process.stdout.write(`quality: ${report.artifact.qualityStatus}\n`);

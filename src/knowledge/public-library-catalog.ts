@@ -1,5 +1,11 @@
 import type { PublicLibraryRegistryEntry } from './public-library-registry.ts';
 import {
+  normalizePublicKnowledgeLibrarySelectorFilter,
+  publicLibraryEntryMatchesSelector,
+  type PublicKnowledgeLibrarySelectorFilter,
+  type PublicKnowledgeLibrarySelectorQualityStatus
+} from './public-library-select.ts';
+import {
   loadPublicLibraryRegistry,
   resolvePublicLibraryArtifactLocation,
   type PublicLibraryFetchImpl,
@@ -11,19 +17,8 @@ import {
 } from '../types/knowledge.ts';
 import type { InfraDomainId } from '../types/repository.ts';
 
-export type PublicKnowledgeLibraryCatalogQualityStatus = 'ready' | 'needs-refinement';
-
-export interface PublicKnowledgeLibraryCatalogFilter {
-  domains?: InfraDomainId[];
-  provider?: string;
-  packageName?: string;
-  chart?: string;
-  resource?: string;
-  version?: string;
-  coordinates?: string;
-  tags?: string[];
-  qualityStatus?: PublicKnowledgeLibraryCatalogQualityStatus;
-}
+export type PublicKnowledgeLibraryCatalogQualityStatus = PublicKnowledgeLibrarySelectorQualityStatus;
+export type PublicKnowledgeLibraryCatalogFilter = PublicKnowledgeLibrarySelectorFilter;
 
 export interface PublicKnowledgeLibraryCatalogReport {
   kind: 'infra-agent.public-knowledge-library-catalog';
@@ -120,75 +115,6 @@ interface PublicKnowledgeLibraryCatalogOptions {
   registryPath: string;
   filter?: PublicKnowledgeLibraryCatalogFilter;
   fetchImpl?: PublicLibraryFetchImpl;
-}
-
-function normalizeFilter(filter: PublicKnowledgeLibraryCatalogFilter = {}): PublicKnowledgeLibraryCatalogFilter {
-  return {
-    ...(filter.domains && filter.domains.length > 0 ? { domains: [...new Set(filter.domains)] } : {}),
-    ...(filter.provider ? { provider: filter.provider } : {}),
-    ...(filter.packageName ? { packageName: filter.packageName } : {}),
-    ...(filter.chart ? { chart: filter.chart } : {}),
-    ...(filter.resource ? { resource: filter.resource } : {}),
-    ...(filter.version ? { version: filter.version } : {}),
-    ...(filter.coordinates ? { coordinates: filter.coordinates } : {}),
-    ...(filter.tags && filter.tags.length > 0 ? { tags: [...new Set(filter.tags)] } : {}),
-    ...(filter.qualityStatus ? { qualityStatus: filter.qualityStatus } : {})
-  };
-}
-
-function entryMatchesResource(entry: PublicLibraryRegistryEntry, resource: string): boolean {
-  return entry.resourceToken === resource
-    || entry.sourceName === resource
-    || entry.sourceName.endsWith(`:${resource}`)
-    || entry.coordinates === resource
-    || entry.coordinates.endsWith(`/${resource}`)
-    || entry.coordinates.includes(`/${resource}/`);
-}
-
-function entryMatchesChart(entry: PublicLibraryRegistryEntry, chart: string): boolean {
-  return entry.chart === chart
-    || entry.providerAddress === chart
-    || entry.coordinates.includes(`/chart/${chart}/`);
-}
-
-function entryMatchesFilter(entry: PublicLibraryRegistryEntry, filter: PublicKnowledgeLibraryCatalogFilter): boolean {
-  if (filter.domains && filter.domains.length > 0 && !filter.domains.includes(entry.ecosystem)) {
-    return false;
-  }
-
-  if (filter.provider && entry.providerAddress !== filter.provider) {
-    return false;
-  }
-
-  if (filter.packageName && entry.providerAddress !== filter.packageName) {
-    return false;
-  }
-
-  if (filter.chart && !entryMatchesChart(entry, filter.chart)) {
-    return false;
-  }
-
-  if (filter.resource && !entryMatchesResource(entry, filter.resource)) {
-    return false;
-  }
-
-  if (filter.version && entry.version !== filter.version) {
-    return false;
-  }
-
-  if (filter.coordinates && entry.coordinates !== filter.coordinates) {
-    return false;
-  }
-
-  if (filter.tags && filter.tags.some(tag => !entry.tags.includes(tag))) {
-    return false;
-  }
-
-  if (filter.qualityStatus && entry.llmRefinement.qualityStatus !== filter.qualityStatus) {
-    return false;
-  }
-
-  return true;
 }
 
 function artifactLocation(
@@ -350,9 +276,9 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
   });
   const rawEntryCount = registry.entries.length;
 
-  const filters = normalizeFilter(options.filter);
+  const filters = normalizePublicKnowledgeLibrarySelectorFilter(options.filter);
   const entries = registry.entries
-    .filter(entry => entryMatchesFilter(entry, filters))
+    .filter(entry => publicLibraryEntryMatchesSelector(entry, filters))
     .map(entry => catalogEntryFromRegistryEntry(entry, registry))
     .sort((left, right) => left.coordinates.localeCompare(right.coordinates));
 
