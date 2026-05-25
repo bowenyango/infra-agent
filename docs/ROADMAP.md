@@ -713,10 +713,11 @@ Implemented initial CLI surfaces:
     result-window entries while preserving coordinates, ecosystem/artifact-kind
     classification, versionRef and versionResolution, resolved artifact path or
     URL, content hash, media type, unit counts, quality status, missing unit types,
-    search rank/matched-field metadata when requested, and the LLM
-    review-packet hash. It must remain raw-content-free and must not fetch
-    artifacts, upload metadata, approve publication, or trust unvalidated
-    registries.
+    search rank/matched-field metadata when requested, the LLM review-packet
+    hash, and per-entry `downloadGuidance` with an argv-style exact-coordinate
+    `library-download` command and deferred download verification checks. It
+    must remain raw-content-free and must not fetch artifacts, upload metadata,
+    approve publication, or trust unvalidated registries.
 - `infra-agent knowledge library-download <registry.json|registry-url> --coordinate
   <coordinate> --workspace <workspace> --store-dir <dir> ...`
   - validates a local registry file or secret-free registry URL, resolves

@@ -96,9 +96,20 @@ function catalogFacetValue(catalog, field, value) {
   return catalog.facets.fields[field].values.find(entry => entry.value === value);
 }
 
+function assertCatalogOmitsRawContent(catalog) {
+  const serialized = JSON.stringify(catalog);
+  assert.doesNotMatch(serialized, /Provides an S3 bucket resource/);
+  assert.doesNotMatch(serialized, /```hcl/);
+  assert.doesNotMatch(serialized, /unitsByType/);
+  assert.doesNotMatch(serialized, /"llmRefinementInput":/);
+  assert.doesNotMatch(serialized, /"reviewPacket":/);
+}
+
 async function withMockFetch(routes, action) {
   const originalFetch = globalThis.fetch;
+  const requestedUrls = [];
   globalThis.fetch = async url => {
+    requestedUrls.push(String(url));
     const route = routes.get(String(url));
     if (!route) {
       return {
@@ -124,7 +135,7 @@ async function withMockFetch(routes, action) {
   };
 
   try {
-    return await action();
+    return await action(requestedUrls);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -258,11 +269,44 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(catalog.summary.artifactKindCounts['terraform-provider-resource'], 1);
     assert.equal(catalog.summary.artifactKindCounts['helm-chart-docs'], 1);
     assert.equal(catalog.facets, undefined);
+    assertCatalogOmitsRawContent(catalog);
+
+    const terraformEntry = catalog.entries.find(entry => entry.classification.ecosystem === 'terraform');
+    assert.ok(terraformEntry);
+    assert.equal(terraformEntry.artifact.location.kind, 'workspace-path');
+    assert.equal(terraformEntry.artifactDownload.requiresPrefetch, false);
+    assert.equal(terraformEntry.downloadGuidance.mode, 'coordinate');
+    assert.equal(terraformEntry.downloadGuidance.command.registryArgument, registryPath);
+    assert.equal(terraformEntry.downloadGuidance.command.coordinateArgument, terraformArtifact.artifact.coordinates);
+    assert.deepEqual(terraformEntry.downloadGuidance.command.requiredUserArguments, ['--workspace']);
+    assert.equal(terraformEntry.downloadGuidance.command.recommendedStoreDir, 'knowledge/downloaded-public-library');
+    assert.deepEqual(terraformEntry.downloadGuidance.command.argv, [
+      'infra-agent',
+      'knowledge',
+      'library-download',
+      registryPath,
+      '--coordinate',
+      terraformArtifact.artifact.coordinates,
+      '--workspace',
+      '<workspace>',
+      '--store-dir',
+      'knowledge/downloaded-public-library',
+      '--json'
+    ]);
+    assert.ok(terraformEntry.downloadGuidance.command.optionalArguments.includes('--review-out <review.json>'));
+    assert.equal(terraformEntry.downloadGuidance.artifactFetch.catalogStatus, 'not-attempted');
+    assert.equal(terraformEntry.downloadGuidance.artifactFetch.downloadWillFetchArtifact, false);
+    assert.equal(terraformEntry.downloadGuidance.artifactFetch.locationKind, 'workspace-path');
+    assert.equal(terraformEntry.downloadGuidance.verification.performedBy, 'knowledge library-download');
+    assert.ok(terraformEntry.downloadGuidance.verification.checks.includes('artifact-content-hash'));
+    assert.equal(terraformEntry.downloadGuidance.postDownload.reviewOutSupported, true);
 
     const helmEntry = catalog.entries.find(entry => entry.classification.ecosystem === 'helm');
     assert.ok(helmEntry);
     assert.equal(helmEntry.artifact.location.kind, 'url');
     assert.equal(helmEntry.artifactDownload.requiresPrefetch, true);
+    assert.equal(helmEntry.downloadGuidance.artifactFetch.downloadWillFetchArtifact, true);
+    assert.equal(helmEntry.downloadGuidance.artifactFetch.locationKind, 'url');
     assert.equal(helmEntry.classification.chart, 'kube-prometheus-stack');
     assert.equal(helmEntry.quality.status, 'needs-refinement');
     assert.ok(catalog.warnings.some(warning => /LLM refinement/.test(warning)));
@@ -405,29 +449,39 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.ok(limitedSearch.facets.fields.tags.omittedValueCount > 0);
 
     const remoteRegistryContent = await readFile(registryPath, 'utf8');
+    let remoteRequestedUrls = [];
     const remoteCatalogOutput = await withMockFetch(new Map([
       [REMOTE_PUBLIC_LIBRARY_REGISTRY_URL, {
         contentType: 'application/vnd.infra-agent.public-knowledge-library-registry+json',
         content: remoteRegistryContent
       }]
-    ]), () => captureStdout(() => main([
-      'knowledge',
-      'library-catalog',
-      REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
-      '--query',
-      'kube prometheus',
-      '--facets',
-      '--json'
-    ])));
+    ]), requestedUrls => {
+      remoteRequestedUrls = requestedUrls;
+      return captureStdout(() => main([
+        'knowledge',
+        'library-catalog',
+        REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
+        '--query',
+        'kube prometheus',
+        '--facets',
+        '--json'
+      ]));
+    });
     const remoteCatalog = parseJsonOutput(remoteCatalogOutput);
 
+    assert.deepEqual(remoteRequestedUrls, [REMOTE_PUBLIC_LIBRARY_REGISTRY_URL]);
     assert.equal(remoteCatalog.registry.locationKind, 'url');
     assert.equal(remoteCatalog.search.matchedCount, 1);
     assert.equal(remoteCatalog.entries[0].coordinates, helmArtifact.artifact.coordinates);
     assert.equal(remoteCatalog.entries[0].artifact.location.kind, 'url');
     assert.equal(remoteCatalog.entries[0].artifactDownload.requiresPrefetch, true);
+    assert.equal(remoteCatalog.entries[0].downloadGuidance.command.registryArgument, REMOTE_PUBLIC_LIBRARY_REGISTRY_URL);
+    assert.equal(remoteCatalog.entries[0].downloadGuidance.command.coordinateArgument, helmArtifact.artifact.coordinates);
+    assert.equal(remoteCatalog.entries[0].downloadGuidance.artifactFetch.catalogStatus, 'not-attempted');
+    assert.equal(remoteCatalog.entries[0].downloadGuidance.artifactFetch.downloadWillFetchArtifact, true);
     assert.equal(remoteCatalog.facets.matchedEntryCount, 1);
     assert.equal(catalogFacetValue(remoteCatalog, 'chart', 'kube-prometheus-stack').count, 1);
+    assertCatalogOmitsRawContent(remoteCatalog);
 
     const writtenReport = JSON.parse(await readFile(reportPath, 'utf8'));
     assert.equal(writtenReport.kind, 'infra-agent.public-knowledge-library-catalog');
@@ -473,6 +527,7 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(limited.summary.needsRefinementEntryCount, 1);
     assert.equal(limited.entries.length, 1);
     assert.equal(limited.entries[0].searchMatch, undefined);
+    assert.equal(limited.entries[0].downloadGuidance.command.coordinateArgument, limited.entries[0].coordinates);
 
     const textOutput = await captureStdout(() => main([
       'knowledge',
@@ -491,6 +546,7 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.match(textOutput, /matchScore=\d+/);
     assert.match(textOutput, /matchFields=/);
     assert.match(textOutput, /matchTerms=aws_s3_bucket/);
+    assert.match(textOutput, /downloadArgv=infra-agent knowledge library-download .* --coordinate .* --workspace <workspace> --store-dir knowledge\/downloaded-public-library --json/);
     assert.doesNotMatch(textOutput, /Provides an S3 bucket resource/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -519,22 +575,27 @@ test('knowledge library-catalog reads URL registries and resolves relative artif
     };
     const registryContent = `${JSON.stringify(registry, null, 2)}\n`;
 
+    let requestedUrls = [];
     const output = await withMockFetch(new Map([
       [REMOTE_PUBLIC_LIBRARY_REGISTRY_URL, {
         contentType: 'application/vnd.infra-agent.public-knowledge-library-registry+json',
         content: registryContent
       }]
-    ]), () => captureStdout(() => main([
-      'knowledge',
-      'library-catalog',
-      REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
-      '--coordinate',
-      terraformArtifact.artifact.coordinates,
-      '--facets',
-      '--json'
-    ])));
+    ]), urls => {
+      requestedUrls = urls;
+      return captureStdout(() => main([
+        'knowledge',
+        'library-catalog',
+        REMOTE_PUBLIC_LIBRARY_REGISTRY_URL,
+        '--coordinate',
+        terraformArtifact.artifact.coordinates,
+        '--facets',
+        '--json'
+      ]));
+    });
     const catalog = parseJsonOutput(output);
 
+    assert.deepEqual(requestedUrls, [REMOTE_PUBLIC_LIBRARY_REGISTRY_URL]);
     assert.equal(catalog.registryPath, REMOTE_PUBLIC_LIBRARY_REGISTRY_URL);
     assert.equal(catalog.registry.locationKind, 'url');
     assert.equal(catalog.registry.status, 'downloaded');
@@ -546,8 +607,14 @@ test('knowledge library-catalog reads URL registries and resolves relative artif
     assert.equal(catalog.entries[0].artifact.location.kind, 'url');
     assert.equal(catalog.entries[0].artifact.location.url, REMOTE_PUBLIC_LIBRARY_ARTIFACT_URL);
     assert.equal(catalog.entries[0].artifactDownload.requiresPrefetch, true);
+    assert.equal(catalog.entries[0].downloadGuidance.command.registryArgument, REMOTE_PUBLIC_LIBRARY_REGISTRY_URL);
+    assert.equal(catalog.entries[0].downloadGuidance.command.coordinateArgument, terraformArtifact.artifact.coordinates);
+    assert.equal(catalog.entries[0].downloadGuidance.artifactFetch.catalogStatus, 'not-attempted');
+    assert.equal(catalog.entries[0].downloadGuidance.artifactFetch.downloadWillFetchArtifact, true);
+    assert.equal(catalog.entries[0].downloadGuidance.artifactFetch.locationKind, 'url');
     assert.equal(catalog.facets.matchedEntryCount, 1);
     assert.equal(catalogFacetValue(catalog, 'providerAddress', 'hashicorp/aws').count, 1);
+    assertCatalogOmitsRawContent(catalog);
     assert.doesNotMatch(output, /Provides an S3 bucket resource/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

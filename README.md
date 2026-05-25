@@ -436,8 +436,11 @@ Current behavior is intentionally runtime-foundation oriented:
   includes compact rank, score, matched fields, and matched terms while keeping
   hub coordinates, domain classification,
   version metadata, resolved artifact path or URL, SHA-256 content hash,
-  quality status, missing unit types, and LLM review-packet hash without
-  embedding raw docs or compact unit bodies.
+  quality status, missing unit types, LLM review-packet hash, and per-entry
+  `downloadGuidance` with an argv-style exact-coordinate `library-download`
+  command, required `--workspace` placeholder, recommended store directory,
+  artifact-fetch posture, and the verification checks deferred to
+  `library-download` without embedding raw docs or compact unit bodies.
 - `knowledge library-download` resolves one catalog coordinate from a validated
   public-library registry file or secret-free registry URL. Pass
   `--coordinate` for exact coordinate lookup, or omit it and pass catalog-style

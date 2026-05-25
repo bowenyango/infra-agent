@@ -6,6 +6,53 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-25 Public Library Catalog Download Guidance
+
+Status:
+
+- Added catalog-only `downloadGuidance` metadata to each returned
+  `knowledge library-catalog` entry.
+- Guidance is derived only from validated registry metadata and uses exact
+  coordinate selection. It exposes an argv-style `infra-agent knowledge
+  library-download ... --coordinate ... --workspace <workspace> --store-dir
+  knowledge/downloaded-public-library --json` command, the registry and
+  coordinate arguments, required user arguments, optional report/review flags,
+  artifact-fetch posture, and the verification checks deferred to
+  `library-download`.
+- URL-backed artifacts are marked with `downloadWillFetchArtifact: true`, while
+  workspace-path artifacts are marked false. Catalog still downloads only the
+  registry JSON and does not fetch artifact payloads.
+- Text catalog output now includes a compact download command hint for each
+  returned entry.
+
+Files changed:
+
+- `src/knowledge/public-library-catalog.ts` adds the `downloadGuidance`
+  contract and builder.
+- `src/cli/output.ts` prints the compact download command hint in text catalog
+  entries.
+- `test/integration/cli-public-library-catalog-main.test.mjs` covers local and
+  URL registry guidance, exact coordinate argv shape, no artifact fetches,
+  returned-window guidance, and raw-doc/LLM-packet omission.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, `docs/TESTING.md`,
+  and `skills/infra-configuration/SKILL.md` document guidance as a download
+  instruction rather than trust proof.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge library-catalog"
+  test/integration/cli-public-library-catalog-main.test.mjs` passed.
+- `npm run lint` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- Guidance intentionally uses exact coordinate mode only. Selector-mode
+  suggestions, popularity ranking, and richer Hub-style page metadata remain
+  future usability work.
+- Catalog guidance does not validate artifact payloads; `knowledge
+  library-download` remains the verification and content-addressed write path.
+
 ## 2026-05-24 Public Library Catalog Summary Windows
 
 Status:

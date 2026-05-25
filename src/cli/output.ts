@@ -3945,6 +3945,7 @@ export function printPublicKnowledgeLibraryCatalogReport(
     const location = entry.artifact.location.kind === 'url'
       ? entry.artifact.location.url
       : entry.artifact.location.path;
+    const downloadArgv = entry.downloadGuidance.command.argv.join(' ');
     return [
       entry.coordinates,
       `${entry.classification.ecosystem}/${entry.classification.artifactKind}`,
@@ -3960,6 +3961,7 @@ export function printPublicKnowledgeLibraryCatalogReport(
         : []),
       `units=${entry.artifact.unitCount}`,
       `download=${entry.artifact.location.kind}`,
+      `downloadArgv=${downloadArgv}`,
       `hash=${entry.artifact.contentHash.slice(0, 12)}`,
       location
     ].join(' ');

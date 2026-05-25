@@ -186,9 +186,13 @@ values.
    matched-before-limit entries from returned result-window entries. It also
    reports classification, resolved artifact path or URL, content hash, quality,
    unit-type coverage, missing unit types, search rank/matched fields when
-   requested, facet counts when requested, and the LLM review-packet hash
-   without fetching artifacts or embedding raw documentation. Treat facets as
-   browse and selection hints, not proof that an artifact is ready to trust.
+   requested, facet counts when requested, the LLM review-packet hash, and
+   per-entry `downloadGuidance` with an argv-style exact-coordinate
+   `library-download` command and the verification checks deferred to download.
+   Catalog guidance is a local download instruction, not proof that an artifact
+   is ready to trust, and it must not fetch artifacts or embed raw
+   documentation. Treat facets as browse and selection hints, not proof that an
+   artifact is ready to trust.
    Use `knowledge library-download <registry.json|registry-url> --coordinate
    <coordinate> --workspace <workspace> --store-dir <dir> --json` after
    choosing one catalog coordinate, or omit `--coordinate` and pass

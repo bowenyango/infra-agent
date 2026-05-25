@@ -258,10 +258,14 @@ resource, version, tag, coordinate, and quality, catalog-only deterministic
 counts should distinguish total registry entries, matched-before-limit entries,
 returned result-window entries, and omitted matched entries; aggregate quality,
 classification, and unit counts should be computed from the matched set.
-Search results should report compact rank, score, matched fields, matched
-terms, matched count, and omitted count; facet results should report bounded
-bucket counts and omitted bucket counts while still avoiding artifact fetches,
-uploads, raw docs, and compact unit bodies.
+Each returned entry should include catalog-only `downloadGuidance` with an
+argv-style exact-coordinate `library-download` command, user-supplied workspace
+placeholder, recommended store directory, artifact-fetch posture, and the
+verification checks that will run during download. Search results should report
+compact rank, score, matched fields, matched terms, matched count, and omitted
+count; facet results should report bounded bucket counts and omitted bucket
+counts while still avoiding artifact fetches, uploads, raw docs, compact unit
+bodies, and embedded LLM review packets.
 `knowledge library-download` should validate a local registry file or
 secret-free registry URL, select one entry by exact `--coordinate` or by
 catalog-style selector filters that resolve exactly one entry, copy a

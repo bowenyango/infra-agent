@@ -89,6 +89,38 @@ export interface PublicKnowledgeLibraryCatalogSearchMatch {
   matchedTerms: string[];
 }
 
+export type PublicKnowledgeLibraryCatalogDownloadVerificationCheck =
+  | 'registry-entry-selection'
+  | 'artifact-content-hash'
+  | 'artifact-schema-validation'
+  | 'registry-artifact-drift'
+  | 'content-addressed-store-write';
+
+export interface PublicKnowledgeLibraryCatalogDownloadGuidance {
+  mode: 'coordinate';
+  command: {
+    argv: string[];
+    registryArgument: string;
+    coordinateArgument: string;
+    requiredUserArguments: string[];
+    recommendedStoreDir: string;
+    optionalArguments: string[];
+  };
+  artifactFetch: {
+    catalogStatus: 'not-attempted';
+    downloadWillFetchArtifact: boolean;
+    locationKind: 'workspace-path' | 'url';
+  };
+  verification: {
+    performedBy: 'knowledge library-download';
+    checks: PublicKnowledgeLibraryCatalogDownloadVerificationCheck[];
+  };
+  postDownload: {
+    storedPathAvailableAfterDownload: true;
+    reviewOutSupported: true;
+  };
+}
+
 export interface PublicKnowledgeLibraryCatalogReport {
   kind: 'infra-agent.public-knowledge-library-catalog';
   schemaVersion: 1;
@@ -183,6 +215,7 @@ export interface PublicKnowledgeLibraryCatalogEntry {
     contentHash: string;
     mediaType: PublicLibraryRegistryEntry['artifact']['mediaType'];
   };
+  downloadGuidance: PublicKnowledgeLibraryCatalogDownloadGuidance;
   searchMatch?: PublicKnowledgeLibraryCatalogSearchMatch;
 }
 
@@ -197,6 +230,14 @@ interface PublicKnowledgeLibraryCatalogOptions {
 }
 
 const DEFAULT_CATALOG_FACET_LIMIT = 10;
+const DEFAULT_PUBLIC_LIBRARY_DOWNLOAD_STORE_DIR = 'knowledge/downloaded-public-library';
+const PUBLIC_LIBRARY_DOWNLOAD_VERIFICATION_CHECKS: PublicKnowledgeLibraryCatalogDownloadVerificationCheck[] = [
+  'registry-entry-selection',
+  'artifact-content-hash',
+  'artifact-schema-validation',
+  'registry-artifact-drift',
+  'content-addressed-store-write'
+];
 
 const CATALOG_SEARCHABLE_FIELDS: PublicKnowledgeLibraryCatalogSearchableField[] = [
   'coordinates',
@@ -440,6 +481,7 @@ function catalogEntryFromRegistryEntry(
 ): PublicKnowledgeLibraryCatalogEntry {
   const location = artifactLocation(entry, registry);
   const unitTypeComplete = entry.llmRefinement.missingUnitTypes.length === 0;
+  const downloadGuidance = buildDownloadGuidance(entry, registry, location);
 
   return {
     coordinates: entry.coordinates,
@@ -492,7 +534,51 @@ function catalogEntryFromRegistryEntry(
       contentHash: entry.artifact.contentHash,
       mediaType: entry.artifact.mediaType
     },
+    downloadGuidance,
     ...(searchMatch ? { searchMatch } : {})
+  };
+}
+
+function buildDownloadGuidance(
+  entry: PublicLibraryRegistryEntry,
+  registry: LoadedPublicLibraryRegistry,
+  location: PublicKnowledgeLibraryCatalogEntry['artifact']['location']
+): PublicKnowledgeLibraryCatalogDownloadGuidance {
+  return {
+    mode: 'coordinate',
+    command: {
+      argv: [
+        'infra-agent',
+        'knowledge',
+        'library-download',
+        registry.registryPath,
+        '--coordinate',
+        entry.coordinates,
+        '--workspace',
+        '<workspace>',
+        '--store-dir',
+        DEFAULT_PUBLIC_LIBRARY_DOWNLOAD_STORE_DIR,
+        '--json'
+      ],
+      registryArgument: registry.registryPath,
+      coordinateArgument: entry.coordinates,
+      requiredUserArguments: ['--workspace'],
+      recommendedStoreDir: DEFAULT_PUBLIC_LIBRARY_DOWNLOAD_STORE_DIR,
+      optionalArguments: ['--review-out <review.json>', '--out <download-report.json>']
+    },
+    artifactFetch: {
+      catalogStatus: 'not-attempted',
+      downloadWillFetchArtifact: location.kind === 'url',
+      locationKind: location.kind
+    },
+    verification: {
+      performedBy: 'knowledge library-download',
+      checks: [...PUBLIC_LIBRARY_DOWNLOAD_VERIFICATION_CHECKS]
+    },
+    postDownload: {
+      storedPathAvailableAfterDownload: true,
+      reviewOutSupported: true
+    }
   };
 }
 

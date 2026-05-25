@@ -354,10 +354,12 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   the matched set before `--limit`, and report summary counts that distinguish
   matched-before-limit entries from the returned result window. It should also
   report resolved artifact path or URL plus hashes, search rank/matched-field
-  metadata when requested, facet counts when requested, and LLM review metadata
-  without fetching artifacts, uploading, or approving publication. Treat
-  catalog facets as classification and selection hints, not artifact health
-  proof.
+  metadata when requested, facet counts when requested, LLM review metadata,
+  and per-entry `downloadGuidance` with an argv-style exact-coordinate
+  `library-download` command and the verification checks deferred to download.
+  Catalog guidance must not fetch artifacts, upload, approve publication, or
+  claim artifact trust. Treat catalog facets as classification and selection
+  hints, not artifact health proof.
   Use `knowledge library-download <registry.json|registry-url> --coordinate
   <coordinate> --workspace <workspace> --store-dir <dir> --json` after
   choosing an exact coordinate, or omit `--coordinate` and pass catalog-style
