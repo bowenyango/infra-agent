@@ -182,12 +182,13 @@ values.
    for domain, provider/package/chart, resource, version, tag, coordinate, and
    quality, supports catalog-only `--query`/`--search` metadata search with
    `--limit` result windows, supports optional `--facets` bucket counts over the
-   matched set before `--limit`, and reports classification, resolved artifact
-   path or URL, content hash, quality, unit-type coverage, missing unit types,
-   search rank/matched fields when requested, facet counts when requested, and
-   the LLM review-packet hash without fetching artifacts or embedding raw
-   documentation. Treat facets as browse and selection hints, not proof that an
-   artifact is ready to trust.
+   matched set before `--limit`, and reports summary counts that distinguish
+   matched-before-limit entries from returned result-window entries. It also
+   reports classification, resolved artifact path or URL, content hash, quality,
+   unit-type coverage, missing unit types, search rank/matched fields when
+   requested, facet counts when requested, and the LLM review-packet hash
+   without fetching artifacts or embedding raw documentation. Treat facets as
+   browse and selection hints, not proof that an artifact is ready to trust.
    Use `knowledge library-download <registry.json|registry-url> --coordinate
    <coordinate> --workspace <workspace> --store-dir <dir> --json` after
    choosing one catalog coordinate, or omit `--coordinate` and pass

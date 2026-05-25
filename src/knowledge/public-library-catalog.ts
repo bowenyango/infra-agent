@@ -104,6 +104,8 @@ export interface PublicKnowledgeLibraryCatalogReport {
   summary: {
     entryCount: number;
     matchedEntryCount: number;
+    returnedEntryCount: number;
+    omittedEntryCount: number;
     downloadableEntryCount: number;
     readyEntryCount: number;
     needsRefinementEntryCount: number;
@@ -523,7 +525,8 @@ function emptyMissingUnitTypeCounts(): Record<KnowledgeUnitType, number> {
 
 function buildSummary(
   entryCount: number,
-  entries: PublicKnowledgeLibraryCatalogEntry[]
+  matchedEntries: PublicKnowledgeLibraryCatalogEntry[],
+  returnedEntryCount: number
 ): PublicKnowledgeLibraryCatalogReport['summary'] {
   const ecosystemCounts = emptyEcosystemCounts();
   const artifactKindCounts = emptyArtifactKindCounts();
@@ -536,7 +539,7 @@ function buildSummary(
   let reviewRequiredEntryCount = 0;
   let totalUnitCount = 0;
 
-  for (const entry of entries) {
+  for (const entry of matchedEntries) {
     ecosystemCounts[entry.classification.ecosystem] += 1;
     artifactKindCounts[entry.classification.artifactKind] += 1;
     totalUnitCount += entry.artifact.unitCount;
@@ -552,7 +555,9 @@ function buildSummary(
 
   return {
     entryCount,
-    matchedEntryCount: entries.length,
+    matchedEntryCount: matchedEntries.length,
+    returnedEntryCount,
+    omittedEntryCount: Math.max(0, matchedEntries.length - returnedEntryCount),
     downloadableEntryCount,
     readyEntryCount,
     needsRefinementEntryCount,
@@ -620,12 +625,12 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
       : {})
   }));
   const facetLimit = options.facetLimit ?? DEFAULT_CATALOG_FACET_LIMIT;
-  const limitedEntries = options.limit !== undefined
-    ? rankedEntries.slice(0, options.limit)
-    : rankedEntries;
-  const entries = limitedEntries.map(({ entry, searchMatch }) =>
+  const matchedCatalogEntries = rankedEntries.map(({ entry, searchMatch }) =>
     catalogEntryFromRegistryEntry(entry, registry, searchMatch)
   );
+  const entries = options.limit !== undefined
+    ? matchedCatalogEntries.slice(0, options.limit)
+    : matchedCatalogEntries;
 
   return {
     kind: 'infra-agent.public-knowledge-library-catalog',
@@ -639,7 +644,7 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
       contentHash: registry.contentHash,
       status: registry.status
     },
-    summary: buildSummary(rawEntryCount, entries),
+    summary: buildSummary(rawEntryCount, matchedCatalogEntries, entries.length),
     filters,
     ...(querySupplied
       ? {
@@ -667,7 +672,7 @@ export async function buildPublicKnowledgeLibraryCatalogReport(
         }
       : {}),
     entries,
-    warnings: entries.some(entry => entry.quality.status === 'needs-refinement')
+    warnings: matchedCatalogEntries.some(entry => entry.quality.status === 'needs-refinement')
       ? ['Some matched entries need LLM refinement before they should be promoted as ready public-reference artifacts.']
       : []
   };

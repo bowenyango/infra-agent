@@ -430,10 +430,11 @@ Current behavior is intentionally runtime-foundation oriented:
   library registry file or secret-free registry URL. Use it as the
   central-library browse/search surface before download reuse: exact filters can
   be combined with `--query` or `--search` for deterministic metadata search,
-  `--limit` returns a bounded result window with omitted counts, and
-  `--facets` reports bounded matched-before-limit bucket counts for browse
-  classification. Search output includes compact rank, score, matched fields,
-  and matched terms while keeping hub coordinates, domain classification,
+  `--limit` returns a bounded result window while `summary` distinguishes
+  matched, returned, and omitted entry counts, and `--facets` reports bounded
+  matched-before-limit bucket counts for browse classification. Search output
+  includes compact rank, score, matched fields, and matched terms while keeping
+  hub coordinates, domain classification,
   version metadata, resolved artifact path or URL, SHA-256 content hash,
   quality status, missing unit types, and LLM review-packet hash without
   embedding raw docs or compact unit bodies.

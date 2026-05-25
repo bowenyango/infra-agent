@@ -254,10 +254,13 @@ types, and LLM review-packet hash. It must support local registry files and
 secret-free registry URLs, filters for domain, provider/package/chart,
 resource, version, tag, coordinate, and quality, catalog-only deterministic
 `--query`/`--search` metadata search, `--limit` result windows, and optional
-`--facets` browse counts over the matched set before any result limit. Search
-results should report compact rank, score, matched fields, matched terms,
-matched count, and omitted count; facet results should report bounded bucket
-counts and omitted bucket counts while still avoiding artifact fetches,
+`--facets` browse counts over the matched set before any result limit. Summary
+counts should distinguish total registry entries, matched-before-limit entries,
+returned result-window entries, and omitted matched entries; aggregate quality,
+classification, and unit counts should be computed from the matched set.
+Search results should report compact rank, score, matched fields, matched
+terms, matched count, and omitted count; facet results should report bounded
+bucket counts and omitted bucket counts while still avoiding artifact fetches,
 uploads, raw docs, and compact unit bodies.
 `knowledge library-download` should validate a local registry file or
 secret-free registry URL, select one entry by exact `--coordinate` or by

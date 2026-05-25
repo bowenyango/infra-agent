@@ -6,6 +6,53 @@ Detailed legacy slice history was moved to
 [`docs/handoff/legacy-slices-2026-05-05-to-2026-05-06.md`](handoff/legacy-slices-2026-05-05-to-2026-05-06.md)
 to keep this handoff file focused on the active development context.
 
+## 2026-05-24 Public Library Catalog Summary Windows
+
+Status:
+
+- Corrected the `knowledge library-catalog` summary contract so
+  `summary.matchedEntryCount` now means entries matching selectors and optional
+  metadata search before any `--limit` result-window truncation.
+- Added `summary.returnedEntryCount` and `summary.omittedEntryCount` so agents
+  can distinguish the returned `entries` window from the full matched set.
+- Aggregate summary counts for quality, ecosystem, artifact kind, unit
+  coverage, missing unit types, and total units are now computed from the
+  matched-before-limit set. This aligns `summary`, `limit`, and `facets`
+  matched counts.
+- Catalog warnings now consider hidden matched entries as well as returned
+  entries, so a limited result window cannot hide that some matched artifacts
+  still need LLM refinement.
+- Text output now prints returned, matched, total, and omitted entry counts.
+  Catalog still validates only registry metadata and does not fetch artifacts.
+
+Files changed:
+
+- `src/knowledge/public-library-catalog.ts` splits matched-set summary
+  aggregation from the returned result window.
+- `src/cli/output.ts` prints explicit returned/matched/total/omitted counts.
+- `test/integration/cli-public-library-catalog-main.test.mjs` covers summary
+  window counts, matched-set aggregates, hidden matched-entry warnings, text
+  output, and URL registry behavior.
+- `README.md`, `docs/ROADMAP.md`, `docs/AGENT_RULES.md`, `docs/TESTING.md`,
+  and `skills/infra-configuration/SKILL.md` document the matched-before-limit
+  catalog summary contract.
+
+Validation:
+
+- `npm run test:focused -- --test-name-pattern "knowledge library-catalog"
+  test/integration/cli-public-library-catalog-main.test.mjs` passed.
+- `npm run lint` passed.
+- `git diff --check` passed.
+- `npm run verify` passed.
+
+Residual risks:
+
+- This is a compact JSON contract correction. Consumers that previously treated
+  `summary.matchedEntryCount` as the returned window length under `--limit`
+  should switch to `summary.returnedEntryCount` or `entries.length`.
+- Catalog ranking, popularity, and ready-to-copy download guidance remain
+  future Hub-like usability work.
+
 ## 2026-05-24 Public Library Catalog Facets
 
 Status:

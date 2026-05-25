@@ -351,11 +351,13 @@ file contains the detailed domain rules that `AGENTS.md` delegates to.
   provider, package, chart, resource, version, tag, coordinate, and quality,
   support catalog-only `--query`/`--search` deterministic metadata search with
   `--limit` result windows, support optional `--facets` browse buckets over
-  the matched set before `--limit`, and report resolved artifact path or URL
-  plus hashes, search rank/matched-field metadata when requested, facet counts
-  when requested, and LLM review metadata without fetching artifacts,
-  uploading, or approving publication. Treat catalog facets as classification
-  and selection hints, not artifact health proof.
+  the matched set before `--limit`, and report summary counts that distinguish
+  matched-before-limit entries from the returned result window. It should also
+  report resolved artifact path or URL plus hashes, search rank/matched-field
+  metadata when requested, facet counts when requested, and LLM review metadata
+  without fetching artifacts, uploading, or approving publication. Treat
+  catalog facets as classification and selection hints, not artifact health
+  proof.
   Use `knowledge library-download <registry.json|registry-url> --coordinate
   <coordinate> --workspace <workspace> --store-dir <dir> --json` after
   choosing an exact coordinate, or omit `--coordinate` and pass catalog-style

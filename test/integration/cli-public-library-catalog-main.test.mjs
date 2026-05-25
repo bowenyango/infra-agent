@@ -248,6 +248,8 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(catalog.mutationAllowed, false);
     assert.equal(catalog.summary.entryCount, 2);
     assert.equal(catalog.summary.matchedEntryCount, 2);
+    assert.equal(catalog.summary.returnedEntryCount, 2);
+    assert.equal(catalog.summary.omittedEntryCount, 0);
     assert.equal(catalog.summary.downloadableEntryCount, 2);
     assert.equal(catalog.summary.readyEntryCount, 1);
     assert.equal(catalog.summary.needsRefinementEntryCount, 1);
@@ -316,6 +318,8 @@ test('knowledge library-catalog lists and filters downloadable public registry e
 
     assert.equal(filtered.summary.entryCount, 2);
     assert.equal(filtered.summary.matchedEntryCount, 1);
+    assert.equal(filtered.summary.returnedEntryCount, 1);
+    assert.equal(filtered.summary.omittedEntryCount, 0);
     assert.equal(filtered.summary.readyEntryCount, 1);
     assert.equal(filtered.entries[0].coordinates, terraformArtifact.artifact.coordinates);
     assert.equal(filtered.entries[0].classification.providerAddress, 'hashicorp/aws');
@@ -343,6 +347,8 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.ok(searched.search.searchableFields.includes('tags'));
     assert.equal(searched.search.matchedCount, 1);
     assert.equal(searched.summary.matchedEntryCount, 1);
+    assert.equal(searched.summary.returnedEntryCount, 1);
+    assert.equal(searched.summary.omittedEntryCount, 0);
     assert.equal(searched.entries[0].coordinates, terraformArtifact.artifact.coordinates);
     assert.equal(searched.entries[0].searchMatch.rank, 1);
     assert.equal(searched.entries[0].searchMatch.matchedTerms.join(','), 'aws,s3,bucket');
@@ -374,7 +380,15 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(limitedSearch.limit.returnedEntryCount, 1);
     assert.equal(limitedSearch.limit.omittedEntryCount, 1);
     assert.equal(limitedSearch.summary.entryCount, 2);
-    assert.equal(limitedSearch.summary.matchedEntryCount, 1);
+    assert.equal(limitedSearch.summary.matchedEntryCount, 2);
+    assert.equal(limitedSearch.summary.returnedEntryCount, 1);
+    assert.equal(limitedSearch.summary.omittedEntryCount, 1);
+    assert.equal(limitedSearch.summary.downloadableEntryCount, 2);
+    assert.equal(limitedSearch.summary.readyEntryCount, 1);
+    assert.equal(limitedSearch.summary.needsRefinementEntryCount, 1);
+    assert.equal(limitedSearch.summary.ecosystemCounts.terraform, 1);
+    assert.equal(limitedSearch.summary.ecosystemCounts.helm, 1);
+    assert.ok(limitedSearch.warnings.some(warning => /LLM refinement/.test(warning)));
     assert.equal(limitedSearch.entries.length, 1);
     assert.equal(limitedSearch.entries[0].searchMatch.rank, 1);
     assert.ok(limitedSearch.entries[0].searchMatch.matchedFields.includes('tags'));
@@ -432,6 +446,8 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     const helmFiltered = parseJsonOutput(helmFilteredOutput);
 
     assert.equal(helmFiltered.summary.matchedEntryCount, 1);
+    assert.equal(helmFiltered.summary.returnedEntryCount, 1);
+    assert.equal(helmFiltered.summary.omittedEntryCount, 0);
     assert.equal(helmFiltered.entries[0].coordinates, helmArtifact.artifact.coordinates);
     assert.equal(helmFiltered.entries[0].classification.chart, 'kube-prometheus-stack');
 
@@ -450,6 +466,11 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     assert.equal(limited.limit.matchedEntryCount, 2);
     assert.equal(limited.limit.returnedEntryCount, 1);
     assert.equal(limited.limit.omittedEntryCount, 1);
+    assert.equal(limited.summary.matchedEntryCount, 2);
+    assert.equal(limited.summary.returnedEntryCount, 1);
+    assert.equal(limited.summary.omittedEntryCount, 1);
+    assert.equal(limited.summary.readyEntryCount, 1);
+    assert.equal(limited.summary.needsRefinementEntryCount, 1);
     assert.equal(limited.entries.length, 1);
     assert.equal(limited.entries[0].searchMatch, undefined);
 
@@ -463,6 +484,7 @@ test('knowledge library-catalog lists and filters downloadable public registry e
     ]));
 
     assert.match(textOutput, /query: aws_s3_bucket terms=aws_s3_bucket matched=1/);
+    assert.match(textOutput, /entries: returned=1 matched=1 total=2 omitted=0/);
     assert.match(textOutput, /facets scope: matched-before-limit matched=1 limit=10/);
     assert.match(textOutput, /facet ecosystem: terraform=1 omitted=0/);
     assert.match(textOutput, /rank=1/);
@@ -519,6 +541,8 @@ test('knowledge library-catalog reads URL registries and resolves relative artif
     assert.equal(catalog.registry.contentHash, sha256Hex(registryContent));
     assert.equal(catalog.summary.entryCount, 1);
     assert.equal(catalog.summary.matchedEntryCount, 1);
+    assert.equal(catalog.summary.returnedEntryCount, 1);
+    assert.equal(catalog.summary.omittedEntryCount, 0);
     assert.equal(catalog.entries[0].artifact.location.kind, 'url');
     assert.equal(catalog.entries[0].artifact.location.url, REMOTE_PUBLIC_LIBRARY_ARTIFACT_URL);
     assert.equal(catalog.entries[0].artifactDownload.requiresPrefetch, true);

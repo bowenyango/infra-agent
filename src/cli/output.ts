@@ -3904,7 +3904,13 @@ export function printPublicKnowledgeLibraryCatalogReport(
   printHeader('Public knowledge library catalog');
   process.stdout.write(`registry: ${report.registryPath}\n`);
   process.stdout.write(`registry source: ${report.registry.locationKind} ${report.registry.status}\n`);
-  process.stdout.write(`entries: ${report.summary.matchedEntryCount}/${report.summary.entryCount}\n`);
+  const summaryEntries = [
+    `returned=${report.summary.returnedEntryCount}`,
+    `matched=${report.summary.matchedEntryCount}`,
+    `total=${report.summary.entryCount}`,
+    `omitted=${report.summary.omittedEntryCount}`
+  ].join(' ');
+  process.stdout.write(`entries: ${summaryEntries}\n`);
   if (report.search) {
     process.stdout.write(`query: ${report.search.query} terms=${report.search.terms.join(',') || 'none'} matched=${report.search.matchedCount}\n`);
     process.stdout.write(`search fields: ${report.search.searchableFields.join(',')}\n`);

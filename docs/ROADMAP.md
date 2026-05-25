@@ -708,10 +708,11 @@ Implemented initial CLI surfaces:
     artifact download: exact filters can be combined with deterministic
     metadata-only query search, bounded result windows, and optional
     matched-before-limit facets for ecosystem, artifact kind, provider/package,
-    chart, resource, version, tag, quality, and unit coverage buckets, while
-    preserving coordinates, ecosystem/artifact-kind classification, versionRef
-    and versionResolution, resolved artifact path or URL, content hash, media
-    type, unit counts, quality status, missing unit types,
+    chart, resource, version, tag, quality, and unit coverage buckets. Summary
+    counts distinguish matched-before-limit entries from returned
+    result-window entries while preserving coordinates, ecosystem/artifact-kind
+    classification, versionRef and versionResolution, resolved artifact path or
+    URL, content hash, media type, unit counts, quality status, missing unit types,
     search rank/matched-field metadata when requested, and the LLM
     review-packet hash. It must remain raw-content-free and must not fetch
     artifacts, upload metadata, approve publication, or trust unvalidated
